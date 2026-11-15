@@ -357,7 +357,8 @@ async def test_nothing_shows_on_the_surface_after_it_was_turned_dark(
             assert message in blank_texts
         if message.startswith(protocol.SYSEX_HEADER + b"\x72"):
             assert message == protocol.lcd_colors([Color.BLACK] * protocol.STRIPS)
-    faders = [value for value in surface.faders(0) if value]
+    # after the dark point the faders only go down
+    faders = [m[1] | m[2] << 7 for m in after if m[0] == 0xE0]
     assert faders == sorted(faders, reverse=True)
     for strip in surface.strips:
         assert strip.color == Color.BLACK

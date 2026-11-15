@@ -39,6 +39,13 @@ Only one program can have the device open. Stop the daemon before `xtouch-daemon
   damped spring (no overshoot) that gets there in about 100 ms, starting from where it is, also from where a hand left
   it. The spring keeps its speed when the target moves on, so a volume dragged in another mixer, which arrives in small
   steps, becomes one even movement.
+- **Arriving:** once a fader is there, its value is sent twice more (after 0.15 s and 0.4 s). A motor stops after a
+  while even when it is not quite there yet, e.g. after a fast move; the same value again lets it go on. Stopping the
+  daemon waits for that, so the faders end at the bottom.
+- **Start:** the device can't tell where its faders are. It reports a position only while a finger moves a fader,
+  not after a connect, not on the device query, not after a motor move. So after a connect a fader is assumed at the
+  bottom, where the daemon leaves the faders when it stops, and glides from there. If it was moved while the daemon
+  did not run, its first step jumps from where it really is.
 - **Motor noise:** slight steps can be heard while a fader moves, more above about 70 %. They come from the device,
   not from the values sent: a perfectly even 14-bit ramp at 100 Hz sounds the same. The motor control works in small
   steps (the positions the device reports are multiples of 4, so 12 bits), and the slider has play on its rail: the

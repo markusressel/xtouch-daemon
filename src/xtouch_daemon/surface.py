@@ -32,6 +32,16 @@ a start and stop per step.
 FADER_SNAP = 48
 FADER_SNAP_SPEED = 2000
 """The fader is put at its target once it is this close (about 0.3 %) and this slow (fader steps per second)."""
+FADER_CONFIRM_DELAYS = (0.15, 0.4)
+"""
+Seconds after a fader arrived at which its target is sent again: a motor stops after a while even when it is not quite
+there yet (e.g. after a fast move), the same value again lets it go on.
+"""
+FADER_REST = 0.0
+"""
+Where a fader is assumed to be when that is not known (after a connect): at the bottom, where the daemon leaves the
+faders when it stops and where the device starts with them. So a fader glides there from the start too.
+"""
 
 
 def smooth_damp(position: float, velocity: float, target: float, smooth_time: float, dt: float) -> tuple[float, float]:
@@ -65,6 +75,8 @@ class Strip:
         self._position: float | None = None
         """Where the fader is: what was sent to the motor last, or where a finger put it."""
         self._velocity = 0.0
+        self._confirm_at: list[float] = []
+        """When to send the target again (see FADER_CONFIRM_DELAYS)."""
 
     def reset(self) -> None:
         """Dark and empty, the fader at the bottom (e.g. before another strip configuration takes over)."""
@@ -126,33 +138,45 @@ class Strip:
         self._position = value
         self._velocity = 0.0
 
-    def step(self) -> bool:
-        """Moves the fader one tick closer to its target. False once it is there."""
+    def step(self, now: float) -> bool:
+        """
+        Moves the fader one tick closer to its target, or sends the target again once it is there (see
+        FADER_CONFIRM_DELAYS). False once there is nothing left to do. `now` is the time of the event loop.
+        """
         if self.touched or self.fader is None:
+            self._confirm_at.clear()
             return False
         if self._position is None:
-            # not known where it is (e.g. after a connect): straight to the target
+            self._position = FADER_REST
+            self._velocity = 0.0
+            if self._position == self.fader:
+                # assumed to be there already: the target all the same, in case it is not
+                self._surface.send(protocol.fader(self.index, self.fader))
+                self._confirm_at = [now + delay for delay in FADER_CONFIRM_DELAYS]
+                return True
+        if self._position == self.fader and self._velocity == 0.0:
+            if self._confirm_at and now >= self._confirm_at[0]:
+                self._confirm_at.pop(0)
+                self._surface.send(protocol.fader(self.index, self.fader))
+            return bool(self._confirm_at)
+        self._position, self._velocity = smooth_damp(
+            self._position, self._velocity, self.fader, FADER_SMOOTH_TIME, FADER_TICK
+        )
+        if abs(self.fader - self._position) <= FADER_SNAP and abs(self._velocity) <= FADER_SNAP_SPEED:
             self._position = self.fader
             self._velocity = 0.0
-        else:
-            if self._position == self.fader and self._velocity == 0.0:
-                return False
-            self._position, self._velocity = smooth_damp(
-                self._position, self._velocity, self.fader, FADER_SMOOTH_TIME, FADER_TICK
-            )
-            if abs(self.fader - self._position) <= FADER_SNAP and abs(self._velocity) <= FADER_SNAP_SPEED:
-                self._position = self.fader
-                self._velocity = 0.0
+            self._confirm_at = [now + delay for delay in FADER_CONFIRM_DELAYS]
         self._surface.send(protocol.fader(self.index, round(self._position)))
-        return self._position != self.fader
+        return True
 
     def connected(self) -> list[bytes]:
-        """Everything the strip shows, for a device that was just connected: the fader goes straight to its place."""
+        """
+        Everything the strip shows, for a device that was just connected. The fader glides to its place (from where it
+        was before, or from FADER_REST): see `Surface.open()`.
+        """
         self.touched = False
-        self._position = self.fader
         self._velocity = 0.0
         return [
-            *([protocol.fader(self.index, self.fader)] if self.fader is not None else []),
             *(protocol.led(self.index, button, state) for button, state in self.leds.items()),
             *(protocol.lcd_text(self.index, line, text) for line, text in enumerate(self.text)),
             protocol.ring(self.index, *self.ring),
@@ -207,15 +231,17 @@ class Surface:
             self._glider = asyncio.create_task(self._glide(), name="fader motors")
 
     async def _glide(self) -> None:
+        loop = asyncio.get_running_loop()
         while self._gliding:
+            now = loop.time()
             for strip in list(self._gliding):
-                if not strip.step():
+                if not strip.step(now):
                     self._gliding.discard(strip)
             if self._gliding:
                 await asyncio.sleep(FADER_TICK)
 
     async def settled(self) -> None:
-        """Waits until the faders are where they should be."""
+        """Waits until the faders are where they should be (including sending their targets again)."""
         while self._glider is not None and not self._glider.done():
             await self._glider
 
@@ -266,6 +292,8 @@ class Surface:
         for strip in self.strips:
             for message in strip.connected():
                 self.send(message)
+            if strip.fader is not None:
+                self.glide(strip)
         self.send_colors()
         self.on_connection(True)
 

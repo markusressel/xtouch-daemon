@@ -6,6 +6,7 @@ from collections.abc import Callable
 import pytest
 
 from xtouch_daemon import protocol
+from xtouch_daemon import surface as surface_module
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.model import AudioState, Device, Direction, Stream
 from xtouch_daemon.config import BehaviorConfig
@@ -71,6 +72,12 @@ class RecordingSurface(Surface):
 
     def meters(self, strip: int) -> list[int]:
         return [m[1] & 0x0F for m in self.sent if m[0] == 0xD0 and m[1] >> 4 == strip]
+
+
+@pytest.fixture(autouse=True)
+def quick_fader_confirmations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The faders send their targets again at once: waiting for that adds nothing to most tests."""
+    monkeypatch.setattr(surface_module, "FADER_CONFIRM_DELAYS", (0.0, 0.0))
 
 
 @pytest.fixture

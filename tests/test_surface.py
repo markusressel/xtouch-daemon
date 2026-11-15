@@ -12,7 +12,7 @@ from tests.conftest import RecordingSurface
 from xtouch_daemon import protocol
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.surface import FADER_SMOOTH_TIME, FADER_TICK, Surface, smooth_damp
+from xtouch_daemon.surface import FADER_SMOOTH_TIME, FADER_TICK, Strip, Surface, smooth_damp
 
 CARDS = """\
  0 [XTouchExt      ]: USB-Audio - X-Touch-Ext
@@ -106,11 +106,54 @@ async def test_a_fader_glides_from_where_the_hand_left_it(surface: RecordingSurf
     assert values[-1] == 0
 
 
-async def test_a_fader_whose_position_is_unknown_goes_straight_to_its_target(surface: RecordingSurface) -> None:
+async def test_a_fader_whose_position_is_unknown_glides_from_the_bottom(surface: RecordingSurface) -> None:
     surface.strips[4].set_fader(0.25)
     await surface.settled()
 
-    assert surface.faders(4) == [protocol.fader_value(0.25)]
+    values = surface.faders(4)
+    assert len(values) > 5
+    assert values == sorted(values)
+    assert values[0] < protocol.fader_value(0.05)
+    assert values[-3:] == [protocol.fader_value(0.25)] * 3
+
+
+async def arrival(strip: Strip) -> None:
+    for _ in range(1000):
+        if strip._position == strip.fader:
+            return
+        await asyncio.sleep(0.001)
+    raise AssertionError("the fader never arrived")
+
+
+async def test_an_arrived_fader_gets_its_target_again_later(
+    surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "FADER_CONFIRM_DELAYS", (0.02, 0.05))
+    strip = surface.strips[0]
+    loop = asyncio.get_running_loop()
+    strip.set_fader(0.5)
+    await arrival(strip)
+    arrived = loop.time()
+    count = len(surface.faders(0))
+
+    await surface.settled()
+
+    # the motor of the device may have stopped short of it: the target again, twice
+    assert surface.faders(0)[count:] == [protocol.fader_value(0.5)] * 2
+    assert loop.time() - arrived >= 0.05
+
+
+async def test_a_touched_fader_gets_no_target_again(surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(surface_module, "FADER_CONFIRM_DELAYS", (0.05,))
+    strip = surface.strips[0]
+    strip.set_fader(0.5)
+    await arrival(strip)
+    count = len(surface.faders(0))
+
+    surface._on_data(bytes([0x90, 0x68, 0x7F]))
+    await surface.settled()
+
+    assert len(surface.faders(0)) == count
 
 
 async def test_a_fader_at_its_target_does_not_move(surface: RecordingSurface) -> None:
@@ -242,6 +285,7 @@ async def test_a_connect_shows_everything_the_strips_show(device: tuple[Path, Pa
     assert surface.connect()
     assert surface.connected
     assert connections == [True]
+    await surface.settled()
     await surface.close()
 
     data = read_all(controller)
@@ -346,4 +390,4 @@ def test_a_touched_fader_takes_no_step(surface: RecordingSurface) -> None:
     strip.fader = 100
     strip.touched = True
 
-    assert not strip.step()
+    assert not strip.step(0.0)
