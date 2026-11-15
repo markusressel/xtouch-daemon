@@ -9,10 +9,15 @@ A strip that belongs to Home Assistant: every part of it is an entity there, and
 - `event.<ns>_<id>_buttons`: presses and releases of the buttons and the encoder, touches of the fader.
 
 The buttons don't switch their LEDs: an automation that wants a toggle reacts to the event and sets the LED.
+
+Audio strips can have their fader or their encoder in Home Assistant too (`fader`/`encoder = "homeassistant"`):
+`HomeAssistantControls` makes the same `number` entities for them, and an `event` entity for the encoder push and
+the touches of the fader.
 """
 
 import asyncio
 import dataclasses
+from collections.abc import Callable
 from typing import get_args
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
@@ -99,6 +104,131 @@ class LatestValue:
             self._task.cancel()
 
 
+class StripEntities:
+    """Makes the entities of a strip: ids `<namespace>_<strip_id>_<suffix>`, names `<title> <suffix>`."""
+
+    def __init__(self, bridge: MqttBridge, strip_id: str, title: str):
+        self.namespace, self.device = bridge.config.namespace, bridge.device
+        self.strip_id = strip_id
+        self.title = title
+
+    def number(self, suffix: str) -> MQTTNumber:
+        """0..100 %: the fader in tenths, the encoder in whole steps."""
+        return MQTTNumber(
+            self.namespace,
+            f"{self.strip_id}_{suffix}",
+            f"{self.title} {suffix}",
+            device=self.device,
+            min_val=0,
+            max_val=100,
+            step=0.1 if suffix == "fader" else 1,
+            mode="slider",
+            unit_of_measurement="%",
+        )
+
+    def events(self, event_types: list[str]) -> MQTTEvent:
+        return MQTTEvent(
+            self.namespace,
+            f"{self.strip_id}_buttons",
+            f"{self.title} buttons",
+            event_types,
+            device_class="button",
+            device=self.device,
+        )
+
+
+class FaderLink:
+    """
+    The motor fader as a number of Home Assistant: Home Assistant moves it, a hand sets it (published at most every
+    `FADER_PUBLISH_INTERVAL`), and it stays where the hand let it go.
+    """
+
+    def __init__(self, strip: Strip, entity: MQTTNumber):
+        self.strip = strip
+        self.entity = entity
+        self.out = LatestValue(entity, FADER_PUBLISH_INTERVAL)
+        self.touched = False
+        self._hand: float | None = None
+
+    def show(self) -> None:
+        if not self.touched:
+            self.strip.set_fader(self.out.value / 100)
+
+    def moved(self, fraction: float) -> None:
+        self._hand = round(fraction * 100, 1)
+        self.out.set(self._hand)
+
+    def touch(self, touched: bool) -> None:
+        self.touched = touched
+        if not touched and self._hand is not None:
+            # it stays where the hand left it: the motor goes to the target when the fader is let go
+            self.strip.set_fader(self._hand / 100)
+            self._hand = None
+
+    def close(self) -> None:
+        self.out.cancel()
+
+
+class EncoderLink:
+    """The encoder as a number of Home Assistant, 0..100 in steps of `step`, shown on the ring."""
+
+    def __init__(self, strip: Strip, entity: MQTTNumber, step: int):
+        self.strip = strip
+        self.entity = entity
+        self.step = step
+        self.out = LatestValue(entity)
+
+    def ring(self) -> tuple[int, RingMode]:
+        return _ring(self.out.value), RingMode.WRAP
+
+    def turn(self, steps: int) -> None:
+        value = max(0.0, min(100.0, self.out.value + steps * self.step))
+        self.out.set(value)
+        self.strip.set_ring(_ring(value), RingMode.WRAP)
+
+    def close(self) -> None:
+        self.out.cancel()
+
+
+class HomeAssistantControls:
+    """
+    The fader and/or the encoder of an audio strip in Home Assistant (`fader`/`encoder = "homeassistant"`), with an
+    event entity for the touches of the fader and the push of the encoder. `on_change` is called when Home Assistant
+    changes them.
+    """
+
+    def __init__(
+        self, strip: Strip, env: StripEnv, bridge: MqttBridge, strip_id: str, title: str, fader: bool, encoder: bool
+    ):
+        self.bridge = bridge
+        self.on_change: Callable[[], None] = lambda: None
+        entities = StripEntities(bridge, strip_id, title)
+        self.fader = FaderLink(strip, entities.number("fader")) if fader else None
+        self.encoder = EncoderLink(strip, entities.number("encoder"), env.behavior.encoder_step) if encoder else None
+        event_types = [
+            *(["fader_touched", "fader_released"] if fader else []),
+            *(["encoder_pressed", "encoder_released"] if encoder else []),
+        ]
+        self.events = entities.events(event_types)
+        self.numbers = [link.entity for link in (self.fader, self.encoder) if link is not None]
+        self.entities: dict[MQTTEntity, str | None] = {**dict.fromkeys(self.numbers, "0"), self.events: None}
+        for entity in self.numbers:
+            bridge.watch(entity, lambda _: self.on_change())
+
+    @property
+    def connected(self) -> bool:
+        """Whether Home Assistant is there and its entities have their states."""
+        links = [link for link in (self.fader, self.encoder) if link is not None]
+        return self.bridge.ready and None not in [link.out.current for link in links]
+
+    def close(self) -> None:
+        for link in (self.fader, self.encoder):
+            if link is not None:
+                link.close()
+        for entity in self.entities:
+            self.bridge.unwatch(entity)
+
+
 class HomeAssistantStrip(StripController):
     def __init__(
         self,
@@ -113,23 +243,8 @@ class HomeAssistantStrip(StripController):
         self.bridge = bridge
         self.default_label = label or ""
         self.default_color: ColorName = color
-        self._touched = False
-        self._hand: float | None = None
-        namespace, device = bridge.config.namespace, bridge.device
-        title = label or f"Strip {strip.index + 1}"
-
-        def number(suffix: str) -> MQTTNumber:
-            return MQTTNumber(
-                namespace,
-                f"{strip_id}_{suffix}",
-                f"{title} {suffix}",
-                device=device,
-                min_val=0,
-                max_val=100,
-                step=0.1 if suffix == "fader" else 1,
-                mode="slider",
-                unit_of_measurement="%",
-            )
+        entities = StripEntities(bridge, strip_id, label or f"Strip {strip.index + 1}")
+        namespace, device, title = entities.namespace, entities.device, entities.title
 
         def line(suffix: str) -> LcdText:
             return LcdText(namespace, f"{strip_id}_{suffix}", f"{title} {suffix} line", device=device)
@@ -140,20 +255,18 @@ class HomeAssistantStrip(StripController):
                 namespace, f"{strip_id}_{name}_led", f"{title} {name} LED", options=list(LEDS), device=device
             )
 
-        self.fader = number("fader")
-        self.encoder = number("encoder")
+        self.fader_link = FaderLink(strip, entities.number("fader"))
+        self.encoder_link = EncoderLink(strip, entities.number("encoder"), env.behavior.encoder_step)
+        self.fader = self.fader_link.entity
+        self.encoder = self.encoder_link.entity
         self.top = line("top")
         self.bottom = line("bottom")
         self.lcd_color = MQTTSelect(
             namespace, f"{strip_id}_color", f"{title} color", options=list(COLORS), icon="mdi:palette", device=device
         )
         self.leds = {button: led(button) for button in Button}
-        self.buttons = MQTTEvent(
-            namespace, f"{strip_id}_buttons", f"{title} buttons", EVENT_TYPES, device_class="button", device=device
-        )
-        self._fader_out = LatestValue(self.fader, FADER_PUBLISH_INTERVAL)
-        self._encoder_out = LatestValue(self.encoder)
-        self.entities: dict[MQTTEntity, str | None] = {
+        self.buttons = entities.events(EVENT_TYPES)
+        self._entities: dict[MQTTEntity, str | None] = {
             self.fader: "0",
             self.encoder: "0",
             self.top: self.default_label,
@@ -162,10 +275,14 @@ class HomeAssistantStrip(StripController):
             **dict.fromkeys(self.leds.values(), "off"),
             self.buttons: None,
         }
-        """Every entity with the state it starts with in Home Assistant (events have none)."""
-        for entity in self.entities:
+        for entity in self._entities:
             if entity is not self.buttons:
                 bridge.watch(entity, self._changed)
+
+    @property
+    def entities(self) -> dict[MQTTEntity, str | None]:
+        """Every entity with the state it starts with in Home Assistant (events have none)."""
+        return self._entities
 
     # -- showing --------------------------------------------------------------------------------------------------
 
@@ -181,7 +298,7 @@ class HomeAssistantStrip(StripController):
         Whether the strip shows what Home Assistant set: connected, and its entities have their states (a new
         configuration has new entities, which the broker gives their states a moment later).
         """
-        return self.bridge.ready and None not in (self._fader_out.current, self._encoder_out.current)
+        return self.bridge.ready and None not in (self.fader_link.out.current, self.encoder_link.out.current)
 
     def show(self) -> None:
         if not self.connected:
@@ -197,32 +314,22 @@ class HomeAssistantStrip(StripController):
         self.strip.set_text(1, self.bottom.target_state or "")
         for button, led in self.leds.items():
             self.strip.set_led(button, LEDS.get(led.target_state or "", Led.OFF))
-        if not self._touched:
-            self.strip.set_fader(self._fader_out.value / 100)
-        self.strip.set_ring(_ring(self._encoder_out.value), RingMode.WRAP)
+        self.fader_link.show()
+        self.strip.set_ring(*self.encoder_link.ring())
 
     # -- the device -----------------------------------------------------------------------------------------------
 
     def on_fader(self, fraction: float) -> None:
-        if not self.connected:
-            return
-        self._hand = round(fraction * 100, 1)
-        self._fader_out.set(self._hand)
+        if self.connected:
+            self.fader_link.moved(fraction)
 
     def on_touch(self, touched: bool) -> None:
-        self._touched = touched
-        if not touched and self._hand is not None:
-            # it stays where the hand left it: the motor goes to the target when the fader is let go
-            self.strip.set_fader(self._hand / 100)
-            self._hand = None
+        self.fader_link.touch(touched)
         self._event("fader_touched" if touched else "fader_released")
 
     def on_encoder(self, steps: int) -> None:
-        if not self.connected:
-            return
-        value = max(0.0, min(100.0, self._encoder_out.value + steps * self.env.behavior.encoder_step))
-        self._encoder_out.set(value)
-        self.strip.set_ring(_ring(value), RingMode.WRAP)
+        if self.connected:
+            self.encoder_link.turn(steps)
 
     def on_encoder_press(self, pressed: bool) -> None:
         self._event("encoder_pressed" if pressed else "encoder_released")
@@ -236,7 +343,7 @@ class HomeAssistantStrip(StripController):
 
     def close(self) -> None:
         super().close()
-        self._fader_out.cancel()
-        self._encoder_out.cancel()
-        for entity in self.entities:
+        self.fader_link.close()
+        self.encoder_link.close()
+        for entity in self._entities:
             self.bridge.unwatch(entity)

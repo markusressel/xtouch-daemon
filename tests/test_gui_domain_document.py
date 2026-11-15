@@ -330,7 +330,7 @@ def test_an_optional_section_can_be_added_and_removed():
 
     doc.remove_section("mqtt")
     assert "[mqtt]" not in doc.render()
-    assert doc.validate().problems == [Problem((), "homeassistant strips need an [mqtt] section", "value_error")]
+    assert doc.validate().problems == [Problem((), "strips in Home Assistant need an [mqtt] section", "value_error")]
 
 
 def test_a_removed_section_leaves_the_file():

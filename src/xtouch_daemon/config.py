@@ -43,25 +43,26 @@ records at all (applications); `playing`: audio flows; `default`: the device is 
 """
 
 
-EncoderMode = Literal["volume", "balance", "pick", "media"]
+EncoderMode = Literal["volume", "balance", "pick", "media", "homeassistant"]
 """
 What the encoder of a strip does: `volume`: fine steps, a push resets it; `balance`: left/right, a push centers it;
 `pick` (`auto` strips): which application the strip has, a push pins it; `media` (applications): seeks in the track
-of their media player, a push plays or pauses.
+of their media player, a push plays or pauses; `homeassistant`: a number entity in Home Assistant, e.g. for the
+brightness of a light.
 """
 
 ENCODERS: dict[str, tuple[EncoderMode, ...]] = {
-    "output": ("balance", "volume"),
-    "input": ("balance", "volume"),
-    "apps": ("media", "volume", "balance"),
-    "auto": ("pick", "media", "volume", "balance"),
+    "output": ("balance", "volume", "homeassistant"),
+    "input": ("balance", "volume", "homeassistant"),
+    "apps": ("media", "volume", "balance", "homeassistant"),
+    "auto": ("pick", "media", "volume", "balance", "homeassistant"),
 }
 """The encoders of each strip type, its default first."""
 
 
-def default_encoder(strip_type: str) -> EncoderMode:
-    """What the encoder of a strip of the type does without `encoder`."""
-    return ENCODERS[strip_type][0]
+def default_encoder(strip_type: str, fader: str = "volume") -> EncoderMode:
+    """What the encoder of a strip of the type does without `encoder`: the volume if the fader does not set it."""
+    return "volume" if fader == "homeassistant" else ENCODERS[strip_type][0]
 
 
 def color_of(name: ColorName) -> Color:
@@ -112,6 +113,10 @@ class BehaviorConfig(_Model):
         return self
 
 
+Slug = Annotated[str, Field(pattern=r"^[a-z0-9_]+$", max_length=64)]
+"""Part of entity IDs and MQTT topics: lower case letters, digits and underscores."""
+
+
 class _StripConfig(_Model):
     color: ColorName = "white"
     """The backlight of the LCD."""
@@ -127,6 +132,17 @@ class _StripConfig(_Model):
     """The volume of the fader at the top, in percent; by default `behavior.max_volume`."""
     encoder: EncoderMode | None = None
     """What the encoder does; by default `balance` for devices, `media` for `apps`, `pick` for `auto` strips."""
+    fader: Literal["volume", "homeassistant"] = "volume"
+    """What the fader sets: the volume, or a number entity in Home Assistant (then the encoder sets the volume)."""
+    id: Slug | None = None
+    """
+    With `fader` or `encoder` in Home Assistant: part of the entity IDs; by default `strip_<position>`, so set it to
+    keep the entities when moving the strip.
+    """
+
+    @property
+    def uses_home_assistant(self) -> bool:
+        return "homeassistant" in (self.fader, self.encoder)
 
     @model_validator(mode="after")
     def _encoder_of_the_type(self) -> _StripConfig:
@@ -135,6 +151,8 @@ class _StripConfig(_Model):
             raise ValueError(
                 f"encoder: {self.encoder} is not for {strip_type} strips ({', '.join(ENCODERS[strip_type])})"
             )
+        if self.fader == "homeassistant" and self.encoder not in (None, "volume"):
+            raise ValueError("encoder: with the fader in Home Assistant, the encoder sets the volume")
         return self
 
     def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
@@ -251,10 +269,6 @@ class EmptyStripConfig(_Model):
     type: Literal["empty"]
 
 
-Slug = Annotated[str, Field(pattern=r"^[a-z0-9_]+$", max_length=64)]
-"""Part of entity IDs and MQTT topics: lower case letters, digits and underscores."""
-
-
 class HomeAssistantStripConfig(_Model):
     """A strip that belongs to Home Assistant: its parts are entities there, automations decide what they do."""
 
@@ -342,22 +356,23 @@ class Config(_Model):
     def _home_assistant_strips(self) -> Config:
         ids = [strip_id for _, strip_id in self.home_assistant_strips()]
         if ids and self.mqtt is None:
-            raise ValueError("homeassistant strips need an [mqtt] section")
+            raise ValueError("strips in Home Assistant need an [mqtt] section")
         duplicates = sorted({strip_id for strip_id in ids if ids.count(strip_id) > 1})
         if duplicates:
-            raise ValueError(f"homeassistant strips with the same id: {', '.join(duplicates)}")
+            raise ValueError(f"strips in Home Assistant with the same id: {', '.join(duplicates)}")
         return self
 
     def all_strips(self) -> tuple[StripConfig, ...]:
         """The configuration of every strip of the device, the ones that are not configured `auto`."""
         return self.strips + tuple(AutoStripConfig(type="auto") for _ in range(protocol.STRIPS - len(self.strips)))
 
-    def home_assistant_strips(self) -> list[tuple[HomeAssistantStripConfig, str]]:
-        """The `homeassistant` strips with their ids."""
+    def home_assistant_strips(self) -> list[tuple[StripConfig, str]]:
+        """The strips with entities in Home Assistant (`homeassistant` ones, and a fader or encoder), with their ids."""
         return [
             (strip, strip.id or f"strip_{number}")
             for number, strip in enumerate(self.strips, start=1)
             if isinstance(strip, HomeAssistantStripConfig)
+            or (isinstance(strip, _StripConfig) and strip.uses_home_assistant)
         ]
 
 

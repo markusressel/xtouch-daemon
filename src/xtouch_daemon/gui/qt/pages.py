@@ -306,7 +306,13 @@ class StripPage(Page):
             for option in strip_options(strip_type)
         ]
         # what the strip is about first, how it looks, lights and moves after that
-        rows.sort(key=lambda option_row: option_row.option.kind in (Kind.COLOR, Kind.SWITCH, Kind.CHOICE, Kind.INTEGER))
+        # (the id of an audio strip matters only with its fader or encoder in Home Assistant)
+        rows.sort(
+            key=lambda option_row: (
+                option_row.option.kind in (Kind.COLOR, Kind.SWITCH, Kind.CHOICE, Kind.INTEGER)
+                or (option_row.option.name == "id" and strip_type != "homeassistant")
+            )
+        )
         self._rows(layout, rows)
         if not rows:
             layout.addWidget(label("An empty strip has no options.", "hint"))

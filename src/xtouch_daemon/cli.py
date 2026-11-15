@@ -21,6 +21,7 @@ from xtouch_daemon.config import (
     HomeAssistantStripConfig,
     StripConfig,
     default_config_path,
+    default_encoder,
     example_config,
     load_config,
 )
@@ -116,6 +117,9 @@ def describe_strip(config: StripConfig, number: int) -> str:
         else config.rec
     )
     details += [f"{button}: {indicator}" for button, indicator in (("rec", rec), ("solo", config.solo))]
+    details.append(f"encoder: {config.encoder or default_encoder(config.type, config.fader)}")
+    if config.fader != "volume":
+        details.append(f"fader: {config.fader}")
     return f"{label}{what} ({', '.join(details)})"
 
 

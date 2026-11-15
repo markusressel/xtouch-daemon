@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
@@ -11,6 +12,9 @@ from xtouch_daemon.config import EncoderMode, Indicator, ProfileConfig
 from xtouch_daemon.protocol import LCD_CELL_WIDTH, Button, Color, Led
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.surface import Strip
+
+if TYPE_CHECKING:
+    from xtouch_daemon.strips.homeassistant import HomeAssistantControls
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,9 +64,12 @@ class DeviceStrip(VolumeStrip):
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
+        controls: HomeAssistantControls | None = None,
     ):
         default_label = "Output" if direction == Direction.OUTPUT else "Input"
-        super().__init__(strip, env, label or default_label, color, meter, indicators, min_volume, max_volume, encoder)
+        super().__init__(
+            strip, env, label or default_label, color, meter, indicators, min_volume, max_volume, encoder, controls
+        )
         self.direction = direction
         self.devices = devices
         self.select = select and bool(devices)

@@ -302,7 +302,7 @@ def test_a_whole_configuration_problem_leads_to_the_section(window: MainWindow):
     window.refresh()
 
     (action,) = window.problems_menu.actions()
-    assert action.text() == "homeassistant strips need an [mqtt] section"
+    assert action.text() == "strips in Home Assistant need an [mqtt] section"
     action.trigger()
     assert window.current_page == "mqtt"
 
@@ -357,6 +357,8 @@ def test_a_strip_that_is_not_configured_can_be_configured(qtbot: QtBot, window: 
         "min_volume",
         "max_volume",
         "encoder",
+        "fader",
+        "id",
     ]
 
 

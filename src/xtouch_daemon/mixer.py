@@ -18,7 +18,6 @@ from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv
-from xtouch_daemon.strips.homeassistant import HomeAssistantStrip
 from xtouch_daemon.surface import Surface
 
 METER_INTERVAL = 0.1
@@ -54,12 +53,9 @@ class Mixer:
             auto.slot = AutoSlot(self.assigner, index, lambda: self.state, self.claimed, self.refresh)
         self.meters = [self._meter(controller, capture_command) for controller in self.controllers]
         self.entities = {
-            entity: default
-            for controller in self.controllers
-            if isinstance(controller, HomeAssistantStrip)
-            for entity, default in controller.entities.items()
+            entity: default for controller in self.controllers for entity, default in controller.entities.items()
         }
-        """The entities of the `homeassistant` strips, for the MQTT bridge."""
+        """The entities of the strips in Home Assistant, for the MQTT bridge."""
 
     def _meter(self, controller: StripController, command: str) -> Meter:
         def playing(target: CaptureTarget) -> bool:

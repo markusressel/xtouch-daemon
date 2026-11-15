@@ -209,3 +209,30 @@ class MediaKnob(Knob):
     def close(self) -> None:
         if self._poller is not None:
             self._poller.cancel()
+
+
+class HomeAssistantKnob(Knob):
+    """
+    The encoder as `number.<ns>_<id>_encoder` of Home Assistant (e.g. the brightness of a light, by an automation):
+    turning sets it, the ring shows it, a push sends `encoder_pressed`/`encoder_released`. Also while the strip is idle.
+    """
+
+    idle_too = True
+
+    def __init__(self, owner: VolumeStrip):
+        super().__init__(owner)
+        controls = owner.controls
+        assert controls is not None, "the strip has the entities"
+        assert controls.encoder is not None, "the encoder is one of them"
+        self.controls = controls
+        self.encoder = controls.encoder
+
+    def turn(self, steps: int) -> None:
+        if self.controls.connected:
+            self.encoder.turn(steps)
+
+    def push(self, pressed: bool) -> None:
+        self.owner.ha_event("encoder_pressed" if pressed else "encoder_released")
+
+    def ring(self) -> tuple[int, RingMode]:
+        return self.encoder.ring() if self.controls.connected else (0, RingMode.DOT)

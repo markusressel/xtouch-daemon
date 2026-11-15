@@ -242,8 +242,11 @@ def test_home_assistant_strips_get_ids_by_their_position_or_their_own():
 @pytest.mark.parametrize(
     ("text", "message"),
     [
-        (HOME_ASSISTANT, "homeassistant strips need an [mqtt] section"),
-        (HOME_ASSISTANT + 'id = "strip_2"\n' + HOME_ASSISTANT + MQTT, "homeassistant strips with the same id: strip_2"),
+        (HOME_ASSISTANT, "strips in Home Assistant need an [mqtt] section"),
+        (
+            HOME_ASSISTANT + 'id = "strip_2"\n' + HOME_ASSISTANT + MQTT,
+            "strips in Home Assistant with the same id: strip_2",
+        ),
         (HOME_ASSISTANT + 'id = "Desk Lights"\n' + MQTT, "strip[1].id"),
         (MQTT + 'password = "a"\npassword_env = "B"\n', "set only one of password, password_env"),
         (MQTT + "port = 0\n", "mqtt.port"),
@@ -317,5 +320,31 @@ def test_strips_and_profiles_have_volume_ranges_of_their_own() -> None:
 
 def test_a_strip_has_only_the_encoders_of_its_type() -> None:
     assert parse_config('[[strip]]\ntype = "auto"\nencoder = "pick"\n').strips[0].encoder == "pick"  # type: ignore[union-attr]
-    with pytest.raises(ConfigError, match=r"strip\[1\]: encoder: pick is not for output strips \(balance, volume\)"):
+    with pytest.raises(
+        ConfigError, match=r"strip\[1\]: encoder: pick is not for output strips \(balance, volume, homeassistant\)"
+    ):
         parse_config('[[strip]]\ntype = "output"\nencoder = "pick"\n')
+
+
+def test_the_fader_or_the_encoder_of_an_audio_strip_in_home_assistant() -> None:
+    mqtt = '[mqtt]\nhost = "broker"\n'
+    output = '[[strip]]\ntype = "output"\n'
+    config = parse_config(
+        output
+        + 'fader = "homeassistant"\n'
+        + '[[strip]]\ntype = "auto"\nencoder = "homeassistant"\nid = "desk"\n'
+        + mqtt
+    )
+    assert [strip_id for _, strip_id in config.home_assistant_strips()] == ["strip_1", "desk"]
+
+    with pytest.raises(ConfigError, match=r"strips in Home Assistant need an \[mqtt\] section"):
+        parse_config(output + 'encoder = "homeassistant"\n')
+    with pytest.raises(ConfigError, match="encoder: with the fader in Home Assistant, the encoder sets the volume"):
+        parse_config(output + 'fader = "homeassistant"\nencoder = "balance"\n' + mqtt)
+    with pytest.raises(ConfigError, match="the same id: desk"):
+        parse_config(
+            output
+            + 'fader = "homeassistant"\nid = "desk"\n'
+            + '[[strip]]\ntype = "homeassistant"\nid = "desk"\n'
+            + mqtt
+        )

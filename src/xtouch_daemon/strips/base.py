@@ -4,7 +4,9 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
-from typing import assert_never
+from typing import TYPE_CHECKING, assert_never
+
+from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
@@ -13,8 +15,11 @@ from xtouch_daemon.config import BehaviorConfig, EncoderMode, Indicator
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.strips.knobs import BalanceKnob, Knob, VolumeKnob, ring_position
+from xtouch_daemon.strips.knobs import BalanceKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
 from xtouch_daemon.surface import Strip
+
+if TYPE_CHECKING:
+    from xtouch_daemon.strips.homeassistant import FaderLink, HomeAssistantControls
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,6 +59,11 @@ class StripController:
     def is_playing(self, target: CaptureTarget, state: AudioState) -> bool:
         """Whether audio should flow at the target, so a capture without audio is not linked."""
         return False
+
+    @property
+    def entities(self) -> dict[MQTTEntity, str | None]:
+        """Its entities in Home Assistant, with the state each starts with (None: none, e.g. events)."""
+        return {}
 
     def on_fader(self, fraction: float) -> None:
         pass
@@ -124,9 +134,14 @@ class VolumeStrip(StripController):
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
+        controls: HomeAssistantControls | None = None,
     ):
         super().__init__(strip, env, color, meter)
         self.label = label
+        self.controls = controls
+        """Its fader and/or encoder in Home Assistant (`fader`/`encoder = "homeassistant"`)."""
+        if controls is not None:
+            controls.on_change = self.show
         self.min_volume = min_volume
         self.max_volume = max_volume
         self.indicators: dict[Button, Indicator] = dict(indicators or {})
@@ -158,6 +173,8 @@ class VolumeStrip(StripController):
                 return VolumeKnob(self)
             case "balance":
                 return BalanceKnob(self)
+            case "homeassistant":
+                return HomeAssistantKnob(self)
             case _:
                 raise ValueError(f"{type(self).__name__} has no encoder {encoder!r}")
 
@@ -213,18 +230,27 @@ class VolumeStrip(StripController):
             case _ as unreachable:
                 assert_never(unreachable)
 
+    @property
+    def ha_fader(self) -> FaderLink | None:
+        """The fader, if it belongs to Home Assistant (then the encoder sets the volume)."""
+        return self.controls.fader if self.controls is not None else None
+
     def show(self) -> None:
         self.strip.set_color(self.color if self.active else Color.BLACK)
         self.strip.set_text(0, self.label)
+        if self.ha_fader is not None and self.controls is not None and self.controls.connected:
+            self.ha_fader.show()
         level = self.level
         if level is None or not self.active:
             # nothing to control (e.g. an application that ended): the fader goes away
-            self.strip.park()
+            if self.ha_fader is None:
+                self.strip.park()
             self.strip.set_ring(*(self.knob.ring() if self.knob.idle_too else (0, RingMode.DOT)))
             self.strip.set_led(Button.MUTE, Led.OFF)
             self.strip.set_text(1, self.inactive_text())
             return
-        self.strip.set_fader(self._fraction(level.volume))
+        if self.ha_fader is None:
+            self.strip.set_fader(self._fraction(level.volume))
         self.strip.set_ring(*self.knob.ring())
         self.strip.set_led(Button.MUTE, Led.ON if level.muted else Led.OFF)
         if self._wanted is not None:
@@ -235,7 +261,10 @@ class VolumeStrip(StripController):
     # -- the device -----------------------------------------------------------------------------------------------
 
     def on_fader(self, fraction: float) -> None:
-        if self.accepts_input():
+        if self.ha_fader is not None and self.controls is not None:
+            if self.controls.connected:
+                self.ha_fader.moved(fraction)
+        elif self.accepts_input():
             bottom, top = self.volume_range()
             self.set_volume(round(bottom + fraction * (top - bottom)))
 
@@ -247,26 +276,45 @@ class VolumeStrip(StripController):
         if self.knob.idle_too or self.accepts_input():
             self.knob.push(pressed)
 
+    def on_touch(self, touched: bool) -> None:
+        if self.ha_fader is not None and self.controls is not None:
+            self.ha_fader.touch(touched)
+            self.ha_event("fader_touched" if touched else "fader_released")
+
+    def ha_event(self, event_type: str) -> None:
+        """An event of the fader or the encoder for Home Assistant."""
+        if self.controls is not None and self.controls.connected:
+            self.run_command(self.controls.events.trigger(event_type), event_type)
+
     def step_volume(self, steps: int) -> None:
         """`steps` of `behavior.encoder_step`."""
         assert self.level is not None, "an active strip has a level"
         base = self._wanted if self._wanted is not None else self.level.volume
         self.set_volume(base + steps * self.env.behavior.encoder_step)
-        # the fader follows
-        self.strip.set_fader(self._shown_fraction())
+        self._fader_follows()
 
     def reset_volume(self) -> None:
         self.set_volume(self.env.behavior.reset_volume)
-        self.strip.set_fader(self._shown_fraction())
+        self._fader_follows()
+
+    def _fader_follows(self) -> None:
+        if self.ha_fader is None:
+            self.strip.set_fader(self._shown_fraction())
 
     def volume_ring(self) -> tuple[int, RingMode]:
         """The volume on the ring, from the first LED."""
         volume = self._wanted if self._wanted is not None else self.level.volume if self.level is not None else 0
         return ring_position(self._fraction(volume)), RingMode.WRAP
 
+    @property
+    def entities(self) -> dict[MQTTEntity, str | None]:
+        return self.controls.entities if self.controls is not None else {}
+
     def close(self) -> None:
         super().close()
         self.knob.close()
+        if self.controls is not None:
+            self.controls.close()
 
     def on_button(self, button: Button, pressed: bool) -> None:
         if pressed and button == Button.MUTE and self.level is not None and self.accepts_input():

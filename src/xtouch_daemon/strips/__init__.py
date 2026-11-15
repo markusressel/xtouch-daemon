@@ -18,7 +18,7 @@ from xtouch_daemon.protocol import Button
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv
 from xtouch_daemon.strips.device import DeviceStrip
-from xtouch_daemon.strips.homeassistant import HomeAssistantStrip
+from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
 from xtouch_daemon.surface import Strip
 
 
@@ -37,7 +37,19 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
         strip_id = config.id or f"strip_{strip.index + 1}"
         return HomeAssistantStrip(strip, env, env.bridge, strip_id, config.label, config.color)
     indicators: dict[Button, Indicator] = {Button.REC: config.rec, Button.SOLO: config.solo}
-    encoder = config.encoder or default_encoder(config.type)
+    encoder = config.encoder or default_encoder(config.type, config.fader)
+    controls = None
+    if config.uses_home_assistant:
+        assert env.bridge is not None, "the configuration has no strips in Home Assistant without [mqtt]"
+        controls = HomeAssistantControls(
+            strip,
+            env,
+            env.bridge,
+            config.id or f"strip_{strip.index + 1}",
+            getattr(config, "label", None) or f"Strip {strip.index + 1}",
+            fader=config.fader == "homeassistant",
+            encoder=encoder == "homeassistant",
+        )
     match config:
         case DeviceStripConfig():
             return DeviceStrip(
@@ -54,6 +66,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 min_volume=config.min_volume,
                 max_volume=config.max_volume,
                 encoder=encoder,
+                controls=controls,
             )
         case AppsStripConfig():
             return AppGroupStrip(
@@ -67,6 +80,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 config.min_volume,
                 config.max_volume,
                 encoder,
+                controls,
             )
         case AutoStripConfig():
             return AutoStrip(
@@ -79,6 +93,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 config.min_volume,
                 config.max_volume,
                 encoder,
+                controls,
             )
         case _ as unreachable:
             assert_never(unreachable)

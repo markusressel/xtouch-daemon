@@ -4,16 +4,17 @@ from collections.abc import AsyncIterator, Callable
 
 import pytest
 
-from tests.conftest import FakeBackend, RecordingSurface, finish_tasks
+from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle
 from tests.fake_mqtt import FakeBroker
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import BehaviorConfig, MqttConfig
+from xtouch_daemon.config import BehaviorConfig, MqttConfig, parse_config
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips import homeassistant as homeassistant_module
-from xtouch_daemon.strips.base import StripEnv
+from xtouch_daemon.strips.base import StripEnv, VolumeStrip
 from xtouch_daemon.strips.homeassistant import EVENT_TYPES, HomeAssistantStrip, LatestValue
 
 TOPIC = "homeassistant/{component}/xtouch/lights_{part}/{kind}"
@@ -299,3 +300,98 @@ async def test_a_new_configuration_waits_for_the_states_of_its_entities(
 
     assert surface.strips[1].text == ["Other", "offline"]
     new.close()
+
+
+# -- the fader or the encoder of an audio strip in Home Assistant ----------------------------------------------------
+
+SPEAKER = AudioState(outputs=(output("speaker", 50),))
+
+
+def audio_strip(surface: RecordingSurface, bridge: MqttBridge, config: str) -> VolumeStrip:
+    env = StripEnv(FakeBackend(), BehaviorConfig(encoder_step=5), bridge)
+    (strip_config,) = parse_config(config + MQTT).strips
+    controller = build_strip(strip_config, surface.strips[0], env, {})
+    assert isinstance(controller, VolumeStrip)
+    return controller
+
+
+async def connect_audio(strip: VolumeStrip, bridge: MqttBridge) -> None:
+    bridge.on_connection = lambda connected: strip.show()
+    await bridge.set_entities(strip.entities)
+    running.append(asyncio.create_task(bridge.run()))
+    await until(lambda: strip.controls is not None and strip.controls.connected)
+
+
+MQTT = '[mqtt]\nhost = "broker"\n'
+running: list[asyncio.Task[None]] = []
+
+
+async def test_the_encoder_of_an_audio_strip_is_a_number_of_home_assistant(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    strip = audio_strip(
+        surface, bridge, '[[strip]]\ntype = "output"\ndevice = "speaker"\nid = "lights"\nencoder = "homeassistant"\n'
+    )
+    strip.update(SPEAKER)
+    # not there yet: the encoder does nothing
+    strip.on_encoder(1)
+    strip.on_encoder_press(True)
+    assert surface.strips[0].ring == (0, RingMode.DOT)
+
+    await connect_audio(strip, bridge)
+    events = json.loads(broker.retained[topic("event", "buttons", "config")])
+    assert events["event_types"] == ["encoder_pressed", "encoder_released"]
+    assert set(json.loads(broker.retained[topic("number", "encoder", "config")])) >= {"min", "max"}
+
+    broker.publish(topic("number", "encoder", "set"), "50")
+    await until(lambda: surface.strips[0].ring == (6, RingMode.WRAP))
+    strip.on_encoder(2)
+    await until(lambda: published(broker, topic("number", "encoder"))[-1:] == ["60"])
+    strip.on_encoder_press(True)
+    await until(lambda: len(published(broker, topic("event", "buttons"))) == 1)
+    assert json.loads(published(broker, topic("event", "buttons"))[0])["event_type"] == "encoder_pressed"
+
+    # also while the device is gone; the fader still sets the volume
+    strip.update(AudioState())
+    assert surface.strips[0].ring == (7, RingMode.WRAP)
+    strip.on_encoder(-2)
+    await until(lambda: published(broker, topic("number", "encoder"))[-1:] == ["50"])
+    assert strip.entities == strip.controls.entities  # type: ignore[union-attr]
+    strip.close()
+    await finish_tasks()
+
+
+async def test_with_the_fader_in_home_assistant_the_encoder_sets_the_volume(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    strip = audio_strip(
+        surface, bridge, '[[strip]]\ntype = "output"\ndevice = "speaker"\nfader = "homeassistant"\nid = "lights"\n'
+    )
+    backend = strip.env.backend
+    assert isinstance(backend, FakeBackend)
+    strip.update(SPEAKER)
+    # not there yet: the fader does nothing, and stays where it is
+    strip.on_fader(0.3)
+    assert surface.faders(0) == []
+
+    await connect_audio(strip, bridge)
+    broker.publish(topic("number", "fader", "set"), "80")
+    await until(lambda: surface.strips[0].fader == protocol.fader_value(0.8))
+
+    strip.on_touch(True)
+    move(strip, surface, 0.25)  # type: ignore[arg-type]
+    strip.on_touch(False)
+    await until(lambda: published(broker, topic("number", "fader"))[-1:] == ["25"])
+    await until(lambda: len(published(broker, topic("event", "buttons"))) == 2)
+
+    # the encoder: the volume, without moving the fader
+    strip.on_encoder(2)
+    await settle()
+    strip.on_encoder_press(True)
+    await settle()
+    assert [call[3] for call in backend.calls] == [60, 100]
+    # an idle strip leaves the fader to Home Assistant
+    strip.update(AudioState())
+    assert surface.strips[0].fader == protocol.fader_value(0.25)
+    strip.close()
+    await finish_tasks()

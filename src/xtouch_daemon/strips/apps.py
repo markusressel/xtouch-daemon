@@ -4,6 +4,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING
 
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Stream
@@ -12,6 +13,9 @@ from xtouch_daemon.protocol import Button, Color
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.strips.knobs import Knob, MediaKnob, PickKnob
 from xtouch_daemon.surface import Strip
+
+if TYPE_CHECKING:
+    from xtouch_daemon.strips.homeassistant import HomeAssistantControls
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,8 +43,9 @@ class AppStrip(VolumeStrip):
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
+        controls: HomeAssistantControls | None = None,
     ):
-        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder)
+        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder, controls)
         self.streams: dict[int, Stream] = {}
         self.group_volume: int | None = None
         """The volume of the strip: set on the strip, or the loudest stream; None before the first stream."""
@@ -121,8 +126,9 @@ class AppGroupStrip(AppStrip):
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
+        controls: HomeAssistantControls | None = None,
     ):
-        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder)
+        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder, controls)
         self.patterns = patterns
 
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
@@ -149,8 +155,9 @@ class AutoStrip(AppStrip):
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
+        controls: HomeAssistantControls | None = None,
     ):
-        super().__init__(strip, env, "", color, meter, indicators, min_volume, max_volume, encoder)
+        super().__init__(strip, env, "", color, meter, indicators, min_volume, max_volume, encoder, controls)
         self.aliases = aliases
         self.app: str | None = None
         self.slot: AutoSlot | None = None

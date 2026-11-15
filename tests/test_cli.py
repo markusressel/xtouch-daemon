@@ -110,13 +110,16 @@ def test_check_config_shows_what_each_strip_does(config_file: Path) -> None:
     assert result.exit_code == 0
     assert result.output.splitlines() == [
         f"{config_file}: valid",
-        "  1. 'Out' the default output (white, rec: recording, solo: off)",
-        "  2. input mic (white, no meter, rec: off, solo: muted)",
-        "  3. 'Browser' applications brave, firefox (yellow, rec: recording, solo: off)",
+        "  1. 'Out' the default output (white, rec: recording, solo: off, encoder: balance)",
+        "  2. input mic (white, no meter, rec: off, solo: muted, encoder: balance)",
+        "  3. 'Browser' applications brave, firefox (yellow, rec: recording, solo: off, encoder: media)",
         "  4. empty",
         "  5. 'Lights' Home Assistant, entities *.*_strip_5_* (white)",
         "  6. Home Assistant, entities *.*_desk_* (blue)",
-        *[f"  {number}. the next application that plays (white, rec: recording, solo: off)" for number in range(7, 9)],
+        *[
+            f"  {number}. the next application that plays (white, rec: recording, solo: off, encoder: pick)"
+            for number in range(7, 9)
+        ],
     ]
 
 
@@ -130,11 +133,11 @@ def test_check_config_without_a_file_checks_the_defaults() -> None:
 
 def test_a_named_device_with_select_says_so(tmp_path: Path) -> None:
     path = tmp_path / "other.toml"
-    path.write_text('[[strip]]\ntype = "output"\ndevice = "buds"\n')
+    path.write_text('[[strip]]\ntype = "output"\ndevice = "buds"\nfader = "homeassistant"\n[mqtt]\nhost = "b"\n')
 
     assert (
-        "1. output buds, select makes it the default (white, rec: recording, solo: off)"
-        in invoke("check-config", "-c", str(path)).output
+        "1. output buds, select makes it the default (white, rec: recording, solo: off, encoder: volume, "
+        "fader: homeassistant)" in invoke("check-config", "-c", str(path)).output
     )
 
 
