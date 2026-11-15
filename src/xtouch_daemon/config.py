@@ -96,7 +96,7 @@ class ProfileConfig(_Model):
     """A profile of the sound card of a device strip, e.g. analog or digital output."""
 
     label: Label
-    """What the LCD shows after a switch to it."""
+    """The top line of the LCD while the card is in this profile, e.g. "Phones" for the analog output."""
     profile: str
     """
     The name (`output:iec958-stereo+input:analog-stereo`) or description of the profile (`xtouch-daemon list-devices`).
@@ -114,7 +114,10 @@ class DeviceStripConfig(_StripConfig):
     one shown last, and Select switches between those that are there.
     """
     label: Label | None = None
-    """The top line of the LCD; by default "Output" or "Input", or the start of the device's description."""
+    """
+    The top line of the LCD; by default "Output" or "Input", or the start of the device's description. The label of
+    the active profile (`profiles`) comes first.
+    """
     select: bool = True
     """Whether the select button makes the device the default (needs `device`)."""
     profiles: tuple[ProfileConfig, ...] = ()

@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
@@ -12,6 +13,18 @@ from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.surface import Strip
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _Switch:
+    """A switch of the sound card to a profile, until the card is in it."""
+
+    card: str
+    profile: str
+    """The name of the profile."""
+    config: ProfileConfig
+    make_default: bool
+    """Whether the device of the profile becomes the default (the old one was)."""
 
 
 class DeviceStrip(VolumeStrip):
@@ -26,8 +39,9 @@ class DeviceStrip(VolumeStrip):
     one, it switches to the next one and makes that the default.
 
     With `profiles`, the rec button switches the sound card of the device to the next of them (e.g. from analog to
-    digital output), and its LED is on for every profile but the first. The LCD shows the label of the profile for a
-    moment. The devices of the card change with it: if the old one was the default, the new one becomes the default.
+    digital output), and its LED is on for every profile but the first. The label of the profile is the label of the
+    strip (e.g. "Phones" for the analog output, "Speaker" for the digital one), from the press on. The devices of the
+    card change with it: if the old one was the default, the new one becomes the default.
     """
 
     def __init__(
@@ -51,7 +65,7 @@ class DeviceStrip(VolumeStrip):
         self.device: Device | None = None
         self.candidates: tuple[Device, ...] = ()
         """The devices of `devices` that are there."""
-        self._custom_label = label is not None
+        self._label_option = label
         self.default = False
         """Whether the device shown is the default one."""
         self.profiles = profiles
@@ -60,8 +74,7 @@ class DeviceStrip(VolumeStrip):
             self.indicators.pop(Button.REC, None)
         self.card: Card | None = None
         """The sound card of the device shown."""
-        self._default_after: tuple[str, str] | None = None
-        """The card and profile of a switch from the default device: the device of that profile becomes the default."""
+        self._switch: _Switch | None = None
 
     def _shown(self, state: AudioState) -> Device | None:
         if not self.devices:
@@ -75,10 +88,9 @@ class DeviceStrip(VolumeStrip):
         self.device = self._shown(state)
         self.candidates = state.devices_matching(self.direction, self.devices)
         self.card = state.card(self.device.card) if self.device is not None else None
+        self._update_label()
         if self.device is None:
             return None, False
-        if not self._custom_label and self.devices:
-            self.label = self.device.description[:LCD_CELL_WIDTH]
         return Level(self.device.volume, self.device.muted), True
 
     def update(self, state: AudioState) -> None:
@@ -87,15 +99,30 @@ class DeviceStrip(VolumeStrip):
         self.strip.set_led(Button.SELECT, Led.ON if self.select and self.default else Led.OFF)
         if self.profiles:
             self.strip.set_led(Button.REC, Led.ON if self.profile_index() not in (None, 0) else Led.OFF)
+        switch = self._switch
         # the device of the profile switched to is there
-        if (
-            self.card is not None
-            and self.device is not None
-            and (self.card.name, self.card.profile) == self._default_after
-        ):
-            self._default_after = None
-            if not self.default:
+        if self.card is not None and self.device is not None and switch is not None:
+            if (self.card.name, self.card.profile) != (switch.card, switch.profile):
+                return
+            self._switch = None
+            if switch.make_default and not self.default:
                 self.run_command(self.env.backend.set_default(self.direction, self.device.name), "make default")
+
+    def _update_label(self) -> None:
+        """The label of the profile, else the configured one, else the start of the description of the device."""
+        if (profile := self._profile()) is not None:
+            self.label = profile.label
+        elif self._label_option is not None:
+            self.label = self._label_option
+        elif self.devices and self.device is not None:
+            self.label = self.device.description[:LCD_CELL_WIDTH]
+
+    def _profile(self) -> ProfileConfig | None:
+        """The profile the card is in (or switches to), None for another one."""
+        if self._switch is not None:
+            return self._switch.config
+        index = self.profile_index()
+        return None if index is None else self.profiles[index]
 
     def profile_index(self) -> int | None:
         """Which of `profiles` the card of the device is in, None for another one (or without a card)."""
@@ -148,15 +175,20 @@ class DeviceStrip(VolumeStrip):
         if profile is None:
             _LOGGER.warning(f"Strip {self.strip.index + 1}: {card.name} has no profile {wanted.profile!r}")
             return
-        self.notify(wanted.label)
-        self._default_after = (card.name, profile.name) if self.default else None
-        self.run_command(self._set_profile(card.name, profile.name), f"switch to {wanted.label}")
+        self._switch = _Switch(card.name, profile.name, wanted, make_default=self.default)
+        self.label = wanted.label
+        self.show()
+        self.run_command(self._set_profile(self._switch), f"switch to {wanted.label}")
 
-    async def _set_profile(self, card: str, profile: str) -> None:
+    async def _set_profile(self, switch: _Switch) -> None:
         try:
-            await self.env.backend.set_card_profile(card, profile)
+            await self.env.backend.set_card_profile(switch.card, switch.profile)
         except AudioCommandError:
-            self._default_after = None
+            if self._switch is switch:
+                self._switch = None
+                # back to the label of the profile the card is still in
+                self._update_label()
+                self.show()
             raise
 
     async def apply_volume(self, percent: int) -> None:

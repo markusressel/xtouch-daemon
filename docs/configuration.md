@@ -130,7 +130,7 @@ A device: an output (a sink) or an input (a source).
 | Option | Default | Meaning |
 |---|---|---|
 | `device` | the default device | The node name (`xtouch-daemon list-devices`) or the description of the device, or a list of them; `*` is a wildcard. Without it, the strip follows whatever device is the default. |
-| `label` | `"Output"` / `"Input"`, or the start of the device's description | The top line of the LCD. |
+| `label` | `"Output"` / `"Input"`, or the start of the device's description | The top line of the LCD. With `profiles`, the label of the active profile comes first. |
 | `select` | `true` | Whether Select makes the device the default. Needs `device`. |
 | `profiles` | none | Profiles of the device's sound card that Rec switches between, see below. |
 
@@ -166,14 +166,14 @@ switches the card to the next one:
 [[strip]]
 type = "output"
 device = "alsa_output.pci-0000_11_00.4.*"   # the analog and the digital output of the card
-label = "Speaker"
 profiles = [
-  { label = "Analog", profile = "output:analog-stereo+input:analog-stereo" },
-  { label = "Digital", profile = "output:iec958-stereo+input:analog-stereo" },
+  { label = "Phones", profile = "output:analog-stereo+input:analog-stereo" },
+  { label = "Speaker", profile = "output:iec958-stereo+input:analog-stereo" },
 ]
 ```
 
-- `label`: what the LCD shows for 2 s after a switch (7 characters).
+- `label`: the name of the strip on the LCD while the card is in this profile, e.g. what is connected to that output
+  (7 characters). It changes on the press of Rec. In a profile that isn't in the list, the strip's `label` shows.
 - `profile`: the name or the description of the profile. `xtouch-daemon list-devices` lists the profiles of each card.
 - The Rec LED is on for every profile but the first, so it can't show an indicator (`rec`) here.
 - If the old device was the default, the new one becomes the default.

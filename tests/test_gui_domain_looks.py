@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import output, source, stream
-from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.looks import (
     FILE_FADER,
@@ -18,7 +18,8 @@ from xtouch_daemon.gui.domain.looks import (
 from xtouch_daemon.live import Snapshot, StripState
 
 STATE = AudioState(
-    outputs=(output("speaker"), output("buds")),
+    outputs=(output("speaker", card="onboard"), output("buds")),
+    cards=(Card("onboard", "digital", (Profile("analog", "Analog"), Profile("digital", "Digital Output"))),),
     inputs=(source("mic"),),
     streams=(stream(1, "WEBRTC VoiceEngine", "Discord"), stream(2, "Paused", corked=True)),
     default_output="speaker",
@@ -33,6 +34,25 @@ STATE = AudioState(
         ({"type": "output", "device": "buds"}, ("output", "buds de", "buds description", "white")),
         ({"type": "output", "device": "gone"}, ("output", "Output", "gone (not there now)", "white")),
         ({"type": "output", "device": "buds", "label": "Buds"}, ("output", "Buds", "buds description", "white")),
+        # the label of the profile the card is in names the strip
+        (
+            {
+                "type": "output",
+                "device": "speaker",
+                "label": "Onboard",
+                "profiles": [
+                    "broken",
+                    {"label": "Phones", "profile": "analog"},
+                    {"label": "Speaker", "profile": "Digital Output"},
+                ],
+            },
+            ("output", "Speaker", "speaker description", "white"),
+        ),
+        (
+            {"type": "output", "device": "speaker", "label": "Onboard", "profiles": [{"label": "P", "profile": "x"}]},
+            ("output", "Onboard", "speaker description", "white"),
+        ),
+        ({"type": "output", "device": "buds", "profiles": "x"}, ("output", "buds de", "buds description", "white")),
         ({"type": "apps", "match": ["a", "b"], "label": "AB"}, ("apps", "AB", "a, b", "white")),
         ({"type": "apps", "match": []}, ("apps", "", "no applications", "white")),
         ({"type": "auto", "color": "blue"}, ("auto", "auto", "the next application that plays, e.g. Discord", "blue")),

@@ -12,7 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   headphones with `bluez_output.*`, or the default one; Select makes it the default), `apps` (all streams of
   a group of applications), `auto` (the next application that plays) and `empty`.
 - `profiles` on `output` and `input` strips: Rec switches the sound card between profiles, e.g. analog and digital
-  output, and the new device becomes the default if the old one was. `list-devices` lists the profiles of the cards.
+  output; the label of the active profile names the strip (e.g. "Phones" and "Speaker"), and the new device
+  becomes the default if the old one was. `list-devices` lists the profiles of the cards.
 - Motor faders that glide smoothly (also after a connect, from the bottom), follow changes made elsewhere, stay still
   while touched, and get their value again after arriving so the motor doesn't stop short. Strips with nothing to
   control (an application that ended, a device that is gone, the daemon stopping) put their faders away slowly.

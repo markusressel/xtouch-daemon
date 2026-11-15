@@ -16,9 +16,6 @@ from xtouch_daemon.surface import Strip
 
 _LOGGER = logging.getLogger(__name__)
 
-NOTICE_TIME = 2.0
-"""Seconds the LCD shows a notice (e.g. the profile switched to) instead of the volume."""
-
 
 @dataclass(frozen=True)
 class StripEnv:
@@ -122,9 +119,6 @@ class VolumeStrip(StripController):
         self.active = False
         self._wanted: int | None = None
         self._setter: asyncio.Task[None] | None = None
-        self.notice: str | None = None
-        """Shown on the second line instead of the volume for a moment (`notify`)."""
-        self._notice_timer: asyncio.TimerHandle | None = None
 
     # -- for the kinds of strips ----------------------------------------------------------------------------------
 
@@ -189,36 +183,17 @@ class VolumeStrip(StripController):
             self.strip.park()
             self.strip.set_ring(0)
             self.strip.set_led(Button.MUTE, Led.OFF)
-            self.strip.set_text(1, self.notice or self.inactive_text())
+            self.strip.set_text(1, self.inactive_text())
             return
         maximum = self.env.behavior.max_volume
         shown = max(0, min(maximum, level.volume))
         self.strip.set_fader(shown / maximum)
         self.strip.set_ring(round(shown / maximum * (RING_MAX - 1)) + 1, RingMode.WRAP)
         self.strip.set_led(Button.MUTE, Led.ON if level.muted else Led.OFF)
-        if self.notice is not None:
-            self.strip.set_text(1, self.notice)
-        elif self._wanted is not None:
+        if self._wanted is not None:
             self.strip.set_text(1, f"{self._wanted}%")
         else:
             self.strip.set_text(1, "muted" if level.muted else f"{level.volume}%")
-
-    def notify(self, text: str) -> None:
-        """Shows `text` on the second line instead of the volume for `NOTICE_TIME`."""
-        if self._notice_timer is not None:
-            self._notice_timer.cancel()
-        self.notice = text
-        self._notice_timer = asyncio.get_running_loop().call_later(NOTICE_TIME, self._end_notice)
-        self.show()
-
-    def _end_notice(self) -> None:
-        self.notice = self._notice_timer = None
-        self.show()
-
-    def close(self) -> None:
-        super().close()
-        if self._notice_timer is not None:
-            self._notice_timer.cancel()
 
     # -- the device -----------------------------------------------------------------------------------------------
 
@@ -249,9 +224,6 @@ class VolumeStrip(StripController):
         return min(wanted, self.env.behavior.max_volume) / self.env.behavior.max_volume
 
     def set_volume(self, percent: int) -> None:
-        if self._notice_timer is not None:
-            self._notice_timer.cancel()
-            self.notice = self._notice_timer = None
         self._wanted = max(0, min(self.env.behavior.max_volume, percent))
         # right away, the sound server confirms it a moment later
         self.strip.set_text(1, f"{self._wanted}%")

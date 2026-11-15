@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from xtouch_daemon import protocol
-from xtouch_daemon.audio.model import AudioState, Direction
+from xtouch_daemon.audio.model import AudioState, Device, Direction
 from xtouch_daemon.config import STRIP_TYPES
 from xtouch_daemon.gui.domain.document import ConfigDocument, Validation
 from xtouch_daemon.gui.domain.schema import Kind, strip_options
@@ -52,6 +52,22 @@ def _names(value: Any) -> tuple[str, ...]:
     return ()
 
 
+def _profile_label(profiles: Any, state: AudioState, device: Device | None) -> str:
+    """The label of the profile of `profiles` the card of the device is in, "" for none."""
+    card = state.card(device.card) if device is not None else None
+    active = card.profile_named(card.profile) if card is not None else None
+    if active is None or not isinstance(profiles, list):
+        return ""
+    return next(
+        (
+            _text(profile.get("label"))
+            for profile in profiles
+            if isinstance(profile, dict) and active.matches(str(profile.get("profile")))
+        ),
+        "",
+    )
+
+
 def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> tuple[str, str, str, str]:
     """The kind, label, detail and color of a strip with these options."""
     strip_type = values.get("type")
@@ -73,8 +89,10 @@ def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> 
                 detail = " or ".join(names) + (f": {device.description}" if device else " (not there now)")
                 if len(names) == 1 and device is not None:
                     detail = device.description
+            # like the daemon: the label of the profile the card is in, else the label, else the start of the
+            # description of a device that is there
+            label = _profile_label(values.get("profiles"), state, device) or label
             if not label:
-                # like the daemon: the start of the description of a device that is there
                 label = device.description if device is not None and names else strip_type.capitalize()
         case "apps":
             match = values.get("match")
