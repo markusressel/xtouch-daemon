@@ -8,8 +8,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QPoint, QRect, QSize, QStringListModel, Qt, pyqtSignal
-from PyQt6.QtGui import QAction, QColor, QPainter, QPaintEvent, QPen
+from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, QSizeF, QStringListModel, Qt, pyqtSignal
+from PyQt6.QtGui import QAction, QColor, QPainter, QPaintEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import (
     QAbstractButton,
     QButtonGroup,
@@ -38,7 +38,10 @@ from xtouch_daemon.gui.qt import theme
 type Suggest = Callable[[], tuple[Suggestion, ...]]
 """What the sound server has now for an option, asked for every time it is needed."""
 
-LABEL_WIDTH = 140
+CHIP_HEIGHT = 2 * theme.Radius.PILL
+
+LABEL_WIDTH = 144
+"""The width of the names of the options, so the fields line up (on the 8 px grid)."""
 
 
 def label(text: str, role: str = "", wrap: bool = False) -> QLabel:
@@ -107,30 +110,57 @@ def suggestion_menu(parent: QWidget, suggest: Suggest, pick: Callable[[str], Non
 
 
 class Switch(QAbstractButton):
-    """A toggle switch."""
+    """
+    A toggle switch, as tall as a field. Off is an outlined track with a small knob, on a filled one with a large
+    knob, so the state shows by shape and position, not only by color.
+    """
+
+    TRACK = QSize(40, 24)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(40, 22)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        # repaints on entering and leaving, for the hover state
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+        self.setFixedSize(self.sizeHint())
 
     def sizeHint(self) -> QSize:
-        return QSize(40, 22)
+        return QSize(self.TRACK.width(), theme.CONTROL_HEIGHT)
 
     def paintEvent(self, event: QPaintEvent | None) -> None:
+        colors = theme.current_colors()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if not self.isEnabled():
+            painter.setOpacity(0.4)
+        track = QRectF(QPointF(0, 0), QSizeF(self.TRACK))
+        track.moveCenter(QRectF(self.rect()).center())
+        radius = track.height() / 2
+        on = self.isChecked()
+        if on:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(colors.accent_hover if self.underMouse() else colors.accent))
+        else:
+            painter.setPen(QPen(QColor(colors.text_muted if self.underMouse() else colors.control_border), 2))
+            painter.setBrush(QColor(colors.sunken))
+        painter.drawRoundedRect(track.adjusted(1, 1, -1, -1), radius - 1, radius - 1)
+        knob = QPointF(track.right() - radius if on else track.left() + radius, track.center().y())
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(theme.current_colors().accent if self.isChecked() else "#7f848e"))
-        painter.drawRoundedRect(self.rect(), 11, 11)
-        painter.setBrush(QColor("white"))
-        x = self.width() - 19 if self.isChecked() else 3
-        painter.drawEllipse(QRect(x, 3, 16, 16))
+        painter.setBrush(QColor(colors.on_accent if on else colors.control_border))
+        painter.drawEllipse(knob, 8 if on else 6, 8 if on else 6)
+        if self.hasFocus():
+            # a ring around the knob: it stays inside the widget, which keeps the switch aligned with the fields
+            painter.setPen(QPen(QColor(colors.on_accent if on else colors.accent), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(knob, radius - 2, radius - 2)
 
 
 class Swatch(QAbstractButton):
-    """A color of an LCD."""
+    """A color of an LCD: a dot of the backlight, ringed and ticked when it is the one."""
+
+    SIZE = 32
 
     def __init__(self, name: str, parent: QWidget | None = None):
         super().__init__(parent)
@@ -139,22 +169,36 @@ class Swatch(QAbstractButton):
         self.setToolTip(name)
         self.setAccessibleName(name)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(30, 30)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+        self.setFixedSize(self.SIZE, self.SIZE)
 
     def paintEvent(self, event: QPaintEvent | None) -> None:
+        colors = theme.current_colors()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        if self.isChecked():
-            painter.setPen(QPen(QColor(theme.current_colors().accent), 2))
+        center = QRectF(self.rect()).center()
+        if self.isChecked() or self.hasFocus() or self.underMouse():
+            ring = colors.accent if self.isChecked() or self.hasFocus() else colors.text_muted
+            painter.setPen(QPen(QColor(ring), 2))
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawEllipse(self.rect().adjusted(1, 1, -1, -1))
-        painter.setPen(QPen(QColor("#5c6370"), 1))
-        painter.setBrush(QColor(theme.LCD_COLORS[self.name]))
-        painter.drawEllipse(self.rect().adjusted(5, 5, -5, -5))
+            painter.drawEllipse(center, 14, 14)
+        backlight = QColor(theme.LCD_COLORS[self.name])
+        painter.setPen(QPen(QColor(colors.control_border), 1))
+        painter.setBrush(backlight)
+        painter.drawEllipse(center, 10, 10)
         if self.name == "off":
             # a dark LCD: a slash through it
-            painter.setPen(QPen(QColor("#8b929e"), 1.5))
-            painter.drawLine(QPoint(10, 20), QPoint(20, 10))
+            painter.setPen(QPen(QColor(theme.LCD_TEXT_OFF), 1.5, cap=Qt.PenCapStyle.RoundCap))
+            painter.drawLine(center + QPointF(-5, 5), center + QPointF(5, -5))
+        if self.isChecked():
+            # a tick as well, for those who can't tell the ring by its color
+            tick = theme.LCD_TEXT if backlight.lightnessF() > 0.5 else "#ffffff"
+            pen = QPen(QColor(tick), 2, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPolyline(
+                QPolygonF([center + QPointF(-4.5, 0), center + QPointF(-1.5, 3), center + QPointF(4.5, -3.5)])
+            )
 
 
 class ColorPicker(QWidget):
@@ -166,7 +210,7 @@ class ColorPicker(QWidget):
         super().__init__()
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        layout.setSpacing(theme.Space.XS)
         self.group = QButtonGroup(self)
         self.swatches: dict[str, Swatch] = {}
         for name in choices:
@@ -191,7 +235,7 @@ class ColorPicker(QWidget):
 class FlowLayout(QLayout):
     """Lays out its widgets in lines, like words (for the chips of a list)."""
 
-    def __init__(self, parent: QWidget | None = None, spacing: int = 6):
+    def __init__(self, parent: QWidget | None = None, spacing: int = theme.Space.XS):
         super().__init__(parent)
         self._items: list[QLayoutItem] = []
         self._spacing = spacing
@@ -263,7 +307,9 @@ class Chips(QWidget):
         self.values: list[str] = []
         self.chips: list[QWidget] = []
         self.flow = FlowLayout(self)
-        self.flow.setContentsMargins(6, 4, 6, 4)
+        # a chip and the margins make up the height of a field, so a list lines up with the other fields
+        vertical = (theme.CONTROL_HEIGHT - 2 - CHIP_HEIGHT) // 2
+        self.flow.setContentsMargins(theme.Space.XS, vertical, theme.Space.XS, vertical)
         self.input = QLineEdit(self)
         self.input.setPlaceholderText("Add…")
         self.input.setMinimumWidth(140)
@@ -290,10 +336,13 @@ class Chips(QWidget):
         theme.set_role(chip, "chip")
         chip.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         layout = QHBoxLayout(chip)
-        layout.setContentsMargins(10, 0, 2, 0)
-        layout.setSpacing(2)
+        chip.setFixedHeight(CHIP_HEIGHT)
+        layout.setContentsMargins(theme.Space.M - 2, 0, 2, 0)
+        layout.setSpacing(theme.Space.XS)
         layout.addWidget(QLabel(value))
         remove = flat_button("close", f"Remove {value!r}", chip)
+        remove.setFixedSize(CHIP_HEIGHT - 4, CHIP_HEIGHT - 4)
+        remove.setIconSize(QSize(14, 14))
         remove.clicked.connect(lambda: self.remove(index))
         layout.addWidget(remove)
         return chip
@@ -332,10 +381,10 @@ class OptionRow(QWidget):
         self._placeholder = placeholder
         self._loading = False
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 4, 0, 4)
-        outer.setSpacing(3)
+        outer.setContentsMargins(0, theme.Space.XS, 0, theme.Space.XS)
+        outer.setSpacing(theme.Space.XS)
         top = QHBoxLayout()
-        top.setSpacing(8)
+        top.setSpacing(theme.Space.S)
         title = label(option.title + ("  *" if option.required else ""))
         title.setFixedWidth(LABEL_WIDTH)
         title.setToolTip(option.name + (", required" if option.required else ""))
@@ -346,7 +395,7 @@ class OptionRow(QWidget):
         top.addWidget(self.reset)
         outer.addLayout(top)
         details = QVBoxLayout()
-        details.setContentsMargins(LABEL_WIDTH + 8, 0, 0, 0)
+        details.setContentsMargins(LABEL_WIDTH + theme.Space.S, 0, 0, 0)
         details.setSpacing(2)
         if option.help:
             details.addWidget(help_label(option.help, "help"))
@@ -424,7 +473,7 @@ class OptionRow(QWidget):
         container = QWidget(self)
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
+        layout.setSpacing(theme.Space.XS)
         layout.addWidget(edit, 1)
         if option.kind == Kind.SECRET:
             # hidden, also from someone looking over the shoulder; the eye shows it

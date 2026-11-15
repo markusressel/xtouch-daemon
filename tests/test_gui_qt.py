@@ -436,6 +436,21 @@ def test_numbers_switches_and_choices(qtbot: QtBot, window: MainWindow):
     assert window.document.get(("strip", 0, "rec")) == "muted"
 
 
+def test_switches_and_swatches_show_focus_and_disabled(qtbot: QtBot, window: MainWindow):
+    window.show_page("behavior")
+    switch = row(window, "meters", "behavior").switch
+    swatch = row(window, "color").colors.swatches["red"]
+    plain = (switch.grab().toImage(), swatch.grab().toImage())
+    window.activateWindow()
+
+    for widget, before in zip((switch, swatch), plain, strict=True):
+        widget.setFocus()
+        qtbot.waitUntil(widget.hasFocus)
+        assert widget.grab().toImage() != before
+    switch.setEnabled(False)
+    assert switch.grab().toImage() != plain[0]
+
+
 def test_colors_are_swatches(qtbot: QtBot, window: MainWindow):
     color = row(window, "color")
     assert color.colors.swatches["cyan"].isChecked()
