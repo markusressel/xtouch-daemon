@@ -25,6 +25,9 @@ EVENT_FACILITIES = ("sink", "source", "sink_input", "server")
 
 PA_INVALID_INDEX = 0xFFFFFFFF
 
+PULSE_ERRORS = (pulsectl.PulseError, pulsectl.PulseDisconnected)
+"""What pulsectl raises: `PulseDisconnected` (a lost connection) is not a `PulseError`."""
+
 
 def _percent(volume: Any) -> int:
     values = list(volume.values)
@@ -86,7 +89,7 @@ class PulseBackend:
                     _LOGGER.info("Connected to the sound server")
                     was_connected = True
                     await self._follow(pulse, on_state)
-            except (pulsectl.PulseError, OSError) as e:
+            except (*PULSE_ERRORS, OSError) as e:
                 if was_connected:
                     _LOGGER.warning(f"Lost the sound server ({e}), connecting again every {RECONNECT_DELAY:.0f}s")
                 was_connected = False
@@ -119,7 +122,7 @@ class PulseBackend:
                 on_state(await self.snapshot(pulse))
         finally:
             listener.cancel()
-            with contextlib.suppress(asyncio.CancelledError, pulsectl.PulseError):
+            with contextlib.suppress(asyncio.CancelledError, *PULSE_ERRORS):
                 await listener
 
     @staticmethod
@@ -154,19 +157,19 @@ class PulseBackend:
             if direction == Direction.OUTPUT:
                 return await pulse.get_sink_by_name(name)
             return await pulse.get_source_by_name(name)
-        except pulsectl.PulseError as e:
+        except PULSE_ERRORS as e:
             raise AudioCommandError(f"no {direction} {name!r}: {e}") from e
 
     async def _stream_info(self, index: int) -> Any:
         try:
             return await self._connected().sink_input_info(index)
-        except pulsectl.PulseError as e:
+        except PULSE_ERRORS as e:
             raise AudioCommandError(f"no stream #{index}: {e}") from e
 
     async def _call(self, what: str, call: Any) -> None:
         try:
             await call
-        except pulsectl.PulseError as e:
+        except PULSE_ERRORS as e:
             raise AudioCommandError(f"{what} failed: {e}") from e
 
     async def set_device_volume(self, direction: Direction, name: str, percent: int) -> None:

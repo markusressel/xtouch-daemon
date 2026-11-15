@@ -60,10 +60,12 @@ class Daemon:
             return False
         if config.device != self.config.device:
             _LOGGER.warning("The [device] section changed: restart the daemon for it to take effect")
+        state = self.mixer.state
         self.mixer.close()
         self.config = config
         self.mixer = self._mixer_factory(self.surface, self.backend, config)
-        self.mixer.on_state(self._state())
+        # the sound server reports again only once something changes
+        self.mixer.on_state(state)
         self._start_mixer()
         _LOGGER.info("Configuration loaded again")
         systemd.notify("READY=1", self._status())
@@ -99,23 +101,20 @@ class Daemon:
     async def _shutdown(self, tasks: list[asyncio.Task[None]]) -> None:
         _LOGGER.info("Stopping")
         self.mixer.close()
-        if self._mixer_task is not None:
-            self._mixer_task.cancel()
+        assert self._mixer_task is not None, "run() starts the mixer"
+        self._mixer_task.cancel()
         for strip in self.surface.strips:
             strip.reset()
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self.surface.settled(), SHUTDOWN_TIMEOUT)
         for task in tasks:
             task.cancel()
-        await asyncio.gather(*tasks, *([self._mixer_task] if self._mixer_task else []), return_exceptions=True)
+        await asyncio.gather(*tasks, self._mixer_task, return_exceptions=True)
 
     def _start_mixer(self) -> None:
         if self._mixer_task is not None:
             self._mixer_task.cancel()
         self._mixer_task = asyncio.create_task(self.mixer.run(), name="mixer")
-
-    def _state(self) -> AudioState:
-        return self.mixer.state
 
     def _on_state(self, state: AudioState) -> None:
         was_connected = self.mixer.state.connected

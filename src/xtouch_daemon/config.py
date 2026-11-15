@@ -9,7 +9,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from xtouch_daemon import protocol
 from xtouch_daemon.protocol import Color
@@ -60,6 +60,12 @@ class BehaviorConfig(_Model):
     """Seconds an `auto` strip keeps an application after it stopped playing (so it does not jump between tracks)."""
     ignore: tuple[str, ...] = ("speech-dispatcher",)
     """Applications that `auto` strips never take (part of the name or binary, ignoring case)."""
+
+    @model_validator(mode="after")
+    def _reset_within_reach(self) -> "BehaviorConfig":
+        if self.reset_volume > self.max_volume:
+            raise ValueError(f"reset_volume ({self.reset_volume}) is above max_volume ({self.max_volume})")
+        return self
 
 
 class _StripConfig(_Model):
@@ -125,11 +131,16 @@ class ConfigError(Exception):
 def _location(loc: tuple[int | str, ...]) -> str:
     parts: list[str] = []
     for part in loc:
-        if isinstance(part, int):
-            parts[-1] = f"{parts[-1]}[{part + 1}]" if parts else str(part)
+        if isinstance(part, int) and parts:
+            parts[-1] = f"{parts[-1]}[{part + 1}]"
         elif part not in ("output", "input", "apps", "auto", "empty"):
             parts.append(str(part))
     return ".".join(parts)
+
+
+def _message(message: str) -> str:
+    # pydantic puts "Value error, " before the messages of the validators here
+    return message.removeprefix("Value error, ")
 
 
 def parse_config(text: str, source: str = "config") -> Config:
@@ -140,7 +151,7 @@ def parse_config(text: str, source: str = "config") -> Config:
     try:
         return Config.model_validate(data)
     except ValidationError as e:
-        problems = "\n".join(f"  {_location(error['loc'])}: {error['msg']}" for error in e.errors())
+        problems = "\n".join(f"  {_location(error['loc'])}: {_message(error['msg'])}" for error in e.errors())
         raise ConfigError(f"{source} has errors:\n{problems}") from e
 
 

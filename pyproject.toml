@@ -61,6 +61,9 @@ exclude_also = [
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
     "\\.\\.\\.$",
+    "case _ as unreachable:",
+    "assert_never\\(",
+    "if __name__ == .__main__.:",
 ]
 
 [tool.ruff]
@@ -70,6 +73,10 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PT", "C4", "PIE", "RET"]
 ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+# tests write their configuration files in place, blocking for a moment is fine there
+"tests/**" = ["ASYNC240"]
 
 [tool.pyright]
 include = ["src", "tests"]

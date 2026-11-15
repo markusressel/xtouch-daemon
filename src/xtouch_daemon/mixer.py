@@ -6,6 +6,7 @@ meters. A new configuration gets a new mixer on the same surface and sound serve
 import asyncio
 import time
 from collections.abc import Callable
+from typing import assert_never
 
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.backend import AudioBackend
@@ -77,6 +78,8 @@ class Mixer:
                 controller.on_encoder(steps)
             case protocol.EncoderPressed(pressed=pressed):
                 controller.on_encoder_press(pressed)
+            case _ as unreachable:
+                assert_never(unreachable)
 
     # -- running --------------------------------------------------------------------------------------------------
 

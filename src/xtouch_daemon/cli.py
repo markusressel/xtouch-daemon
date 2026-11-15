@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_never
 
 import click
 
@@ -60,7 +60,7 @@ def _audio_state() -> AudioState:
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
-@click.version_option(__version__, "-V", "--version")
+@click.version_option(__version__, "-V", "--version", prog_name="xtouch-daemon")
 def main() -> None:
     """Use a Behringer X-Touch Extender as a hardware mixer for PipeWire."""
 
@@ -94,6 +94,8 @@ def describe_strip(config: StripConfig) -> str:
             what = "the next application that plays"
         case EmptyStripConfig():
             return "empty"
+        case _ as unreachable:
+            assert_never(unreachable)
     label = f"{config.label!r} " if isinstance(config, DeviceStripConfig | AppsStripConfig) and config.label else ""
     return f"{label}{what} ({config.color}{'' if config.meter else ', no meter'})"
 

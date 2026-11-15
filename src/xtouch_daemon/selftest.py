@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Callable
+from typing import assert_never
 
 from xtouch_daemon import protocol
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
@@ -23,6 +24,8 @@ def describe(event: protocol.StripEvent) -> str:
             return f"{strip}: encoder {steps:+d}"
         case protocol.EncoderPressed(pressed=pressed):
             return f"{strip}: encoder {'pressed' if pressed else 'released'}"
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 async def run_selftest(

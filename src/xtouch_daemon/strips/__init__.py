@@ -1,5 +1,7 @@
 """The kinds of strips, and building them from the configuration."""
 
+from typing import assert_never
+
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import (
     AppsStripConfig,
@@ -41,3 +43,5 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
             return AutoStrip(strip, env, aliases, color_of(config.color), config.meter)
         case EmptyStripConfig():
             return EmptyStrip(strip, env)
+        case _ as unreachable:
+            assert_never(unreachable)
