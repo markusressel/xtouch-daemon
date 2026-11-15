@@ -97,18 +97,16 @@ class Daemon:
         handlers = {signal.SIGTERM: self.stop, signal.SIGINT: self.stop, signal.SIGHUP: self.reload}
         for signum, handler in handlers.items():
             loop.add_signal_handler(signum, handler)
-        tasks = [
-            asyncio.create_task(self.surface.run(), name="surface"),
-            asyncio.create_task(self.backend.run(self._on_state), name="sound server"),
-        ]
+        surface = asyncio.create_task(self.surface.run(), name="surface")
+        parts = [asyncio.create_task(self.backend.run(self._on_state), name="sound server")]
         if self.bridge is not None:
-            tasks.append(asyncio.create_task(self.bridge.run(), name="mqtt"))
+            parts.append(asyncio.create_task(self.bridge.run(), name="mqtt"))
         self._start_mixer()
         systemd.notify("READY=1", self._status())
         _LOGGER.info(f"Running with {len(self.mixer.controllers)} strips, waiting for {self.config.device.name}")
+        stopped = asyncio.create_task(self._stop.wait())
         try:
-            stopped = asyncio.create_task(self._stop.wait())
-            done, _ = await asyncio.wait([stopped, *tasks], return_when=asyncio.FIRST_COMPLETED)
+            done, _ = await asyncio.wait([stopped, surface, *parts], return_when=asyncio.FIRST_COMPLETED)
             for task in done:
                 if task is not stopped:
                     # a part of the daemon ended, which they never do on their own
@@ -117,22 +115,34 @@ class Daemon:
             systemd.notify("STOPPING=1")
             for signum in handlers:
                 loop.remove_signal_handler(signum)
-            await self._shutdown(tasks)
+            stopped.cancel()
+            await self._shutdown(surface, parts)
 
-    async def _shutdown(self, tasks: list[asyncio.Task[None]]) -> None:
+    async def _shutdown(self, surface: asyncio.Task[None], parts: list[asyncio.Task[None]]) -> None:
+        """
+        Leaves the surface dark: first everything stops that could show something on it (the sound server, Home
+        Assistant, the mixer, the device's own events), then the strips are reset, and only then the surface closes.
+        """
         _LOGGER.info("Stopping")
+        self.surface.on_event = lambda event: None
         self.mixer.close()
+        if self.bridge is not None:
+            # while it is still connected: Home Assistant sees the entities unavailable right away
+            await self.bridge.close()
         assert self._mixer_task is not None, "run() starts the mixer"
-        self._mixer_task.cancel()
+        others = [*parts, self._mixer_task, *self._background]
+        for task in others:
+            task.cancel()
+        await asyncio.gather(*others, return_exceptions=True)
+
         for strip in self.surface.strips:
             strip.reset()
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self.surface.settled(), SHUTDOWN_TIMEOUT)
-        if self.bridge is not None:
-            await self.bridge.close()
-        for task in [*tasks, *self._background]:
-            task.cancel()
-        await asyncio.gather(*tasks, self._mixer_task, return_exceptions=True)
+
+        # its end sends what is still queued and closes the device
+        surface.cancel()
+        await asyncio.gather(surface, return_exceptions=True)
 
     def _start_mixer(self) -> None:
         if self._mixer_task is not None:

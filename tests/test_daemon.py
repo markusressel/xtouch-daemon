@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import signal
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
 import pytest
@@ -11,13 +11,14 @@ from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, 
 from tests.fake_mqtt import FakeBroker
 from xtouch_daemon import daemon as daemon_module
 from xtouch_daemon import mqtt as mqtt_module
+from xtouch_daemon import protocol
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config import Config, parse_config
 from xtouch_daemon.daemon import Daemon
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.protocol import Color
+from xtouch_daemon.protocol import Button, Color, Led
 from xtouch_daemon.surface import Surface
 
 SPEAKER = '[[strip]]\ntype = "output"\ndevice = "speaker"\nlabel = "Speaker"\ncolor = "cyan"\n'
@@ -321,3 +322,45 @@ async def test_a_reload_gives_the_bridge_the_new_strips(
     await task
 
     assert "homeassistant/number/xtouch/strip_1_fader/config" not in broker.retained
+
+
+# -- stopping -------------------------------------------------------------------------------------------------------
+
+
+class StreamingBackend(FakeBackend):
+    """A sound server that keeps reporting, as one does while something plays."""
+
+    async def run(self, on_state: Callable[[AudioState], None]) -> None:
+        while True:
+            on_state(STATE)
+            await asyncio.sleep(0.001)
+
+
+async def test_nothing_shows_on_the_surface_after_it_was_turned_dark(
+    config_path: Path, surface: RecordingSurface, notifications: Notifications
+) -> None:
+    daemon = make(config_path, surface, StreamingBackend())
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: surface.strips[0].text == ["Speaker", "50%"])
+    await surface.settled()
+
+    daemon.stop()
+    # a hand on the device while it stops changes nothing
+    surface.on_event(protocol.ButtonPressed(0, Button.MUTE, True))
+    await task
+
+    dark = protocol.lcd_text(0, 0, "")
+    after = surface.sent[surface.sent.index(dark) :]
+    blank_texts = {protocol.lcd_text(strip, line, "") for strip in range(protocol.STRIPS) for line in (0, 1)}
+    for message in after:
+        if message.startswith(protocol.SYSEX_HEADER + b"\x12"):
+            assert message in blank_texts
+        if message.startswith(protocol.SYSEX_HEADER + b"\x72"):
+            assert message == protocol.lcd_colors([Color.BLACK] * protocol.STRIPS)
+    faders = [value for value in surface.faders(0) if value]
+    assert faders == sorted(faders, reverse=True)
+    for strip in surface.strips:
+        assert strip.color == Color.BLACK
+        assert strip.text == ["", ""]
+        assert all(led == Led.OFF for led in strip.leds.values())
+    assert surface.faders(0)[-1] == 0
