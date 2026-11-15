@@ -5,6 +5,7 @@ from click.testing import CliRunner, Result
 
 from tests.conftest import output, source, stream
 from xtouch_daemon import __version__, cli, systemd
+from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import Config, parse_config
 
@@ -190,10 +191,10 @@ def test_list_apps_without_applications(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_a_sound_server_that_can_not_be_reached_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def unreachable() -> AudioState:
+    async def unreachable(client_name: str) -> AudioState:
         raise ConnectionRefusedError("no socket")
 
-    monkeypatch.setattr(cli, "_snapshot", unreachable)
+    monkeypatch.setattr(pulse, "_read_state", unreachable)
 
     result = CliRunner().invoke(cli.main, ["list-devices"])
 
@@ -261,16 +262,14 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
     assert levels == [10]
 
 
-def test_install_service_writes_the_unit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    unit = tmp_path / "systemd" / "user" / systemd.UNIT_NAME
+def test_install_service_writes_the_unit(config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     commands: list[list[str]] = []
-    monkeypatch.setattr(systemd, "unit_path", lambda: unit)
-    monkeypatch.setattr(cli.shutil, "which", lambda name: "/opt/bin/xtouch-daemon")
-    monkeypatch.setattr(cli.subprocess, "run", lambda command, check: commands.append(command))
+    monkeypatch.setattr(systemd.shutil, "which", lambda name: "/opt/bin/xtouch-daemon")
+    monkeypatch.setattr(systemd, "run_command", lambda command: commands.append(command) or "")
 
     result = invoke("install-service")
 
-    assert "ExecStart=/opt/bin/xtouch-daemon run" in unit.read_text()
+    assert "ExecStart=/opt/bin/xtouch-daemon run" in systemd.unit_path().read_text()
     assert commands == [["systemctl", "--user", "daemon-reload"]]
     assert "systemctl --user enable --now xtouch-daemon.service" in result.output
 
@@ -278,6 +277,18 @@ def test_install_service_writes_the_unit(tmp_path: Path, monkeypatch: pytest.Mon
     result = invoke("install-service", "--now")
     assert commands[-1] == ["systemctl", "--user", "enable", "--now", systemd.UNIT_NAME]
     assert "Start it with" not in result.output
+
+
+def test_install_service_reports_a_failing_systemctl(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(command: list[str]) -> str:
+        raise systemd.ServiceError("systemctl is not installed: is this a systemd system?")
+
+    monkeypatch.setattr(systemd, "run_command", fail)
+
+    result = CliRunner().invoke(cli.main, ["install-service"])
+
+    assert result.exit_code == 1
+    assert "Error: systemctl is not installed" in result.output
 
 
 def test_the_package_runs_as_a_module(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

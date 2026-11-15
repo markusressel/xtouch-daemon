@@ -193,3 +193,20 @@ class PulseBackend:
     async def set_stream_mute(self, index: int, muted: bool) -> None:
         info = await self._stream_info(index)
         await self._call(f"muting stream #{index}", self._connected().mute(info, muted))
+
+
+class SoundServerError(Exception):
+    """The sound server could not be reached, with a message for the user."""
+
+
+async def _read_state(client_name: str) -> AudioState:
+    async with pulsectl_asyncio.PulseAsync(client_name) as pulse:
+        return await PulseBackend.snapshot(pulse)
+
+
+def read_state(client_name: str) -> AudioState:
+    """The state of the sound server right now, from a connection of its own (for the tools around the daemon)."""
+    try:
+        return asyncio.run(_read_state(client_name))
+    except Exception as e:
+        raise SoundServerError(f"can't reach the sound server (is pipewire-pulse running?): {e}") from e

@@ -5,9 +5,10 @@ The configuration: a TOML file, by default `$XDG_CONFIG_HOME/xtouch-daemon/confi
 
 import os
 import tomllib
+from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
@@ -27,8 +28,9 @@ def example_config() -> str:
 
 
 class _Model(BaseModel):
-    # a typo in an option name is an error, not silently ignored
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    # a typo in an option name is an error, not silently ignored; the docstrings of the fields are their descriptions,
+    # which the GUI shows as help
+    model_config = ConfigDict(extra="forbid", frozen=True, use_attribute_docstrings=True)
 
 
 ColorName = Literal["off", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
@@ -43,11 +45,15 @@ Label = Annotated[str, Field(max_length=protocol.LCD_CELL_WIDTH, pattern=r"^[\x2
 
 
 class DeviceConfig(_Model):
+    """The device the daemon drives."""
+
     name: str = "X-Touch-Ext"
     """Part of the name of the sound card of the extender (see /proc/asound/cards)."""
 
 
 class BehaviorConfig(_Model):
+    """How the faders, encoders, meters and `auto` strips behave."""
+
     max_volume: Annotated[int, Field(ge=100, le=150)] = 100
     """The volume of a fader at the top, in percent: above 100 % the audio is amplified in software."""
     encoder_step: Annotated[int, Field(ge=1, le=10)] = 1
@@ -70,11 +76,14 @@ class BehaviorConfig(_Model):
 
 class _StripConfig(_Model):
     color: ColorName = "white"
+    """The backlight of the LCD."""
     meter: bool = True
     """Whether this strip's LED meter shows the level (if `behavior.meters` is on)."""
 
 
 class DeviceStripConfig(_StripConfig):
+    """An output or an input device, or whatever is the default one."""
+
     type: Literal["output", "input"]
     device: str | None = None
     """The node name (`xtouch-daemon list-devices`) or description of the device; without it the default device."""
@@ -85,10 +94,13 @@ class DeviceStripConfig(_StripConfig):
 
 
 class AppsStripConfig(_StripConfig):
+    """All streams of a group of applications, e.g. every browser."""
+
     type: Literal["apps"]
     match: Annotated[tuple[str, ...], Field(min_length=1)]
     """Parts of the names or binaries of the applications (ignoring case), see `xtouch-daemon list-apps`."""
     label: Label
+    """The top line of the LCD."""
 
     @field_validator("match")
     @classmethod
@@ -99,16 +111,22 @@ class AppsStripConfig(_StripConfig):
 
 
 class AutoStripConfig(_StripConfig):
+    """The next application that plays and has no strip of its own."""
+
     type: Literal["auto"]
 
 
 class EmptyStripConfig(_Model):
+    """A dark strip that does nothing."""
+
     type: Literal["empty"]
 
 
 StripConfig = Annotated[
     DeviceStripConfig | AppsStripConfig | AutoStripConfig | EmptyStripConfig, Field(discriminator="type")
 ]
+STRIP_MODELS: tuple[type[BaseModel], ...] = get_args(get_args(StripConfig)[0])
+"""The models of the strip types."""
 
 
 class Config(_Model):
@@ -128,19 +146,49 @@ class ConfigError(Exception):
     """A configuration that can't be used, with a message for the user."""
 
 
-def _location(loc: tuple[int | str, ...]) -> str:
-    parts: list[str] = []
-    for part in loc:
-        if isinstance(part, int) and parts:
-            parts[-1] = f"{parts[-1]}[{part + 1}]"
-        elif part not in ("output", "input", "apps", "auto", "empty"):
-            parts.append(str(part))
-    return ".".join(parts)
+STRIP_TYPES: tuple[str, ...] = tuple(
+    name for model in STRIP_MODELS for name in get_args(model.model_fields["type"].annotation)
+)
+"""The values of `type` of a strip: output, input, apps, auto, empty."""
 
 
-def _message(message: str) -> str:
-    # pydantic puts "Value error, " before the messages of the validators here
-    return message.removeprefix("Value error, ")
+@dataclass(frozen=True)
+class Problem:
+    """One error of a configuration: where it is, and what is wrong."""
+
+    path: tuple[int | str, ...]
+    """Where in the TOML data, e.g. `("strip", 2, "label")` for the label of the third strip."""
+    message: str
+    kind: str
+    """The kind of error (pydantic's error type), e.g. `extra_forbidden` for an unknown option."""
+
+    @property
+    def location(self) -> str:
+        """The path for people, e.g. `strip[3].label`."""
+        parts: list[str] = []
+        for part in self.path:
+            if isinstance(part, int) and parts:
+                parts[-1] = f"{parts[-1]}[{part + 1}]"
+            else:
+                parts.append(str(part))
+        return ".".join(parts)
+
+    def __str__(self) -> str:
+        return f"{self.location}: {self.message}"
+
+
+def problems_of(error: ValidationError) -> list[Problem]:
+    problems: list[Problem] = []
+    for item in error.errors():
+        loc = item["loc"]
+        # the type of a strip follows its position in the path of its errors (`strip.2.apps.label`), but is not part
+        # of the TOML data
+        path = tuple(
+            part for i, part in enumerate(loc) if not (i and isinstance(loc[i - 1], int) and part in STRIP_TYPES)
+        )
+        # pydantic puts "Value error, " before the messages of the validators here
+        problems.append(Problem(path, item["msg"].removeprefix("Value error, "), item["type"]))
+    return problems
 
 
 def parse_config(text: str, source: str = "config") -> Config:
@@ -151,7 +199,7 @@ def parse_config(text: str, source: str = "config") -> Config:
     try:
         return Config.model_validate(data)
     except ValidationError as e:
-        problems = "\n".join(f"  {_location(error['loc'])}: {_message(error['msg'])}" for error in e.errors())
+        problems = "\n".join(f"  {problem}" for problem in problems_of(e))
         raise ConfigError(f"{source} has errors:\n{problems}") from e
 
 
