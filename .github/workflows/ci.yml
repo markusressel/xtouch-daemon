@@ -14,13 +14,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.14"]
+        python-version: ["3.14"]
+    defaults:
+      run:
+        working-directory: xtouch-daemon
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: xtouch-daemon
+      # a path dependency (see [tool.uv.sources]): it is checked out next to the project
+      - uses: actions/checkout@v4
+        with:
+          repository: haad-org/haad-mqtt-autodiscovery
+          path: haad-mqtt-autodiscovery
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
+          cache-dependency-glob: xtouch-daemon/uv.lock
       - name: Install
         run: uv sync --locked
       - name: Lint

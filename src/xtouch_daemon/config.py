@@ -9,7 +9,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
 
 from xtouch_daemon import protocol
 from xtouch_daemon.protocol import Color
@@ -69,7 +69,7 @@ class BehaviorConfig(_Model):
     """Applications that `auto` strips never take (part of the name or binary, ignoring case)."""
 
     @model_validator(mode="after")
-    def _reset_within_reach(self) -> "BehaviorConfig":
+    def _reset_within_reach(self) -> BehaviorConfig:
         if self.reset_volume > self.max_volume:
             raise ValueError(f"reset_volume ({self.reset_volume}) is above max_volume ({self.max_volume})")
         return self
@@ -117,9 +117,68 @@ class EmptyStripConfig(_Model):
     type: Literal["empty"]
 
 
+Slug = Annotated[str, Field(pattern=r"^[a-z0-9_]+$", max_length=64)]
+"""Part of entity IDs and MQTT topics: lower case letters, digits and underscores."""
+
+
+class HomeAssistantStripConfig(_Model):
+    """A strip that belongs to Home Assistant: its parts are entities there, automations decide what they do."""
+
+    type: Literal["homeassistant"]
+    id: Slug | None = None
+    """Part of the entity IDs; by default `strip_<position>`, so set it to keep the entities when moving the strip."""
+    label: Label | None = None
+    """The top line of the LCD until Home Assistant sets one; also the start of the entity names."""
+    color: ColorName = "white"
+    """The LCD backlight until Home Assistant sets one."""
+
+
 StripConfig = Annotated[
-    DeviceStripConfig | AppsStripConfig | AutoStripConfig | EmptyStripConfig, Field(discriminator="type")
+    DeviceStripConfig | AppsStripConfig | AutoStripConfig | HomeAssistantStripConfig | EmptyStripConfig,
+    Field(discriminator="type"),
 ]
+
+
+class MqttConfig(_Model):
+    """The MQTT broker Home Assistant uses, for `homeassistant` strips."""
+
+    host: str
+    port: Annotated[int, Field(ge=1, le=65535)] = 1883
+    username: str | None = None
+    password: SecretStr | None = None
+    """The password itself; `password_file` or `password_env` keep it out of the configuration."""
+    password_file: Path | None = None
+    """A file that holds the password (e.g. a systemd credential); surrounding whitespace is ignored."""
+    password_env: str | None = None
+    """An environment variable that holds the password."""
+    discovery_prefix: str = "homeassistant"
+    """The MQTT discovery prefix of Home Assistant."""
+    namespace: Slug = "xtouch"
+    """Starts the entity IDs (`number.xtouch_strip_1_fader`) and is part of the topics."""
+    device_name: str = "X-Touch Extender"
+    """The name of the device in Home Assistant."""
+
+    @model_validator(mode="after")
+    def _one_password(self) -> MqttConfig:
+        sources = [name for name in ("password", "password_file", "password_env") if getattr(self, name) is not None]
+        if len(sources) > 1:
+            raise ValueError(f"set only one of {', '.join(sources)}")
+        return self
+
+    def resolve_password(self) -> str | None:
+        """The password from where it is configured."""
+        if self.password is not None:
+            return self.password.get_secret_value()
+        if self.password_file is not None:
+            try:
+                return self.password_file.read_text(encoding="utf-8").strip()
+            except OSError as e:
+                raise ConfigError(f"mqtt.password_file: can't read {self.password_file}: {e.strerror}") from e
+        if self.password_env is not None:
+            if self.password_env not in os.environ:
+                raise ConfigError(f"mqtt.password_env: the environment variable {self.password_env} is not set")
+            return os.environ[self.password_env]
+        return None
 
 
 class Config(_Model):
@@ -129,10 +188,30 @@ class Config(_Model):
     """Names to show for applications on `auto` strips: {"name the sound server reports": "label"}."""
     strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=protocol.STRIPS)] = ()
     """Up to 8 strips from the left; missing ones are `auto`."""
+    mqtt: MqttConfig | None = None
+    """The MQTT broker, needed by `homeassistant` strips."""
+
+    @model_validator(mode="after")
+    def _home_assistant_strips(self) -> Config:
+        ids = [strip_id for _, strip_id in self.home_assistant_strips()]
+        if ids and self.mqtt is None:
+            raise ValueError("homeassistant strips need an [mqtt] section")
+        duplicates = sorted({strip_id for strip_id in ids if ids.count(strip_id) > 1})
+        if duplicates:
+            raise ValueError(f"homeassistant strips with the same id: {', '.join(duplicates)}")
+        return self
 
     def all_strips(self) -> tuple[StripConfig, ...]:
         """The configuration of every strip of the device, the ones that are not configured `auto`."""
         return self.strips + tuple(AutoStripConfig(type="auto") for _ in range(protocol.STRIPS - len(self.strips)))
+
+    def home_assistant_strips(self) -> list[tuple[HomeAssistantStripConfig, str]]:
+        """The `homeassistant` strips with their ids."""
+        return [
+            (strip, strip.id or f"strip_{number}")
+            for number, strip in enumerate(self.strips, start=1)
+            if isinstance(strip, HomeAssistantStripConfig)
+        ]
 
 
 class ConfigError(Exception):
@@ -144,7 +223,7 @@ def _location(loc: tuple[int | str, ...]) -> str:
     for part in loc:
         if isinstance(part, int) and parts:
             parts[-1] = f"{parts[-1]}[{part + 1}]"
-        elif part not in ("output", "input", "apps", "auto", "empty"):
+        elif part not in ("output", "input", "apps", "auto", "homeassistant", "empty"):
             parts.append(str(part))
     return ".".join(parts)
 

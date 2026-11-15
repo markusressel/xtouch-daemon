@@ -20,6 +20,7 @@ from xtouch_daemon.config import (
     ConfigError,
     DeviceStripConfig,
     EmptyStripConfig,
+    HomeAssistantStripConfig,
     StripConfig,
     default_config_path,
     example_config,
@@ -78,11 +79,15 @@ def run(config_path: Path | None, log_level: str) -> None:
     """Run the daemon (in the foreground; `install-service` sets it up as a systemd user service)."""
     systemd.setup_logging(getattr(logging, log_level.upper()))
     config = _load(config_path)
-    daemon = Daemon(config, PulseBackend(), config_path=config_path)
+    try:
+        daemon = Daemon(config, PulseBackend(), config_path=config_path)
+    except ConfigError as e:
+        # e.g. the file with the MQTT password is missing
+        raise click.ClickException(str(e)) from e
     asyncio.run(daemon.run())
 
 
-def describe_strip(config: StripConfig) -> str:
+def describe_strip(config: StripConfig, number: int) -> str:
     match config:
         case DeviceStripConfig(device=None):
             what = f"the default {config.type}"
@@ -92,6 +97,9 @@ def describe_strip(config: StripConfig) -> str:
             what = "applications " + ", ".join(config.match)
         case AutoStripConfig():
             what = "the next application that plays"
+        case HomeAssistantStripConfig():
+            label = f"{config.label!r} " if config.label else ""
+            return f"{label}Home Assistant, entities *.*_{config.id or f'strip_{number}'}_* ({config.color})"
         case EmptyStripConfig():
             return "empty"
         case _ as unreachable:
@@ -111,7 +119,7 @@ def check_config(config_path: Path | None) -> None:
     source = str(path) if path.exists() else "No configuration file, the defaults"
     click.echo(f"{source}: valid")
     for number, strip in enumerate(config.all_strips(), start=1):
-        click.echo(f"  {number}. {describe_strip(strip)}")
+        click.echo(f"  {number}. {describe_strip(strip, number)}")
 
 
 @main.command("init-config")

@@ -76,7 +76,7 @@ class FakePulse:
         self.fail: BaseException | None = None
         self.snapshots = 0
 
-    async def __aenter__(self) -> "FakePulse":
+    async def __aenter__(self) -> FakePulse:
         return self
 
     async def __aexit__(self, *args: object) -> None:

@@ -32,6 +32,18 @@ color = "yellow"
 
 [[strip]]
 type = "empty"
+
+[[strip]]
+type = "homeassistant"
+label = "Lights"
+
+[[strip]]
+type = "homeassistant"
+id = "desk"
+color = "blue"
+
+[mqtt]
+host = "broker"
 """
 
 STATE = AudioState(
@@ -91,7 +103,9 @@ def test_check_config_shows_what_each_strip_does(config_file: Path) -> None:
         "  2. input mic (white, no meter, rec: off, solo: muted)",
         "  3. 'Browser' applications brave, firefox (yellow, rec: recording, solo: off)",
         "  4. empty",
-        *[f"  {number}. the next application that plays (white, rec: recording, solo: off)" for number in range(5, 9)],
+        "  5. 'Lights' Home Assistant, entities *.*_strip_5_* (white)",
+        "  6. Home Assistant, entities *.*_desk_* (blue)",
+        *[f"  {number}. the next application that plays (white, rec: recording, solo: off)" for number in range(7, 9)],
     ]
 
 
@@ -309,7 +323,7 @@ def test_the_sound_server_is_read_once(monkeypatch: pytest.MonkeyPatch) -> None:
         def __init__(self, name: str) -> None:
             clients.append(name)
 
-        async def __aenter__(self) -> "FakePulse":
+        async def __aenter__(self) -> FakePulse:
             return self
 
         async def __aexit__(self, *exc: object) -> None:
@@ -324,3 +338,14 @@ def test_the_sound_server_is_read_once(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert cli._audio_state() == STATE
     assert clients == ["xtouch-daemon-cli"]
+
+
+def test_run_reports_a_password_that_is_not_there(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(systemd, "setup_logging", lambda level: None)
+    path = tmp_path / "mqtt.toml"
+    path.write_text(f'[mqtt]\nhost = "broker"\npassword_file = "{tmp_path / "missing"}"\n')
+
+    result = CliRunner().invoke(cli.main, ["run", "-c", str(path)])
+
+    assert result.exit_code == 1
+    assert "mqtt.password_file: can't read" in result.output

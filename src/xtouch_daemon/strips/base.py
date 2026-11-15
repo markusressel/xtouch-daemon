@@ -10,6 +10,7 @@ from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import BehaviorConfig, Indicator
+from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import RING_MAX, Button, Color, Led, RingMode
 from xtouch_daemon.surface import Strip
 
@@ -22,6 +23,8 @@ class StripEnv:
 
     backend: AudioBackend
     behavior: BehaviorConfig
+    bridge: MqttBridge | None = None
+    """The MQTT broker of Home Assistant, with an [mqtt] section."""
 
 
 class StripController:

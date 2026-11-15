@@ -13,9 +13,11 @@ from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config import Config
+from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv
+from xtouch_daemon.strips.homeassistant import HomeAssistantStrip
 from xtouch_daemon.surface import Surface
 
 METER_INTERVAL = 0.1
@@ -32,8 +34,10 @@ class Mixer:
         config: Config,
         clock: Callable[[], float] = time.monotonic,
         capture_command: str = PW_RECORD,
+        bridge: MqttBridge | None = None,
     ):
-        env = StripEnv(backend, config.behavior)
+        self.bridge = bridge
+        env = StripEnv(backend, config.behavior, bridge)
         self.state: AudioState = DISCONNECTED
         self.controllers: list[StripController] = [
             build_strip(strip_config, strip, env, config.aliases)
@@ -45,6 +49,13 @@ class Mixer:
         )
         self.assigner = AutoAssigner(len(self.auto_strips), config.behavior.auto_hold, config.behavior.ignore, clock)
         self.meters = [self._meter(controller, capture_command) for controller in self.controllers]
+        self.entities = {
+            entity: default
+            for controller in self.controllers
+            if isinstance(controller, HomeAssistantStrip)
+            for entity, default in controller.entities.items()
+        }
+        """The entities of the `homeassistant` strips, for the MQTT bridge."""
 
     def _meter(self, controller: StripController, command: str) -> Meter:
         def playing(target: CaptureTarget) -> bool:
@@ -84,7 +95,12 @@ class Mixer:
     # -- running --------------------------------------------------------------------------------------------------
 
     async def run(self) -> None:
-        """Shows the meters, and lets `auto` strips go of applications that stopped long enough."""
+        """
+        Announces the entities of the `homeassistant` strips, then shows the meters and lets `auto` strips go of
+        applications that stopped long enough.
+        """
+        if self.bridge is not None:
+            await self.bridge.set_entities(self.entities)
         ticks_per_auto = round(AUTO_INTERVAL / METER_INTERVAL)
         tick = 0
         while True:

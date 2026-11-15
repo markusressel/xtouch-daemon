@@ -193,3 +193,34 @@ def test_errors_of_checks_across_options_read_as_a_sentence():
     assert errors_of("[behavior]\nreset_volume = 120").endswith(
         "\n  behavior: reset_volume (120) is above max_volume (100)"
     )
+
+
+HOME_ASSISTANT = '[[strip]]\ntype = "homeassistant"\n'
+MQTT = '[mqtt]\nhost = "broker"\n'
+
+
+def test_home_assistant_strips_get_ids_by_their_position_or_their_own():
+    config = parse_config(HOME_ASSISTANT + '[[strip]]\ntype = "auto"\n' + HOME_ASSISTANT + 'id = "desk"\n' + MQTT)
+
+    assert [(strip.type, strip_id) for strip, strip_id in config.home_assistant_strips()] == [
+        ("homeassistant", "strip_1"),
+        ("homeassistant", "desk"),
+    ]
+    assert config.mqtt is not None
+    assert config.mqtt.port == 1883
+    assert config.mqtt.discovery_prefix == "homeassistant"
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        (HOME_ASSISTANT, "homeassistant strips need an [mqtt] section"),
+        (HOME_ASSISTANT + 'id = "strip_2"\n' + HOME_ASSISTANT + MQTT, "homeassistant strips with the same id: strip_2"),
+        (HOME_ASSISTANT + 'id = "Desk Lights"\n' + MQTT, "strip[1].id"),
+        (MQTT + 'password = "a"\npassword_env = "B"\n', "set only one of password, password_env"),
+        (MQTT + "port = 0\n", "mqtt.port"),
+        (HOME_ASSISTANT + "meter = false\n" + MQTT, "strip[1].meter"),
+    ],
+)
+def test_errors_of_home_assistant_strips(text: str, message: str):
+    assert message in errors_of(text)
