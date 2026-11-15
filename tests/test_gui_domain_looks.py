@@ -5,7 +5,17 @@ import pytest
 from tests.conftest import output, source, stream
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.document import ConfigDocument
-from xtouch_daemon.gui.domain.looks import StripLook, look, looks
+from xtouch_daemon.gui.domain.looks import (
+    FILE_FADER,
+    StripLook,
+    faces,
+    file_state,
+    look,
+    looks,
+    meter_segments,
+    ring_leds,
+)
+from xtouch_daemon.live import Snapshot, StripState
 
 STATE = AudioState(
     outputs=(output("speaker"), output("buds")),
@@ -65,3 +75,52 @@ def test_every_strip_of_the_device_has_a_look(tmp_path: Path):
     # match and label are missing
     assert result[1].problems == 2
     assert result[2:] == (StripLook("auto", "auto", result[2].detail, "white", False, 0),) * 6
+
+
+def snapshot_of(strips: tuple[StripState, ...]) -> Snapshot:
+    return Snapshot("abc", device=True, sound_server=True, mqtt=None, strips=strips)
+
+
+def test_the_file_shows_a_label_on_its_color():
+    state = file_state(StripLook("output", "Buds", "", "green", configured=True, problems=0))
+    assert (state.color, state.text, state.ring, state.fader) == ("green", ("Buds", "100%"), 8, FILE_FADER)
+    assert set(state.leds.values()) == {"off"}
+    dark = file_state(StripLook("empty", "", "", "off", configured=True, problems=0))
+    assert (dark.text, dark.ring, dark.fader) == (("", ""), 0, 0.0)
+
+
+def test_the_preview_is_live_except_for_edited_strips(tmp_path: Path):
+    doc = ConfigDocument(tmp_path / "c.toml", '[[strip]]\ntype = "output"\n', exists=True)
+    strip_looks = looks(doc, doc.validate(), STATE)
+    live = tuple(file_state(strip_look) for strip_look in strip_looks)
+    edited = (True,) + (False,) * 7
+
+    result = faces(strip_looks, snapshot_of(live), edited)
+    assert [(face.live, face.edited) for face in result[:2]] == [(False, True), (True, False)]
+    assert result[1].state is live[1]
+    # without the daemon, from the file; strips that wait for an application are dimmed
+    offline = faces(strip_looks, None, (False,) * 8)
+    assert not any(face.live for face in offline)
+    assert [face.dimmed for face in offline[:2]] == [False, True]
+
+
+@pytest.mark.parametrize(
+    ("position", "mode", "lit"),
+    [
+        (0, "wrap", set()),
+        (3, "dot", {3}),
+        (15, "dot", {11}),
+        (4, "wrap", {1, 2, 3, 4}),
+        (8, "boost_cut", {6, 7, 8}),
+        (4, "boost_cut", {4, 5, 6}),
+        (1, "spread", {6}),
+        (3, "spread", {4, 5, 6, 7, 8}),
+        (11, "spread", set(range(1, 12))),
+    ],
+)
+def test_a_ring_lights_like_the_device(position: int, mode: str, lit: set[int]):
+    assert ring_leds(position, mode) == lit
+
+
+def test_a_meter_lights_its_segments():
+    assert [meter_segments(level, 8) for level in (0, 1, 6, 11, 12)] == [0, 1, 4, 8, 8]

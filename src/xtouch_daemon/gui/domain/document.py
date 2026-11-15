@@ -52,6 +52,20 @@ class StripDraft:
 
 
 @dataclass(frozen=True)
+class DocumentState:
+    """Everything the editor changes in a document, for undo (see `ConfigDocument.state()`)."""
+
+    sections: dict[str, dict[str, Any] | None]
+    aliases: list[tuple[str, str]]
+    strips: list[StripDraft]
+    extra: dict[str, Any]
+
+    def data(self) -> dict[str, Any]:
+        """What the configuration is in this state, as `ConfigDocument.data()` (to compare states)."""
+        return {"sections": self.sections, "aliases": self.aliases, "strips": [strip.values for strip in self.strips]}
+
+
+@dataclass(frozen=True)
 class Validation:
     config: Config | None
     """The configuration, None while it has problems."""
@@ -109,6 +123,11 @@ class ConfigDocument:
         self.extra: dict[str, Any] = data
         """Top-level keys that are no section of the configuration: errors, which the user can only remove."""
         self._saved = self.data()
+        try:
+            self.saved_config: Config | None = Config.model_validate(self._saved)
+            """The configuration in the file (the example without one), None when it has errors."""
+        except ValidationError:
+            self.saved_config = None
 
     # -- the data -------------------------------------------------------------------------------------------------
 
@@ -130,6 +149,12 @@ class ConfigDocument:
     def modified(self) -> bool:
         """Whether something changed since the file was read or saved."""
         return self.data() != self._saved
+
+    def strip_changed(self, index: int) -> bool:
+        """Whether the strip at `index` (0..7) is not the one of the file there, e.g. edited, added or moved."""
+        saved: list[dict[str, Any]] = self._saved.get("strip", [])
+        current = self.strips[index].values if index < len(self.strips) else None
+        return current != (saved[index] if index < len(saved) else None)
 
     @property
     def restart_sections(self) -> tuple[str, ...]:
@@ -218,6 +243,16 @@ class ConfigDocument:
         strip.values = {"type": strip_type} | {
             name: value for name, value in strip.values.items() if name in known and name != "type"
         }
+
+    def state(self) -> DocumentState:
+        """A copy of what the editor changes, to go back to with `restore()`."""
+        return DocumentState(
+            copy.deepcopy(self.sections), list(self.aliases), copy.deepcopy(self.strips), copy.deepcopy(self.extra)
+        )
+
+    def restore(self, state: DocumentState) -> None:
+        state = copy.deepcopy(state)
+        self.sections, self.aliases, self.strips, self.extra = state.sections, state.aliases, state.strips, state.extra
 
     # -- the file -------------------------------------------------------------------------------------------------
 

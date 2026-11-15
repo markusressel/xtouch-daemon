@@ -1,4 +1,7 @@
-"""How the strips of a configuration look on the device: the label and color of each LCD, for the preview."""
+"""
+How the strips look on the device, for the preview: what a configuration makes of them (the label and color of each
+LCD), or what the running daemon shows right now (its live view), and which of the two the preview shows per strip.
+"""
 
 from dataclasses import dataclass
 from typing import Any
@@ -8,6 +11,8 @@ from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import STRIP_TYPES
 from xtouch_daemon.gui.domain.document import ConfigDocument, Validation
 from xtouch_daemon.gui.domain.schema import Kind, strip_options
+from xtouch_daemon.live import Snapshot, StripState
+from xtouch_daemon.protocol import RingMode
 
 
 @dataclass(frozen=True)
@@ -97,3 +102,77 @@ def looks(document: ConfigDocument, validation: Validation, state: AudioState) -
         problems = len(validation.at("strip", index)) if configured else 0
         result.append(StripLook(kind, label, detail, color, configured, problems))
     return tuple(result)
+
+
+SECOND_LINES = {"output": "100%", "input": "100%", "apps": "idle"}
+"""What the second line of the LCD shows in the preview of a file, which knows no volumes."""
+FILE_FADER = 0.7
+"""Where the preview of a file puts the faders of strips that control something."""
+
+
+@dataclass(frozen=True)
+class StripFace:
+    """What the preview paints for a strip: how the configuration describes it, and what its LCD, LEDs etc. show."""
+
+    look: StripLook
+    state: StripState
+    live: bool
+    """Whether `state` is what the device shows right now; otherwise it is what the configuration would show."""
+    edited: bool
+    """Whether the strip has unsaved changes: then `state` shows them, not the device."""
+    dimmed: bool
+    """Whether the strip is dark on the device most of the time (an `auto` strip waits for an application)."""
+
+
+def file_state(look: StripLook) -> StripState:
+    """What a strip shows going by its configuration alone: its label on its color, the fader somewhere up."""
+    controls = look.kind not in ("empty", "?")
+    return StripState(
+        color=look.color,
+        text=(look.label, SECOND_LINES.get(look.kind, "")),
+        leds={button.name.lower(): "off" for button in protocol.Button},
+        ring=8 if controls else 0,
+        ring_mode="wrap",
+        fader=FILE_FADER if controls else 0.0,
+        touched=False,
+        meter=0,
+    )
+
+
+def faces(looks: tuple[StripLook, ...], snapshot: Snapshot | None, edited: tuple[bool, ...]) -> tuple[StripFace, ...]:
+    """
+    The strips for the preview: live while the daemon tells what the device shows (`snapshot`), except the ones with
+    unsaved changes, which show how they will look; without the daemon all of them as the configuration has them.
+    """
+    result: list[StripFace] = []
+    for index, (strip_look, changed) in enumerate(zip(looks, edited, strict=True)):
+        if snapshot is not None and not changed:
+            result.append(StripFace(strip_look, snapshot.strips[index], live=True, edited=False, dimmed=False))
+        else:
+            dimmed = not strip_look.configured or strip_look.kind == "auto"
+            result.append(StripFace(strip_look, file_state(strip_look), live=False, edited=changed, dimmed=dimmed))
+    return tuple(result)
+
+
+def ring_leds(position: int, mode: str) -> frozenset[int]:
+    """The LEDs (1..RING_MAX, from the left) a ring lights for a position, like the device does in each mode."""
+    if position <= 0:
+        return frozenset()
+    position = min(position, protocol.RING_MAX)
+    center = (protocol.RING_MAX + 1) // 2
+    ring_mode = RingMode[mode.upper()]
+    if ring_mode == RingMode.DOT:
+        lit = range(position, position + 1)
+    elif ring_mode == RingMode.BOOST_CUT:
+        lit = range(min(position, center), max(position, center) + 1)
+    elif ring_mode == RingMode.WRAP:
+        lit = range(1, position + 1)
+    else:
+        spread = min(position, center) - 1
+        lit = range(center - spread, center + spread + 1)
+    return frozenset(lit)
+
+
+def meter_segments(level: int, segments: int) -> int:
+    """How many of the `segments` LEDs of a meter a level (0..METER_MAX) lights."""
+    return -(-level * segments // protocol.METER_MAX)
