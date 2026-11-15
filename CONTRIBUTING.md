@@ -27,7 +27,7 @@ just check       # runs everything CI runs
 
 Optional: `uvx pre-commit install` runs ruff before every commit.
 
-In PyCharm, use `.venv` as the interpreter. `.run/` holds run configurations for `run`, `test`, `check-config`,
+In PyCharm, use `.venv` as the interpreter. `.run/` holds run configurations for `run`, `gui`, `test`, `check-config`,
 `list-apps` and the tests; they run `python -m xtouch_daemon`. Stop the service first
 (`systemctl --user stop xtouch-daemon`): only one program can use the device at a time.
 
