@@ -108,8 +108,17 @@ itself does not import it.
 
 - **Toolkit-free domain, thin widgets.** `gui/domain` decides everything: `ConfigDocument` holds the file as plain
   values, validates it with the pydantic models (the same messages as `check-config`), and saves it. `looks()` says
-  how each strip appears on the device, `sources` turns sound server snapshots into suggestions, `apply()` decides
+  how each strip appears on the device and `faces()` whether the preview shows it live or from the file, `status`
+  whether the device runs the saved file, `sources` turns sound server snapshots into suggestions, `apply()` decides
   between reload, restart and "the daemon does not run". `gui/qt` only shows that and passes edits back.
+- **What applies where.** The strips on top show the device (see [Live view](#live-view)) and are how a strip is
+  picked: a click, the arrow keys, dragging (Escape cancels) or Ctrl+arrows to move it, a context menu. Below them one
+  tab holds the options of the selected strip and another the global settings (`[behavior]`, `[aliases]`, `[mqtt]` as
+  "Home Assistant", `[device]`), so a global setting never looks like one of the selected strip. A strip with unsaved
+  changes shows how it will look (marked with a dot), the others stay live.
+- **Undo instead of questions.** `History` (`gui/domain/history.py`) keeps the states of the document before every
+  edit, so removing a strip or reverting the file asks nothing and Ctrl+Z brings it back. Typing into one option is one
+  step. Ctrl+Z undoes in the document also while a text field has the focus.
 - **Forms from the models.** `schema.py` reads the options of every section and strip type from the pydantic models:
   the type picks the widget (switch, number, choice, color swatches, list chips, masked secret, file), the attribute
   docstrings become the help, `Field` constraints the ranges. A new option or strip type needs no GUI code.

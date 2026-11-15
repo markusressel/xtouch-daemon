@@ -1,4 +1,7 @@
-"""The pages of the editor: a strip, a section of options (`[device]`, `[behavior]`, `[mqtt]`), and the aliases."""
+"""
+The pages of the editor: the selected strip, and the global settings: a section of options (`[behavior]`, `[mqtt]`,
+`[device]`) and the aliases.
+"""
 
 from collections.abc import Callable
 from typing import Any
@@ -19,6 +22,14 @@ from xtouch_daemon.gui.qt.fields import OptionRow, Suggest, completer, flat_butt
 type Audio = Callable[[], AudioState]
 
 TYPE_TITLES = {"homeassistant": "Home Assistant"}
+PAGE_TITLES = {"mqtt": "Home Assistant"}
+"""The names of the global settings for people: the MQTT broker is how Home Assistant is reached."""
+GLOBAL_PAGES = ("behavior", "aliases", "mqtt", "device")
+"""The global settings, the ones changed most often first: `[device]` is set once, if ever."""
+
+
+def page_title(name: str) -> str:
+    return PAGE_TITLES.get(name, name.capitalize())
 
 
 def type_title(strip_type: str) -> str:
@@ -99,7 +110,8 @@ class SectionPage(Page):
         self._clear()
         name = self.section.name
         header = QHBoxLayout()
-        header.addWidget(label(f"[{name}]", "section"))
+        header.addWidget(label(page_title(name), "section"))
+        header.addWidget(label(f"[{name}]", "hint"))
         header.addStretch()
         present = self.document.has_section(name)
         if self.section.optional and present:
@@ -177,10 +189,16 @@ class StripPage(Page):
         audio: Audio,
         on_edit: Callable[[], None],
         on_strips: Callable[[int], None],
+        show_page: Callable[[str], None],
+        remove: Callable[[int], None],
     ):
         super().__init__(document, audio, on_edit)
         self.on_strips = on_strips
-        """Called after strips were added, removed, moved or changed type, with the strip to select."""
+        """Called after strips were added, moved or changed type, with the strip to select."""
+        self.show_page = show_page
+        """Shows one of the global settings, e.g. the Home Assistant connection a `homeassistant` strip uses."""
+        self.remove = remove
+        """Removes a strip."""
         self.index = 0
 
     @property
@@ -209,9 +227,10 @@ class StripPage(Page):
             remove = QPushButton(theme.icon("delete-outline", theme.current_colors().error), "Remove")
             theme.set_role(remove, "danger", "variant")
             remove.setToolTip("Remove the strip: the strips right of it move left, free places are auto strips")
-            remove.clicked.connect(self._remove)
+            remove.clicked.connect(lambda: self.remove(self.index))
             header.addWidget(remove)
         self.layout_.addWidget(row(header))
+        self.layout_.addWidget(label(f"These options apply to strip {index + 1} alone.", "hint"))
         if self.configured:
             self._configured()
         else:
@@ -259,6 +278,8 @@ class StripPage(Page):
         self.layout_.addWidget(self.problem)
         if strip_type is None or strip_type not in models:
             return
+        if strip_type == "homeassistant":
+            self.layout_.addWidget(self._connection())
         frame, layout = card()
         suggest: dict[str, Suggest] = {"match": lambda: sources.patterns(self.audio())}
         placeholders: dict[str, Callable[[], str]] = {"label": self._default_label}
@@ -284,6 +305,25 @@ class StripPage(Page):
         if not rows:
             layout.addWidget(label("An empty strip has no options.", "hint"))
         self.layout_.addWidget(frame)
+
+    def _connection(self) -> QFrame:
+        """Where the connection to Home Assistant is: a global setting, shared by every `homeassistant` strip."""
+        frame, layout = card()
+        line = QHBoxLayout()
+        if self.document.has_section("mqtt"):
+            host = self.document.get(("mqtt", "host"))
+            text = f"Connects to Home Assistant through the MQTT broker {host or '(no host yet)'}, like every "
+            text += "Home Assistant strip."
+            button = QPushButton(theme.icon("cog-outline"), "Connection settings")
+        else:
+            text = "Home Assistant strips need the connection to the MQTT broker of Home Assistant, a global setting."
+            button = QPushButton(theme.icon("plus", "white"), "Set up the connection")
+            theme.set_role(button, "primary", "variant")
+        line.addWidget(label(text, wrap=True), 1)
+        button.clicked.connect(lambda: self.show_page("mqtt"))
+        line.addWidget(button)
+        layout.addWidget(row(line))
+        return frame
 
     def _default_label(self) -> str:
         values = dict(self.document.strips[self.index].values)
@@ -313,10 +353,6 @@ class StripPage(Page):
         self.document.move_strip(self.index, target)
         self.on_strips(target)
 
-    def _remove(self) -> None:
-        self.document.remove_strip(self.index)
-        self.on_strips(self.index)
-
     def show_problems(self, validation: Validation) -> None:
         if not self.configured:
             return
@@ -343,7 +379,11 @@ class AliasesPage(Page):
     def reload(self) -> None:
         self._clear()
         self.edits = []
-        self.layout_.addWidget(label("[aliases]", "section"))
+        header = QHBoxLayout()
+        header.addWidget(label(page_title("aliases"), "section"))
+        header.addWidget(label("[aliases]", "hint"))
+        header.addStretch()
+        self.layout_.addWidget(row(header))
         description = Config.model_fields["aliases"].description or ""
         self.layout_.addWidget(help_label(description.split(":")[0] + ".", "hint"))
         frame, layout = card()

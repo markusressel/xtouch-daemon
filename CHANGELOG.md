@@ -31,5 +31,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and shows, installs, starts and restarts the service.
 - `xtouch-daemon run` notes its process and configuration file in `$XDG_RUNTIME_DIR/xtouch-daemon.json` while it runs,
   and a second one does not start.
+- The GUI shows the strips live, as the device shows them (LCDs, LEDs, rings, faders, meters), from the running
+  daemon, which serves them on `$XDG_RUNTIME_DIR/xtouch-daemon.sock`, and says whether the device runs the saved file.
+  Global settings have a tab of their own, apart from the options of the selected strip. A dragged strip leaves its
+  place and the others make room (Escape cancels); strips also move with Ctrl+arrows and their context menu. Every edit
+  can be undone (Ctrl+Z), also removing a strip and reverting the file.
 
 [0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/v0.1.0
