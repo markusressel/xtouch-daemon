@@ -13,6 +13,7 @@ from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config import Config
+from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
@@ -35,9 +36,10 @@ class Mixer:
         clock: Callable[[], float] = time.monotonic,
         capture_command: str = PW_RECORD,
         bridge: MqttBridge | None = None,
+        players: MediaPlayers | None = None,
     ):
         self.bridge = bridge
-        env = StripEnv(backend, config.behavior, bridge)
+        env = StripEnv(backend, config.behavior, bridge, players)
         self.state: AudioState = DISCONNECTED
         self.controllers: list[StripController] = [
             build_strip(strip_config, strip, env, config.aliases)

@@ -18,6 +18,7 @@ from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config import Config, parse_config
 from xtouch_daemon.daemon import Daemon
+from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import Button, Color, Led
@@ -52,9 +53,16 @@ def config_path(tmp_path: Path) -> Path:
     return path
 
 
-def quiet_mixer(surface: Surface, backend: AudioBackend, config: Config, *, bridge: MqttBridge | None) -> Mixer:
+def quiet_mixer(
+    surface: Surface,
+    backend: AudioBackend,
+    config: Config,
+    *,
+    bridge: MqttBridge | None,
+    players: MediaPlayers | None = None,
+) -> Mixer:
     # meters that capture nothing: the tests don't touch the audio of the machine they run on
-    return Mixer(surface, backend, config, capture_command="true", bridge=bridge)
+    return Mixer(surface, backend, config, capture_command="true", bridge=bridge, players=players)
 
 
 def make(config_path: Path, surface: RecordingSurface, backend: FakeBackend) -> Daemon:
@@ -430,3 +438,32 @@ async def test_nothing_shows_on_the_surface_after_it_was_turned_dark(
         assert strip.text == ["", ""]
         assert all(led == Led.OFF for led in strip.leds.values())
     assert surface.faders(0)[-1] == 0
+
+
+async def test_the_media_players_follow_while_the_daemon_runs_and_go_to_every_mixer(
+    config_path: Path, surface: RecordingSurface, backend: FakeBackend
+) -> None:
+    class Players:
+        players = ()
+        running = asyncio.Event()
+
+        async def run(self) -> None:
+            self.running.set()
+            await asyncio.Event().wait()
+
+    players = Players()
+    daemon = Daemon(
+        parse_config(config_path.read_text()),
+        backend,
+        surface,
+        config_path,
+        mixer_factory=quiet_mixer,
+        players=players,  # type: ignore[arg-type]
+    )
+    assert daemon.mixer.controllers[0].env.players is players
+    task = asyncio.create_task(daemon.run())
+    await asyncio.wait_for(players.running.wait(), 1)
+    assert daemon.reload()
+    assert daemon.mixer.controllers[0].env.players is players
+    daemon.stop()
+    await task

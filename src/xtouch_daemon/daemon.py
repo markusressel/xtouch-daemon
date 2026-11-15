@@ -18,6 +18,7 @@ from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import Config, ConfigError, load_config
 from xtouch_daemon.live import LiveServer, Snapshot, fingerprint, strip_states
+from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.surface import Surface
@@ -30,7 +31,13 @@ SHUTDOWN_TIMEOUT = 4.0
 
 class MixerFactory(Protocol):
     def __call__(
-        self, surface: Surface, backend: AudioBackend, config: Config, *, bridge: MqttBridge | None
+        self,
+        surface: Surface,
+        backend: AudioBackend,
+        config: Config,
+        *,
+        bridge: MqttBridge | None,
+        players: MediaPlayers | None,
     ) -> Mixer: ...
 
 
@@ -44,11 +51,14 @@ class Daemon:
         mixer_factory: MixerFactory = Mixer,
         bridge: MqttBridge | None = None,
         live_socket: Path | None = None,
+        players: MediaPlayers | None = None,
     ):
         """
         `bridge` is by default the one of the [mqtt] section, if there is one. `live_socket` is where the live view
-        for the GUI is served (see `live.py`), None for none.
+        for the GUI is served (see `live.py`), None for none. `players` are the media players of the session, for
+        `encoder = "media"`.
         """
+        self.players = players
         self.config = config
         self.config_path = config_path
         self.backend = backend
@@ -57,7 +67,7 @@ class Daemon:
         if self.bridge is not None:
             self.bridge.on_connection = self._on_mqtt_connection
         self._mixer_factory = mixer_factory
-        self.mixer = mixer_factory(self.surface, backend, config, bridge=self.bridge)
+        self.mixer = mixer_factory(self.surface, backend, config, bridge=self.bridge, players=players)
         self._background: set[asyncio.Task[None]] = set()
         self._stop = asyncio.Event()
         self._mixer_task: asyncio.Task[None] | None = None
@@ -89,7 +99,7 @@ class Daemon:
         state = self.mixer.state
         self.mixer.close()
         self.config = config
-        self.mixer = self._mixer_factory(self.surface, self.backend, config, bridge=self.bridge)
+        self.mixer = self._mixer_factory(self.surface, self.backend, config, bridge=self.bridge, players=self.players)
         # the sound server reports again only once something changes
         self.mixer.on_state(state)
         self._start_mixer()
@@ -112,6 +122,8 @@ class Daemon:
         if self.live is not None:
             # not one of the parts: the daemon works without it
             self._in_background(self.live.run(), "live view")
+        if self.players is not None:
+            self._in_background(self.players.run(), "media players")
         systemd.notify("READY=1", self._status())
         _LOGGER.info(f"Running with {len(self.mixer.controllers)} strips, waiting for {self.config.device.name}")
         stopped = asyncio.create_task(self._stop.wait())

@@ -4,6 +4,8 @@ What the encoder of a volume strip does (its `encoder` option): a knob turns, is
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 from typing import TYPE_CHECKING
 
@@ -11,11 +13,16 @@ from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.protocol import RING_MAX, RingMode
 
 if TYPE_CHECKING:
-    from xtouch_daemon.strips.apps import AutoStrip
+    from xtouch_daemon.media import Player
+    from xtouch_daemon.strips.apps import AppStrip, AutoStrip
     from xtouch_daemon.strips.base import VolumeStrip
 
 _LOGGER = logging.getLogger(__name__)
 
+SEEK_STEP = 5.0
+"""Seconds one step of the encoder seeks in a track."""
+PROGRESS_INTERVAL = 1.0
+"""How often the ring shows how far the track is."""
 BALANCE_STEP = 0.05
 """How far one step of the encoder moves the balance (from the center to one side: 20 steps)."""
 RING_CENTER = (RING_MAX + 1) // 2
@@ -145,3 +152,60 @@ class PickKnob(Knob):
         index, count = position
         fraction = index / (count - 1) if count > 1 else 0.0
         return ring_position(fraction), RingMode.WRAP if slot.pinned else RingMode.DOT
+
+
+class MediaKnob(Knob):
+    """
+    The media player of the applications of the strip (MPRIS, see `media.py`): turning seeks by `SEEK_STEP`, a push
+    plays or pauses, and the ring shows how far the track is. Nothing for applications without a player.
+    """
+
+    def __init__(self, owner: AppStrip):
+        super().__init__(owner)
+        self.apps = owner
+        self.progress: float | None = None
+        self._poller: asyncio.Task[None] | None = None
+
+    def player(self) -> Player | None:
+        players = self.apps.env.players
+        if players is None:
+            return None
+        from xtouch_daemon.media import player_of
+
+        return player_of(players.players, self.apps.streams.values())
+
+    def turn(self, steps: int) -> None:
+        players, player = self.apps.env.players, self.player()
+        if players is not None and player is not None:
+            self.apps.run_command(players.seek(player, steps * SEEK_STEP), "seek")
+
+    def push(self, pressed: bool) -> None:
+        players, player = self.apps.env.players, self.player()
+        if pressed and players is not None and player is not None:
+            self.apps.run_command(players.play_pause(player), "play/pause")
+
+    def ring(self) -> tuple[int, RingMode]:
+        if self._poller is None and self.apps.env.players is not None:
+            self._poller = asyncio.create_task(self._poll(), name=f"strip {self.apps.strip.index + 1}: track")
+        if self.progress is None:
+            return 0, RingMode.DOT
+        return ring_position(self.progress), RingMode.DOT
+
+    async def _poll(self) -> None:
+        players = self.apps.env.players
+        assert players is not None, "polls only with players"
+        while True:
+            player = self.player() if self.apps.active else None
+            progress = None
+            if player is not None:
+                with contextlib.suppress(AudioCommandError):
+                    progress = await players.progress(player)
+            if progress != self.progress:
+                self.progress = progress
+                if self.apps.active:
+                    self.apps.strip.set_ring(*self.ring())
+            await asyncio.sleep(PROGRESS_INTERVAL)
+
+    def close(self) -> None:
+        if self._poller is not None:
+            self._poller.cancel()

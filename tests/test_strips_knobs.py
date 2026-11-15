@@ -10,7 +10,7 @@ from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip
 from xtouch_daemon.strips.base import StripEnv
 from xtouch_daemon.strips.device import DeviceStrip
-from xtouch_daemon.strips.knobs import BalanceKnob, Knob, VolumeKnob, ring_position
+from xtouch_daemon.strips.knobs import BalanceKnob, Knob, MediaKnob, VolumeKnob, ring_position
 
 
 def device(surface: RecordingSurface, env: StripEnv, direction: Direction = Direction.OUTPUT) -> DeviceStrip:
@@ -149,7 +149,7 @@ async def test_a_balance_for_a_device_that_went_away_is_dropped(
     [
         (DeviceStripConfig(type="output"), BalanceKnob),
         (DeviceStripConfig(type="input", encoder="volume"), VolumeKnob),
-        (AppsStripConfig(type="apps", match=("a",), label="A"), VolumeKnob),
+        (AppsStripConfig(type="apps", match=("a",), label="A"), MediaKnob),
         (AutoStripConfig(type="auto", encoder="balance"), BalanceKnob),
     ],
 )

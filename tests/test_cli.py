@@ -9,6 +9,7 @@ from xtouch_daemon import __version__, cli, instance, systemd
 from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.config import Config, parse_config
+from xtouch_daemon.media import MprisPlayers
 
 CONFIG = """
 [aliases]
@@ -284,9 +285,13 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
     levels: list[int] = []
 
     class FakeDaemon:
-        def __init__(self, config: Config, backend: object, config_path: Path | None, live_socket: Path) -> None:
+        def __init__(
+            self, config: Config, backend: object, config_path: Path | None, live_socket: Path, players: object
+        ) -> None:
             started.append((config, config_path))
             sockets.append(live_socket)
+            # the media players of the session
+            assert isinstance(players, MprisPlayers)
 
         async def run(self) -> None:
             pass
@@ -307,7 +312,9 @@ def test_run_says_that_it_runs_and_a_second_one_does_not_start(
     seen: list[instance.Instance | None] = []
 
     class FakeDaemon:
-        def __init__(self, config: Config, backend: object, config_path: Path | None, live_socket: Path) -> None:
+        def __init__(
+            self, config: Config, backend: object, config_path: Path | None, live_socket: Path, players: object
+        ) -> None:
             pass
 
         async def run(self) -> None:

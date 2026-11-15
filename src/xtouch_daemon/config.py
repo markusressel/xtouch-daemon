@@ -43,17 +43,18 @@ records at all (applications); `playing`: audio flows; `default`: the device is 
 """
 
 
-EncoderMode = Literal["volume", "balance", "pick"]
+EncoderMode = Literal["volume", "balance", "pick", "media"]
 """
 What the encoder of a strip does: `volume`: fine steps, a push resets it; `balance`: left/right, a push centers it;
-`pick` (`auto` strips): which application the strip has, a push pins it.
+`pick` (`auto` strips): which application the strip has, a push pins it; `media` (applications): seeks in the track
+of their media player, a push plays or pauses.
 """
 
 ENCODERS: dict[str, tuple[EncoderMode, ...]] = {
     "output": ("balance", "volume"),
     "input": ("balance", "volume"),
-    "apps": ("volume", "balance"),
-    "auto": ("pick", "volume", "balance"),
+    "apps": ("media", "volume", "balance"),
+    "auto": ("pick", "media", "volume", "balance"),
 }
 """The encoders of each strip type, its default first."""
 
@@ -125,7 +126,7 @@ class _StripConfig(_Model):
     max_volume: Volume | None = None
     """The volume of the fader at the top, in percent; by default `behavior.max_volume`."""
     encoder: EncoderMode | None = None
-    """What the encoder does; by default `balance` for devices, `volume` for `apps`, `pick` for `auto` strips."""
+    """What the encoder does; by default `balance` for devices, `media` for `apps`, `pick` for `auto` strips."""
 
     @model_validator(mode="after")
     def _encoder_of_the_type(self) -> _StripConfig:

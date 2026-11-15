@@ -34,6 +34,7 @@ label = "Speaker"
 type = "apps"
 label = "Browser"
 match = ["brave", "firefox"]
+encoder = "volume"
 
 [[strip]]
 type = "empty"

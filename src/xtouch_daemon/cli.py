@@ -25,6 +25,7 @@ from xtouch_daemon.config import (
     load_config,
 )
 from xtouch_daemon.daemon import Daemon
+from xtouch_daemon.media import MprisPlayers
 from xtouch_daemon.selftest import run_selftest
 
 CONFIG_OPTION = click.option(
@@ -71,7 +72,13 @@ def run(config_path: Path | None, log_level: str) -> None:
     systemd.setup_logging(getattr(logging, log_level.upper()))
     config = _load(config_path)
     try:
-        daemon = Daemon(config, PulseBackend(), config_path=config_path, live_socket=instance.socket_file())
+        daemon = Daemon(
+            config,
+            PulseBackend(),
+            config_path=config_path,
+            live_socket=instance.socket_file(),
+            players=MprisPlayers(),
+        )
     except ConfigError as e:
         # e.g. the file with the MQTT password is missing
         raise click.ClickException(str(e)) from e

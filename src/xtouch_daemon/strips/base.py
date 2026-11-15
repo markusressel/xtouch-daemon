@@ -10,6 +10,7 @@ from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import BehaviorConfig, EncoderMode, Indicator
+from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.strips.knobs import BalanceKnob, Knob, VolumeKnob, ring_position
@@ -26,6 +27,8 @@ class StripEnv:
     behavior: BehaviorConfig
     bridge: MqttBridge | None = None
     """The MQTT broker of Home Assistant, with an [mqtt] section."""
+    players: MediaPlayers | None = None
+    """The media players of the session, for `encoder = "media"`."""
 
 
 class StripController:

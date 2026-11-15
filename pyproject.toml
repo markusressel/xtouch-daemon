@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
     "aiomqtt>=2.5",
     "click>=8.1",
+    "dbus-fast>=5.2.0",
     "haad-mqtt-autodiscovery",
     "pulsectl-asyncio>=1.2",
     "pydantic>=2.7",

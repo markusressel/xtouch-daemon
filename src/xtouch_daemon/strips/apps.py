@@ -10,7 +10,7 @@ from xtouch_daemon.audio.model import AudioState, Stream
 from xtouch_daemon.config import EncoderMode, Indicator
 from xtouch_daemon.protocol import Button, Color
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
-from xtouch_daemon.strips.knobs import Knob, PickKnob
+from xtouch_daemon.strips.knobs import Knob, MediaKnob, PickKnob
 from xtouch_daemon.surface import Strip
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,6 +50,9 @@ class AppStrip(VolumeStrip):
 
     def inactive_text(self) -> str:
         return "idle"
+
+    def make_knob(self, encoder: EncoderMode) -> Knob:
+        return MediaKnob(self) if encoder == "media" else super().make_knob(encoder)
 
     def playing(self, state: AudioState) -> bool:
         return any(stream.playing for stream in self.streams_in(state))
