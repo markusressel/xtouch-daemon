@@ -6,6 +6,7 @@ context menu has the rest.
 """
 
 from dataclasses import dataclass
+from itertools import pairwise
 from math import cos, radians, sin
 
 from PyQt6.QtCore import (
@@ -39,12 +40,13 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QGraphicsOpacityEffect, QMenu, QWidget
 
 from xtouch_daemon import protocol
-from xtouch_daemon.gui.domain.looks import StripFace, StripLook, faces, meter_segments, ring_leds
+from xtouch_daemon.gui.domain.looks import StripFace, StripLook, faces, meter_leds, ring_leds
 from xtouch_daemon.gui.qt import theme
 
 KIND_NAMES = {"homeassistant": "Home Assistant", "?": "no type"}
 WIDTH = 104
-HEIGHT = 300
+HEIGHT = 480
+"""A strip, in logical pixels: narrower than the device (about 1:8), mostly to leave room for the editor below."""
 SPACING = 6
 MARGIN_X = 14
 MARGIN_Y = 12
@@ -58,23 +60,111 @@ LIFTED_OPACITY = 0.8
 
 HW = theme.HARDWARE
 BUTTONS = (("REC", HW.rec), ("SOLO", HW.solo), ("MUTE", HW.mute), ("SELECT", HW.select))
-METER_SEGMENTS = 8
 STRIP_RADIUS = 8
 PANEL_RADIUS = 14
 DIM = 0.19
 """How bright a dimmed backlight is: LCD_TEXT_DIM keeps 6:1 on every color."""
 LCD_TEXT_DIM = "#c8ccd2"
-KEY_TINT = 0.2
-"""How much of its LED color an unlit button shows; its label (LABEL_TINT of the color) keeps 6.3:1 on it."""
-LABEL_TINT = 0.25
+KEY_TINT = 0.08
+"""How much of its LED color an unlit button shows: the device has gray buttons, the tint hints at their color."""
 LED_OFF_TINT = 0.18
 UNCONFIGURED_OPACITY = 0.8
 """Strips after the configured ones are drawn fainter: their texts keep 4.6:1 (LCD) to 6.6:1 (printed)."""
+
+# -- the layout of a strip, top to bottom like on the device, in the coordinates of the strip ------------------------
+
+CENTER_X = WIDTH / 2
+NUMBER = QRectF(0, 4, WIDTH, 12)
+"""The number of the strip, printed above the encoder."""
+ENCODER = QPointF(CENTER_X, 44)
+RING_LEDS = 13
+"""The ring has 13 LEDs; the 11 positions of Mackie Control light the middle ones (position 6 at the top)."""
+RING_SPAN = 300
+"""The angle the LEDs of the ring cover, open at the bottom."""
+RING_RADII = (20.5, 25.5)
+"""Where the LEDs of the ring start and end, from the center of the encoder."""
+LCD = QRectF(8, 80, WIDTH - 16, 44)
+KIND = QRectF(3, 126, WIDTH - 6, 13)
+"""The type of the strip, printed under the LCD (the device has nothing there)."""
+BUTTON_TOP = 143
+BUTTON_PITCH = 29
+"""The buttons are one above the other, each with its name printed under it."""
+BUTTON_SIZE = QSizeF(36, 18)
+METER = QRectF(13, BUTTON_TOP - 1, 9, 3 * BUTTON_PITCH + BUTTON_SIZE.height() + 2)
+"""The window of the meter, left of the buttons: from the top of REC to the bottom of SELECT."""
+METER_LEDS = 8
+"""
+8 LEDs from the bottom: 4 green and 3 orange for the level, and the red overload LED at the top (labeled CLIP; the
+bottom one SIG). The live view does not tell the overload, so it stays dark.
+"""
+METER_GREEN = 4
+SLOT = QRectF(CENTER_X - 2.5, 270, 5, 186)
+"""The slot of the fader."""
+TRAVEL = (SLOT.top() + 7, SLOT.bottom() - 7)
+"""Where the middle of the cap is at the top (1) and at the bottom (0) of the travel."""
+CAP_SIZE = QSizeF(34, 30)
+STRIP_TAG = QRectF(CENTER_X - 7, HEIGHT - 22, 14, 12)
+"""The number of the strip again, on a light tag at the bottom."""
+
+
+@dataclass(frozen=True)
+class Mark:
+    """A mark of the scale printed beside a fader."""
+
+    label: str
+    at: float
+    """Where it is, as a fraction of the travel."""
+    ticks: int
+    """How many small ticks are between it and the next mark down."""
+    boxed: bool = False
+    """Whether there is a box instead, as from +5 to -5 dB, where most people put a fader."""
+
+
+SCALE = (
+    Mark("10", 1.0, 4),
+    Mark("5", 0.885, 0, boxed=True),
+    Mark("0", 0.77, 0, boxed=True),
+    Mark("-5", 0.655, 4),
+    Mark("-10", 0.54, 4),
+    Mark("-20", 0.425, 4),
+    Mark("-30", 0.31, 1),
+    Mark("-40", 0.2525, 1),
+    Mark("-50", 0.195, 1),
+    Mark("-60", 0.1375, 1),
+    Mark("-∞", 0.08, 0),
+)
+"""
+The dB scale as printed on the device: equal steps from +10 down to -30 dB, half steps below. 0 dB is at 77 % of the
+travel (`behavior.unity_at`), +10 dB at the top; the steps are measured from photos of the device.
+"""
 
 
 def slot_position(index: int) -> QPoint:
     """Where the strip at `index` sits in the preview."""
     return QPoint(MARGIN_X + index * (WIDTH + SPACING), MARGIN_Y)
+
+
+def travel_y(fraction: float) -> float:
+    """Where the middle of the cap is for a fader at `fraction` (0 at the bottom, 1 at the top)."""
+    top, bottom = TRAVEL
+    return bottom - fraction * (bottom - top)
+
+
+def button_rect(row: int) -> QRectF:
+    """The button in `row` (REC is 0), without its printed name."""
+    left = CENTER_X + 19 - BUTTON_SIZE.width() / 2
+    return QRectF(QPointF(left, BUTTON_TOP + row * BUTTON_PITCH), BUTTON_SIZE)
+
+
+def meter_led(led: int) -> QRectF:
+    """The LED `led` of the meter, 0 at the bottom."""
+    pitch = (METER.height() - 6) / METER_LEDS
+    return QRectF(METER.center().x() - 1.5, METER.bottom() - 3 - (led + 1) * pitch + 1.5, 3, pitch - 3)
+
+
+def ring_angle(led: int) -> float:
+    """The angle of the LED `led` of the ring (0 the first one, at the bottom left), in degrees counterclockwise."""
+    return 90 + RING_SPAN / 2 - led * RING_SPAN / (RING_LEDS - 1)
 
 
 def _mix(color: QColor, base: QColor, amount: float) -> QColor:
@@ -86,17 +176,28 @@ def _mix(color: QColor, base: QColor, amount: float) -> QColor:
     )
 
 
-def _paint_led(painter: QPainter, center: QPointF, radius: float, color: str, lit: bool) -> None:
-    """A round LED: lit with a glow around it, or dark with a hint of its color."""
+def _paint_led(painter: QPainter, start: QPointF, end: QPointF, width: float, color: str, lit: bool) -> None:
+    """An LED, a short bar from `start` to `end` like those of the device: lit with a glow, or dark."""
     led = QColor(color)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
     if lit:
-        glow = QRadialGradient(center, radius * 2.6)
-        glow.setColorAt(0, QColor(led.red(), led.green(), led.blue(), 110))
-        glow.setColorAt(1, QColor(led.red(), led.green(), led.blue(), 0))
-        painter.setBrush(glow)
-        painter.drawEllipse(center, radius * 2.6, radius * 2.6)
-    painter.setBrush(led if lit else _mix(led, QColor(HW.led_off), LED_OFF_TINT))
-    painter.drawEllipse(center, radius, radius)
+        glow = QColor(led)
+        for extra, alpha in ((5, 40), (2.5, 90)):
+            glow.setAlpha(alpha)
+            painter.setPen(QPen(glow, width + extra, cap=Qt.PenCapStyle.RoundCap))
+            painter.drawLine(start, end)
+    painter.setPen(
+        QPen(led if lit else _mix(led, QColor(HW.led_off), LED_OFF_TINT), width, cap=Qt.PenCapStyle.RoundCap)
+    )
+    painter.drawLine(start, end)
+
+
+def _print_font(base: QFont, size: int, weight: QFont.Weight = QFont.Weight.DemiBold) -> QFont:
+    """The font of the fine print on the panel."""
+    font = QFont(base)
+    font.setPixelSize(size)
+    font.setWeight(weight)
+    return font
 
 
 @dataclass
@@ -400,19 +501,20 @@ class StripView(QWidget):
         self._paint_body(painter, body)
         if not look.configured:
             painter.setOpacity(UNCONFIGURED_OPACITY)
-        center = body.center().x()
-        self._paint_encoder(painter, QPointF(center, body.top() + 30), ring_leds(state.ring, state.ring_mode))
-        self._paint_lcd(painter, QRectF(body.left() + 6, body.top() + 57, body.width() - 12, 46))
+        number = str(self.index + 1)
+        painter.setFont(_print_font(self.font(), 10, QFont.Weight.Bold))
+        painter.setPen(QColor(HW.print))
+        painter.drawText(NUMBER, Qt.AlignmentFlag.AlignCenter, number)
+        self._paint_encoder(painter, ring_leds(state.ring, state.ring_mode))
+        self._paint_lcd(painter, LCD)
         kind = KIND_NAMES.get(look.kind, look.kind).upper()
-        self._paint_print(painter, QRectF(body.left(), body.top() + 106, body.width(), 16), kind, look.kind == "?")
+        self._paint_print(painter, KIND, kind, look.kind == "?")
+        self._paint_meter(painter, meter_leds(state.meter))
         for row, (name, color) in enumerate(BUTTONS):
-            rect = QRectF(body.left() + 8, body.top() + 126 + row * 20, 54, 16)
-            self._paint_button(painter, rect, name, color, self._lit(state.leds[name.lower()]))
-        meter = meter_segments(state.meter, METER_SEGMENTS)
-        self._paint_meter(painter, QRectF(body.right() - 22, body.top() + 126, 10, 76), meter)
+            self._paint_button(painter, button_rect(row), name, color, self._lit(state.leds[name.lower()]))
         # not known yet: at the bottom, where the daemon leaves it
-        fader = 0.0 if state.fader is None else state.fader
-        self._paint_fader(painter, QRectF(center - 2.5, body.top() + 214, 5, 68), fader, state.touched)
+        self._paint_fader(painter, 0.0 if state.fader is None else state.fader, state.touched)
+        self._paint_tag(painter, number)
         painter.setOpacity(1)
         if look.problems:
             self._paint_badge(painter, QPointF(body.right() - 9, body.top() + 9), str(look.problems))
@@ -451,28 +553,44 @@ class StripView(QWidget):
         painter.setPen(pen)
         painter.drawRoundedRect(body, STRIP_RADIUS, STRIP_RADIUS)
 
-    def _paint_encoder(self, painter: QPainter, center: QPointF, ring: frozenset[int]) -> None:
-        """The LED ring (`ring`: its lit LEDs, 1..11 from the left), the center LED below it, and the knob."""
-        painter.setPen(Qt.PenStyle.NoPen)
-        for step in range(protocol.RING_MAX):
-            angle = radians(225 - step * 27)
-            point = QPointF(center.x() + 21 * cos(angle), center.y() - 21 * sin(angle))
-            _paint_led(painter, point, 2.2, HW.ring, step + 1 in ring)
-        _paint_led(painter, center + QPointF(0, 20), 1.6, HW.ring, False)
-        # the knob: rubber with a ribbed edge, lit from the top left
-        shading = QRadialGradient(center + QPointF(-4, -5), 16)
-        shading.setColorAt(0, QColor(HW.knob_top))
-        shading.setColorAt(1, QColor(HW.knob_bottom))
-        painter.setBrush(shading)
+    def _paint_encoder(self, painter: QPainter, ring: frozenset[int]) -> None:
+        """
+        The encoder: a gray collar with the 13 LEDs of the ring (`ring`: the lit positions, 1..RING_MAX), and the
+        black knob in it.
+        """
+        center = ENCODER
+        outer = RING_RADII[1] + 3
+        collar = QRadialGradient(center, outer)
+        collar.setColorAt(0.6, QColor(HW.collar_inner))
+        collar.setColorAt(1, QColor(HW.collar_outer))
+        painter.setBrush(collar)
         painter.setPen(QPen(QColor(HW.lcd_bezel), 1))
-        painter.drawEllipse(center, 13.5, 13.5)
-        painter.setPen(QPen(QColor(0, 0, 0, 110), 1))
-        for rib in range(24):
-            angle = radians(rib * 15)
+        painter.drawEllipse(center, outer, outer)
+        # the positions light the middle LEDs: the first and the last one stay dark in Mackie Control
+        offset = (RING_LEDS - protocol.RING_MAX) // 2
+        for led in range(RING_LEDS):
+            angle = radians(ring_angle(led))
+            direction = QPointF(cos(angle), -sin(angle))
+            start, end = center + direction * RING_RADII[0], center + direction * RING_RADII[1]
+            _paint_led(painter, start, end, 2.4, HW.ring, led - offset + 1 in ring)
+        # the knob: black rubber with a ribbed edge around a smooth top, lit from the top left
+        painter.setPen(QPen(QColor(HW.lcd_bezel), 1))
+        side = QRadialGradient(center + QPointF(-5, -6), 22)
+        side.setColorAt(0, QColor(HW.knob_top))
+        side.setColorAt(1, QColor(HW.knob_bottom))
+        painter.setBrush(side)
+        painter.drawEllipse(center, 15.5, 15.5)
+        painter.setPen(QPen(QColor(0, 0, 0, 120), 1))
+        for rib in range(32):
+            angle = radians(rib * 360 / 32)
             direction = QPointF(cos(angle), sin(angle))
-            painter.drawLine(center + direction * 11.5, center + direction * 13)
-        painter.setPen(QPen(QColor(HW.knob_pointer), 2, cap=Qt.PenCapStyle.RoundCap))
-        painter.drawLine(center + QPointF(0, -4), center + QPointF(0, -10))
+            painter.drawLine(center + direction * 12.5, center + direction * 15)
+        top = QRadialGradient(center + QPointF(-3, -4), 14)
+        top.setColorAt(0, QColor(HW.knob_top).lighter(115))
+        top.setColorAt(1, QColor(HW.knob_bottom))
+        painter.setBrush(top)
+        painter.setPen(QPen(QColor(0, 0, 0, 160), 1))
+        painter.drawEllipse(center, 10, 10)
 
     def _paint_lcd(self, painter: QPainter, rect: QRectF) -> None:
         """The LCD: a black bezel, the backlit glass, and 2 lines of 7 character cells, written from the left."""
@@ -514,10 +632,8 @@ class StripView(QWidget):
 
     def _paint_print(self, painter: QPainter, rect: QRectF, text: str, error: bool) -> None:
         """A label printed on the panel, in small capitals; a problem in white on red."""
-        font = QFont(self.font())
-        font.setPixelSize(10 if len(text) < 10 else 9)
+        font = _print_font(self.font(), 10 if len(text) < 10 else 9)
         font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 1.2 if len(text) < 10 else 0.2)
-        font.setWeight(QFont.Weight.DemiBold)
         painter.setFont(font)
         if error:
             painter.setPen(Qt.PenStyle.NoPen)
@@ -528,72 +644,118 @@ class StripView(QWidget):
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
     def _paint_button(self, painter: QPainter, rect: QRectF, name: str, color: str, lit: bool) -> None:
-        """A button with its LED: translucent rubber, tinted in its color when off, glowing when on."""
+        """
+        A button with its LED: translucent gray rubber (with a hint of its color) when off, glowing when on, and its
+        name printed under it.
+        """
         led = QColor(color)
         if lit:
             glow = QColor(led)
             glow.setAlpha(80)
             painter.setPen(QPen(glow, 4))
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRoundedRect(rect, 3, 3)
+            painter.drawRoundedRect(rect, 4, 4)
         body = led if lit else _mix(led, QColor(HW.key), KEY_TINT)
         gradient = QLinearGradient(rect.topLeft(), rect.bottomLeft())
-        gradient.setColorAt(0, body.lighter(110))
-        gradient.setColorAt(1, body.darker(108))
+        gradient.setColorAt(0, body.lighter(112))
+        gradient.setColorAt(1, body.darker(110))
         painter.setBrush(gradient)
-        painter.setPen(QPen(QColor(HW.lcd_bezel), 1))
-        painter.drawRoundedRect(rect, 3, 3)
-        font = QFont(self.font())
-        font.setPixelSize(9)
-        font.setWeight(QFont.Weight.Bold)
-        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.5)
+        painter.setPen(QPen(QColor(HW.lcd_bezel), 1.5))
+        painter.drawRoundedRect(rect, 4, 4)
+        font = _print_font(self.font(), 8, QFont.Weight.Bold)
+        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.4)
         painter.setFont(font)
-        painter.setPen(QColor(theme.LCD_TEXT) if lit else _mix(led, QColor(HW.key_print), LABEL_TINT))
-        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, name)
+        painter.setPen(QColor(HW.print))
+        label = QRectF(rect.left() - 8, rect.bottom() + 1, rect.width() + 16, BUTTON_PITCH - rect.height() - 2)
+        painter.drawText(label, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, name)
 
-    def _paint_meter(self, painter: QPainter, rect: QRectF, level: int) -> None:
-        """The LED meter, `level` of its segments lit from the bottom: green, yellow, and red at the top."""
-        painter.setPen(Qt.PenStyle.NoPen)
-        height = rect.height() / METER_SEGMENTS
-        for segment in range(METER_SEGMENTS):
-            color = QColor(HW.meter_high if segment == 0 else HW.meter_mid if segment < 3 else HW.meter_low)
-            lit = METER_SEGMENTS - segment <= level
-            painter.setBrush(color if lit else _mix(color, QColor(HW.led_off), LED_OFF_TINT))
-            painter.drawRoundedRect(
-                QRectF(rect.left(), rect.top() + segment * height + 1, rect.width(), height - 2), 1.5, 1.5
-            )
-
-    def _paint_fader(self, painter: QPainter, slot: QRectF, fraction: float, touched: bool) -> None:
+    def _paint_meter(self, painter: QPainter, level: int) -> None:
         """
-        The slot with its scale, and the cap at `fraction` (0 at the bottom, 1 at the top): outlined in the accent while
-        a finger is on it, as the motor stays still meanwhile.
+        The LED meter, `level` of its LEDs lit from the bottom: green, orange, and the red overload LED at the top, in
+        a dark window labeled CLIP and SIG.
         """
-        painter.setPen(QPen(QColor(HW.print_dim), 1))
-        for tick in range(11):
-            y = slot.top() + 2 + tick * (slot.height() - 4) / 10
-            # longer at the top, at 0 dB and at the bottom
-            length = 7 if tick in (0, 3, 10) else 4
-            painter.drawLine(QPointF(slot.left() - 7 - length, y), QPointF(slot.left() - 7, y))
-            painter.drawLine(QPointF(slot.right() + 7, y), QPointF(slot.right() + 7 + length, y))
         painter.setPen(QPen(QColor(HW.strip_edge), 1))
         painter.setBrush(QColor(HW.slot))
-        painter.drawRoundedRect(slot, 2.5, 2.5)
-        y = slot.bottom() - 4 - fraction * (slot.height() - 8)
-        cap = QRectF(slot.center().x() - 17, y - 8, 34, 16)
+        painter.drawRoundedRect(METER, 3, 3)
+        for led in range(METER_LEDS):
+            color = HW.meter_high if led == METER_LEDS - 1 else HW.meter_mid if led >= METER_GREEN else HW.meter_low
+            rect = meter_led(led)
+            _paint_led(
+                painter,
+                rect.center() - QPointF(0, rect.height() / 2 - 1.5),
+                rect.center() + QPointF(0, rect.height() / 2 - 1.5),
+                rect.width(),
+                color,
+                led < level,
+            )
+        painter.setFont(_print_font(self.font(), 7, QFont.Weight.Bold))
+        painter.setPen(QColor(HW.print))
+        for text, led in (("CLIP", METER_LEDS - 1), ("SIG", 0)):
+            y = meter_led(led).center().y()
+            painter.drawText(QRectF(METER.right() + 3, y - 5, 26, 10), Qt.AlignmentFlag.AlignVCenter, text)
+
+    def _paint_scale(self, painter: QPainter) -> None:
+        """The dB scale on both sides of the slot: the marks, the ticks between them, and the boxes around 0 dB."""
+        painter.setFont(_print_font(self.font(), 7))
+        # how far the ticks start and end from the middle of the slot; the small ones are shorter at both ends
+        near, far = 5.5, 17.0
+        for side in (-1, 1):
+            for upper, lower in pairwise(SCALE):
+                top, bottom = travel_y(upper.at), travel_y(lower.at)
+                painter.setPen(QPen(QColor(HW.print_dim), 1))
+                if upper.boxed:
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    box = QRectF(QPointF(CENTER_X + side * far, top + 2), QPointF(CENTER_X + side * near, bottom - 2))
+                    painter.drawRoundedRect(box.normalized(), 2.5, 2.5)
+                for tick in range(1, upper.ticks + 1):
+                    y = top + tick * (bottom - top) / (upper.ticks + 1)
+                    painter.drawLine(QPointF(CENTER_X + side * (near + 2), y), QPointF(CENTER_X + side * (far - 3), y))
+        for mark in SCALE:
+            y = travel_y(mark.at)
+            painter.setPen(QPen(QColor(HW.print), 1))
+            for side in (-1, 1):
+                painter.drawLine(QPointF(CENTER_X + side * near, y), QPointF(CENTER_X + side * far, y))
+            label = QRectF(CENTER_X - far - 26, y - 5, 24, 10)
+            painter.drawText(label, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, mark.label)
+
+    def _paint_fader(self, painter: QPainter, fraction: float, touched: bool) -> None:
+        """
+        The scale, the slot, and the metal cap at `fraction` (0 at the bottom, 1 at the top): outlined in the accent
+        while a finger is on it, as the motor stays still meanwhile.
+        """
+        self._paint_scale(painter)
+        painter.setPen(QPen(QColor(HW.strip_edge), 1))
+        painter.setBrush(QColor(HW.slot))
+        painter.drawRoundedRect(SLOT, 2.5, 2.5)
+        y = travel_y(fraction)
+        cap = QRectF(CENTER_X - CAP_SIZE.width() / 2, y - CAP_SIZE.height() / 2, CAP_SIZE.width(), CAP_SIZE.height())
+        # its shadow on the panel
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(0, 0, 0, 130))
-        painter.drawRoundedRect(cap.translated(0, 2.5), 3, 3)
+        painter.setBrush(QColor(0, 0, 0, 120))
+        painter.drawRoundedRect(cap.translated(0, 3), 3, 3)
+        # brushed metal, curved like a saddle: light at the edges, darker towards the line in the middle
         gradient = QLinearGradient(cap.topLeft(), cap.bottomLeft())
         gradient.setColorAt(0, QColor(HW.cap_top))
-        gradient.setColorAt(0.5, QColor(HW.cap_top).darker(115))
-        gradient.setColorAt(1, QColor(HW.cap_bottom))
+        gradient.setColorAt(0.42, QColor(HW.cap_bottom))
+        gradient.setColorAt(0.5, QColor(HW.cap_top))
+        gradient.setColorAt(0.58, QColor(HW.cap_bottom))
+        gradient.setColorAt(1, QColor(HW.cap_top).darker(115))
         painter.setBrush(gradient)
         painter.setPen(QPen(QColor(theme.current_colors().accent), 2) if touched else QPen(QColor(HW.cap_line), 1))
         painter.drawRoundedRect(cap, 3, 3)
-        painter.setPen(QPen(QColor(HW.cap_line), 1.5))
-        painter.drawLine(QPointF(cap.left() + 3, cap.center().y()), QPointF(cap.right() - 3, cap.center().y()))
-        painter.setPen(QPen(QColor(255, 255, 255, 140), 1))
+        painter.setPen(QPen(QColor(HW.cap_line), 1))
+        painter.drawLine(QPointF(cap.left() + 2, cap.center().y()), QPointF(cap.right() - 2, cap.center().y()))
+        painter.setPen(QPen(QColor(255, 255, 255, 150), 1))
         painter.drawLine(QPointF(cap.left() + 3, cap.top() + 1.5), QPointF(cap.right() - 3, cap.top() + 1.5))
+
+    def _paint_tag(self, painter: QPainter, number: str) -> None:
+        """The light tag with the number of the strip at the bottom."""
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(HW.tag))
+        painter.drawRoundedRect(STRIP_TAG, 2.5, 2.5)
+        painter.setFont(_print_font(self.font(), 9, QFont.Weight.Bold))
+        painter.setPen(QColor(HW.tag_text))
+        painter.drawText(STRIP_TAG, Qt.AlignmentFlag.AlignCenter, number)
 
     def _paint_badge(self, painter: QPainter, center: QPointF, text: str) -> None:
         """The number of problems of the strip."""

@@ -12,7 +12,7 @@ from xtouch_daemon.gui.domain.looks import (
     file_state,
     look,
     looks,
-    meter_segments,
+    meter_leds,
     ring_leds,
 )
 from xtouch_daemon.live import Snapshot, StripState
@@ -143,4 +143,4 @@ def test_a_ring_lights_like_the_device(position: int, mode: str, lit: set[int]):
 
 
 def test_a_meter_lights_its_segments():
-    assert [meter_segments(level, 8) for level in (0, 1, 6, 11, 12)] == [0, 1, 4, 8, 8]
+    assert [meter_leds(level) for level in range(13)] == [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7]

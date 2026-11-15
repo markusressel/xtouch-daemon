@@ -191,6 +191,9 @@ def ring_leds(position: int, mode: str) -> frozenset[int]:
     return frozenset(lit)
 
 
-def meter_segments(level: int, segments: int) -> int:
-    """How many of the `segments` LEDs of a meter a level (0..METER_MAX) lights."""
-    return -(-level * segments // protocol.METER_MAX)
+def meter_leds(level: int) -> int:
+    """
+    How many LEDs of the meter a level (0..METER_MAX) lights from the bottom, as measured on the device: one more every
+    two levels, and 7 at the top level. The 8th LED (red, at the top) is the overload LED, which no level lights.
+    """
+    return -(-level // 2) + (level == protocol.METER_MAX)

@@ -8,11 +8,12 @@ import signal
 import tempfile
 import tomllib
 from collections.abc import Callable, Iterator
+from math import cos, radians, sin
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QSettings, Qt
-from PyQt6.QtGui import QColor, QContextMenuEvent, QTextDocument
+from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, QSettings, Qt
+from PyQt6.QtGui import QColor, QContextMenuEvent, QImage, QTextDocument
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QAbstractButton,
@@ -32,10 +33,10 @@ from pytestqt.qtbot import QtBot
 from tests.conftest import output, source, stream
 from tests.test_instance import RecordingInstance
 from tests.test_systemd import FakeSystemctl
-from xtouch_daemon import live
+from xtouch_daemon import live, protocol
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
-from xtouch_daemon.config import MqttConfig
+from xtouch_daemon.config import BehaviorConfig, MqttConfig
 from xtouch_daemon.gui import qt
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.schema import Option, strip_options
@@ -738,21 +739,84 @@ def test_a_revert_can_be_undone(qtbot: QtBot, window: MainWindow):
 # -- the preview: painting ---------------------------------------------------------------------------------------
 
 
+def show_state(view: preview.StripView, **changes: object) -> QImage:
+    """The strip with its state changed, as painted."""
+    face = view.face
+    view.show_face(dataclasses.replace(face, state=dataclasses.replace(face.state, **changes)), False)
+    return view.grab().toImage()
+
+
+def pixel(image: QImage, point: QPointF) -> QColor:
+    """The color at a point of the strip, at any zoom (the image has device pixels)."""
+    return image.pixelColor((point * image.devicePixelRatio()).toPoint())
+
+
 def test_lit_leds_show_their_colors(window: MainWindow):
     view = window.preview.strips[0]
-    mute, meter = QPoint(16, 177), QPoint(84, 200)
-    dark = view.grab().toImage()
-    face = view.face
-    leds = {**face.state.leds, "mute": "on"}
+    mute, meter = preview.button_rect(2).center(), preview.meter_led(1).center()
+    dark = show_state(view, meter=0)
+
     # what the live view shows: Mute lit, the meter a little up
-    view.show_face(dataclasses.replace(face, state=dataclasses.replace(face.state, leds=leds, meter=3)), False)
+    lit = show_state(view, leds={**view.face.state.leds, "mute": "on"}, meter=3)
 
-    lit = view.grab().toImage()
+    assert pixel(lit, meter).lightness() > pixel(dark, meter).lightness() + 60
+    assert pixel(lit, mute).red() > 200 > pixel(lit, mute).green()
+    # off, the buttons are gray, with a hint of their color
+    assert abs(pixel(dark, mute).red() - pixel(dark, mute).green()) < 30
+    assert pixel(lit, meter).green() > 150 > pixel(lit, meter).red()
 
-    for point in (mute, meter):
-        assert lit.pixelColor(point).lightness() > dark.pixelColor(point).lightness() + 60
-    assert lit.pixelColor(mute).red() > 200 > lit.pixelColor(mute).green()
-    assert lit.pixelColor(meter).green() > 150 > lit.pixelColor(meter).red()
+
+def test_the_meter_has_7_leds_for_the_level_and_the_overload_led(window: MainWindow):
+    view = window.preview.strips[0]
+    clip, top = preview.meter_led(7).center(), preview.meter_led(6).center()
+
+    full = show_state(view, meter=protocol.METER_MAX)
+
+    # the top level lights the orange LEDs, not the red one above them
+    assert pixel(full, top).red() > 200
+    assert 200 > pixel(full, top).green() > 100
+    assert pixel(full, clip).red() < 100
+    assert pixel(show_state(view, meter=protocol.METER_MAX - 1), top).red() < 100
+
+
+def ring_led(led: int) -> QPointF:
+    """The middle of the LED `led` (0..12) of the ring."""
+    angle = radians(preview.ring_angle(led))
+    radius = sum(preview.RING_RADII) / 2
+    return preview.ENCODER + QPointF(cos(angle), -sin(angle)) * radius
+
+
+def test_the_ring_lights_the_middle_11_of_its_13_leds(window: MainWindow):
+    view = window.preview.strips[0]
+    assert preview.ring_angle(0) == 240
+    assert preview.ring_angle(preview.RING_LEDS - 1) == -60
+
+    full = show_state(view, ring=protocol.RING_MAX, ring_mode="wrap")
+    centered = show_state(view, ring=6, ring_mode="dot")
+
+    for led in range(1, preview.RING_LEDS - 1):
+        assert pixel(full, ring_led(led)).red() > 200
+    for led in (0, preview.RING_LEDS - 1):
+        assert pixel(full, ring_led(led)).red() < 100
+    # the middle position is the LED at the top
+    assert pixel(centered, ring_led(6)).red() > 200
+    assert pixel(centered, ring_led(5)).red() < 100
+
+
+def test_the_scale_has_0_db_where_100_percent_is(window: MainWindow):
+    marks = {mark.label: mark.at for mark in preview.SCALE}
+    assert marks["0"] == BehaviorConfig().unity_at / 100
+    assert marks["10"] == 1
+    assert [mark.at for mark in preview.SCALE] == sorted(marks.values(), reverse=True)
+    view = window.preview.strips[0]
+    # the metal cap on the 0 dB mark, the scale there without it
+    cap = preview.CAP_SIZE
+    mark = QPointF(preview.CENTER_X + cap.width() / 2 - 3, preview.travel_y(marks["0"]) - cap.height() / 2 + 3)
+
+    unity = show_state(view, fader=marks["0"], touched=False)
+    bottom = show_state(view, fader=0.0)
+
+    assert pixel(unity, mark).lightness() > pixel(bottom, mark).lightness() + 60
 
 
 def test_a_dragged_strip_is_outlined_and_its_place_shown(qtbot: QtBot, window: MainWindow):
@@ -830,9 +894,7 @@ def test_the_device_is_legible():
         assert contrast(hardware.print, strip) >= 4.5
         assert contrast(hardware.print_dim, strip) >= 4.5
     assert contrast(hardware.badge_text, hardware.badge) >= 4.5
-    for _, color in preview.BUTTONS:
-        key = over(color, hardware.key, round(preview.KEY_TINT * 255))
-        assert contrast(over(color, hardware.key_print, round(preview.LABEL_TINT * 255)), key) >= 4.5
+    assert contrast(hardware.tag_text, hardware.tag) >= 4.5
 
 
 # -- the fields ---------------------------------------------------------------------------------------------------
