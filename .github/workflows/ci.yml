@@ -37,6 +37,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
           cache-dependency-glob: xtouch-daemon/uv.lock
+      # the libraries of the Qt in the PyQt6 wheels, for the GUI tests (offscreen)
+      - name: Install Qt's system libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
       - name: Install
         run: uv sync --locked
       - name: Lint
