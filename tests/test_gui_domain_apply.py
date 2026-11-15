@@ -2,66 +2,60 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_systemd import FakeSystemctl
+from tests.test_instance import RecordingInstance
 from xtouch_daemon.gui.domain.apply import Applied, apply
-from xtouch_daemon.systemd import UNIT_NAME, Service
-
-RUNNING = "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n"
-STOPPED = "LoadState=loaded\nActiveState=inactive\nUnitFileState=enabled\n"
 
 
 @pytest.fixture
-def default_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    return tmp_path / "xtouch-daemon" / "config.toml"
+def path(tmp_path: Path) -> Path:
+    return tmp_path / "config.toml"
 
 
-def test_a_running_service_reloads(default_path: Path):
-    systemctl = FakeSystemctl(RUNNING)
+@pytest.fixture
+def service(path: Path) -> RecordingInstance:
+    return RecordingInstance(1234, path.resolve(), systemd=True)
 
-    applied = apply(Service(systemctl), default_path)
+
+def test_the_running_daemon_reloads(service: RecordingInstance, path: Path):
+    applied = apply(service, path)
 
     assert applied == Applied("Saved and reloaded: the device shows the new configuration.", reloaded=True)
-    assert systemctl.commands[-1] == ["systemctl", "--user", "reload", UNIT_NAME]
+    assert service.reloads == [1234]
 
 
-def test_a_changed_device_takes_a_restart(default_path: Path):
-    applied = apply(Service(FakeSystemctl(RUNNING)), default_path, ("device",))
+def test_a_daemon_started_elsewhere_reloads_too(path: Path):
+    daemon = RecordingInstance(4242, path.resolve(), systemd=False)
 
-    assert applied.reloaded
-    assert applied.restart_needed
-    assert "restart the service" in applied.message
+    applied = apply(daemon, path, ("device",))
+
+    assert daemon.reloads == [4242]
+    assert applied == Applied(
+        "Saved and reloaded. The [device] section changed: restart the daemon (process 4242) for that to take effect.",
+        reloaded=True,
+        restart_needed=True,
+    )
 
 
-def test_a_changed_mqtt_section_is_not_reloaded(default_path: Path):
-    systemctl = FakeSystemctl(RUNNING)
-
+def test_a_changed_mqtt_section_is_not_reloaded(service: RecordingInstance, path: Path):
     # the daemon would keep the whole old configuration
-    applied = apply(Service(systemctl), default_path, ("device", "mqtt"))
+    applied = apply(service, path, ("device", "mqtt"))
 
     assert applied == Applied(
         "Saved. The [mqtt] section changed: restart the service to use the configuration.",
         reloaded=False,
         restart_needed=True,
     )
-    assert len(systemctl.commands) == 1
+    assert service.reloads == []
 
 
-def test_a_service_that_does_not_run_is_not_reloaded(default_path: Path):
-    systemctl = FakeSystemctl(STOPPED)
-
-    applied = apply(Service(systemctl), default_path)
-
-    assert applied == Applied("Saved. The service is stopped: start it to use the configuration.", reloaded=False)
-    assert len(systemctl.commands) == 1
-
-
-def test_another_file_than_the_one_of_the_service_is_not_applied(default_path: Path, tmp_path: Path):
-    systemctl = FakeSystemctl(RUNNING)
-
-    applied = apply(Service(systemctl), tmp_path / "copy.toml")
-
-    assert applied == Applied(
-        f"Saved. The service reads {default_path}, not this file, so it was not reloaded.", reloaded=False
+def test_nothing_is_reloaded_without_a_daemon(path: Path):
+    assert apply(None, path) == Applied(
+        "Saved. The daemon is not running: start it to use the configuration.", reloaded=False
     )
-    assert systemctl.commands == []
+
+
+def test_another_file_than_the_one_of_the_daemon_is_not_applied(service: RecordingInstance, tmp_path: Path):
+    applied = apply(service, tmp_path / "copy.toml")
+
+    assert applied == Applied(f"Saved. The service reads {service.config}, not this file.", reloaded=False)
+    assert service.reloads == []

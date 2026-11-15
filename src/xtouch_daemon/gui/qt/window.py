@@ -19,18 +19,19 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from xtouch_daemon import protocol
+from xtouch_daemon import instance, protocol
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config import Problem
 from xtouch_daemon.gui.domain import sources
-from xtouch_daemon.gui.domain.apply import apply
+from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument
 from xtouch_daemon.gui.domain.looks import looks
 from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields import flat_button, label
 from xtouch_daemon.gui.qt.pages import AliasesPage, Page, SectionPage, StripPage
 from xtouch_daemon.gui.qt.preview import Preview
+from xtouch_daemon.instance import Instance
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, ServiceState, executable, unit_path
 
 SERVICE_POLL_MS = 3000
@@ -60,10 +61,18 @@ class AudioLoader(QObject):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, document: ConfigDocument, service: Service, read_audio: Callable[[], AudioState]):
+    def __init__(
+        self,
+        document: ConfigDocument,
+        service: Service,
+        read_audio: Callable[[], AudioState],
+        find_daemon: Callable[[], Instance | None] = instance.running,
+    ):
         super().__init__()
         self.document = document
         self.service = service
+        self.find_daemon = find_daemon
+        self.daemon: Instance | None = None
         self.audio = DISCONNECTED
         self.selected = 0
         self.validation = document.validate()
@@ -210,7 +219,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.revert_button)
         self.save_button = QPushButton(theme.icon("content-save", "white"), "Save and apply")
         theme.set_role(self.save_button, "primary", "variant")
-        self.save_button.setToolTip("Write the file and reload the service (Ctrl+S)")
+        self.save_button.setToolTip("Write the file and reload the daemon (Ctrl+S)")
         self.save_button.clicked.connect(self.save)
         layout.addWidget(self.save_button)
         return footer
@@ -322,6 +331,18 @@ class MainWindow(QMainWindow):
     # -- the service ----------------------------------------------------------------------------------------------
 
     def refresh_service(self) -> None:
+        self.daemon = self.find_daemon()
+        if self.daemon is not None and not self.daemon.systemd:
+            # started from a terminal or an IDE: the service can't start (the device is taken) or restart it
+            self.service_state = None
+            self._pill(
+                "running elsewhere",
+                "good",
+                f"The daemon runs outside systemd (process {self.daemon.pid}, e.g. from a terminal or an IDE) "
+                f"and reads {self.daemon.config}. Saving reloads it; restart it where it runs.",
+            )
+            self.service_button.hide()
+            return
         try:
             state = self.service.state()
         except ServiceError as e:
@@ -400,12 +421,15 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Saving failed", str(e))
             return False
         try:
-            applied = apply(self.service, self.document.path, restart_sections)
-        except ServiceError as e:
-            self.status.setText(f"Saved, but reloading the service failed: {e}")
+            applied = apply(self.daemon, self.document.path, restart_sections)
+        except OSError as e:
+            # e.g. it ended a moment ago
+            assert self.daemon is not None
+            self.status.setText(f"Saved, but reloading {describe(self.daemon)} failed: {e}")
         else:
             self.status.setText(applied.message)
-            self.restart_button.setVisible(applied.restart_needed)
+            # the window restarts only the service
+            self.restart_button.setVisible(applied.restart_needed and self.daemon is not None and self.daemon.systemd)
         self.refresh()
         self.refresh_service()
         return True

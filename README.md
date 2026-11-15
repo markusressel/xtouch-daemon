@@ -103,7 +103,7 @@ buttons and encoders.
 
 `xtouch-daemon gui` edits the configuration in a window. It shows the eight strips like the device; click a strip to edit
 it, or drag it onto another to move it. Names of devices and applications come from the sound server. "Save and apply"
-keeps the comments of the file and reloads the service. The GUI needs the `gui` extra:
+keeps the comments of the file and reloads the running daemon, also one started from a terminal or an IDE. The GUI needs the `gui` extra:
 
 ```shell
 uv tool install --force './xtouch-daemon[gui]'

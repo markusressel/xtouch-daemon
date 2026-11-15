@@ -5,7 +5,7 @@ import pytest
 from click.testing import CliRunner, Result
 
 from tests.conftest import output, source, stream
-from xtouch_daemon import __version__, cli, systemd
+from xtouch_daemon import __version__, cli, instance, systemd
 from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import Config, parse_config
@@ -280,6 +280,34 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
     assert started[0][0] == parse_config(CONFIG)
     assert started[0][1] == config_file
     assert levels == [10]
+
+
+def test_run_says_that_it_runs_and_a_second_one_does_not_start(
+    config_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[instance.Instance | None] = []
+
+    class FakeDaemon:
+        def __init__(self, config: Config, backend: object, config_path: Path | None) -> None:
+            pass
+
+        async def run(self) -> None:
+            seen.append(instance.running())
+
+    monkeypatch.setattr(cli, "Daemon", FakeDaemon)
+    monkeypatch.setattr(systemd, "setup_logging", lambda level: None)
+    monkeypatch.setattr(instance, "_alive", lambda pid: True)
+
+    assert invoke("run", "-c", str(config_file)).exit_code == 0
+    assert seen[0] is not None
+    assert seen[0].config == config_file.resolve()
+    assert instance.running() is None
+
+    instance.runtime_file().write_text('{"pid": 4242, "config": "/other.toml", "systemd": true}')
+    result = invoke("run", "-c", str(config_file))
+    assert result.exit_code == 1
+    assert "xtouch-daemon runs already (process 4242, /other.toml)" in result.output
+    assert len(seen) == 1
 
 
 def test_install_service_writes_the_unit(config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:

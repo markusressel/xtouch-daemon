@@ -1,10 +1,9 @@
-"""Applying a saved configuration: reloading the daemon when it runs as the service and reads the file."""
+"""Applying a saved configuration: reloading the running daemon when it reads the file."""
 
 from dataclasses import dataclass
 from pathlib import Path
 
-from xtouch_daemon.config import default_config_path
-from xtouch_daemon.systemd import Service
+from xtouch_daemon.instance import Instance
 
 
 @dataclass(frozen=True)
@@ -15,28 +14,32 @@ class Applied:
     """A section changed that the daemon takes only with a restart."""
 
 
-def apply(service: Service, path: Path, restart_sections: tuple[str, ...] = ()) -> Applied:
+def describe(instance: Instance) -> str:
+    return "the service" if instance.systemd else f"the daemon (process {instance.pid})"
+
+
+def apply(instance: Instance | None, path: Path, restart_sections: tuple[str, ...] = ()) -> Applied:
     """
-    Reloads the service after `path` was saved, if it runs and reads that file. `restart_sections` are the changed
-    sections a reload does not take: a changed `[device]` stays the old one until a restart, and the daemon keeps the
-    whole old configuration when `[mqtt]` changed, so that is not reloaded at all.
+    Reloads the running daemon (`instance`, the service or one started elsewhere, e.g. from an IDE) after `path` was
+    saved, if it reads that file. `restart_sections` are the changed sections a reload does not take: a changed
+    `[device]` stays the old one until a restart, and the daemon keeps the whole old configuration when `[mqtt]`
+    changed, so that is not reloaded at all.
     """
-    default = default_config_path()
-    if path.resolve() != default.resolve():
-        return Applied(f"Saved. The service reads {default}, not this file, so it was not reloaded.", reloaded=False)
-    state = service.state()
-    if not state.running:
-        return Applied(f"Saved. The service is {state.describe()}: start it to use the configuration.", reloaded=False)
+    if instance is None:
+        return Applied("Saved. The daemon is not running: start it to use the configuration.", reloaded=False)
+    daemon = describe(instance)
+    if path.resolve() != instance.config:
+        return Applied(f"Saved. {daemon.capitalize()} reads {instance.config}, not this file.", reloaded=False)
     if "mqtt" in restart_sections:
         return Applied(
-            "Saved. The [mqtt] section changed: restart the service to use the configuration.",
+            f"Saved. The [mqtt] section changed: restart {daemon} to use the configuration.",
             reloaded=False,
             restart_needed=True,
         )
-    service.reload()
+    instance.reload()
     if "device" in restart_sections:
         return Applied(
-            "Saved and reloaded. The [device] section changed: restart the service for that to take effect.",
+            f"Saved and reloaded. The [device] section changed: restart {daemon} for that to take effect.",
             reloaded=True,
             restart_needed=True,
         )

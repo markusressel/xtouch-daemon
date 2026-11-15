@@ -26,6 +26,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Commands `run`, `check-config`, `init-config`, `list-devices`, `list-apps`, `test` and `install-service`.
 - `xtouch-daemon gui` (extra `gui`): edits the configuration in a window with a preview of the eight strips (click to
   edit, drag to move), suggestions from the sound server, the errors next to the options, and the comments of the file
-  kept on saving. It reloads the service after saving, and shows, installs, starts and restarts it.
+  kept on saving. It reloads the running daemon after saving (the service, or one started from a terminal or an IDE),
+  and shows, installs, starts and restarts the service.
+- `xtouch-daemon run` notes its process and configuration file in `$XDG_RUNTIME_DIR/xtouch-daemon.json` while it runs,
+  and a second one does not start.
 
 [0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/v0.1.0

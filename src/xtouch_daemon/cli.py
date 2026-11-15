@@ -8,7 +8,7 @@ from typing import Any, assert_never
 
 import click
 
-from xtouch_daemon import __version__, systemd
+from xtouch_daemon import __version__, instance, systemd
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.audio.pulse import PulseBackend, SoundServerError, read_state
 from xtouch_daemon.config import (
@@ -75,7 +75,11 @@ def run(config_path: Path | None, log_level: str) -> None:
     except ConfigError as e:
         # e.g. the file with the MQTT password is missing
         raise click.ClickException(str(e)) from e
-    asyncio.run(daemon.run())
+    try:
+        with instance.registered(config_path or default_config_path()):
+            asyncio.run(daemon.run())
+    except instance.AlreadyRunning as e:
+        raise click.ClickException(str(e)) from e
 
 
 def describe_strip(config: StripConfig, number: int) -> str:

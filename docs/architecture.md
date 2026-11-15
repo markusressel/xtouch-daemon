@@ -105,15 +105,18 @@ itself does not import it.
 - **Toolkit-free domain, thin widgets.** `gui/domain` decides everything: `ConfigDocument` holds the file as plain
   values, validates it with the pydantic models (the same messages as `check-config`), and saves it. `looks()` says
   how each strip appears on the device, `sources` turns sound server snapshots into suggestions, `apply()` decides
-  between reload, restart and "the service does not run". `gui/qt` only shows that and passes edits back.
+  between reload, restart and "the daemon does not run". `gui/qt` only shows that and passes edits back.
 - **Forms from the models.** `schema.py` reads the options of every section and strip type from the pydantic models:
   the type picks the widget (switch, number, choice, color swatches, list chips, masked secret, file), the attribute
   docstrings become the help, `Field` constraints the ranges. A new option or strip type needs no GUI code.
 - **The comments stay.** Saving edits the TOML document with tomlkit: unchanged values keep their place and their
   comments, and moved strips take theirs along. The file is written in place, so a symlinked configuration stays one.
-- **The service is applied, not guessed.** `systemd.Service` (shared with `install-service`) reads the state of the
-  unit. A saved file is reloaded only when the service runs and reads that file; a changed `[device]` or `[mqtt]`
-  offers a restart, since a reload does not take them.
+- **The daemon is found, not guessed.** `xtouch-daemon run` writes `$XDG_RUNTIME_DIR/xtouch-daemon.json` (its process
+  id, its configuration file, whether systemd started it) while it runs (`instance.py`), so the GUI finds it wherever
+  it was started, and a second daemon names the one that has the device. A saved file is reloaded (SIGHUP) only when
+  the daemon reads that file; a changed `[device]` or `[mqtt]` needs a restart, since a reload does not take them. The
+  GUI restarts only the service: `systemd.Service` (shared with `install-service`) reads the state of the unit, and
+  installs, starts and restarts it.
 - **PyQt6, QtAwesome and qt-themes.** The same as openhasp-config-manager, so the tools look and work alike. The wheels
   carry Qt itself, so `uv tool install` needs no system packages (GTK 4 through PyGObject needs the system libraries
   and a compiler), Qt paints the strip preview with `QPainter` and does drag and drop, and pytest-qt runs the widgets

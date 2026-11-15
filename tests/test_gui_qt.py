@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 from pytestqt.qtbot import QtBot
 
 from tests.conftest import output, source, stream
+from tests.test_instance import RecordingInstance
 from tests.test_systemd import FakeSystemctl
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
@@ -37,6 +38,7 @@ from xtouch_daemon.gui.qt.fields import Chips, OptionRow
 from xtouch_daemon.gui.qt.pages import AliasesPage, SectionPage
 from xtouch_daemon.gui.qt.preview import MIME_TYPE
 from xtouch_daemon.gui.qt.window import MainWindow
+from xtouch_daemon.instance import Instance
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError
 
 CONFIG = """\
@@ -116,13 +118,23 @@ def systemctl() -> FakeSystemctl:
     return FakeSystemctl(RUNNING)
 
 
+@pytest.fixture
+def daemon(path: Path) -> RecordingInstance:
+    """The service, which reads the file."""
+    return RecordingInstance(1234, path.resolve(), systemd=True)
+
+
 type MakeWindow = Callable[..., MainWindow]
 
 
 @pytest.fixture
-def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl) -> MakeWindow:
-    def make(read_audio: Callable[[], AudioState] = lambda: STATE, file: Path = path) -> MainWindow:
-        window = MainWindow(ConfigDocument.open(file), Service(systemctl), read_audio)
+def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: RecordingInstance) -> MakeWindow:
+    def make(
+        read_audio: Callable[[], AudioState] = lambda: STATE,
+        file: Path = path,
+        find_daemon: Callable[[], Instance | None] = lambda: daemon,
+    ) -> MainWindow:
+        window = MainWindow(ConfigDocument.open(file), Service(systemctl), read_audio, find_daemon)
         qtbot.addWidget(window)
         window.show()
         qtbot.waitUntil(lambda: window.audio_label.text() != "Reading the sound server…")
@@ -198,7 +210,9 @@ def test_without_the_sound_server_names_are_typed_by_hand(make_window: MakeWindo
 # -- editing ------------------------------------------------------------------------------------------------------
 
 
-def test_an_edit_shows_in_the_preview_and_is_saved(qtbot: QtBot, window: MainWindow, path: Path, systemctl):
+def test_an_edit_shows_in_the_preview_and_is_saved(
+    qtbot: QtBot, window: MainWindow, path: Path, daemon: RecordingInstance
+):
     type_into(qtbot, row(window, "label").line, "Boxes")
 
     assert window.preview.strips[0].look.label == "Boxes"
@@ -209,7 +223,7 @@ def test_an_edit_shows_in_the_preview_and_is_saved(qtbot: QtBot, window: MainWin
 
     assert 'label = "Boxes"' in path.read_text()
     assert path.read_text().startswith("# my mixer\n")
-    assert systemctl.commands[-2] == ["systemctl", "--user", "reload", UNIT_NAME]
+    assert daemon.reloads == [1234]
     assert window.status.text() == "Saved and reloaded: the device shows the new configuration."
     assert not window.save_button.isEnabled()
 
@@ -654,14 +668,14 @@ def test_a_changed_device_offers_a_restart(qtbot: QtBot, window: MainWindow, sys
     assert window.status.text() == "Restarted the service."
 
 
-def test_a_changed_mqtt_section_offers_a_restart_instead_of_a_reload(window: MainWindow, systemctl: FakeSystemctl):
+def test_a_changed_mqtt_section_offers_a_restart_instead_of_a_reload(window: MainWindow, daemon: RecordingInstance):
     window.document.add_section("mqtt")
     window.document.set(("mqtt", "host"), "broker")
     window.refresh()
 
     assert window.save()
 
-    assert ["systemctl", "--user", "reload", UNIT_NAME] not in systemctl.commands
+    assert daemon.reloads == []
     assert window.status.text() == "Saved. The [mqtt] section changed: restart the service to use the configuration."
     assert not window.restart_button.isHidden()
 
@@ -682,10 +696,42 @@ def test_a_failing_restart_or_reload_is_reported(
     click(qtbot, window.restart_button)
     assert isolated.shown == ["restart failed"]
 
+    # it ended a moment ago
+    window.daemon = RecordingInstance(1234, window.document.path.resolve(), systemd=True, gone=True)
     window.document.set(("device", "name"), "Third")
     window.refresh()
     assert window.save()
-    assert window.status.text() == "Saved, but reloading the service failed: reload failed"
+    assert window.status.text() == "Saved, but reloading the service failed: [Errno 3] No such process"
+
+
+def test_a_daemon_started_elsewhere_is_shown_and_reloaded(qtbot: QtBot, make_window: MakeWindow, path: Path):
+    daemon = RecordingInstance(4242, path.resolve(), systemd=False)
+    window = make_window(find_daemon=lambda: daemon)
+
+    assert (window.pill.text(), window.pill.property("tone")) == ("running elsewhere", "good")
+    assert "process 4242" in window.pill.toolTip()
+    assert window.service_button.isHidden()
+
+    window.document.set(("device", "name"), "Other")
+    window.refresh()
+    assert window.save()
+
+    assert daemon.reloads == [4242]
+    assert window.status.text().endswith("restart the daemon (process 4242) for that to take effect.")
+    # the window restarts only the service
+    assert window.restart_button.isHidden()
+
+
+def test_without_a_daemon_saving_only_saves(make_window: MakeWindow, systemctl: FakeSystemctl):
+    systemctl.properties = STOPPED
+    window = make_window(find_daemon=lambda: None)
+    window.document.set(("device", "name"), "Other")
+    window.refresh()
+
+    assert window.save()
+
+    assert window.status.text() == "Saved. The daemon is not running: start it to use the configuration."
+    assert window.restart_button.isHidden()
 
 
 def test_saving_what_did_not_change_does_nothing(window: MainWindow, path: Path):

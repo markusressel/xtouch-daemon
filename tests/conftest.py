@@ -3,6 +3,7 @@
 import asyncio
 import os
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 
@@ -76,6 +77,14 @@ class RecordingSurface(Surface):
 
     def meters(self, strip: int) -> list[int]:
         return [m[1] & 0x0F for m in self.sent if m[0] == 0xD0 and m[1] >> 4 == strip]
+
+
+@pytest.fixture(autouse=True)
+def runtime_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Where `xtouch-daemon run` says that it runs: not the real one, which a daemon on this machine may use."""
+    path = tmp_path / "runtime"
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(path))
+    return path
 
 
 @pytest.fixture(autouse=True)

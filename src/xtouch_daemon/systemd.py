@@ -191,7 +191,3 @@ class Service:
 
     def restart(self) -> None:
         self._run(_systemctl("restart", UNIT_NAME))
-
-    def reload(self) -> None:
-        """Makes the running daemon read its configuration again."""
-        self._run(_systemctl("reload", UNIT_NAME))
