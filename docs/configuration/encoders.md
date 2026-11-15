@@ -9,7 +9,7 @@ the LCD shows the exact value for 2 seconds instead of the volume; moving the fa
 | `volume` | Changes the volume by `behavior.encoder_step` per step; the fader follows. | Sets `behavior.reset_volume`. | The volume, lit from the left. | The volume. |
 | `balance` | Moves the balance between left and right, 5 % per step. Nothing for mono devices and streams. | Centers it. | From the center to the side. | `L 15%`, `center`, `R 5%`. |
 | `pick` | Picks the application among those without a strip of their own. | Pins it. | Which of them, as a dot; pinned, lit up to there. | Which of how many (`2/5`); `pinned` or `auto`. |
-| `media` | Seeks in the track of the applications' media player, 5 s per step. | Plays or pauses. | How far the track is. | Where the track is (`1:05`); `playing` or `paused`. |
+| `media` | Seeks in the track of the applications' media player, 5 s per step. | Plays or pauses. | How far the track is, lit from the left; blinking while paused, dark while stopped. | Where the track is (`1:05`); `playing` or `paused`. |
 | `homeassistant` | Changes a number entity in Home Assistant. | An event in Home Assistant. | The number. | The number (`42%`). |
 
 Which strip types have which modes, the default first:
@@ -66,8 +66,9 @@ of the candidates the strip has, as a dot; while pinned, it is lit up to there. 
 
 The default for `apps` strips. The encoder controls the media player of the strip's applications: Spotify, a browser,
 mpv with mpv-mpris, anything that speaks [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/) on the
-session bus. Turning seeks 5 seconds per step, a push plays or pauses. The ring shows how far the track is, also while
-the strip is idle (e.g. paused); it stays dark for live streams without a length. The LCD shows where the track is
+session bus. Turning seeks 5 seconds per step, a push plays or pauses. The ring fills up from the left with how far the track
+is, also while the strip is idle (e.g. paused). It blinks slowly (1 s on, 1 s off) while the track is paused and is
+dark while it is stopped, or for live streams without a length. The LCD shows where the track is
 after a seek (`1:05`), and what a push made of it (`playing`, `paused`).
 
 The player is the one of the process that plays a stream of the strip or of one of its parents, since browsers play

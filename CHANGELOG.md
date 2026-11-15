@@ -27,7 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `volume` the fine steps of the volume.
 - `encoder = "pick"`, the default for `auto` strips: the encoder picks the application, a push pins it.
 - `encoder = "media"`, the default for `apps` strips: the media player of the applications (MPRIS over D-Bus):
-  turning seeks 5 s per step, a push plays or pauses, the ring shows how far the track is.
+  turning seeks 5 s per step, a push plays or pauses, the ring fills up with how far the track is (blinking while
+  paused, dark while stopped).
 - `encoder = "homeassistant"` and `fader = "homeassistant"` on audio strips: one control is a number entity in Home
   Assistant (e.g. a light), the other one sets the volume. `id` names the entities.
 - Motor faders that glide smoothly (also after a connect, from the bottom), follow changes made elsewhere, stay still

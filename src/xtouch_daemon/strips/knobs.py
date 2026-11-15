@@ -22,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 SEEK_STEP = 5.0
 """Seconds one step of the encoder seeks in a track."""
 PROGRESS_INTERVAL = 1.0
-"""How often the ring shows how far the track is."""
+"""How often the ring shows how far the track is, and whether it plays (a paused one blinks at this pace)."""
 BALANCE_STEP = 0.05
 """How far one step of the encoder moves the balance (from the center to one side: 20 steps)."""
 RING_CENTER = (RING_MAX + 1) // 2
@@ -179,13 +179,18 @@ class PickKnob(Knob):
 class MediaKnob(Knob):
     """
     The media player of the applications of the strip (MPRIS, see `media.py`): turning seeks by `SEEK_STEP`, a push
-    plays or pauses, and the ring shows how far the track is. Nothing for applications without a player.
+    plays or pauses, and the ring fills up with how far the track is: steady while it plays, blinking slowly while it is
+    paused, dark while it is stopped. Nothing for applications without a player.
     """
 
     def __init__(self, owner: AppStrip):
         super().__init__(owner)
         self.apps = owner
         self.progress: float | None = None
+        self.status: str | None = None
+        """`Playing`, `Paused` or `Stopped`; None without a player, or a player that does not tell."""
+        self._lit = True
+        """Whether a blinking ring is on at the moment."""
         self._poller: asyncio.Task[None] | None = None
         self._seek_steps = 0
         """Steps not sought yet: turns come faster than a player seeks."""
@@ -236,23 +241,24 @@ class MediaKnob(Knob):
     def ring(self) -> tuple[int, RingMode]:
         if self._poller is None and self.apps.env.players is not None:
             self._poller = asyncio.create_task(self._poll(), name=f"strip {self.apps.strip.index + 1}: track")
-        if self.progress is None:
+        if self.progress is None or self.status == "Stopped" or not self._lit:
             return 0, RingMode.DOT
-        return ring_position(self.progress), RingMode.DOT
+        return ring_position(self.progress), RingMode.WRAP
 
     async def _poll(self) -> None:
         players = self.apps.env.players
         assert players is not None, "polls only with players"
         while True:
             player = self.player() if self.apps.active else None
-            progress = None
+            progress = status = None
             if player is not None:
                 with contextlib.suppress(AudioCommandError):
                     progress = await players.progress(player)
-            if progress != self.progress:
-                self.progress = progress
-                if self.apps.active:
-                    self.apps.strip.set_ring(*self.ring())
+                    status = await players.status(player)
+            self.progress, self.status = progress, status
+            self._lit = not self._lit if status == "Paused" else True
+            if self.apps.active:
+                self.apps.strip.set_ring(*self.ring())
             await asyncio.sleep(PROGRESS_INTERVAL)
 
     def close(self) -> None:

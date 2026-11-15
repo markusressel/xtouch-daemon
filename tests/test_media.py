@@ -212,7 +212,9 @@ class FakePlayers:
         self.progresses: dict[str, float | None] = {}
         self.failing = False
         self.positions: list[float | None] = []
-        self.statuses = ["Playing"]
+        self.playback = "Playing"
+        self.silent = False
+        """Whether the player does not tell its status."""
         self.gate: asyncio.Event | None = None
 
     async def run(self) -> None:
@@ -220,6 +222,7 @@ class FakePlayers:
 
     async def play_pause(self, player: Player) -> None:
         self.calls.append(("play_pause", player.name))
+        self.playback = "Paused" if self.playback == "Playing" else "Playing"
 
     async def seek(self, player: Player, seconds: float) -> None:
         self.calls.append(("seek", seconds))
@@ -230,10 +233,9 @@ class FakePlayers:
         return self.positions.pop(0) if self.positions else None
 
     async def status(self, player: Player) -> str:
-        status = self.statuses.pop(0)
-        if status == "gone":
+        if self.silent:
             raise MediaCommandError("gone")
-        return status
+        return self.playback
 
     async def progress(self, player: Player) -> float | None:
         if self.failing:
@@ -257,12 +259,13 @@ async def test_the_encoder_seeks_and_plays_or_pauses_the_player(
     players.progresses["spotify"] = 0.5
     strip = browser(surface, env, players)
     strip.update(AudioState(streams=(stream(1, "Spotify", "spotify"),)))
-    await wait_for(lambda: surface.strips[0].ring == (6, RingMode.DOT))
+    # filled up to how far the track is
+    await wait_for(lambda: surface.strips[0].ring == (6, RingMode.WRAP))
     # idle: no track
     strip.update(AudioState())
     await wait_for(lambda: strip.knob.progress is None)  # type: ignore[attr-defined]
     strip.update(AudioState(streams=(stream(1, "Spotify", "spotify"),)))
-    await wait_for(lambda: surface.strips[0].ring == (6, RingMode.DOT))
+    await wait_for(lambda: surface.strips[0].ring == (6, RingMode.WRAP))
 
     players.positions = [65.0]
     strip.on_encoder(-2)
@@ -275,14 +278,24 @@ async def test_the_encoder_seeks_and_plays_or_pauses_the_player(
     assert players.calls == [("seek", -10.0), ("play_pause", "spotify")]
     # what it becomes
     assert surface.strips[0].text[1] == "paused"
-    players.statuses = ["Paused", "gone"]
+    # paused: the ring blinks
+    await wait_for(lambda: surface.strips[0].ring == (0, RingMode.DOT))
+    await wait_for(lambda: surface.strips[0].ring == (6, RingMode.WRAP))
+    await wait_for(lambda: surface.strips[0].ring == (0, RingMode.DOT))
     strip.on_encoder_press(True)
     await settle()
     assert surface.strips[0].text[1] == "playing"
-    # a player that does not tell: it was not playing
+    await wait_for(lambda: surface.strips[0].ring == (6, RingMode.WRAP))
+    # stopped: dark
+    players.playback = "Stopped"
+    await wait_for(lambda: surface.strips[0].ring == (0, RingMode.DOT))
+    # a player that does not tell: it was not playing, and the ring shows the track
+    players.silent = True
+    await wait_for(lambda: surface.strips[0].ring == (6, RingMode.WRAP))
     strip.on_encoder_press(True)
     await settle()
     assert surface.strips[0].text[1] == "playing"
+    players.silent = False
 
     # turns while a seek is on its way go together into the next one; no position, nothing to show
     players.calls.clear()
