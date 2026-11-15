@@ -161,7 +161,7 @@ class ServiceState:
 
 
 class Service:
-    """The systemd user service of the daemon: its state, installing, starting and reloading it."""
+    """The systemd user service of the daemon: its state, installing, starting, stopping and reloading it."""
 
     def __init__(self, run: Runner | None = None):
         self._run = run or run_command
@@ -191,3 +191,7 @@ class Service:
 
     def restart(self) -> None:
         self._run(_systemctl("restart", UNIT_NAME))
+
+    def stop(self) -> None:
+        """Stops the service; it stays enabled, so it starts again with the next session."""
+        self._run(_systemctl("stop", UNIT_NAME))

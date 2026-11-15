@@ -24,8 +24,8 @@ Without the extra, `xtouch-daemon gui` says how to install it.
   selected strip.
 - **The footer** shows the file, whether the device runs it, the problems, and the buttons Undo, Redo, Revert and
   "Save and apply".
-- **The header** shows the state of the service with a button to install, start or restart it, what the sound server
-  has, the zoom, and a switch between the dark and the light theme.
+- **The header** shows the state of the service with buttons to install, start, restart or stop it, what the sound
+  server has, the zoom, and a switch between the dark and the light theme.
 
 ## Zoom
 
@@ -120,7 +120,8 @@ Closing the window with unsaved changes asks whether to save them.
 ## The service
 
 The service button installs, starts and restarts the systemd user service, the same as
-`xtouch-daemon install-service`. It asks before it installs or starts it.
+`xtouch-daemon install-service`. It asks before it installs or starts it. While the service runs, "Stop" next to it
+stops it (`systemctl --user stop`): it stays enabled, so it starts again with the next session, or with "Start".
 
 A daemon that runs outside systemd (e.g. from a terminal or an IDE) is found too: the header shows "running
-elsewhere", and saving reloads it. The GUI does not start or restart that one: restart it where it runs.
+elsewhere", and saving reloads it. The GUI does not start, restart or stop that one: restart it where it runs.

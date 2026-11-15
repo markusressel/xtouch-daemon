@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.
 - The strips of the GUI look like the device: the ring has 13 LEDs, the meter 8 next to the buttons, whose names
   are printed under them, and the faders are longer, with the dB scale of the device: 0 dB at 77 % of the travel.
   The meter lights its LEDs for a level as the device does (7 at the top level; the red CLIP LED is the overload).

@@ -233,6 +233,11 @@ class MainWindow(QMainWindow):
         self.service_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.service_button.clicked.connect(self._service_action)
         layout.addWidget(self.service_button)
+        self.stop_button = QPushButton("Stop")
+        self.stop_button.setToolTip("Stop the daemon: the device goes dark until the service starts again")
+        self.stop_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.stop_button.clicked.connect(self._stop)
+        layout.addWidget(self.stop_button)
         layout.addSpacing(8)
         self.zoom_button = QToolButton()
         self.zoom_button.setText(theme.zoom_text(self.zoom))
@@ -608,6 +613,7 @@ class MainWindow(QMainWindow):
             )
             _pill(self.pill, Status("running elsewhere", Tone.GOOD, tip))
             self.service_button.hide()
+            self.stop_button.hide()
             return
         try:
             state = self.service.state()
@@ -615,6 +621,7 @@ class MainWindow(QMainWindow):
             self.service_state = None
             _pill(self.pill, Status("unavailable", Tone.BAD, str(e)))
             self.service_button.hide()
+            self.stop_button.hide()
             return
         self.service_state = state
         if not state.installed:
@@ -628,6 +635,7 @@ class MainWindow(QMainWindow):
         self.service_button.setText(text)
         self.service_button.setToolTip(tip)
         self.service_button.show()
+        self.stop_button.setVisible(state.running)
 
     def _service_action(self) -> None:
         state = self.service_state
@@ -653,6 +661,16 @@ class MainWindow(QMainWindow):
                 self.status.setText("Started the service.")
         except ServiceError as e:
             QMessageBox.warning(self, "Service", str(e))
+        self.refresh_service()
+
+    def _stop(self) -> None:
+        """Stops the service but leaves it enabled: Start (or the next session) brings it back."""
+        try:
+            self.service.stop()
+        except ServiceError as e:
+            QMessageBox.warning(self, "Service", str(e))
+        else:
+            self.status.setText("Stopped the service.")
         self.refresh_service()
 
     def _restart(self) -> None:

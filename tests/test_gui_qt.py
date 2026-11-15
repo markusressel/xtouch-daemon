@@ -1150,6 +1150,57 @@ def test_a_service_is_installed_or_started_only_when_confirmed(
     assert window.status.text() == ""
 
 
+@pytest.mark.parametrize(("properties", "stop"), [(RUNNING, True), (STOPPED, False), (MISSING, False)])
+def test_only_a_running_service_can_be_stopped(
+    make_window: MakeWindow, systemctl: FakeSystemctl, properties: str, stop: bool
+):
+    systemctl.properties = properties
+
+    window = make_window()
+
+    assert window.stop_button.isHidden() is not stop
+
+
+def test_the_service_is_stopped_and_can_be_started_again(
+    qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl, isolated: Dialogs
+):
+    assert window.stop_button.focusPolicy() == Qt.FocusPolicy.NoFocus
+
+    def stop(command: list[str]) -> str:
+        if command[2] == "stop":
+            systemctl.properties = STOPPED
+        return systemctl(command)
+
+    window.service._run = stop
+    click(qtbot, window.stop_button)
+
+    assert ["systemctl", "--user", "stop", UNIT_NAME] in systemctl.commands
+    # stopped, not disabled: it starts again with the next session
+    assert ["systemctl", "--user", "disable", UNIT_NAME] not in systemctl.commands
+    assert window.status.text() == "Stopped the service."
+    assert isolated.shown == []
+    assert (window.pill.text(), window.service_button.text()) == ("stopped", "Start")
+    assert window.stop_button.isHidden()
+
+
+def test_a_failing_stop_is_reported(qtbot: QtBot, window: MainWindow, isolated: Dialogs):
+    def fail(command: list[str]) -> str:
+        raise ServiceError("systemctl --user stop failed: nope")
+
+    window.service._run = fail
+    click(qtbot, window.stop_button)
+
+    assert isolated.shown == ["systemctl --user stop failed: nope"]
+    assert window.status.text() == ""
+    assert window.stop_button.isHidden()
+
+
+def test_a_daemon_elsewhere_can_not_be_stopped_here(make_window: MakeWindow, path: Path):
+    window = make_window(find_daemon=lambda: RecordingInstance(4242, path.resolve(), systemd=False))
+
+    assert window.stop_button.isHidden()
+
+
 def test_a_new_window_starts_with_the_keys_on_the_strips(window: MainWindow):
     assert window.focusWidget() is window.preview.strips[0]
 

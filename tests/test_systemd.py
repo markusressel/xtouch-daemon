@@ -194,13 +194,14 @@ def test_the_state_of_the_service(
     ]
 
 
-def test_installs_starts_and_restarts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_installs_starts_restarts_and_stops(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     systemctl = FakeSystemctl()
     service = systemd.Service(systemctl)
 
     path = service.install("/opt/xtouch-daemon", start=True)
     service.restart()
+    service.stop()
 
     assert path == tmp_path / "systemd" / "user" / systemd.UNIT_NAME
     assert path.read_text() == unit_file("/opt/xtouch-daemon")
@@ -208,6 +209,7 @@ def test_installs_starts_and_restarts(tmp_path: Path, monkeypatch: pytest.Monkey
         ["systemctl", "--user", "daemon-reload"],
         ["systemctl", "--user", "enable", "--now", systemd.UNIT_NAME],
         ["systemctl", "--user", "restart", systemd.UNIT_NAME],
+        ["systemctl", "--user", "stop", systemd.UNIT_NAME],
     ]
 
 
