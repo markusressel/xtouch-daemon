@@ -121,6 +121,12 @@ itself does not import it.
   carry Qt itself, so `uv tool install` needs no system packages (GTK 4 through PyGObject needs the system libraries
   and a compiler), Qt paints the strip preview with `QPainter` and does drag and drop, and pytest-qt runs the widgets
   offscreen.
+- **One visual system.** `qt/theme.py` holds the design tokens: the colors of the dark and the light theme (text at
+  4.5:1 or more and the outlines of controls at 3:1 or more on every surface, WCAG 2.2 AA, checked by the tests), a
+  4 px spacing scale, radii, the height of controls and a type scale relative to the desktop font, and the colors of
+  the device for the preview, the same in both themes. Widgets set style roles (`theme.set_role`) and take their sizes
+  from the tokens instead of styling themselves. The preview decides what a strip shows (a `Face`: LCD, ring, LEDs,
+  meter, fader) apart from drawing it.
 
 ## Testing
 
