@@ -294,6 +294,8 @@ async def test_a_connect_shows_everything_the_strips_show(device: tuple[Path, Pa
     assert protocol.lcd_colors([Color.BLACK, Color.GREEN, *[Color.BLACK] * 6]) in data
     # strips whose fader is not known yet don't move
     assert protocol.fader(0, 0) not in data
+    # LEDs nothing turned on are turned off: the device may still show them from before
+    assert all(protocol.led(index, button, Led.OFF) in data for index in range(protocol.STRIPS) for button in Button)
     assert connections == [True, False]
 
 

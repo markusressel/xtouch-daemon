@@ -391,6 +391,7 @@ async def test_the_muted_indicator(surface: RecordingSurface, env: StripEnv) -> 
 
 async def test_leds_without_indicator_are_left_alone(surface: RecordingSurface, env: StripEnv) -> None:
     strip = make(surface, env)
+    surface.strips[0].set_led(Button.REC, Led.FLASH)
     strip.update(STATE)
 
-    assert Button.REC not in surface.strips[0].leds
+    assert surface.strips[0].leds[Button.REC] == Led.FLASH

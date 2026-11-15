@@ -77,7 +77,8 @@ class Strip:
         """Whether the device shows the strip: not after a connect until its turn in the startup sequence."""
         self.color = Color.BLACK
         self.text = ["", ""]
-        self.leds: dict[Button, Led] = {}
+        self.leds: dict[Button, Led] = dict.fromkeys(Button, Led.OFF)
+        """All of them, so a connect turns off what the device still shows from before (e.g. Select of an app strip)."""
         self.ring: tuple[int, RingMode] = (0, RingMode.DOT)
         self.fader: int | None = None
         """Where the fader should be: None until it is known, so the fader does not move to 0 and back on a connect."""
