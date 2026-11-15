@@ -11,3 +11,5 @@ htmlcov/
 .ruff_cache/
 _migrate/
 .idea
+# the documentation site, built by zensical
+site/

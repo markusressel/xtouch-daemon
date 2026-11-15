@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `encoder = "pick"`, the default for `auto` strips: the encoder picks the application, a push pins it.
 - `encoder = "media"`, the default for `apps` strips: the media player of the applications (MPRIS over D-Bus):
   turning seeks 5 s per step, a push plays or pauses, the ring shows how far the track is.
+- `encoder = "homeassistant"` and `fader = "homeassistant"` on audio strips: one control is a number entity in Home
+  Assistant (e.g. a light), the other one sets the volume. `id` names the entities.
 - Motor faders that glide smoothly (also after a connect, from the bottom), follow changes made elsewhere, stay still
   while touched, and get their value again after arriving so the motor doesn't stop short. Strips with nothing to
   control (an application that ended, a device that is gone, the daemon stopping) put their faders away slowly.
@@ -46,5 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Global settings have a tab of their own, apart from the options of the selected strip. A dragged strip leaves its
   place and the others make room (Escape cancels); strips also move with Ctrl+arrows and their context menu. Every edit
   can be undone (Ctrl+Z), also removing a strip and reverting the file.
+- A documentation site (Zensical, published to GitHub Pages): getting started, a page per topic of the
+  configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 
 [0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/v0.1.0

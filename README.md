@@ -1,7 +1,8 @@
 # xtouch-daemon
 
 Use a Behringer X-Touch Extender as a hardware mixer for PipeWire on Linux: motor faders, LED meters and scribble
-strips for your devices and applications.
+strips for your devices and applications. Strips can also belong to Home Assistant, for lights, other speakers or
+scenes.
 
 ```
  ┌Speaker┐┌ Buds  ┐┌  Mic  ┐┌BudsMic┐┌Browser┐┌ VoIP  ┐┌ Games ┐┌Spotify┐
@@ -10,38 +11,20 @@ strips for your devices and applications.
    output   output   input    input    apps     apps     apps     auto
 ```
 
+**Documentation: <https://markusressel.github.io/xtouch-daemon/>** (also readable in [docs/](docs/index.md)).
+
 ## Features
 
-- **Device strips** control an output or input, or whatever is the default. **Select** makes the device the default
-  output or input, and its LED shows which one is.
-- **Application strips** control all streams of a group of applications at once, e.g. every browser. A stream that
-  starts later gets the strip's volume.
-- **Auto strips** pick up the next application that plays and has no strip of its own. They keep it for a few seconds
-  after it stops, so it does not jump between strips from track to track. Aliases give applications readable names.
-- **Motor faders** glide to new values smoothly, follow changes made anywhere else, and stay still while your finger
-  is on them.
-- **Scribble strips** show a label and the volume (or `muted`, `idle`, `off`) on a backlight in the strip's color. A
-  strip whose device or applications are not there goes dark.
-- **Mute** button with LED. The **encoder** fine-tunes the volume, a push resets it (to 100 % by default).
-- **LED meters** show the level of each strip. They are passive: they never wake a device, never light your
-  desktop's microphone indicator, and never switch Bluetooth headphones into headset mode.
-- **Home Assistant strips** turn a strip into entities for your automations over MQTT discovery: the motor fader,
-  encoder, LCD lines and color, LEDs, and events for every button press. Dim lights, set the volume of another room,
-  toggle scenes; each strip belongs either to PipeWire or to Home Assistant.
-- **Robust:** survives unplugging or switching off the device and restarts of the sound server, and shows everything
-  again when they are back.
-- **A proper service:** systemd notification (`Type=notify`), `systemctl --user reload` applies a changed
-  configuration without a restart, and the log goes to the journal with levels. When it stops, it leaves the surface
-  dark.
+- Strips for outputs and inputs (one, several, or the default), groups of applications, and the next application
+  that plays.
+- Motor faders that glide, follow changes made elsewhere and stay still while touched.
+- LCDs with label, volume and color, Mute, encoders for balance, volume, picking the application or the media player, passive LED
+  meters, Rec and Solo LEDs as indicators.
+- Sound card profiles on Rec, volume ranges up to 200 %.
+- Home Assistant strips over MQTT discovery, or just the encoder or fader of an audio strip.
+- A Qt GUI with a live view of the device, a systemd user service with reload.
 
-## Requirements
-
-- Linux with PipeWire and `pipewire-pulse` (or PulseAudio).
-- `pw-record` (part of PipeWire) for the meters.
-- Python 3.14.
-- For Home Assistant strips: an MQTT broker that Home Assistant uses (e.g. the Mosquitto add-on).
-- A Behringer X-Touch Extender in **MC** mode on **USB** (see [docs/hardware.md](docs/hardware.md)). Your user needs
-  access to its MIDI device in `/dev/snd`, which desktop sessions grant to the logged-in user.
+See the [full feature list](docs/index.md#features).
 
 ## Installation
 
@@ -51,8 +34,10 @@ next to its own, so clone both side by side and install with [uv](https://docs.a
 ```shell
 git clone https://github.com/markusressel/xtouch-daemon
 git clone https://github.com/haad-org/haad-mqtt-autodiscovery
-uv tool install ./xtouch-daemon
+uv tool install ./xtouch-daemon          # or './xtouch-daemon[gui]' for the GUI
 ```
+
+The device has to be in **MC** mode on **USB**, see [Getting started](docs/getting-started.md#set-up-the-device).
 
 ## Quick start
 
@@ -65,12 +50,7 @@ xtouch-daemon check-config            # validates the file and shows what each s
 xtouch-daemon install-service --now   # runs it as a systemd user service from now on
 ```
 
-Without a configuration file it uses the example configuration: six auto strips, the default input and the default
-output.
-
-## Configuration
-
-A TOML file at `~/.config/xtouch-daemon/config.toml`. Up to eight `[[strip]]` sections, from the left:
+A configuration has up to eight strips, from the left:
 
 ```toml
 [[strip]]
@@ -90,61 +70,18 @@ type = "auto"
 color = "cyan"
 ```
 
-After a change, check it and apply it:
+## Documentation
 
-```shell
-xtouch-daemon check-config && systemctl --user reload xtouch-daemon
-```
-
-[docs/configuration.md](docs/configuration.md) describes every option and what each strip type does with the faders,
-buttons and encoders.
-
-### GUI
-
-`xtouch-daemon gui` edits the configuration in a window. It shows the eight strips as the device shows them right now
-(or as the file would, while the daemon is not running); click a strip to edit it, or drag it to move it. Names of
-devices and applications come from the sound server. "Save and apply" keeps the comments of the file, reloads the
-running daemon, also one started from a terminal or an IDE, and tells whether the device runs the saved file. The GUI
-needs the `gui` extra:
-
-```shell
-uv tool install --force './xtouch-daemon[gui]'
-xtouch-daemon gui            # or: xtouch-daemon gui -c FILE
-```
-
-## Commands
-
-| Command | What it does |
-|---|---|
-| `xtouch-daemon run [-c FILE] [-l LEVEL]` | Runs the daemon in the foreground. |
-| `xtouch-daemon check-config [-c FILE]` | Validates the configuration and lists what each strip does. |
-| `xtouch-daemon init-config [PATH] [-f]` | Writes the example configuration. |
-| `xtouch-daemon list-devices` | Lists outputs and inputs with their node names; `*` marks the defaults. |
-| `xtouch-daemon list-apps [-c FILE]` | Lists the applications that play, and which strip takes each one. |
-| `xtouch-daemon test [-c FILE] [--no-events]` | Tests the LCDs, LEDs, rings, meters and faders, then echoes events. |
-| `xtouch-daemon install-service [--now]` | Writes the systemd user unit (and enables and starts it with `--now`). |
-| `xtouch-daemon gui [-c FILE]` | Edits the configuration in a window (needs the `gui` extra). |
-
-Logs: `journalctl --user -u xtouch-daemon -f`.
-
-## Troubleshooting
-
-**The device shows `IP: 192.168.001.100 wait...`.** It is set to its network interface and ignores USB. Switch it to
-MC mode on USB in its setup menu, see [docs/hardware.md](docs/hardware.md#setting-up-the-device).
-
-**`can't open X-Touch-Ext (... Device or resource busy)`.** Only one program can use the device. Stop the daemon
-before `xtouch-daemon test` (`systemctl --user stop xtouch-daemon`), and close DAWs or other MIDI tools that opened it.
-
-**The meters stay dark.** A meter shows a level only while something plays to the output or records from the input.
-That is on purpose: the meters never open a device themselves. A microphone meter moves only while an application
-records from it.
-
-**Streams don't follow when I select another output.** Select makes the device the default, and streams without a
-fixed target follow the default. A stream that another tool moved to a particular device (pavucontrol's per-stream
-output menu, `pactl move-sink-input`) stays there. Move it back in pavucontrol, or restart the application's stream.
-
-**A strip shows `off`.** The device it controls is not there, e.g. Bluetooth headphones that are switched off. It
-comes back by itself.
+- [Getting started](docs/getting-started.md)
+- [Configuration](docs/configuration/index.md)
+- [Home Assistant](docs/home-assistant.md)
+- [GUI](docs/gui.md)
+- [Commands](docs/commands.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Hardware and protocol](docs/hardware.md)
+- [Architecture](docs/architecture.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Similar projects
 
@@ -156,13 +93,6 @@ comes back by itself.
 - [SlideWire](https://github.com/NilsBriggen/SlideWire): a GUI mixer for generic MIDI controllers, with motor fader and
   LED support, but no Mackie Control displays.
 - [apptrol](https://github.com/Dzobash/apptrol): per-application volume for the Korg nanoKONTROL2.
-
-## Documentation
-
-- [Configuration](docs/configuration.md)
-- [Hardware and protocol](docs/hardware.md)
-- [Architecture](docs/architecture.md)
-- [Contributing](CONTRIBUTING.md)
 
 ## License
 

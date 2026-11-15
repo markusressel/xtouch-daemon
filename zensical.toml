@@ -1,0 +1,69 @@
+# The documentation site, built with Zensical (https://zensical.org):
+#   uv run --group docs zensical serve        # preview on http://localhost:8000
+#   uv run --group docs zensical build --clean --strict
+# .github/workflows/docs.yml publishes it to GitHub Pages.
+
+[project]
+site_name = "xtouch-daemon"
+site_description = "Use a Behringer X-Touch Extender as a hardware mixer for PipeWire"
+site_author = "Markus Ressel"
+site_url = "https://markusressel.github.io/xtouch-daemon/"
+repo_url = "https://github.com/markusressel/xtouch-daemon"
+repo_name = "markusressel/xtouch-daemon"
+edit_uri = "edit/main/docs/"
+copyright = "Copyright &copy; Markus Ressel, AGPL-3.0-or-later"
+docs_dir = "docs"
+site_dir = "site"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Getting started" = "getting-started.md" },
+  { "Configuration" = [
+    "configuration/index.md",
+    { "Behavior, device, aliases" = "configuration/behavior.md" },
+    { "Strips" = "configuration/strips.md" },
+    { "Devices" = "configuration/devices.md" },
+    { "Applications" = "configuration/applications.md" },
+    { "Encoders" = "configuration/encoders.md" },
+    { "LEDs" = "configuration/indicators.md" },
+  ] },
+  { "Home Assistant" = "home-assistant.md" },
+  { "GUI" = "gui.md" },
+  { "Commands" = "commands.md" },
+  { "Troubleshooting" = "troubleshooting.md" },
+  { "Hardware" = "hardware.md" },
+  { "Architecture" = "architecture.md" },
+  { "Changelog" = "https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"

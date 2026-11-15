@@ -30,6 +30,14 @@ typecheck:
 # everything CI checks
 check: lint typecheck coverage
 
+# build the documentation site into site/ (strict: broken links fail)
+docs:
+    uv run --group docs zensical build --clean --strict
+
+# serve the documentation on http://localhost:8000, rebuilt on changes
+docs-serve:
+    uv run --group docs zensical serve
+
 # run the daemon in the foreground
 run *ARGS:
     uv run xtouch-daemon run {{ARGS}}
