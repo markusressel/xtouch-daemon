@@ -88,6 +88,22 @@ async def test_a_touched_fader_moves_only_when_it_is_let_go(surface: RecordingSu
     assert surface.faders(0)[-1] == protocol.fader_value(0.5)
 
 
+async def test_a_fader_let_go_at_its_target_gets_it_again(surface: RecordingSurface) -> None:
+    strip = surface.strips[0]
+    strip.set_fader(1.0)
+    await surface.settled()
+    surface.sent.clear()
+
+    # moved to the bottom by hand, and the handler follows it there: the device would move the fader back to the
+    # top, the value it got last, unless it gets the bottom
+    surface._on_data(bytes([0x90, 0x68, 0x7F, 0xE0, 0x00, 0x00]))
+    strip.set_fader(0.0)
+    surface._on_data(bytes([0x90, 0x68, 0x00]))
+    await surface.settled()
+
+    assert surface.faders(0) == [0, 0, 0]
+
+
 async def test_a_fader_glides_from_where_the_hand_left_it(surface: RecordingSurface) -> None:
     strip = surface.strips[0]
     strip.set_fader(0.0)

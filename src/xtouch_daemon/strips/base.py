@@ -403,6 +403,7 @@ class VolumeStrip(StripController):
     async def _apply_wanted(self) -> None:
         while self._wanted is not None:
             volume = self._wanted
+            _LOGGER.debug(f"Strip {self.strip.index + 1}: volume {volume}%")
             try:
                 await self.apply_volume(volume)
             except AudioCommandError as e:

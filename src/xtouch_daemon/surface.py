@@ -143,7 +143,10 @@ class Strip:
         Moves the fader to 0.0..1.0, unless a finger is on it: then it moves there when it is let go. A `slow` move
         stays slow until the fader arrived, even when the target changes on the way.
         """
-        self.fader = protocol.fader_value(fraction)
+        value = protocol.fader_value(fraction)
+        if value != self.fader:
+            _LOGGER.debug(f"Fader {self.index + 1}: to {value}{' (touched)' if self.touched else ''}")
+        self.fader = value
         self._slow = self._slow or slow
         if not (self.touched or self.held):
             self._surface.glide(self)
@@ -204,7 +207,10 @@ class Strip:
     def touch(self, touched: bool) -> None:
         self.touched = touched
         if not touched and self.fader is not None:
-            # back to the value the fader stands for (usually the one that was set last)
+            # back to the value the fader stands for (usually the one that was set last). Also when the hand left it
+            # there: let go, the device moves the fader back to the value it got last, from before the touch
+            now = asyncio.get_running_loop().time()
+            self._confirm_at = [now, *(now + delay for delay in FADER_CONFIRM_DELAYS)]
             self._surface.glide(self)
 
     def moved_by_hand(self, value: int) -> None:
@@ -578,6 +584,8 @@ class Surface:
 
     def _handle(self, event: protocol.StripEvent) -> None:
         strip = self.strips[event.strip]
+        if not isinstance(event, protocol.FaderMoved):
+            _LOGGER.debug(f"Strip {event.strip + 1}: {event}")
         # the surface keeps the motor in step with the hand, the rest is up to the handler
         match event:
             case protocol.FaderTouched(touched=True):

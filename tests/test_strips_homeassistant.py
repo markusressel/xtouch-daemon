@@ -174,8 +174,9 @@ async def test_the_fader_publishes_while_it_moves_and_stays_where_it_was_let_go(
     values = published(broker, topic("number", "fader"))
     # not every step: the first, then the newest
     assert values == ["0", "10", "50"]
-    # the motor did not move it back to an older value on its way
-    assert surface.faders(0) == []
+    # the motor did not move it back to an older value on its way: it only gets where it was let go (or the device
+    # would move it back to the value it got before the touch)
+    assert set(surface.faders(0)) == {protocol.fader_value(0.5)}
     events = [json.loads(p)["event_type"] for p in published(broker, topic("event", "buttons"))]
     assert events == ["fader_touched", "fader_released"]
 
