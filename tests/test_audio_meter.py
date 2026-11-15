@@ -7,8 +7,17 @@ from pathlib import Path
 import pytest
 
 from xtouch_daemon.audio import meter as meter_module
-from xtouch_daemon.audio.meter import CHUNK_BYTES, CaptureTarget, Meter, capture, capture_command, level_of, peak_of
-from xtouch_daemon.protocol import METER_MAX
+from xtouch_daemon.audio.meter import (
+    CHUNK_BYTES,
+    CLIP_HOLD,
+    CaptureTarget,
+    Meter,
+    capture,
+    capture_command,
+    level_of,
+    peak_of,
+)
+from xtouch_daemon.protocol import METER_MAX, METER_SIGNAL_MAX
 
 OUTPUT = CaptureTarget(node=None, monitor=True)
 STREAM = CaptureTarget(node="42", monitor=False)
@@ -30,8 +39,10 @@ def test_the_peak_is_the_loudest_sample_either_way():
 def test_the_level_spreads_the_decibels_over_the_leds():
     assert level_of(0.0) == 0
     assert level_of(-1.0) == 0
+    # full scale and above clips: the red LED
     assert level_of(1.0) == METER_MAX
     assert level_of(2.0) == METER_MAX
+    assert level_of(0.999) == METER_SIGNAL_MAX
     # -60 dB and below is the floor
     assert level_of(0.0001) == 0
     assert level_of(0.001) == 0
@@ -127,9 +138,27 @@ def test_the_level_is_the_loudest_peak_since_it_was_taken_last():
     meter = Meter(lambda target: False)
     assert meter.take_level() is None
     meter.feed(0.25)
+    meter.feed(0.5)
+    meter.feed(0.1)
+    assert meter.take_level() == 11
+    assert meter.take_level() is None
+
+
+def test_a_clip_lights_the_red_led_for_a_while():
+    now = 100.0
+    meter = Meter(lambda target: False, clock=lambda: now)
+    meter.feed(0.5)
     meter.feed(1.0)
+    meter.feed(0.25)
+    assert meter.take_level() == METER_MAX
+    # also without audio, and with quieter audio
+    now += CLIP_HOLD / 2
+    assert meter.take_level() == METER_MAX
     meter.feed(0.5)
     assert meter.take_level() == METER_MAX
+    now += CLIP_HOLD / 2
+    meter.feed(0.5)
+    assert meter.take_level() == 11
     assert meter.take_level() is None
 
 

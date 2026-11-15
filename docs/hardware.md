@@ -91,7 +91,7 @@ marked otherwise. `n` is the strip, 0..7.
 | Fader motor | Pitch bend, like the fader position |
 | Button LEDs | Note of the button, velocity `7F` on, `01` flashing, `00` off |
 | LED ring | CC `0x30 + n`, value `0x40` (center LED) \| mode `<< 4` (0 dot, 1 boost/cut, 2 wrap, 3 spread) \| position 0 (off) or 1..11 |
-| Meter | Channel pressure `D0`, value `n << 4 \| level`, level 0..12. The device lets it fall by itself, so it must be sent again to hold a level. |
+| Meter | Channel pressure `D0`, value `n << 4 \| level`, level 0..14. One more of the 8 LEDs every two levels (1–2 light one, 9–10 five), 11 lights six, 12–13 seven, 14 all eight with the red one at the top. 15 lights none. The device lets every level fall by itself (14 too: there is no overload LED it holds, unlike Mackie Control's `0x0E`), so it must be sent again to hold a level. |
 | LCD text | `F0 00 00 66 15 12 <offset> <ASCII> F7`, offset `line * 56 + n * 7` |
 | LCD colors | `F0 00 00 66 15 72 <8 colors> F7` (a Behringer extension, works in MC mode): 0 black, 1 red, 2 green, 3 yellow, 4 blue, 5 magenta, 6 cyan, 7 white |
 

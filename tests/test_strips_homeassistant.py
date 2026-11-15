@@ -136,7 +136,7 @@ async def test_home_assistant_sets_a_meter_that_holds(
     assert strip.held_meter() == 0
 
     # 0..100 % over the levels of the meter
-    for percent, level in (("50", 6), ("100", protocol.METER_MAX), ("4", 0), ("5", 1), ("150", protocol.METER_MAX)):
+    for percent, level in (("50", 7), ("100", protocol.METER_MAX), ("3", 0), ("4", 1), ("150", protocol.METER_MAX)):
         broker.publish(topic("number", "meter", "set"), percent)
         await until(lambda percent=percent: strip.meter_level.target_state == percent)
         assert strip.held_meter() == level, percent

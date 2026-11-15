@@ -320,7 +320,10 @@ class HomeAssistantStrip(StripController):
         self.strip.set_ring(*self.encoder_link.ring())
 
     def held_meter(self) -> int | None:
-        """The level of the meter entity: 0..100 % over the levels of the meter, nothing while not connected."""
+        """
+        The level of the meter entity: 0..100 % over the levels of the meter, 100 % lights all LEDs (the red one too),
+        nothing while not connected.
+        """
         percent = _value(self.meter_level.target_state)
         if not self.connected or percent is None:
             return None

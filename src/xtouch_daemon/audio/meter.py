@@ -15,15 +15,21 @@ import contextlib
 import logging
 import math
 import shutil
+import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
-from xtouch_daemon.protocol import METER_MAX
+from xtouch_daemon.protocol import METER_MAX, METER_SIGNAL_MAX
 
 _LOGGER = logging.getLogger(__name__)
 
 FLOOR_DB = -60.0
-"""The level of the lowest LED: the LEDs split FLOOR_DB..0 dB evenly (5 dB each)."""
+"""The level of the lowest LED: the levels up to METER_SIGNAL_MAX split FLOOR_DB..0 dB evenly (5 dB each)."""
+CLIP_HOLD = 0.5
+"""
+Seconds the meter stays full, the red clip LED lit, after a peak at full scale: the device lets it fall at once, a
+single clip would only flash.
+"""
 CAPTURE_RATE = 8000
 """The audio is only looked at for its peaks, a low rate costs next to nothing."""
 CAPTURE_CHANNELS = 2
@@ -55,11 +61,16 @@ def peak_of(data: bytes) -> float:
 
 
 def level_of(peak: float) -> int:
-    """The meter level 0..METER_MAX of a peak: 0 below FLOOR_DB, METER_MAX at full scale."""
+    """
+    The meter level of a peak: 0 below FLOOR_DB, up to METER_SIGNAL_MAX just below full scale, and METER_MAX (the
+    clip LED) at full scale and above.
+    """
+    if peak >= 1.0:
+        return METER_MAX
     if peak <= 0.0:
         return 0
     db = 20 * math.log10(peak)
-    return max(0, min(METER_MAX, math.ceil((db - FLOOR_DB) / -FLOOR_DB * METER_MAX)))
+    return max(0, min(METER_SIGNAL_MAX, math.ceil((db - FLOOR_DB) / -FLOOR_DB * METER_SIGNAL_MAX)))
 
 
 @dataclass(frozen=True)
@@ -149,10 +160,18 @@ class Meter:
     it was taken last. `watch()` sets the targets, captures start and stop with them.
     """
 
-    def __init__(self, playing: Callable[[CaptureTarget], bool], command: str = PW_RECORD):
+    def __init__(
+        self,
+        playing: Callable[[CaptureTarget], bool],
+        command: str = PW_RECORD,
+        clock: Callable[[], float] = time.monotonic,
+    ):
         self._playing = playing
         self._command = command
+        self._clock = clock
         self._peak: float | None = None
+        self._clipped: float | None = None
+        """When the last peak at full scale came."""
         self._captures: dict[CaptureTarget, asyncio.Task[None]] = {}
 
     @property
@@ -161,9 +180,17 @@ class Meter:
 
     def feed(self, peak: float) -> None:
         self._peak = peak if self._peak is None else max(self._peak, peak)
+        if peak >= 1.0:
+            self._clipped = self._clock()
 
     def take_level(self) -> int | None:
-        """The level since the last call, None without audio (then the device lets the meter fall by itself)."""
+        """
+        The level since the last call, None without audio (then the device lets the meter fall by itself). For
+        CLIP_HOLD after a clip it is METER_MAX.
+        """
+        if self._clipped is not None and self._clock() - self._clipped < CLIP_HOLD:
+            self._peak = None
+            return METER_MAX
         if self._peak is None:
             return None
         level = level_of(self._peak)

@@ -23,8 +23,14 @@ LCD_LINE_LENGTH = 56
 LCD_CELL_WIDTH = 7
 """The two lines of the LCD are 56 characters each, 7 per strip."""
 
-METER_MAX = 12
-"""Meter levels 0..12 (0x0C is the top LED; 0x0E sets the overload LED, 0x0F clears it)."""
+METER_MAX = 14
+"""
+Meter levels 0..14, as measured on the device: one more of its 8 LEDs every two levels (1 and 2 light one, 9 and 10
+five), 11 lights six, 12 and 13 seven, 14 all eight, the red clip LED at the top too. 15 lights none. The device
+lets every level fall back by itself, also 14: it does not hold the clip LED (Mackie Control's "overload").
+"""
+METER_SIGNAL_MAX = 12
+"""The loudest level of audio that does not clip: seven LEDs, the red one stays dark."""
 
 RING_MAX = 11
 """Ring positions 1..11 (0 switches the ring off)."""

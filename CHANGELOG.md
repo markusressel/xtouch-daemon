@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   meter 8 LEDs next to the buttons (REC, SOLO and MUTE square, SELECT wider), whose names are printed under them,
   and the faders are longer, with the dB scale of the device: the middle of the cap marks the value, -∞ at the
   bottom, 0 dB at 77 % of the travel and +10 dB at the top.
-  The meter lights its LEDs for a level as the device does (7 at the top level; the red CLIP LED is the overload).
+  The meter lights its LEDs for a level as the device does (7 for the loudest audio, the red CLIP LED when it clips).
 - GUI zoom, 67..300 %: Ctrl++ / Ctrl+= larger, Ctrl+- smaller, Ctrl+0 100 %, and a button in the header. It scales
   the whole window, the strips too, and is kept for the next start.
 - `number.<ns>_<id>_meter` on `homeassistant` strips: Home Assistant sets the LED meter, 0..100 %, and the daemon
@@ -75,6 +75,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Global settings have a tab of their own, apart from the options of the selected strip. A dragged strip leaves its
   place and the others make room (Escape cancels); strips also move with Ctrl+arrows and their context menu. Every edit
   can be undone (Ctrl+Z), also removing a strip and reverting the file.
+- A clip indicator: when the audio of a strip peaks at full scale, its meter lights all 8 LEDs, the red one at the
+  top too, for half a second. Below that, the meter uses 7 LEDs. The `homeassistant` meter entity reaches the red LED
+  at 100 %.
 - A documentation site (Zensical, published to GitHub Pages): getting started, a page per topic of the
   configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 

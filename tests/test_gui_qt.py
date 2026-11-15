@@ -766,17 +766,21 @@ def test_lit_leds_show_their_colors(window: MainWindow):
     assert pixel(lit, meter).green() > 150 > pixel(lit, meter).red()
 
 
-def test_the_meter_has_7_leds_for_the_level_and_the_overload_led(window: MainWindow):
+def test_the_meter_has_7_leds_for_the_level_and_the_clip_led(window: MainWindow):
     view = window.preview.strips[0]
     clip, top = preview.meter_led(7).center(), preview.meter_led(6).center()
 
-    full = show_state(view, meter=protocol.METER_MAX)
+    loudest = show_state(view, meter=protocol.METER_SIGNAL_MAX)
 
-    # the top level lights the orange LEDs, not the red one above them
-    assert pixel(full, top).red() > 200
-    assert 200 > pixel(full, top).green() > 100
-    assert pixel(full, clip).red() < 100
-    assert pixel(show_state(view, meter=protocol.METER_MAX - 1), top).red() < 100
+    # the loudest audio lights the orange LEDs, not the red one above them
+    assert pixel(loudest, top).red() > 200
+    assert 200 > pixel(loudest, top).green() > 100
+    assert pixel(loudest, clip).red() < 100
+    assert pixel(show_state(view, meter=protocol.METER_SIGNAL_MAX - 1), top).red() < 100
+    # a clip lights it too
+    clipped = show_state(view, meter=protocol.METER_MAX)
+    assert pixel(clipped, clip).red() > 200
+    assert pixel(clipped, clip).green() < 100
 
 
 def ring_led(led: int) -> QPointF:

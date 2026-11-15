@@ -103,8 +103,8 @@ METER = QRectF(13, BUTTON_TOP - 1, 9, 3 * BUTTON_PITCH + SELECT_SIZE.height() + 
 """The window of the meter, left of the buttons: from the top of REC to the bottom of SELECT."""
 METER_LEDS = 8
 """
-8 LEDs from the bottom: 4 green and 3 orange for the level, and the red overload LED at the top (labeled CLIP; the
-bottom one SIG). The live view does not tell the overload, so it stays dark.
+8 LEDs from the bottom: 4 green and 3 orange for the level, and the red clip LED at the top (labeled CLIP; the
+bottom one SIG), lit while the audio clips.
 """
 METER_GREEN = 4
 CAP_SIZE = QSizeF(34, 30)
@@ -714,7 +714,7 @@ class StripView(QWidget):
 
     def _paint_meter(self, painter: QPainter, level: int) -> None:
         """
-        The LED meter, `level` of its LEDs lit from the bottom: green, orange, and the red overload LED at the top, in
+        The LED meter, `level` of its LEDs lit from the bottom: green, orange, and the red clip LED at the top, in
         a dark window labeled CLIP and SIG.
         """
         painter.setPen(QPen(QColor(HW.strip_edge), 1))

@@ -143,4 +143,5 @@ def test_a_ring_lights_like_the_device(position: int, mode: str, lit: set[int]):
 
 
 def test_a_meter_lights_its_segments():
-    assert [meter_leds(level) for level in range(13)] == [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7]
+    assert [meter_leds(level) for level in range(15)] == [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 7, 8]
+    assert (meter_leds(-1), meter_leds(15)) == (0, 8)
