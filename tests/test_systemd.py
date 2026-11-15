@@ -142,3 +142,97 @@ def test_the_unit_runs_the_daemon_as_a_notify_service():
     assert "ExecStart=/home/user/.local/bin/xtouch-daemon run\n" in unit
     assert "Type=notify\n" in unit
     assert "ExecReload=kill -HUP $MAINPID\n" in unit
+
+
+# -- controlling the service --------------------------------------------------------------------------------------
+
+
+class FakeSystemctl:
+    """Answers `systemctl --user show` with `properties` and records every command."""
+
+    def __init__(self, properties: str = "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n"):
+        self.properties = properties
+        self.commands: list[list[str]] = []
+
+    def __call__(self, command: list[str]) -> str:
+        self.commands.append(command)
+        return self.properties if command[2] == "show" else ""
+
+
+@pytest.mark.parametrize(
+    ("properties", "installed", "running", "enabled", "description"),
+    [
+        ("LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n", True, True, True, "running"),
+        (
+            "LoadState=loaded\nActiveState=reloading\nUnitFileState=disabled\n",
+            True,
+            True,
+            False,
+            "running, not enabled",
+        ),
+        ("LoadState=loaded\nActiveState=inactive\nUnitFileState=enabled\n", True, False, True, "stopped"),
+        ("LoadState=loaded\nActiveState=failed\nUnitFileState=enabled\n", True, False, True, "failed"),
+        ("LoadState=loaded\nActiveState=activating\nUnitFileState=enabled\n", True, False, True, "activating"),
+        ("LoadState=not-found\nActiveState=inactive\nUnitFileState=\n", False, False, False, "not installed"),
+    ],
+)
+def test_the_state_of_the_service(
+    properties: str, installed: bool, running: bool, enabled: bool, description: str
+) -> None:
+    systemctl = FakeSystemctl(properties)
+
+    state = systemd.Service(systemctl).state()
+
+    assert (state.installed, state.running, state.enabled, state.describe()) == (
+        installed,
+        running,
+        enabled,
+        description,
+    )
+    assert systemctl.commands == [
+        ["systemctl", "--user", "show", systemd.UNIT_NAME, "--property=LoadState,ActiveState,UnitFileState"]
+    ]
+
+
+def test_installs_starts_restarts_and_reloads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    systemctl = FakeSystemctl()
+    service = systemd.Service(systemctl)
+
+    path = service.install("/opt/xtouch-daemon", start=True)
+    service.restart()
+    service.reload()
+
+    assert path == tmp_path / "systemd" / "user" / systemd.UNIT_NAME
+    assert path.read_text() == unit_file("/opt/xtouch-daemon")
+    assert systemctl.commands == [
+        ["systemctl", "--user", "daemon-reload"],
+        ["systemctl", "--user", "enable", "--now", systemd.UNIT_NAME],
+        ["systemctl", "--user", "restart", systemd.UNIT_NAME],
+        ["systemctl", "--user", "reload", systemd.UNIT_NAME],
+    ]
+
+
+def test_commands_return_their_output() -> None:
+    assert systemd.run_command(["echo", "hello"]) == "hello\n"
+
+
+def test_a_failing_command_says_why() -> None:
+    with pytest.raises(systemd.ServiceError, match=r"^sh -c echo broken >&2; exit 3 failed: broken$"):
+        systemd.run_command(["sh", "-c", "echo broken >&2; exit 3"])
+    with pytest.raises(systemd.ServiceError, match=r"failed: exit code 4$"):
+        systemd.run_command(["sh", "-c", "exit 4"])
+
+
+def test_a_missing_systemctl_is_reported() -> None:
+    with pytest.raises(systemd.ServiceError, match="xtouch-no-such-command is not installed"):
+        systemd.run_command(["xtouch-no-such-command"])
+
+
+def test_the_executable_is_the_installed_command_or_this_program(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(systemd.shutil, "which", lambda name: "/usr/bin/xtouch-daemon")
+    assert systemd.executable() == "/usr/bin/xtouch-daemon"
+
+    monkeypatch.setattr(systemd.shutil, "which", lambda name: None)
+    monkeypatch.setattr(sys, "argv", ["/opt/venv/bin/xtouch-daemon", "gui"])
+    assert systemd.executable() == "/opt/venv/bin/xtouch-daemon"

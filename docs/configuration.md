@@ -13,6 +13,10 @@ xtouch-daemon check-config     # validates the file and lists what each strip do
 Unknown options are errors, so a typo does not go unnoticed. `check-config` names the place of every error, e.g.
 `strip[3].label: String should have at most 7 characters`.
 
+`xtouch-daemon gui` (with the `gui` extra, see the [README](../README.md#gui)) edits the same options in a window. It
+shows the same errors next to the options, keeps the comments of the file when it saves, and applies the file as
+described below: it reloads the running service, or offers a restart for a changed `[device]` or `[mqtt]` section.
+
 ## Applying changes
 
 ```shell

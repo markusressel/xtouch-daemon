@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,7 @@ from click.testing import CliRunner, Result
 
 from tests.conftest import output, source, stream
 from xtouch_daemon import __version__, cli, systemd
+from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import Config, parse_config
 
@@ -209,10 +211,10 @@ def test_list_apps_without_applications(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_a_sound_server_that_can_not_be_reached_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def unreachable() -> AudioState:
+    async def unreachable(client_name: str) -> AudioState:
         raise ConnectionRefusedError("no socket")
 
-    monkeypatch.setattr(cli, "_snapshot", unreachable)
+    monkeypatch.setattr(pulse, "_read_state", unreachable)
 
     result = CliRunner().invoke(cli.main, ["list-devices"])
 
@@ -280,16 +282,14 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
     assert levels == [10]
 
 
-def test_install_service_writes_the_unit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    unit = tmp_path / "systemd" / "user" / systemd.UNIT_NAME
+def test_install_service_writes_the_unit(config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     commands: list[list[str]] = []
-    monkeypatch.setattr(systemd, "unit_path", lambda: unit)
-    monkeypatch.setattr(cli.shutil, "which", lambda name: "/opt/bin/xtouch-daemon")
-    monkeypatch.setattr(cli.subprocess, "run", lambda command, check: commands.append(command))
+    monkeypatch.setattr(systemd.shutil, "which", lambda name: "/opt/bin/xtouch-daemon")
+    monkeypatch.setattr(systemd, "run_command", lambda command: commands.append(command) or "")
 
     result = invoke("install-service")
 
-    assert "ExecStart=/opt/bin/xtouch-daemon run" in unit.read_text()
+    assert "ExecStart=/opt/bin/xtouch-daemon run" in systemd.unit_path().read_text()
     assert commands == [["systemctl", "--user", "daemon-reload"]]
     assert "systemctl --user enable --now xtouch-daemon.service" in result.output
 
@@ -297,6 +297,18 @@ def test_install_service_writes_the_unit(tmp_path: Path, monkeypatch: pytest.Mon
     result = invoke("install-service", "--now")
     assert commands[-1] == ["systemctl", "--user", "enable", "--now", systemd.UNIT_NAME]
     assert "Start it with" not in result.output
+
+
+def test_install_service_reports_a_failing_systemctl(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(command: list[str]) -> str:
+        raise systemd.ServiceError("systemctl is not installed: is this a systemd system?")
+
+    monkeypatch.setattr(systemd, "run_command", fail)
+
+    result = CliRunner().invoke(cli.main, ["install-service"])
+
+    assert result.exit_code == 1
+    assert "Error: systemctl is not installed" in result.output
 
 
 def test_the_package_runs_as_a_module(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -338,6 +350,63 @@ def test_the_sound_server_is_read_once(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert cli._audio_state() == STATE
     assert clients == ["xtouch-daemon-cli"]
+
+
+# -- the GUI ------------------------------------------------------------------------------------------------------
+
+
+def _without_gui_modules(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in [name for name in sys.modules if name.startswith("xtouch_daemon.gui")]:
+        monkeypatch.delitem(sys.modules, name)
+
+
+def test_the_gui_starts_with_the_configuration(config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import xtouch_daemon.gui.qt
+
+    paths: list[Path] = []
+
+    def run_gui(path: Path) -> int:
+        paths.append(path)
+        return 0
+
+    monkeypatch.setattr(xtouch_daemon.gui.qt, "run_gui", run_gui)
+
+    assert invoke("gui").exit_code == 0
+    assert invoke("gui", "-c", "/tmp/other.toml").exit_code == 0
+    assert paths == [config_home, Path("/tmp/other.toml")]
+
+
+def test_the_gui_reports_a_file_it_can_not_edit(tmp_path: Path) -> None:
+    path = tmp_path / "broken.toml"
+    path.write_text("[device")
+
+    result = CliRunner().invoke(cli.main, ["gui", "-c", str(path)])
+
+    assert result.exit_code == 1
+    assert f"Error: {path} is not valid TOML" in result.output
+
+
+@pytest.mark.parametrize("package", ["PyQt6", "qtawesome", "qt_themes", "tomlkit"])
+def test_without_the_gui_extra_it_says_how_to_install_it(monkeypatch: pytest.MonkeyPatch, package: str) -> None:
+    _without_gui_modules(monkeypatch)
+    # as if it was not installed: its modules that are imported already too
+    for name in [name for name in sys.modules if name.startswith(f"{package}.")]:
+        monkeypatch.delitem(sys.modules, name)
+    monkeypatch.setitem(sys.modules, package, None)
+
+    result = CliRunner().invoke(cli.main, ["gui"])
+
+    assert result.exit_code == 1
+    assert "the GUI needs the gui extra" in result.output
+    assert "uv tool install --force './xtouch-daemon[gui]'" in result.output
+
+
+def test_a_broken_gui_module_is_not_hidden_behind_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    _without_gui_modules(monkeypatch)
+    monkeypatch.setitem(sys.modules, "xtouch_daemon.gui.qt.window", None)
+
+    with pytest.raises(ImportError, match=r"xtouch_daemon\.gui\.qt\.window"):
+        invoke("gui")
 
 
 def test_run_reports_a_password_that_is_not_there(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

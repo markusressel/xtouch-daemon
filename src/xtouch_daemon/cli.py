@@ -2,8 +2,6 @@
 
 import asyncio
 import logging
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any, assert_never
@@ -12,7 +10,7 @@ import click
 
 from xtouch_daemon import __version__, systemd
 from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.audio.pulse import PulseBackend
+from xtouch_daemon.audio.pulse import PulseBackend, SoundServerError, read_state
 from xtouch_daemon.config import (
     AppsStripConfig,
     AutoStripConfig,
@@ -46,18 +44,11 @@ def _load(config_path: Path | None) -> Config:
         raise click.ClickException(str(e)) from e
 
 
-async def _snapshot() -> AudioState:
-    import pulsectl_asyncio
-
-    async with pulsectl_asyncio.PulseAsync("xtouch-daemon-cli") as pulse:
-        return await PulseBackend.snapshot(pulse)
-
-
 def _audio_state() -> AudioState:
     try:
-        return asyncio.run(_snapshot())
-    except Exception as e:
-        raise click.ClickException(f"can't reach the sound server (is pipewire-pulse running?): {e}") from e
+        return read_state("xtouch-daemon-cli")
+    except SoundServerError as e:
+        raise click.ClickException(str(e)) from e
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -198,16 +189,34 @@ def test(config_path: Path | None, events: bool) -> None:
 @click.option("--now", is_flag=True, help="Also enable and start it.")
 def install_service(now: bool) -> None:
     """Set the daemon up as a systemd user service."""
-    executable = shutil.which("xtouch-daemon") or str(Path(sys.argv[0]).resolve())
-    path = systemd.unit_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(systemd.unit_file(executable), encoding="utf-8")
+    try:
+        path = systemd.Service().install(systemd.executable(), start=now)
+    except systemd.ServiceError as e:
+        raise click.ClickException(str(e)) from e
     click.echo(f"Wrote {path}")
-    commands = [["systemctl", "--user", "daemon-reload"]]
-    if now:
-        commands.append(["systemctl", "--user", "enable", "--now", systemd.UNIT_NAME])
-    for command in commands:
-        subprocess.run(command, check=True)
     if not now:
         click.echo(f"Start it with: systemctl --user enable --now {systemd.UNIT_NAME}")
     click.echo("Logs: journalctl --user -u xtouch-daemon -f")
+
+
+GUI_PACKAGES = ("PyQt6", "qtawesome", "qt_themes", "qtpy", "tomlkit")
+GUI_MISSING = """\
+the GUI needs the gui extra, install xtouch-daemon with it from the checkout:
+  uv tool install --force './xtouch-daemon[gui]'"""
+
+
+@main.command()
+@CONFIG_OPTION
+def gui(config_path: Path | None) -> None:
+    """Edit the configuration in a window, and apply it (needs the gui extra)."""
+    try:
+        from xtouch_daemon.gui.qt import run_gui
+    except ImportError as e:
+        if e.name is None or e.name.split(".")[0] not in GUI_PACKAGES:
+            raise
+        raise click.ClickException(GUI_MISSING) from e
+    try:
+        code = run_gui(config_path or default_config_path())
+    except ConfigError as e:
+        raise click.ClickException(str(e)) from e
+    sys.exit(code)

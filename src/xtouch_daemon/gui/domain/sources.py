@@ -1,0 +1,52 @@
+"""What the sound server has right now, as suggestions for the options that name devices and applications."""
+
+from dataclasses import dataclass
+
+from xtouch_daemon.audio.model import AudioState, Direction
+
+
+@dataclass(frozen=True)
+class Suggestion:
+    value: str
+    """What goes into the option."""
+    detail: str
+    """What it is, for people."""
+
+
+def _count(number: int, thing: str) -> str:
+    return f"{number} {thing}{'' if number == 1 else 's'}"
+
+
+def summary(state: AudioState) -> str:
+    """What the sound server has, e.g. "2 outputs, 1 input, 3 applications"."""
+    applications = len({stream.app for stream in state.streams})
+    return ", ".join(
+        (_count(len(state.outputs), "output"), _count(len(state.inputs), "input"), _count(applications, "application"))
+    )
+
+
+def devices(state: AudioState, direction: Direction) -> tuple[Suggestion, ...]:
+    """The devices for `device`, by node name, as `xtouch-daemon list-devices` lists them."""
+    return tuple(
+        Suggestion(device.name, device.description + (" (the default)" if state.is_default(device) else ""))
+        for device in state.devices(direction)
+    )
+
+
+def applications(state: AudioState) -> tuple[Suggestion, ...]:
+    """The names of the applications that play, for `[aliases]`."""
+    names = dict.fromkeys(stream.app for stream in state.streams)
+    return tuple(
+        Suggestion(name, ", ".join(sorted({stream.binary for stream in state.streams_of_app(name) if stream.binary})))
+        for name in names
+    )
+
+
+def patterns(state: AudioState) -> tuple[Suggestion, ...]:
+    """Parts of names and binaries that match the applications that play, for `match` and `ignore`."""
+    found: dict[str, str] = {}
+    for stream in state.streams:
+        if stream.binary:
+            found.setdefault(stream.binary, f"the binary of {stream.app}")
+        found.setdefault(stream.app, "an application")
+    return tuple(Suggestion(value, detail) for value, detail in found.items())

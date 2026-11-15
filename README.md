@@ -99,6 +99,17 @@ xtouch-daemon check-config && systemctl --user reload xtouch-daemon
 [docs/configuration.md](docs/configuration.md) describes every option and what each strip type does with the faders,
 buttons and encoders.
 
+### GUI
+
+`xtouch-daemon gui` edits the configuration in a window. It shows the eight strips like the device; click a strip to edit
+it, or drag it onto another to move it. Names of devices and applications come from the sound server. "Save and apply"
+keeps the comments of the file and reloads the service. The GUI needs the `gui` extra:
+
+```shell
+uv tool install --force './xtouch-daemon[gui]'
+xtouch-daemon gui            # or: xtouch-daemon gui -c FILE
+```
+
 ## Commands
 
 | Command | What it does |
@@ -110,6 +121,7 @@ buttons and encoders.
 | `xtouch-daemon list-apps [-c FILE]` | Lists the applications that play, and which strip takes each one. |
 | `xtouch-daemon test [-c FILE] [--no-events]` | Tests the LCDs, LEDs, rings, meters and faders, then echoes events. |
 | `xtouch-daemon install-service [--now]` | Writes the systemd user unit (and enables and starts it with `--now`). |
+| `xtouch-daemon gui [-c FILE]` | Edits the configuration in a window (needs the `gui` extra). |
 
 Logs: `journalctl --user -u xtouch-daemon -f`.
 

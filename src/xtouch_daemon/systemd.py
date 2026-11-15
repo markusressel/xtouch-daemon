@@ -1,10 +1,17 @@
-"""Running as a systemd user service: readiness notifications, journal log levels and the unit file."""
+"""
+Running as a systemd user service: readiness notifications, journal log levels, the unit file, and controlling the
+service (its state, installing, starting and reloading it).
+"""
 
 import logging
 import os
+import shutil
 import socket
+import subprocess
 import sys
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 UNIT_NAME = "xtouch-daemon.service"
@@ -99,3 +106,92 @@ def unit_path() -> Path:
 
 def unit_file(executable: str) -> str:
     return UNIT_TEMPLATE.format(exec_start=executable)
+
+
+# -- controlling the service --------------------------------------------------------------------------------------
+
+type Runner = Callable[[list[str]], str]
+"""Runs a command and returns its output; raises `ServiceError` when it fails."""
+
+
+class ServiceError(Exception):
+    """A systemctl command that failed, with a message for the user."""
+
+
+def run_command(command: list[str]) -> str:
+    try:
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+    except FileNotFoundError as e:
+        raise ServiceError(f"{command[0]} is not installed: is this a systemd system?") from e
+    except subprocess.CalledProcessError as e:
+        reason = e.stderr.strip() or f"exit code {e.returncode}"
+        raise ServiceError(f"{' '.join(command)} failed: {reason}") from e
+    return result.stdout
+
+
+def executable() -> str:
+    """The command that starts the daemon: the installed `xtouch-daemon`, or the program that runs now."""
+    return shutil.which("xtouch-daemon") or str(Path(sys.argv[0]).resolve())
+
+
+def _systemctl(*args: str) -> list[str]:
+    return ["systemctl", "--user", *args]
+
+
+@dataclass(frozen=True)
+class ServiceState:
+    """What systemd knows about the user service."""
+
+    installed: bool
+    active: str
+    """systemd's `ActiveState`: active, reloading, inactive, failed, activating, deactivating."""
+    enabled: bool
+    """Whether it starts with the session."""
+
+    @property
+    def running(self) -> bool:
+        return self.active in ("active", "reloading")
+
+    def describe(self) -> str:
+        if not self.installed:
+            return "not installed"
+        if self.running:
+            return "running" if self.enabled else "running, not enabled"
+        return "stopped" if self.active == "inactive" else self.active
+
+
+class Service:
+    """The systemd user service of the daemon: its state, installing, starting and reloading it."""
+
+    def __init__(self, run: Runner | None = None):
+        self._run = run or run_command
+
+    def state(self) -> ServiceState:
+        output = self._run(_systemctl("show", UNIT_NAME, "--property=LoadState,ActiveState,UnitFileState"))
+        properties = dict(line.split("=", 1) for line in output.splitlines() if "=" in line)
+        return ServiceState(
+            installed=properties["LoadState"] == "loaded",
+            active=properties["ActiveState"],
+            enabled=properties["UnitFileState"] == "enabled",
+        )
+
+    def install(self, executable: str, start: bool) -> Path:
+        """Writes the unit file and makes systemd read it; with `start`, also enables and starts the service."""
+        path = unit_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(unit_file(executable), encoding="utf-8")
+        self._run(_systemctl("daemon-reload"))
+        if start:
+            self.start()
+        return path
+
+    def start(self) -> None:
+        """Enables the service and starts it."""
+        self._run(_systemctl("enable", "--now", UNIT_NAME))
+
+    def restart(self) -> None:
+        self._run(_systemctl("restart", UNIT_NAME))
+
+    def reload(self) -> None:
+        """Makes the running daemon read its configuration again."""
+        self._run(_systemctl("reload", UNIT_NAME))

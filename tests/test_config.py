@@ -1,19 +1,26 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from xtouch_daemon.config import (
+    STRIP_MODELS,
+    STRIP_TYPES,
     AppsStripConfig,
     AutoStripConfig,
+    BehaviorConfig,
     Config,
     ConfigError,
     DeviceStripConfig,
     EmptyStripConfig,
+    HomeAssistantStripConfig,
+    Problem,
     color_of,
     default_config_path,
     example_config,
     load_config,
     parse_config,
+    problems_of,
 )
 from xtouch_daemon.protocol import Color
 
@@ -142,10 +149,31 @@ def test_a_blank_pattern_would_match_every_application():
 
 def test_a_list_at_the_top_level_names_its_position():
     # pydantic never reports one for the top-level table of a TOML file
-    from xtouch_daemon.config import _location
+    assert Problem((0, "label"), "", "").location == "0.label"
+    assert Problem(("strip", 1, "match", 0), "", "").location == "strip[2].match[1]"
 
-    assert _location((0, "label")) == "0.label"
-    assert _location(("strip", 1, "apps", "match", 0)) == "strip[2].match[1]"
+
+def test_problems_name_the_place_in_the_toml_data():
+    with pytest.raises(ValidationError) as error:
+        Config.model_validate({"aliases": {"output": "too long"}, "strip": [{"type": "apps", "match": ["x"]}]})
+
+    assert [(problem.path, problem.kind) for problem in problems_of(error.value)] == [
+        # an alias for an application named like a strip type is not a strip type
+        (("aliases", "output"), "string_too_long"),
+        (("strip", 0, "label"), "missing"),
+    ]
+    assert str(problems_of(error.value)[1]) == "strip[1].label: Field required"
+
+
+def test_the_strip_types_are_the_ones_of_the_models():
+    assert (DeviceStripConfig, AppsStripConfig, AutoStripConfig, HomeAssistantStripConfig, EmptyStripConfig) == (
+        STRIP_MODELS
+    )
+    assert STRIP_TYPES == ("output", "input", "apps", "auto", "homeassistant", "empty")
+
+
+def test_the_docstrings_of_the_options_are_their_descriptions():
+    assert BehaviorConfig.model_fields["encoder_step"].description == "Percent per step of an encoder."
 
 
 def test_the_default_path_follows_xdg(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):

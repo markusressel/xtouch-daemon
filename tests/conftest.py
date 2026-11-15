@@ -1,6 +1,7 @@
 """Fakes with the shape of the real thing: a backend that records commands, and a surface without device."""
 
 import asyncio
+import os
 from collections.abc import Callable
 
 import pytest
@@ -12,6 +13,9 @@ from xtouch_daemon.audio.model import AudioState, Device, Direction, Stream
 from xtouch_daemon.config import BehaviorConfig
 from xtouch_daemon.strips.base import StripEnv
 from xtouch_daemon.surface import Surface
+
+# windows of the GUI tests are never shown on the display of the machine
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 
 class FakeBackend:
