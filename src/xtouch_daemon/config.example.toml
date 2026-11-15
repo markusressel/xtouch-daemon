@@ -26,6 +26,8 @@ ignore = ["speech-dispatcher"]   # applications "auto" strips never take
 # type = "input"    an input, the same way
 # type = "apps"     the streams of applications: match = ["firefox", "brave"] (parts of the name or binary)
 # type = "auto"     the next application that plays and has no strip of its own
+# type = "homeassistant"   a strip for Home Assistant automations (needs [mqtt], see docs/configuration.md):
+#                   its fader, encoder, LCD, LEDs and buttons are entities there; id = "living_room" names them
 # type = "empty"    a dark strip
 #
 # label  = "..."    the top line of the LCD (7 characters)
@@ -82,3 +84,14 @@ color = "red"
 type = "output"
 label = "Output"
 color = "white"
+
+# ---- Home Assistant (for "homeassistant" strips) -------------------------------------------------------------
+#
+# [mqtt]
+# host = "homeassistant.local"
+# port = 1883
+# username = "xtouch"
+# password_file = "~/.config/xtouch-daemon/mqtt-password"   # or password = "...", or password_env = "VAR"
+# discovery_prefix = "homeassistant"
+# namespace = "xtouch"                # entity IDs start with it: number.xtouch_strip_5_fader
+# device_name = "X-Touch Extender"

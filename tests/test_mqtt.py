@@ -268,6 +268,8 @@ def test_the_password_can_come_from_a_file_or_the_environment(tmp_path: Path, mo
     assert MqttConfig(host="b", password_file=secret).resolve_password() == "from file"
     assert MqttConfig(host="b", password_env="XTOUCH_MQTT_PASSWORD").resolve_password() == "from env"
     assert MqttConfig(host="b").resolve_password() is None
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert MqttConfig(host="b", password_file=Path("~/password")).resolve_password() == "from file"
 
 
 def test_a_password_that_is_not_there_stops_the_bridge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

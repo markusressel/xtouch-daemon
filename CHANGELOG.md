@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Motor faders that glide smoothly, follow changes made elsewhere and stay still while touched.
 - LCD labels, volume and state on a backlight in the strip's color; Mute LED; encoder for fine steps, push to reset.
 - Passive LED meters from `pw-record` captures.
+- Strip type `homeassistant`: the fader, encoder, LCD lines and color, LEDs and button events of a strip become
+  Home Assistant entities over MQTT discovery (`[mqtt]` section), for automations.
 - Rec and Solo LEDs as configurable indicators (`rec`, `solo`): recording, playing, default, muted. By default Rec is
   lit while an application records the device, or while the applications of the strip record.
 - Reconnects to the device and the sound server.

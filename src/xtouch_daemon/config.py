@@ -148,7 +148,7 @@ class MqttConfig(_Model):
     password: SecretStr | None = None
     """The password itself; `password_file` or `password_env` keep it out of the configuration."""
     password_file: Path | None = None
-    """A file that holds the password (e.g. a systemd credential); surrounding whitespace is ignored."""
+    """A file that holds the password (`~` is the home directory); surrounding whitespace is ignored."""
     password_env: str | None = None
     """An environment variable that holds the password."""
     discovery_prefix: str = "homeassistant"
@@ -171,7 +171,7 @@ class MqttConfig(_Model):
             return self.password.get_secret_value()
         if self.password_file is not None:
             try:
-                return self.password_file.read_text(encoding="utf-8").strip()
+                return self.password_file.expanduser().read_text(encoding="utf-8").strip()
             except OSError as e:
                 raise ConfigError(f"mqtt.password_file: can't read {self.password_file}: {e.strerror}") from e
         if self.password_env is not None:

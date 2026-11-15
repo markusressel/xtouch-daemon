@@ -5,7 +5,8 @@ Bug reports and pull requests are welcome. For a larger change, open an issue fi
 ## Setup
 
 You need [uv](https://docs.astral.sh/uv/) and [just](https://github.com/casey/just) (`make <target>` runs
-`just <target>` too).
+`just <target>` too), and [haad-mqtt-autodiscovery](https://github.com/haad-org/haad-mqtt-autodiscovery) checked
+out next to this repository (`../haad-mqtt-autodiscovery`): it is a path dependency, and `uv sync` fails without it.
 
 ```shell
 uv sync          # creates .venv with the project and the dev tools
