@@ -255,6 +255,10 @@ class Surface:
         self.strips = [Strip(self, index) for index in range(protocol.STRIPS)]
         self.on_event: EventHandler = lambda event: None
         self.on_connection: ConnectionHandler = lambda connected: None
+        self.on_unknown: Callable[[bytes], None] = lambda message: _LOGGER.debug(
+            f"Unknown message from the device: {message.hex(' ')}"
+        )
+        """For the messages the daemon doesn't use: to find out what a device sends."""
         self._midi: RawMidi | None = None
         self._parser = protocol.MessageParser()
         self._disconnected = asyncio.Event()
@@ -384,7 +388,10 @@ class Surface:
     def _on_data(self, data: bytes) -> None:
         for message in self._parser.feed(data):
             event = protocol.decode(message)
-            if event is None or isinstance(event, protocol.HostQuery):
+            if event is None:
+                self.on_unknown(message)
+                continue
+            if isinstance(event, protocol.HostQuery):
                 continue
             strip = self.strips[event.strip]
             # the surface keeps the motor in step with the hand, the rest is up to the handler

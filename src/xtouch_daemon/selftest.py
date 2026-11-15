@@ -62,6 +62,7 @@ async def run_selftest(
         if show_events:
             echo("Now use the device: faders, buttons and encoders show up here. Ctrl+C stops.")
             surface.on_event = lambda event: echo(describe(event))
+            surface.on_unknown = lambda message: echo(f"unknown message: {message.hex(' ')}")
             await asyncio.Event().wait()
     finally:
         for strip in surface.strips:

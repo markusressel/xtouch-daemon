@@ -70,9 +70,10 @@ async def test_after_the_test_events_are_shown_until_it_is_stopped() -> None:
             break
         await asyncio.sleep(0.01)
     surface.on_event(protocol.ButtonPressed(0, Button.MUTE, True))
+    surface.on_unknown(bytes([0x90, 0x70, 0x7F]))
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
 
-    assert lines[-1] == "strip 1: mute pressed"
+    assert lines[-2:] == ["strip 1: mute pressed", "unknown message: 90 70 7f"]
     assert surface.closed

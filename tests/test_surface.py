@@ -525,3 +525,11 @@ async def test_a_device_that_goes_away_ends_the_startup_sequence(
 
     assert revealer.cancelled() or revealer.done()
     assert not surface.strips[7].shown
+
+
+def test_unknown_messages_are_logged(surface: RecordingSurface, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="xtouch_daemon.surface")
+
+    surface._on_data(bytes([0x90, 0x70, 0x7F]))
+
+    assert "Unknown message from the device: 90 70 7f" in caplog.text
