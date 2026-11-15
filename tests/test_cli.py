@@ -7,7 +7,7 @@ from click.testing import CliRunner, Result
 from tests.conftest import output, source, stream
 from xtouch_daemon import __version__, cli, instance, systemd
 from xtouch_daemon.audio import pulse
-from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.config import Config, parse_config
 
 CONFIG = """
@@ -49,7 +49,7 @@ host = "broker"
 """
 
 STATE = AudioState(
-    outputs=(output("speaker", 50, running=True), output("buds", 30, muted=True)),
+    outputs=(output("speaker", 50, running=True, card="alsa_card.pci"), output("buds", 30, muted=True)),
     inputs=(source("mic", 80),),
     streams=(
         stream(1, "Brave"),
@@ -58,6 +58,14 @@ STATE = AudioState(
     ),
     default_output="speaker",
     default_input="mic",
+    cards=(
+        Card(
+            "alsa_card.pci",
+            "output:analog-stereo",
+            (Profile("output:analog-stereo", "Analog Stereo Output"), Profile("off", "Off")),
+        ),
+        Card("bluez_card.buds", "a2dp-sink", (Profile("a2dp-sink", "High Fidelity Playback"),)),
+    ),
 )
 
 
@@ -179,6 +187,14 @@ def test_list_devices_marks_the_defaults() -> None:
         "Inputs:",
         "  * mic",
         "      mic description, 80%",
+        "Profiles of alsa_card.pci (speaker):",
+        "  * output:analog-stereo",
+        "      Analog Stereo Output",
+        "    off",
+        "      Off",
+        "Profiles of bluez_card.buds:",
+        "  * a2dp-sink",
+        "      High Fidelity Playback",
     ]
 
 

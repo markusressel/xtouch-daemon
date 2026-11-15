@@ -50,3 +50,14 @@ def patterns(state: AudioState) -> tuple[Suggestion, ...]:
             found.setdefault(stream.binary, f"the binary of {stream.app}")
         found.setdefault(stream.app, "an application")
     return tuple(Suggestion(value, detail) for value, detail in found.items())
+
+
+def profiles(state: AudioState, direction: Direction) -> tuple[Suggestion, ...]:
+    """The profiles of the sound cards with devices of the direction, by name, for `profiles`."""
+    cards = {device.card for device in state.devices(direction)}
+    return tuple(
+        Suggestion(profile.name, profile.description + (" (active)" if profile.name == card.profile else ""))
+        for card in state.cards
+        if card.name in cards
+        for profile in card.profiles
+    )

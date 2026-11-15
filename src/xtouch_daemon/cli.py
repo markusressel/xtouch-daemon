@@ -103,7 +103,12 @@ def describe_strip(config: StripConfig, number: int) -> str:
             assert_never(unreachable)
     label = f"{config.label!r} " if isinstance(config, DeviceStripConfig | AppsStripConfig) and config.label else ""
     details = [config.color, *([] if config.meter else ["no meter"])]
-    details += [f"{button}: {indicator}" for button, indicator in (("rec", config.rec), ("solo", config.solo))]
+    rec = (
+        f"profile {' / '.join(p.label for p in config.profiles)}"
+        if isinstance(config, DeviceStripConfig) and config.profiles
+        else config.rec
+    )
+    details += [f"{button}: {indicator}" for button, indicator in (("rec", rec), ("solo", config.solo))]
     return f"{label}{what} ({', '.join(details)})"
 
 
@@ -134,7 +139,10 @@ def init_config(path: Path | None, force: bool) -> None:
 
 @main.command("list-devices")
 def list_devices() -> None:
-    """List the outputs and inputs, with the names to use as `device` (* marks the defaults)."""
+    """
+    List the outputs and inputs, with the names to use as `device` (* marks the defaults), and the profiles of the sound
+    cards (* marks the active ones).
+    """
     state = _audio_state()
     for direction, title in ((Direction.OUTPUT, "Outputs"), (Direction.INPUT, "Inputs")):
         click.echo(f"{title}:")
@@ -143,6 +151,13 @@ def list_devices() -> None:
             flags = ", ".join(flag for flag, on in (("muted", device.muted), ("running", device.running)) if on)
             click.echo(f"  {marker} {device.name}")
             click.echo(f"      {device.description}, {device.volume}%{', ' + flags if flags else ''}")
+    for card in state.cards:
+        devices = [device.name for device in (*state.outputs, *state.inputs) if device.card == card.name]
+        click.echo(f"Profiles of {card.name}{' (' + ', '.join(devices) + ')' if devices else ''}:")
+        for profile in card.profiles:
+            marker = "*" if profile.name == card.profile else " "
+            click.echo(f"  {marker} {profile.name}")
+            click.echo(f"      {profile.description}")
 
 
 def strip_for(app_matches: Any, config: Config) -> str:

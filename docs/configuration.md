@@ -132,6 +132,7 @@ A device: an output (a sink) or an input (a source).
 | `device` | the default device | The node name (`xtouch-daemon list-devices`) or the description of the device, or a list of them; `*` is a wildcard. Without it, the strip follows whatever device is the default. |
 | `label` | `"Output"` / `"Input"`, or the start of the device's description | The top line of the LCD. |
 | `select` | `true` | Whether Select makes the device the default. Needs `device`. |
+| `profiles` | none | Profiles of the device's sound card that Rec switches between, see below. |
 
 ```toml
 [[strip]]
@@ -155,12 +156,37 @@ With several devices, the strip shows one of those that are there: the default o
 Select makes it the default; pressed on the default one, it switches to the next one that is there and makes that the
 default. Without `label`, the LCD shows which one it is.
 
+#### Profiles: analog or digital output
+
+A sound card has profiles that decide which devices it has, e.g. analog or digital (S/PDIF, IEC958) output. Each
+profile has a device of its own, so name `device` with a wildcard that matches all of them. With `profiles`, Rec
+switches the card to the next one:
+
+```toml
+[[strip]]
+type = "output"
+device = "alsa_output.pci-0000_11_00.4.*"   # the analog and the digital output of the card
+label = "Speaker"
+profiles = [
+  { label = "Analog", profile = "output:analog-stereo+input:analog-stereo" },
+  { label = "Digital", profile = "output:iec958-stereo+input:analog-stereo" },
+]
+```
+
+- `label`: what the LCD shows for 2 s after a switch (7 characters).
+- `profile`: the name or the description of the profile. `xtouch-daemon list-devices` lists the profiles of each card.
+- The Rec LED is on for every profile but the first, so it can't show an indicator (`rec`) here.
+- If the old device was the default, the new one becomes the default.
+- Each device has its own volume: the fader moves to the volume of the new one.
+- A card in a profile that isn't in the list switches to the first one.
+
 | Element | Function |
 |---|---|
 | Fader | Sets the volume, 0 at the bottom to `max_volume` at the top. Follows changes made elsewhere. |
 | Encoder | Changes the volume by `encoder_step` per step; the fader follows. |
 | Encoder push | Sets `reset_volume`. |
 | Mute | Toggles mute. The LED is on while the device is muted. |
+| Rec | With `profiles`: switches the sound card to the next profile. The LED is on for every profile but the first. |
 | Select | With `device` and `select`: makes the device the default output/input, or switches to the next of several. The LED is on while it is the default. |
 | LCD | Top: the label. Bottom: the volume, or `muted`. |
 | Ring | The volume. |

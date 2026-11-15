@@ -261,3 +261,19 @@ def test_a_device_strip_takes_one_device_or_several() -> None:
 
     with pytest.raises(ConfigError, match="an empty device name"):
         parse_config('[[strip]]\ntype = "output"\ndevice = ["speaker", " "]\n')
+
+
+def test_a_device_strip_switches_between_two_or_more_profiles_with_rec() -> None:
+    analog = '[[strip.profiles]]\nlabel = "Analog"\nprofile = "output:analog-stereo"\n'
+    profiles = analog + '[[strip.profiles]]\nlabel = "Digital"\nprofile = "Digital Stereo (IEC958) Output"\n'
+    strip = '[[strip]]\ntype = "output"\ndevice = "alsa_output.*"\n'
+    config = parse_config(strip + profiles)
+    assert [p.label for p in config.strips[0].profiles] == ["Analog", "Digital"]  # type: ignore[union-attr]
+
+    with pytest.raises(ConfigError, match=r"strip\[1\]\.profiles: at least two to switch between"):
+        parse_config(strip + analog)
+    # its LED shows the profile
+    with pytest.raises(ConfigError, match="rec: with profiles its LED shows the profile"):
+        parse_config(strip + 'rec = "playing"\n' + profiles)
+    with pytest.raises(ConfigError, match=r"strip\[1\]\.profiles\[1\]\.label"):
+        parse_config(strip + profiles.replace('"Analog"', '"Analog Stereo"'))

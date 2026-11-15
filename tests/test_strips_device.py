@@ -5,9 +5,10 @@ import pytest
 from tests.conftest import FakeBackend, RecordingSurface, output, settle, source
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.meter import CaptureTarget
-from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Direction
-from xtouch_daemon.config import BehaviorConfig
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Card, Direction, Profile
+from xtouch_daemon.config import BehaviorConfig, Indicator, ProfileConfig
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.strips import base
 from xtouch_daemon.strips.base import StripEnv
 from xtouch_daemon.strips.device import DeviceStrip
 
@@ -460,3 +461,216 @@ async def test_the_meter_follows_the_device_shown(surface: RecordingSurface, env
     strip.update(AudioState(outputs=HEADPHONES.outputs, default_output="bluez_output.b"))
 
     assert strip.meter_targets(HEADPHONES) == {CaptureTarget("bluez_output.b", monitor=True)}
+
+
+# -- profiles of the sound card ---------------------------------------------------------------------------------------
+
+ANALOG = Profile("output:analog-stereo", "Analog Stereo Output")
+DIGITAL = Profile("output:iec958-stereo", "Digital Stereo (IEC958) Output")
+PROFILES = (
+    ProfileConfig(label="Analog", profile="output:analog-stereo"),
+    ProfileConfig(label="Digital", profile=DIGITAL.description),
+)
+
+
+def on_card(profile: Profile, default: bool = True, volume: int = 50) -> AudioState:
+    """The onboard card in `profile`: its output is the one of that profile."""
+    name = f"alsa_output.pci.{profile.name.removeprefix('output:')}"
+    return AudioState(
+        outputs=(output(name, volume, card="alsa_card.pci"), output("buds", 30)),
+        cards=(Card("alsa_card.pci", profile.name, (ANALOG, DIGITAL, Profile("off", "Off"))),),
+        default_output=name if default else "buds",
+    )
+
+
+def make_with_profiles(
+    surface: RecordingSurface, env: StripEnv, indicators: dict[Button, Indicator] | None = None
+) -> DeviceStrip:
+    return make(surface, env, device="alsa_output.pci.*", label="Speaker", profiles=PROFILES, indicators=indicators)
+
+
+async def test_rec_switches_to_the_next_profile_and_shows_it(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
+    strip = make_with_profiles(surface, env, indicators={Button.REC: "recording"})
+    strip.update(on_card(ANALOG))
+    s = surface.strips[0]
+    # the first profile: the LED is off (it shows the profile, not what records)
+    assert s.leds[Button.REC] == Led.OFF
+
+    strip.on_button(Button.REC, True)
+    await settle()
+
+    assert backend.calls == [("set_card_profile", "alsa_card.pci", "output:iec958-stereo")]
+    assert s.text == ["Speaker", "Digital"]
+
+    strip.update(on_card(DIGITAL, volume=70))
+    await surface.settled()
+    assert s.leds[Button.REC] == Led.ON
+    # the label of the profile stays for a moment, then the volume of the new output shows
+    assert s.text == ["Speaker", "Digital"]
+    assert surface.faders(0)[-1] == protocol.fader_value(0.7)
+
+    strip.on_button(Button.REC, True)
+    await settle()
+    assert backend.calls[-1] == ("set_card_profile", "alsa_card.pci", "output:analog-stereo")
+    # a release does nothing
+    strip.on_button(Button.REC, False)
+    await settle()
+    assert len(backend.calls) == 2
+
+
+async def test_the_notice_of_a_profile_ends_after_a_moment(
+    surface: RecordingSurface, env: StripEnv, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(base, "NOTICE_TIME", 0.01)
+    strip = make_with_profiles(surface, env)
+    strip.update(on_card(ANALOG))
+    strip.on_button(Button.REC, True)
+    strip.on_button(Button.REC, True)
+    assert surface.strips[0].text[1] == "Digital"
+
+    await asyncio.sleep(0.03)
+    assert surface.strips[0].text[1] == "50%"
+    strip.close()
+
+
+async def test_a_closed_strip_ends_no_notice(
+    surface: RecordingSurface, env: StripEnv, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(base, "NOTICE_TIME", 0.01)
+    strip = make_with_profiles(surface, env)
+    strip.update(on_card(ANALOG))
+    strip.on_button(Button.REC, True)
+    await settle()
+
+    # taken over by another configuration, which shows what it likes
+    strip.close()
+    await asyncio.sleep(0.03)
+    assert surface.strips[0].text[1] == "Digital"
+
+
+async def test_the_notice_shows_while_the_output_is_gone_and_ends_with_a_volume_change(
+    surface: RecordingSurface, env: StripEnv
+) -> None:
+    strip = make_with_profiles(surface, env)
+    strip.update(on_card(ANALOG))
+    strip.on_button(Button.REC, True)
+    await settle()
+
+    # between the profiles, the card has no output for a moment
+    strip.update(AudioState(cards=on_card(ANALOG).cards))
+    assert surface.strips[0].text[1] == "Digital"
+
+    strip.update(on_card(DIGITAL))
+    strip.on_encoder(2)
+    assert surface.strips[0].text[1] == "52%"
+    strip.close()
+
+
+async def test_the_new_output_becomes_the_default_if_the_old_one_was(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
+    strip = make_with_profiles(surface, env)
+    strip.update(on_card(ANALOG))
+    strip.on_button(Button.REC, True)
+    await settle()
+
+    # the sound server made another output the default meanwhile
+    strip.update(on_card(ANALOG, default=False))
+    strip.update(on_card(DIGITAL, default=False))
+    await settle()
+    assert backend.calls[-1] == ("set_default", Direction.OUTPUT, "alsa_output.pci.iec958-stereo")
+
+    # only once
+    strip.update(on_card(DIGITAL, default=False))
+    await settle()
+    assert len(backend.calls) == 2
+
+
+async def test_a_new_output_that_is_the_default_already_is_left_alone(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
+    strip = make_with_profiles(surface, env)
+    strip.update(on_card(ANALOG))
+    strip.on_button(Button.REC, True)
+    await settle()
+    strip.update(on_card(DIGITAL))
+    strip.update(on_card(DIGITAL, default=False))
+    await settle()
+    assert backend.calls == [("set_card_profile", "alsa_card.pci", "output:iec958-stereo")]
+
+
+async def test_a_switch_from_an_output_that_is_not_the_default_changes_no_default(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
+    strip = make_with_profiles(surface, env)
+    strip.update(on_card(ANALOG, default=False))
+    strip.on_button(Button.REC, True)
+    await settle()
+    strip.update(on_card(DIGITAL, default=False))
+    await settle()
+    assert backend.calls == [("set_card_profile", "alsa_card.pci", "output:iec958-stereo")]
+
+
+async def test_a_failed_switch_is_logged_and_changes_no_default_later(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend, caplog: pytest.LogCaptureFixture
+) -> None:
+    backend.failing.add("set_card_profile")
+    strip = make_with_profiles(surface, env)
+    strip.update(on_card(ANALOG))
+    strip.on_button(Button.REC, True)
+    await settle()
+    assert "Strip 1: switch to Digital: set_card_profile failed" in caplog.text
+
+    # switched some other way later
+    strip.update(on_card(DIGITAL, default=False))
+    await settle()
+    assert len(backend.calls) == 1
+
+
+async def test_a_card_in_another_profile_switches_to_the_first(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
+    strip = make_with_profiles(surface, env)
+    surround = Profile("output:analog-surround-51", "Analog Surround 5.1 Output")
+    state = on_card(ANALOG)
+    strip.update(AudioState(outputs=state.outputs, cards=(Card("alsa_card.pci", surround.name, (ANALOG, surround)),)))
+    assert surface.strips[0].leds[Button.REC] == Led.OFF
+
+    strip.on_button(Button.REC, True)
+    await settle()
+    assert backend.calls == [("set_card_profile", "alsa_card.pci", "output:analog-stereo")]
+
+
+async def test_a_profile_the_card_does_not_have_is_logged(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend, caplog: pytest.LogCaptureFixture
+) -> None:
+    strip = make_with_profiles(surface, env)
+    state = on_card(ANALOG)
+    strip.update(AudioState(outputs=state.outputs, cards=(Card("alsa_card.pci", ANALOG.name, (ANALOG,)),)))
+
+    strip.on_button(Button.REC, True)
+    await settle()
+    assert backend.calls == []
+    assert "Strip 1: alsa_card.pci has no profile 'Digital Stereo (IEC958) Output'" in caplog.text
+
+
+async def test_rec_does_nothing_without_a_card(surface: RecordingSurface, env: StripEnv, backend: FakeBackend) -> None:
+    strip = make(surface, env, device="buds", profiles=PROFILES)
+    strip.update(on_card(ANALOG))
+    strip.on_button(Button.REC, True)
+    await settle()
+    assert backend.calls == []
+    assert surface.strips[0].leds[Button.REC] == Led.OFF
+
+
+async def test_without_profiles_rec_shows_its_indicator(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
+    strip = make(surface, env, device="alsa_output.pci.*", indicators={Button.REC: "default"})
+    strip.update(on_card(DIGITAL))
+    strip.on_button(Button.REC, True)
+    await settle()
+    assert backend.calls == []
+    assert surface.strips[0].leds[Button.REC] == Led.ON

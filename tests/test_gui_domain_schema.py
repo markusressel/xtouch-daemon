@@ -30,10 +30,19 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
 
 def test_every_strip_type_has_its_model_and_options():
     assert list(strip_models()) == ["output", "input", "apps", "auto", "homeassistant", "empty"]
-    assert [o.name for o in strip_options("output")] == ["color", "meter", "rec", "solo", "device", "label", "select"]
+    assert [o.name for o in strip_options("output")] == [
+        "color",
+        "meter",
+        "rec",
+        "solo",
+        "device",
+        "label",
+        "select",
+        "profiles",
+    ]
     assert strip_options("empty") == ()
 
-    color, _, rec, _, device, label, _ = strip_options("input")
+    color, _, rec, _, device, label, _, profiles = strip_options("input")
     assert (rec.kind, rec.default) == (Kind.CHOICE, "recording")
     assert color.kind == Kind.COLOR
     assert color.choices == ("off", "red", "green", "yellow", "blue", "magenta", "cyan", "white")
@@ -41,6 +50,12 @@ def test_every_strip_type_has_its_model_and_options():
     # unset by default: the default device, the default label
     assert (device.kind, device.default, device.required) == (Kind.LIST, (), False)
     assert (label.max_length, label.required) == (7, False)
+    # a list of tables, with options of their own
+    assert (profiles.kind, profiles.default) == (Kind.TABLES, ())
+    assert [(column.name, column.kind, column.max_length) for column in profiles.columns] == [
+        ("label", Kind.TEXT, 7),
+        ("profile", Kind.TEXT, None),
+    ]
 
 
 def test_required_options_have_no_default():

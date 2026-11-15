@@ -92,6 +92,17 @@ class _StripConfig(_Model):
     """What the LED of the solo button shows."""
 
 
+class ProfileConfig(_Model):
+    """A profile of the sound card of a device strip, e.g. analog or digital output."""
+
+    label: Label
+    """What the LCD shows after a switch to it."""
+    profile: str
+    """
+    The name (`output:iec958-stereo+input:analog-stereo`) or description of the profile (`xtouch-daemon list-devices`).
+    """
+
+
 class DeviceStripConfig(_StripConfig):
     """An output or an input device, or whatever is the default one."""
 
@@ -106,6 +117,12 @@ class DeviceStripConfig(_StripConfig):
     """The top line of the LCD; by default "Output" or "Input", or the start of the device's description."""
     select: bool = True
     """Whether the select button makes the device the default (needs `device`)."""
+    profiles: tuple[ProfileConfig, ...] = ()
+    """
+    Profiles of the device's sound card to switch between with the rec button, e.g. analog and digital output. Its
+    LED is on for every profile but the first. Name `device` so that it matches the devices of every profile (e.g.
+    `alsa_output.pci-0000_11_00.4.*`): each profile has a device of its own.
+    """
 
     @field_validator("device", mode="before")
     @classmethod
@@ -118,6 +135,19 @@ class DeviceStripConfig(_StripConfig):
         if any(not name.strip() for name in value):
             raise ValueError("an empty device name")
         return value
+
+    @field_validator("profiles")
+    @classmethod
+    def _two_profiles(cls, value: tuple[ProfileConfig, ...]) -> tuple[ProfileConfig, ...]:
+        if len(value) == 1:
+            raise ValueError("at least two to switch between")
+        return value
+
+    @model_validator(mode="after")
+    def _profiles_take_rec(self) -> DeviceStripConfig:
+        if self.profiles and "rec" in self.model_fields_set:
+            raise ValueError("rec: with profiles its LED shows the profile")
+        return self
 
 
 class AppsStripConfig(_StripConfig):

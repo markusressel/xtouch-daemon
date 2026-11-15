@@ -13,7 +13,7 @@ import pulsectl
 import pulsectl_asyncio
 
 from xtouch_daemon.audio.backend import AudioCommandError
-from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Capture, Device, Direction, Stream
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Capture, Card, Device, Direction, Profile, Stream
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ CLIENT_NAME = "xtouch-daemon"
 RECONNECT_DELAY = 2.0
 SETTLE_DELAY = 0.02
 """Events come in bursts (a new stream changes the stream, its sink and the server): one snapshot after them."""
-EVENT_FACILITIES = ("sink", "source", "sink_input", "source_output", "server")
+EVENT_FACILITIES = ("sink", "source", "sink_input", "source_output", "server", "card")
 
 PA_INVALID_INDEX = 0xFFFFFFFF
 
@@ -38,7 +38,7 @@ def _state_running(state: Any) -> bool:
     return str(state).endswith("running") or state == "running"
 
 
-def _device(info: Any, direction: Direction) -> Device:
+def _device(info: Any, direction: Direction, cards: dict[int, str]) -> Device:
     return Device(
         name=info.name,
         description=info.description or info.name,
@@ -46,6 +46,15 @@ def _device(info: Any, direction: Direction) -> Device:
         volume=_percent(info.volume),
         muted=bool(info.mute),
         running=_state_running(info.state),
+        card=cards.get(info.card),
+    )
+
+
+def _card(info: Any) -> Card:
+    return Card(
+        name=info.name,
+        profile=info.profile_active.name,
+        profiles=tuple(Profile(profile.name, profile.description or profile.name) for profile in info.profile_list),
     )
 
 
@@ -155,6 +164,8 @@ class PulseBackend:
         sources = await pulse.source_list()
         sink_inputs = await pulse.sink_input_list()
         source_outputs = await pulse.source_output_list()
+        cards = await pulse.card_list()
+        card_names = {card.index: card.name for card in cards}
         sink_names = {sink.index: sink.name for sink in sinks}
         # what a capture records: an input, or the monitor of an output
         targets = {
@@ -165,11 +176,12 @@ class PulseBackend:
             if not _is_monitor(source) or source.monitor_of_sink in sink_names
         }
         return AudioState(
-            outputs=tuple(_device(sink, Direction.OUTPUT) for sink in sinks),
+            outputs=tuple(_device(sink, Direction.OUTPUT, card_names) for sink in sinks),
             # the monitors of the outputs are sources too, they are not inputs
-            inputs=tuple(_device(source, Direction.INPUT) for source in sources if not _is_monitor(source)),
+            inputs=tuple(_device(source, Direction.INPUT, card_names) for source in sources if not _is_monitor(source)),
             streams=tuple(_stream(sink_input) for sink_input in sink_inputs),
             captures=tuple(_capture(output, targets) for output in source_outputs if not _is_passive(output)),
+            cards=tuple(_card(card) for card in cards),
             default_output=server.default_sink_name or None,
             default_input=server.default_source_name or None,
         )
@@ -214,6 +226,14 @@ class PulseBackend:
     async def set_default(self, direction: Direction, name: str) -> None:
         info = await self._device_info(direction, name)
         await self._call(f"making {name} the default", self._connected().default_set(info))
+
+    async def set_card_profile(self, card: str, profile: str) -> None:
+        pulse = self._connected()
+        try:
+            info = await pulse.get_card_by_name(card)
+        except PULSE_ERRORS as e:
+            raise AudioCommandError(f"no card {card!r}: {e}") from e
+        await self._call(f"switching {card} to {profile}", pulse.card_profile_set(info, profile))
 
     async def set_stream_volume(self, index: int, percent: int) -> None:
         info = await self._stream_info(index)

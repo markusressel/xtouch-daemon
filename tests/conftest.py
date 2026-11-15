@@ -51,6 +51,9 @@ class FakeBackend:
     async def set_default(self, direction: Direction, name: str) -> None:
         await self._command("set_default", direction, name)
 
+    async def set_card_profile(self, card: str, profile: str) -> None:
+        await self._command("set_card_profile", card, profile)
+
     async def set_stream_volume(self, index: int, percent: int) -> None:
         await self._command("set_stream_volume", index, percent)
 
@@ -133,8 +136,10 @@ async def settle() -> None:
         await asyncio.sleep(0)
 
 
-def output(name: str = "speaker", volume: int = 50, muted: bool = False, running: bool = False) -> Device:
-    return Device(name, f"{name} description", Direction.OUTPUT, volume, muted, running)
+def output(
+    name: str = "speaker", volume: int = 50, muted: bool = False, running: bool = False, card: str | None = None
+) -> Device:
+    return Device(name, f"{name} description", Direction.OUTPUT, volume, muted, running, card)
 
 
 def source(name: str = "mic", volume: int = 80, muted: bool = False, running: bool = False) -> Device:

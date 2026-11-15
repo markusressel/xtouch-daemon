@@ -8,7 +8,7 @@ import pytest
 
 from xtouch_daemon.audio import pulse as pulse_module
 from xtouch_daemon.audio.backend import AudioCommandError
-from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Direction
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Card, Direction, Profile
 from xtouch_daemon.audio.pulse import PA_INVALID_INDEX, PulseBackend, scaled_volume
 
 # what pulsectl reports (its enum has its values as dynamic attributes)
@@ -20,9 +20,30 @@ def volume(*values: float) -> SimpleNamespace:
     return SimpleNamespace(values=list(values))
 
 
-def sink(index: int, name: str, description: str = "", state: Any = SUSPENDED, values=(0.5, 0.5), mute=0):
+def sink(
+    index: int,
+    name: str,
+    description: str = "",
+    state: Any = SUSPENDED,
+    values=(0.5, 0.5),
+    mute=0,
+    card=PA_INVALID_INDEX,
+):
     return SimpleNamespace(
-        index=index, name=name, description=description, state=state, volume=volume(*values), mute=mute
+        index=index, name=name, description=description, state=state, volume=volume(*values), mute=mute, card=card
+    )
+
+
+def profile(name: str, description: str = "") -> SimpleNamespace:
+    return SimpleNamespace(name=name, description=description)
+
+
+def card(index: int, name: str, active: str, *profiles: SimpleNamespace) -> SimpleNamespace:
+    return SimpleNamespace(
+        index=index,
+        name=name,
+        profile_list=list(profiles),
+        profile_active=next(p for p in profiles if p.name == active),
     )
 
 
@@ -47,7 +68,15 @@ class FakePulse:
 
     def __init__(self) -> None:
         self.server = SimpleNamespace(default_sink_name="speaker", default_source_name="mic")
-        self.sinks = [sink(1, "speaker", "Speaker", RUNNING), sink(2, "buds", "", values=(0.8, 0.4), mute=1)]
+        self.sinks = [
+            sink(1, "speaker", "Speaker", RUNNING, card=30),
+            sink(2, "buds", "", values=(0.8, 0.4), mute=1),
+        ]
+        self.cards = [
+            card(30, "onboard", "analog", profile("analog", "Analog Output"), profile("digital", "Digital Output")),
+            # without a description it is the name
+            card(31, "usb", "off", profile("off")),
+        ]
         self.sources = [
             source(3, "speaker.monitor", monitor_of_sink=1),
             source(4, "mic"),
@@ -97,6 +126,17 @@ class FakePulse:
 
     async def source_output_list(self) -> list[Any]:
         return self.source_outputs
+
+    async def card_list(self) -> list[Any]:
+        return self.cards
+
+    async def get_card_by_name(self, name: str) -> Any:
+        return self._find(self.cards, name)
+
+    async def card_profile_set(self, card: Any, profile: str) -> None:
+        if profile not in [p.name for p in card.profile_list]:
+            raise pulsectl.PulseIndexError(profile)
+        self.calls.append(("profile", card.name, profile))
 
     async def subscribe_events(self, *facilities: str) -> AsyncIterator[object]:
         while True:
@@ -173,6 +213,11 @@ async def test_a_snapshot_maps_devices_streams_and_defaults():
     assert state.default_output == "speaker"
     assert state.default_input == "mic"
     assert state.connected
+    assert [d.card for d in state.outputs] == ["onboard", None]
+    assert state.cards == (
+        Card("onboard", "analog", (Profile("analog", "Analog Output"), Profile("digital", "Digital Output"))),
+        Card("usb", "off", (Profile("off", "off"),)),
+    )
 
 
 async def test_a_snapshot_without_defaults_or_channels():
@@ -305,7 +350,9 @@ async def test_carries_out_the_commands_of_the_strips():
     await backend.set_default(Direction.INPUT, "mic")
     await backend.set_stream_volume(10, 30)
     await backend.set_stream_mute(10, False)
+    await backend.set_card_profile("onboard", "digital")
 
+    assert fake.calls[6] == ("profile", "onboard", "digital")
     assert fake.calls[0][:2] == ("volume", "buds")
     assert fake.calls[0][2] == pytest.approx([0.4, 0.2])
     assert fake.calls[1:4] == [("mute", "mic", True), ("default", "buds", None), ("default", "mic", None)]
@@ -325,6 +372,10 @@ async def test_commands_that_can_not_be_carried_out_raise_a_command_error():
     fake.sinks.append(sink(7, "broken"))
     with pytest.raises(AudioCommandError, match="making broken the default failed"):
         await backend.set_default(Direction.OUTPUT, "broken")
+    with pytest.raises(AudioCommandError, match="switching onboard to surround failed"):
+        await backend.set_card_profile("onboard", "surround")
+    with pytest.raises(AudioCommandError, match="no card 'gone'"):
+        await backend.set_card_profile("gone", "analog")
     # a connection lost in the middle of a command
     fake.fail = pulsectl.PulseDisconnected()
     with pytest.raises(AudioCommandError):

@@ -26,12 +26,42 @@ class Device:
     muted: bool
     running: bool
     """Whether audio flows: something plays to the output or records from the input."""
+    card: str | None = None
+    """The name of the sound card it belongs to (its profile decides which devices it has), None for others."""
 
     def matches(self, name: str) -> bool:
         """By node name or description; `*` and `?` are wildcards (e.g. `bluez_output.*`, every Bluetooth output)."""
         if "*" in name or "?" in name:
             return fnmatch.fnmatchcase(self.name, name) or fnmatch.fnmatchcase(self.description, name)
         return name in (self.name, self.description)
+
+
+@dataclass(frozen=True)
+class Profile:
+    """A profile of a sound card: which outputs and inputs it has, e.g. analog or digital (S/PDIF) output."""
+
+    name: str
+    """E.g. `output:iec958-stereo+input:analog-stereo`."""
+    description: str
+    """E.g. `Digital Stereo (IEC958) Output + Analog Stereo Input`."""
+
+    def matches(self, name: str) -> bool:
+        return name in (self.name, self.description)
+
+
+@dataclass(frozen=True)
+class Card:
+    """A sound card: one of its profiles is active."""
+
+    name: str
+    """E.g. `alsa_card.pci-0000_11_00.4`."""
+    profile: str
+    """The name of the active profile."""
+    profiles: tuple[Profile, ...] = ()
+
+    def profile_named(self, name: str) -> Profile | None:
+        """A profile by its name or description."""
+        return next((profile for profile in self.profiles if profile.matches(name)), None)
 
 
 @dataclass(frozen=True)
@@ -92,6 +122,7 @@ class AudioState:
     inputs: tuple[Device, ...] = ()
     streams: tuple[Stream, ...] = ()
     captures: tuple[Capture, ...] = ()
+    cards: tuple[Card, ...] = ()
     default_output: str | None = None
     default_input: str | None = None
     connected: bool = field(default=True)
@@ -117,6 +148,9 @@ class AudioState:
         for name in names:
             found.update((device.name, device) for device in self.devices(direction) if device.matches(name))
         return tuple(found.values())
+
+    def card(self, name: str | None) -> Card | None:
+        return next((card for card in self.cards if card.name == name), None)
 
     def is_default(self, device: Device) -> bool:
         return self.default_name(device.direction) == device.name

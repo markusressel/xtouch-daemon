@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QLayoutItem,
     QLineEdit,
     QMenu,
+    QPushButton,
     QSpinBox,
     QToolButton,
     QVBoxLayout,
@@ -358,6 +359,96 @@ class Chips(QWidget):
         self.changed.emit(list(self.values))
 
 
+class Tables(QWidget):
+    """
+    A list of tables with texts (e.g. the profiles of a strip): a line of fields for each, a button to add one. The
+    suggestions are for the last column, the value; the ones before it describe it (e.g. a label).
+    """
+
+    changed = pyqtSignal(list, arguments=["values"])
+
+    def __init__(self, columns: tuple[Option, ...], suggest: Suggest | None):
+        super().__init__()
+        self.columns = columns
+        self._suggest = suggest
+        self.values: list[dict[str, str]] = []
+        self.lines: list[list[QLineEdit]] = []
+        self._row_widgets: list[QWidget] = []
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(theme.Space.XS)
+        self.rows = QVBoxLayout()
+        self.rows.setSpacing(theme.Space.XS)
+        layout.addLayout(self.rows)
+        self.add_button = QPushButton(theme.icon("plus"), "Add", self)
+        self.add_button.clicked.connect(self.add)
+        add = QHBoxLayout()
+        add.addWidget(self.add_button)
+        add.addStretch()
+        layout.addLayout(add)
+
+    def show_values(self, values: list[dict[str, str]]) -> None:
+        self.values = [dict(value) for value in values]
+        for widget in self._row_widgets:
+            self.rows.removeWidget(widget)
+            widget.deleteLater()
+        self.lines = []
+        self._row_widgets = [self._row(index, value) for index, value in enumerate(self.values)]
+        for widget in self._row_widgets:
+            self.rows.addWidget(widget)
+
+    def _row(self, index: int, value: dict[str, str]) -> QWidget:
+        row = QWidget(self)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(theme.Space.XS)
+        lines: list[QLineEdit] = []
+        for column in self.columns:
+            edit = QLineEdit(str(value.get(column.name, "")), row)
+            edit.setPlaceholderText(column.title)
+            edit.setToolTip(help_text(column.help))
+            if column.max_length is not None:
+                edit.setMaxLength(column.max_length)
+                edit.setMaximumWidth(120)
+            edit.textEdited.connect(lambda text, name=column.name: self._edit(index, name, text))
+            layout.addWidget(edit, 0 if column.max_length is not None else 1)
+            lines.append(edit)
+        if self._suggest is not None:
+            last = lines[-1]
+            completer(last, self._suggest).activated.connect(
+                lambda text: self._edit(index, self.columns[-1].name, text)
+            )
+            layout.addWidget(
+                suggestion_menu(row, self._suggest, lambda text: self._pick(index, text), "The sound server has none")
+            )
+        remove = flat_button("close", "Remove it", row)
+        remove.clicked.connect(lambda: self.remove(index))
+        layout.addWidget(remove)
+        self.lines.append(lines)
+        return row
+
+    def _edit(self, index: int, name: str, text: str) -> None:
+        if text:
+            self.values[index][name] = text
+        else:
+            # a missing value: its problem says it is required
+            self.values[index].pop(name, None)
+        self.changed.emit([dict(value) for value in self.values])
+
+    def _pick(self, index: int, text: str) -> None:
+        self.lines[index][-1].setText(text)
+        self._edit(index, self.columns[-1].name, text)
+
+    def add(self) -> None:
+        self.show_values([*self.values, {}])
+        self.changed.emit([dict(value) for value in self.values])
+        self.lines[-1][0].setFocus()
+
+    def remove(self, index: int) -> None:
+        self.show_values(self.values[:index] + self.values[index + 1 :])
+        self.changed.emit([dict(value) for value in self.values])
+
+
 class OptionRow(QWidget):
     """
     One option: its name, a field for its kind of value, a button back to the default, the help and its problems.
@@ -453,6 +544,11 @@ class OptionRow(QWidget):
                 self.chips.changed.connect(self._edit)
                 self.input = self.chips
                 return self.chips
+            case Kind.TABLES:
+                self.tables = Tables(option.columns, suggest)
+                self.tables.changed.connect(self._edit)
+                self.input = self.tables
+                return self.tables
 
     def _left(self, widget: QWidget) -> QWidget:
         """The widget at its own size, on the left."""
@@ -533,6 +629,10 @@ class OptionRow(QWidget):
                 case Kind.LIST:
                     # a single value may stand alone, e.g. `device = "speaker"`
                     self.chips.show_values([shown] if isinstance(shown, str) else [str(item) for item in shown or ()])
+                case Kind.TABLES:
+                    # a value of another type shows none; its problem says what is wrong
+                    tables = shown if isinstance(shown, list | tuple) else ()
+                    self.tables.show_values([dict(table) for table in tables if isinstance(table, dict)])
         finally:
             self._loading = False
         self.reset.setVisible(value is not None and not self.option.required)
@@ -553,6 +653,14 @@ class OptionRow(QWidget):
         self.edited.emit()
 
     def show_problems(self, problems: list[Problem]) -> None:
-        self.error.setText("\n".join(problem.message for problem in problems))
+        self.error.setText("\n".join(self._problem_text(problem) for problem in problems))
         self.error.setVisible(bool(problems))
         theme.set_role(self.input, bool(problems), "problem")
+
+    def _problem_text(self, problem: Problem) -> str:
+        """The message, after the table and column for a problem in one of `TABLES` (e.g. "2. label: ...")."""
+        rest = problem.path[problem.path.index(self.option.name) + 1 :] if self.option.name in problem.path else ()
+        if self.option.kind != Kind.TABLES or not rest or not isinstance(rest[0], int):
+            return problem.message
+        where = " ".join([f"{rest[0] + 1}.", *map(str, rest[1:])])
+        return f"{where}: {problem.message}"

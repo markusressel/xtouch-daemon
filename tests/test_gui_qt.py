@@ -33,14 +33,15 @@ from tests.conftest import output, source, stream
 from tests.test_instance import RecordingInstance
 from tests.test_systemd import FakeSystemctl
 from xtouch_daemon import live
-from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.gui import qt
 from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.schema import Option, strip_options
 from xtouch_daemon.gui.qt import preview, theme
 from xtouch_daemon.gui.qt import preview as preview_module
 from xtouch_daemon.gui.qt import window as window_module
-from xtouch_daemon.gui.qt.fields import Chips, OptionRow
+from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Tables
 from xtouch_daemon.gui.qt.pages import AliasesPage, SectionPage
 from xtouch_daemon.gui.qt.window import MainWindow
 from xtouch_daemon.instance import Instance
@@ -68,10 +69,20 @@ label = "Browser"
 """
 
 STATE = AudioState(
-    outputs=(output("speaker"), output("buds")),
+    outputs=(output("speaker", card="onboard"), output("buds")),
     inputs=(source("mic"),),
     streams=(stream(1, "Brave", "brave"), stream(2, "WEBRTC VoiceEngine", "Discord")),
     default_output="speaker",
+    cards=(
+        Card(
+            "onboard",
+            "output:analog-stereo",
+            (
+                Profile("output:analog-stereo", "Analog Stereo Output"),
+                Profile("output:iec958-stereo", "Digital Output"),
+            ),
+        ),
+    ),
 )
 
 RUNNING = "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n"
@@ -154,6 +165,10 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
 @pytest.fixture
 def window(make_window: MakeWindow) -> MainWindow:
     return make_window()
+
+
+def row_options(strip_type: str, name: str) -> Option:
+    return next(option for option in strip_options(strip_type) if option.name == name)
 
 
 def row(window: MainWindow, name: str, page: str = "strip") -> OptionRow:
@@ -1303,3 +1318,72 @@ def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):
     document.setHtml(help_label.text())
     assert '"Output"' in document.toPlainText()
     assert "&quot;" not in document.toPlainText()
+
+
+def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindow):
+    profiles = row(window, "profiles")
+    tables: Tables = profiles.tables
+    assert tables.values == []
+
+    click(qtbot, tables.add_button)
+    type_into(qtbot, tables.lines[0][0], "Analog")
+    # the profiles of the card come from the sound server
+    menu_button = next(button for button in tables.findChildren(QToolButton) if button.menu())
+    menu = menu_button.menu()
+    assert menu is not None
+    menu.aboutToShow.emit()
+    assert [action.text() for action in menu.actions()] == [
+        "output:analog-stereo    Analog Stereo Output (active)",
+        "output:iec958-stereo    Digital Output",
+    ]
+    menu.actions()[0].trigger()
+    assert tables.lines[0][1].text() == "output:analog-stereo"
+
+    # one profile is not enough, and a label is required
+    click(qtbot, tables.add_button)
+    assert profiles.error.text() == "2. label: Field required\n2. profile: Field required"
+    type_into(qtbot, tables.lines[1][0], "Digital")
+    completer = tables.lines[1][1].completer()
+    assert completer is not None
+    completer.activated.emit("output:iec958-stereo")
+    assert profiles.error.text() == ""
+
+    assert window.document.get(("strip", 0, "profiles")) == [
+        {"label": "Analog", "profile": "output:analog-stereo"},
+        {"label": "Digital", "profile": "output:iec958-stereo"},
+    ]
+    type_into(qtbot, tables.lines[1][0], "")
+    assert window.document.get(("strip", 0, "profiles"))[1] == {"profile": "output:iec958-stereo"}  # type: ignore[index]
+
+    tables.remove(1)
+    assert profiles.error.text() == "at least two to switch between"
+    tables.remove(0)
+    assert window.document.get(("strip", 0, "profiles")) is None
+    assert profiles.error.text() == ""
+
+
+def test_profiles_of_the_file_are_shown_and_saved_as_tables(qtbot: QtBot, window: MainWindow):
+    window.document.set(
+        ("strip", 0, "profiles"),
+        [{"label": "Analog", "profile": "output:analog-stereo"}, {"label": "Digital", "profile": "Digital Output"}],
+    )
+    profiles = row(window, "profiles")
+    profiles.load()
+    assert [[line.text() for line in lines] for lines in profiles.tables.lines] == [
+        ["Analog", "output:analog-stereo"],
+        ["Digital", "Digital Output"],
+    ]
+    assert 'label = "Digital"' in window.document.render()
+    # something else than a list of tables shows none: its problem says what is wrong
+    window.document.set(("strip", 0, "profiles"), "analog")
+    profiles.load()
+    assert profiles.tables.values == []
+
+
+def test_tables_without_suggestions_have_no_menu(qtbot: QtBot):
+    columns = row_options("output", "profiles").columns
+    tables = Tables(columns, None)
+    qtbot.addWidget(tables)
+    tables.show_values([{"label": "Analog"}])
+    assert [[line.text() for line in lines] for lines in tables.lines] == [["Analog", ""]]
+    assert not [button for button in tables.findChildren(QToolButton) if button.menu()]

@@ -30,6 +30,8 @@ class Kind(StrEnum):
     """A text that is not shown, e.g. a password."""
     PATH = "path"
     """The path of a file."""
+    TABLES = "tables"
+    """A list of tables with texts (`Option.columns`), e.g. the profiles of a strip."""
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,8 @@ class Option:
     maximum: float | None = None
     max_length: int | None = None
     """The most characters of a text."""
+    columns: tuple[Option, ...] = ()
+    """The options of each table of `TABLES`."""
 
     @property
     def title(self) -> str:
@@ -66,7 +70,18 @@ def _unwrap(annotation: Any) -> tuple[Any, list[Any]]:
     return annotation, constraints
 
 
+def _table_model(annotation: Any) -> type[BaseModel] | None:
+    """The model of the tables of `tuple[SomeModel, ...]`."""
+    if get_origin(annotation) is tuple:
+        item = get_args(annotation)[0]
+        if isinstance(item, type) and issubclass(item, BaseModel):
+            return item
+    return None
+
+
 def _kind(annotation: Any) -> Kind:
+    if _table_model(annotation) is not None:
+        return Kind.TABLES
     if annotation == ColorName:
         return Kind.COLOR
     if get_origin(annotation) is Literal:
@@ -109,6 +124,7 @@ def option(name: str, field: FieldInfo) -> Option:
         default=None if field.default is PydanticUndefined else field.default,
         required=field.is_required(),
         choices=get_args(annotation) if kind in (Kind.CHOICE, Kind.COLOR) else (),
+        columns=options(table) if (table := _table_model(annotation)) is not None else (),
         **bounds,
     )
 

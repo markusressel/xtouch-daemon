@@ -48,6 +48,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 meter=config.meter,
                 select=config.select,
                 indicators=indicators,
+                profiles=config.profiles,
             )
         case AppsStripConfig():
             return AppGroupStrip(

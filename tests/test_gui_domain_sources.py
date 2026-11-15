@@ -1,6 +1,6 @@
 from tests.conftest import output, source, stream
-from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.gui.domain.sources import Suggestion, applications, devices, patterns, summary
+from xtouch_daemon.audio.model import AudioState, Card, Direction, Profile
+from xtouch_daemon.gui.domain.sources import Suggestion, applications, devices, patterns, profiles, summary
 
 STATE = AudioState(
     outputs=(output("speaker"), output("buds")),
@@ -45,3 +45,18 @@ def test_patterns_are_binaries_and_names():
 def test_the_summary_counts():
     assert summary(STATE) == "2 outputs, 1 input, 3 applications"
     assert summary(AudioState(streams=(stream(1),))) == "0 outputs, 0 inputs, 1 application"
+
+
+def test_profiles_of_the_cards_of_the_devices_with_the_active_one_marked():
+    state = AudioState(
+        outputs=(output("speaker", card="onboard"),),
+        cards=(
+            Card("onboard", "analog", (Profile("analog", "Analog Output"), Profile("digital", "Digital Output"))),
+            Card("hdmi", "off", (Profile("off", "Off"),)),
+        ),
+    )
+    assert profiles(state, Direction.OUTPUT) == (
+        Suggestion("analog", "Analog Output (active)"),
+        Suggestion("digital", "Digital Output"),
+    )
+    assert profiles(state, Direction.INPUT) == ()
