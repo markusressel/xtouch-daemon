@@ -113,10 +113,19 @@ class Daemon:
                     task.result()
         finally:
             systemd.notify("STOPPING=1")
-            for signum in handlers:
-                loop.remove_signal_handler(signum)
             stopped.cancel()
-            await self._shutdown(surface, parts)
+            # another signal (a second Ctrl+C, or one that `uv run` passes on) must not cut the shutdown short: the
+            # faders would stop half way down
+            for signum in handlers:
+                loop.add_signal_handler(signum, self._stopping_already)
+            try:
+                await self._shutdown(surface, parts)
+            finally:
+                for signum in handlers:
+                    loop.remove_signal_handler(signum)
+
+    def _stopping_already(self) -> None:
+        _LOGGER.info("Stopping already, the faders are on their way down")
 
     async def _shutdown(self, surface: asyncio.Task[None], parts: list[asyncio.Task[None]]) -> None:
         """
