@@ -8,7 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Strip types `output` and `input` (a device, or the default one; Select makes it the default), `apps` (all streams of
+- Strip types `output` and `input` (a device, several with Select switching between them, e.g. any Bluetooth
+  headphones with `bluez_output.*`, or the default one; Select makes it the default), `apps` (all streams of
   a group of applications), `auto` (the next application that plays) and `empty`.
 - Motor faders that glide smoothly (also after a connect, from the bottom), follow changes made elsewhere, stay still
   while touched, and get their value again after arriving so the motor doesn't stop short. Strips with nothing to

@@ -12,9 +12,14 @@ from xtouch_daemon.surface import Strip
 
 class DeviceStrip(VolumeStrip):
     """
-    The volume of a device (`device` is its node name or description), or of the default device for None, which
-    follows when the default changes. With `select`, the select button makes the device the default, and its LED is
-    on while it is. A device that is not there (e.g. headphones that are switched off) shows "off" on a dark LCD.
+    The volume of a device (`devices` holds its node name or description), or of the default device without
+    `devices`, which follows when the default changes. With `select`, the select button makes the device the default,
+    and its LED is on while it is. A device that is not there (e.g. headphones that are switched off) shows "off" on a
+    dark LCD.
+
+    With several devices (or wildcards, e.g. every pair of Bluetooth headphones) the strip shows one of those that are
+    there: the default one, or else the one it showed last (or the first). Select makes it the default; on the default
+    one, it switches to the next one and makes that the default.
     """
 
     def __init__(
@@ -22,7 +27,7 @@ class DeviceStrip(VolumeStrip):
         strip: Strip,
         env: StripEnv,
         direction: Direction,
-        device: str | None,
+        devices: tuple[str, ...],
         label: str | None = None,
         color: Color = Color.WHITE,
         meter: bool = True,
@@ -32,22 +37,36 @@ class DeviceStrip(VolumeStrip):
         default_label = "Output" if direction == Direction.OUTPUT else "Input"
         super().__init__(strip, env, label or default_label, color, meter, indicators)
         self.direction = direction
-        self.device_name = device
-        self.select = select and device is not None
+        self.devices = devices
+        self.select = select and bool(devices)
         self.device: Device | None = None
+        self.candidates: tuple[Device, ...] = ()
+        """The devices of `devices` that are there."""
         self._custom_label = label is not None
+        self.default = False
+        """Whether the device shown is the default one."""
+
+    def _shown(self, state: AudioState) -> Device | None:
+        if not self.devices:
+            return state.device(self.direction, None)
+        candidates = state.devices_matching(self.direction, self.devices)
+        default = next((device for device in candidates if state.is_default(device)), None)
+        last = next((device for device in candidates if self.device and device.name == self.device.name), None)
+        return default or last or next(iter(candidates), None)
 
     def current(self, state: AudioState) -> tuple[Level | None, bool]:
-        self.device = state.device(self.direction, self.device_name)
+        self.device = self._shown(state)
+        self.candidates = state.devices_matching(self.direction, self.devices)
         if self.device is None:
             return None, False
-        if not self._custom_label and self.device_name is not None:
+        if not self._custom_label and self.devices:
             self.label = self.device.description[:LCD_CELL_WIDTH]
         return Level(self.device.volume, self.device.muted), True
 
     def update(self, state: AudioState) -> None:
         super().update(state)
-        self.strip.set_led(Button.SELECT, Led.ON if self.select and self.is_default(state) else Led.OFF)
+        self.default = self.is_default(state)
+        self.strip.set_led(Button.SELECT, Led.ON if self.select and self.default else Led.OFF)
 
     def recording(self, state: AudioState) -> bool:
         return self.device is not None and state.is_recorded(self.device)
@@ -59,7 +78,7 @@ class DeviceStrip(VolumeStrip):
         return self.device is not None and state.is_default(self.device)
 
     def meter_targets(self, state: AudioState) -> set[CaptureTarget]:
-        device = state.device(self.direction, self.device_name)
+        device = self._shown(state)
         if not self.meter or device is None:
             return set()
         return {CaptureTarget(device.name, monitor=self.direction == Direction.OUTPUT)}
@@ -70,8 +89,13 @@ class DeviceStrip(VolumeStrip):
 
     def on_button(self, button: Button, pressed: bool) -> None:
         super().on_button(button, pressed)
-        if pressed and button == Button.SELECT and self.select and self.device is not None:
-            self.run_command(self.env.backend.set_default(self.direction, self.device.name), "make default")
+        if not (pressed and button == Button.SELECT and self.select and self.device is not None):
+            return
+        target = self.device
+        if self.default and len(self.candidates) > 1:
+            # the next one of them
+            target = self.candidates[(self.candidates.index(target) + 1) % len(self.candidates)]
+        self.run_command(self.env.backend.set_default(self.direction, target.name), "make default")
 
     async def apply_volume(self, percent: int) -> None:
         if self.device is not None:

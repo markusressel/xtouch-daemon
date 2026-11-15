@@ -254,8 +254,10 @@ class Chips(QWidget):
 
     changed = pyqtSignal(list, arguments=["values"])
 
-    def __init__(self, suggest: Suggest | None):
+    def __init__(self, suggest: Suggest | None, placeholder: Callable[[], str] | None = None):
+        """`placeholder` says what no value at all means."""
         super().__init__()
+        self._placeholder = placeholder
         theme.set_role(self, "chips")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self.values: list[str] = []
@@ -269,7 +271,7 @@ class Chips(QWidget):
         self.flow.addWidget(self.input)
         if suggest is not None:
             completer(self.input, suggest).activated.connect(self.add)
-            self.flow.addWidget(suggestion_menu(self, suggest, self.add, "No application plays right now"))
+            self.flow.addWidget(suggestion_menu(self, suggest, self.add, "The sound server has none right now"))
 
     def show_values(self, values: list[str]) -> None:
         self.values = list(values)
@@ -279,6 +281,8 @@ class Chips(QWidget):
         self.chips = [self._chip(index, value) for index, value in enumerate(self.values)]
         for index, chip in enumerate(self.chips):
             self.flow.insertWidget(index, chip)
+        empty = self._placeholder() if self._placeholder and not self.values else None
+        self.input.setPlaceholderText(f"Add… ({empty})" if empty else "Add…")
         self.updateGeometry()
 
     def _chip(self, index: int, value: str) -> QWidget:
@@ -367,7 +371,7 @@ class OptionRow(QWidget):
     def _field(self, option: Option, suggest: Suggest | None) -> QWidget:
         match option.kind:
             case Kind.TEXT | Kind.SECRET | Kind.PATH:
-                return self._text_field(option, suggest)
+                return self._text_field(option)
             case Kind.INTEGER:
                 self.spin: QSpinBox | QDoubleSpinBox = QSpinBox(self)
                 self.spin.setRange(int(option.minimum or 0), int(option.maximum or 1_000_000))
@@ -396,7 +400,7 @@ class OptionRow(QWidget):
                 self.input = self.colors
                 return self.colors
             case Kind.LIST:
-                self.chips = Chips(suggest)
+                self.chips = Chips(suggest, self._placeholder)
                 self.chips.changed.connect(self._edit)
                 self.input = self.chips
                 return self.chips
@@ -411,7 +415,7 @@ class OptionRow(QWidget):
         layout.addStretch()
         return container
 
-    def _text_field(self, option: Option, suggest: Suggest | None) -> QWidget:
+    def _text_field(self, option: Option) -> QWidget:
         edit = QLineEdit(self)
         self.line = self.input = edit
         if option.max_length is not None:
@@ -435,9 +439,6 @@ class OptionRow(QWidget):
             browse = flat_button("folder-open", "Choose the file", container)
             browse.clicked.connect(self._browse)
             layout.addWidget(browse)
-        if suggest is not None:
-            completer(edit, suggest).activated.connect(self._pick)
-            layout.addWidget(suggestion_menu(container, suggest, self._pick, "The sound server has none right now"))
         return container
 
     def _browse(self) -> None:
@@ -481,7 +482,8 @@ class OptionRow(QWidget):
                 case Kind.COLOR:
                     self.colors.show_value(str(shown))
                 case Kind.LIST:
-                    self.chips.show_values([str(item) for item in shown or ()])
+                    # a single value may stand alone, e.g. `device = "speaker"`
+                    self.chips.show_values([shown] if isinstance(shown, str) else [str(item) for item in shown or ()])
         finally:
             self._loading = False
         self.reset.setVisible(value is not None and not self.option.required)
@@ -489,8 +491,8 @@ class OptionRow(QWidget):
     def _edit(self, value: Any) -> None:
         if self._loading:
             return
-        if value == "":
-            # an empty text is no text: the default applies (or the option is missing, if it is required)
+        if value in ("", []):
+            # an empty text or list is none: the default applies (or the option is missing, if it is required)
             value = None
         self._put(value)
         self.reset.setVisible(value is not None and not self.option.required)

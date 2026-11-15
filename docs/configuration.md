@@ -128,7 +128,7 @@ A device: an output (a sink) or an input (a source).
 
 | Option | Default | Meaning |
 |---|---|---|
-| `device` | the default device | The node name (`xtouch-daemon list-devices`) or the description of the device. Without it, the strip follows whatever device is the default. |
+| `device` | the default device | The node name (`xtouch-daemon list-devices`) or the description of the device, or a list of them; `*` is a wildcard. Without it, the strip follows whatever device is the default. |
 | `label` | `"Output"` / `"Input"`, or the start of the device's description | The top line of the LCD. |
 | `select` | `true` | Whether Select makes the device the default. Needs `device`. |
 
@@ -143,7 +143,16 @@ color = "cyan"
 type = "input"          # the default input
 label = "Mic"
 color = "red"
+
+[[strip]]
+type = "output"
+device = ["bluez_output.*"]   # whichever Bluetooth headphones are connected
+color = "green"
 ```
+
+With several devices, the strip shows one of those that are there: the default one, or else the one it showed last.
+Select makes it the default; pressed on the default one, it switches to the next one that is there and makes that the
+default. Without `label`, the LCD shows which one it is.
 
 | Element | Function |
 |---|---|
@@ -151,7 +160,7 @@ color = "red"
 | Encoder | Changes the volume by `encoder_step` per step; the fader follows. |
 | Encoder push | Sets `reset_volume`. |
 | Mute | Toggles mute. The LED is on while the device is muted. |
-| Select | With `device` and `select`: makes the device the default output/input. The LED is on while it is the default. |
+| Select | With `device` and `select`: makes the device the default output/input, or switches to the next of several. The LED is on while it is the default. |
 | LCD | Top: the label. Bottom: the volume, or `muted`. |
 | Ring | The volume. |
 | Meter | The level: what plays on an output, what an input records. |

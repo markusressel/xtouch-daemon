@@ -3,6 +3,7 @@ A snapshot of the audio system, as far as the strips need it: the output and inp
 recording streams of applications, and the defaults. Immutable, so every strip sees the same consistent state.
 """
 
+import fnmatch
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -27,6 +28,9 @@ class Device:
     """Whether audio flows: something plays to the output or records from the input."""
 
     def matches(self, name: str) -> bool:
+        """By node name or description; `*` and `?` are wildcards (e.g. `bluez_output.*`, every Bluetooth output)."""
+        if "*" in name or "?" in name:
+            return fnmatch.fnmatchcase(self.name, name) or fnmatch.fnmatchcase(self.description, name)
         return name in (self.name, self.description)
 
 
@@ -106,6 +110,13 @@ class AudioState:
             if name is None:
                 return None
         return next((device for device in self.devices(direction) if device.matches(name)), None)
+
+    def devices_matching(self, direction: Direction, names: tuple[str, ...]) -> tuple[Device, ...]:
+        """The devices of `names` that are there, in their order (see `Device.matches`)."""
+        found: dict[str, Device] = {}
+        for name in names:
+            found.update((device.name, device) for device in self.devices(direction) if device.matches(name))
+        return tuple(found.values())
 
     def is_default(self, device: Device) -> bool:
         return self.default_name(device.direction) == device.name

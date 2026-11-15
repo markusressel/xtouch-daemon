@@ -84,10 +84,12 @@ def run(config_path: Path | None, log_level: str) -> None:
 
 def describe_strip(config: StripConfig, number: int) -> str:
     match config:
-        case DeviceStripConfig(device=None):
+        case DeviceStripConfig(device=()):
             what = f"the default {config.type}"
         case DeviceStripConfig():
-            what = f"{config.type} {config.device}" + (", select makes it the default" if config.select else "")
+            what = f"{config.type} {' or '.join(config.device)}" + (
+                ", select makes it the default" if config.select else ""
+            )
         case AppsStripConfig():
             what = "applications " + ", ".join(config.match)
         case AutoStripConfig():

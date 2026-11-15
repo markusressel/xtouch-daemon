@@ -16,10 +16,11 @@ def make(
     surface: RecordingSurface,
     env: StripEnv,
     direction: Direction = Direction.OUTPUT,
-    device: str | None = "speaker",
+    device: str | tuple[str, ...] | None = "speaker",
     **kwargs: object,
 ) -> DeviceStrip:
-    return DeviceStrip(surface.strips[0], env, direction, device, color=Color.CYAN, **kwargs)  # type: ignore[arg-type]
+    devices = () if device is None else (device,) if isinstance(device, str) else device
+    return DeviceStrip(surface.strips[0], env, direction, devices, color=Color.CYAN, **kwargs)  # type: ignore[arg-type]
 
 
 STATE = AudioState(
@@ -395,3 +396,67 @@ async def test_leds_without_indicator_are_left_alone(surface: RecordingSurface, 
     strip.update(STATE)
 
     assert surface.strips[0].leds[Button.REC] == Led.FLASH
+
+
+# -- several devices ----------------------------------------------------------------------------------------------
+
+HEADPHONES = AudioState(
+    outputs=(output("speaker", 50), output("bluez_output.a", 30), output("bluez_output.b", 70)),
+    default_output="speaker",
+)
+
+
+async def test_of_several_devices_the_first_one_there_shows(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = make(surface, env, device=("bluez_output.gone", "bluez_output.*"))
+    strip.update(HEADPHONES)
+
+    assert strip.device is not None
+    assert strip.device.name == "bluez_output.a"
+    assert surface.strips[0].text == ["bluez_o", "30%"]
+    assert surface.strips[0].leds[Button.SELECT] == Led.OFF
+
+
+async def test_the_default_one_shows_and_otherwise_the_one_shown_last(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = make(surface, env, device="bluez_output.*")
+    strip.update(AudioState(outputs=HEADPHONES.outputs, default_output="bluez_output.b"))
+    assert strip.device is not None
+    assert strip.device.name == "bluez_output.b"
+    assert surface.strips[0].leds[Button.SELECT] == Led.ON
+
+    # the speaker became the default again: the strip stays with the headphones it showed
+    strip.update(HEADPHONES)
+    assert strip.device.name == "bluez_output.b"
+    assert surface.strips[0].leds[Button.SELECT] == Led.OFF
+
+    # they were switched off
+    strip.update(AudioState(outputs=HEADPHONES.outputs[:2], default_output="speaker"))
+    assert strip.device.name == "bluez_output.a"
+
+
+async def test_select_makes_the_one_shown_the_default_and_then_switches(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
+    strip = make(surface, env, device="bluez_output.*")
+    strip.update(HEADPHONES)
+
+    strip.on_button(Button.SELECT, True)
+    await settle()
+    assert backend.calls == [("set_default", Direction.OUTPUT, "bluez_output.a")]
+
+    strip.update(AudioState(outputs=HEADPHONES.outputs, default_output="bluez_output.a"))
+    strip.on_button(Button.SELECT, True)
+    await settle()
+    assert backend.calls[-1] == ("set_default", Direction.OUTPUT, "bluez_output.b")
+
+    # and around
+    strip.update(AudioState(outputs=HEADPHONES.outputs, default_output="bluez_output.b"))
+    strip.on_button(Button.SELECT, True)
+    await settle()
+    assert backend.calls[-1] == ("set_default", Direction.OUTPUT, "bluez_output.a")
+
+
+async def test_the_meter_follows_the_device_shown(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = make(surface, env, device="bluez_output.*")
+    strip.update(AudioState(outputs=HEADPHONES.outputs, default_output="bluez_output.b"))
+
+    assert strip.meter_targets(HEADPHONES) == {CaptureTarget("bluez_output.b", monitor=True)}

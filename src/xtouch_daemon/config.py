@@ -96,12 +96,28 @@ class DeviceStripConfig(_StripConfig):
     """An output or an input device, or whatever is the default one."""
 
     type: Literal["output", "input"]
-    device: str | None = None
-    """The node name (`xtouch-daemon list-devices`) or description of the device; without it the default device."""
+    device: tuple[str, ...] = ()
+    """
+    The node name (`xtouch-daemon list-devices`) or description of the device; without it the default device. Several
+    (a list, or `*` wildcards like `bluez_output.*`): the strip shows the one of them that is the default, or else the
+    one shown last, and Select switches between those that are there.
+    """
     label: Label | None = None
     """The top line of the LCD; by default "Output" or "Input", or the start of the device's description."""
     select: bool = True
     """Whether the select button makes the device the default (needs `device`)."""
+
+    @field_validator("device", mode="before")
+    @classmethod
+    def _one_or_several(cls, value: object) -> object:
+        return (value,) if isinstance(value, str) else value
+
+    @field_validator("device")
+    @classmethod
+    def _no_blank_device(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not name.strip() for name in value):
+            raise ValueError("an empty device name")
+        return value
 
 
 class AppsStripConfig(_StripConfig):

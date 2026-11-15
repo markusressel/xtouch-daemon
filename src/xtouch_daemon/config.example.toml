@@ -23,6 +23,7 @@ ignore = ["speech-dispatcher"]   # applications "auto" strips never take
 # ---- Strips, from the left. Up to 8, missing ones are "auto". ------------------------------------------------
 #
 # type = "output"   an output: `device` (a node name from `xtouch-daemon list-devices`), or the default output
+#                   (or several: device = ["bluez_output.*"], Select switches between those connected)
 # type = "input"    an input, the same way
 # type = "apps"     the streams of applications: match = ["firefox", "brave"] (parts of the name or binary)
 # type = "auto"     the next application that plays and has no strip of its own

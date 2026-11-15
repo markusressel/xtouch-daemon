@@ -265,7 +265,7 @@ class StripPage(Page):
         if strip_type in ("output", "input"):
             direction = Direction(strip_type)
             suggest["device"] = lambda: sources.devices(self.audio(), direction)
-            placeholders["device"] = lambda: f"The default {strip_type}"
+            placeholders["device"] = lambda: f"none: the default {strip_type}"
         if strip_type == "homeassistant":
             placeholders["id"] = lambda: f"strip_{self.index + 1}"
         rows = [

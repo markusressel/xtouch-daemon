@@ -72,7 +72,7 @@ def test_reads_every_option():
     assert config.behavior.ignore == ("speech-dispatcher", "notify")
     assert config.aliases == {"WEBRTC VoiceEngine": "Discord"}
     assert config.strips == (
-        DeviceStripConfig(type="output", device="alsa_output.analog", label="Speaker", color="cyan", select=False),
+        DeviceStripConfig(type="output", device=("alsa_output.analog",), label="Speaker", color="cyan", select=False),
         DeviceStripConfig(type="input"),
         AppsStripConfig(type="apps", match=("discord", "mumble"), label="VoIP", color="off", meter=False),
         EmptyStripConfig(type="empty"),
@@ -252,3 +252,12 @@ def test_home_assistant_strips_get_ids_by_their_position_or_their_own():
 )
 def test_errors_of_home_assistant_strips(text: str, message: str):
     assert message in errors_of(text)
+
+
+def test_a_device_strip_takes_one_device_or_several() -> None:
+    config = parse_config('[[strip]]\ntype = "output"\ndevice = ["bluez_output.*", "Speaker"]\n')
+    assert config.strips[0] == DeviceStripConfig(type="output", device=("bluez_output.*", "Speaker"))
+    assert DeviceStripConfig.model_validate({"type": "output", "device": "speaker"}).device == ("speaker",)
+
+    with pytest.raises(ConfigError, match="an empty device name"):
+        parse_config('[[strip]]\ntype = "output"\ndevice = ["speaker", " "]\n')

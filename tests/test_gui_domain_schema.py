@@ -39,7 +39,7 @@ def test_every_strip_type_has_its_model_and_options():
     assert color.choices == ("off", "red", "green", "yellow", "blue", "magenta", "cyan", "white")
     assert color.default == "white"
     # unset by default: the default device, the default label
-    assert (device.kind, device.default, device.required) == (Kind.TEXT, None, False)
+    assert (device.kind, device.default, device.required) == (Kind.LIST, (), False)
     assert (label.max_length, label.required) == (7, False)
 
 

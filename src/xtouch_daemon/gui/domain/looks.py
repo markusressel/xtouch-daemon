@@ -38,6 +38,15 @@ def _text(value: Any) -> str:
     return value if isinstance(value, str) else ""
 
 
+def _names(value: Any) -> tuple[str, ...]:
+    """The devices of a strip: one name, or a list of them."""
+    if isinstance(value, str):
+        return (value,) if value.strip() else ()
+    if isinstance(value, list):
+        return tuple(str(item) for item in value if str(item).strip())
+    return ()
+
+
 def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> tuple[str, str, str, str]:
     """The kind, label, detail and color of a strip with these options."""
     strip_type = values.get("type")
@@ -47,15 +56,21 @@ def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> 
     label = _text(values.get("label"))
     match strip_type:
         case "output" | "input":
-            name = _text(values.get("device")) or None
-            device = state.device(Direction(strip_type), name)
-            if name is None:
+            names = _names(values.get("device"))
+            direction = Direction(strip_type)
+            if not names:
+                device = state.device(direction, None)
                 detail = f"the default {strip_type}" + (f": {device.description}" if device else "")
             else:
-                detail = device.description if device else f"{name} (not there now)"
+                # like the daemon: the default one of them, or the first one that is there
+                there = state.devices_matching(direction, names)
+                device = next((d for d in there if state.is_default(d)), next(iter(there), None))
+                detail = " or ".join(names) + (f": {device.description}" if device else " (not there now)")
+                if len(names) == 1 and device is not None:
+                    detail = device.description
             if not label:
                 # like the daemon: the start of the description of a device that is there
-                label = device.description if device is not None and name is not None else strip_type.capitalize()
+                label = device.description if device is not None and names else strip_type.capitalize()
         case "apps":
             match = values.get("match")
             detail = ", ".join(map(str, match)) if isinstance(match, list) and match else "no applications"

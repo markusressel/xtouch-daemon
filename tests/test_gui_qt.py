@@ -478,8 +478,9 @@ def test_suggestions_come_from_the_sound_server(qtbot: QtBot, window: MainWindow
     assert texts == ["speaker    speaker description (the default)", "buds    buds description"]
     menu.actions()[1].trigger()
 
-    assert window.document.get(("strip", 0, "device")) == "buds"
-    assert device.line.text() == "buds"
+    # added to the one of the file, which stood alone
+    assert window.document.get(("strip", 0, "device")) == ["speaker", "buds"]
+    assert device.chips.values == ["speaker", "buds"]
 
 
 def test_an_empty_suggestion_list_says_so(make_window: MakeWindow):
@@ -491,19 +492,23 @@ def test_an_empty_suggestion_list_says_so(make_window: MakeWindow):
     menu.aboutToShow.emit()
 
     (action,) = menu.actions()
-    assert action.text() == "No application plays right now"
+    assert action.text() == "The sound server has none right now"
     assert not action.isEnabled()
 
 
 def test_typing_completes_from_the_sound_server(qtbot: QtBot, window: MainWindow):
     device = row(window, "device")
-    type_into(qtbot, device.line, "bu")
-    completer = device.line.completer()
+    click(qtbot, device.chips.chips[0].findChild(QToolButton))
+    assert window.document.get(("strip", 0, "device")) is None
+    assert device.chips.input.placeholderText() == "Add… (none: the default output)"
+
+    type_into(qtbot, device.chips.input, "bu")
+    completer = device.chips.input.completer()
     assert completer is not None
     assert completer.model().stringList() == ["speaker", "buds"]  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
 
     completer.activated.emit("buds")
-    assert window.document.get(("strip", 0, "device")) == "buds"
+    assert window.document.get(("strip", 0, "device")) == ["buds"]
 
 
 def test_an_unset_label_shows_the_default(qtbot: QtBot, window: MainWindow):
@@ -513,9 +518,11 @@ def test_an_unset_label_shows_the_default(qtbot: QtBot, window: MainWindow):
     assert window.document.get(("strip", 0, "label")) is None
     assert label.line.placeholderText() == "speaker"
     # the device decides the default label, like on the device: the start of its description, or the type
-    type_into(qtbot, row(window, "device").line, "buds")
+    window.document.set(("strip", 0, "device"), ["buds"])
+    label.load()
     assert label.line.placeholderText() == "buds de"
-    type_into(qtbot, row(window, "device").line, "")
+    window.document.unset(("strip", 0, "device"))
+    label.load()
     assert label.line.placeholderText() == "Output"
 
 
