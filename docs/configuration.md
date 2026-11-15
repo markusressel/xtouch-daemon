@@ -16,7 +16,8 @@ Unknown options are errors, so a typo does not go unnoticed. `check-config` name
 `xtouch-daemon gui` (with the `gui` extra, see the [README](../README.md#gui)) edits the same options in a window. It
 shows the same errors next to the options, keeps the comments of the file when it saves, and applies the file as
 described below: it reloads the running daemon (the service, or one started from a terminal or an IDE), or offers a
-restart for a changed `[device]` or `[mqtt]` section.
+restart for a changed `[device]` or `[mqtt]` section. It then tells whether the daemon took the file: a reload keeps
+the old configuration when the new one can't be used.
 
 ## Applying changes
 

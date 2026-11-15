@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import logging
 import signal
+import time
 from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any, Protocol
@@ -16,6 +17,7 @@ from xtouch_daemon import systemd
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import Config, ConfigError, load_config
+from xtouch_daemon.live import LiveServer, Snapshot, fingerprint, strip_states
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.surface import Surface
@@ -41,8 +43,12 @@ class Daemon:
         config_path: Path | None = None,
         mixer_factory: MixerFactory = Mixer,
         bridge: MqttBridge | None = None,
+        live_socket: Path | None = None,
     ):
-        """`bridge` is by default the one of the [mqtt] section, if there is one."""
+        """
+        `bridge` is by default the one of the [mqtt] section, if there is one. `live_socket` is where the live view
+        for the GUI is served (see `live.py`), None for none.
+        """
         self.config = config
         self.config_path = config_path
         self.backend = backend
@@ -57,6 +63,7 @@ class Daemon:
         self._mixer_task: asyncio.Task[None] | None = None
         self.surface.on_event = lambda event: self.mixer.on_event(event)
         self.surface.on_connection = self._on_connection
+        self.live = LiveServer(live_socket, self.snapshot) if live_socket is not None else None
 
     # -- control --------------------------------------------------------------------------------------------------
 
@@ -102,6 +109,9 @@ class Daemon:
         if self.bridge is not None:
             parts.append(asyncio.create_task(self.bridge.run(), name="mqtt"))
         self._start_mixer()
+        if self.live is not None:
+            # not one of the parts: the daemon works without it
+            self._in_background(self.live.run(), "live view")
         systemd.notify("READY=1", self._status())
         _LOGGER.info(f"Running with {len(self.mixer.controllers)} strips, waiting for {self.config.device.name}")
         stopped = asyncio.create_task(self._stop.wait())
@@ -178,6 +188,16 @@ class Daemon:
         task = asyncio.create_task(coroutine, name=name)
         self._background.add(task)
         task.add_done_callback(self._background.discard)
+
+    def snapshot(self) -> Snapshot:
+        """What the daemon and the device do right now, for the live view of the GUI."""
+        return Snapshot(
+            config=fingerprint(self.config),
+            device=self.surface.connected,
+            sound_server=self.mixer.state.connected,
+            mqtt=None if self.bridge is None else self.bridge.connected,
+            strips=strip_states(self.surface, time.monotonic()),
+        )
 
     def _status(self) -> str:
         device = self.config.device.name

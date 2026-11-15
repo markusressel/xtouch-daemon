@@ -71,7 +71,7 @@ def run(config_path: Path | None, log_level: str) -> None:
     systemd.setup_logging(getattr(logging, log_level.upper()))
     config = _load(config_path)
     try:
-        daemon = Daemon(config, PulseBackend(), config_path=config_path)
+        daemon = Daemon(config, PulseBackend(), config_path=config_path, live_socket=instance.socket_file())
     except ConfigError as e:
         # e.g. the file with the MQTT password is missing
         raise click.ClickException(str(e)) from e

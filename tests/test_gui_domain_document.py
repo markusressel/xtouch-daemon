@@ -345,3 +345,42 @@ def test_a_removed_section_leaves_the_file():
 def test_only_optional_sections_can_be_removed():
     with pytest.raises(AssertionError, match=r"\[device\] is not optional"):
         document().remove_section("device")
+
+
+def test_a_strip_knows_whether_it_changed():
+    doc = document()
+    assert not any(doc.strip_changed(index) for index in range(8))
+
+    doc.set(("strip", 1, "label"), "Web")
+    doc.add_strip("auto")
+    assert [doc.strip_changed(index) for index in range(5)] == [False, True, False, True, False]
+
+    doc = document()
+    doc.move_strip(0, 2)
+    doc.remove_strip(2)
+    assert [doc.strip_changed(index) for index in range(4)] == [True, True, True, False]
+
+
+def test_the_saved_configuration_is_known():
+    doc = document()
+    assert doc.saved_config == parse_config(FILE)
+    doc.set(("behavior", "max_volume"), 110)
+    # the one in the file, not the edited one
+    assert doc.saved_config == parse_config(FILE)
+    assert document('[[strip]]\ntype = "fader"\n').saved_config is None
+
+
+def test_a_state_can_be_restored():
+    doc = document()
+    state = doc.state()
+    doc.remove_strip(0)
+    doc.aliases.append(("Brave", "Web"))
+    doc.add_section("mqtt")
+
+    doc.restore(state)
+
+    assert doc.render() == FILE
+    # the state stays as it was for another restore
+    doc.remove_strip(0)
+    doc.restore(state)
+    assert len(doc.strips) == 3

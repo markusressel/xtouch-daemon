@@ -8,6 +8,7 @@ motor faders smoothly. What happens on the device (fader moves, touches, buttons
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -89,6 +90,8 @@ class Strip:
         """Whether the fader moves slowly (see FADER_SLOW_SMOOTH_TIME) until it arrives."""
         self._confirm_at: list[float] = []
         """When to send the target again (see FADER_CONFIRM_DELAYS)."""
+        self.meter: tuple[int, float] = (0, 0.0)
+        """The level the meter was set to last, and when (`time.monotonic()`), for the live view of the GUI."""
 
     def reset(self) -> None:
         """Dark and empty, the fader at the bottom (e.g. before another strip configuration takes over)."""
@@ -154,10 +157,16 @@ class Strip:
 
     def set_meter(self, level: int) -> None:
         """
-        Lights the meter up to 0..METER_MAX. Not remembered: the device lets it fall by itself, a level is held by
-        sending it again.
+        Lights the meter up to 0..METER_MAX. Not shown again after a connect: the device lets it fall by itself, a
+        level is held by sending it again.
         """
+        self.meter = (level, time.monotonic())
         self._send(protocol.meter(self.index, level))
+
+    @property
+    def position(self) -> int | None:
+        """Where the fader is (see `fader` for where it should be), None while that is not known."""
+        return None if self._position is None else round(self._position)
 
     # -- the motor ------------------------------------------------------------------------------------------------
 

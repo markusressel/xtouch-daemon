@@ -15,6 +15,7 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 | `src/xtouch_daemon/mqtt.py` | `MqttBridge`: the MQTT connection for Home Assistant (discovery, retained states, availability). |
 | `src/xtouch_daemon/mixer.py` | Feeds states and events to the controllers. |
 | `src/xtouch_daemon/daemon.py` | Lifecycle: signals, reload, shutdown, sd_notify. |
+| `src/xtouch_daemon/instance.py`, `live.py` | The running daemon for the GUI: its runtime file, and the live view of the device over a Unix socket. |
 | `src/xtouch_daemon/config.py`, `config.example.toml` | pydantic configuration and the example file. |
 | `src/xtouch_daemon/cli.py`, `selftest.py`, `systemd.py` | CLI, device self-test, systemd integration (incl. controlling the user service). |
 | `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested, `qt/` the widgets. Forms come from the pydantic models, so new options need no GUI code. |

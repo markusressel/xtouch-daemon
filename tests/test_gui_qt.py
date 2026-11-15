@@ -3,15 +3,17 @@ The widgets of the GUI, offscreen (see conftest.py), with a fake systemctl, a fa
 temporary directory, and the dialogs answered by the tests.
 """
 
+import dataclasses
 import signal
+import tempfile
 import tomllib
-from collections.abc import Callable
-from dataclasses import replace
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QByteArray, QCoreApplication, QEvent, QMimeData, QPoint, QPointF, QSettings, Qt
-from PyQt6.QtGui import QColor, QDrag, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QTextDocument
+from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QSettings, Qt
+from PyQt6.QtGui import QColor, QContextMenuEvent, QTextDocument
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QAbstractButton,
     QApplication,
@@ -19,6 +21,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QLabel,
     QLineEdit,
+    QMenu,
     QMessageBox,
     QPushButton,
     QToolButton,
@@ -29,17 +32,19 @@ from pytestqt.qtbot import QtBot
 from tests.conftest import output, source, stream
 from tests.test_instance import RecordingInstance
 from tests.test_systemd import FakeSystemctl
+from xtouch_daemon import live
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.gui import qt
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.qt import preview, theme
+from xtouch_daemon.gui.qt import preview as preview_module
 from xtouch_daemon.gui.qt import window as window_module
 from xtouch_daemon.gui.qt.fields import Chips, OptionRow
 from xtouch_daemon.gui.qt.pages import AliasesPage, SectionPage
-from xtouch_daemon.gui.qt.preview import MIME_TYPE
 from xtouch_daemon.gui.qt.window import MainWindow
 from xtouch_daemon.instance import Instance
+from xtouch_daemon.live import Snapshot, StripState
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError
 
 CONFIG = """\
@@ -134,8 +139,10 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         read_audio: Callable[[], AudioState] = lambda: STATE,
         file: Path = path,
         find_daemon: Callable[[], Instance | None] = lambda: daemon,
+        live_socket: Path | None = None,
     ) -> MainWindow:
-        window = MainWindow(ConfigDocument.open(file), Service(systemctl), read_audio, find_daemon)
+        document = ConfigDocument.open(file)
+        window = MainWindow(document, Service(systemctl), read_audio, find_daemon, live_socket)
         qtbot.addWidget(window)
         window.show()
         qtbot.waitUntil(lambda: window.audio_label.text() != "Reading the sound server…")
@@ -194,7 +201,7 @@ def test_a_click_on_a_strip_edits_it(qtbot: QtBot, window: MainWindow):
     click(qtbot, window.preview.strips[1])
 
     assert window.selected == 1
-    assert window.nav_buttons["strip"].text() == "Strip 2"
+    assert window.tabs.tabText(0) == "Strip 2 · Browser"
     assert row(window, "match").chips.values == ["brave"]
 
 
@@ -217,7 +224,7 @@ def test_an_edit_shows_in_the_preview_and_is_saved(
     type_into(qtbot, row(window, "label").line, "Boxes")
 
     assert window.preview.strips[0].look.label == "Boxes"
-    assert window.path_label.text().endswith("changed")
+    assert window.path_label.text().endswith("unsaved changes")
     assert window.save_button.isEnabled()
 
     click(qtbot, window.save_button)
@@ -258,7 +265,7 @@ def test_a_problem_leads_to_its_place(window: MainWindow):
     assert window.selected == 1
     # selecting rebuilds the menu
     window.problems_menu.actions()[0].trigger()
-    assert window.stack.currentIndex() == list(window.pages).index("behavior")
+    assert window.current_page == "behavior"
     assert window.pages["behavior"].problem.text() == "reset_volume (140) is above max_volume (120)"
 
 
@@ -282,10 +289,10 @@ def test_a_whole_configuration_problem_leads_to_the_section(window: MainWindow):
     (action,) = window.problems_menu.actions()
     assert action.text() == "homeassistant strips need an [mqtt] section"
     action.trigger()
-    assert window.stack.currentIndex() == list(window.pages).index("mqtt")
+    assert window.current_page == "mqtt"
 
     window.go_to(window.validation.problems[0].__class__((), "something else", "value_error"))
-    assert window.stack.currentIndex() == list(window.pages).index("mqtt")
+    assert window.current_page == "mqtt"
 
 
 def test_the_type_of_a_strip_changes(qtbot: QtBot, window: MainWindow):
@@ -345,68 +352,352 @@ def test_a_strip_without_a_valid_type_shows_why(make_window: MakeWindow, path: P
     assert window.strip_page.problem.text().startswith("Input tag 'fader' found using 'type'")
 
 
-# -- the preview: drag and drop -----------------------------------------------------------------------------------
+# -- the preview: moving strips ----------------------------------------------------------------------------------
 
 
-def mime(index: int) -> QMimeData:
-    data = QMimeData()
-    data.setData(MIME_TYPE, QByteArray(str(index).encode()))
-    return data
+def x_of(window: MainWindow, index: int) -> int:
+    return window.preview.strips[index].x()
 
 
-def test_a_strip_dropped_onto_another_moves_there(window: MainWindow):
-    target = window.preview.strips[1]
-    buttons, modifiers = Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier
-    move = Qt.DropAction.MoveAction
-    data = mime(0)
+def test_a_dragged_strip_leaves_a_place_and_the_others_make_room(qtbot: QtBot, make_window: MakeWindow, path: Path):
+    path.write_text(CONFIG + '\n[[strip]]\ntype = "auto"\n')
+    window = make_window()
+    preview = window.preview
+    first, second, third = (x_of(window, index) for index in range(3))
+    view = preview.strips[0]
 
-    target.dragEnterEvent(QDragEnterEvent(QPoint(5, 5), move, data, buttons, modifiers))
-    assert target.drop_target
-    target.dragLeaveEvent(QDragLeaveEvent())
-    assert not target.drop_target
-    target.dropEvent(QDropEvent(QPointF(5, 5), move, data, buttons, modifiers))
+    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(50, 50))
+    # a small move is still a click
+    qtbot.mouseMove(view, QPoint(52, 51))
+    assert not preview.dragging
+    qtbot.mouseMove(view, QPoint(50 + third - first, 50))
 
-    assert [strip.type for strip in window.document.strips] == ["apps", "output"]
-    assert window.selected == 1
+    assert preview.dragging
+    assert view.lifted
+    # its place is free and the strips it passed moved over, gliding
+    assert preview.drop_target == 2
+    # back and forth: the strips change their way (the mouse is where the strip is now)
+    qtbot.mouseMove(view, QPoint(50 + second - view.x(), 50))
+    assert preview.drop_target == 1
+    qtbot.mouseMove(view, QPoint(50 + third - view.x(), 50))
+    assert preview.drop_target == 2
+    qtbot.waitUntil(lambda: x_of(window, 1) == first and x_of(window, 2) == second)
+    assert not window.grab().isNull()
+
+    # dropped beyond the configured strips, it goes after the last one
+    qtbot.mouseMove(view, QPoint(50 + 7 * (third - second), 50))
+    assert preview.drop_target == 2
+    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton, pos=QPoint(50 + 7 * (third - second), 50))
+
+    assert not preview.dragging
+    assert [strip.type for strip in window.document.strips] == ["apps", "auto", "output"]
+    assert window.selected == 2
+    assert [x_of(window, index) for index in range(3)] == [first, second, third]
+    assert window.status.text() == "Moved strip 1 to place 3."
 
 
-def test_only_configured_strips_take_a_drop(window: MainWindow):
-    assert window.preview.strips[5].source_of(mime(0)) is None
-    assert window.preview.strips[0].source_of(mime(0)) is None
-    assert window.preview.strips[0].source_of(QMimeData()) is None
-    assert window.preview.strips[0].source_of(None) is None
-    buttons, modifiers = Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier
-    # the events don't own the data: it has to outlive them
-    data = mime(0)
-    window.preview.strips[5].dragEnterEvent(
-        QDragEnterEvent(QPoint(), Qt.DropAction.MoveAction, data, buttons, modifiers)
-    )
-    window.preview.strips[5].dropEvent(QDropEvent(QPointF(), Qt.DropAction.MoveAction, data, buttons, modifiers))
-    assert not window.preview.strips[5].drop_target
+def test_escape_cancels_a_drag(qtbot: QtBot, window: MainWindow):
+    preview = window.preview
+    view = preview.strips[0]
+    home = view.pos()
+    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(50, 50))
+    qtbot.mouseMove(view, QPoint(160, 50))
+    assert preview.drop_target == 1
+
+    qtbot.keyClick(preview, Qt.Key.Key_Escape)
+
+    assert not preview.dragging
+    assert view.pos() == home
+    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton, pos=QPoint(160, 50))
     assert [strip.type for strip in window.document.strips] == ["output", "apps"]
+    # a drag that ends where it started moves nothing either
+    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(50, 50))
+    qtbot.mouseMove(view, QPoint(60, 50))
+    qtbot.keyClick(view, Qt.Key.Key_Escape)
+    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(50, 50))
+    qtbot.mouseMove(view, QPoint(60, 50))
+    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton, pos=QPoint(60, 50))
+    assert [strip.type for strip in window.document.strips] == ["output", "apps"]
+    assert window.history.can_undo is False
 
 
-def test_dragging_a_strip_starts_a_drag(qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch):
-    drags: list[bytes] = []
-    monkeypatch.setattr(
-        QDrag,
-        "exec",
-        lambda drag, *args: drags.append(bytes(drag.mimeData().data(MIME_TYPE).data())) or Qt.DropAction.MoveAction,
-    )
-    view = window.preview.strips[1]
-
+def test_strips_that_are_not_configured_do_not_move(qtbot: QtBot, window: MainWindow):
+    view = window.preview.strips[6]
     qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(10, 10))
-    qtbot.mouseMove(view, QPoint(12, 11))
-    assert drags == []
-    qtbot.mouseMove(view, QPoint(60, 60))
-    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton, pos=QPoint(60, 60))
-    assert drags == [b"1"]
+    qtbot.mouseMove(view, QPoint(80, 60))
+    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton)
 
-    # strips that are not configured stay where they are
-    qtbot.mousePress(window.preview.strips[6], Qt.MouseButton.LeftButton, pos=QPoint(10, 10))
-    qtbot.mouseMove(window.preview.strips[6], QPoint(60, 60))
-    qtbot.mouseRelease(window.preview.strips[6], Qt.MouseButton.LeftButton)
-    assert drags == [b"1"]
+    assert not window.preview.dragging
+    assert window.selected == 6
+
+
+def test_the_keyboard_selects_and_moves_strips(qtbot: QtBot, window: MainWindow):
+    strips = window.preview.strips
+    strips[0].setFocus()
+
+    qtbot.keyClick(strips[0], Qt.Key.Key_Right)
+    assert window.selected == 1
+    qtbot.keyClick(strips[1], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
+    assert [strip.type for strip in window.document.strips] == ["apps", "output"]
+    assert window.selected == 0
+    # not past the configured strips, nor past the ends
+    qtbot.keyClick(strips[0], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(strips[1], Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(strips[0], Qt.Key.Key_Left)
+    assert [strip.type for strip in window.document.strips] == ["apps", "output"]
+
+    qtbot.keyClick(strips[0], Qt.Key.Key_End)
+    assert window.selected == 7
+    qtbot.keyClick(strips[7], Qt.Key.Key_Delete)
+    qtbot.keyClick(strips[7], Qt.Key.Key_A)
+    assert len(window.document.strips) == 2
+    qtbot.keyClick(strips[7], Qt.Key.Key_Home)
+    assert window.selected == 0
+
+    qtbot.keyClick(strips[0], Qt.Key.Key_Delete)
+    assert [strip.type for strip in window.document.strips] == ["output"]
+    assert window.status.text() == "Removed strip 1, the strips right of it moved left. Ctrl+Z brings it back."
+
+
+def test_the_menu_of_a_strip(qtbot: QtBot, window: MainWindow):
+    menu = window.preview.menu_for(1)
+    left, right, _, remove = menu.actions()
+    assert left.text() == "Move left\tCtrl+Left"
+    assert not right.isEnabled()
+
+    left.trigger()
+    assert [strip.type for strip in window.document.strips] == ["apps", "output"]
+    window.preview.menu_for(0).actions()[1].trigger()
+    assert [strip.type for strip in window.document.strips] == ["output", "apps"]
+    remove.trigger()
+    assert [strip.type for strip in window.document.strips] == ["output"]
+
+    (configure,) = window.preview.menu_for(4).actions()
+    configure.trigger()
+    assert len(window.document.strips) == 5
+    assert window.selected == 4
+
+
+def test_a_strip_that_is_not_configured_is_configured_by_a_double_click(qtbot: QtBot, window: MainWindow):
+    qtbot.mouseDClick(window.preview.strips[3], Qt.MouseButton.LeftButton)
+    assert len(window.document.strips) == 4
+    # a configured one stays as it is
+    qtbot.mouseDClick(window.preview.strips[0], Qt.MouseButton.LeftButton)
+    assert len(window.document.strips) == 4
+
+
+def test_the_context_menu_opens_on_the_strip(qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch):
+    shown: list[list[str]] = []
+    monkeypatch.setattr(QMenu, "exec", lambda menu, *args: shown.append([a.text() for a in menu.actions()]))
+    view = window.preview.strips[5]
+    qtbot.mousePress(view, Qt.MouseButton.RightButton)
+
+    view.contextMenuEvent(QContextMenuEvent(QContextMenuEvent.Reason.Mouse, QPoint(5, 5), view.mapToGlobal(QPoint())))
+
+    assert shown == [["Configure strip 6"]]
+    assert window.selected == 5
+
+
+# -- the live view ------------------------------------------------------------------------------------------------
+
+
+class FakeLiveDaemon:
+    """The live view of a daemon: a local server that sends the lines the test gives it."""
+
+    def __init__(self, path: Path):
+        self.server = QLocalServer()
+        assert self.server.listen(str(path)), self.server.errorString()
+        self.clients: list[QLocalSocket] = []
+        self.server.newConnection.connect(self._connected)
+
+    @property
+    def path(self) -> Path:
+        return Path(self.server.fullServerName())
+
+    def _connected(self) -> None:
+        while self.server.hasPendingConnections():
+            client = self.server.nextPendingConnection()
+            assert client is not None
+            self.clients.append(client)
+
+    def send_line(self, line: bytes) -> None:
+        for client in self.clients:
+            client.write(line)
+            client.flush()
+
+    def send(self, snapshot: Snapshot) -> None:
+        self.send_line(live.encode(snapshot))
+
+    def close(self) -> None:
+        for client in self.clients:
+            client.disconnectFromServer()
+        self.clients = []
+        self.server.close()
+
+
+@pytest.fixture
+def live_daemon(qapp: QApplication) -> Iterator[FakeLiveDaemon]:
+    # a short path: the one of a Unix socket has at most 107 bytes, which tmp_path may exceed
+    with tempfile.TemporaryDirectory(prefix="xtg-") as directory:
+        fake = FakeLiveDaemon(Path(directory) / "live.sock")
+        yield fake
+        fake.close()
+
+
+def strip_state(text: tuple[str, str] = ("", ""), **changes: object) -> StripState:
+    state = StripState(
+        color="off",
+        text=text,
+        leds={"rec": "off", "solo": "off", "mute": "off", "select": "off"},
+        ring=0,
+        ring_mode="dot",
+        fader=None,
+        touched=False,
+        meter=0,
+    )
+    return dataclasses.replace(state, **changes)  # pyright: ignore[reportArgumentType]
+
+
+def snapshot(window: MainWindow, first: StripState, device: bool = True) -> Snapshot:
+    saved = window.document.saved_config
+    assert saved is not None
+    strips = (first, *(strip_state() for _ in range(7)))
+    return Snapshot(live.fingerprint(saved), device, sound_server=True, mqtt=None, strips=strips)
+
+
+def test_the_preview_shows_the_device_live(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon, daemon: RecordingInstance
+):
+    window = make_window(live_socket=live_daemon.path)
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    first = strip_state(
+        ("Speaker", "46%"),
+        color="cyan",
+        leds={"rec": "off", "solo": "on", "mute": "on", "select": "flash"},
+        ring=5,
+        fader=0.46,
+        touched=True,
+        meter=6,
+    )
+    live_daemon.send(snapshot(window, first))
+    qtbot.waitUntil(lambda: window.preview.strips[0].face.live)
+
+    assert window.preview.strips[0].face.state == first
+    assert window.mode_pill.text() == "Live"
+    assert window.sync_label.text() == "The device runs the saved file."
+    # Select flashes
+    assert window.preview.blinker.isActive()
+    blink = window.preview.blink
+    window.preview.blinker.timeout.emit()
+    assert window.preview.blink != blink
+    assert not window.preview.grab().isNull()
+
+    # an edited strip shows how it will look, the others stay live
+    type_into(qtbot, row(window, "label").line, "Boxes")
+    face = window.preview.strips[0].face
+    assert (face.live, face.edited, face.state.text[0]) == (False, True, "Boxes")
+    assert window.preview.strips[1].face.live
+    assert not window.preview.blinker.isActive()
+    assert window.sync_label.text() == (
+        "The device runs the saved file. 1 strip with unsaved changes show how they will look."
+    )
+    assert not window.preview.grab().isNull()
+
+    # saved: the daemon takes a moment
+    assert window.save()
+    assert daemon.reloads == [1234]
+    assert window.sync_label.text() == "Applying the saved file…"
+    # it did not take it
+    window.applying.stop()
+    window.applying.timeout.emit()
+    assert window.sync_label.text() == "The device does not run the saved file yet."
+    assert "journalctl --user -u xtouch-daemon" in window.sync_label.toolTip()
+    # it did
+    live_daemon.send(snapshot(window, first, device=False))
+    qtbot.waitUntil(lambda: window.sync_label.text() == "The device runs the saved file.")
+    assert window.mode_pill.text() == "Live · X-Touch-Ext not connected"
+
+    # the daemon ended: the file again
+    live_daemon.close()
+    qtbot.waitUntil(lambda: window.live.snapshot is None)
+    assert window.mode_pill.text() == "File preview"
+    assert not window.preview.strips[0].face.live
+
+
+def test_the_live_view_ends_with_the_daemon(qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon):
+    running: list[Instance | None] = [RecordingInstance(1234, Path("/elsewhere.toml"), systemd=True)]
+    window = make_window(find_daemon=lambda: running[0], live_socket=live_daemon.path)
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    live_daemon.send(snapshot(window, strip_state()))
+    qtbot.waitUntil(lambda: window.live.snapshot is not None)
+    assert window.sync_label.text() == "The daemon reads /elsewhere.toml, not this file."
+    # a line of another version means nothing
+    live_daemon.send_line(b'{"version": 99}\n')
+    qtbot.wait(20)
+    assert window.live.snapshot is not None
+
+    running[0] = None
+    window.refresh_service()
+
+    assert window.live.snapshot is None
+    assert window.mode_pill.text() == "File preview"
+    assert window.sync_label.text() == "Nothing runs this file."
+
+
+# -- undo ---------------------------------------------------------------------------------------------------------
+
+
+def test_edits_are_undone_and_redone(qtbot: QtBot, window: MainWindow):
+    assert not window.undo_button.isEnabled()
+    type_into(qtbot, row(window, "label").line, "Boxes")
+    window.remove_strip(1)
+    assert window.undo_button.isEnabled()
+
+    click(qtbot, window.undo_button)
+    assert len(window.document.strips) == 2
+    assert window.status.text() == "Undone."
+    # typing into one option is one step
+    window.select(0)
+    window.undo()
+    assert window.document.get(("strip", 0, "label")) == "Speaker"
+    assert row(window, "label").line.text() == "Speaker"
+    assert not window.undo_button.isEnabled()
+    window.undo()
+
+    click(qtbot, window.redo_button)
+    assert window.document.get(("strip", 0, "label")) == "Boxes"
+    assert window.status.text() == "Redone."
+    window.redo()
+    assert len(window.document.strips) == 1
+    assert not window.redo_button.isEnabled()
+    window.redo()
+
+
+def test_undo_works_in_a_text_field_too(qtbot: QtBot, window: MainWindow):
+    line = row(window, "label").line
+    type_into(qtbot, line, "Boxes")
+    line.setFocus()
+
+    qtbot.keyClick(line, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)
+
+    assert window.document.get(("strip", 0, "label")) == "Speaker"
+    # other keys reach the field
+    line = row(window, "label").line
+    qtbot.waitUntil(line.isVisible)
+    line.end(False)
+    qtbot.keyClick(line, Qt.Key.Key_Backspace)
+    assert window.document.get(("strip", 0, "label")) == "Speake"
+
+
+def test_a_revert_can_be_undone(qtbot: QtBot, window: MainWindow):
+    window.document.remove_strip(0)
+    window.edited()
+    click(qtbot, window.revert_button)
+    assert len(window.document.strips) == 2
+
+    window.undo()
+    assert len(window.document.strips) == 1
+    assert window.document.modified
 
 
 # -- the preview: painting ---------------------------------------------------------------------------------------
@@ -416,8 +707,10 @@ def test_lit_leds_show_their_colors(window: MainWindow):
     view = window.preview.strips[0]
     mute, meter = QPoint(16, 177), QPoint(84, 200)
     dark = view.grab().toImage()
-    face = view._face()
-    view._face = lambda: replace(face, leds=frozenset({"MUTE"}), meter=3)  # what the live view shows
+    face = view.face
+    leds = {**face.state.leds, "mute": "on"}
+    # what the live view shows: Mute lit, the meter a little up
+    view.show_face(dataclasses.replace(face, state=dataclasses.replace(face.state, leds=leds, meter=3)), False)
 
     lit = view.grab().toImage()
 
@@ -427,14 +720,23 @@ def test_lit_leds_show_their_colors(window: MainWindow):
     assert lit.pixelColor(meter).green() > 150 > lit.pixelColor(meter).red()
 
 
-def test_a_drop_target_is_highlighted(window: MainWindow):
-    view = window.preview.strips[1]
-    before = view.grab().toImage().pixelColor(QPoint(20, 100))
-    view.drop_target = True
+def test_a_dragged_strip_is_outlined_and_its_place_shown(qtbot: QtBot, window: MainWindow):
+    preview = window.preview
+    edge = QPoint(3, 150)
+    # below the lifted strip, where the place it goes to shows on the panel
+    place = preview_module.slot_position(0) + QPoint(preview_module.WIDTH // 2, preview_module.HEIGHT - 6)
+    strip_before = preview.strips[1].grab().toImage().pixelColor(edge)
+    place_before = preview.grab().toImage().pixelColor(place)
 
-    after = view.grab().toImage().pixelColor(QPoint(20, 100))
+    preview.start_drag(1, 10)
+    preview.drag_to(preview_module.MARGIN_X + 10)
 
-    assert after.blue() > before.blue()
+    assert preview.drop_target == 0
+    # the strip that was there made room
+    qtbot.waitUntil(lambda: preview.strips[0].pos() == preview_module.slot_position(1))
+    assert preview.strips[1].grab().toImage().pixelColor(edge).blue() > strip_before.blue()
+    assert preview.grab().toImage().pixelColor(place).blue() > place_before.blue() + 10
+    preview.cancel_drag()
 
 
 def luminance(color: str) -> float:
@@ -751,6 +1053,10 @@ def test_a_service_is_installed_or_started_only_when_confirmed(
     assert window.status.text() == ""
 
 
+def test_a_new_window_starts_with_the_keys_on_the_strips(window: MainWindow):
+    assert window.focusWidget() is window.preview.strips[0]
+
+
 def test_keys_typed_into_a_new_window_do_not_press_the_service_button(window: MainWindow):
     assert window.service_button.focusPolicy() == Qt.FocusPolicy.NoFocus
 
@@ -880,7 +1186,7 @@ def test_revert_drops_the_changes(qtbot: QtBot, window: MainWindow):
     click(qtbot, window.revert_button)
 
     assert len(window.document.strips) == 2
-    assert window.status.text() == "Reverted to the file."
+    assert window.status.text() == "Reverted to the file. Ctrl+Z brings the changes back."
 
 
 @pytest.mark.parametrize(
@@ -946,6 +1252,45 @@ def test_a_homeassistant_strip_has_its_id_as_placeholder(window: MainWindow):
 
     assert row(window, "id").line.placeholderText() == "strip_2"
     assert window.preview.strips[1].look.detail.startswith("entities of Home Assistant (strip_<position>)")
+
+
+def test_a_homeassistant_strip_leads_to_its_connection(qtbot: QtBot, window: MainWindow):
+    window.document.set_strip_type(1, "homeassistant")
+    window.select(1)
+    (setup,) = buttons(window.strip_page, QPushButton, lambda button: button.text() == "Set up the connection")
+
+    click(qtbot, setup)
+    assert window.current_page == "mqtt"
+    # no strip is selected while the global settings show
+    assert not any(view.selected for view in window.preview.strips)
+
+    window.document.add_section("mqtt")
+    window.document.set(("mqtt", "host"), "broker")
+    window.select(1)
+    (settings,) = buttons(window.strip_page, QPushButton, lambda button: button.text() == "Connection settings")
+    assert [label for label in window.strip_page.findChildren(QLabel) if "MQTT broker broker" in label.text()]
+    click(qtbot, settings)
+    assert window.current_page == "mqtt"
+
+
+def test_global_settings_are_apart_from_the_strips(qtbot: QtBot, window: MainWindow):
+    assert window.tabs.tabText(0) == "Strip 1 · Speaker"
+    assert window.tabs.tabText(1) == "Global settings"
+    assert [button.text() for button in window.nav_buttons.values()] == [
+        "Behavior",
+        "Aliases",
+        "Home Assistant",
+        "Device",
+    ]
+
+    click(qtbot, window.nav_buttons["device"])
+    assert window.current_page == "device"
+    # the page stays when the pages are built again
+    window.reload_pages()
+    assert window.current_page == "device"
+    window.tabs.setCurrentIndex(0)
+    assert window.current_page == "strip"
+    assert window.preview.strips[0].selected
 
 
 def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):

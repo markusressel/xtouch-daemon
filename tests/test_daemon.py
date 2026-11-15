@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import signal
+import tempfile
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
@@ -10,8 +11,8 @@ import pytest
 from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle
 from tests.fake_mqtt import FakeBroker
 from xtouch_daemon import daemon as daemon_module
+from xtouch_daemon import live, protocol
 from xtouch_daemon import mqtt as mqtt_module
-from xtouch_daemon import protocol
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
@@ -306,10 +307,47 @@ async def test_home_assistant_strips_follow_the_broker(
     assert broker.retained["xtouch-daemon/xtouch/availability"] == "offline"
 
 
+async def test_the_live_view_shows_what_the_daemon_does(
+    config_path: Path, surface: RecordingSurface, backend: FakeBackend, broker: FakeBroker
+) -> None:
+    config_path.write_text(HOME_ASSISTANT)
+    config = parse_config(HOME_ASSISTANT)
+    assert config.mqtt is not None
+    with tempfile.TemporaryDirectory(prefix="xtd-") as directory:
+        socket = Path(directory) / "live.sock"
+        daemon = Daemon(
+            config,
+            backend,
+            surface,
+            config_path,
+            mixer_factory=quiet_mixer,
+            bridge=MqttBridge(config.mqtt, client_factory=broker.client),
+            live_socket=socket,
+        )
+        task = asyncio.create_task(daemon.run())
+        await until(lambda: surface.strips[0].text == ["Lights", ""] and daemon.bridge and daemon.bridge.connected)
+        await until(socket.exists)
+
+        reader, writer = await asyncio.open_unix_connection(socket)
+        snapshot = live.decode(await reader.readline())
+        assert snapshot is not None
+        assert snapshot.config == live.fingerprint(config)
+        assert (snapshot.device, snapshot.sound_server, snapshot.mqtt) == (False, False, True)
+        assert snapshot.strips[0].text == ("Lights", "")
+
+        daemon.stop()
+        await task
+        # it is gone with the daemon
+        assert not socket.exists()
+        writer.close()
+
+
 async def test_without_mqtt_section_there_is_no_bridge(
     config_path: Path, surface: RecordingSurface, backend: FakeBackend
 ) -> None:
-    assert make(config_path, surface, backend).bridge is None
+    daemon = make(config_path, surface, backend)
+    assert daemon.bridge is None
+    assert daemon.snapshot().mqtt is None
     config = parse_config(HOME_ASSISTANT)
     assert Daemon(config, backend, surface, mixer_factory=quiet_mixer).bridge is not None
 
