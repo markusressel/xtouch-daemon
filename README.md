@@ -93,6 +93,10 @@ color = "cyan"
 - [SlideWire](https://github.com/NilsBriggen/SlideWire): a GUI mixer for generic MIDI controllers, with motor fader and
   LED support, but no Mackie Control displays.
 - [apptrol](https://github.com/Dzobash/apptrol): per-application volume for the Korg nanoKONTROL2.
+- [BehringerXTouchExtender](https://github.com/Aldaviva/BehringerXTouchExtender): a .NET library for this device in
+  its MIDI (`Ctrl`, `CtrlRel`) and HUI modes, not Mackie Control. Its documentation of the hardware (13 ring LEDs, 8
+  meter LEDs and their colors, the LCD message of MIDI mode with inverted text, the firmware that AMD Zen 2 and later
+  need for a stable USB connection) helped here.
 
 ## License
 
