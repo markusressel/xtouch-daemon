@@ -86,6 +86,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- A fader dragged to a new value jumped back to where it was before when it was let go, while the volume stayed at
+  the new value (the device moves a released fader to the value it got last).
 - The ring of `encoder = "balance"` flickered while the fader moved: it went dark after every change of the
   volume until the sound server reported it.
 - The meters came up to 64 ms late, by a different amount per strip (pw-record buffered its output): two
