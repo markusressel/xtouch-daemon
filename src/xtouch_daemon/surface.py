@@ -51,6 +51,14 @@ Where a fader is assumed to be when that is not known (after a connect): at the 
 faders when it stops and where the device starts with them. So a fader glides there from the start too.
 """
 
+TOUCH_GRACE = 0.3
+"""
+Seconds a fader that moved without a touch waits for one. The device reports a touch only after the first few moves
+of a quick hand (about 50-100 ms late), so such a move is held without driving the motor: with a touch it was the
+hand, without one the device itself (e.g. its faders going down after it was switched on), and the fader goes back to
+its value.
+"""
+
 
 def smooth_damp(position: float, velocity: float, target: float, smooth_time: float, dt: float) -> tuple[float, float]:
     """
@@ -90,6 +98,8 @@ class Strip:
         """Whether the fader moves slowly (see FADER_SLOW_SMOOTH_TIME) until it arrives."""
         self._confirm_at: list[float] = []
         """When to send the target again (see FADER_CONFIRM_DELAYS)."""
+        self.held = False
+        """Moved without a touch, waiting for one (see TOUCH_GRACE): the motor keeps still like for a touch."""
         self.meter: tuple[int, float] = (0, 0.0)
         """The level the meter was set to last, and when (`time.monotonic()`), for the live view of the GUI."""
 
@@ -114,7 +124,7 @@ class Strip:
         """
         self.fader = protocol.fader_value(fraction)
         self._slow = self._slow or slow
-        if not self.touched:
+        if not (self.touched or self.held):
             self._surface.glide(self)
 
     def _send(self, message: bytes) -> None:
@@ -186,7 +196,7 @@ class Strip:
         Moves the fader one tick closer to its target, or sends the target again once it is there (see
         FADER_CONFIRM_DELAYS). False once there is nothing left to do. `now` is the time of the event loop.
         """
-        if self.touched or self.fader is None:
+        if self.touched or self.held or self.fader is None:
             self._confirm_at.clear()
             return False
         if self._position is None:
@@ -255,6 +265,8 @@ class Surface:
         self.strips = [Strip(self, index) for index in range(protocol.STRIPS)]
         self.on_event: EventHandler = lambda event: None
         self.on_connection: ConnectionHandler = lambda connected: None
+        self._unconfirmed: dict[int, tuple[int, asyncio.TimerHandle]] = {}
+        """The faders that moved without a touch: where to, and the timer that gives up waiting (TOUCH_GRACE)."""
         self.on_unknown: Callable[[bytes], None] = lambda message: _LOGGER.debug(
             f"Unknown message from the device: {message.hex(' ')}"
         )
@@ -381,6 +393,10 @@ class Surface:
     def _on_closed(self) -> None:
         assert self._revealer is not None, "open() starts the startup sequence"
         self._revealer.cancel()
+        for index, (_, timer) in self._unconfirmed.items():
+            timer.cancel()
+            self.strips[index].held = False
+        self._unconfirmed.clear()
         self._midi = None
         self._disconnected.set()
         self.on_connection(False)
@@ -394,23 +410,46 @@ class Surface:
             if isinstance(event, protocol.HostQuery):
                 continue
             strip = self.strips[event.strip]
-            if isinstance(event, protocol.FaderMoved) and not strip.touched:
-                # a hand touches a fader before it moves it: this is the device itself, e.g. its faders going down
-                # after it was switched on. The fader goes back to its value instead of changing it.
-                _LOGGER.debug(f"Fader {event.strip + 1} moved without a touch: back to its value")
-                strip.moved_by_hand(event.value)
-                if strip.fader is not None:
-                    self.glide(strip)
-                continue
-            # the surface keeps the motor in step with the hand, the rest is up to the handler
             match event:
-                case protocol.FaderTouched(touched=True):
-                    strip.touched = True
-                case protocol.FaderMoved(value=value):
+                case protocol.FaderMoved(strip=index, value=value) if not strip.touched:
+                    # a hand or the device itself: the touch tells (see TOUCH_GRACE)
                     strip.moved_by_hand(value)
-            try:
-                self.on_event(event)
-            except Exception:
-                _LOGGER.exception(f"Handling {event} failed")
-            if isinstance(event, protocol.FaderTouched) and not event.touched:
-                strip.touch(False)
+                    strip.held = True
+                    if index in self._unconfirmed:
+                        self._unconfirmed[index][1].cancel()
+                    timer = asyncio.get_running_loop().call_later(TOUCH_GRACE, self._untouched, index)
+                    self._unconfirmed[index] = (value, timer)
+                    continue
+                case protocol.FaderTouched(strip=index, touched=True) if index in self._unconfirmed:
+                    # the hand that moved it: what it did so far counts
+                    value, timer = self._unconfirmed.pop(index)
+                    timer.cancel()
+                    strip.held = False
+                    self._handle(event)
+                    self._handle(protocol.FaderMoved(index, value))
+                    continue
+            self._handle(event)
+
+    def _untouched(self, index: int) -> None:
+        """No touch came: the device moved the fader, which goes back to its value."""
+        del self._unconfirmed[index]
+        strip = self.strips[index]
+        strip.held = False
+        _LOGGER.debug(f"Fader {index + 1} moved without a touch: back to its value")
+        if strip.fader is not None:
+            self.glide(strip)
+
+    def _handle(self, event: protocol.StripEvent) -> None:
+        strip = self.strips[event.strip]
+        # the surface keeps the motor in step with the hand, the rest is up to the handler
+        match event:
+            case protocol.FaderTouched(touched=True):
+                strip.touched = True
+            case protocol.FaderMoved(value=value):
+                strip.moved_by_hand(value)
+        try:
+            self.on_event(event)
+        except Exception:
+            _LOGGER.exception(f"Handling {event} failed")
+        if isinstance(event, protocol.FaderTouched) and not event.touched:
+            strip.touch(False)

@@ -545,6 +545,7 @@ async def test_a_fader_the_device_moves_by_itself_goes_back_to_its_value(surface
 
     # after it was switched on, the device moves its faders down: without a touch, no hand did that
     surface._on_data(bytes([0xE0, 0x00, 0x00]))
+    await asyncio.sleep(0.01)
     await surface.settled()
 
     assert events == []
@@ -554,7 +555,54 @@ async def test_a_fader_the_device_moves_by_itself_goes_back_to_its_value(surface
 
 async def test_a_fader_without_a_value_stays_where_the_device_moved_it(surface: RecordingSurface) -> None:
     surface._on_data(bytes([0xE0, 0x00, 0x00]))
+    await asyncio.sleep(0.01)
     await surface.settled()
 
     assert surface.strips[0].position == 0
     assert surface.faders(0) == []
+
+
+async def test_a_touch_that_comes_late_makes_the_moves_before_it_count(
+    surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "TOUCH_GRACE", 10.0)
+    events: list[protocol.StripEvent] = []
+    surface.on_event = events.append
+    strip = surface.strips[0]
+    strip.set_fader(0.5)
+    await surface.settled()
+    surface.sent.clear()
+
+    # a quick hand: the device reports the touch after the first moves
+    surface._on_data(bytes([0xE0, 0x00, 0x30, 0xE0, 0x00, 0x20]))
+    strip.set_fader(0.6)
+    await asyncio.sleep(0.05)
+    # the motor kept still meanwhile
+    assert surface.faders(0) == []
+    assert events == []
+
+    surface._on_data(bytes([0x90, 0x68, 0x7F]))
+    assert events == [protocol.FaderTouched(0, True), protocol.FaderMoved(0, 0x1000)]
+    assert not strip.held
+
+
+async def test_a_disconnect_forgets_moves_without_a_touch(
+    device: tuple[Path, Path, int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "TOUCH_GRACE", 10.0)
+    cards, dev, controller = device
+    surface = Surface(proc_asound_cards=cards, dev_snd=dev)
+    assert surface.connect()
+    os.write(controller, bytes([0xE0, 0x00, 0x30]))
+    for _ in range(50):
+        if surface.strips[0].held:
+            break
+        await asyncio.sleep(0.01)
+    assert surface.strips[0].held
+
+    assert surface._midi is not None
+    surface._midi.close()
+    await asyncio.sleep(0)
+
+    assert not surface.strips[0].held
+    assert surface._unconfirmed == {}

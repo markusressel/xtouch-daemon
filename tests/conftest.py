@@ -90,13 +90,14 @@ def runtime_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 @pytest.fixture(autouse=True)
 def quick_faders(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    The faders send their targets again at once, their slow moves are as fast as the others, and the startup and
-    shutdown sequences are not staggered: waiting for that adds
-    nothing to most tests.
+    The faders send their targets again at once, their slow moves are as fast as the others, the startup and shutdown
+    sequences are not staggered, and a move without a touch is given up on at once: waiting for that adds nothing to
+    most tests.
     """
     monkeypatch.setattr(surface_module, "FADER_CONFIRM_DELAYS", (0.0, 0.0))
     monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", surface_module.FADER_SMOOTH_TIME)
     monkeypatch.setattr(surface_module, "SEQUENCE_STAGGER", 0.0)
+    monkeypatch.setattr(surface_module, "TOUCH_GRACE", 0.0)
 
 
 @pytest.fixture
