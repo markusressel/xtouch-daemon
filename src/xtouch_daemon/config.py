@@ -123,6 +123,13 @@ class BehaviorConfig(_Model):
     The volume of a fader at the top, in percent: above 100 % the audio is amplified in software. Strips may have a
     range of their own (`min_volume`, `max_volume`).
     """
+    unity_at: Annotated[int, Field(ge=10, le=95)] = 77
+    """
+    Where on the fader 100 % is, in percent of its travel from the bottom; the X-Touch Extender marks 0 dB at about
+    77. Below that mark the fader goes up to 100 %, above it from 100 % to the `max_volume` of the strip, e.g. with
+    77 and 130 the top 23 % of the travel amplify by up to 30 %. Strips whose range ends at 100 % (or starts above
+    it) are not affected: their fader is linear from the bottom to the top.
+    """
     encoder_step: Annotated[int, Field(ge=1, le=10)] = 1
     """Percent per step of an encoder."""
     reset_volume: Volume = 100

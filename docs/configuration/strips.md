@@ -71,6 +71,27 @@ max_volume = 200
 - [Profiles](devices.md#profiles) of a device strip can have a range of their own.
 - `homeassistant` strips have no range: Home Assistant decides what their fader means.
 
+### 100 % at the 0 dB mark
+
+The scale next to the faders of the X-Touch Extender marks 0 dB at about 77 % of the travel. The faders of strips
+that go above 100 % put 100 % there: from the bottom to the mark the fader covers `min_volume` to 100 %, from the
+mark to the top 100 % to `max_volume`. Both parts are linear. `behavior.unity_at` (default `77`) moves the mark.
+
+```toml
+[behavior]
+max_volume = 200   # the top 23 % of the travel amplify by up to 100 %
+```
+
+| Fader | A linear fader, 0..200 | The faders here, 0..200 |
+|---|---|---|
+| bottom | 0 % | 0 % |
+| half way | 100 % | 65 % |
+| 0 dB mark (77 %) | 154 % | 100 % |
+| top | 200 % | 200 % |
+
+Strips whose range ends at 100 % (the default) are not affected: their 100 % is at the top. The GUI shows the
+option in "Global settings", "Behavior".
+
 ## Elements of a strip
 
 | Element | What it does on an audio strip |

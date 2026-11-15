@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- 100 % at the 0 dB mark of the faders (about 77 % of the travel, `behavior.unity_at`) on strips that go above
+  100 %: the travel above the mark covers the amplification. The faders of such strips were linear.
 - `[device] startup` and `shutdown`: how the strips light up after a connect and go dark at the end: `instant`,
   `sweep` (one after the other, the default), `curtain` (from the middle outwards, and back) or `show` (a wave of
   light: white backlights, buttons, meters and filling rings).

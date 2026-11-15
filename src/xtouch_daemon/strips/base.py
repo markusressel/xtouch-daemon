@@ -105,6 +105,34 @@ class StripController:
         task.add_done_callback(self._tasks.discard)
 
 
+UNITY = 100
+"""The volume of the `behavior.unity_at` mark."""
+
+
+def fader_volume(fraction: float, bottom: int, top: int, unity_at: int) -> float:
+    """
+    The volume of the fader at 0.0..1.0 for the range `bottom`..`top`: 100 % at `unity_at` percent of the travel and
+    linear on both sides of it (see `BehaviorConfig.unity_at`), linear for ranges that do not go across 100 %.
+    """
+    if not bottom < UNITY < top:
+        return bottom + fraction * (top - bottom)
+    knee = unity_at / 100
+    if fraction <= knee:
+        return bottom + fraction / knee * (UNITY - bottom)
+    return UNITY + (fraction - knee) / (1 - knee) * (top - UNITY)
+
+
+def fader_position(volume: float, bottom: int, top: int, unity_at: int) -> float:
+    """Where the fader is for the volume, 0.0..1.0: the inverse of `fader_volume`."""
+    volume = max(bottom, min(top, volume))
+    if not bottom < UNITY < top:
+        return (volume - bottom) / (top - bottom)
+    knee = unity_at / 100
+    if volume <= UNITY:
+        return (volume - bottom) / (UNITY - bottom) * knee
+    return knee + (volume - UNITY) / (top - UNITY) * (1 - knee)
+
+
 @dataclass(frozen=True)
 class Level:
     """The volume a strip shows."""
@@ -196,9 +224,9 @@ class VolumeStrip(StripController):
         return bottom, self.env.behavior.max_volume if self.max_volume is None else self.max_volume
 
     def _fraction(self, volume: int) -> float:
-        """Where the fader is for the volume: 0 at the bottom, 1 at the top."""
+        """Where the fader is for the volume: 0 at the bottom, 1 at the top (see `fader_position`)."""
         bottom, top = self.volume_range()
-        return max(0.0, min(1.0, (volume - bottom) / (top - bottom)))
+        return fader_position(volume, bottom, top, self.env.behavior.unity_at)
 
     def accepts_input(self) -> bool:
         """Whether the fader and encoder do something now (e.g. not for a device that is not there)."""
@@ -294,7 +322,7 @@ class VolumeStrip(StripController):
                 self.ha_fader.moved(fraction)
         elif self.accepts_input():
             bottom, top = self.volume_range()
-            self.set_volume(round(bottom + fraction * (top - bottom)))
+            self.set_volume(round(fader_volume(fraction, bottom, top, self.env.behavior.unity_at)))
 
     def on_encoder(self, steps: int) -> None:
         if self.knob.idle_too or self.accepts_input():

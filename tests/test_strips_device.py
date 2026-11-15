@@ -8,7 +8,7 @@ from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Card, Direction, Profile
 from xtouch_daemon.config import BehaviorConfig, Indicator, ProfileConfig
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.strips.base import StripEnv
+from xtouch_daemon.strips.base import StripEnv, fader_position, fader_volume
 from xtouch_daemon.strips.device import DeviceStrip
 
 
@@ -210,9 +210,49 @@ async def test_above_100_percent_the_fader_covers_the_amplification(
     await surface.settled()
     assert surface.faders(0)[-1] == protocol.FADER_MAX
 
+    # below the 0 dB mark up to 100 %
     strip.on_fader(0.5)
     await settle()
-    assert backend.calls[-1][3] == 75
+    assert backend.calls[-1][3] == 65
+
+
+def test_100_percent_sits_at_the_unity_mark_of_the_fader() -> None:
+    # 0..100 % below the mark at 77 % of the travel, 100..130 % above it
+    assert [round(fader_volume(f, 0, 130, 77), 1) for f in (0.0, 0.385, 0.77, 0.885, 1.0)] == [0, 50, 100, 115, 130]
+    assert [round(fader_position(v, 0, 130, 77), 3) for v in (0, 50, 100, 115, 130, 300)] == [
+        0,
+        0.385,
+        0.77,
+        0.885,
+        1,
+        1,
+    ]
+    # the range of the strip on both sides
+    assert fader_volume(0.0, 50, 200, 77) == 50
+    assert fader_volume(0.77, 50, 200, 77) == pytest.approx(100)
+    assert fader_position(-5, 50, 200, 77) == 0
+    # linear for ranges that do not go across 100 %
+    assert fader_volume(0.5, 0, 100, 77) == 50
+    assert fader_volume(0.5, 100, 200, 77) == 150
+    assert fader_position(150, 100, 200, 77) == 0.5
+
+
+async def test_the_fader_of_a_strip_above_100_percent_has_100_at_the_mark(
+    surface: RecordingSurface, backend: FakeBackend
+) -> None:
+    env = StripEnv(backend, BehaviorConfig(max_volume=130, unity_at=77))
+    strip = make(surface, env)
+    strip.update(AudioState(outputs=(output("speaker", 100),)))
+    await surface.settled()
+    assert surface.faders(0)[-1] == protocol.fader_value(0.77)
+    assert surface.strips[0].ring == (round(0.77 * (protocol.RING_MAX - 1)) + 1, RingMode.WRAP)
+
+    strip.on_fader(0.385)
+    await settle()
+    assert backend.calls[-1][3] == 50
+    strip.on_fader(1.0)
+    await settle()
+    assert backend.calls[-1][3] == 130
 
 
 async def test_a_strip_has_a_volume_range_of_its_own(
@@ -222,9 +262,9 @@ async def test_a_strip_has_a_volume_range_of_its_own(
     strip.update(AudioState(outputs=(output("speaker", 125),)))
     await surface.settled()
     s = surface.strips[0]
-    # half way between 50 and 200
-    assert surface.faders(0)[-1] == protocol.fader_value(0.5)
-    assert s.ring == (round(0.5 * (protocol.RING_MAX - 1)) + 1, RingMode.WRAP)
+    # a quarter of the way from the 0 dB mark (100 %) to the top
+    assert surface.faders(0)[-1] == protocol.fader_value(0.77 + 0.25 * 0.23)
+    assert s.ring == (round(0.8275 * (protocol.RING_MAX - 1)) + 1, RingMode.WRAP)
 
     strip.on_fader(0.0)
     await settle()

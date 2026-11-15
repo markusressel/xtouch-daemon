@@ -41,7 +41,7 @@ from xtouch_daemon.gui.domain.schema import Option, strip_options
 from xtouch_daemon.gui.qt import preview, theme
 from xtouch_daemon.gui.qt import preview as preview_module
 from xtouch_daemon.gui.qt import window as window_module
-from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Tables
+from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Switch, Tables
 from xtouch_daemon.gui.qt.pages import AliasesPage, SectionPage
 from xtouch_daemon.gui.qt.window import MainWindow
 from xtouch_daemon.instance import Instance
@@ -1442,3 +1442,12 @@ def test_numbers_of_tables_are_numbers(qtbot: QtBot, window: MainWindow):
     # one that is none stays text: its problem says so
     type_into(qtbot, tables.lines[0][3], "lots")
     assert window.document.get(("strip", 0, "profiles")) == [{"max_volume": "lots"}]
+
+
+def test_a_switch_looks_different_on_and_off(qtbot: QtBot):
+    switch = Switch()
+    qtbot.addWidget(switch)
+    switch.resize(switch.sizeHint())
+    off = switch.grab().toImage()
+    switch.setChecked(True)
+    assert switch.grab().toImage() != off
