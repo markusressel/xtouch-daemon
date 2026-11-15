@@ -394,6 +394,14 @@ class Surface:
             if isinstance(event, protocol.HostQuery):
                 continue
             strip = self.strips[event.strip]
+            if isinstance(event, protocol.FaderMoved) and not strip.touched:
+                # a hand touches a fader before it moves it: this is the device itself, e.g. its faders going down
+                # after it was switched on. The fader goes back to its value instead of changing it.
+                _LOGGER.debug(f"Fader {event.strip + 1} moved without a touch: back to its value")
+                strip.moved_by_hand(event.value)
+                if strip.fader is not None:
+                    self.glide(strip)
+                continue
             # the surface keeps the motor in step with the hand, the rest is up to the handler
             match event:
                 case protocol.FaderTouched(touched=True):

@@ -35,6 +35,9 @@ Only one program can have the device open. Stop the daemon before `xtouch-daemon
 
 - **Touch:** while a finger is on a fader, its motor does not follow outside changes. When the fader is let go, it
   moves to the strip's current value, usually the one that was set last.
+- **Only a touched fader sets a value:** a hand touches a fader before it moves it. A move without a touch comes from
+  the device itself (e.g. its faders going down after it was switched on), so the fader goes back to its value. A
+  fader whose touch sensor failed can't change the volume until it is repaired.
 - **Smooth motion:** a fader glides to a new value instead of jumping there. It follows its target like a critically
   damped spring (no overshoot) that gets there in about 100 ms, starting from where it is, also from where a hand left
   it. The spring keeps its speed when the target moves on, so a volume dragged in another mixer, which arrives in small

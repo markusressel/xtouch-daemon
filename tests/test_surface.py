@@ -196,9 +196,10 @@ def test_events_of_the_device_go_to_the_handler(surface: RecordingSurface) -> No
     events: list[protocol.StripEvent] = []
     surface.on_event = events.append
 
-    surface._on_data(bytes([0xE1, 0x7F, 0x7F, 0x90, 0x11, 0x7F, 0xB0, 0x12, 0x41, 0x90, 0x23, 0x7F]))
+    surface._on_data(bytes([0x90, 0x69, 0x7F, 0xE1, 0x7F, 0x7F, 0x90, 0x11, 0x7F, 0xB0, 0x12, 0x41, 0x90, 0x23, 0x7F]))
 
     assert events == [
+        protocol.FaderTouched(1, True),
         protocol.FaderMoved(1, protocol.FADER_MAX),
         protocol.ButtonPressed(1, Button.MUTE, True),
         protocol.EncoderTurned(2, -1),
@@ -533,3 +534,27 @@ def test_unknown_messages_are_logged(surface: RecordingSurface, caplog: pytest.L
     surface._on_data(bytes([0x90, 0x70, 0x7F]))
 
     assert "Unknown message from the device: 90 70 7f" in caplog.text
+
+
+async def test_a_fader_the_device_moves_by_itself_goes_back_to_its_value(surface: RecordingSurface) -> None:
+    events: list[protocol.StripEvent] = []
+    surface.on_event = events.append
+    strip = surface.strips[0]
+    strip.set_fader(0.5)
+    await surface.settled()
+
+    # after it was switched on, the device moves its faders down: without a touch, no hand did that
+    surface._on_data(bytes([0xE0, 0x00, 0x00]))
+    await surface.settled()
+
+    assert events == []
+    assert surface.faders(0)[-1] == protocol.fader_value(0.5)
+    assert strip.position == protocol.fader_value(0.5)
+
+
+async def test_a_fader_without_a_value_stays_where_the_device_moved_it(surface: RecordingSurface) -> None:
+    surface._on_data(bytes([0xE0, 0x00, 0x00]))
+    await surface.settled()
+
+    assert surface.strips[0].position == 0
+    assert surface.faders(0) == []
