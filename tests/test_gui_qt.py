@@ -629,6 +629,18 @@ def test_a_changed_device_offers_a_restart(qtbot: QtBot, window: MainWindow, sys
     assert window.status.text() == "Restarted the service."
 
 
+def test_a_changed_mqtt_section_offers_a_restart_instead_of_a_reload(window: MainWindow, systemctl: FakeSystemctl):
+    window.document.add_section("mqtt")
+    window.document.set(("mqtt", "host"), "broker")
+    window.refresh()
+
+    assert window.save()
+
+    assert ["systemctl", "--user", "reload", UNIT_NAME] not in systemctl.commands
+    assert window.status.text() == "Saved. The [mqtt] section changed: restart the service to use the configuration."
+    assert not window.restart_button.isHidden()
+
+
 def test_a_failing_restart_or_reload_is_reported(
     qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl, isolated: Dialogs
 ):

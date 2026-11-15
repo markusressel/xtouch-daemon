@@ -382,14 +382,14 @@ class MainWindow(QMainWindow):
         if not self.save_button.isEnabled():
             # nothing changed
             return True
-        device_changed = self.document.device_changed
+        restart_sections = self.document.restart_sections
         try:
             self.document.save()
         except OSError as e:
             QMessageBox.critical(self, "Saving failed", str(e))
             return False
         try:
-            applied = apply(self.service, self.document.path, device_changed)
+            applied = apply(self.service, self.document.path, restart_sections)
         except ServiceError as e:
             self.status.setText(f"Saved, but reloading the service failed: {e}")
         else:

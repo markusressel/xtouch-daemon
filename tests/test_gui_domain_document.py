@@ -274,11 +274,13 @@ def test_revert_drops_the_changes(tmp_path: Path):
     assert new.data() == tomllib.loads(example_config())
 
 
-def test_a_changed_device_section_is_noticed():
+def test_sections_that_take_a_restart_are_noticed():
     doc = document()
-    assert not doc.device_changed
+    assert doc.restart_sections == ()
     doc.set(("device", "name"), "Other")
-    assert doc.device_changed
+    assert doc.restart_sections == ("device",)
+    doc.add_section("mqtt")
+    assert doc.restart_sections == ("device", "mqtt")
 
 
 @pytest.mark.parametrize(
