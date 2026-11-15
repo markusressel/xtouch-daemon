@@ -129,7 +129,8 @@ async def test_events_go_to_the_strip_they_happened_on(mixer: Mixer, backend: Fa
     await settle()
 
     assert backend.calls == [
-        ("set_device_volume", Direction.OUTPUT, "speaker", 25),
+        # 100 % at 77 % of the travel
+        ("set_device_volume", Direction.OUTPUT, "speaker", 32),
         ("set_device_mute", Direction.OUTPUT, "speaker", True),
         ("set_stream_volume", 1, 90),
         ("set_stream_volume", 1, 100),

@@ -139,7 +139,8 @@ def surface() -> RecordingSurface:
 
 @pytest.fixture
 def env(backend: FakeBackend) -> StripEnv:
-    return StripEnv(backend, BehaviorConfig())
+    # a fader of 0..100 % over its whole travel: fractions in the tests are volumes
+    return StripEnv(backend, BehaviorConfig(max_volume=100))
 
 
 async def finish_tasks() -> None:

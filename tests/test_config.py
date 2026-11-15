@@ -90,7 +90,7 @@ def test_an_empty_file_is_the_defaults():
     config = parse_config("")
     assert config == Config()
     assert config.device.name == "X-Touch-Ext"
-    assert config.behavior.max_volume == 100
+    assert config.behavior.max_volume == 130
 
 
 def test_colors_have_their_lcd_color():
@@ -121,7 +121,7 @@ def test_invalid_toml_names_the_file():
         ("[behavior]\nmax_volume = 99", "behavior.max_volume"),
         ("[behavior]\nencoder_step = 0", "behavior.encoder_step"),
         ("[behavior]\nreset_volume = 201", "behavior.reset_volume"),
-        ("[behavior]\nreset_volume = 120", "behavior"),
+        ("[behavior]\nreset_volume = 140", "behavior"),
         ("[behavior]\nauto_hold = -1", "behavior.auto_hold"),
         # a typo in an option name
         ("[behavior]\nmax_volum = 120", "behavior.max_volum"),
@@ -218,8 +218,8 @@ def test_a_file_that_can_not_be_read_is_an_error(tmp_path: Path):
 
 
 def test_errors_of_checks_across_options_read_as_a_sentence():
-    assert errors_of("[behavior]\nreset_volume = 120").endswith(
-        "\n  behavior: reset_volume (120) is above max_volume (100)"
+    assert errors_of("[behavior]\nreset_volume = 140").endswith(
+        "\n  behavior: reset_volume (140) is above max_volume (130)"
     )
 
 
@@ -285,7 +285,7 @@ def test_a_device_strip_switches_between_two_or_more_profiles_with_rec() -> None
 @pytest.mark.parametrize(
     ("text", "message"),
     [
-        ('[[strip]]\ntype = "auto"\nmin_volume = 100\n', "strip[1]: min_volume (100) is not below max_volume (100)"),
+        ('[[strip]]\ntype = "auto"\nmin_volume = 130\n', "strip[1]: min_volume (130) is not below max_volume (130)"),
         (
             '[[strip]]\ntype = "apps"\nmatch = ["a"]\nlabel = "A"\nmin_volume = 50\nmax_volume = 40\n',
             "strip[1]: min_volume (50) is not below max_volume (40)",

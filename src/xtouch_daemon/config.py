@@ -118,10 +118,11 @@ class DeviceConfig(_Model):
 class BehaviorConfig(_Model):
     """How the faders, encoders, meters and `auto` strips behave."""
 
-    max_volume: Annotated[int, Field(ge=100, le=VOLUME_LIMIT)] = 100
+    max_volume: Annotated[int, Field(ge=100, le=VOLUME_LIMIT)] = 130
     """
     The volume of a fader at the top, in percent: above 100 % the audio is amplified in software. Strips may have a
-    range of their own (`min_volume`, `max_volume`).
+    range of their own (`min_volume`, `max_volume`). 130 puts 100 % at the 0 dB mark of the device (see `unity_at`)
+    with the same slope above it as below, so the fader is linear over its whole travel.
     """
     unity_at: Annotated[int, Field(ge=10, le=95)] = 77
     """

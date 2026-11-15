@@ -89,8 +89,9 @@ max_volume = 200   # the top 23 % of the travel amplify by up to 100 %
 | 0 dB mark (77 %) | 154 % | 100 % |
 | top | 200 % | 200 % |
 
-Strips whose range ends at 100 % (the default) are not affected: their 100 % is at the top. The GUI shows the
-option in "Global settings", "Behavior".
+With the default `max_volume = 130` the two parts have the same slope: the fader is linear from 0 % to 130 %, with
+100 % at the mark. Strips whose range ends at 100 % (`max_volume = 100`) are not affected: their 100 % is at the
+top. The GUI shows the option in "Global settings", "Behavior".
 
 ## Elements of a strip
 

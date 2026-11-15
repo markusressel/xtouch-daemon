@@ -64,7 +64,7 @@ What it can't do:
 
 | Option | Default | Meaning |
 |---|---|---|
-| `max_volume` | `100` | The volume of a fader at the top, 100..200 percent. Above 100 % the audio is amplified in software. Strips may have their own [range](strips.md#volume-range). |
+| `max_volume` | `130` | The volume of a fader at the top, 100..200 percent. Above 100 % the audio is amplified in software. 130 puts 100 % at the 0 dB mark of the device with one slope over the whole travel; 100 puts it at the top. Strips may have their own [range](strips.md#volume-range). |
 | `unity_at` | `77` | Where on the fader 100 % is, 10..95 percent of the travel; the device marks 0 dB at about 77. For strips whose range goes above 100 %, see [100 % at the 0 dB mark](strips.md#100-at-the-0-db-mark). |
 | `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` [encoder](encoders.md) and by the encoders of `homeassistant` strips. |
 | `reset_volume` | `100` | The volume a push on a `volume` encoder sets, 0..200, at most `max_volume`. It stays within the range of the strip. |

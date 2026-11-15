@@ -16,7 +16,7 @@ startup = "sweep"
 shutdown = "sweep"
 
 [behavior]
-max_volume = 100          # the volume of a fader at the top; up to 200 amplifies in software
+max_volume = 130          # the volume of a fader at the top; above 100 amplifies in software (130: 100 at the 0 dB mark)
 unity_at = 77             # where on the fader 100 % is (the device marks 0 dB there), for strips above 100 %
 encoder_step = 1          # percent per encoder step
 reset_volume = 100        # the volume a push on an encoder sets

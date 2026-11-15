@@ -163,7 +163,7 @@ async def test_a_failing_volume_command_is_logged(
 async def test_the_encoder_changes_the_volume_in_steps_and_moves_the_fader(
     surface: RecordingSurface, backend: FakeBackend
 ) -> None:
-    env = StripEnv(backend, BehaviorConfig(encoder_step=2))
+    env = StripEnv(backend, BehaviorConfig(max_volume=100, encoder_step=2))
     strip = make(surface, env)
     strip.update(STATE)
 
@@ -190,7 +190,7 @@ async def test_the_encoder_does_not_go_beyond_the_limits(
 
 
 async def test_a_push_on_the_encoder_resets_the_volume(surface: RecordingSurface, backend: FakeBackend) -> None:
-    env = StripEnv(backend, BehaviorConfig(reset_volume=80))
+    env = StripEnv(backend, BehaviorConfig(max_volume=100, reset_volume=80))
     strip = make(surface, env)
     strip.update(STATE)
 
@@ -291,7 +291,7 @@ async def test_a_strip_has_a_volume_range_of_its_own(
 
 
 async def test_a_push_on_the_encoder_resets_within_the_range(surface: RecordingSurface, backend: FakeBackend) -> None:
-    env = StripEnv(backend, BehaviorConfig(reset_volume=100))
+    env = StripEnv(backend, BehaviorConfig(max_volume=100, reset_volume=100))
     strip = make(surface, env, max_volume=80)
     strip.update(STATE)
     strip.on_encoder_press(True)
@@ -366,7 +366,7 @@ async def test_the_meter_shows_the_monitor_of_an_output_or_the_input(surface: Re
 
 
 async def test_the_meters_can_be_switched_off_for_all_strips(surface: RecordingSurface, backend: FakeBackend) -> None:
-    env = StripEnv(backend, BehaviorConfig(meters=False))
+    env = StripEnv(backend, BehaviorConfig(max_volume=100, meters=False))
     assert make(surface, env).meter_targets(STATE) == set()
 
 

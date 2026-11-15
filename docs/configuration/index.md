@@ -56,7 +56,7 @@ or an IDE), or offers a restart. It then tells whether the daemon took the file.
 
 ```toml
 [behavior]
-max_volume = 100
+max_volume = 130
 encoder_step = 2
 auto_hold = 10
 ignore = ["speech-dispatcher", "notification"]

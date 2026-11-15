@@ -381,7 +381,7 @@ def test_without_auto_strips_nothing_is_assigned() -> None:
     assert AutoAssigner(0, hold=5, ignore=()).assign(state(stream(1))) == []
 
 
-@pytest.mark.parametrize("behavior", [BehaviorConfig()])
+@pytest.mark.parametrize("behavior", [BehaviorConfig(max_volume=100)])
 async def test_the_volume_strip_base_needs_a_kind(surface: RecordingSurface, behavior: BehaviorConfig) -> None:
     from xtouch_daemon.strips.base import VolumeStrip
 

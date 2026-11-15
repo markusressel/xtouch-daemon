@@ -12,8 +12,9 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
         name="max_volume",
         kind=Kind.INTEGER,
         help="The volume of a fader at the top, in percent: above 100 % the audio is amplified in software. Strips may "
-        "have a\nrange of their own (`min_volume`, `max_volume`).",
-        default=100,
+        "have a\nrange of their own (`min_volume`, `max_volume`). 130 puts 100 % at the 0 dB mark of the device (see "
+        "`unity_at`)\nwith the same slope above it as below, so the fader is linear over its whole travel.",
+        default=130,
         required=False,
         minimum=100,
         maximum=200,
