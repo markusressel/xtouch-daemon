@@ -31,7 +31,7 @@ from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields import flat_button, label
 from xtouch_daemon.gui.qt.pages import AliasesPage, Page, SectionPage, StripPage
 from xtouch_daemon.gui.qt.preview import Preview
-from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, ServiceState, executable
+from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, ServiceState, executable, unit_path
 
 SERVICE_POLL_MS = 3000
 PAGE_TITLES = {"mqtt": "MQTT"}
@@ -115,6 +115,8 @@ class MainWindow(QMainWindow):
         self.pill = label("…", "pill")
         layout.addWidget(self.pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self.service_button = QPushButton()
+        # a key typed into the window right after it opened must not install or start a service
+        self.service_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.service_button.clicked.connect(self._service_action)
         layout.addWidget(self.service_button)
         layout.addSpacing(8)
@@ -348,6 +350,15 @@ class MainWindow(QMainWindow):
     def _service_action(self) -> None:
         state = self.service_state
         assert state is not None, "the button shows only with a known state"
+        if not state.running:
+            question = (
+                f"Write {unit_path()}, then enable and start the service?"
+                if not state.installed
+                else f"Enable {UNIT_NAME} (it starts with the session from now on) and start it?"
+            )
+            answer = QMessageBox.question(self, "Service", question)
+            if answer != QMessageBox.StandardButton.Yes:
+                return
         try:
             if not state.installed:
                 path = self.service.install(executable(), start=True)

@@ -10,12 +10,13 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QByteArray, QCoreApplication, QEvent, QMimeData, QPoint, QPointF, QSettings, Qt
-from PyQt6.QtGui import QDrag, QDragEnterEvent, QDragLeaveEvent, QDropEvent
+from PyQt6.QtGui import QDrag, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QTextDocument
 from PyQt6.QtWidgets import (
     QAbstractButton,
     QApplication,
     QDoubleSpinBox,
     QFileDialog,
+    QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -592,16 +593,40 @@ def test_the_service_is_shown_and_controlled(
     tone: str,
     button: str,
     command: list[str],
+    isolated: Dialogs,
 ):
     monkeypatch.setattr(window_module, "executable", lambda: "/opt/xtouch-daemon")
     systemctl.properties = properties
     window = make_window()
     assert (window.pill.text(), window.pill.property("tone"), window.service_button.text()) == (pill, tone, button)
+    isolated.answer = QMessageBox.StandardButton.Yes
 
     click(qtbot, window.service_button)
 
     assert command in systemctl.commands
     assert window.status.text().endswith("the service.")
+    # installing and starting ask first, a restart of the running service doesn't
+    assert len(isolated.shown) == (0 if properties == RUNNING else 1)
+
+
+@pytest.mark.parametrize("properties", [MISSING, STOPPED])
+def test_a_service_is_installed_or_started_only_when_confirmed(
+    qtbot: QtBot, make_window: MakeWindow, systemctl: FakeSystemctl, isolated: Dialogs, tmp_path: Path, properties: str
+):
+    systemctl.properties = properties
+    window = make_window()
+    shows = len(systemctl.commands)
+
+    isolated.answer = QMessageBox.StandardButton.No
+    click(qtbot, window.service_button)
+
+    assert systemctl.commands[shows:] == []
+    assert not (tmp_path / "systemd").exists()
+    assert window.status.text() == ""
+
+
+def test_keys_typed_into_a_new_window_do_not_press_the_service_button(window: MainWindow):
+    assert window.service_button.focusPolicy() == Qt.FocusPolicy.NoFocus
 
 
 def test_a_failing_systemctl_is_reported(qtbot: QtBot, make_window: MakeWindow, systemctl, isolated: Dialogs):
@@ -763,3 +788,15 @@ def test_a_homeassistant_strip_has_its_id_as_placeholder(window: MainWindow):
 
     assert row(window, "id").line.placeholderText() == "strip_2"
     assert window.preview.strips[1].look.detail.startswith("entities of Home Assistant (strip_<position>)")
+
+
+def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):
+    # the help of the label has quotes but no tag, which Qt would show as plain text, entities and all
+    (help_label,) = [
+        widget for widget in row(window, "label").findChildren(QLabel) if "start of the device" in widget.text()
+    ]
+    assert help_label.textFormat() == Qt.TextFormat.RichText
+    document = QTextDocument()
+    document.setHtml(help_label.text())
+    assert '"Output"' in document.toPlainText()
+    assert "&quot;" not in document.toPlainText()

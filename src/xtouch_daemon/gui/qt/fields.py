@@ -55,6 +55,13 @@ def help_text(text: str) -> str:
     return "".join(f"<code>{part}</code>" if i % 2 else part for i, part in enumerate(parts))
 
 
+def help_label(text: str, role: str) -> QLabel:
+    """A label with help from a docstring; always rich text, as Qt would show text without tags as it is."""
+    widget = label(help_text(text), role, wrap=True)
+    widget.setTextFormat(Qt.TextFormat.RichText)
+    return widget
+
+
 def flat_button(icon: str, tip: str, parent: QWidget | None = None) -> QToolButton:
     button = QToolButton(parent)
     button.setIcon(theme.icon(icon))
@@ -338,7 +345,7 @@ class OptionRow(QWidget):
         details.setContentsMargins(LABEL_WIDTH + 8, 0, 0, 0)
         details.setSpacing(2)
         if option.help:
-            details.addWidget(label(help_text(option.help), "help", wrap=True))
+            details.addWidget(help_label(option.help, "help"))
         if option.kind == Kind.SECRET:
             details.addWidget(label("It is saved as plain text in the configuration file.", "help"))
         self.error = label("", "error", wrap=True)

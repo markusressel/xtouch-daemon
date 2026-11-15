@@ -14,7 +14,7 @@ from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, Validati
 from xtouch_daemon.gui.domain.looks import look
 from xtouch_daemon.gui.domain.schema import Kind, options, strip_models, strip_options
 from xtouch_daemon.gui.qt import theme
-from xtouch_daemon.gui.qt.fields import OptionRow, Suggest, completer, flat_button, help_text, label, suggestion_menu
+from xtouch_daemon.gui.qt.fields import OptionRow, Suggest, completer, flat_button, help_label, label, suggestion_menu
 
 type Audio = Callable[[], AudioState]
 
@@ -108,7 +108,7 @@ class SectionPage(Page):
             remove.clicked.connect(self._remove)
             header.addWidget(remove)
         self.layout_.addWidget(row(header))
-        self.layout_.addWidget(label(help_text(self.section.help), "hint", wrap=True))
+        self.layout_.addWidget(help_label(self.section.help, "hint"))
         self.layout_.addWidget(self.problem)
         frame, layout = card()
         if not present:
@@ -255,7 +255,7 @@ class StripPage(Page):
         self.layout_.addWidget(row(types))
         strip_type = strip.type
         if strip_type in models:
-            self.layout_.addWidget(label(help_text(doc(models[strip_type])), "hint", wrap=True))
+            self.layout_.addWidget(help_label(doc(models[strip_type]), "hint"))
         self.layout_.addWidget(self.problem)
         if strip_type is None or strip_type not in models:
             return
@@ -345,7 +345,7 @@ class AliasesPage(Page):
         self.edits = []
         self.layout_.addWidget(label("[aliases]", "section"))
         description = Config.model_fields["aliases"].description or ""
-        self.layout_.addWidget(label(help_text(description.split(":")[0] + "."), "hint", wrap=True))
+        self.layout_.addWidget(help_label(description.split(":")[0] + ".", "hint"))
         frame, layout = card()
         heading = QHBoxLayout()
         heading.addWidget(label("Application, as the sound server reports it", "help"), 3)
