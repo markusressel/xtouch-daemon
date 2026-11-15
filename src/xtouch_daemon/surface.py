@@ -29,13 +29,17 @@ spring (no overshoot) that reaches it in about FADER_SMOOTH_TIME. The spring kee
 so updates that come in steps (a volume dragged elsewhere arrives in 1-2 % steps) become one even movement instead of
 a start and stop per step.
 """
+FADER_PARK_SMOOTH_TIME = 0.3
+"""
+The smooth time of a fader that is put away (see `Strip.reset()`), e.g. when the daemon stops: the motors stop short of
+the bottom after a fast move, a slower one gets there.
+"""
 FADER_SNAP = 48
 FADER_SNAP_SPEED = 2000
 """The fader is put at its target once it is this close (about 0.3 %) and this slow (fader steps per second)."""
 FADER_CONFIRM_DELAYS = (0.15, 0.4)
 """
-Seconds after a fader arrived at which its target is sent again: a motor stops after a while even when it is not quite
-there yet (e.g. after a fast move), the same value again lets it go on.
+Seconds after a fader arrived at which its target is sent again, in case its motor stopped short of it.
 """
 FADER_REST = 0.0
 """
@@ -75,6 +79,7 @@ class Strip:
         self._position: float | None = None
         """Where the fader is: what was sent to the motor last, or where a finger put it."""
         self._velocity = 0.0
+        self._smooth_time = FADER_SMOOTH_TIME
         self._confirm_at: list[float] = []
         """When to send the target again (see FADER_CONFIRM_DELAYS)."""
 
@@ -86,11 +91,15 @@ class Strip:
         for button in Button:
             self.set_led(button, Led.OFF)
         self.set_ring(0)
-        self.set_fader(0.0)
+        self.set_fader(0.0, FADER_PARK_SMOOTH_TIME)
 
-    def set_fader(self, fraction: float) -> None:
-        """Moves the fader to 0.0..1.0, unless a finger is on it: then it moves there when it is let go."""
+    def set_fader(self, fraction: float, smooth_time: float = FADER_SMOOTH_TIME) -> None:
+        """
+        Moves the fader to 0.0..1.0, unless a finger is on it: then it moves there when it is let go. `smooth_time`
+        sets how fast (see FADER_SMOOTH_TIME).
+        """
         self.fader = protocol.fader_value(fraction)
+        self._smooth_time = smooth_time
         if not self.touched:
             self._surface.glide(self)
 
@@ -160,7 +169,7 @@ class Strip:
                 self._surface.send(protocol.fader(self.index, self.fader))
             return bool(self._confirm_at)
         self._position, self._velocity = smooth_damp(
-            self._position, self._velocity, self.fader, FADER_SMOOTH_TIME, FADER_TICK
+            self._position, self._velocity, self.fader, self._smooth_time, FADER_TICK
         )
         if abs(self.fader - self._position) <= FADER_SNAP and abs(self._velocity) <= FADER_SNAP_SPEED:
             self._position = self.fader

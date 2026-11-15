@@ -76,8 +76,12 @@ class RecordingSurface(Surface):
 
 @pytest.fixture(autouse=True)
 def quick_fader_confirmations(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The faders send their targets again at once: waiting for that adds nothing to most tests."""
+    """
+    The faders send their targets again at once, and are put away as fast as they move otherwise: waiting for that adds
+    nothing to most tests.
+    """
     monkeypatch.setattr(surface_module, "FADER_CONFIRM_DELAYS", (0.0, 0.0))
+    monkeypatch.setattr(surface_module, "FADER_PARK_SMOOTH_TIME", surface_module.FADER_SMOOTH_TIME)
 
 
 @pytest.fixture

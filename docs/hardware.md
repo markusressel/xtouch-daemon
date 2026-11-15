@@ -39,9 +39,11 @@ Only one program can have the device open. Stop the daemon before `xtouch-daemon
   damped spring (no overshoot) that gets there in about 100 ms, starting from where it is, also from where a hand left
   it. The spring keeps its speed when the target moves on, so a volume dragged in another mixer, which arrives in small
   steps, becomes one even movement.
-- **Arriving:** once a fader is there, its value is sent twice more (after 0.15 s and 0.4 s). A motor stops after a
-  while even when it is not quite there yet, e.g. after a fast move; the same value again lets it go on. Stopping the
-  daemon waits for that, so the faders end at the bottom.
+- **Arriving:** once a fader is there, its value is sent twice more (after 0.15 s and 0.4 s), in case the motor
+  stopped short of it. Stopping the daemon waits for that.
+- **Putting away:** a fader that goes to the bottom because its strip goes dark (the daemon stops, a reload) glides
+  three times slower. After a fast move the motor stops a little short of the bottom; a slow one gets there. Tried on
+  the device: neither sending the value again nor a nudge (a little up, then down again) did as well.
 - **Start:** the device can't tell where its faders are. It reports a position only while a finger moves a fader,
   not after a connect, not on the device query, not after a motor move. So after a connect a fader is assumed at the
   bottom, where the daemon leaves the faders when it stops, and glides from there. If it was moved while the daemon

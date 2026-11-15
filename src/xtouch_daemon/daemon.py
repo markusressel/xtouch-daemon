@@ -22,8 +22,8 @@ from xtouch_daemon.surface import Surface
 
 _LOGGER = logging.getLogger(__name__)
 
-SHUTDOWN_TIMEOUT = 2.0
-"""How long the faders may take to move down when the daemon stops."""
+SHUTDOWN_TIMEOUT = 4.0
+"""How long the faders may take to move down when the daemon stops (they go slowly, see FADER_PARK_SMOOTH_TIME)."""
 
 
 class MixerFactory(Protocol):

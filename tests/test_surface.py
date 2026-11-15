@@ -391,3 +391,22 @@ def test_a_touched_fader_takes_no_step(surface: RecordingSurface) -> None:
     strip.touched = True
 
     assert not strip.step(0.0)
+
+
+async def test_a_fader_that_is_put_away_goes_down_slowly(
+    surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "FADER_PARK_SMOOTH_TIME", 0.3)
+    # after a fast move the motor stops short of the bottom, a slow one gets there
+    for strip in surface.strips[:2]:
+        strip.set_fader(1.0)
+    await surface.settled()
+    surface.sent.clear()
+
+    surface.strips[0].set_fader(0.0)
+    surface.strips[1].reset()
+    await surface.settled()
+
+    fast, slow = surface.faders(0), surface.faders(1)
+    assert fast[-1] == slow[-1] == 0
+    assert len(slow) > 2 * len(fast)
