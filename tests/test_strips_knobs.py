@@ -42,6 +42,20 @@ async def test_a_balance_off_the_center_never_shows_as_the_center(surface: Recor
     assert rings == [6, 7, 5, 7, 8]
 
 
+async def test_the_ring_of_the_balance_stays_while_the_fader_moves(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = device(surface, env, Direction.INPUT)
+    strip.update(AudioState(inputs=(source("mic", balance=0.2),)))
+    surface.sent.clear()
+
+    for fraction in (0.3, 0.5, 0.7):
+        strip.on_fader(fraction)
+        await settle()
+
+    # the volume is set before the sound server reports it: the balance stays meanwhile
+    assert surface.strips[0].ring == (7, RingMode.BOOST_CUT)
+    assert not any(m[0] == 0xB0 for m in surface.sent)
+
+
 async def test_the_balance_turns_from_the_center_and_a_push_centers_it(
     surface: RecordingSurface, env: StripEnv, backend: FakeBackend, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, assert_never
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
@@ -375,7 +375,8 @@ class VolumeStrip(StripController):
             else:
                 # until the sound server reports it, so the old volume does not flash up
                 if self.level is not None:
-                    self.level = Level(volume, self.level.muted)
+                    # the rest (the balance) as it was: the ring of the balance would go dark for a moment
+                    self.level = replace(self.level, volume=volume)
             if self._wanted == volume:
                 self._wanted = None
         self.show()
