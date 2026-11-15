@@ -37,7 +37,7 @@ ignore = ["speech-dispatcher"]   # applications "auto" strips never take
 # type = "apps"     the streams of applications: match = ["firefox", "brave"] (parts of the name or binary)
 # type = "auto"     the next application that plays and has no strip of its own
 # type = "homeassistant"   a strip for Home Assistant automations (needs [mqtt], see docs/home-assistant.md):
-#                   its fader, encoder, LCD, LEDs and buttons are entities there; id = "living_room" names them
+#                   its fader, encoder, meter, LCD, LEDs and buttons are entities there; id = "living_room" names them
 # type = "empty"    a dark strip
 #
 # label  = "..."    the top line of the LCD (7 characters)

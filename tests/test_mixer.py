@@ -176,6 +176,24 @@ async def test_the_meters_show_the_captured_level(
     assert surface.meters(2) == []
 
 
+async def test_a_held_level_is_sent_again_and_again(
+    mixer: Mixer, surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
+    mixer.on_state(STATE)
+    monkeypatch.setattr(mixer.controllers[2], "held_meter", lambda: 7)
+
+    task = asyncio.create_task(mixer.run())
+    for _ in range(200):
+        if len(surface.meters(2)) >= 3:
+            break
+        await asyncio.sleep(0.005)
+    task.cancel()
+
+    # e.g. a level of Home Assistant: the device would let it fall
+    assert surface.meters(2)[:3] == [7, 7, 7]
+
+
 async def test_an_application_leaves_its_auto_strip_once_the_hold_time_is_over(
     mixer: Mixer, surface: RecordingSurface, clock: Clock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -258,5 +276,5 @@ async def test_the_entities_of_home_assistant_strips_go_to_the_bridge(
     strips = [controller for controller in mixer.controllers if isinstance(controller, HomeAssistantStrip)]
     assert len(strips) == 2
     assert announced == [{**strips[0].entities, **strips[1].entities}]
-    # fader, encoder, two LCD lines, color, four LEDs, buttons
-    assert len(announced[0]) == 2 * 10
+    # fader, encoder, meter, two LCD lines, color, four LEDs, buttons
+    assert len(announced[0]) == 2 * 11

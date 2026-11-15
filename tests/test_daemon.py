@@ -366,7 +366,7 @@ async def test_the_live_view_shows_what_the_daemon_does(
             None,
             True,
             None,
-            10,
+            11,
         )
         assert snapshot.strips[0].text == ("Lights", "")
 

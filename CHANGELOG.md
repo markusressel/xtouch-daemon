@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `number.<ns>_<id>_meter` on `homeassistant` strips: Home Assistant sets the LED meter, 0..100 %, and the daemon
+  holds the level.
 - The GUI shows the connection to Home Assistant: a pill next to the preview while the daemon uses `[mqtt]`
   (connected, or what is wrong: not authorized, refused, unknown host, unreachable), the same with details on the
   page "Home Assistant", and "Test connection", which tries the settings in the editor before they are saved.

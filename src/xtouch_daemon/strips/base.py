@@ -66,6 +66,13 @@ class StripController:
         """Whether audio should flow at the target, so a capture without audio is not linked."""
         return False
 
+    def held_meter(self) -> int | None:
+        """
+        A level the meter holds without audio (0..METER_MAX), e.g. one Home Assistant set; None for none. The device
+        lets a meter fall, so the mixer sends it again and again.
+        """
+        return None
+
     @property
     def entities(self) -> dict[MQTTEntity, str | None]:
         """Its entities in Home Assistant, with the state each starts with (None: none, e.g. events)."""

@@ -29,7 +29,7 @@ from haad_mqtt_autodiscovery.entity.text import MQTTText, MQTTTextPayload
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import ColorName, color_of
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.protocol import LCD_CELL_WIDTH, RING_MAX, Button, Led, RingMode
+from xtouch_daemon.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
 from xtouch_daemon.strips.base import StripController, StripEnv
 from xtouch_daemon.surface import Strip
 
@@ -113,7 +113,7 @@ class StripEntities:
         self.title = title
 
     def number(self, suffix: str) -> MQTTNumber:
-        """0..100 %: the fader in tenths, the encoder in whole steps."""
+        """0..100 %: the fader in tenths, the encoder and the meter in whole steps."""
         return MQTTNumber(
             self.namespace,
             f"{self.strip_id}_{suffix}",
@@ -259,6 +259,7 @@ class HomeAssistantStrip(StripController):
         self.encoder_link = EncoderLink(strip, entities.number("encoder"), env.behavior.encoder_step)
         self.fader = self.fader_link.entity
         self.encoder = self.encoder_link.entity
+        self.meter_level = entities.number("meter")
         self.top = line("top")
         self.bottom = line("bottom")
         self.lcd_color = MQTTSelect(
@@ -269,6 +270,7 @@ class HomeAssistantStrip(StripController):
         self._entities: dict[MQTTEntity, str | None] = {
             self.fader: "0",
             self.encoder: "0",
+            self.meter_level: "0",
             self.top: self.default_label,
             self.bottom: "",
             self.lcd_color: color,
@@ -316,6 +318,13 @@ class HomeAssistantStrip(StripController):
             self.strip.set_led(button, LEDS.get(led.target_state or "", Led.OFF))
         self.fader_link.show()
         self.strip.set_ring(*self.encoder_link.ring())
+
+    def held_meter(self) -> int | None:
+        """The level of the meter entity: 0..100 % over the levels of the meter, nothing while not connected."""
+        percent = _value(self.meter_level.target_state)
+        if not self.connected or percent is None:
+            return None
+        return round(max(0.0, min(100.0, percent)) / 100 * METER_MAX)
 
     # -- the device -----------------------------------------------------------------------------------------------
 

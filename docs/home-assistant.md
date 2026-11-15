@@ -102,6 +102,7 @@ encoder = "homeassistant"    # the fader sets the volume, the encoder dims the d
 |---|---|
 | `number.<ns>_<id>_fader` | The fader, 0..100 in steps of 0.1. Setting it moves the motor fader; moving the fader by hand sets it (at most every 100 ms while it moves, and where it was let go). |
 | `number.<ns>_<id>_encoder` | The encoder, 0..100. The ring shows it; turning the encoder changes it by `behavior.encoder_step` per step. |
+| `number.<ns>_<id>_meter` | The LED meter, 0..100 %: 0 is dark, 100 lights it fully; the daemon holds the level (the device would let it fall). Its 12 levels are about 8 % each, so e.g. a CPU load or a power ratio goes in as it is. |
 | `text.<ns>_<id>_top`, `text.<ns>_<id>_bottom` | The two lines of the LCD, 7 characters each. |
 | `select.<ns>_<id>_color` | The LCD color: `off`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`. |
 | `select.<ns>_<id>_rec_led`, `_solo_led`, `_mute_led`, `_select_led` | The LEDs of the buttons: `off`, `on` or `flash`. |
@@ -155,6 +156,17 @@ automation:
         target: { entity_id: select.xtouch_living_room_mute_led }
         data:
           option: "{{ 'on' if is_state('light.living_room', 'on') else 'off' }}"
+
+  - alias: "X-Touch: the meter shows the power of the washing machine"
+    triggers:
+      - trigger: state
+        entity_id: sensor.washing_machine_power
+    actions:
+      - action: number.set_value
+        target: { entity_id: number.xtouch_living_room_meter }
+        data:
+          # 2000 W lights it fully
+          value: "{{ [trigger.to_state.state | float(0) / 2000 * 100, 100] | min | round(0) }}"
 ```
 
 ## haad

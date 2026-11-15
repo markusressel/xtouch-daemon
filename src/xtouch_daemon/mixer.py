@@ -107,6 +107,8 @@ class Mixer:
             await asyncio.sleep(METER_INTERVAL)
             for controller, meter in zip(self.controllers, self.meters, strict=True):
                 level = meter.take_level()
+                if level is None:
+                    level = controller.held_meter()
                 if level is not None:
                     controller.strip.set_meter(level)
             tick += 1
