@@ -32,6 +32,10 @@ Without a running daemon they show what the configuration file would show ("File
 A daemon that runs while the device is not connected shows "Live · X-Touch-Ext not connected": the strips show what
 the device will show once it is there.
 
+While the daemon runs with an `[mqtt]` section, a second pill tells how its connection to Home Assistant is doing:
+"Home Assistant" while it is connected, otherwise what is wrong, e.g. "Home Assistant · not authorized" or
+"Home Assistant · refused". Its tooltip has the broker's own words and what to check; a click opens the settings.
+
 A strip with unsaved changes shows how it will look once saved, marked with a dot; the others stay live. Strips after
 the configured ones are drawn fainter: they are not configured, so they are `auto` strips.
 
@@ -59,7 +63,9 @@ The forms come from the options of the configuration, so every option has a fiel
   problems button in the footer lists them all; a click opens the page of the problem. An unknown option can be
   removed from there.
 
-`[mqtt]` can be added and removed on its page.
+`[mqtt]` can be added and removed on its page. Above its options, the page shows how the daemon's connection is
+doing (or that the daemon runs without the section, which it reads only when it starts), and "Test connection"
+connects once with the settings as they are in the editor, saved or not, and says what is wrong if that fails.
 
 ## Suggestions from the sound server
 

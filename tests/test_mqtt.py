@@ -196,10 +196,14 @@ async def test_a_lost_broker_is_reported_once_and_connected_again(
     await start(bridge)
     await bridge.set_available(True)
 
+    assert (bridge.error, bridge.entity_count) == (None, 1)
     broker.refuse = 3
     broker.disconnect()
+    await until(lambda: bridge.error == "Connection refused")
     await until(lambda: connections == [True, False, True])
     await until(lambda: bridge.ready)
+    # connected again: the error is history
+    assert bridge.error is None
 
     # the last will marked the entities unavailable while it was gone
     assert ("xtouch-daemon/xtouch/availability", "offline", True) in broker.published

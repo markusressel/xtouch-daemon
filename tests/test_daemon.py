@@ -359,6 +359,15 @@ async def test_the_live_view_shows_what_the_daemon_does(
         assert snapshot is not None
         assert snapshot.config == live.fingerprint(config)
         assert (snapshot.device, snapshot.sound_server, snapshot.mqtt) == (False, False, True)
+        state = snapshot.mqtt_state
+        assert state is not None
+        assert (state.broker, state.username, state.connected, state.error, state.entities) == (
+            "broker:1883",
+            None,
+            True,
+            None,
+            10,
+        )
         assert snapshot.strips[0].text == ("Lights", "")
 
         daemon.stop()

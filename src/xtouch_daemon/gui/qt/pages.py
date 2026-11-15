@@ -3,21 +3,37 @@ The pages of the editor: the selected strip, and the global settings: a section 
 `[device]`) and the aliases.
 """
 
-from collections.abc import Callable
+import asyncio
+import threading
+from collections.abc import Awaitable, Callable
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, default_encoder
+from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, MqttConfig, default_encoder
 from xtouch_daemon.gui.domain import sources
+from xtouch_daemon.gui.domain.broker import live_status, try_broker
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, Validation
 from xtouch_daemon.gui.domain.looks import look
 from xtouch_daemon.gui.domain.schema import Kind, options, strip_models, strip_options
+from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt import theme
-from xtouch_daemon.gui.qt.fields import OptionRow, Suggest, completer, flat_button, help_label, label, suggestion_menu
+from xtouch_daemon.gui.qt.fields import (
+    OptionRow,
+    Suggest,
+    completer,
+    flat_button,
+    help_label,
+    help_text,
+    label,
+    show_status,
+    suggestion_menu,
+)
+from xtouch_daemon.live import Snapshot
 
 type Audio = Callable[[], AudioState]
 
@@ -178,6 +194,119 @@ class SectionPage(Page):
         )
         for option_row in self.rows:
             option_row.show_problems(validation.at(self.section.name, option_row.option.name))
+
+
+type BrokerTest = Callable[[MqttConfig], Awaitable[Status]]
+
+
+class BrokerTester(QObject):
+    """Tries settings of the [mqtt] section in a thread, so a broker that does not answer does not block the window."""
+
+    finished = pyqtSignal(object, arguments=["status"])
+
+    def __init__(self, test: BrokerTest = try_broker):
+        super().__init__()
+        self._test = test
+
+    def start(self, config: MqttConfig) -> None:
+        threading.Thread(target=self._run, args=(config,), name="broker test", daemon=True).start()
+
+    def _run(self, config: MqttConfig) -> None:
+        self.finished.emit(asyncio.run(self._test(config)))
+
+
+class MqttPage(SectionPage):
+    """
+    The [mqtt] section, with how the daemon's connection to Home Assistant is doing and a test of the settings as
+    they are in the editor, before they are saved.
+    """
+
+    def __init__(self, document: ConfigDocument, audio: Audio, on_edit: Callable[[], None], tester: BrokerTester):
+        self.tester = tester
+        self.snapshot: Snapshot | None = None
+        self.tested: Status | None = None
+        self.testing = False
+        self.box: ConnectionBox | None = None
+        """The connection and its test; None while there is no [mqtt] section on the page."""
+        tester.finished.connect(self._tested)
+        super().__init__("mqtt", document, audio, on_edit)
+
+    def reload(self) -> None:
+        super().reload()
+        self.box = None
+        if not self.document.has_section("mqtt"):
+            return
+        self.box = ConnectionBox()
+        self.box.test_button.clicked.connect(self.test)
+        # below the help of the section, above its options
+        self.layout_.insertWidget(3, self.box)
+        self.show_live(self.snapshot)
+        self._show_test()
+
+    def show_live(self, snapshot: Snapshot | None) -> None:
+        """How the daemon's connection is doing now (see `live_status`)."""
+        self.snapshot = snapshot
+        if self.box is not None:
+            status = live_status(snapshot)
+            show_status(self.box.live_pill, status)
+            self.box.live_detail.setText(help_text(status.tip))
+
+    def test(self) -> None:
+        """Tries the settings in the editor (see `try_broker`)."""
+        try:
+            config = MqttConfig.model_validate(self.document.data().get("mqtt") or {})
+        except ValidationError:
+            self.tested = Status("Fix the problems of the settings first.", Tone.BAD)
+            self._show_test()
+            return
+        self.testing = True
+        self.tested = Status(f"Connecting to {config.host}:{config.port}…", Tone.NEUTRAL)
+        self._show_test()
+        self.tester.start(config)
+
+    def _tested(self, status: Status) -> None:
+        self.testing = False
+        self.tested = status
+        self._show_test()
+
+    def _show_test(self) -> None:
+        if self.box is not None:
+            self.box.show_test(self.tested, self.testing)
+
+
+class ConnectionBox(QFrame):
+    """How the daemon's connection to the broker is doing, and the test of the settings."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        theme.set_role(self, "card")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(theme.Space.L, theme.Space.L, theme.Space.L, theme.Space.L)
+        layout.setSpacing(theme.Space.S)
+        line = QHBoxLayout()
+        line.addWidget(label("The daemon", "hint"))
+        self.live_pill = label("", "pill")
+        line.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        line.addStretch()
+        self.test_button = QPushButton(theme.icon("lan-connect"), "Test connection")
+        self.test_button.setToolTip("Connect once with the settings below, also unsaved ones, and disconnect again")
+        line.addWidget(self.test_button)
+        layout.addWidget(row(line))
+        self.live_detail = help_label("", "hint")
+        layout.addWidget(self.live_detail)
+        self.test_result = label("", wrap=True)
+        layout.addWidget(self.test_result)
+        self.test_hint = help_label("", "hint")
+        layout.addWidget(self.test_hint)
+
+    def show_test(self, status: Status | None, testing: bool) -> None:
+        self.test_button.setEnabled(not testing)
+        self.test_result.setVisible(status is not None)
+        self.test_hint.setVisible(status is not None and bool(status.tip))
+        if status is not None:
+            self.test_result.setText(status.text)
+            theme.set_role(self.test_result, {Tone.GOOD: "", Tone.BAD: "error"}.get(status.tone, "hint"))
+            self.test_hint.setText(help_text(status.tip))
 
 
 class StripPage(Page):

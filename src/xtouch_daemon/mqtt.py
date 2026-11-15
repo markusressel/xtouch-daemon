@@ -71,6 +71,8 @@ class MqttBridge:
         self._sync_token: str | None = None
         self.ready = False
         """Connected, and the retained states are in: what the entities show is what Home Assistant set."""
+        self.error: str | None = None
+        """Why the last attempt to connect failed or the connection ended; None while connected and before that."""
         self.on_connection: Callable[[bool], None] = lambda connected: None
         self.device = MQTTDevice(
             identifiers=[f"xtouch_daemon_{config.namespace}"],
@@ -90,6 +92,11 @@ class MqttBridge:
     @property
     def connected(self) -> bool:
         return self._client is not None
+
+    @property
+    def entity_count(self) -> int:
+        """The entities of the configuration, announced to Home Assistant while connected."""
+        return len(self._entities)
 
     # -- the entities ---------------------------------------------------------------------------------------------
 
@@ -153,8 +160,10 @@ class MqttBridge:
                 ) as client:
                     _LOGGER.info(f"Connected to the MQTT broker {self.config.host}:{self.config.port}")
                     was_connected = True
+                    self.error = None
                     await self._follow(client)
             except aiomqtt.MqttError as e:
+                self.error = str(e)
                 if was_connected:
                     _LOGGER.warning(f"Lost the MQTT broker ({e}), connecting again every {RECONNECT_DELAY:.0f}s")
                 was_connected = False

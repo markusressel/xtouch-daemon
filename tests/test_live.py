@@ -10,7 +10,16 @@ from tests.conftest import RecordingSurface, finish_tasks
 from xtouch_daemon import live
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.config import parse_config
-from xtouch_daemon.live import LiveServer, Snapshot, StripState, decode, encode, fingerprint, strip_states
+from xtouch_daemon.live import (
+    LiveServer,
+    MqttState,
+    Snapshot,
+    StripState,
+    decode,
+    encode,
+    fingerprint,
+    strip_states,
+)
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
 
 
@@ -91,6 +100,14 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     assert line.count(b"\n") == 1
     assert decode(line) == snapshot
     assert decode(b'{"version": 0}') is None
+    # with the connection to the broker
+    state = MqttState("broker:1883", "me", connected=False, ready=False, error="Not authorized", entities=3)
+    with_mqtt = Snapshot("abc", True, False, False, snapshot.strips, state)
+    assert decode(encode(with_mqtt)) == with_mqtt
+    # an older daemon does not tell more than whether it is connected
+    older = line.replace(b',"mqtt_state":null', b"")
+    assert b"mqtt_state" not in older
+    assert decode(older) == snapshot
     with pytest.raises(ValueError, match="Expecting value"):
         decode(b"garbage")
 

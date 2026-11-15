@@ -35,17 +35,19 @@ from tests.test_systemd import FakeSystemctl
 from xtouch_daemon import live
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
+from xtouch_daemon.config import MqttConfig
 from xtouch_daemon.gui import qt
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.schema import Option, strip_options
+from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt import preview, theme
 from xtouch_daemon.gui.qt import preview as preview_module
 from xtouch_daemon.gui.qt import window as window_module
 from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Switch, Tables
-from xtouch_daemon.gui.qt.pages import AliasesPage, SectionPage
+from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, SectionPage
 from xtouch_daemon.gui.qt.window import MainWindow
 from xtouch_daemon.instance import Instance
-from xtouch_daemon.live import Snapshot, StripState
+from xtouch_daemon.live import MqttState, Snapshot, StripState
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError
 
 CONFIG = """\
@@ -144,6 +146,11 @@ def daemon(path: Path) -> RecordingInstance:
 type MakeWindow = Callable[..., MainWindow]
 
 
+async def unreachable_broker(config: MqttConfig) -> Status:
+    """No test of the MQTT settings reaches out to a real broker."""
+    return Status(f"Can't connect to {config.host}:{config.port}: Connection refused.", Tone.BAD, "Is it running?")
+
+
 @pytest.fixture
 def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: RecordingInstance) -> MakeWindow:
     def make(
@@ -151,9 +158,10 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         file: Path = path,
         find_daemon: Callable[[], Instance | None] = lambda: daemon,
         live_socket: Path | None = None,
+        test_broker: BrokerTest = unreachable_broker,
     ) -> MainWindow:
         document = ConfigDocument.open(file)
-        window = MainWindow(document, Service(systemctl), read_audio, find_daemon, live_socket)
+        window = MainWindow(document, Service(systemctl), read_audio, find_daemon, live_socket, test_broker)
         qtbot.addWidget(window)
         window.show()
         qtbot.waitUntil(lambda: window.audio_label.text() != "Reading the sound server…")
@@ -1451,3 +1459,97 @@ def test_a_switch_looks_different_on_and_off(qtbot: QtBot):
     off = switch.grab().toImage()
     switch.setChecked(True)
     assert switch.grab().toImage() != off
+
+
+# -- Home Assistant ---------------------------------------------------------------------------------------------
+
+
+def test_the_connection_to_home_assistant_shows_while_the_daemon_uses_it(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
+):
+    window = make_window(live_socket=live_daemon.path)
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    window.document.add_section("mqtt")
+    window.document.set(("mqtt", "host"), "broker")
+    window.reload_pages()
+    window.save()
+    window.show_page("mqtt")
+    page = window.mqtt_page
+    assert page.box is not None
+    # the daemon runs without [mqtt]: it reads it when it starts
+    live_daemon.send(snapshot(window, strip_state()))
+    qtbot.waitUntil(lambda: page.box is not None and page.box.live_pill.text() == "not in use")
+    assert window.mqtt_pill.isHidden()
+
+    refused = MqttState("broker:1883", None, False, False, "[code:5] Connection refused: Not authorised", 4)
+    live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), mqtt=False, mqtt_state=refused))
+    qtbot.waitUntil(lambda: window.mqtt_pill.text() == "Home Assistant · not authorized")
+    assert not window.mqtt_pill.isHidden()
+    assert "check <code>username</code>" in page.box.live_detail.text()
+
+    # the pill leads to the settings
+    window.show_page("behavior")
+    qtbot.mouseClick(window.mqtt_pill, Qt.MouseButton.LeftButton)
+    assert window.current_page == "mqtt"
+
+    connected = dataclasses.replace(refused, connected=True, ready=True, error=None)
+    live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), mqtt=True, mqtt_state=connected))
+    qtbot.waitUntil(lambda: window.mqtt_pill.text() == "Home Assistant")
+    assert page.box.live_pill.text() == "connected"
+
+
+def test_the_settings_of_home_assistant_can_be_tried_before_they_are_saved(qtbot: QtBot, make_window: MakeWindow):
+    tried: list[MqttConfig] = []
+
+    async def works(config: MqttConfig) -> Status:
+        tried.append(config)
+        return Status(f"Connected to {config.host}:{config.port}: these settings work.", Tone.GOOD)
+
+    window = make_window(test_broker=works)
+    page = window.mqtt_page
+    # nothing to try without the section
+    assert page.box is None
+    window.show_page("mqtt")
+    window.document.add_section("mqtt")
+    window.reload_pages()
+    box = page.box
+    assert box is not None
+    assert box.live_pill.text() == "unknown"
+
+    # the settings miss the host
+    click(qtbot, box.test_button)
+    assert box.test_result.text() == "Fix the problems of the settings first."
+    assert tried == []
+
+    window.document.set(("mqtt", "host"), "broker")
+    click(qtbot, box.test_button)
+    qtbot.waitUntil(lambda: box.test_result.text() == "Connected to broker:1883: these settings work.")
+    assert box.test_button.isEnabled()
+    assert box.test_hint.isHidden()
+    # unsaved: the editor's settings, not the file's
+    assert window.document.modified
+    assert [config.host for config in tried] == ["broker"]
+
+    # the result stays when the page is built again
+    window.reload_pages()
+    assert page.box is not None
+    assert page.box.test_result.text() == "Connected to broker:1883: these settings work."
+
+
+def test_a_failed_test_says_what_to_check(qtbot: QtBot, window: MainWindow):
+    window.show_page("mqtt")
+    window.document.add_section("mqtt")
+    window.document.set(("mqtt", "host"), "broker")
+    window.reload_pages()
+    box = window.mqtt_page.box
+    assert box is not None
+    click(qtbot, box.test_button)
+    qtbot.waitUntil(lambda: "Connection refused" in box.test_result.text())
+    assert box.test_hint.text() == "Is it running?"
+    assert not box.test_hint.isHidden()
+
+    # a result that comes after the section was removed has nowhere to go
+    window.document.remove_section("mqtt")
+    window.reload_pages()
+    window.mqtt_page.tester.finished.emit(Status("late", Tone.GOOD))
+    assert window.mqtt_page.box is None

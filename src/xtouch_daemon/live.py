@@ -64,6 +64,22 @@ class StripState:
 
 
 @dataclass(frozen=True)
+class MqttState:
+    """The connection to the MQTT broker of Home Assistant."""
+
+    broker: str
+    """`host:port`."""
+    username: str | None
+    connected: bool
+    ready: bool
+    """Connected, and the states Home Assistant keeps for the entities are in."""
+    error: str | None
+    """Why the last attempt to connect failed or the connection ended (the broker's words), None while connected."""
+    entities: int
+    """The entities of the configuration in Home Assistant."""
+
+
+@dataclass(frozen=True)
 class Snapshot:
     """The state of the daemon and of everything the device shows."""
 
@@ -75,6 +91,8 @@ class Snapshot:
     mqtt: bool | None
     """Whether the MQTT broker is connected; None without an [mqtt] section."""
     strips: tuple[StripState, ...]
+    mqtt_state: MqttState | None = None
+    """More on the connection of `mqtt` (an older daemon does not tell it)."""
 
 
 def fingerprint(config: Config) -> str:
@@ -142,7 +160,15 @@ def decode(line: bytes) -> Snapshot | None:
         )
         for strip in data["strips"]
     )
-    return Snapshot(data["config"], data["device"], data["sound_server"], data["mqtt"], strips)
+    mqtt_state = data.get("mqtt_state")
+    return Snapshot(
+        data["config"],
+        data["device"],
+        data["sound_server"],
+        data["mqtt"],
+        strips,
+        MqttState(**mqtt_state) if mqtt_state is not None else None,
+    )
 
 
 class LiveServer:

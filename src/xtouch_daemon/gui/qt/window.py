@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QHBoxLayout,
-    QLabel,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -31,16 +30,27 @@ from xtouch_daemon import instance, protocol
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config import Problem
-from xtouch_daemon.gui.domain import sources
+from xtouch_daemon.gui.domain import broker, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
+from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.looks import faces, looks
 from xtouch_daemon.gui.domain.status import Status, Tone, preview_status, sync_status
 from xtouch_daemon.gui.qt import theme
-from xtouch_daemon.gui.qt.fields import flat_button, label
+from xtouch_daemon.gui.qt.fields import flat_button, label, show_status
 from xtouch_daemon.gui.qt.live_view import LiveView
-from xtouch_daemon.gui.qt.pages import GLOBAL_PAGES, AliasesPage, Page, SectionPage, StripPage, page_title
+from xtouch_daemon.gui.qt.pages import (
+    GLOBAL_PAGES,
+    AliasesPage,
+    BrokerTest,
+    BrokerTester,
+    MqttPage,
+    Page,
+    SectionPage,
+    StripPage,
+    page_title,
+)
 from xtouch_daemon.gui.qt.preview import Preview
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, ServiceState, executable, unit_path
@@ -73,10 +83,7 @@ class AudioLoader(QObject):
             self.loaded.emit(state)
 
 
-def _pill(pill: QLabel, status: Status) -> None:
-    pill.setText(status.text)
-    pill.setToolTip(status.tip)
-    theme.set_role(pill, status.tone.value, "tone")
+_pill = show_status
 
 
 class MainWindow(QMainWindow):
@@ -87,9 +94,14 @@ class MainWindow(QMainWindow):
         read_audio: Callable[[], AudioState],
         find_daemon: Callable[[], Instance | None] = instance.running,
         live_socket: Path | None = None,
+        try_broker: BrokerTest = broker.try_broker,
     ):
-        """`live_socket` is where the daemon serves its live view, by default `instance.socket_file()`."""
+        """
+        `live_socket` is where the daemon serves its live view, by default `instance.socket_file()`. `try_broker` tries
+        the settings of the [mqtt] section.
+        """
         super().__init__()
+        self.try_broker = try_broker
         self.document = document
         self.service = service
         self.find_daemon = find_daemon
@@ -177,6 +189,10 @@ class MainWindow(QMainWindow):
         top = QHBoxLayout()
         self.mode_pill = label("", "pill")
         top.addWidget(self.mode_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.mqtt_pill = label("", "pill")
+        self.mqtt_pill.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.mqtt_pill.mousePressEvent = lambda event: self.show_page("mqtt")  # type: ignore[method-assign]
+        top.addWidget(self.mqtt_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self.sync_label = label("", "hint", wrap=True)
         top.addWidget(self.sync_label, 1)
         self.audio_label = label("Reading the sound server…", "hint")
@@ -213,6 +229,9 @@ class MainWindow(QMainWindow):
         for name in GLOBAL_PAGES:
             if name == "aliases":
                 self.pages[name] = AliasesPage(self.document, audio, self.edited)
+            elif name == "mqtt":
+                self.mqtt_page = MqttPage(self.document, audio, self.edited, BrokerTester(self.try_broker))
+                self.pages[name] = self.mqtt_page
             else:
                 self.pages[name] = SectionPage(name, self.document, audio, self.edited)
         self.tabs.addTab(self._scroll(self.strip_page), theme.icon("tune-vertical"), "Strip 1")
@@ -348,6 +367,11 @@ class MainWindow(QMainWindow):
         saved = self.document.saved_config
         device = saved.device.name if saved is not None else "the device"
         _pill(self.mode_pill, preview_status(self.daemon, snapshot, device))
+        mqtt = header_status(snapshot)
+        self.mqtt_pill.setVisible(mqtt is not None)
+        if mqtt is not None:
+            _pill(self.mqtt_pill, Status(mqtt.text, mqtt.tone, f"{mqtt.tip} Click for the settings."))
+        self.mqtt_page.show_live(snapshot)
         sync = sync_status(
             self.daemon,
             snapshot,

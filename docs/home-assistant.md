@@ -46,6 +46,9 @@ reload keeps the whole current configuration.
 The entities are available in Home Assistant while the daemon runs and the device is connected; otherwise they are
 greyed out. A last will covers a crash. The daemon connects to the broker again by itself when it was gone.
 
+The [GUI](gui.md#live-view-and-preview) shows whether the daemon is connected, and why not (e.g. a wrong password),
+and its "Test connection" button tries settings before they are saved.
+
 ## `homeassistant` strips
 
 | Option | Default | Meaning |

@@ -17,7 +17,7 @@ from xtouch_daemon import protocol, systemd
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import Config, ConfigError, load_config
-from xtouch_daemon.live import LiveServer, Snapshot, fingerprint, strip_states
+from xtouch_daemon.live import LiveServer, MqttState, Snapshot, fingerprint, strip_states
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
@@ -39,6 +39,18 @@ class MixerFactory(Protocol):
         bridge: MqttBridge | None,
         players: MediaPlayers | None,
     ) -> Mixer: ...
+
+
+def mqtt_state(bridge: MqttBridge) -> MqttState:
+    """The connection of the bridge, for the live view."""
+    return MqttState(
+        broker=f"{bridge.config.host}:{bridge.config.port}",
+        username=bridge.config.username,
+        connected=bridge.connected,
+        ready=bridge.ready,
+        error=bridge.error,
+        entities=bridge.entity_count,
+    )
 
 
 def touchless(config: Config) -> frozenset[int]:
@@ -223,6 +235,7 @@ class Daemon:
             sound_server=self.mixer.state.connected,
             mqtt=None if self.bridge is None else self.bridge.connected,
             strips=strip_states(self.surface, time.monotonic()),
+            mqtt_state=None if self.bridge is None else mqtt_state(self.bridge),
         )
 
     def _status(self) -> str:

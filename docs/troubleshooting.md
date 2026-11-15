@@ -62,6 +62,7 @@ file with errors is logged and the old configuration stays: run `xtouch-daemon c
 ## Home Assistant
 
 **The entities are unavailable.** They are available only while the daemon runs and the device is connected. Check
-the broker settings in `[mqtt]` and the log.
+the broker settings in `[mqtt]` and the log. The GUI tells how the connection is doing next to the preview and on the
+page "Home Assistant", where "Test connection" tries the settings.
 
 **A strip shows `offline`.** The broker can't be reached. The daemon connects again by itself.

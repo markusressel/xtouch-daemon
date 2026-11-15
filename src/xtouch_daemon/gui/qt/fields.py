@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
 from xtouch_daemon.config import Problem
 from xtouch_daemon.gui.domain.schema import Kind, Option
 from xtouch_daemon.gui.domain.sources import Suggestion
+from xtouch_daemon.gui.domain.status import Status
 from xtouch_daemon.gui.qt import theme
 
 type Suggest = Callable[[], tuple[Suggestion, ...]]
@@ -51,6 +52,13 @@ def label(text: str, role: str = "", wrap: bool = False) -> QLabel:
         theme.set_role(widget, role)
     widget.setWordWrap(wrap)
     return widget
+
+
+def show_status(pill: QLabel, status: Status) -> None:
+    """A status in a pill: its text, its tone as the color, and its tip."""
+    pill.setText(status.text)
+    pill.setToolTip(status.tip)
+    theme.set_role(pill, status.tone.value, "tone")
 
 
 def help_text(text: str) -> str:

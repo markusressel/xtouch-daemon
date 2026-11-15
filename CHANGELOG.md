@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The GUI shows the connection to Home Assistant: a pill next to the preview while the daemon uses `[mqtt]`
+  (connected, or what is wrong: not authorized, refused, unknown host, unreachable), the same with details on the
+  page "Home Assistant", and "Test connection", which tries the settings in the editor before they are saved.
 - 100 % at the 0 dB mark of the faders (about 77 % of the travel, `behavior.unity_at`) on strips that go above
   100 %: the travel above the mark covers the amplification. The faders of such strips were linear.
 - `[device] startup` and `shutdown`: how the strips light up after a connect and go dark at the end: `instant`,
