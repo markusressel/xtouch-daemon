@@ -89,6 +89,11 @@ class DeviceConfig(_Model):
 
     name: str = "X-Touch-Ext"
     """Part of the name of the sound card of the extender (see /proc/asound/cards)."""
+    touch_required: bool = True
+    """
+    Whether a fader changes a value only while the device reports a touch. Off, every move counts, as on
+    `touchless_faders`: e.g. pushing a fader from below with a fingertip, which the touch sensor does not notice.
+    """
     touchless_faders: tuple[FaderNumber, ...] = ()
     """
     Faders whose touch sensor does not work, numbered from 1 on the left: a move counts as a touch, a short pause in

@@ -210,6 +210,10 @@ async def test_a_changed_device_name_needs_a_restart(
     config_path.write_text("[device]\ntouchless_faders = [2]\n" + SPEAKER)
     assert daemon.reload()
     assert surface.touchless == {1}
+    # every fader, without the need of a touch
+    config_path.write_text("[device]\ntouch_required = false\ntouchless_faders = [2]\n" + SPEAKER)
+    assert daemon.reload()
+    assert surface.touchless == set(range(8))
     assert "restart the daemon" not in caplog.text
 
     config_path.write_text('[device]\nname = "X-Touch"\n' + SPEAKER)

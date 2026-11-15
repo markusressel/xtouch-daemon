@@ -13,7 +13,7 @@ from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any, Protocol
 
-from xtouch_daemon import systemd
+from xtouch_daemon import protocol, systemd
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import Config, ConfigError, load_config
@@ -42,7 +42,9 @@ class MixerFactory(Protocol):
 
 
 def touchless(config: Config) -> frozenset[int]:
-    """The strips (from 0) whose fader has no working touch sensor."""
+    """The strips (from 0) whose fader moves count without a touch: all of them without `touch_required`."""
+    if not config.device.touch_required:
+        return frozenset(range(protocol.STRIPS))
     return frozenset(number - 1 for number in config.device.touchless_faders)
 
 

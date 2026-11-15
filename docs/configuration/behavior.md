@@ -7,9 +7,10 @@ The sections that apply to the daemon and to every strip. The GUI shows them in 
 | Option | Default | Meaning |
 |---|---|---|
 | `name` | `"X-Touch-Ext"` | Part of the name of the extender's sound card, as `/proc/asound/cards` lists it. |
+| `touch_required` | `true` | Whether a fader changes a value only while the device reports a touch. `false` makes every move count, see [below](#faders-without-a-touch-sensor). |
 | `touchless_faders` | `[]` | Faders whose touch sensor does not work, numbered from 1 on the left, see [below](#faders-without-a-touch-sensor). |
 
-A changed `name` needs a restart of the daemon; a reload takes `touchless_faders`.
+A changed `name` needs a restart of the daemon; a reload takes the others.
 
 ### Faders without a touch sensor
 
@@ -21,6 +22,14 @@ under "Touchless faders" on the page "Device".
 ```toml
 [device]
 touchless_faders = [1]   # the touch sensor of fader 1 is broken
+```
+
+`touch_required = false` does the same for all faders. The touch sensor does not notice everything that moves a fader
+on purpose, e.g. a fingertip pushing it from below; with it off, such a push counts too.
+
+```toml
+[device]
+touch_required = false   # every move of a fader counts
 ```
 
 What it can't do:

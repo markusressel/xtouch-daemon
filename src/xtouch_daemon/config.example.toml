@@ -6,6 +6,8 @@
 [device]
 # Part of the name of the extender's sound card (see /proc/asound/cards).
 name = "X-Touch-Ext"
+# Whether a fader changes a value only while the device reports a touch; false: every move counts (e.g. a fingertip).
+touch_required = true
 # Faders whose touch sensor does not work (1 on the left): a move counts as a touch, a short pause as letting go.
 touchless_faders = []
 

@@ -39,7 +39,8 @@ Only one program can have the device open. Stop the daemon before `xtouch-daemon
   hand. A move without a touch waits for one for 0.3 s with the motor still: with a touch it was the hand and counts,
   without one it was the device itself (e.g. its faders going down after it was switched on), and the fader goes back
   to its value. A fader whose touch sensor failed can't change the volume until it is repaired, or until it is one of
-  the [`touchless_faders`](configuration/behavior.md#faders-without-a-touch-sensor).
+  the [`touchless_faders`](configuration/behavior.md#faders-without-a-touch-sensor). With `touch_required = false`,
+  every move of every fader counts.
 - **Smooth motion:** a fader glides to a new value instead of jumping there. It follows its target like a critically
   damped spring (no overshoot) that gets there in about 100 ms, starting from where it is, also from where a hand left
   it. The spring keeps its speed when the target moves on, so a volume dragged in another mixer, which arrives in small
