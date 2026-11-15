@@ -61,7 +61,7 @@ marked otherwise. `n` is the strip, 0..7.
 | Fader touch | Note `0x68 + n`, velocity `7F` touched, `00` released |
 | Buttons | Note on, velocity `7F` pressed, `00` released: Rec `0x00 + n`, Solo `0x08 + n`, Mute `0x10 + n`, Select `0x18 + n` |
 | Encoder turn | CC `0x10 + n`: `01..3F` clockwise, `41..7F` counter-clockwise (the low 6 bits are the steps) |
-| Encoder push | Note `0x20 + n` (MCU standard, not verified yet) |
+| Encoder push | Note `0x20 + n` |
 
 ### To the device
 
