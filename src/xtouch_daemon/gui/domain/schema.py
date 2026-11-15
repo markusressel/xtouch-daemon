@@ -3,6 +3,7 @@ The options of the configuration as the editor sees them, read from the pydantic
 bounds, defaults and help. Forms built from these show a new option without changes to the GUI.
 """
 
+import dataclasses
 import types
 from dataclasses import dataclass
 from enum import StrEnum
@@ -14,7 +15,7 @@ from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from xtouch_daemon.config import STRIP_MODELS, ColorName, Config
+from xtouch_daemon.config import ENCODERS, STRIP_MODELS, ColorName, Config
 
 
 class Kind(StrEnum):
@@ -163,5 +164,8 @@ def strip_models() -> dict[str, type[BaseModel]]:
 
 
 def strip_options(strip_type: str) -> tuple[Option, ...]:
-    """The options of a strip of the type, without `type` itself."""
-    return options(strip_models()[strip_type], skip=("type",))
+    """The options of a strip of the type, without `type` itself, and only the encoders it has."""
+    return tuple(
+        dataclasses.replace(option, choices=ENCODERS[strip_type]) if option.name == "encoder" else option
+        for option in options(strip_models()[strip_type], skip=("type",))
+    )

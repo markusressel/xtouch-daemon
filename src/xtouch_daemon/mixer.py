@@ -15,7 +15,7 @@ from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config import Config
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips import build_strip
-from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoStrip
+from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv
 from xtouch_daemon.strips.homeassistant import HomeAssistantStrip
 from xtouch_daemon.surface import Surface
@@ -48,6 +48,8 @@ class Mixer:
             controller.patterns for controller in self.controllers if isinstance(controller, AppGroupStrip)
         )
         self.assigner = AutoAssigner(len(self.auto_strips), config.behavior.auto_hold, config.behavior.ignore, clock)
+        for index, auto in enumerate(self.auto_strips):
+            auto.slot = AutoSlot(self.assigner, index, lambda: self.state, self.claimed, self.refresh)
         self.meters = [self._meter(controller, capture_command) for controller in self.controllers]
         self.entities = {
             entity: default

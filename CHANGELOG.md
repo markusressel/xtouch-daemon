@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `behavior.max_volume`, which was limited to 150 %).
 - `encoder` on strips: what the encoder does; `balance` (left/right, a push centers it) is the default for devices,
   `volume` the fine steps of the volume.
+- `encoder = "pick"`, the default for `auto` strips: the encoder picks the application, a push pins it.
 - Motor faders that glide smoothly (also after a connect, from the bottom), follow changes made elsewhere, stay still
   while touched, and get their value again after arriving so the motor doesn't stop short. Strips with nothing to
   control (an application that ended, a device that is gone, the daemon stopping) put their faders away slowly.

@@ -11,6 +11,7 @@ from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.protocol import RING_MAX, RingMode
 
 if TYPE_CHECKING:
+    from xtouch_daemon.strips.apps import AutoStrip
     from xtouch_daemon.strips.base import VolumeStrip
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,6 +28,9 @@ def ring_position(fraction: float) -> int:
 
 class Knob:
     """The encoder of a strip that has something to control (the strip calls these only while it is active)."""
+
+    idle_too = False
+    """Whether it works while the strip is idle (dark) too."""
 
     def __init__(self, owner: VolumeStrip):
         self.owner = owner
@@ -111,3 +115,33 @@ class BalanceKnob(Knob):
                     self.wanted = None
         finally:
             self._setting = False
+
+
+class PickKnob(Knob):
+    """
+    Picks the application of an `auto` strip among those without a strip of their own (also while the strip has none
+    yet); a push pins it, so it stays after it stopped playing. The ring shows which of them it is, pinned up to there.
+    """
+
+    idle_too = True
+
+    def __init__(self, owner: AutoStrip):
+        super().__init__(owner)
+        self.auto = owner
+
+    def turn(self, steps: int) -> None:
+        if self.auto.slot is not None:
+            self.auto.slot.pick(steps)
+
+    def push(self, pressed: bool) -> None:
+        if pressed and self.auto.slot is not None:
+            self.auto.slot.toggle_pin()
+
+    def ring(self) -> tuple[int, RingMode]:
+        slot = self.auto.slot
+        position = slot.position() if slot is not None else None
+        if slot is None or position is None:
+            return 0, RingMode.DOT
+        index, count = position
+        fraction = index / (count - 1) if count > 1 else 0.0
+        return ring_position(fraction), RingMode.WRAP if slot.pinned else RingMode.DOT

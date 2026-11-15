@@ -217,7 +217,7 @@ class VolumeStrip(StripController):
         if level is None or not self.active:
             # nothing to control (e.g. an application that ended): the fader goes away
             self.strip.park()
-            self.strip.set_ring(0)
+            self.strip.set_ring(*(self.knob.ring() if self.knob.idle_too else (0, RingMode.DOT)))
             self.strip.set_led(Button.MUTE, Led.OFF)
             self.strip.set_text(1, self.inactive_text())
             return
@@ -237,11 +237,11 @@ class VolumeStrip(StripController):
             self.set_volume(round(bottom + fraction * (top - bottom)))
 
     def on_encoder(self, steps: int) -> None:
-        if self.accepts_input():
+        if self.knob.idle_too or self.accepts_input():
             self.knob.turn(steps)
 
     def on_encoder_press(self, pressed: bool) -> None:
-        if self.accepts_input():
+        if self.knob.idle_too or self.accepts_input():
             self.knob.push(pressed)
 
     def step_volume(self, steps: int) -> None:

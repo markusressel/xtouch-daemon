@@ -10,6 +10,7 @@ from xtouch_daemon.audio.model import AudioState, Stream
 from xtouch_daemon.config import EncoderMode, Indicator
 from xtouch_daemon.protocol import Button, Color
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
+from xtouch_daemon.strips.knobs import Knob, PickKnob
 from xtouch_daemon.surface import Strip
 
 _LOGGER = logging.getLogger(__name__)
@@ -129,7 +130,10 @@ class AppGroupStrip(AppStrip):
 
 
 class AutoStrip(AppStrip):
-    """The streams of the application the `AutoAssigner` gave the strip, under its alias. Dark while it has none."""
+    """
+    The streams of the application the `AutoAssigner` gave the strip, under its alias. Dark while it has none. With
+    `encoder = "pick"`, the encoder picks the application (`slot`, which the mixer gives it) and a push pins it.
+    """
 
     def __init__(
         self,
@@ -146,6 +150,11 @@ class AutoStrip(AppStrip):
         super().__init__(strip, env, "", color, meter, indicators, min_volume, max_volume, encoder)
         self.aliases = aliases
         self.app: str | None = None
+        self.slot: AutoSlot | None = None
+        """Its place in the `AutoAssigner`, for picking the application."""
+
+    def make_knob(self, encoder: EncoderMode) -> Knob:
+        return PickKnob(self) if encoder == "pick" else super().make_knob(encoder)
 
     def assign(self, app: str | None) -> None:
         if app == self.app:
@@ -170,7 +179,8 @@ class AutoAssigner:
     """
     Gives the `auto` strips the applications that play and have no strip of their own, in the order they started.
     An application keeps its strip while it plays, and for `hold` seconds after it stopped (so it does not jump
-    between strips from one track to the next).
+    between strips from one track to the next). A pinned slot keeps its application until it is unpinned. `pick`
+    puts another application into a slot.
     """
 
     def __init__(self, slots: int, hold: float, ignore: tuple[str, ...], clock: Callable[[], float] = time.monotonic):
@@ -179,20 +189,56 @@ class AutoAssigner:
         self.ignore = ignore
         self._clock = clock
         self._stopped_at: dict[str, float] = {}
+        self.pinned: set[int] = set()
+        """The slots that keep their application."""
+
+    def _apps(self, state: AudioState, claimed: tuple[tuple[str, ...], ...], playing: bool) -> list[str]:
+        """The applications without a strip of their own, in the order they started (only the ones that play)."""
+        apps: list[str] = []
+        for stream in sorted(state.streams, key=lambda stream: stream.index):
+            if (playing and not stream.playing) or stream.app in apps or stream.matches(self.ignore):
+                continue
+            if any(stream.matches(patterns) for patterns in claimed):
+                continue
+            apps.append(stream.app)
+        return apps
+
+    def candidates(self, state: AudioState, claimed: tuple[tuple[str, ...], ...] = ()) -> list[str]:
+        """What a slot can pick: the applications without a strip of their own that are there, paused ones too."""
+        return self._apps(state, claimed, playing=False)
+
+    def pick(self, slot: int, steps: int, state: AudioState, claimed: tuple[tuple[str, ...], ...] = ()) -> None:
+        """
+        Moves the slot `steps` applications on among the candidates; one that another slot has swaps with it. A
+        pinned slot stays pinned, with the new application.
+        """
+        candidates = self.candidates(state, claimed)
+        if not candidates:
+            return
+        current = self.assigned[slot]
+        if current in candidates:
+            app = candidates[(candidates.index(current) + steps) % len(candidates)]
+        else:
+            app = candidates[0 if steps > 0 else -1]
+        if app in self.assigned:
+            self.assigned[self.assigned.index(app)] = current
+        self.assigned[slot] = app
+        self._stopped_at.pop(app, None)
+
+    def toggle_pin(self, slot: int) -> None:
+        """Pins the slot (only one with an application), or unpins it."""
+        if slot in self.pinned:
+            self.pinned.discard(slot)
+        elif self.assigned[slot] is not None:
+            self.pinned.add(slot)
 
     def assign(self, state: AudioState, claimed: tuple[tuple[str, ...], ...] = ()) -> list[str | None]:
         """The application of every slot. `claimed` are the patterns of the strips with applications of their own."""
         now = self._clock()
-        playing: list[str] = []
-        for stream in sorted(state.streams, key=lambda stream: stream.index):
-            if not stream.playing or stream.app in playing or stream.matches(self.ignore):
-                continue
-            if any(stream.matches(patterns) for patterns in claimed):
-                continue
-            playing.append(stream.app)
+        playing = self._apps(state, claimed, playing=True)
 
         for slot, app in enumerate(self.assigned):
-            if app is None:
+            if app is None or slot in self.pinned:
                 continue
             if app in playing:
                 self._stopped_at.pop(app, None)
@@ -207,3 +253,39 @@ class AutoAssigner:
                 break
             self.assigned[self.assigned.index(None)] = app
         return list(self.assigned)
+
+
+class AutoSlot:
+    """A slot of the `AutoAssigner` for its strip: picks and pins with the current state, then shows the result."""
+
+    def __init__(
+        self,
+        assigner: AutoAssigner,
+        index: int,
+        state: Callable[[], AudioState],
+        claimed: tuple[tuple[str, ...], ...],
+        refresh: Callable[[], None],
+    ):
+        self.assigner = assigner
+        self.index = index
+        self._state = state
+        self._claimed = claimed
+        self._refresh = refresh
+
+    @property
+    def pinned(self) -> bool:
+        return self.index in self.assigner.pinned
+
+    def position(self) -> tuple[int, int] | None:
+        """Which of how many candidates the slot has, None for none of them."""
+        candidates = self.assigner.candidates(self._state(), self._claimed)
+        app = self.assigner.assigned[self.index]
+        return (candidates.index(app), len(candidates)) if app in candidates else None
+
+    def pick(self, steps: int) -> None:
+        self.assigner.pick(self.index, steps, self._state(), self._claimed)
+        self._refresh()
+
+    def toggle_pin(self) -> None:
+        self.assigner.toggle_pin(self.index)
+        self._refresh()

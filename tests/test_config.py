@@ -313,3 +313,9 @@ def test_strips_and_profiles_have_volume_ranges_of_their_own() -> None:
         ("profiles[2]", 50, 200),
     ]
     assert config.strips[1].volume_ranges(config.behavior) == [("", 0, 120)]  # type: ignore[union-attr]
+
+
+def test_a_strip_has_only_the_encoders_of_its_type() -> None:
+    assert parse_config('[[strip]]\ntype = "auto"\nencoder = "pick"\n').strips[0].encoder == "pick"  # type: ignore[union-attr]
+    with pytest.raises(ConfigError, match=r"strip\[1\]: encoder: pick is not for output strips \(balance, volume\)"):
+        parse_config('[[strip]]\ntype = "output"\nencoder = "pick"\n')

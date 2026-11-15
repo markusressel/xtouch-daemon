@@ -43,13 +43,24 @@ records at all (applications); `playing`: audio flows; `default`: the device is 
 """
 
 
-EncoderMode = Literal["volume", "balance"]
-"""What the encoder of a strip does: `volume`: fine steps, a push resets it; `balance`: left/right, a push centers."""
+EncoderMode = Literal["volume", "balance", "pick"]
+"""
+What the encoder of a strip does: `volume`: fine steps, a push resets it; `balance`: left/right, a push centers it;
+`pick` (`auto` strips): which application the strip has, a push pins it.
+"""
+
+ENCODERS: dict[str, tuple[EncoderMode, ...]] = {
+    "output": ("balance", "volume"),
+    "input": ("balance", "volume"),
+    "apps": ("volume", "balance"),
+    "auto": ("pick", "volume", "balance"),
+}
+"""The encoders of each strip type, its default first."""
 
 
 def default_encoder(strip_type: str) -> EncoderMode:
     """What the encoder of a strip of the type does without `encoder`."""
-    return "balance" if strip_type in ("output", "input") else "volume"
+    return ENCODERS[strip_type][0]
 
 
 def color_of(name: ColorName) -> Color:
@@ -114,7 +125,16 @@ class _StripConfig(_Model):
     max_volume: Volume | None = None
     """The volume of the fader at the top, in percent; by default `behavior.max_volume`."""
     encoder: EncoderMode | None = None
-    """What the encoder does; by default `balance` for devices, `volume` for applications."""
+    """What the encoder does; by default `balance` for devices, `volume` for `apps`, `pick` for `auto` strips."""
+
+    @model_validator(mode="after")
+    def _encoder_of_the_type(self) -> _StripConfig:
+        strip_type = str(getattr(self, "type", ""))
+        if self.encoder is not None and self.encoder not in ENCODERS[strip_type]:
+            raise ValueError(
+                f"encoder: {self.encoder} is not for {strip_type} strips ({', '.join(ENCODERS[strip_type])})"
+            )
+        return self
 
     def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
         """Where each volume range of the strip is configured (e.g. `profiles[2]`, "" for the strip), and the range."""

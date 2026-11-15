@@ -13,7 +13,7 @@ from xtouch_daemon.audio.meter import CHUNK_BYTES, CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import Config, parse_config
 from xtouch_daemon.mixer import Mixer
-from xtouch_daemon.protocol import Button
+from xtouch_daemon.protocol import Button, RingMode
 from xtouch_daemon.strips import EmptyStrip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
 from xtouch_daemon.strips.device import DeviceStrip
@@ -122,17 +122,38 @@ async def test_events_go_to_the_strip_they_happened_on(mixer: Mixer, backend: Fa
     await settle()
     mixer.on_event(protocol.ButtonPressed(0, Button.MUTE, True))
     await settle()
-    mixer.on_event(protocol.EncoderTurned(3, -10))
+    mixer.on_event(protocol.EncoderTurned(1, -10))
     await settle()
-    mixer.on_event(protocol.EncoderPressed(3, True))
+    mixer.on_event(protocol.EncoderPressed(1, True))
     await settle()
 
     assert backend.calls == [
         ("set_device_volume", Direction.OUTPUT, "speaker", 25),
         ("set_device_mute", Direction.OUTPUT, "speaker", True),
-        ("set_stream_volume", 2, 90),
-        ("set_stream_volume", 2, 100),
+        ("set_stream_volume", 1, 90),
+        ("set_stream_volume", 1, 100),
     ]
+
+
+async def test_the_encoder_of_an_auto_strip_picks_its_application(mixer: Mixer, surface: RecordingSurface) -> None:
+    mixer.on_state(STATE)
+    assert [surface.strips[i].text[0] for i in (3, 4)] == ["Spotify", "Discord"]
+    assert surface.strips[3].ring == (1, RingMode.DOT)
+
+    # the next one: they swap
+    mixer.on_event(protocol.EncoderTurned(3, 1))
+    assert [surface.strips[i].text[0] for i in (3, 4)] == ["Discord", "Spotify"]
+    assert surface.strips[3].ring == (11, RingMode.DOT)
+
+    # an empty one picks too; a push pins
+    mixer.on_event(protocol.EncoderTurned(5, -1))
+    # from the strip that had it, which is left empty
+    assert [surface.strips[i].text[0] for i in (3, 4, 5)] == ["", "Spotify", "Discord"]
+    mixer.on_event(protocol.EncoderPressed(5, True))
+    assert surface.strips[5].ring == (11, RingMode.WRAP)
+    mixer.on_event(protocol.EncoderPressed(5, False))
+    mixer.on_event(protocol.EncoderPressed(5, True))
+    assert surface.strips[5].ring == (11, RingMode.DOT)
 
 
 async def test_the_meters_show_the_captured_level(
