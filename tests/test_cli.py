@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import pytest
@@ -330,3 +331,60 @@ def test_the_sound_server_is_read_once(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert cli._audio_state() == STATE
     assert clients == ["xtouch-daemon-cli"]
+
+
+# -- the GUI ------------------------------------------------------------------------------------------------------
+
+
+def _without_gui_modules(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in [name for name in sys.modules if name.startswith("xtouch_daemon.gui")]:
+        monkeypatch.delitem(sys.modules, name)
+
+
+def test_the_gui_starts_with_the_configuration(config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import xtouch_daemon.gui.qt
+
+    paths: list[Path] = []
+
+    def run_gui(path: Path) -> int:
+        paths.append(path)
+        return 0
+
+    monkeypatch.setattr(xtouch_daemon.gui.qt, "run_gui", run_gui)
+
+    assert invoke("gui").exit_code == 0
+    assert invoke("gui", "-c", "/tmp/other.toml").exit_code == 0
+    assert paths == [config_home, Path("/tmp/other.toml")]
+
+
+def test_the_gui_reports_a_file_it_can_not_edit(tmp_path: Path) -> None:
+    path = tmp_path / "broken.toml"
+    path.write_text("[device")
+
+    result = CliRunner().invoke(cli.main, ["gui", "-c", str(path)])
+
+    assert result.exit_code == 1
+    assert f"Error: {path} is not valid TOML" in result.output
+
+
+@pytest.mark.parametrize("package", ["PyQt6", "qtawesome", "qt_themes", "tomlkit"])
+def test_without_the_gui_extra_it_says_how_to_install_it(monkeypatch: pytest.MonkeyPatch, package: str) -> None:
+    _without_gui_modules(monkeypatch)
+    monkeypatch.delitem(sys.modules, "xtouch_daemon.gui.domain.document", raising=False)
+    monkeypatch.setitem(sys.modules, package, None)
+
+    result = CliRunner().invoke(cli.main, ["gui"])
+
+    assert result.exit_code == 1
+    assert "the GUI needs the gui extra" in result.output
+    assert "uv tool install --force 'xtouch-daemon[gui] @ git+https://github.com/markusressel/xtouch-daemon'" in (
+        result.output
+    )
+
+
+def test_a_broken_gui_module_is_not_hidden_behind_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    _without_gui_modules(monkeypatch)
+    monkeypatch.setitem(sys.modules, "xtouch_daemon.gui.qt.window", None)
+
+    with pytest.raises(ImportError, match=r"xtouch_daemon\.gui\.qt\.window"):
+        invoke("gui")

@@ -189,7 +189,7 @@ def install_service(now: bool) -> None:
     click.echo("Logs: journalctl --user -u xtouch-daemon -f")
 
 
-GUI_PACKAGES = ("PySide6", "shiboken6", "tomlkit")
+GUI_PACKAGES = ("PyQt6", "qtawesome", "qt_themes", "qtpy", "tomlkit")
 GUI_MISSING = """\
 the GUI needs the gui extra, install xtouch-daemon with it:
   uv tool install --force 'xtouch-daemon[gui] @ git+https://github.com/markusressel/xtouch-daemon'
@@ -201,7 +201,7 @@ the GUI needs the gui extra, install xtouch-daemon with it:
 def gui(config_path: Path | None) -> None:
     """Edit the configuration in a window, and apply it (needs the gui extra)."""
     try:
-        from xtouch_daemon.gui import run_gui
+        from xtouch_daemon.gui.qt import run_gui
     except ImportError as e:
         if e.name is None or e.name.split(".")[0] not in GUI_PACKAGES:
             raise
