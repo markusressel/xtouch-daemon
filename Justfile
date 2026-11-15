@@ -17,6 +17,7 @@ coverage:
 lint:
     uv run ruff check
     uv run ruff format --check
+    uvx codespell
 
 # fix style issues and format the code
 fmt:

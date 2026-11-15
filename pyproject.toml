@@ -103,3 +103,8 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 include = ["src", "tests"]
 pythonVersion = "3.14"
 typeCheckingMode = "standard"
+
+[tool.codespell]
+skip = "*.lock,./site,./.venv"
+# "bu" is typed into a field in a test (the start of "buds"), HDA is a sound card (HDA Intel)
+ignore-words-list = "bu,hda"

@@ -13,3 +13,5 @@ _migrate/
 .idea
 # the documentation site, built by zensical
 site/
+# worktrees and links of Claude Code
+.claude/

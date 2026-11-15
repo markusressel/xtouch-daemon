@@ -19,7 +19,7 @@ just check       # runs everything CI runs
 | `just sync` | Installs the project and the dev tools. |
 | `just test [ARGS]` | Runs pytest, e.g. `just test -k fader`. |
 | `just coverage` | Runs the tests with coverage; fails below 90 % (lines and branches). |
-| `just lint` | `ruff check` and `ruff format --check`. |
+| `just lint` | `ruff check`, `ruff format --check` and `codespell` (false positives go to `ignore-words-list` in `pyproject.toml`). |
 | `just fmt` | Fixes what ruff can fix and formats the code. |
 | `just typecheck` | `pyright`. |
 | `just check` | `lint`, `typecheck` and `coverage`, like CI. |

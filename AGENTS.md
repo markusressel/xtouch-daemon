@@ -21,7 +21,6 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 | `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested, `qt/` the widgets. Forms come from the pydantic models, so new options need no GUI code. |
 | `tests/` | One test module per source module; fakes in `tests/conftest.py`, an in-memory MQTT broker in `tests/fake_mqtt.py`. |
 | `docs/`, `zensical.toml` | The documentation site (Zensical, published to GitHub Pages by `.github/workflows/docs.yml`): `index.md`, `getting-started.md`, `configuration/*.md` (one page per topic), `home-assistant.md`, `gui.md`, `commands.md`, `troubleshooting.md`, `hardware.md`, `architecture.md`. Build it with `just docs`. |
-| `contrib/xtouch-daemon.service` | systemd user unit, same as `systemd.UNIT_TEMPLATE`. |
 | `packaging/` | Release tarballs (`build-release.sh`), the pinned commit of haad-mqtt-autodiscovery, the GUI's `.desktop` file, the AUR packages (`aur/`, `aur/publish.sh`). See [RELEASING.md](RELEASING.md). |
 
 ## Commands
@@ -30,7 +29,7 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 uv sync
 just test            # uv run pytest
 just coverage        # fails below 90 %
-just lint            # ruff check + ruff format --check
+just lint            # ruff check + ruff format --check + codespell
 just typecheck       # pyright
 just check           # all of the above, like CI
 just docs            # builds the documentation site (strict: broken links fail)
@@ -44,6 +43,5 @@ just docs            # builds the documentation site (strict: broken links fail)
 - Every behaviour change needs tests. Coverage stays ≥ 90 % (lines and branches).
 - No hardware and no PipeWire/PulseAudio in unit tests: use a fake `AudioBackend`, a fake pulsectl connection, a
   recording surface, a FIFO or pty for MIDI, a fake `pw-record` script.
-- Keep `contrib/xtouch-daemon.service` in sync with `systemd.UNIT_TEMPLATE`.
 - Type hints everywhere; `ruff` and `pyright` must pass.
-- Git: do not commit or push. The user handles all git operations.
+- Git: commit, but never push. The user pushes.
