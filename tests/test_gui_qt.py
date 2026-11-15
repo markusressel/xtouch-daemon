@@ -6,11 +6,12 @@ temporary directory, and the dialogs answered by the tests.
 import signal
 import tomllib
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QByteArray, QCoreApplication, QEvent, QMimeData, QPoint, QPointF, QSettings, Qt
-from PyQt6.QtGui import QDrag, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QTextDocument
+from PyQt6.QtGui import QColor, QDrag, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QTextDocument
 from PyQt6.QtWidgets import (
     QAbstractButton,
     QApplication,
@@ -32,7 +33,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.gui import qt
 from xtouch_daemon.gui.domain.document import ConfigDocument
-from xtouch_daemon.gui.qt import theme
+from xtouch_daemon.gui.qt import preview, theme
 from xtouch_daemon.gui.qt import window as window_module
 from xtouch_daemon.gui.qt.fields import Chips, OptionRow
 from xtouch_daemon.gui.qt.pages import AliasesPage, SectionPage
@@ -406,6 +407,95 @@ def test_dragging_a_strip_starts_a_drag(qtbot: QtBot, window: MainWindow, monkey
     qtbot.mouseMove(window.preview.strips[6], QPoint(60, 60))
     qtbot.mouseRelease(window.preview.strips[6], Qt.MouseButton.LeftButton)
     assert drags == [b"1"]
+
+
+# -- the preview: painting ---------------------------------------------------------------------------------------
+
+
+def test_lit_leds_show_their_colors(window: MainWindow):
+    view = window.preview.strips[0]
+    mute, meter = QPoint(16, 177), QPoint(84, 200)
+    dark = view.grab().toImage()
+    face = view._face()
+    view._face = lambda: replace(face, leds=frozenset({"MUTE"}), meter=3)  # what the live view shows
+
+    lit = view.grab().toImage()
+
+    for point in (mute, meter):
+        assert lit.pixelColor(point).lightness() > dark.pixelColor(point).lightness() + 60
+    assert lit.pixelColor(mute).red() > 200 > lit.pixelColor(mute).green()
+    assert lit.pixelColor(meter).green() > 150 > lit.pixelColor(meter).red()
+
+
+def test_a_drop_target_is_highlighted(window: MainWindow):
+    view = window.preview.strips[1]
+    before = view.grab().toImage().pixelColor(QPoint(20, 100))
+    view.drop_target = True
+
+    after = view.grab().toImage().pixelColor(QPoint(20, 100))
+
+    assert after.blue() > before.blue()
+
+
+def luminance(color: str) -> float:
+    def channel(value: int) -> float:
+        value_ = value / 255
+        return value_ / 12.92 if value_ <= 0.04045 else ((value_ + 0.055) / 1.055) ** 2.4
+
+    rgb = QColor(color)
+    return 0.2126 * channel(rgb.red()) + 0.7152 * channel(rgb.green()) + 0.0722 * channel(rgb.blue())
+
+
+def contrast(foreground: str, background: str) -> float:
+    """The contrast ratio of WCAG 2.2."""
+    light, dark = sorted((luminance(foreground), luminance(background)), reverse=True)
+    return (light + 0.05) / (dark + 0.05)
+
+
+def over(color: str, background: str, alpha: int) -> str:
+    """A translucent color on a background."""
+    top, bottom = QColor(color).getRgb()[:3], QColor(background).getRgb()[:3]
+    mix = [round(a * alpha / 255 + b * (1 - alpha / 255)) for a, b in zip(top, bottom, strict=True)]
+    return QColor(*mix).name()
+
+
+@pytest.mark.parametrize("mode", list(theme.ThemeMode))
+def test_the_colors_are_legible(mode: theme.ThemeMode):
+    """WCAG 2.2 AA: 4.5:1 for text, 3:1 for the outlines of controls."""
+    colors = theme.THEMES[mode]
+    surfaces = (colors.surface, colors.raised, colors.sunken, colors.chrome)
+    for surface in surfaces:
+        assert contrast(colors.text, surface) >= 4.5
+        assert contrast(colors.text_muted, surface) >= 4.5
+        assert contrast(colors.error, surface) >= 4.5
+        assert contrast(colors.control_border, surface) >= 3
+    assert contrast(colors.placeholder, colors.sunken) >= 4.5
+    assert contrast(colors.on_accent, colors.accent) >= 4.5
+    assert contrast(colors.on_accent, colors.accent_hover) >= 4.5
+    assert contrast(colors.text, colors.accent_tint) >= 4.5
+    for tone, background in (
+        (colors.tone_good, colors.success),
+        (colors.tone_warn, colors.warning),
+        (colors.tone_bad, colors.error),
+        (colors.tone_neutral, colors.tone_neutral),
+    ):
+        assert contrast(tone, over(background, colors.chrome, theme.TINT_ALPHA)) >= 4.5
+
+
+def test_the_device_is_legible():
+    hardware = theme.HARDWARE
+    for name, color in theme.LCD_COLORS.items():
+        text = theme.LCD_TEXT_OFF if name == "off" else theme.LCD_TEXT
+        assert contrast(text, color) >= 4.5
+        dimmed = over(color, theme.LCD_COLORS["off"], round(preview.DIM * 255))
+        assert contrast(preview.LCD_TEXT_DIM, dimmed) >= 4.5
+    for strip in (hardware.strip_top, hardware.strip_bottom):
+        assert contrast(hardware.print, strip) >= 4.5
+        assert contrast(hardware.print_dim, strip) >= 4.5
+    assert contrast(hardware.badge_text, hardware.badge) >= 4.5
+    for _, color in preview.BUTTONS:
+        key = over(color, hardware.key, round(preview.KEY_TINT * 255))
+        assert contrast(over(color, hardware.key_print, round(preview.LABEL_TINT * 255)), key) >= 4.5
 
 
 # -- the fields ---------------------------------------------------------------------------------------------------

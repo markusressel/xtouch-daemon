@@ -202,6 +202,8 @@ class Hardware:
     led_off: str = "#30343c"
     key: str = "#2a2d33"
     """An unlit button: its LED color shows only as a tint."""
+    key_print: str = "#e2e5e9"
+    """The labels on the buttons, tinted in their color."""
     lcd_bezel: str = "#060708"
     knob_top: str = "#4b515b"
     knob_bottom: str = "#1d2025"
@@ -211,7 +213,8 @@ class Hardware:
     cap_bottom: str = "#80868f"
     cap_line: str = "#1b1d21"
     badge: str = "#c9283a"
-    """The problems badge: white on it 5.5:1."""
+    badge_text: str = "#ffffff"
+    """On the problems badge: 5.5:1."""
 
 
 HARDWARE = Hardware()
