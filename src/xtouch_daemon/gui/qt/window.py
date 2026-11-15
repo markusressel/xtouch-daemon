@@ -4,11 +4,14 @@ strip is picked; then two tabs that keep apart what applies to one strip and wha
 bottom the problems, undo and saving.
 """
 
+import contextlib
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-from PyQt6.QtCore import QEvent, QObject, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, QRect, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
@@ -78,12 +81,35 @@ class AudioLoader(QObject):
         try:
             state = self._read()
         except SoundServerError as e:
-            self.failed.emit(str(e))
+            self._emit(self.failed, str(e))
         else:
-            self.loaded.emit(state)
+            self._emit(self.loaded, state)
+
+    @staticmethod
+    def _emit(signal: Any, value: object) -> None:
+        # the window may be gone meanwhile, e.g. for a new zoom
+        with contextlib.suppress(RuntimeError):
+            signal.emit(value)
 
 
 _pill = show_status
+
+
+@dataclass(frozen=True)
+class Session:
+    """
+    What a window hands to the next one when the zoom changes (see `run_gui`): Qt scales a whole application only when
+    it starts, so a new zoom takes a new window, which goes on where the old one was.
+    """
+
+    history: History
+    """The undo history, and through it the document with its unsaved changes."""
+    selected: int
+    page: str
+    geometry: QRect
+    """Where the window was, in pixels of the screen (the zoom changes the size of a window's own pixels)."""
+    maximized: bool
+    audio: AudioState
 
 
 class MainWindow(QMainWindow):
@@ -95,6 +121,7 @@ class MainWindow(QMainWindow):
         find_daemon: Callable[[], Instance | None] = instance.running,
         live_socket: Path | None = None,
         try_broker: BrokerTest = broker.try_broker,
+        session: Session | None = None,
     ):
         """
         `live_socket` is where the daemon serves its live view, by default `instance.socket_file()`. `try_broker` tries
@@ -102,6 +129,9 @@ class MainWindow(QMainWindow):
         """
         super().__init__()
         self.try_broker = try_broker
+        self.zoom = theme.load_zoom()
+        self.rezoom: float | None = None
+        """The zoom the next window gets: set when this one closes for a new zoom (see `Session`)."""
         self.document = document
         self.service = service
         self.find_daemon = find_daemon
@@ -109,7 +139,7 @@ class MainWindow(QMainWindow):
         self.audio = DISCONNECTED
         self.selected = 0
         self.validation = document.validate()
-        self.history = History(document)
+        self.history = session.history if session is not None else History(document)
         self.service_state: ServiceState | None = None
         self.setWindowTitle("X-Touch Extender")
         self.resize(1000, 960)
@@ -138,6 +168,14 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence.StandardKey.Save, self, self.save)
         QShortcut(QKeySequence.StandardKey.Undo, self, self.undo)
         QShortcut(QKeySequence.StandardKey.Redo, self, self.redo)
+        # Ctrl++ (on keyboards with a + key) and Ctrl+= (where + is Shift+=)
+        for keys, action in (
+            (QKeySequence.StandardKey.ZoomIn, self.zoom_in),
+            (QKeySequence("Ctrl+="), self.zoom_in),
+            (QKeySequence.StandardKey.ZoomOut, self.zoom_out),
+            (QKeySequence("Ctrl+0"), self.zoom_reset),
+        ):
+            QShortcut(keys, self, action)
         app = QApplication.instance()
         assert app is not None
         # the document's undo, also while a text field has the focus: its own would leave the document behind
@@ -150,9 +188,27 @@ class MainWindow(QMainWindow):
         self.loader.failed.connect(self._audio_failed)
         self.load_audio()
         self.refresh_service()
-        self.select(0)
+        self.select(0 if session is None else session.selected)
+        if session is not None:
+            self._resume(session)
         # the keys start on the strips (the arrows pick one), not on the first button of the header
-        self.preview.strips[0].setFocus()
+        self.preview.strips[self.selected].setFocus()
+
+    def _resume(self, session: Session) -> None:
+        """Goes on where the window before the zoom left off."""
+        self.audio = session.audio
+        self.show_page(session.page)
+        ratio = self.devicePixelRatioF()
+        geometry = session.geometry
+        self.setGeometry(
+            round(geometry.x() / ratio),
+            round(geometry.y() / ratio),
+            round(geometry.width() / ratio),
+            round(geometry.height() / ratio),
+        )
+        if session.maximized:
+            self.setWindowState(Qt.WindowState.WindowMaximized)
+        self.refresh()
 
     # -- building -------------------------------------------------------------------------------------------------
 
@@ -178,6 +234,22 @@ class MainWindow(QMainWindow):
         self.service_button.clicked.connect(self._service_action)
         layout.addWidget(self.service_button)
         layout.addSpacing(8)
+        self.zoom_button = QToolButton()
+        self.zoom_button.setText(theme.zoom_text(self.zoom))
+        self.zoom_button.setToolTip("Zoom: Ctrl++ larger, Ctrl+- smaller, Ctrl+0 100 %")
+        self.zoom_button.setAutoRaise(True)
+        self.zoom_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.zoom_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        theme.set_role(self.zoom_button, "flat", "variant")
+        zooms = QMenu(self.zoom_button)
+        for level in theme.ZOOM_LEVELS:
+            action = zooms.addAction(theme.zoom_text(level))
+            assert action is not None
+            action.setCheckable(True)
+            action.setChecked(level == self.zoom)
+            action.triggered.connect(lambda _=False, level=level: self.zoom_to(level))
+        self.zoom_button.setMenu(zooms)
+        layout.addWidget(self.zoom_button)
         self.theme_button = flat_button("theme-light-dark", "Switch between the dark and the light theme")
         self.theme_button.clicked.connect(self.toggle_theme)
         layout.addWidget(self.theme_button)
@@ -630,9 +702,46 @@ class MainWindow(QMainWindow):
         self._changed()
         self.status.setText("Reverted to the file. Ctrl+Z brings the changes back.")
 
+    # -- zoom -----------------------------------------------------------------------------------------------------
+
+    def zoom_in(self) -> None:
+        self.zoom_to(theme.zoom_step(self.zoom, 1))
+
+    def zoom_out(self) -> None:
+        self.zoom_to(theme.zoom_step(self.zoom, -1))
+
+    def zoom_reset(self) -> None:
+        self.zoom_to(1.0)
+
+    def zoom_to(self, zoom: float) -> None:
+        """Closes the window for a new one at `zoom` (see `Session`), keeping everything that is not saved."""
+        if zoom == self.zoom:
+            return
+        theme.save_zoom(zoom)
+        self.rezoom = zoom
+        self.close()
+
+    def session(self) -> Session:
+        """What the next window needs to go on where this one is."""
+        ratio = self.devicePixelRatioF()
+        geometry = self.normalGeometry() if self.isMaximized() else self.geometry()
+        return Session(
+            history=self.history,
+            selected=self.selected,
+            page=self.current_page,
+            geometry=QRect(
+                round(geometry.x() * ratio),
+                round(geometry.y() * ratio),
+                round(geometry.width() * ratio),
+                round(geometry.height() * ratio),
+            ),
+            maximized=self.isMaximized(),
+            audio=self.audio,
+        )
+
     def closeEvent(self, event: QCloseEvent | None) -> None:
         assert event is not None
-        if self.document.modified:
+        if self.document.modified and self.rezoom is None:
             buttons = QMessageBox.StandardButton
             answer = QMessageBox.question(
                 self,

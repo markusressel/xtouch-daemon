@@ -23,7 +23,15 @@ Without the extra, `xtouch-daemon gui` says how to install it.
 - **The footer** shows the file, whether the device runs it, the problems, and the buttons Undo, Redo, Revert and
   "Save and apply".
 - **The header** shows the state of the service with a button to install, start or restart it, what the sound server
-  has, and a switch between the dark and the light theme.
+  has, the zoom, and a switch between the dark and the light theme.
+
+## Zoom
+
+Ctrl++ (or Ctrl+=) makes the whole window larger, Ctrl+- smaller, Ctrl+0 goes back to 100 %; the zoom button in the
+header ("100 %") has the levels from 67 % to 300 %. The GUI keeps the zoom for the next start, like the theme.
+
+Qt scales a window only when it opens, so a new zoom opens the window again at the new size: unsaved changes, undo,
+the selected strip and the page stay. The zoom is on top of a `QT_SCALE_FACTOR` of the environment.
 
 ## Live view and preview
 

@@ -45,7 +45,7 @@ from xtouch_daemon.gui.qt import preview as preview_module
 from xtouch_daemon.gui.qt import window as window_module
 from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Switch, Tables
 from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, SectionPage
-from xtouch_daemon.gui.qt.window import MainWindow
+from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import MqttState, Snapshot, StripState
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError
@@ -159,9 +159,11 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         find_daemon: Callable[[], Instance | None] = lambda: daemon,
         live_socket: Path | None = None,
         test_broker: BrokerTest = unreachable_broker,
+        session: Session | None = None,
     ) -> MainWindow:
-        document = ConfigDocument.open(file)
-        window = MainWindow(document, Service(systemctl), read_audio, find_daemon, live_socket, test_broker)
+        # the window after a new zoom goes on with the document of the one before
+        document = session.history.document if session is not None else ConfigDocument.open(file)
+        window = MainWindow(document, Service(systemctl), read_audio, find_daemon, live_socket, test_broker, session)
         qtbot.addWidget(window)
         window.show()
         qtbot.waitUntil(lambda: window.audio_label.text() != "Reading the sound server…")
@@ -1553,3 +1555,129 @@ def test_a_failed_test_says_what_to_check(qtbot: QtBot, window: MainWindow):
     window.reload_pages()
     window.mqtt_page.tester.finished.emit(Status("late", Tone.GOOD))
     assert window.mqtt_page.box is None
+
+
+# -- zoom -------------------------------------------------------------------------------------------------------
+
+
+def test_zoom_goes_through_the_levels(isolated: Dialogs):
+    assert theme.zoom_step(1.0, 1) == 1.1
+    assert theme.zoom_step(1.0, -1) == 0.9
+    # at the ends it stays
+    assert theme.zoom_step(3.0, 1) == 3.0
+    assert theme.zoom_step(0.67, -1) == 0.67
+    # from a level that is none, from 100 %
+    assert theme.zoom_step(1.03, 1) == 1.1
+    assert theme.zoom_text(0.67) == "67 %"
+
+    assert theme.load_zoom() == 1.0
+    theme.save_zoom(1.5)
+    assert theme.load_zoom() == 1.5
+    for odd in ("huge", 1.3):
+        QSettings().setValue("zoom", odd)
+        assert theme.load_zoom() == 1.0
+
+
+def test_the_scale_of_a_zoom_is_on_top_of_the_users_own():
+    assert qt.scale_for(1.25, None) == "1.25"
+    assert qt.scale_for(1.5, "2") == "3"
+    assert qt.scale_for(1.1, "big") == "1.1"
+
+
+def test_a_new_zoom_takes_a_new_window_that_goes_on_where_this_one_was(
+    qtbot: QtBot, make_window: MakeWindow, isolated: Dialogs
+):
+    window = make_window()
+    assert window.zoom_button.text() == "100 %"
+    window.document.set(("behavior", "encoder_step"), 3)
+    window.edited()
+    window.select(2)
+    window.show_page("behavior")
+
+    # the same zoom: nothing to do
+    window.zoom_to(1.0)
+    assert window.rezoom is None
+    # Ctrl++: closes without asking about the unsaved changes, they go to the next window
+    qtbot.keyClick(window, Qt.Key.Key_Plus, Qt.KeyboardModifier.ControlModifier)
+    assert window.rezoom == 1.1
+    assert not window.isVisible()
+    assert isolated.shown == []
+    assert theme.load_zoom() == 1.1
+
+    session = window.session()
+    assert (session.selected, session.page, session.maximized) == (2, "behavior", False)
+    assert session.history is window.history
+    ratio = window.devicePixelRatioF()
+    assert session.geometry.width() == round(window.geometry().width() * ratio)
+
+    after = make_window(session=session)
+    assert after.zoom == 1.1
+    assert after.zoom_button.text() == "110 %"
+    assert after.history is window.history
+    assert after.document.modified
+    assert after.history.can_undo
+    assert (after.selected, after.current_page) == (2, "behavior")
+
+
+def test_zoom_keys_and_menu(qtbot: QtBot, window: MainWindow, isolated: Dialogs):
+    zooms: list[float] = []
+    window.zoom_to = zooms.append  # type: ignore[method-assign]
+    window.zoom_out()
+    window.zoom_in()
+    window.zoom_reset()
+    menu = window.zoom_button.menu()
+    assert menu is not None
+    actions = menu.actions()
+    assert [action.text() for action in actions][:3] == ["67 %", "75 %", "80 %"]
+    assert [action.isChecked() for action in actions].index(True) == theme.ZOOM_LEVELS.index(1.0)
+    actions[-1].trigger()
+    assert zooms == [0.9, 1.1, 1.0, 3.0]
+
+
+def test_a_maximized_window_stays_maximized(make_window: MakeWindow, isolated: Dialogs):
+    window = make_window()
+    window.showMaximized()
+    session = window.session()
+    assert session.maximized
+    after = make_window(session=dataclasses.replace(session, maximized=True))
+    assert after.windowState() & Qt.WindowState.WindowMaximized
+
+
+def test_run_gui_starts_again_for_a_new_zoom(
+    path: Path, monkeypatch: pytest.MonkeyPatch, qapp: QApplication, isolated: Dialogs
+):
+    windows: list[MainWindow] = []
+    sessions: list[Session | None] = []
+    original = MainWindow.__init__
+
+    def init(window: MainWindow, *args: object, session: Session | None = None, **kwargs: object) -> None:
+        original(window, *args, session=session, **kwargs)  # type: ignore[arg-type]
+        windows.append(window)
+        sessions.append(session)
+
+    monkeypatch.setattr(MainWindow, "__init__", init)
+    monkeypatch.setattr(qt, "QApplication", lambda args: qapp)
+    monkeypatch.setattr(MainWindow, "show", lambda window: None)
+    monkeypatch.setattr(qt.signal, "signal", lambda signum, handler: None)
+    deleted: list[object] = []
+    # the test's application stays
+    monkeypatch.setattr(qt.sip, "delete", deleted.append)
+    monkeypatch.delenv(qt.SCALE_FACTOR, raising=False)
+    scales: list[str] = []
+
+    def exec_() -> int:
+        scales.append(qt.os.environ[qt.SCALE_FACTOR])
+        if len(windows) == 1:
+            windows[0].zoom_in()
+        return 0
+
+    monkeypatch.setattr(qapp, "exec", exec_)
+
+    assert qt.run_gui(path) == 0
+    assert scales == ["1", "1.1"]
+    assert sessions[0] is None
+    assert sessions[1] is not None
+    assert sessions[1].history is windows[0].history
+    assert deleted == [windows[0], qapp]
+    for window in windows:
+        window.deleteLater()
