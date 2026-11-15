@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 FILE_NAME = "xtouch-daemon.json"
+SOCKET_NAME = "xtouch-daemon.sock"
 
 
 class AlreadyRunning(Exception):
@@ -85,3 +86,8 @@ def registered(config: Path) -> Iterator[Instance]:
         with contextlib.suppress(FileNotFoundError):
             if json.loads(path.read_text(encoding="utf-8"))["pid"] == instance.pid:
                 path.unlink()
+
+
+def socket_file() -> Path:
+    """Where the running daemon serves the live view of the device (see `live.py`), next to the runtime file."""
+    return runtime_file().with_name(SOCKET_NAME)

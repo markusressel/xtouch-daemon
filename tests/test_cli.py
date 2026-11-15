@@ -264,11 +264,13 @@ def test_test_runs_the_selftest_and_ends_quietly_on_ctrl_c(monkeypatch: pytest.M
 
 def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     started: list[tuple[Config, Path | None]] = []
+    sockets: list[Path] = []
     levels: list[int] = []
 
     class FakeDaemon:
-        def __init__(self, config: Config, backend: object, config_path: Path | None) -> None:
+        def __init__(self, config: Config, backend: object, config_path: Path | None, live_socket: Path) -> None:
             started.append((config, config_path))
+            sockets.append(live_socket)
 
         async def run(self) -> None:
             pass
@@ -279,6 +281,7 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
     assert invoke("run", "-c", str(config_file), "--log-level", "debug").exit_code == 0
     assert started[0][0] == parse_config(CONFIG)
     assert started[0][1] == config_file
+    assert sockets == [instance.socket_file()]
     assert levels == [10]
 
 
@@ -288,7 +291,7 @@ def test_run_says_that_it_runs_and_a_second_one_does_not_start(
     seen: list[instance.Instance | None] = []
 
     class FakeDaemon:
-        def __init__(self, config: Config, backend: object, config_path: Path | None) -> None:
+        def __init__(self, config: Config, backend: object, config_path: Path | None, live_socket: Path) -> None:
             pass
 
         async def run(self) -> None:

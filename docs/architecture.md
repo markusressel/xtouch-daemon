@@ -12,6 +12,8 @@ graph LR
     Mixer -- "entities of homeassistant strips" --> Bridge[MqttBridge<br/>aiomqtt]
     Bridge <-- "discovery, states, commands, events" --> Broker[MQTT broker / Home Assistant]
     Daemon -- "owns, reloads, stops" --> Surface & Backend & Mixer & Bridge
+    Surface -- "what the strips show (live.py)" --> Live[LiveServer<br/>$XDG_RUNTIME_DIR/xtouch-daemon.sock]
+    Live -- "a JSON line per change" --> GUI[xtouch-daemon gui]
 ```
 
 ## Modules
@@ -29,6 +31,8 @@ graph LR
 | `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` strips. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
 | `mixer.py` | `Mixer`: the controllers of one configuration, fed with every state and every event, and the meter ticker. |
 | `daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications). |
+| `instance.py` | The running daemon for other processes: its runtime file (process, configuration file) and where its live view is served. |
+| `live.py` | `LiveServer`: what the device shows right now, for the GUI, over a Unix socket. See [Live view](#live-view). |
 | `config.py` | The TOML configuration, validated with pydantic. |
 | `cli.py`, `selftest.py`, `systemd.py` | The command line, the device self-test, systemd integration (notify, journal log levels, the unit file, controlling the user service). |
 | `gui/domain/` | The configuration editor without a toolkit: the editable document, the options of the models, the look of the strips, suggestions from the sound server, applying a saved file. See [GUI](#gui). |
@@ -122,6 +126,30 @@ itself does not import it.
   and a compiler), Qt paints the strip preview with `QPainter` and does drag and drop, and pytest-qt runs the widgets
   offscreen.
 
+## Live view
+
+The GUI shows the strips as the device shows them right now, which only the daemon knows. `xtouch-daemon run` serves
+that on the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon.sock` (mode 0600, next to the runtime file of `instance.py`)
+for as long as it runs:
+
+- **Whole states, one JSON line each.** A client gets the whole state when it connects and again whenever something
+  changed, checked 20 times a second (`live.INTERVAL`): the LCD lines and backlight, the LEDs, the ring, where the
+  fader is and whether it is touched, the meter level (falling like on the device, see `METER_FALL`), whether the
+  device, the sound server and the broker are connected, and the `fingerprint()` of the configuration in use. A line
+  is about 2 KB; a state rather than changes means a client that connects late or misses one needs nothing else.
+  `version` changes when a line means something else.
+- **Read only.** What a client sends is ignored: the GUI changes the daemon only through the configuration file and
+  a reload.
+- **Never in the way.** Clients get only non-blocking writes. One that falls behind by more than `MAX_BUFFER` is
+  dropped (it can connect again), and a socket that can't be made is logged: the daemon runs on without the live view.
+  The server is not one of the parts of the daemon whose end stops it.
+- **Applied or not.** The fingerprint is a hash of the whole configuration (secrets included). The GUI compares it
+  with the one of the saved file, so it can say whether the daemon took the file, instead of assuming a reload worked
+  (it keeps the old configuration when the new one has errors or a changed `[mqtt]`).
+
+The GUI reads the socket with a `QLocalSocket`, without a thread, and connects again while the daemon runs. Without a
+daemon it shows what the file would show, and says so.
+
 ## Testing
 
 The unit tests run without hardware and without a sound server:
@@ -134,6 +162,8 @@ The unit tests run without hardware and without a sound server:
 - the meters with a fake `pw-record` script,
 - the MQTT bridge and the `homeassistant` strips with an in-memory broker (`tests/fake_mqtt.py`): retained messages,
   subscriptions, last wills, lost connections,
+- the live view with a real Unix socket in a short temporary directory: clients that read, that don't read, and that
+  go away,
 - the GUI domain with configuration files in a temporary directory and a fake `systemctl`, and the GUI widgets with
   pytest-qt on the offscreen platform, with a fake sound server and the dialogs answered by the tests.
 

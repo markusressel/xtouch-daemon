@@ -38,6 +38,7 @@ def write(pid: int, config: str = "/home/me/config.toml") -> None:
 
 def test_the_file_is_in_the_runtime_directory(runtime_dir: Path, monkeypatch: pytest.MonkeyPatch):
     assert runtime_file() == runtime_dir / "xtouch-daemon.json"
+    assert instance.socket_file() == runtime_dir / "xtouch-daemon.sock"
 
     monkeypatch.delenv("XDG_RUNTIME_DIR")
     assert runtime_file().parent.name == f"xtouch-daemon-{os.getuid()}"
