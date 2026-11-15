@@ -606,3 +606,107 @@ async def test_a_disconnect_forgets_moves_without_a_touch(
 
     assert not surface.strips[0].held
     assert surface._unconfirmed == {}
+
+
+# -- faders without a touch sensor --------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def touchless(surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch) -> list[protocol.StripEvent]:
+    """Fader 1 has no working touch sensor; the events of the surface."""
+    monkeypatch.setattr(surface_module, "TOUCHLESS_LET_GO", 0.05)
+    surface.touchless = frozenset({0})
+    events: list[protocol.StripEvent] = []
+    surface.on_event = events.append
+    return events
+
+
+async def test_a_move_of_a_touchless_fader_is_a_touch(
+    surface: RecordingSurface, touchless: list[protocol.StripEvent]
+) -> None:
+    strip = surface.strips[0]
+    strip.set_fader(0.5)
+    await surface.settled()
+    surface.sent.clear()
+
+    surface._on_data(bytes([0xE0, 0x00, 0x30]))
+    await asyncio.sleep(0.03)
+    surface._on_data(bytes([0xE0, 0x00, 0x20]))
+    # the volume follows the hand (rounded): the target moves, the motor keeps still
+    strip.set_fader(0.3)
+    await asyncio.sleep(0.03)
+    assert touchless == [
+        protocol.FaderTouched(0, True),
+        protocol.FaderMoved(0, 0x1800),
+        protocol.FaderMoved(0, 0x1000),
+    ]
+    assert strip.touched
+    assert surface.faders(0) == []
+
+    # a pause: the finger is gone, and the fader goes to its target
+    await asyncio.sleep(0.05)
+    assert touchless[-1] == protocol.FaderTouched(0, False)
+    assert not strip.touched
+    await surface.settled()
+    assert surface.faders(0)[-1] == protocol.fader_value(0.3)
+
+    # the other faders still need a touch
+    surface._on_data(bytes([0xE1, 0x00, 0x30]))
+    assert len(touchless) == 4
+    assert surface.strips[1].held
+
+
+async def test_a_touch_sensor_that_works_after_all_takes_over(
+    surface: RecordingSurface, touchless: list[protocol.StripEvent]
+) -> None:
+    surface._on_data(bytes([0xE0, 0x00, 0x30]))
+    # the touch comes late: the fader is touched already
+    surface._on_data(bytes([0x90, 0x68, 0x7F]))
+    await asyncio.sleep(0.1)
+    assert touchless == [protocol.FaderTouched(0, True), protocol.FaderMoved(0, 0x1800)]
+    assert surface.strips[0].touched
+
+    # its release lets go, once
+    surface._on_data(bytes([0x90, 0x68, 0x00]))
+    await asyncio.sleep(0.1)
+    assert touchless[2:] == [protocol.FaderTouched(0, False)]
+
+    # a release without a touch before it ends the touch of the moves too
+    surface._on_data(bytes([0xE0, 0x00, 0x30, 0x90, 0x68, 0x00]))
+    await asyncio.sleep(0.1)
+    assert touchless[3:] == [
+        protocol.FaderTouched(0, True),
+        protocol.FaderMoved(0, 0x1800),
+        protocol.FaderTouched(0, False),
+    ]
+
+
+async def test_moves_right_after_a_connect_are_the_device_s_own(
+    device: tuple[Path, Path, int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "TOUCH_GRACE", 10.0)
+    monkeypatch.setattr(surface_module, "TOUCHLESS_LET_GO", 10.0)
+    cards, dev, controller = device
+    surface = Surface(proc_asound_cards=cards, dev_snd=dev)
+    surface.touchless = frozenset({0})
+    events: list[protocol.StripEvent] = []
+    surface.on_event = events.append
+    assert surface.connect()
+
+    # after it was switched on, the device moves its faders down: they wait for a touch like the others
+    os.write(controller, bytes([0xE0, 0x00, 0x30]))
+    for _ in range(50):
+        if surface.strips[0].held:
+            break
+        await asyncio.sleep(0.01)
+    assert surface.strips[0].held
+    assert events == []
+
+    # later a move is a touch; a disconnect forgets it
+    surface._connected_at -= surface_module.TOUCHLESS_STARTUP
+    surface._on_data(bytes([0xE1, 0x00, 0x30, 0xE0, 0x00, 0x20]))
+    assert surface._fingers.keys() == {0}
+    assert surface._midi is not None
+    surface._midi.close()
+    await asyncio.sleep(0)
+    assert surface._fingers == {}

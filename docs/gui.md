@@ -92,7 +92,7 @@ Closing the window with unsaved changes asks whether to save them.
   place, so a symlinked configuration stays one.
 - It reloads the running daemon when that reads the saved file: the service, or one started from a terminal or an
   IDE.
-- A changed `[device]` section is reloaded, but takes a restart to take effect. A changed `[mqtt]` section is not
+- A changed `[device] name` is reloaded, but takes a restart to take effect. A changed `[mqtt]` section is not
   reloaded at all. In both cases the window offers "Restart the service" for the service; restart a daemon that runs
   elsewhere where it runs.
 - It then tells whether the device runs the saved file: "The device runs the saved file", or "The device does not run

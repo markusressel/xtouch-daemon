@@ -22,7 +22,7 @@ def apply(instance: Instance | None, path: Path, restart_sections: tuple[str, ..
     """
     Reloads the running daemon (`instance`, the service or one started elsewhere, e.g. from an IDE) after `path` was
     saved, if it reads that file. `restart_sections` are the changed sections a reload does not take: a changed
-    `[device]` stays the old one until a restart, and the daemon keeps the whole old configuration when `[mqtt]`
+    `[device] name` stays the old one until a restart, and the daemon keeps the whole old configuration when `[mqtt]`
     changed, so that is not reloaded at all.
     """
     if instance is None:
@@ -39,7 +39,7 @@ def apply(instance: Instance | None, path: Path, restart_sections: tuple[str, ..
     instance.reload()
     if "device" in restart_sections:
         return Applied(
-            f"Saved and reloaded. The [device] section changed: restart {daemon} for that to take effect.",
+            f"Saved and reloaded. The device name changed: restart {daemon} for that to take effect.",
             reloaded=True,
             restart_needed=True,
         )

@@ -6,6 +6,8 @@
 [device]
 # Part of the name of the extender's sound card (see /proc/asound/cards).
 name = "X-Touch-Ext"
+# Faders whose touch sensor does not work (1 on the left): a move counts as a touch, a short pause as letting go.
+touchless_faders = []
 
 [behavior]
 max_volume = 100          # the volume of a fader at the top; up to 200 amplifies in software

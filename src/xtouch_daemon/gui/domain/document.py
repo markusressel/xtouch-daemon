@@ -23,7 +23,8 @@ from xtouch_daemon.gui.domain.schema import Section, sections, strip_models
 SECTIONS: dict[str, Section] = {section.name: section for section in sections()}
 """The sections with options of their own (`[device]`, `[behavior]`, `[mqtt]`), edited option by option."""
 
-RESTART_SECTIONS = ("device", "mqtt")
+RESTART_SECTIONS: dict[str, str | None] = {"device": "name", "mqtt": None}
+"""The sections a reload does not take, with the one option of them that matters (None: all of them)."""
 """What a reload does not change: the daemon keeps the device it opened, and its configuration on a new `[mqtt]`."""
 
 ORDER = (
@@ -160,7 +161,16 @@ class ConfigDocument:
     def restart_sections(self) -> tuple[str, ...]:
         """The sections that changed since the file was read or saved and that the daemon takes only with a restart."""
         data = self.data()
-        return tuple(name for name in RESTART_SECTIONS if data.get(name) != self._saved.get(name))
+
+        def part(of: dict[str, Any], name: str, option: str | None) -> object:
+            section = of.get(name)
+            return section.get(option) if option is not None and isinstance(section, dict) else section
+
+        return tuple(
+            name
+            for name, option in RESTART_SECTIONS.items()
+            if part(data, name, option) != part(self._saved, name, option)
+        )
 
     def validate(self) -> Validation:
         problems: list[Problem] = []

@@ -8,6 +8,7 @@ motor faders smoothly. What happens on the device (fader moves, touches, buttons
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -57,6 +58,18 @@ Seconds a fader that moved without a touch waits for one. The device reports a t
 of a quick hand (about 50-100 ms late), so such a move is held without driving the motor: with a touch it was the
 hand, without one the device itself (e.g. its faders going down after it was switched on), and the fader goes back to
 its value.
+"""
+
+TOUCHLESS_LET_GO = 0.5
+"""
+Seconds without a move after which the finger counts as gone from a fader without a working touch sensor (see
+`Surface.touchless`).
+"""
+TOUCHLESS_STARTUP = 3.0
+"""
+Seconds after a connect in which a move of a fader without a working touch sensor does not count as a hand: after it was
+switched on, the device moves its faders down by itself. Such moves are handled like those of the other faders (see
+TOUCH_GRACE).
 """
 
 
@@ -260,6 +273,11 @@ class Surface:
         dev_snd: Path = DEV_SND,
     ):
         self.device_name = device_name
+        self.touchless: frozenset[int] = frozenset()
+        """
+        The strips (from 0) whose fader has no working touch sensor: a move counts as a touch, a pause of
+        TOUCHLESS_LET_GO as letting go.
+        """
         self.proc_asound_cards = proc_asound_cards
         self.dev_snd = dev_snd
         self.strips = [Strip(self, index) for index in range(protocol.STRIPS)]
@@ -267,6 +285,10 @@ class Surface:
         self.on_connection: ConnectionHandler = lambda connected: None
         self._unconfirmed: dict[int, tuple[int, asyncio.TimerHandle]] = {}
         """The faders that moved without a touch: where to, and the timer that gives up waiting (TOUCH_GRACE)."""
+        self._fingers: dict[int, asyncio.TimerHandle] = {}
+        """The touchless faders a finger moves, with the timer that lets go of them (TOUCHLESS_LET_GO)."""
+        self._connected_at = -math.inf
+        """When the device was connected last (the time of the event loop), see TOUCHLESS_STARTUP."""
         self.on_unknown: Callable[[bytes], None] = lambda message: _LOGGER.debug(
             f"Unknown message from the device: {message.hex(' ')}"
         )
@@ -373,6 +395,7 @@ class Surface:
         path = self.dev_snd / f"midiC{card}D0"
         self._midi = RawMidi(path, on_data=self._on_data, on_closed=self._on_closed)
         self._disconnected.clear()
+        self._connected_at = asyncio.get_running_loop().time()
         self._parser = protocol.MessageParser()
         _LOGGER.info(f"Connected to {self.device_name} at {path}")
         # the startup sequence: dark at first, then from the left one strip after the other lights up
@@ -397,6 +420,9 @@ class Surface:
             timer.cancel()
             self.strips[index].held = False
         self._unconfirmed.clear()
+        for timer in self._fingers.values():
+            timer.cancel()
+        self._fingers.clear()
         self._midi = None
         self._disconnected.set()
         self.on_connection(False)
@@ -411,6 +437,19 @@ class Surface:
                 continue
             strip = self.strips[event.strip]
             match event:
+                case protocol.FaderMoved(strip=index) if not strip.touched and self._move_is_touch(index):
+                    # no touch sensor: the move is the touch
+                    self._fingers[index] = self._let_go_later(index)
+                    self._handle(protocol.FaderTouched(index, True))
+                case protocol.FaderMoved(strip=index) if index in self._fingers:
+                    # the finger is still there
+                    self._fingers[index].cancel()
+                    self._fingers[index] = self._let_go_later(index)
+                case protocol.FaderTouched(strip=index, touched=touched) if index in self._fingers:
+                    # the sensor works after all: from now on it tells when the finger is gone
+                    self._fingers.pop(index).cancel()
+                    if touched:
+                        continue
                 case protocol.FaderMoved(strip=index, value=value) if not strip.touched:
                     # a hand or the device itself: the touch tells (see TOUCH_GRACE)
                     strip.moved_by_hand(value)
@@ -429,6 +468,19 @@ class Surface:
                     self._handle(protocol.FaderMoved(index, value))
                     continue
             self._handle(event)
+
+    def _move_is_touch(self, index: int) -> bool:
+        """Whether a move of the fader without a touch counts as one (see `touchless`)."""
+        loop = asyncio.get_running_loop()
+        return index in self.touchless and loop.time() >= self._connected_at + TOUCHLESS_STARTUP
+
+    def _let_go_later(self, index: int) -> asyncio.TimerHandle:
+        return asyncio.get_running_loop().call_later(TOUCHLESS_LET_GO, self._let_go, index)
+
+    def _let_go(self, index: int) -> None:
+        """A touchless fader stopped moving: the finger is gone."""
+        del self._fingers[index]
+        self._handle(protocol.FaderTouched(index, False))
 
     def _untouched(self, index: int) -> None:
         """No touch came: the device moved the fader, which goes back to its value."""

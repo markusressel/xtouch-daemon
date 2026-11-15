@@ -7,8 +7,31 @@ The sections that apply to the daemon and to every strip. The GUI shows them in 
 | Option | Default | Meaning |
 |---|---|---|
 | `name` | `"X-Touch-Ext"` | Part of the name of the extender's sound card, as `/proc/asound/cards` lists it. |
+| `touchless_faders` | `[]` | Faders whose touch sensor does not work, numbered from 1 on the left, see [below](#faders-without-a-touch-sensor). |
 
-A changed `[device]` section needs a restart of the daemon.
+A changed `name` needs a restart of the daemon; a reload takes `touchless_faders`.
+
+### Faders without a touch sensor
+
+Only a touched fader changes a value (see [Hardware](../hardware.md#motor-faders)), so a fader whose touch sensor
+failed goes back to its value after every move. Until it is repaired, `touchless_faders` lets it work without the
+sensor: a move counts as a touch, and half a second without a move as letting go. In the GUI these are the buttons
+under "Touchless faders" on the page "Device".
+
+```toml
+[device]
+touchless_faders = [1]   # the touch sensor of fader 1 is broken
+```
+
+What it can't do:
+
+- **Resting fingers:** a finger that rests on the fader without moving it counts as gone after half a second. The
+  fader then goes to its value, which is where the finger left it, so you notice nothing, unless the value changes
+  elsewhere meanwhile.
+- **The first 3 seconds after a connect:** after it was switched on, the device moves its faders down by itself. So in
+  the first 3 seconds after the device was connected, a move counts only with a touch, like on the other faders.
+- **The device's own motor control:** the device holds a fader at its last position while it notices no touch. That
+  happens in the device, not in the daemon, so the fader may feel stiffer than the others.
 
 ## `[behavior]`
 

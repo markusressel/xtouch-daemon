@@ -277,6 +277,9 @@ def test_revert_drops_the_changes(tmp_path: Path):
 def test_sections_that_take_a_restart_are_noticed():
     doc = document()
     assert doc.restart_sections == ()
+    # the faders without a touch sensor change with a reload
+    doc.set(("device", "touchless_faders"), [1])
+    assert doc.restart_sections == ()
     doc.set(("device", "name"), "Other")
     assert doc.restart_sections == ("device",)
     doc.add_section("mqtt")

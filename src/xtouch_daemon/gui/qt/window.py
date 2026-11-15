@@ -524,7 +524,7 @@ class MainWindow(QMainWindow):
         if not state.installed:
             tone, text, tip = Tone.WARN, "Install and start", "Write the systemd user unit, enable and start it"
         elif state.running:
-            tone, text, tip = Tone.GOOD, "Restart", "Restart the daemon, e.g. after changing [device]"
+            tone, text, tip = Tone.GOOD, "Restart", "Restart the daemon, e.g. after changing the device name"
         else:
             tone = Tone.BAD if state.active == "failed" else Tone.NEUTRAL
             text, tip = "Start", "Enable the service and start it"

@@ -195,19 +195,28 @@ async def test_a_configuration_with_errors_is_reported_and_the_current_one_kept(
     assert notifications[-1] == ("READY=1", "STATUS=Configuration has errors, see the log")
 
 
-async def test_a_changed_device_section_needs_a_restart(
+async def test_a_changed_device_name_needs_a_restart(
     config_path: Path,
     surface: RecordingSurface,
     backend: FakeBackend,
     notifications: Notifications,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    config_path.write_text("[device]\ntouchless_faders = [1, 8]\n" + SPEAKER)
     daemon = make(config_path, surface, backend)
+    assert surface.touchless == {0, 7}
+
+    # the faders without a touch sensor change with a reload
+    config_path.write_text("[device]\ntouchless_faders = [2]\n" + SPEAKER)
+    assert daemon.reload()
+    assert surface.touchless == {1}
+    assert "restart the daemon" not in caplog.text
 
     config_path.write_text('[device]\nname = "X-Touch"\n' + SPEAKER)
     assert daemon.reload()
 
-    assert "restart the daemon" in caplog.text
+    assert "The name in the [device] section changed: restart the daemon" in caplog.text
+    assert surface.touchless == frozenset()
     daemon.mixer.close()
     await settle()
 

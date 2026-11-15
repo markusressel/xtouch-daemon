@@ -26,7 +26,9 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
         ("auto_hold", Kind.NUMBER),
         ("ignore", Kind.LIST),
     ]
-    assert options(DeviceConfig)[0].default == "X-Touch-Ext"
+    name, touchless = options(DeviceConfig)
+    assert name.default == "X-Touch-Ext"
+    assert (touchless.kind, touchless.default, touchless.minimum, touchless.maximum) == (Kind.NUMBERS, (), 1, 8)
 
 
 def test_every_strip_type_has_its_model_and_options():

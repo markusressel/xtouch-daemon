@@ -147,7 +147,7 @@ class SectionPage(Page):
                 ],
             )
             if name == "device":
-                layout.addWidget(label("A changed [device] section takes a restart of the service.", "help"))
+                layout.addWidget(label("A changed name takes a restart of the service.", "help"))
         self.layout_.addWidget(frame)
         self.layout_.addStretch()
 

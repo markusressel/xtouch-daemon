@@ -41,6 +41,11 @@ class MixerFactory(Protocol):
     ) -> Mixer: ...
 
 
+def touchless(config: Config) -> frozenset[int]:
+    """The strips (from 0) whose fader has no working touch sensor."""
+    return frozenset(number - 1 for number in config.device.touchless_faders)
+
+
 class Daemon:
     def __init__(
         self,
@@ -63,6 +68,7 @@ class Daemon:
         self.config_path = config_path
         self.backend = backend
         self.surface = surface or Surface(config.device.name)
+        self.surface.touchless = touchless(config)
         self.bridge = bridge or (MqttBridge(config.mqtt) if config.mqtt is not None else None)
         if self.bridge is not None:
             self.bridge.on_connection = self._on_mqtt_connection
@@ -94,8 +100,9 @@ class Daemon:
             _LOGGER.error("Keeping the current configuration: the [mqtt] section changed, restart the daemon instead")
             systemd.notify("READY=1", "STATUS=The [mqtt] section changed, restart the daemon")
             return False
-        if config.device != self.config.device:
-            _LOGGER.warning("The [device] section changed: restart the daemon for it to take effect")
+        if config.device.name != self.config.device.name:
+            _LOGGER.warning("The name in the [device] section changed: restart the daemon for it to take effect")
+        self.surface.touchless = touchless(config)
         state = self.mixer.state
         self.mixer.close()
         self.config = config

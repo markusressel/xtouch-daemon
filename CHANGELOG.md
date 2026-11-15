@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `[device] touchless_faders`: faders whose touch sensor failed work without it: a move counts as a touch, half a
+  second without a move as letting go.
 - Strip types `output` and `input` (a device, several with Select switching between them, e.g. any Bluetooth
   headphones with `bluez_output.*`, or the default one; Select makes it the default), `apps` (all streams of
   a group of applications), `auto` (the next application that plays) and `empty`.

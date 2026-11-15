@@ -31,6 +31,8 @@ class Kind(StrEnum):
     """A text that is not shown, e.g. a password."""
     PATH = "path"
     """The path of a file."""
+    NUMBERS = "numbers"
+    """Some of the whole numbers from `minimum` to `maximum`, e.g. faders."""
     TABLES = "tables"
     """A list of tables with texts (`Option.columns`), e.g. the profiles of a strip."""
 
@@ -89,6 +91,8 @@ def _kind(annotation: Any) -> Kind:
         return Kind.CHOICE
     if annotation == tuple[str, ...]:
         return Kind.LIST
+    if get_origin(annotation) is tuple and _unwrap(get_args(annotation)[0])[0] is int:
+        return Kind.NUMBERS
     kinds = {
         bool: Kind.SWITCH,
         int: Kind.INTEGER,
@@ -106,6 +110,9 @@ def option(name: str, field: FieldInfo) -> Option:
     annotation, constraints = _unwrap(field.annotation)
     constraints += field.metadata
     kind = _kind(annotation)
+    if kind == Kind.NUMBERS:
+        # the bounds of each number
+        constraints += _unwrap(get_args(annotation)[0])[1]
     bounds: dict[str, Any] = {}
     for constraint in constraints:
         match constraint:

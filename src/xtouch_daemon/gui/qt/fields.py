@@ -233,6 +233,35 @@ class ColorPicker(QWidget):
         self.group.setExclusive(True)
 
 
+class NumberToggles(QWidget):
+    """Some of the numbers from `minimum` to `maximum`, as buttons that stay pressed (e.g. faders)."""
+
+    changed = pyqtSignal(list, arguments=["numbers"])
+
+    def __init__(self, minimum: int, maximum: int):
+        super().__init__()
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.buttons: dict[int, QPushButton] = {}
+        for number in range(minimum, maximum + 1):
+            button = QPushButton(str(number), self)
+            theme.set_role(button, "segment", "variant")
+            button.setCheckable(True)
+            button.clicked.connect(lambda _=False: self.changed.emit(self.values))
+            self.buttons[number] = button
+            layout.addWidget(button)
+        layout.addStretch()
+
+    @property
+    def values(self) -> list[int]:
+        return [number for number, button in self.buttons.items() if button.isChecked()]
+
+    def show_values(self, values: list[int]) -> None:
+        for number, button in self.buttons.items():
+            button.setChecked(number in values)
+
+
 class FlowLayout(QLayout):
     """Lays out its widgets in lines, like words (for the chips of a list)."""
 
@@ -557,6 +586,11 @@ class OptionRow(QWidget):
                 self.chips.changed.connect(self._edit)
                 self.input = self.chips
                 return self.chips
+            case Kind.NUMBERS:
+                self.numbers = NumberToggles(int(option.minimum or 0), int(option.maximum or 0))
+                self.numbers.changed.connect(self._edit)
+                self.input = self.numbers
+                return self.numbers
             case Kind.TABLES:
                 self.tables = Tables(option.columns, suggest)
                 self.tables.changed.connect(self._edit)
@@ -648,6 +682,9 @@ class OptionRow(QWidget):
                 case Kind.LIST:
                     # a single value may stand alone, e.g. `device = "speaker"`
                     self.chips.show_values([shown] if isinstance(shown, str) else [str(item) for item in shown or ()])
+                case Kind.NUMBERS:
+                    # a value of another type shows none; its problem says what is wrong
+                    self.numbers.show_values(list(shown) if isinstance(shown, list | tuple) else [])
                 case Kind.TABLES:
                     # a value of another type shows none; its problem says what is wrong
                     tables = shown if isinstance(shown, list | tuple) else ()

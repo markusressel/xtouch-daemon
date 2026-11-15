@@ -80,11 +80,20 @@ Volume = Annotated[int, Field(ge=0, le=VOLUME_LIMIT)]
 """A volume in percent."""
 
 
+FaderNumber = Annotated[int, Field(ge=1, le=protocol.STRIPS)]
+"""A fader of the device, 1 on the left."""
+
+
 class DeviceConfig(_Model):
     """The device the daemon drives."""
 
     name: str = "X-Touch-Ext"
     """Part of the name of the sound card of the extender (see /proc/asound/cards)."""
+    touchless_faders: tuple[FaderNumber, ...] = ()
+    """
+    Faders whose touch sensor does not work, numbered from 1 on the left: a move counts as a touch, a short pause in
+    the moves as letting go.
+    """
 
 
 class BehaviorConfig(_Model):

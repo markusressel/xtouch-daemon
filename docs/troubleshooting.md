@@ -25,7 +25,9 @@ before `xtouch-daemon test` (`systemctl --user stop xtouch-daemon`), and close D
 logged-in user; without a session, add the user to the `audio` group. See [Hardware](hardware.md#linux-access).
 
 **A fader does not change the volume.** Only a touched fader changes a value. A fader whose touch sensor failed goes
-back to its value after a move. `xtouch-daemon test` shows whether the device reports `fader touched`.
+back to its value after a move. `xtouch-daemon test` shows whether the device reports `fader touched`. Until the
+sensor is repaired, [`touchless_faders`](configuration/behavior.md#faders-without-a-touch-sensor) makes the fader work
+without it.
 
 **A fader jumps on its first move after the daemon started.** The device can't tell where its faders are, so after a
 connect the daemon assumes them at the bottom. A fader moved while the daemon did not run jumps from where it really
@@ -54,7 +56,7 @@ intended.
 ## Configuration
 
 **A change does not show on the device.** Reload the daemon after saving: `systemctl --user reload xtouch-daemon`. A
-file with errors is logged and the old configuration stays: run `xtouch-daemon check-config`. A changed `[device]` or
+file with errors is logged and the old configuration stays: run `xtouch-daemon check-config`. A changed `[device] name` or
 `[mqtt]` section needs a restart. The [GUI](gui.md) tells whether the device runs the saved file.
 
 ## Home Assistant

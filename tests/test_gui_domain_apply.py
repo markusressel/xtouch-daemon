@@ -30,7 +30,7 @@ def test_a_daemon_started_elsewhere_reloads_too(path: Path):
 
     assert daemon.reloads == [4242]
     assert applied == Applied(
-        "Saved and reloaded. The [device] section changed: restart the daemon (process 4242) for that to take effect.",
+        "Saved and reloaded. The device name changed: restart the daemon (process 4242) for that to take effect.",
         reloaded=True,
         restart_needed=True,
     )

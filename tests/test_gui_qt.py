@@ -1318,6 +1318,26 @@ def test_global_settings_are_apart_from_the_strips(qtbot: QtBot, window: MainWin
     assert window.preview.strips[0].selected
 
 
+def test_faders_are_picked_with_buttons(qtbot: QtBot, window: MainWindow):
+    click(qtbot, window.nav_buttons["device"])
+    faders = row(window, "touchless_faders", "device").numbers
+    assert list(faders.buttons) == list(range(1, 9))
+    assert faders.values == []
+
+    click(qtbot, faders.buttons[3])
+    click(qtbot, faders.buttons[1])
+    assert window.document.get(("device", "touchless_faders")) == [1, 3]
+    click(qtbot, faders.buttons[1])
+    click(qtbot, faders.buttons[3])
+    # none: the option goes away
+    assert window.document.get(("device", "touchless_faders")) is None
+
+    # a value of another type shows none
+    window.document.set(("device", "touchless_faders"), "1")
+    window.reload_pages()
+    assert row(window, "touchless_faders", "device").numbers.values == []
+
+
 def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):
     # the help of the label has quotes but no tag, which Qt would show as plain text, entities and all
     (help_label,) = [
