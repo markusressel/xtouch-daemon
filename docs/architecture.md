@@ -88,7 +88,9 @@ number (a fader moved by hand at most every 100 ms), buttons publish events, whi
   wakes a device, never lights the microphone indicator, and never switches Bluetooth headphones into headset mode. They
   are native PipeWire streams on purpose: WirePlumber 0.5.18 (PipeWire 1.6.10) restores captures of PulseAudio clients
   (`parec`, peak detection streams) at 0 % volume, so those would only get silence. `state.restore-props = false`
-  keeps WirePlumber from saving the captures at all.
+  keeps WirePlumber from saving the captures at all. `node.dont-reconnect = true` keeps a capture with its device or
+  stream: WirePlumber makes a stream whose target is the default when it is linked follow the default (like
+  PulseAudio), so without it the meter of the default output would show the next default output after Select.
 - **Stall restart.** WirePlumber links a passive capture only once and gives up when that fails, e.g. while Bluetooth
   headphones disappear and streams move. A capture that gets no audio for 3 s while its device or stream plays is
   started again.

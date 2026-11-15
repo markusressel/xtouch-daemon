@@ -52,6 +52,9 @@ def test_the_capture_command_is_passive_and_raw():
     stream = capture_command(STREAM, "/usr/bin/pw-record")
     assert stream[:3] == ["/usr/bin/pw-record", "--target", "42"]
     assert "stream.capture.sink" not in stream[stream.index("-P") + 1]
+    # a capture of a device or stream stays with it; the one of the default output follows the default
+    assert "node.dont-reconnect = true" in stream[stream.index("-P") + 1]
+    assert "node.dont-reconnect" not in properties
 
 
 def executable(directory: Path, script: str) -> str:

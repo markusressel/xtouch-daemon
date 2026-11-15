@@ -54,3 +54,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 
 [0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/v0.1.0
+
+### Fixed
+
+- The meter of an output that was the default followed the default to the next output after Select (WirePlumber
+  makes such a capture follow the default); meters now stay with their device.

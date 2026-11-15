@@ -71,6 +71,10 @@ def capture_command(target: CaptureTarget, command: str = PW_RECORD) -> list[str
         # not saved by WirePlumber (it would restore the volume of a capture it has not seen before as 0 %)
         "state.restore-props = false",
         *(["stream.capture.sink = true"] if target.monitor else []),
+        # stays with its target: WirePlumber makes a stream whose target is the default when it is linked follow the
+        # default from then on (like PulseAudio), so the meter of the default output would show the next default
+        # output after Select. A target that is not there ends the capture instead of linking it to the default.
+        *(["node.dont-reconnect = true"] if target.node is not None else []),
     ]
     return [
         command,

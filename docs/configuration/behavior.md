@@ -14,7 +14,7 @@ A changed `name` needs a restart of the daemon; a reload takes `touchless_faders
 ### Faders without a touch sensor
 
 Only a touched fader changes a value (see [Hardware](../hardware.md#motor-faders)), so a fader whose touch sensor
-failed goes back to its value after every move. Until it is repaired, `touchless_faders` lets it work without the
+failed goes back to its value shortly after every move. Until it is repaired, `touchless_faders` lets it work without the
 sensor: a move counts as a touch, and half a second without a move as letting go. In the GUI these are the buttons
 under "Touchless faders" on the page "Device".
 
@@ -30,8 +30,6 @@ What it can't do:
   elsewhere meanwhile.
 - **The first 3 seconds after a connect:** after it was switched on, the device moves its faders down by itself. So in
   the first 3 seconds after the device was connected, a move counts only with a touch, like on the other faders.
-- **The device's own motor control:** the device holds a fader at its last position while it notices no touch. That
-  happens in the device, not in the daemon, so the fader may feel stiffer than the others.
 
 ## `[behavior]`
 
