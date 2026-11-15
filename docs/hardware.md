@@ -41,9 +41,12 @@ Only one program can have the device open. Stop the daemon before `xtouch-daemon
   steps, becomes one even movement.
 - **Arriving:** once a fader is there, its value is sent twice more (after 0.15 s and 0.4 s), in case the motor
   stopped short of it. Stopping the daemon waits for that.
-- **Putting away:** a fader that goes to the bottom because its strip goes dark (the daemon stops, a reload) glides
-  three times slower. After a fast move the motor stops a little short of the bottom; a slow one gets there. Tried on
-  the device: neither sending the value again nor a nudge (a little up, then down again) did as well.
+- **Slow moves:** the big moves glide three times slower, and stay slow until the fader arrived: a fader that is put
+  away because its strip goes dark (the daemon stops, an application ended, a reload), and the first move after a
+  connect. After a fast move the motor stops a little short of the bottom; a slow one gets there. Tried on the device:
+  neither sending the value again nor a nudge (a little up, then down again) did as well.
+- **Startup and shutdown sequences:** after a connect the strips light up one after the other from the left, 80 ms
+  apart, and their faders come up; when the daemon stops they go dark from the right and their faders go down.
 - **Start:** the device can't tell where its faders are. It reports a position only while a finger moves a fader,
   not after a connect, not on the device query, not after a motor move. So after a connect a fader is assumed at the
   bottom, where the daemon leaves the faders when it stops, and glides from there. If it was moved while the daemon

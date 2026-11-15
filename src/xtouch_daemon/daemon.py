@@ -23,7 +23,7 @@ from xtouch_daemon.surface import Surface
 _LOGGER = logging.getLogger(__name__)
 
 SHUTDOWN_TIMEOUT = 4.0
-"""How long the faders may take to move down when the daemon stops (they go slowly, see FADER_PARK_SMOOTH_TIME)."""
+"""How long the faders may take to move down when the daemon stops (they go slowly, see FADER_SLOW_SMOOTH_TIME)."""
 
 
 class MixerFactory(Protocol):
@@ -130,7 +130,8 @@ class Daemon:
     async def _shutdown(self, surface: asyncio.Task[None], parts: list[asyncio.Task[None]]) -> None:
         """
         Leaves the surface dark: first everything stops that could show something on it (the sound server, Home
-        Assistant, the mixer, the device's own events), then the strips are reset, and only then the surface closes.
+        Assistant, the mixer, the device's own events), then the shutdown sequence puts the strips away, and only then
+        the surface closes.
         """
         _LOGGER.info("Stopping")
         self.surface.on_event = lambda event: None
@@ -144,10 +145,8 @@ class Daemon:
             task.cancel()
         await asyncio.gather(*others, return_exceptions=True)
 
-        for strip in self.surface.strips:
-            strip.reset()
         with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(self.surface.settled(), SHUTDOWN_TIMEOUT)
+            await asyncio.wait_for(self.surface.put_away(), SHUTDOWN_TIMEOUT)
 
         # its end sends what is still queued and closes the device
         surface.cancel()

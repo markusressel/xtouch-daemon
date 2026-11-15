@@ -119,7 +119,7 @@ async def test_more_signals_while_stopping_do_not_cut_the_shutdown_short(
     await until(lambda: surface.strips[0].text == ["Speaker", "50%"])
     await surface.settled()
     # the faders take a while to go down: signals come in meanwhile
-    monkeypatch.setattr(surface_module, "FADER_PARK_SMOOTH_TIME", 0.3)
+    monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", 0.3)
 
     os.kill(os.getpid(), signal.SIGINT)
     await until(lambda: "STOPPING=1" in notifications.states())

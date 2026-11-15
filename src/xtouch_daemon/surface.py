@@ -29,11 +29,14 @@ spring (no overshoot) that reaches it in about FADER_SMOOTH_TIME. The spring kee
 so updates that come in steps (a volume dragged elsewhere arrives in 1-2 % steps) become one even movement instead of
 a start and stop per step.
 """
-FADER_PARK_SMOOTH_TIME = 0.3
+FADER_SLOW_SMOOTH_TIME = 0.3
 """
-The smooth time of a fader that is put away (see `Strip.reset()`), e.g. when the daemon stops: the motors stop short of
-the bottom after a fast move, a slower one gets there.
+The smooth time of the big moves: a fader that is put away (see `Strip.park()`), e.g. when the daemon stops, and the
+first move after a connect. The motors stop short of the bottom after a fast move, a slower one gets there; and the
+startup and shutdown sequences look calmer.
 """
+SEQUENCE_STAGGER = 0.08
+"""Seconds between the strips of the startup and shutdown sequences (see `Surface.open()` and `Surface.put_away()`)."""
 FADER_SNAP = 48
 FADER_SNAP_SPEED = 2000
 """The fader is put at its target once it is this close (about 0.3 %) and this slow (fader steps per second)."""
@@ -70,6 +73,8 @@ class Strip:
         self._surface = surface
         self.index = index
         self.touched = False
+        self.shown = True
+        """Whether the device shows the strip: not after a connect until its turn in the startup sequence."""
         self.color = Color.BLACK
         self.text = ["", ""]
         self.leds: dict[Button, Led] = {}
@@ -79,7 +84,8 @@ class Strip:
         self._position: float | None = None
         """Where the fader is: what was sent to the motor last, or where a finger put it."""
         self._velocity = 0.0
-        self._smooth_time = FADER_SMOOTH_TIME
+        self._slow = False
+        """Whether the fader moves slowly (see FADER_SLOW_SMOOTH_TIME) until it arrives."""
         self._confirm_at: list[float] = []
         """When to send the target again (see FADER_CONFIRM_DELAYS)."""
 
@@ -94,37 +100,50 @@ class Strip:
         self.park()
 
     def park(self) -> None:
-        """Puts the fader away: slowly to the bottom (see FADER_PARK_SMOOTH_TIME)."""
-        self.set_fader(0.0, FADER_PARK_SMOOTH_TIME)
+        """Puts the fader away: slowly to the bottom (see FADER_SLOW_SMOOTH_TIME)."""
+        self.set_fader(0.0, slow=True)
 
-    def set_fader(self, fraction: float, smooth_time: float = FADER_SMOOTH_TIME) -> None:
+    def set_fader(self, fraction: float, slow: bool = False) -> None:
         """
-        Moves the fader to 0.0..1.0, unless a finger is on it: then it moves there when it is let go. `smooth_time`
-        sets how fast (see FADER_SMOOTH_TIME).
+        Moves the fader to 0.0..1.0, unless a finger is on it: then it moves there when it is let go. A `slow` move
+        stays slow until the fader arrived, even when the target changes on the way.
         """
         self.fader = protocol.fader_value(fraction)
-        self._smooth_time = smooth_time
+        self._slow = self._slow or slow
         if not self.touched:
+            self._surface.glide(self)
+
+    def _send(self, message: bytes) -> None:
+        if self.shown:
+            self._surface.send(message)
+
+    def reveal(self) -> None:
+        """Its turn in the startup sequence: shows everything, and the fader glides to its place."""
+        self.shown = True
+        for message in self.connected():
+            self._surface.send(message)
+        self._surface.send_colors()
+        if self.fader is not None:
             self._surface.glide(self)
 
     def set_led(self, button: Button, state: Led) -> None:
         if self.leds.get(button) == state:
             return
         self.leds[button] = state
-        self._surface.send(protocol.led(self.index, button, state))
+        self._send(protocol.led(self.index, button, state))
 
     def set_text(self, line: int, text: str) -> None:
         text = text[: protocol.LCD_CELL_WIDTH]
         if self.text[line] == text:
             return
         self.text[line] = text
-        self._surface.send(protocol.lcd_text(self.index, line, text))
+        self._send(protocol.lcd_text(self.index, line, text))
 
     def set_ring(self, position: int, mode: RingMode = RingMode.DOT) -> None:
         if self.ring == (position, mode):
             return
         self.ring = (position, mode)
-        self._surface.send(protocol.ring(self.index, position, mode))
+        self._send(protocol.ring(self.index, position, mode))
 
     def set_color(self, color: Color) -> None:
         if self.color == color:
@@ -137,7 +156,7 @@ class Strip:
         Lights the meter up to 0..METER_MAX. Not remembered: the device lets it fall by itself, a level is held by
         sending it again.
         """
-        self._surface.send(protocol.meter(self.index, level))
+        self._send(protocol.meter(self.index, level))
 
     # -- the motor ------------------------------------------------------------------------------------------------
 
@@ -150,6 +169,7 @@ class Strip:
     def moved_by_hand(self, value: int) -> None:
         self._position = value
         self._velocity = 0.0
+        self._slow = False
 
     def step(self, now: float) -> bool:
         """
@@ -160,9 +180,11 @@ class Strip:
             self._confirm_at.clear()
             return False
         if self._position is None:
+            # the first move after a connect: from where the fader probably is, slowly
             self._position = FADER_REST
             self._velocity = 0.0
-            if self._position == self.fader:
+            self._slow = self._position != self.fader
+            if not self._slow:
                 # assumed to be there already: the target all the same, in case it is not
                 self._surface.send(protocol.fader(self.index, self.fader))
                 self._confirm_at = [now + delay for delay in FADER_CONFIRM_DELAYS]
@@ -173,11 +195,16 @@ class Strip:
                 self._surface.send(protocol.fader(self.index, self.fader))
             return bool(self._confirm_at)
         self._position, self._velocity = smooth_damp(
-            self._position, self._velocity, self.fader, self._smooth_time, FADER_TICK
+            self._position,
+            self._velocity,
+            self.fader,
+            FADER_SLOW_SMOOTH_TIME if self._slow else FADER_SMOOTH_TIME,
+            FADER_TICK,
         )
         if abs(self.fader - self._position) <= FADER_SNAP and abs(self._velocity) <= FADER_SNAP_SPEED:
             self._position = self.fader
             self._velocity = 0.0
+            self._slow = False
             self._confirm_at = [now + delay for delay in FADER_CONFIRM_DELAYS]
         self._surface.send(protocol.fader(self.index, round(self._position)))
         return True
@@ -185,7 +212,7 @@ class Strip:
     def connected(self) -> list[bytes]:
         """
         Everything the strip shows, for a device that was just connected. The fader glides to its place (from where it
-        was before, or from FADER_REST): see `Surface.open()`.
+        was before, or from FADER_REST): see `reveal()`.
         """
         self.touched = False
         self._velocity = 0.0
@@ -223,6 +250,7 @@ class Surface:
         self._disconnected = asyncio.Event()
         self._gliding: set[Strip] = set()
         self._glider: asyncio.Task[None] | None = None
+        self._revealer: asyncio.Task[None] | None = None
 
     @property
     def connected(self) -> bool:
@@ -235,10 +263,13 @@ class Surface:
             self._midi.write(message)
 
     def send_colors(self) -> None:
-        self.send(protocol.lcd_colors([strip.color for strip in self.strips]))
+        self.send(protocol.lcd_colors([strip.color if strip.shown else Color.BLACK for strip in self.strips]))
 
     def glide(self, strip: Strip) -> None:
         """Moves the fader of the strip to its target smoothly (see FADER_SMOOTH_TIME)."""
+        if not strip.shown:
+            # it moves when its turn in the startup sequence comes
+            return
         self._gliding.add(strip)
         if self._glider is None or self._glider.done():
             self._glider = asyncio.create_task(self._glide(), name="fader motors")
@@ -254,9 +285,25 @@ class Surface:
                 await asyncio.sleep(FADER_TICK)
 
     async def settled(self) -> None:
-        """Waits until the faders are where they should be (including sending their targets again)."""
+        """Waits until the startup sequence is done and the faders are where they should be."""
+        if self._revealer is not None and not self._revealer.done():
+            await self._revealer
         while self._glider is not None and not self._glider.done():
             await self._glider
+
+    async def put_away(self) -> None:
+        """The shutdown sequence: from the right, one strip after the other goes dark and puts its fader away."""
+        for index, strip in enumerate(reversed(self.strips)):
+            if index:
+                await asyncio.sleep(SEQUENCE_STAGGER)
+            strip.reset()
+        await self.settled()
+
+    async def _reveal(self) -> None:
+        for index, strip in enumerate(self.strips):
+            if index:
+                await asyncio.sleep(SEQUENCE_STAGGER)
+            strip.reveal()
 
     # -- connection ---------------------------------------------------------------------------------------------
 
@@ -302,12 +349,11 @@ class Surface:
         self._disconnected.clear()
         self._parser = protocol.MessageParser()
         _LOGGER.info(f"Connected to {self.device_name} at {path}")
+        # the startup sequence: dark at first, then from the left one strip after the other lights up
         for strip in self.strips:
-            for message in strip.connected():
-                self.send(message)
-            if strip.fader is not None:
-                self.glide(strip)
+            strip.shown = False
         self.send_colors()
+        self._revealer = asyncio.create_task(self._reveal(), name="startup sequence")
         self.on_connection(True)
 
     async def close(self) -> None:
@@ -319,6 +365,8 @@ class Surface:
         midi.close()
 
     def _on_closed(self) -> None:
+        assert self._revealer is not None, "open() starts the startup sequence"
+        self._revealer.cancel()
         self._midi = None
         self._disconnected.set()
         self.on_connection(False)

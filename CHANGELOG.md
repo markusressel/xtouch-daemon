@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Motor faders that glide smoothly (also after a connect, from the bottom), follow changes made elsewhere, stay still
   while touched, and get their value again after arriving so the motor doesn't stop short. Strips with nothing to
   control (an application that ended, a device that is gone, the daemon stopping) put their faders away slowly.
+- Startup and shutdown sequences: the strips light up one after the other from the left after a connect, and go dark
+  from the right when the daemon stops.
 - LCD labels, volume and state on a backlight in the strip's color; Mute LED; encoder for fine steps, push to reset.
 - Passive LED meters from `pw-record` captures.
 - Strip type `homeassistant`: the fader, encoder, LCD lines and color, LEDs and button events of a strip become

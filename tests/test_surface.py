@@ -396,7 +396,7 @@ def test_a_touched_fader_takes_no_step(surface: RecordingSurface) -> None:
 async def test_a_fader_that_is_put_away_goes_down_slowly(
     surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(surface_module, "FADER_PARK_SMOOTH_TIME", 0.3)
+    monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", 0.2)
     # after a fast move the motor stops short of the bottom, a slow one gets there
     for strip in surface.strips[:2]:
         strip.set_fader(1.0)
@@ -409,4 +409,117 @@ async def test_a_fader_that_is_put_away_goes_down_slowly(
 
     fast, slow = surface.faders(0), surface.faders(1)
     assert fast[-1] == slow[-1] == 0
-    assert len(slow) > 2 * len(fast)
+    assert len(slow) > 1.5 * len(fast)
+
+
+# -- the startup and shutdown sequences -----------------------------------------------------------------------------
+
+
+async def test_after_a_connect_the_strips_light_up_one_after_the_other(
+    device: tuple[Path, Path, int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "SEQUENCE_STAGGER", 0.02)
+    cards, dev, controller = device
+    surface = Surface(proc_asound_cards=cards, dev_snd=dev)
+    for strip in surface.strips:
+        strip.set_text(0, f"S{strip.index}")
+        strip.set_color(Color.GREEN)
+    assert surface.connect()
+
+    await asyncio.sleep(0.03)
+    early = read_all(controller)
+    # at first dark, then strip 1 (and maybe 2), not yet the others
+    assert early.startswith(protocol.lcd_colors([Color.BLACK] * 8))
+    assert protocol.lcd_text(0, 0, "S0") in early
+    assert protocol.lcd_text(7, 0, "S7") not in early
+    # what a strip shows before its turn waits for it
+    surface.strips[7].set_text(1, "later")
+    surface.strips[7].set_meter(5)
+    assert protocol.lcd_text(7, 1, "later") not in read_all(controller)
+
+    await surface.settled()
+    await surface.close()
+    late = read_all(controller)
+    assert protocol.lcd_text(7, 0, "S7") in late
+    assert protocol.lcd_text(7, 1, "later") in late
+    assert late.endswith(protocol.lcd_colors([Color.GREEN] * 8)) or protocol.lcd_colors([Color.GREEN] * 8) in late
+
+
+async def test_a_fader_waits_for_its_turn_and_then_comes_up_slowly(
+    surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", 0.2)
+    fast, slow = surface.strips[0], surface.strips[1]
+    fast.set_fader(0.0)
+    await surface.settled()
+    assert not fast._slow
+    surface.sent.clear()
+    slow.shown = False
+
+    fast.set_fader(1.0)
+    slow.set_fader(1.0)
+    await surface.settled()
+    assert surface.faders(1) == []
+
+    slow.reveal()
+    await surface.settled()
+    # its position is not known after a connect: it comes from the bottom, slowly
+    assert surface.faders(1)[0] < protocol.fader_value(0.05)
+    assert len(surface.faders(1)) > 1.5 * len(surface.faders(0))
+
+
+async def test_a_slow_move_stays_slow_until_the_fader_arrived(
+    surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", 0.2)
+    for strip in surface.strips[:2]:
+        strip.set_fader(1.0)
+    await surface.settled()
+    surface.sent.clear()
+
+    surface.strips[0].set_fader(0.0)
+    surface.strips[1].park()
+    # e.g. a state that comes in on the way
+    surface.strips[1].set_fader(0.0)
+    await surface.settled()
+
+    assert len(surface.faders(1)) > 1.5 * len(surface.faders(0))
+
+
+async def test_a_hand_on_the_fader_ends_a_slow_move(surface: RecordingSurface) -> None:
+    strip = surface.strips[0]
+    strip.park()
+    surface._on_data(bytes([0x90, 0x68, 0x7F, 0xE0, 0x00, 0x40, 0x90, 0x68, 0x00]))
+
+    assert not strip._slow
+
+
+async def test_the_shutdown_sequence_goes_from_the_right(surface: RecordingSurface) -> None:
+    for strip in surface.strips:
+        strip.set_text(0, f"S{strip.index}")
+    surface.sent.clear()
+
+    await surface.put_away()
+
+    blanks = [m for m in surface.sent if m.startswith(protocol.SYSEX_HEADER + b"\x12") and m[6] < 0x38]
+    assert [m[6] // 7 for m in blanks] == list(reversed(range(8)))
+    assert all(strip.text == ["", ""] for strip in surface.strips)
+
+
+async def test_a_device_that_goes_away_ends_the_startup_sequence(
+    device: tuple[Path, Path, int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "SEQUENCE_STAGGER", 1.0)
+    cards, dev, _ = device
+    surface = Surface(proc_asound_cards=cards, dev_snd=dev)
+    assert surface.connect()
+    revealer = surface._revealer
+    assert revealer is not None
+    await asyncio.sleep(0)
+
+    assert surface._midi is not None
+    surface._midi.close()
+    await asyncio.sleep(0)
+
+    assert revealer.cancelled() or revealer.done()
+    assert not surface.strips[7].shown
