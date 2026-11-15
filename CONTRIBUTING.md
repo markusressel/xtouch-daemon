@@ -25,6 +25,8 @@ just check       # runs everything CI runs
 | `just check` | `lint`, `typecheck` and `coverage`, like CI. |
 | `just run [ARGS]` | Runs the daemon from the checkout, e.g. `just run -l debug`. |
 | `just docs` | Builds the documentation site into `site/`; broken links fail. |
+| `just release-build [OUT]` | Builds the release tarballs into `dist/` (see [RELEASING.md](RELEASING.md)). |
+| `just pin-haad-mqtt-autodiscovery` | Pins the commit of `../haad-mqtt-autodiscovery` that CI and releases build. |
 | `just docs-serve` | Serves the documentation on http://localhost:8001 (`just docs-serve 8002` for another port) and rebuilds it on changes. |
 
 Optional: `uvx pre-commit install` runs ruff before every commit.

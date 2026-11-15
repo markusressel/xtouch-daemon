@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=X-Touch Extender
+GenericName=Mixer configuration
+Comment=Configure the Behringer X-Touch Extender mixer and its service
+Exec=xtouch-daemon-gui
+Icon=multimedia-volume-control
+Terminal=false
+Categories=AudioVideo;Audio;Mixer;Qt;
+Keywords=X-Touch;Behringer;Mackie;PipeWire;mixer;fader;

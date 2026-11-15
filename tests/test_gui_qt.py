@@ -31,10 +31,10 @@ from PyQt6.QtWidgets import (
 )
 from pytestqt.qtbot import QtBot
 
-from tests.conftest import output, source, stream
+from tests.conftest import install_package, output, source, stream
 from tests.test_instance import RecordingInstance
 from tests.test_systemd import FakeSystemctl
-from xtouch_daemon import live, protocol
+from xtouch_daemon import live, protocol, systemd
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config import BehaviorConfig, MqttConfig
@@ -50,7 +50,7 @@ from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, SectionPage
 from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import MqttState, Snapshot, StripState
-from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError
+from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, unit_file, unit_path
 
 CONFIG = """\
 # my mixer
@@ -1345,6 +1345,140 @@ def test_a_daemon_elsewhere_can_not_be_stopped_here(make_window: MakeWindow, pat
     assert window.stop_button.isHidden()
 
 
+CHECKOUT = "/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
+
+
+def unit_properties(state: str, unit: Path, program: str) -> str:
+    """`systemctl show` of a service with its unit file and the program it starts."""
+    return f"{state}FragmentPath={unit}\nExecStart={{ path={program} ; argv[]={program} run ; ignore_errors=no }}\n"
+
+
+def write_user_unit() -> None:
+    unit_path().parent.mkdir(parents=True)
+    unit_path().write_text(unit_file(CHECKOUT))
+
+
+def test_the_header_shows_which_unit_runs_the_service(make_window: MakeWindow, systemctl: FakeSystemctl):
+    systemctl.properties = unit_properties(
+        RUNNING, Path("/home/me/.config/systemd/user/xtouch-daemon.service"), CHECKOUT
+    )
+    window = make_window()
+
+    assert window.unit_label.text() == f"from {CHECKOUT}"
+    assert window.unit_label.toolTip() == "The unit /home/me/.config/systemd/user/xtouch-daemon.service"
+    # without a package there is nothing it overrides
+    assert window.override_button.isHidden()
+
+    systemctl.properties = unit_properties(RUNNING, systemd.PACKAGED_UNIT, "/usr/bin/xtouch-daemon")
+    window.refresh_service()
+    assert window.unit_label.text() == "packaged"
+
+    systemctl.properties = MISSING
+    window.refresh_service()
+    assert window.unit_label.isHidden()
+
+
+@pytest.mark.parametrize("answer", [QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No])
+def test_the_unit_that_overrides_the_package_can_be_removed(
+    qtbot: QtBot,
+    make_window: MakeWindow,
+    systemctl: FakeSystemctl,
+    isolated: Dialogs,
+    answer: QMessageBox.StandardButton,
+):
+    install_package()
+    write_user_unit()
+    systemctl.properties = unit_properties(RUNNING, unit_path(), CHECKOUT)
+    window = make_window()
+    assert not window.override_button.isHidden()
+    assert window.unit_label.property("role") == "hint"
+    assert window.unit_label.toolTip().endswith(", which overrides the one of the package")
+    assert window.override_button.focusPolicy() == Qt.FocusPolicy.NoFocus
+    isolated.answer = answer
+
+    click(qtbot, window.override_button)
+
+    assert isolated.shown[0].startswith(f"Remove {unit_path()}?")
+    if answer == QMessageBox.StandardButton.No:
+        assert unit_path().exists()
+        assert ["systemctl", "--user", "disable", UNIT_NAME] not in systemctl.commands
+        return
+    assert not unit_path().exists()
+    assert ["systemctl", "--user", "restart", UNIT_NAME] in systemctl.commands
+    assert window.status.text() == f"Removed {unit_path()}: the service uses the unit of the package."
+    assert window.override_button.isHidden()
+
+
+def test_a_failing_removal_of_the_override_is_reported(
+    qtbot: QtBot, make_window: MakeWindow, systemctl: FakeSystemctl, isolated: Dialogs
+):
+    install_package()
+    write_user_unit()
+    window = make_window()
+
+    def fail(command: list[str]) -> str:
+        if command[2] == "show":
+            return RUNNING
+        raise ServiceError("systemctl --user disable failed: nope")
+
+    window.service._run = fail
+    isolated.answer = QMessageBox.StandardButton.Yes
+    click(qtbot, window.override_button)
+
+    assert isolated.shown[1:] == ["systemctl --user disable failed: nope"]
+    assert window.status.text() == ""
+
+
+def test_the_package_starts_its_own_unit(
+    qtbot: QtBot, make_window: MakeWindow, systemctl: FakeSystemctl, isolated: Dialogs
+):
+    install_package()
+    systemctl.properties = MISSING
+    window = make_window()
+    assert window.service_button.toolTip() == "Enable the unit of the package and start it"
+    isolated.answer = QMessageBox.StandardButton.Yes
+
+    click(qtbot, window.service_button)
+
+    assert isolated.shown == [
+        f"Enable {UNIT_NAME} of the package (it starts with the session from now on) and start it?"
+    ]
+    assert not unit_path().exists()
+    assert ["systemctl", "--user", "enable", "--now", UNIT_NAME] in systemctl.commands
+    assert window.status.text() == "Enabled the unit of the package and started the service."
+
+
+def test_restart_stands_out_when_the_daemon_runs_an_older_version(
+    qtbot: QtBot,
+    make_window: MakeWindow,
+    systemctl: FakeSystemctl,
+    live_daemon: FakeLiveDaemon,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(window_module, "executable", lambda: "/usr/bin/xtouch-daemon")
+    monkeypatch.setattr(window_module, "installed_version", lambda: "0.2.0")
+    systemctl.properties = unit_properties(RUNNING, systemd.PACKAGED_UNIT, "/usr/bin/xtouch-daemon")
+    window = make_window(live_socket=live_daemon.path)
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    current = dataclasses.replace(snapshot(window, strip_state()), daemon_version="0.2.0")
+    live_daemon.send(current)
+    qtbot.waitUntil(lambda: window.live.snapshot is not None)
+    window.refresh_service()
+    assert window.service_button.property("variant") == ""
+    assert window.service_button.toolTip() == "Restart the daemon, e.g. after changing the device name"
+
+    # after an upgrade of the package
+    live_daemon.send(dataclasses.replace(current, daemon_version="0.1.0"))
+    qtbot.waitUntil(lambda: window.live.snapshot is not None and window.live.snapshot.daemon_version == "0.1.0")
+    window.refresh_service()
+
+    assert window.service_button.text() == "Restart"
+    assert window.service_button.property("variant") == "primary"
+    assert window.service_button.toolTip() == (
+        "The daemon runs version 0.1.0, 0.2.0 is installed: restart it to run 0.2.0"
+    )
+
+
 def test_a_new_window_starts_with_the_keys_on_the_strips(window: MainWindow):
     assert window.focusWidget() is window.preview.strips[0]
 
@@ -1421,6 +1555,8 @@ def test_a_daemon_started_elsewhere_is_shown_and_reloaded(qtbot: QtBot, make_win
     assert (window.pill.text(), window.pill.property("tone")) == ("running elsewhere", "good")
     assert "process 4242" in window.pill.toolTip()
     assert window.service_button.isHidden()
+    assert window.unit_label.isHidden()
+    assert window.override_button.isHidden()
 
     window.document.set(("device", "name"), "Other")
     window.refresh()
@@ -1531,6 +1667,8 @@ def test_run_gui_shows_the_window(path: Path, monkeypatch: pytest.MonkeyPatch, q
     assert qt.run_gui(path) == 0
     assert shown[0].document.path == path
     assert QCoreApplication.applicationName() == "xtouch-daemon-gui"
+    # the name of packaging/xtouch-daemon-gui.desktop
+    assert qapp.desktopFileName() == "xtouch-daemon-gui"
     # Ctrl+C closes the window like its close button
     handlers[signal.SIGINT](signal.SIGINT, None)
     assert closed == [True]

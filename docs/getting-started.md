@@ -2,6 +2,26 @@
 
 ## Install
 
+### Arch Linux
+
+The AUR has two packages, built from the [releases](https://github.com/markusressel/xtouch-daemon/releases):
+
+| Package | Contents |
+|---|---|
+| `xtouch-daemon-bin` | The daemon with its own Python 3.14 in `/usr/lib/xtouch-daemon`, the command `xtouch-daemon`, the systemd user unit `/usr/lib/systemd/user/xtouch-daemon.service` and the example configuration `/usr/share/xtouch-daemon/config.example.toml`. |
+| `xtouch-daemon-gui-bin` | The [GUI](gui.md), `xtouch-daemon-gui`, with a menu entry. It runs on the system's Python and PyQt6, and needs `xtouch-daemon-bin` of the same version. |
+
+Install them with an AUR helper, e.g.:
+
+```shell
+paru -S xtouch-daemon-bin xtouch-daemon-gui-bin
+```
+
+Then enable the service, see [Run it as a service](#run-it-as-a-service). After an upgrade, restart it
+(`systemctl --user restart xtouch-daemon`): it runs the old version until then.
+
+### From the source
+
 xtouch-daemon uses [haad-mqtt-autodiscovery](https://github.com/haad-org/haad-mqtt-autodiscovery) from a checkout
 next to its own. Clone both side by side and install with [uv](https://docs.astral.sh/uv/):
 
@@ -88,6 +108,16 @@ xtouch-daemon install-service --now
 
 This writes the systemd user unit `~/.config/systemd/user/xtouch-daemon.service`, enables it and starts it. From now on
 it starts with your session. Without `--now` it only writes the unit.
+
+The Arch Linux package has its own unit, so with it the command writes nothing: it enables and starts the unit of the
+package. The same without the command:
+
+```shell
+systemctl --user enable --now xtouch-daemon
+```
+
+A unit in `~/.config/systemd/user` (e.g. from an installation from the source) overrides the one of the package.
+`xtouch-daemon install-service --remove-override` removes it, so does "Use the packaged unit" in the [GUI](gui.md#the-service).
 
 | Task | Command |
 |---|---|

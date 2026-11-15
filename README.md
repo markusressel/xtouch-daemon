@@ -28,8 +28,16 @@ See the [full feature list](docs/index.md#features).
 
 ## Installation
 
-xtouch-daemon uses [haad-mqtt-autodiscovery](https://github.com/haad-org/haad-mqtt-autodiscovery) from a checkout
-next to its own, so clone both side by side and install with [uv](https://docs.astral.sh/uv/):
+On Arch Linux, from the AUR: `xtouch-daemon-bin` (the daemon, with its own Python, and the systemd user unit) and
+`xtouch-daemon-gui-bin` (the GUI, on the system's PyQt6):
+
+```shell
+paru -S xtouch-daemon-bin xtouch-daemon-gui-bin
+systemctl --user enable --now xtouch-daemon
+```
+
+From the source: xtouch-daemon uses [haad-mqtt-autodiscovery](https://github.com/haad-org/haad-mqtt-autodiscovery)
+from a checkout next to its own, so clone both side by side and install with [uv](https://docs.astral.sh/uv/):
 
 ```shell
 git clone https://github.com/markusressel/xtouch-daemon
@@ -82,6 +90,7 @@ color = "cyan"
 - [Architecture](docs/architecture.md)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
+- [Releasing](RELEASING.md)
 
 ## Similar projects
 

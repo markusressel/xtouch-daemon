@@ -1,6 +1,6 @@
 """
-What the preview shows and whether the device runs what was saved: the GUI says it instead of leaving people to
-guess whether a reload worked.
+What the preview shows and whether the device runs what was saved, which unit runs the service and whether it runs
+the installed version: the GUI says it instead of leaving people to guess.
 """
 
 from dataclasses import dataclass
@@ -10,6 +10,7 @@ from pathlib import Path
 from xtouch_daemon.config import Config
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import Snapshot, fingerprint
+from xtouch_daemon.systemd import ServiceState
 
 
 class Tone(StrEnum):
@@ -86,3 +87,31 @@ def sync_status(
         "Save and apply it. If it stays like this, the daemon did not take the file: its log says why "
         "(journalctl --user -u xtouch-daemon), e.g. a changed [mqtt] section needs a restart.",
     )
+
+
+def unit_status(state: ServiceState, overrides: bool) -> Status | None:
+    """
+    Which unit the service has: the release package's, or one in the user's configuration, with the program it starts.
+    `overrides`: that one hides the package's. None while it is not installed.
+    """
+    if state.unit is None:
+        return None
+    if state.packaged:
+        return Status("packaged", Tone.NEUTRAL, f"The unit of the package: {state.unit}")
+    tip = f"The unit {state.unit}"
+    if overrides:
+        tip += ", which overrides the one of the package"
+    return Status(f"from {state.program or state.unit}", Tone.WARN if overrides else Tone.NEUTRAL, tip)
+
+
+def outdated(state: ServiceState, snapshot: Snapshot | None, installed: str, program: str) -> str | None:
+    """
+    Why the service should restart: it runs another version than the one installed (e.g. after an upgrade of the
+    package). Only for the service of `program`, the installation the GUI runs from, whose version is `installed`.
+    None when it runs the installed version, or the daemon does not tell its version.
+    """
+    if not state.running or state.program != program or snapshot is None or snapshot.daemon_version is None:
+        return None
+    if snapshot.daemon_version == installed:
+        return None
+    return f"The daemon runs version {snapshot.daemon_version}, {installed} is installed: restart it to run {installed}"

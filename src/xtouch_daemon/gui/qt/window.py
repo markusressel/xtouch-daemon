@@ -41,7 +41,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from xtouch_daemon import instance, protocol
+from xtouch_daemon import installed_version, instance, protocol
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config import Problem
@@ -51,7 +51,7 @@ from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.looks import faces, looks
-from xtouch_daemon.gui.domain.status import Status, Tone, preview_status, sync_status
+from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
 from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields import flat_button, label, show_status
 from xtouch_daemon.gui.qt.live_view import LiveView
@@ -68,7 +68,16 @@ from xtouch_daemon.gui.qt.pages import (
 )
 from xtouch_daemon.gui.qt.preview import Preview
 from xtouch_daemon.instance import Instance
-from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, ServiceState, executable, unit_path
+from xtouch_daemon.systemd import (
+    UNIT_NAME,
+    Service,
+    ServiceError,
+    ServiceState,
+    executable,
+    overrides_packaged_unit,
+    unit_path,
+    uses_packaged_unit,
+)
 
 SERVICE_POLL_MS = 3000
 APPLY_GRACE_MS = 2000
@@ -313,11 +322,18 @@ class MainWindow(QMainWindow):
         layout.addWidget(label("Service", "hint"))
         self.pill = label("…", "pill")
         layout.addWidget(self.pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.unit_label = label("", "hint")
+        """Which unit is in effect: the package's, or one in ~/.config and the program it starts."""
+        layout.addWidget(self.unit_label)
         self.service_button = QPushButton()
         # a key typed into the window right after it opened must not install or start a service
         self.service_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.service_button.clicked.connect(self._service_action)
         layout.addWidget(self.service_button)
+        self.override_button = QPushButton("Use the packaged unit")
+        self.override_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.override_button.clicked.connect(self._remove_override)
+        layout.addWidget(self.override_button)
         self.stop_button = QPushButton("Stop")
         self.stop_button.setToolTip("Stop the daemon: the device goes dark until the service starts again")
         self.stop_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -694,47 +710,69 @@ class MainWindow(QMainWindow):
                 f"and reads {self.daemon.config}. Saving reloads it; restart it where it runs."
             )
             _pill(self.pill, Status("running elsewhere", Tone.GOOD, tip))
-            self.service_button.hide()
-            self.stop_button.hide()
+            self._hide_service_controls()
             return
         try:
             state = self.service.state()
         except ServiceError as e:
             self.service_state = None
             _pill(self.pill, Status("unavailable", Tone.BAD, str(e)))
-            self.service_button.hide()
-            self.stop_button.hide()
+            self._hide_service_controls()
             return
         self.service_state = state
+        highlight = False
         if not state.installed:
-            tone, text, tip = Tone.WARN, "Install and start", "Write the systemd user unit, enable and start it"
+            tone, text = Tone.WARN, "Install and start"
+            tip = (
+                "Enable the unit of the package and start it"
+                if uses_packaged_unit()
+                else "Write the systemd user unit, enable and start it"
+            )
         elif state.running:
             tone, text, tip = Tone.GOOD, "Restart", "Restart the daemon, e.g. after changing the device name"
+            reason = outdated(state, self.live.snapshot, installed_version(), executable())
+            if reason is not None:
+                highlight, tip = True, reason
         else:
             tone = Tone.BAD if state.active == "failed" else Tone.NEUTRAL
             text, tip = "Start", "Enable the service and start it"
         _pill(self.pill, Status(state.describe(), tone, f"systemctl --user status {UNIT_NAME}"))
         self.service_button.setText(text)
         self.service_button.setToolTip(tip)
+        theme.set_role(self.service_button, "primary" if highlight else "", "variant")
         self.service_button.show()
         self.stop_button.setVisible(state.running)
+        overrides = overrides_packaged_unit()
+        unit = unit_status(state, overrides)
+        self.unit_label.setVisible(unit is not None)
+        if unit is not None:
+            self.unit_label.setText(unit.text)
+            self.unit_label.setToolTip(unit.tip)
+        self.override_button.setToolTip(f"Remove {unit_path()}, which overrides the unit of the package")
+        self.override_button.setVisible(overrides)
+
+    def _hide_service_controls(self) -> None:
+        for widget in (self.unit_label, self.service_button, self.override_button, self.stop_button):
+            widget.hide()
 
     def _service_action(self) -> None:
         state = self.service_state
         assert state is not None, "the button shows only with a known state"
         if not state.running:
-            question = (
-                f"Write {unit_path()}, then enable and start the service?"
-                if not state.installed
-                else f"Enable {UNIT_NAME} (it starts with the session from now on) and start it?"
-            )
+            if state.installed:
+                question = f"Enable {UNIT_NAME} (it starts with the session from now on) and start it?"
+            elif uses_packaged_unit():
+                question = f"Enable {UNIT_NAME} of the package (it starts with the session from now on) and start it?"
+            else:
+                question = f"Write {unit_path()}, then enable and start the service?"
             answer = QMessageBox.question(self, "Service", question)
             if answer != QMessageBox.StandardButton.Yes:
                 return
         try:
             if not state.installed:
                 path = self.service.install(executable(), start=True)
-                self.status.setText(f"Installed {path} and started the service.")
+                done = "Enabled the unit of the package" if path is None else f"Installed {path}"
+                self.status.setText(f"{done} and started the service.")
             elif state.running:
                 self.service.restart()
                 self.status.setText("Restarted the service.")
@@ -743,6 +781,22 @@ class MainWindow(QMainWindow):
                 self.status.setText("Started the service.")
         except ServiceError as e:
             QMessageBox.warning(self, "Service", str(e))
+        self.refresh_service()
+
+    def _remove_override(self) -> None:
+        """Removes the unit in ~/.config, so the one of the package is in effect."""
+        question = (
+            f"Remove {unit_path()}? The unit of the package takes over; a running service restarts with the program "
+            "of the package."
+        )
+        if QMessageBox.question(self, "Service", question) != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            path = self.service.remove_override()
+        except ServiceError as e:
+            QMessageBox.warning(self, "Service", str(e))
+        else:
+            self.status.setText(f"Removed {path}: the service uses the unit of the package.")
         self.refresh_service()
 
     def _stop(self) -> None:

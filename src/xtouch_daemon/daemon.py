@@ -13,7 +13,7 @@ from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any, Protocol
 
-from xtouch_daemon import protocol, systemd
+from xtouch_daemon import __version__, protocol, systemd
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import Config, ConfigError, load_config
@@ -236,6 +236,7 @@ class Daemon:
             mqtt=None if self.bridge is None else self.bridge.connected,
             strips=strip_states(self.surface, time.monotonic()),
             mqtt_state=None if self.bridge is None else mqtt_state(self.bridge),
+            daemon_version=__version__,
         )
 
     def _status(self) -> str:

@@ -2,10 +2,12 @@ from pathlib import Path
 
 import pytest
 
+from xtouch_daemon import systemd
 from xtouch_daemon.config import parse_config
-from xtouch_daemon.gui.domain.status import Status, Tone, preview_status, sync_status
+from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import Snapshot, fingerprint
+from xtouch_daemon.systemd import ServiceState
 
 CONFIG = parse_config('[[strip]]\ntype = "output"\n')
 OTHER = parse_config('[[strip]]\ntype = "input"\n')
@@ -76,3 +78,71 @@ def test_whether_the_device_runs_the_saved_file(
 
 def test_a_saved_file_with_errors_is_not_what_the_device_runs():
     assert sync_status(DAEMON, snapshot(), PATH, None, 0, False, False).tone == Tone.WARN
+
+
+def test_the_unit_in_effect_is_the_packaged_one_or_where_it_comes_from():
+    assert unit_status(ServiceState(installed=False, active="inactive", enabled=False), overrides=False) is None
+    packaged = ServiceState(True, "active", True, unit=systemd.PACKAGED_UNIT, program="/usr/bin/xtouch-daemon")
+    assert unit_status(packaged, overrides=False) == Status(
+        "packaged", Tone.NEUTRAL, f"The unit of the package: {systemd.PACKAGED_UNIT}"
+    )
+    user_unit = Path("/home/me/.config/systemd/user/xtouch-daemon.service")
+    checkout = ServiceState(
+        True, "active", True, unit=user_unit, program="/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
+    )
+    assert unit_status(checkout, overrides=False) == Status(
+        "from /home/me/xtouch-daemon/.venv/bin/xtouch-daemon", Tone.NEUTRAL, f"The unit {user_unit}"
+    )
+    # it hides the package's
+    assert unit_status(checkout, overrides=True) == Status(
+        "from /home/me/xtouch-daemon/.venv/bin/xtouch-daemon",
+        Tone.WARN,
+        f"The unit {user_unit}, which overrides the one of the package",
+    )
+    # systemd did not tell the program
+    unknown = unit_status(ServiceState(True, "inactive", True, unit=user_unit), overrides=False)
+    assert unknown is not None
+    assert unknown.text == f"from {user_unit}"
+
+
+def versioned(version: str | None) -> Snapshot:
+    return Snapshot("abc", True, sound_server=True, mqtt=None, strips=(), daemon_version=version)
+
+
+@pytest.mark.parametrize(
+    ("active", "program", "version", "reason"),
+    [
+        (
+            "active",
+            "/usr/bin/xtouch-daemon",
+            "0.1.0",
+            "The daemon runs version 0.1.0, 0.2.0 is installed: restart it to run 0.2.0",
+        ),
+        (
+            "reloading",
+            "/usr/bin/xtouch-daemon",
+            "0.1.0",
+            "The daemon runs version 0.1.0, 0.2.0 is installed: restart it to run 0.2.0",
+        ),
+        # it runs the installed version
+        ("active", "/usr/bin/xtouch-daemon", "0.2.0", None),
+        # an older daemon does not tell its version
+        ("active", "/usr/bin/xtouch-daemon", None, None),
+        # the service runs another installation than the GUI
+        ("active", "/opt/xtouch-daemon", "0.1.0", None),
+        # it does not run
+        ("inactive", "/usr/bin/xtouch-daemon", "0.1.0", None),
+    ],
+)
+def test_a_service_that_runs_an_older_version_should_restart(
+    active: str, program: str, version: str | None, reason: str | None
+):
+    state = ServiceState(True, active, True, unit=systemd.PACKAGED_UNIT, program=program)
+
+    assert outdated(state, versioned(version), "0.2.0", "/usr/bin/xtouch-daemon") == reason
+
+
+def test_without_a_live_view_the_version_is_not_known():
+    state = ServiceState(True, "active", True, program="/usr/bin/xtouch-daemon")
+
+    assert outdated(state, None, "0.2.0", "/usr/bin/xtouch-daemon") is None

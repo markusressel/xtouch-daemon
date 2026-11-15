@@ -41,3 +41,22 @@ docs-serve port="8001":
 # run the daemon in the foreground
 run *ARGS:
     uv run xtouch-daemon run {{ARGS}}
+
+# build the release tarballs into dist/ (see RELEASING.md)
+release-build out="dist":
+    packaging/build-release.sh {{out}}
+
+# pin haad-mqtt-autodiscovery to the commit checked out in ../haad-mqtt-autodiscovery (CI and releases build that one)
+pin-haad-mqtt-autodiscovery:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sibling=../haad-mqtt-autodiscovery
+    if [ -n "$(git -C "$sibling" status --porcelain --untracked-files=no)" ]; then
+        echo "warning: $sibling has uncommitted changes, which the pin does not include" >&2
+    fi
+    rev="$(git -C "$sibling" rev-parse HEAD)"
+    if [ -z "$(git -C "$sibling" branch -r --contains "$rev")" ]; then
+        echo "warning: $rev is not pushed yet, CI can't check it out" >&2
+    fi
+    echo "$rev" > packaging/haad-mqtt-autodiscovery.rev
+    echo "packaging/haad-mqtt-autodiscovery.rev: $rev"

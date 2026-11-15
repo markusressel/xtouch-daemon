@@ -104,9 +104,13 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     state = MqttState("broker:1883", "me", connected=False, ready=False, error="Not authorized", entities=3)
     with_mqtt = Snapshot("abc", True, False, False, snapshot.strips, state)
     assert decode(encode(with_mqtt)) == with_mqtt
-    # an older daemon does not tell more than whether it is connected
-    older = line.replace(b',"mqtt_state":null', b"")
+    # with its version
+    versioned = Snapshot("abc", True, False, None, snapshot.strips, daemon_version="1.2.3")
+    assert decode(encode(versioned)) == versioned
+    # an older daemon does not tell more than whether it is connected, nor its version
+    older = line.replace(b',"mqtt_state":null', b"").replace(b',"daemon_version":null', b"")
     assert b"mqtt_state" not in older
+    assert b"daemon_version" not in older
     assert decode(older) == snapshot
     with pytest.raises(ValueError, match="Expecting value"):
         decode(b"garbage")

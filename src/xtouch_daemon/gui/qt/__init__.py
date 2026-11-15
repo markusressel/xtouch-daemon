@@ -39,6 +39,8 @@ def create_application() -> QApplication:
     name_application()
     app = QApplication(sys.argv[:1])
     app.setApplicationDisplayName("X-Touch Extender")
+    # Wayland finds the icon of the window by it: packaging/xtouch-daemon-gui.desktop
+    app.setDesktopFileName("xtouch-daemon-gui")
     apply_theme(load_theme_mode())
     return app
 

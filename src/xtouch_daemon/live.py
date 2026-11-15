@@ -93,6 +93,8 @@ class Snapshot:
     strips: tuple[StripState, ...]
     mqtt_state: MqttState | None = None
     """More on the connection of `mqtt` (an older daemon does not tell it)."""
+    daemon_version: str | None = None
+    """The version of the daemon that runs (an older daemon does not tell it)."""
 
 
 def fingerprint(config: Config) -> str:
@@ -168,6 +170,7 @@ def decode(line: bytes) -> Snapshot | None:
         data["mqtt"],
         strips,
         MqttState(**mqtt_state) if mqtt_state is not None else None,
+        data.get("daemon_version"),
     )
 
 

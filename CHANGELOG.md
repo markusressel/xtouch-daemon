@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Arch Linux packages in the AUR: `xtouch-daemon-bin` (the daemon with its own Python 3.14, the systemd user unit
+  `/usr/lib/systemd/user/xtouch-daemon.service` and the example configuration) and `xtouch-daemon-gui-bin` (the GUI
+  on the system's PyQt6, `xtouch-daemon-gui`, with a menu entry), built from the release tarballs on GitHub.
+- `install-service` of the package takes the unit of the package instead of writing one;
+  `install-service --remove-override` removes a unit in `~/.config/systemd/user` that overrides it.
+- The GUI shows which unit runs the service ("packaged", or the program of a unit in `~/.config/systemd/user`),
+  removes one that overrides the package's ("Use the packaged unit"), and highlights Restart when the daemon runs
+  another version than the one installed, e.g. after an upgrade.
+- The live view tells the version of the daemon.
 - A handle between the strips and the editor of the GUI: dragging it scales the strips, and the size is kept.
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.
 - The strips of the GUI look like the device: the ring has 13 LEDs, the LCD the lit line between its two lines, the

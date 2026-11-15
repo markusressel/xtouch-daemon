@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner, Result
 
-from tests.conftest import output, source, stream
+from tests.conftest import install_package, output, source, stream
 from xtouch_daemon import __version__, cli, instance, systemd
 from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.model import AudioState, Card, Profile
@@ -356,6 +356,47 @@ def test_install_service_writes_the_unit(config_home: Path, monkeypatch: pytest.
     assert "Start it with" not in result.output
 
 
+def test_install_service_takes_the_unit_of_the_package(config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install_package()
+    commands: list[list[str]] = []
+    monkeypatch.setattr(systemd, "run_command", lambda command: commands.append(command) or "")
+
+    result = invoke("install-service")
+
+    assert not systemd.unit_path().exists()
+    assert commands == [["systemctl", "--user", "daemon-reload"]]
+    assert f"The package installed {systemd.PACKAGED_UNIT}\n" in result.output
+    assert "Start it with: systemctl --user enable --now xtouch-daemon.service" in result.output
+    assert "overrides" not in result.output
+
+    # one written before, by a checkout
+    systemd.unit_path().parent.mkdir(parents=True)
+    systemd.unit_path().write_text(systemd.unit_file("/opt/bin/xtouch-daemon"))
+    result = invoke("install-service", "--now")
+    assert commands[-1] == ["systemctl", "--user", "enable", "--now", systemd.UNIT_NAME]
+    assert f"{systemd.unit_path()} overrides it: xtouch-daemon install-service --remove-override" in result.output
+
+
+def test_install_service_removes_the_override(config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install_package()
+    systemd.unit_path().parent.mkdir(parents=True)
+    systemd.unit_path().write_text(systemd.unit_file("/opt/bin/xtouch-daemon"))
+    commands: list[list[str]] = []
+    state = "LoadState=loaded\nActiveState=inactive\nUnitFileState=disabled\n"
+    monkeypatch.setattr(systemd, "run_command", lambda command: commands.append(command) or state)
+
+    result = invoke("install-service", "--remove-override")
+
+    assert not systemd.unit_path().exists()
+    assert commands[-1] == ["systemctl", "--user", "daemon-reload"]
+    assert result.output == f"Removed {systemd.unit_path()}: the service uses {systemd.PACKAGED_UNIT} now\n"
+
+    # nothing to remove any more
+    result = CliRunner().invoke(cli.main, ["install-service", "--remove-override"])
+    assert result.exit_code == 1
+    assert f"Error: {systemd.unit_path()} does not override {systemd.PACKAGED_UNIT}" in result.output
+
+
 def test_install_service_reports_a_failing_systemctl(monkeypatch: pytest.MonkeyPatch) -> None:
     def fail(command: list[str]) -> str:
         raise systemd.ServiceError("systemctl is not installed: is this a systemd system?")
@@ -455,6 +496,7 @@ def test_without_the_gui_extra_it_says_how_to_install_it(monkeypatch: pytest.Mon
 
     assert result.exit_code == 1
     assert "the GUI needs the gui extra" in result.output
+    assert "install the package xtouch-daemon-gui-bin" in result.output
     assert "uv tool install --force './xtouch-daemon[gui]'" in result.output
 
 
@@ -475,3 +517,12 @@ def test_run_reports_a_password_that_is_not_there(tmp_path: Path, monkeypatch: p
 
     assert result.exit_code == 1
     assert "mqtt.password_file: can't read" in result.output
+
+
+def test_the_installed_version_is_the_one_on_disk(monkeypatch: pytest.MonkeyPatch) -> None:
+    import xtouch_daemon
+
+    assert xtouch_daemon.installed_version() == __version__
+    # after an upgrade
+    monkeypatch.setattr(xtouch_daemon, "version", lambda name: "9.9.9")
+    assert xtouch_daemon.installed_version() == "9.9.9"

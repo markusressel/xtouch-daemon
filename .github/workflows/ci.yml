@@ -22,10 +22,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: xtouch-daemon
-      # a path dependency (see [tool.uv.sources]): it is checked out next to the project
+      # a path dependency (see [tool.uv.sources]): it is checked out next to the project, at the commit the release
+      # builds with. A private repository: its deploy key is a secret here (see RELEASING.md)
+      - name: Read the pinned commit of haad-mqtt-autodiscovery
+        id: pin
+        run: echo "rev=$(tr -d '[:space:]' < packaging/haad-mqtt-autodiscovery.rev)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           repository: haad-org/haad-mqtt-autodiscovery
+          ref: ${{ steps.pin.outputs.rev }}
+          ssh-key: ${{ secrets.HAAD_MQTT_AUTODISCOVERY_DEPLOY_KEY }}
           path: haad-mqtt-autodiscovery
       - uses: astral-sh/setup-uv@v6
         with:
@@ -42,3 +48,5 @@ jobs:
         run: uv run pyright
       - name: Test
         run: uv run pytest --cov --cov-report=term-missing
+      - name: Check the packaging scripts
+        run: for script in packaging/build-release.sh packaging/aur/publish.sh; do bash -n "$script"; done

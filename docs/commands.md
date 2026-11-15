@@ -107,12 +107,22 @@ It takes the name of the device from `[device]` of the configuration. Stop the d
 ## `install-service`
 
 ```shell
-xtouch-daemon install-service [--now]
+xtouch-daemon install-service [--now] [--remove-override]
 ```
 
 Writes the systemd user unit `~/.config/systemd/user/xtouch-daemon.service` for the installed `xtouch-daemon` and
 reloads systemd. `--now` also enables and starts it. The unit is `Type=notify`, reloads with `SIGHUP` and restarts
 on failure.
+
+The [Arch Linux package](getting-started.md#arch-linux) installs its unit as
+`/usr/lib/systemd/user/xtouch-daemon.service`. Its `xtouch-daemon install-service` writes no file then: it reloads
+systemd, and with `--now` enables and starts that unit. A unit in `~/.config/systemd/user` overrides the one of the
+package (systemd prefers it), e.g. one written before by a checkout; the command says so.
+
+| Option | Meaning |
+|---|---|
+| `--now` | Also enable and start the service. |
+| `--remove-override` | Only remove `~/.config/systemd/user/xtouch-daemon.service`, so the unit of the package is in effect. An enabled service stays enabled, and a running one restarts with the program of the package. |
 
 Logs: `journalctl --user -u xtouch-daemon -f`.
 
@@ -122,4 +132,5 @@ Logs: `journalctl --user -u xtouch-daemon -f`.
 xtouch-daemon gui [-c FILE]
 ```
 
-Edits the configuration in a window, and applies it. Needs the `gui` extra. See [GUI](gui.md).
+Edits the configuration in a window, and applies it. Needs the `gui` extra, or the package `xtouch-daemon-gui-bin`
+(which has the command `xtouch-daemon-gui`). See [GUI](gui.md).

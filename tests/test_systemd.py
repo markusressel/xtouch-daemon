@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import install_package
 from xtouch_daemon import systemd
 from xtouch_daemon.systemd import (
     JournalFormatter,
@@ -190,8 +191,35 @@ def test_the_state_of_the_service(
         description,
     )
     assert systemctl.commands == [
-        ["systemctl", "--user", "show", systemd.UNIT_NAME, "--property=LoadState,ActiveState,UnitFileState"]
+        [
+            "systemctl",
+            "--user",
+            "show",
+            systemd.UNIT_NAME,
+            "--property=LoadState,ActiveState,UnitFileState,FragmentPath,ExecStart",
+        ]
     ]
+    assert (state.unit, state.program, state.packaged) == (None, None, False)
+
+
+def test_the_state_tells_the_unit_and_its_program() -> None:
+    program = "/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
+    systemctl = FakeSystemctl(
+        "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n"
+        "FragmentPath=/home/me/.config/systemd/user/xtouch-daemon.service\n"
+        f"ExecStart={{ path={program} ; argv[]={program} run ; ignore_errors=no ; start_time=[n/a] ; pid=0 }}\n"
+    )
+
+    state = systemd.Service(systemctl).state()
+
+    assert state.unit == Path("/home/me/.config/systemd/user/xtouch-daemon.service")
+    assert state.program == program
+    assert not state.packaged
+
+    systemctl.properties = (
+        f"LoadState=loaded\nActiveState=inactive\nUnitFileState=enabled\nFragmentPath={systemd.PACKAGED_UNIT}\n"
+    )
+    assert systemd.Service(systemctl).state().packaged
 
 
 def test_installs_starts_restarts_and_stops(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -204,13 +232,83 @@ def test_installs_starts_restarts_and_stops(tmp_path: Path, monkeypatch: pytest.
     service.stop()
 
     assert path == tmp_path / "systemd" / "user" / systemd.UNIT_NAME
-    assert path.read_text() == unit_file("/opt/xtouch-daemon")
+    assert unit_path().read_text() == unit_file("/opt/xtouch-daemon")
     assert systemctl.commands == [
         ["systemctl", "--user", "daemon-reload"],
         ["systemctl", "--user", "enable", "--now", systemd.UNIT_NAME],
         ["systemctl", "--user", "restart", systemd.UNIT_NAME],
         ["systemctl", "--user", "stop", systemd.UNIT_NAME],
     ]
+
+
+def test_this_program_is_the_one_of_the_package_when_it_lives_there() -> None:
+    assert not systemd.runs_packaged()
+    assert not systemd.uses_packaged_unit()
+
+    install_package(contains_this_program=False)
+    assert not systemd.uses_packaged_unit()
+
+    install_package()
+    assert systemd.runs_packaged()
+    assert systemd.uses_packaged_unit()
+
+
+def test_a_unit_in_the_user_configuration_overrides_the_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    unit_path().parent.mkdir(parents=True)
+    unit_path().write_text(unit_file("/opt/xtouch-daemon"))
+    # without the package it is the only one
+    assert not systemd.overrides_packaged_unit()
+
+    install_package()
+
+    assert systemd.overrides_packaged_unit()
+    unit_path().unlink()
+    assert not systemd.overrides_packaged_unit()
+
+
+def test_the_program_of_the_package_takes_its_unit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    install_package()
+    systemctl = FakeSystemctl()
+
+    assert systemd.Service(systemctl).install("/usr/bin/xtouch-daemon", start=True) is None
+
+    assert not unit_path().exists()
+    assert systemctl.commands == [
+        ["systemctl", "--user", "daemon-reload"],
+        ["systemctl", "--user", "enable", "--now", systemd.UNIT_NAME],
+    ]
+
+
+@pytest.mark.parametrize(
+    ("properties", "commands"),
+    [
+        (
+            "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n",
+            [
+                ["disable", systemd.UNIT_NAME],
+                ["daemon-reload"],
+                ["enable", systemd.UNIT_NAME],
+                ["restart", systemd.UNIT_NAME],
+            ],
+        ),
+        ("LoadState=loaded\nActiveState=inactive\nUnitFileState=disabled\n", [["daemon-reload"]]),
+    ],
+)
+def test_removing_the_override_keeps_the_service_enabled_and_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, properties: str, commands: list[list[str]]
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    install_package()
+    unit_path().parent.mkdir(parents=True)
+    unit_path().write_text(unit_file("/opt/xtouch-daemon"))
+    systemctl = FakeSystemctl(properties)
+
+    assert systemd.Service(systemctl).remove_override() == unit_path()
+
+    assert not unit_path().exists()
+    assert [command[2:] for command in systemctl.commands[1:]] == commands
 
 
 def test_commands_return_their_output() -> None:

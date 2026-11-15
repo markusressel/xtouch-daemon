@@ -1,10 +1,14 @@
 """
 Running as a systemd user service: readiness notifications, journal log levels, the unit file, and controlling the
 service (its state, installing, starting and reloading it).
+
+The release package (see packaging/build-release.sh) installs the daemon to `PACKAGE_ROOT` and its unit to
+`PACKAGED_UNIT`. A unit in the user's configuration (`unit_path()`) overrides it: systemd prefers it by name.
 """
 
 import logging
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -14,7 +18,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import xtouch_daemon
+
 UNIT_NAME = "xtouch-daemon.service"
+PACKAGED_UNIT = Path("/usr/lib/systemd/user") / UNIT_NAME
+"""The unit of the release package, which runs `/usr/bin/xtouch-daemon`."""
+PACKAGE_ROOT = Path("/usr/lib/xtouch-daemon")
+"""Where the release package installs the daemon, with its own Python."""
 
 UNIT_TEMPLATE = """\
 [Unit]
@@ -108,6 +118,21 @@ def unit_file(executable: str) -> str:
     return UNIT_TEMPLATE.format(exec_start=executable)
 
 
+def runs_packaged() -> bool:
+    """Whether this program is the one of the release package (also the GUI's, which uses the daemon's packages)."""
+    return Path(xtouch_daemon.__file__).resolve().is_relative_to(PACKAGE_ROOT)
+
+
+def uses_packaged_unit() -> bool:
+    """Whether installing the service takes the unit of the package instead of writing one: for its own program."""
+    return runs_packaged() and PACKAGED_UNIT.exists()
+
+
+def overrides_packaged_unit() -> bool:
+    """Whether a unit in the user's configuration hides the one of the package."""
+    return PACKAGED_UNIT.exists() and unit_path().exists()
+
+
 # -- controlling the service --------------------------------------------------------------------------------------
 
 type Runner = Callable[[list[str]], str]
@@ -147,10 +172,19 @@ class ServiceState:
     """systemd's `ActiveState`: active, reloading, inactive, failed, activating, deactivating."""
     enabled: bool
     """Whether it starts with the session."""
+    unit: Path | None = None
+    """The unit file systemd read (the package's or one in the user's configuration), None while not installed."""
+    program: str | None = None
+    """The program the unit starts (its `ExecStart`)."""
 
     @property
     def running(self) -> bool:
         return self.active in ("active", "reloading")
+
+    @property
+    def packaged(self) -> bool:
+        """Whether the unit in effect is the one of the release package."""
+        return self.unit == PACKAGED_UNIT
 
     def describe(self) -> str:
         if not self.installed:
@@ -167,22 +201,52 @@ class Service:
         self._run = run or run_command
 
     def state(self) -> ServiceState:
-        output = self._run(_systemctl("show", UNIT_NAME, "--property=LoadState,ActiveState,UnitFileState"))
+        output = self._run(
+            _systemctl("show", UNIT_NAME, "--property=LoadState,ActiveState,UnitFileState,FragmentPath,ExecStart")
+        )
         properties = dict(line.split("=", 1) for line in output.splitlines() if "=" in line)
+        # ExecStart={ path=/usr/bin/xtouch-daemon ; argv[]=/usr/bin/xtouch-daemon run ; ... }
+        program = re.search(r"\bpath=(\S+)", properties.get("ExecStart", ""))
         return ServiceState(
             installed=properties["LoadState"] == "loaded",
             active=properties["ActiveState"],
             enabled=properties["UnitFileState"] == "enabled",
+            unit=Path(properties["FragmentPath"]) if properties.get("FragmentPath") else None,
+            program=program[1] if program else None,
         )
 
-    def install(self, executable: str, start: bool) -> Path:
-        """Writes the unit file and makes systemd read it; with `start`, also enables and starts the service."""
-        path = unit_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(unit_file(executable), encoding="utf-8")
+    def install(self, executable: str, start: bool) -> Path | None:
+        """
+        Sets the service up; with `start`, also enables and starts it. The program of the release package takes the
+        unit the package installed (`PACKAGED_UNIT`); any other one writes a unit that runs `executable` into the
+        user's configuration. Returns the file written, None for the unit of the package.
+        """
+        path = None
+        if not uses_packaged_unit():
+            path = unit_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(unit_file(executable), encoding="utf-8")
         self._run(_systemctl("daemon-reload"))
         if start:
             self.start()
+        return path
+
+    def remove_override(self) -> Path:
+        """
+        Removes the unit in the user's configuration, so the one of the package is in effect. The service stays
+        enabled if it was, and a running one restarts with the package's program. Returns the file removed.
+        """
+        state = self.state()
+        path = unit_path()
+        # the link that enables it points to the file that goes
+        if state.enabled:
+            self._run(_systemctl("disable", UNIT_NAME))
+        path.unlink()
+        self._run(_systemctl("daemon-reload"))
+        if state.enabled:
+            self._run(_systemctl("enable", UNIT_NAME))
+        if state.running:
+            self.restart()
         return path
 
     def start(self) -> None:

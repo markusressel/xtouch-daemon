@@ -4,7 +4,15 @@
 
 ## Install and start
 
-The GUI needs the `gui` extra (PyQt6). The wheels bring Qt along, so it needs no system packages:
+On Arch Linux, install the package `xtouch-daemon-gui-bin` (see [Getting started](getting-started.md#arch-linux)).
+It uses the system's PyQt6, and starts with `xtouch-daemon-gui` or "X-Touch Extender" in the menu of the desktop:
+
+```shell
+xtouch-daemon-gui            # the default configuration file
+xtouch-daemon-gui -c FILE    # another one
+```
+
+From a checkout, the GUI needs the `gui` extra (PyQt6). The wheels bring Qt along, so it needs no system packages:
 
 ```shell
 uv tool install --force './xtouch-daemon[gui]'
@@ -27,8 +35,24 @@ Without the extra, `xtouch-daemon gui` says how to install it.
   selected strip.
 - **The footer** shows the file, whether the device runs it, the problems, and the buttons Undo, Redo, Revert and
   "Save and apply".
-- **The header** shows the state of the service with buttons to install, start, restart or stop it, what the sound
-  server has, the zoom, and a switch between the dark and the light theme.
+- **The header** shows the state of the service with buttons to install, start, restart or stop it, which unit it
+  runs (see [The service](#the-service)), what the sound server has, the zoom, and a switch between the dark and the
+  light theme.
+
+## The service
+
+Next to the state of the service, the header shows which unit systemd uses: "packaged" for the one of the Arch Linux
+package (`/usr/lib/systemd/user/xtouch-daemon.service`), or "from" and the program of a unit in
+`~/.config/systemd/user`, which [`install-service`](commands.md#install-service) wrote, e.g. for a checkout.
+
+- **Install and start** takes the unit of the package when the GUI is the one of the package: it enables and starts
+  it, and writes no file. Any other GUI writes a unit for its own `xtouch-daemon` to `~/.config/systemd/user`.
+- **Use the packaged unit** shows while a unit in `~/.config/systemd/user` overrides the one of the package. It removes
+  that file; an enabled service stays enabled, and a running one restarts with the program of the package.
+- **Restart** stands out (with a tooltip that names both versions) when the daemon runs another version than the one
+  installed, e.g. after an upgrade of the package: the daemon keeps running the old version until it restarts. This
+  needs a daemon that tells its version (0.1.0 and later), and only counts for the service of the installation the
+  GUI runs from.
 
 ## Zoom
 

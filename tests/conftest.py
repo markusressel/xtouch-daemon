@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon import protocol
+from xtouch_daemon import protocol, systemd
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.model import AudioState, Device, Direction, Stream
@@ -17,6 +17,22 @@ from xtouch_daemon.surface import Surface
 
 # windows of the GUI tests are never shown on the display of the machine
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
+
+@pytest.fixture(autouse=True)
+def no_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The release package is not installed, also on a machine that has it: its paths are in the temporary directory."""
+    monkeypatch.setattr(systemd, "PACKAGED_UNIT", tmp_path / "package" / "systemd" / "user" / systemd.UNIT_NAME)
+    monkeypatch.setattr(systemd, "PACKAGE_ROOT", tmp_path / "package" / "xtouch-daemon")
+
+
+def install_package(contains_this_program: bool = True) -> None:
+    """Installs the unit of the release package, and makes it the one this program comes from."""
+    systemd.PACKAGED_UNIT.parent.mkdir(parents=True, exist_ok=True)
+    systemd.PACKAGED_UNIT.write_text(systemd.unit_file("/usr/bin/xtouch-daemon"), encoding="utf-8")
+    if contains_this_program:
+        # the directory of the installed packages
+        systemd.PACKAGE_ROOT = Path(systemd.xtouch_daemon.__file__).resolve().parent.parent
 
 
 class FakeBackend:

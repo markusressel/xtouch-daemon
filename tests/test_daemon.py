@@ -10,8 +10,8 @@ import pytest
 
 from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle
 from tests.fake_mqtt import FakeBroker
+from xtouch_daemon import __version__, live, protocol
 from xtouch_daemon import daemon as daemon_module
-from xtouch_daemon import live, protocol
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.audio.backend import AudioBackend
@@ -383,6 +383,8 @@ async def test_without_mqtt_section_there_is_no_bridge(
     daemon = make(config_path, surface, backend)
     assert daemon.bridge is None
     assert daemon.snapshot().mqtt is None
+    # the GUI tells whether it runs the installed version
+    assert daemon.snapshot().daemon_version == __version__
     config = parse_config(HOME_ASSISTANT)
     assert Daemon(config, backend, surface, mixer_factory=quiet_mixer).bridge is not None
 
