@@ -1,0 +1,82 @@
+# xtouch-daemon configuration
+#
+# Copy to ~/.config/xtouch-daemon/config.toml (`xtouch-daemon init-config` does that), check it with
+# `xtouch-daemon check-config`, and apply changes with `systemctl --user reload xtouch-daemon`.
+
+[device]
+# Part of the name of the extender's sound card (see /proc/asound/cards).
+name = "X-Touch-Ext"
+
+[behavior]
+max_volume = 100          # the volume of a fader at the top; up to 150 amplifies in software
+encoder_step = 1          # percent per encoder step
+reset_volume = 100        # the volume a push on an encoder sets
+meters = true             # LED meters show audio levels
+auto_hold = 5             # seconds an "auto" strip keeps an application after it stopped playing
+ignore = ["speech-dispatcher"]   # applications "auto" strips never take
+
+[aliases]
+# Names to show on "auto" strips: "name the sound server reports" = "label" (7 characters fit).
+# `xtouch-daemon list-apps` shows the reported names.
+"WEBRTC VoiceEngine" = "Discord"
+
+# ---- Strips, from the left. Up to 8, missing ones are "auto". ------------------------------------------------
+#
+# type = "output"   an output: `device` (a node name from `xtouch-daemon list-devices`), or the default output
+# type = "input"    an input, the same way
+# type = "apps"     the streams of applications: match = ["firefox", "brave"] (parts of the name or binary)
+# type = "auto"     the next application that plays and has no strip of its own
+# type = "empty"    a dark strip
+#
+# label  = "..."    the top line of the LCD (7 characters)
+# color  = off | red | green | yellow | blue | magenta | cyan | white
+# meter  = false    no level on this strip's LED meter
+# select = false    (output/input with a device) the select button does not make the device the default
+#
+# Examples:
+#
+# [[strip]]
+# type = "output"
+# device = "alsa_output.pci-0000_11_00.4.analog-stereo"
+# label = "Speaker"
+# color = "cyan"
+#
+# [[strip]]
+# type = "apps"
+# match = ["discord", "teamspeak", "mumble"]
+# label = "VoIP"
+# color = "green"
+
+[[strip]]
+type = "auto"
+color = "cyan"
+
+[[strip]]
+type = "auto"
+color = "cyan"
+
+[[strip]]
+type = "auto"
+color = "cyan"
+
+[[strip]]
+type = "auto"
+color = "cyan"
+
+[[strip]]
+type = "auto"
+color = "cyan"
+
+[[strip]]
+type = "auto"
+color = "cyan"
+
+[[strip]]
+type = "input"
+label = "Mic"
+color = "red"
+
+[[strip]]
+type = "output"
+label = "Output"
+color = "white"
