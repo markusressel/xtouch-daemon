@@ -67,6 +67,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The meters came up to 64 ms late, by a different amount per strip (pw-record buffered its output): two
+  meters of the same audio now move together.
 - After the device was switched off and on again, the faders stayed at the bottom: they come up to their values
   again.
 - The meter of an output that was the default followed the default to the next output after Select (WirePlumber

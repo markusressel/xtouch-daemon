@@ -41,7 +41,7 @@ def test_the_level_spreads_the_decibels_over_the_leds():
 
 
 def test_the_capture_command_is_passive_and_raw():
-    output = capture_command(OUTPUT)
+    output = capture_command(OUTPUT, stdbuf=None)
     assert output[0] == "pw-record"
     assert "--target" not in output
     properties = output[output.index("-P") + 1]
@@ -49,8 +49,9 @@ def test_the_capture_command_is_passive_and_raw():
     assert "stream.capture.sink = true" in properties
     assert output[-2:] == ["--raw", "-"]
 
-    stream = capture_command(STREAM, "/usr/bin/pw-record")
-    assert stream[:3] == ["/usr/bin/pw-record", "--target", "42"]
+    # unbuffered: the audio comes every cycle of the graph, not in blocks of 64 ms
+    stream = capture_command(STREAM, "/usr/bin/pw-record", "/usr/bin/stdbuf")
+    assert stream[:5] == ["/usr/bin/stdbuf", "-o0", "/usr/bin/pw-record", "--target", "42"]
     assert "stream.capture.sink" not in stream[stream.index("-P") + 1]
     # a capture of a device or stream stays with it; the one of the default output follows the default
     assert "node.dont-reconnect = true" in stream[stream.index("-P") + 1]
@@ -81,6 +82,18 @@ async def test_a_capture_that_can_not_start_ends(tmp_path: Path, caplog: pytest.
     peaks: list[float] = []
     await capture(STREAM, peaks.append, lambda: True, str(tmp_path / "missing"))
     assert peaks == []
+    assert "Can't start" in caplog.text
+
+
+async def test_a_capture_that_fails_to_run_ends(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    # without stdbuf the command itself runs, and fails: not a program
+    monkeypatch.setattr(meter_module, "STDBUF", None)
+    path = tmp_path / "pw-record"
+    path.write_bytes(b"\x00\x01")
+    path.chmod(0o755)
+    await capture(STREAM, lambda peak: None, lambda: True, str(path))
     assert "Can't start" in caplog.text
 
 

@@ -91,6 +91,9 @@ number (a fader moved by hand at most every 100 ms), buttons publish events, whi
   keeps WirePlumber from saving the captures at all. `node.dont-reconnect = true` keeps a capture with its device or
   stream: WirePlumber makes a stream whose target is the default when it is linked follow the default (like
   PulseAudio), so without it the meter of the default output would show the next default output after Select.
+  `pw-record` runs under `stdbuf -o0` (coreutils): its buffered output comes in blocks of 4096 bytes (64 ms at
+  8 kHz), so the meters lagged, and two meters of the same audio differed by up to that much. Unbuffered, it writes
+  every cycle of the graph; the daemon takes the peak of every 20 ms.
 - **Stall restart.** WirePlumber links a passive capture only once and gives up when that fails, e.g. while Bluetooth
   headphones disappear and streams move. A capture that gets no audio for 3 s while its device or stream plays is
   started again.

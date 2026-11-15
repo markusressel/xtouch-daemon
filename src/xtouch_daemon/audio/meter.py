@@ -14,6 +14,7 @@ import asyncio
 import contextlib
 import logging
 import math
+import shutil
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
@@ -26,8 +27,8 @@ FLOOR_DB = -60.0
 CAPTURE_RATE = 8000
 """The audio is only looked at for its peaks, a low rate costs next to nothing."""
 CAPTURE_CHANNELS = 2
-CHUNK_BYTES = CAPTURE_RATE * CAPTURE_CHANNELS * 4 // 20
-"""Read at once: 50 ms of float32 samples."""
+CHUNK_BYTES = CAPTURE_RATE * CAPTURE_CHANNELS * 4 // 50
+"""Read at once: 20 ms of float32 samples."""
 STALL_TIMEOUT = 3.0
 """
 A capture that gets no audio for this long although what it captures plays is started again: WirePlumber links a
@@ -36,6 +37,12 @@ headphones go away and the streams move).
 """
 RESTART_DELAY = 1.0
 PW_RECORD = "pw-record"
+STDBUF = shutil.which("stdbuf")
+"""
+`stdbuf -o0` (coreutils) runs pw-record with unbuffered output: buffered, it writes 4096 bytes at a time (64 ms here),
+so the meters came late, and two meters of the same audio apart by up to that much. Unbuffered it writes every
+cycle of the graph (about 10 ms). Without it the meters work all the same, only later.
+"""
 
 
 def peak_of(data: bytes) -> float:
@@ -63,7 +70,7 @@ class CaptureTarget:
     """The node is an output: its monitor is captured."""
 
 
-def capture_command(target: CaptureTarget, command: str = PW_RECORD) -> list[str]:
+def capture_command(target: CaptureTarget, command: str = PW_RECORD, stdbuf: str | None = STDBUF) -> list[str]:
     properties = [
         "node.passive = true",
         'application.name = "xtouch-daemon"',
@@ -77,6 +84,7 @@ def capture_command(target: CaptureTarget, command: str = PW_RECORD) -> list[str
         *(["node.dont-reconnect = true"] if target.node is not None else []),
     ]
     return [
+        *([stdbuf, "-o0"] if stdbuf is not None else []),
         command,
         *(["--target", target.node] if target.node is not None else []),
         "-P",
@@ -101,7 +109,11 @@ async def capture(
     Feeds the peaks of the target until the capture ends, or until it got no audio for STALL_TIMEOUT although
     `playing()` says the target plays: then it is not linked.
     """
-    argv = capture_command(target, command)
+    if shutil.which(command) is None:
+        # stdbuf would start, and then fail to start it
+        _LOGGER.error(f"Can't start {command} for the meters: not found")
+        return
+    argv = capture_command(target, command, STDBUF)
     try:
         process = await asyncio.create_subprocess_exec(
             *argv, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
