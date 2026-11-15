@@ -449,3 +449,11 @@ def test_a_balance_turns_down_the_other_side_and_leaves_the_rest():
     assert balanced_volume(info, -0.25) == pytest.approx([0.8, 0.6, 0.3])
     assert balanced_volume(info, 2.0) == pytest.approx([0.0, 0.8, 0.3])
     assert balanced_volume(channels(("mono", 0.5)), 0.5) == [0.5]
+
+
+def test_volumes_go_above_where_the_sliders_of_pavucontrol_end() -> None:
+    # pulsectl stops at 153 %; the strips go up to 200 %
+    struct = pulse_module.Volume([2.0, 1.0]).to_struct()
+    assert list(struct.values)[: struct.channels] == [2 * 65536, 65536]
+    struct = pulse_module.Volume([1e9]).to_struct()
+    assert struct.values[0] == pulsectl._pulsectl.PA_VOLUME_MAX

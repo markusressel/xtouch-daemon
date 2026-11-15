@@ -11,6 +11,7 @@ from typing import Any
 
 import pulsectl
 import pulsectl_asyncio
+from pulsectl import _pulsectl
 
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Capture, Card, Device, Direction, Profile, Stream
@@ -127,6 +128,18 @@ def _capture(info: Any, targets: dict[int, tuple[str, Direction]]) -> Capture:
 
 def _is_monitor(source: Any) -> bool:
     return getattr(source, "monitor_of_sink", PA_INVALID_INDEX) not in (PA_INVALID_INDEX, None)
+
+
+class Volume(pulsectl.PulseVolumeInfo):
+    """
+    Channel volumes for the sound server, up to PulseAudio's limit. pulsectl's own stop at 153 %
+    (`PA_VOLUME_UI_MAX`, where the sliders of pavucontrol end), below the 200 % a strip may reach.
+    """
+
+    def to_struct(self) -> Any:
+        assert self.values is not None, "made from channel volumes"
+        values = tuple(min(_pulsectl.PA_VOLUME_MAX, round(v * _pulsectl.PA_VOLUME_NORM)) for v in self.values)
+        return _pulsectl.PA_CVOLUME(len(values), values)
 
 
 def scaled_volume(values: list[float], percent: int) -> list[float]:
@@ -251,7 +264,7 @@ class PulseBackend:
 
     async def set_device_volume(self, direction: Direction, name: str, percent: int) -> None:
         info = await self._device_info(direction, name)
-        volume = pulsectl.PulseVolumeInfo(scaled_volume(list(info.volume.values), percent))
+        volume = Volume(scaled_volume(list(info.volume.values), percent))
         await self._call(f"setting the volume of {name}", self._connected().volume_set(info, volume))
 
     async def set_device_mute(self, direction: Direction, name: str, muted: bool) -> None:
@@ -260,7 +273,7 @@ class PulseBackend:
 
     async def set_device_balance(self, direction: Direction, name: str, balance: float) -> None:
         info = await self._device_info(direction, name)
-        volume = pulsectl.PulseVolumeInfo(balanced_volume(info, balance))
+        volume = Volume(balanced_volume(info, balance))
         await self._call(f"setting the balance of {name}", self._connected().volume_set(info, volume))
 
     async def set_default(self, direction: Direction, name: str) -> None:
@@ -269,7 +282,7 @@ class PulseBackend:
 
     async def set_stream_balance(self, index: int, balance: float) -> None:
         info = await self._stream_info(index)
-        volume = pulsectl.PulseVolumeInfo(balanced_volume(info, balance))
+        volume = Volume(balanced_volume(info, balance))
         await self._call(f"setting the balance of stream #{index}", self._connected().volume_set(info, volume))
 
     async def set_card_profile(self, card: str, profile: str) -> None:
@@ -282,7 +295,7 @@ class PulseBackend:
 
     async def set_stream_volume(self, index: int, percent: int) -> None:
         info = await self._stream_info(index)
-        volume = pulsectl.PulseVolumeInfo(scaled_volume(list(info.volume.values), percent))
+        volume = Volume(scaled_volume(list(info.volume.values), percent))
         await self._call(f"setting the volume of stream #{index}", self._connected().volume_set(info, volume))
 
     async def set_stream_mute(self, index: int, muted: bool) -> None:

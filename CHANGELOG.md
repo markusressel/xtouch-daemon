@@ -63,3 +63,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The meter of an output that was the default followed the default to the next output after Select (WirePlumber
   makes such a capture follow the default); meters now stay with their device.
 - A balance a hair off the center lit only the center LED of the ring, like an exact center.
+- Volumes above 153 % (`max_volume` up to 200) ended at 153 %: pulsectl limits volumes to where the sliders of
+  pavucontrol end.
