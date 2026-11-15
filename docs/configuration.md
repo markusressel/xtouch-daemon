@@ -191,8 +191,9 @@ play, and which strip takes each one. A stream can belong to several `apps` stri
 | Ring | The volume. |
 | Meter | The level of all streams of the group together. |
 
-While no stream of the group is there, the LCD is dark and shows `idle`. The fader still works: it sets the volume the
-next stream gets.
+While no stream of the group is there (e.g. the application was closed), the LCD is dark and shows `idle`, and the
+fader glides slowly to the bottom and does nothing. The strip keeps its volume: when a stream comes back, the fader
+goes up to it and the stream gets it.
 
 The strip changes the volume of the streams themselves, like the per-application sliders in pavucontrol, so it needs
 no setup in PipeWire.

@@ -12,6 +12,7 @@ from tests.fake_mqtt import FakeBroker
 from xtouch_daemon import daemon as daemon_module
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon import protocol
+from xtouch_daemon import surface as surface_module
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config import Config, parse_config
@@ -103,6 +104,32 @@ async def test_sigterm_stops_the_daemon(
     await asyncio.wait_for(task, 1)
 
     assert "STOPPING=1" in notifications.states()
+
+
+async def test_more_signals_while_stopping_do_not_cut_the_shutdown_short(
+    config_path: Path,
+    surface: RecordingSurface,
+    notifications: Notifications,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    daemon = make(config_path, surface, FakeBackend((STATE,)))
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: surface.strips[0].text == ["Speaker", "50%"])
+    await surface.settled()
+    # the faders take a while to go down: signals come in meanwhile
+    monkeypatch.setattr(surface_module, "FADER_PARK_SMOOTH_TIME", 0.3)
+
+    os.kill(os.getpid(), signal.SIGINT)
+    await until(lambda: "STOPPING=1" in notifications.states())
+    os.kill(os.getpid(), signal.SIGINT)
+    os.kill(os.getpid(), signal.SIGTERM)
+    await asyncio.wait_for(task, 5)
+
+    assert "Stopping already" in caplog.text
+    assert surface.faders(0)[-1] == 0
+    assert surface.strips[0].text == ["", ""]
 
 
 async def test_sighup_loads_the_configuration_again(
@@ -357,7 +384,8 @@ async def test_nothing_shows_on_the_surface_after_it_was_turned_dark(
             assert message in blank_texts
         if message.startswith(protocol.SYSEX_HEADER + b"\x72"):
             assert message == protocol.lcd_colors([Color.BLACK] * protocol.STRIPS)
-    faders = [value for value in surface.faders(0) if value]
+    # after the dark point the faders only go down
+    faders = [m[1] | m[2] << 7 for m in after if m[0] == 0xE0]
     assert faders == sorted(faders, reverse=True)
     for strip in surface.strips:
         assert strip.color == Color.BLACK

@@ -10,7 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Strip types `output` and `input` (a device, or the default one; Select makes it the default), `apps` (all streams of
   a group of applications), `auto` (the next application that plays) and `empty`.
-- Motor faders that glide smoothly, follow changes made elsewhere and stay still while touched.
+- Motor faders that glide smoothly (also after a connect, from the bottom), follow changes made elsewhere, stay still
+  while touched, and get their value again after arriving so the motor doesn't stop short. Strips with nothing to
+  control (an application that ended, a device that is gone, the daemon stopping) put their faders away slowly.
 - LCD labels, volume and state on a backlight in the strip's color; Mute LED; encoder for fine steps, push to reset.
 - Passive LED meters from `pw-record` captures.
 - Strip type `homeassistant`: the fader, encoder, LCD lines and color, LEDs and button events of a strip become
