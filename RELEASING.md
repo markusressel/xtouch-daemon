@@ -33,15 +33,8 @@ tarball runs from any directory, e.g. `<dir>/usr/bin/xtouch-daemon --help`.
 - `packaging/build-release.sh` takes the pinned commit from the repository next to this one (`git archive`), so
   uncommitted changes there don't end up in a release.
 
-The repository is private, so CI checks it out with a deploy key. To set it up once:
-
-1. Create a key pair without passphrase: `ssh-keygen -t ed25519 -N "" -C "xtouch-daemon CI" -f xtouch-daemon-ci`.
-2. In haad-mqtt-autodiscovery: Settings > Deploy keys > Add deploy key, paste `xtouch-daemon-ci.pub`, read-only.
-3. In xtouch-daemon: Settings > Secrets and variables > Actions > New repository secret, name
-   `HAAD_MQTT_AUTODISCOVERY_DEPLOY_KEY`, value the content of the private key `xtouch-daemon-ci`.
-4. Delete both files.
-
-The [CI](.github/workflows/ci.yml) and [Release](.github/workflows/release.yml) workflows use the secret.
+The [CI](.github/workflows/ci.yml) and [Release](.github/workflows/release.yml) workflows check out the pinned
+commit next to the project.
 
 ## Cutting a release
 
@@ -99,7 +92,7 @@ directly, the next release overwrites them.
 - `xtouch-daemon-bin`: the daemon tarball, unpacked to `/`. `options=('!strip')`: strip breaks the binaries of the
   bundled Python. Its `check()` runs `xtouch-daemon --version` and `check-config` on the example configuration.
 - `xtouch-daemon-gui-bin`: the GUI tarball, `arch=('any')` (it contains no compiled code).
-- There is no `-git` package: it would have to build haad-mqtt-autodiscovery, which is private.
+- There is no `-git` package yet.
 
 Publishing is deliberately manual (`packaging/aur/publish.sh`): an AUR SSH key grants push access to every package of
 the account, and a PKGBUILD runs code on users' machines, so the key is not stored in GitHub.

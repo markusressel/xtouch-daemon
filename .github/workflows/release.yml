@@ -26,12 +26,10 @@ jobs:
       - name: Read the pinned commit of haad-mqtt-autodiscovery
         id: pin
         run: echo "rev=$(tr -d '[:space:]' < packaging/haad-mqtt-autodiscovery.rev)" >> "$GITHUB_OUTPUT"
-      # a private repository: the deploy key of its "Deploy keys" settings, stored as a secret here (see RELEASING.md)
       - uses: actions/checkout@v4
         with:
           repository: haad-org/haad-mqtt-autodiscovery
           ref: ${{ steps.pin.outputs.rev }}
-          ssh-key: ${{ secrets.HAAD_MQTT_AUTODISCOVERY_DEPLOY_KEY }}
           path: haad-mqtt-autodiscovery
       - uses: astral-sh/setup-uv@v6
       - name: Check that the tag is the version of the project

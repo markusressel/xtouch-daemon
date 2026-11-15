@@ -23,7 +23,7 @@ jobs:
         with:
           path: xtouch-daemon
       # a path dependency (see [tool.uv.sources]): it is checked out next to the project, at the commit the release
-      # builds with. A private repository: its deploy key is a secret here (see RELEASING.md)
+      # builds with
       - name: Read the pinned commit of haad-mqtt-autodiscovery
         id: pin
         run: echo "rev=$(tr -d '[:space:]' < packaging/haad-mqtt-autodiscovery.rev)" >> "$GITHUB_OUTPUT"
@@ -31,7 +31,6 @@ jobs:
         with:
           repository: haad-org/haad-mqtt-autodiscovery
           ref: ${{ steps.pin.outputs.rev }}
-          ssh-key: ${{ secrets.HAAD_MQTT_AUTODISCOVERY_DEPLOY_KEY }}
           path: haad-mqtt-autodiscovery
       - uses: astral-sh/setup-uv@v6
         with:
