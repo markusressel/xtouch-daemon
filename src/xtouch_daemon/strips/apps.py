@@ -35,8 +35,10 @@ class AppStrip(VolumeStrip):
         color: Color = Color.WHITE,
         meter: bool = True,
         indicators: Mapping[Button, Indicator] | None = None,
+        min_volume: int | None = None,
+        max_volume: int | None = None,
     ):
-        super().__init__(strip, env, label, color, meter, indicators)
+        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume)
         self.streams: dict[int, Stream] = {}
         self.group_volume: int | None = None
         """The volume of the strip: set on the strip, or the loudest stream; None before the first stream."""
@@ -106,8 +108,10 @@ class AppGroupStrip(AppStrip):
         color: Color = Color.WHITE,
         meter: bool = True,
         indicators: Mapping[Button, Indicator] | None = None,
+        min_volume: int | None = None,
+        max_volume: int | None = None,
     ):
-        super().__init__(strip, env, label, color, meter, indicators)
+        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume)
         self.patterns = patterns
 
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
@@ -128,8 +132,10 @@ class AutoStrip(AppStrip):
         color: Color = Color.WHITE,
         meter: bool = True,
         indicators: Mapping[Button, Indicator] | None = None,
+        min_volume: int | None = None,
+        max_volume: int | None = None,
     ):
-        super().__init__(strip, env, "", color, meter, indicators)
+        super().__init__(strip, env, "", color, meter, indicators, min_volume, max_volume)
         self.aliases = aliases
         self.app: str | None = None
 

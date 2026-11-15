@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `profiles` on `output` and `input` strips: Rec switches the sound card between profiles, e.g. analog and digital
   output; the label of the active profile names the strip (e.g. "Phones" and "Speaker"), and the new device
   becomes the default if the old one was. `list-devices` lists the profiles of the cards.
+- `min_volume` and `max_volume` on strips and profiles: the range of the fader, up to 200 % (also
+  `behavior.max_volume`, which was limited to 150 %).
 - Motor faders that glide smoothly (also after a connect, from the bottom), follow changes made elsewhere, stay still
   while touched, and get their value again after arriving so the motor doesn't stop short. Strips with nothing to
   control (an application that ended, a device that is gone, the daemon stopping) put their faders away slowly.

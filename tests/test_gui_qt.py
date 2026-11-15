@@ -349,7 +349,14 @@ def test_a_strip_that_is_not_configured_can_be_configured(qtbot: QtBot, window: 
 
     assert [strip.type for strip in window.document.strips] == ["output", "apps", "auto", "auto", "auto"]
     assert window.preview.strips[4].look.configured
-    assert [row.option.name for row in window.strip_page.rows] == ["color", "meter", "rec", "solo"]
+    assert [row.option.name for row in window.strip_page.rows] == [
+        "color",
+        "meter",
+        "rec",
+        "solo",
+        "min_volume",
+        "max_volume",
+    ]
 
 
 def test_an_empty_strip_has_no_options(window: MainWindow):
@@ -1370,8 +1377,8 @@ def test_profiles_of_the_file_are_shown_and_saved_as_tables(qtbot: QtBot, window
     profiles = row(window, "profiles")
     profiles.load()
     assert [[line.text() for line in lines] for lines in profiles.tables.lines] == [
-        ["Analog", "output:analog-stereo"],
-        ["Digital", "Digital Output"],
+        ["Analog", "output:analog-stereo", "", ""],
+        ["Digital", "Digital Output", "", ""],
     ]
     assert 'label = "Digital"' in window.document.render()
     # something else than a list of tables shows none: its problem says what is wrong
@@ -1385,5 +1392,30 @@ def test_tables_without_suggestions_have_no_menu(qtbot: QtBot):
     tables = Tables(columns, None)
     qtbot.addWidget(tables)
     tables.show_values([{"label": "Analog"}])
-    assert [[line.text() for line in lines] for lines in tables.lines] == [["Analog", ""]]
+    assert [[line.text() for line in lines] for lines in tables.lines] == [["Analog", "", "", ""]]
     assert not [button for button in tables.findChildren(QToolButton) if button.menu()]
+
+
+def test_an_unset_number_says_what_applies(qtbot: QtBot, window: MainWindow):
+    window.document.set(("behavior", "max_volume"), 120)
+    maximum = row(window, "max_volume")
+    maximum.load()
+    assert maximum.spin.value() == -1
+    assert maximum.spin.text() == "default: 120 (behavior)"
+
+    maximum.spin.setValue(180)
+    assert window.document.get(("strip", 0, "max_volume")) == 180
+    # back below the range: not set
+    maximum.spin.setValue(-1)
+    assert window.document.get(("strip", 0, "max_volume")) is None
+    assert row(window, "min_volume").spin.text() == "default: 0"
+
+
+def test_numbers_of_tables_are_numbers(qtbot: QtBot, window: MainWindow):
+    tables: Tables = row(window, "profiles").tables
+    click(qtbot, tables.add_button)
+    type_into(qtbot, tables.lines[0][3], "200")
+    assert window.document.get(("strip", 0, "profiles")) == [{"max_volume": 200}]
+    # one that is none stays text: its problem says so
+    type_into(qtbot, tables.lines[0][3], "lots")
+    assert window.document.get(("strip", 0, "profiles")) == [{"max_volume": "lots"}]

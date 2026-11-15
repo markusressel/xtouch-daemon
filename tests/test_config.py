@@ -117,10 +117,10 @@ def test_invalid_toml_names_the_file():
 @pytest.mark.parametrize(
     ("text", "location"),
     [
-        ("[behavior]\nmax_volume = 200", "behavior.max_volume"),
+        ("[behavior]\nmax_volume = 201", "behavior.max_volume"),
         ("[behavior]\nmax_volume = 99", "behavior.max_volume"),
         ("[behavior]\nencoder_step = 0", "behavior.encoder_step"),
-        ("[behavior]\nreset_volume = 151", "behavior.reset_volume"),
+        ("[behavior]\nreset_volume = 201", "behavior.reset_volume"),
         ("[behavior]\nreset_volume = 120", "behavior"),
         ("[behavior]\nauto_hold = -1", "behavior.auto_hold"),
         # a typo in an option name
@@ -192,7 +192,7 @@ def test_loads_the_file(tmp_path: Path):
 
 def test_errors_name_the_file_they_are_in(tmp_path: Path):
     path = tmp_path / "config.toml"
-    path.write_text("[behavior]\nmax_volume = 200")
+    path.write_text("[behavior]\nmax_volume = 201")
     with pytest.raises(ConfigError, match=f"^{path} has errors:"):
         load_config(path)
 
@@ -277,3 +277,39 @@ def test_a_device_strip_switches_between_two_or_more_profiles_with_rec() -> None
         parse_config(strip + 'rec = "playing"\n' + profiles)
     with pytest.raises(ConfigError, match=r"strip\[1\]\.profiles\[1\]\.label"):
         parse_config(strip + profiles.replace('"Analog"', '"Analog Stereo"'))
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ('[[strip]]\ntype = "auto"\nmin_volume = 100\n', "strip[1]: min_volume (100) is not below max_volume (100)"),
+        (
+            '[[strip]]\ntype = "apps"\nmatch = ["a"]\nlabel = "A"\nmin_volume = 50\nmax_volume = 40\n',
+            "strip[1]: min_volume (50) is not below max_volume (40)",
+        ),
+        (
+            '[[strip]]\ntype = "output"\nmax_volume = 120\n'
+            '[[strip.profiles]]\nlabel = "A"\nprofile = "a"\n'
+            '[[strip.profiles]]\nlabel = "B"\nprofile = "b"\nmin_volume = 150\n',
+            "strip[1].profiles[2]: min_volume (150) is not below max_volume (120)",
+        ),
+        ('[[strip]]\ntype = "auto"\nmax_volume = 201\n', "strip[1].max_volume"),
+    ],
+)
+def test_a_volume_range_goes_up(text: str, message: str) -> None:
+    assert message in errors_of(text)
+
+
+def test_strips_and_profiles_have_volume_ranges_of_their_own() -> None:
+    config = parse_config(
+        '[behavior]\nmax_volume = 120\n[[strip]]\ntype = "output"\nmin_volume = 10\n'
+        '[[strip.profiles]]\nlabel = "Phones"\nprofile = "a"\n'
+        '[[strip.profiles]]\nlabel = "Speaker"\nprofile = "b"\nmin_volume = 50\nmax_volume = 200\n'
+        '[[strip]]\ntype = "auto"\n'
+    )
+    assert config.strips[0].volume_ranges(config.behavior) == [  # type: ignore[union-attr]
+        ("", 10, 120),
+        ("profiles[1]", 10, 120),
+        ("profiles[2]", 50, 200),
+    ]
+    assert config.strips[1].volume_ranges(config.behavior) == [("", 0, 120)]  # type: ignore[union-attr]

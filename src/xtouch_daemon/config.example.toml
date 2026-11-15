@@ -8,7 +8,7 @@
 name = "X-Touch-Ext"
 
 [behavior]
-max_volume = 100          # the volume of a fader at the top; up to 150 amplifies in software
+max_volume = 100          # the volume of a fader at the top; up to 200 amplifies in software
 encoder_step = 1          # percent per encoder step
 reset_volume = 100        # the volume a push on an encoder sets
 meters = true             # LED meters show audio levels

@@ -51,6 +51,13 @@ Label = Annotated[str, Field(max_length=protocol.LCD_CELL_WIDTH, pattern=r"^[\x2
 """What fits on the LCD: 7 characters of ASCII."""
 
 
+VOLUME_LIMIT = 200
+"""The loudest volume a fader may reach, in percent: above 100 % the audio is amplified in software."""
+
+Volume = Annotated[int, Field(ge=0, le=VOLUME_LIMIT)]
+"""A volume in percent."""
+
+
 class DeviceConfig(_Model):
     """The device the daemon drives."""
 
@@ -61,12 +68,15 @@ class DeviceConfig(_Model):
 class BehaviorConfig(_Model):
     """How the faders, encoders, meters and `auto` strips behave."""
 
-    max_volume: Annotated[int, Field(ge=100, le=150)] = 100
-    """The volume of a fader at the top, in percent: above 100 % the audio is amplified in software."""
+    max_volume: Annotated[int, Field(ge=100, le=VOLUME_LIMIT)] = 100
+    """
+    The volume of a fader at the top, in percent: above 100 % the audio is amplified in software. Strips may have a
+    range of their own (`min_volume`, `max_volume`).
+    """
     encoder_step: Annotated[int, Field(ge=1, le=10)] = 1
     """Percent per step of an encoder."""
-    reset_volume: Annotated[int, Field(ge=0, le=150)] = 100
-    """The volume a push on an encoder sets."""
+    reset_volume: Volume = 100
+    """The volume a push on an encoder sets (within the range of the strip)."""
     meters: bool = True
     """Whether the LED meters show audio levels."""
     auto_hold: Annotated[float, Field(ge=0)] = 5.0
@@ -90,6 +100,16 @@ class _StripConfig(_Model):
     """What the LED of the rec button shows."""
     solo: Indicator = "off"
     """What the LED of the solo button shows."""
+    min_volume: Volume | None = None
+    """The volume of the fader at the bottom, in percent; by default 0."""
+    max_volume: Volume | None = None
+    """The volume of the fader at the top, in percent; by default `behavior.max_volume`."""
+
+    def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
+        """Where each volume range of the strip is configured (e.g. `profiles[2]`, "" for the strip), and the range."""
+        bottom = 0 if self.min_volume is None else self.min_volume
+        top = behavior.max_volume if self.max_volume is None else self.max_volume
+        return [("", bottom, top)]
 
 
 class ProfileConfig(_Model):
@@ -101,6 +121,10 @@ class ProfileConfig(_Model):
     """
     The name (`output:iec958-stereo+input:analog-stereo`) or description of the profile (`xtouch-daemon list-devices`).
     """
+    min_volume: Volume | None = None
+    """The volume of the fader at the bottom in this profile; by default the one of the strip."""
+    max_volume: Volume | None = None
+    """The volume of the fader at the top in this profile (e.g. 200 for weak speakers); by default the strip's."""
 
 
 class DeviceStripConfig(_StripConfig):
@@ -145,6 +169,19 @@ class DeviceStripConfig(_StripConfig):
         if len(value) == 1:
             raise ValueError("at least two to switch between")
         return value
+
+    def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
+        ranges = super().volume_ranges(behavior)
+        _, bottom, top = ranges[0]
+        for number, profile in enumerate(self.profiles, start=1):
+            ranges.append(
+                (
+                    f"profiles[{number}]",
+                    bottom if profile.min_volume is None else profile.min_volume,
+                    top if profile.max_volume is None else profile.max_volume,
+                )
+            )
+        return ranges
 
     @model_validator(mode="after")
     def _profiles_take_rec(self) -> DeviceStripConfig:
@@ -257,6 +294,17 @@ class Config(_Model):
     """Up to 8 strips from the left; missing ones are `auto`."""
     mqtt: MqttConfig | None = None
     """The MQTT broker, needed by `homeassistant` strips."""
+
+    @model_validator(mode="after")
+    def _volume_ranges(self) -> Config:
+        for number, strip in enumerate(self.strips, start=1):
+            if not isinstance(strip, _StripConfig):
+                continue
+            for where, bottom, top in strip.volume_ranges(self.behavior):
+                if bottom >= top:
+                    place = f"strip[{number}]" + (f".{where}" if where else "")
+                    raise ValueError(f"{place}: min_volume ({bottom}) is not below max_volume ({top})")
+        return self
 
     @model_validator(mode="after")
     def _home_assistant_strips(self) -> Config:

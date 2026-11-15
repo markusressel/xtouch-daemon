@@ -99,6 +99,9 @@ class VolumeStrip(StripController):
     button mutes. The LCD shows the label and the volume (or "muted"), the ring shows the volume, and the LEDs in
     `indicators` show what they are configured to (e.g. the rec LED whether an application records).
 
+    The fader goes from `min_volume` at the bottom to `max_volume` at the top (by default 0 and `behavior.max_volume`),
+    the encoder stays in that range too.
+
     Fader moves come faster than the sound server carries them out, so only the latest volume is set once the
     previous command is done.
     """
@@ -111,9 +114,13 @@ class VolumeStrip(StripController):
         color: Color = Color.WHITE,
         meter: bool = True,
         indicators: Mapping[Button, Indicator] | None = None,
+        min_volume: int | None = None,
+        max_volume: int | None = None,
     ):
         super().__init__(strip, env, color, meter)
         self.label = label
+        self.min_volume = min_volume
+        self.max_volume = max_volume
         self.indicators: dict[Button, Indicator] = dict(indicators or {})
         self.level: Level | None = None
         self.active = False
@@ -134,6 +141,16 @@ class VolumeStrip(StripController):
 
     async def apply_mute(self, muted: bool) -> None:
         raise NotImplementedError
+
+    def volume_range(self) -> tuple[int, int]:
+        """The volumes of the fader at the bottom and at the top."""
+        bottom = 0 if self.min_volume is None else self.min_volume
+        return bottom, self.env.behavior.max_volume if self.max_volume is None else self.max_volume
+
+    def _fraction(self, volume: int) -> float:
+        """Where the fader is for the volume: 0 at the bottom, 1 at the top."""
+        bottom, top = self.volume_range()
+        return max(0.0, min(1.0, (volume - bottom) / (top - bottom)))
 
     def accepts_input(self) -> bool:
         """Whether the fader and encoder do something now (e.g. not for a device that is not there)."""
@@ -185,10 +202,9 @@ class VolumeStrip(StripController):
             self.strip.set_led(Button.MUTE, Led.OFF)
             self.strip.set_text(1, self.inactive_text())
             return
-        maximum = self.env.behavior.max_volume
-        shown = max(0, min(maximum, level.volume))
-        self.strip.set_fader(shown / maximum)
-        self.strip.set_ring(round(shown / maximum * (RING_MAX - 1)) + 1, RingMode.WRAP)
+        fraction = self._fraction(level.volume)
+        self.strip.set_fader(fraction)
+        self.strip.set_ring(round(fraction * (RING_MAX - 1)) + 1, RingMode.WRAP)
         self.strip.set_led(Button.MUTE, Led.ON if level.muted else Led.OFF)
         if self._wanted is not None:
             self.strip.set_text(1, f"{self._wanted}%")
@@ -199,7 +215,8 @@ class VolumeStrip(StripController):
 
     def on_fader(self, fraction: float) -> None:
         if self.accepts_input():
-            self.set_volume(round(fraction * self.env.behavior.max_volume))
+            bottom, top = self.volume_range()
+            self.set_volume(round(bottom + fraction * (top - bottom)))
 
     def on_encoder(self, steps: int) -> None:
         if not self.accepts_input():
@@ -220,11 +237,11 @@ class VolumeStrip(StripController):
             self.run_command(self.apply_mute(not self.level.muted), "mute")
 
     def _shown_fraction(self) -> float:
-        wanted = self._wanted if self._wanted is not None else 0
-        return min(wanted, self.env.behavior.max_volume) / self.env.behavior.max_volume
+        return self._fraction(self._wanted) if self._wanted is not None else 0.0
 
     def set_volume(self, percent: int) -> None:
-        self._wanted = max(0, min(self.env.behavior.max_volume, percent))
+        bottom, top = self.volume_range()
+        self._wanted = max(bottom, min(top, percent))
         # right away, the sound server confirms it a moment later
         self.strip.set_text(1, f"{self._wanted}%")
         if self._setter is None or self._setter.done():

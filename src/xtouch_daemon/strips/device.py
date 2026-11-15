@@ -41,7 +41,8 @@ class DeviceStrip(VolumeStrip):
     With `profiles`, the rec button switches the sound card of the device to the next of them (e.g. from analog to
     digital output), and its LED is on for every profile but the first. The label of the profile is the label of the
     strip (e.g. "Phones" for the analog output, "Speaker" for the digital one), from the press on. The devices of the
-    card change with it: if the old one was the default, the new one becomes the default.
+    card change with it: if the old one was the default, the new one becomes the default. A profile may have a volume
+    range of its own (e.g. up to 200 % for weak speakers).
     """
 
     def __init__(
@@ -56,9 +57,11 @@ class DeviceStrip(VolumeStrip):
         select: bool = True,
         indicators: Mapping[Button, Indicator] | None = None,
         profiles: tuple[ProfileConfig, ...] = (),
+        min_volume: int | None = None,
+        max_volume: int | None = None,
     ):
         default_label = "Output" if direction == Direction.OUTPUT else "Input"
-        super().__init__(strip, env, label or default_label, color, meter, indicators)
+        super().__init__(strip, env, label or default_label, color, meter, indicators, min_volume, max_volume)
         self.direction = direction
         self.devices = devices
         self.select = select and bool(devices)
@@ -116,6 +119,15 @@ class DeviceStrip(VolumeStrip):
             self.label = self._label_option
         elif self.devices and self.device is not None:
             self.label = self.device.description[:LCD_CELL_WIDTH]
+
+    def volume_range(self) -> tuple[int, int]:
+        bottom, top = super().volume_range()
+        if (profile := self._profile()) is None:
+            return bottom, top
+        return (
+            bottom if profile.min_volume is None else profile.min_volume,
+            top if profile.max_volume is None else profile.max_volume,
+        )
 
     def _profile(self) -> ProfileConfig | None:
         """The profile the card is in (or switches to), None for another one."""

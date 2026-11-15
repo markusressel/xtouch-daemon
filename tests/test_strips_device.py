@@ -215,6 +215,50 @@ async def test_above_100_percent_the_fader_covers_the_amplification(
     assert backend.calls[-1][3] == 75
 
 
+async def test_a_strip_has_a_volume_range_of_its_own(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
+    strip = make(surface, env, min_volume=50, max_volume=200)
+    strip.update(AudioState(outputs=(output("speaker", 125),)))
+    await surface.settled()
+    s = surface.strips[0]
+    # half way between 50 and 200
+    assert surface.faders(0)[-1] == protocol.fader_value(0.5)
+    assert s.ring == (round(0.5 * (protocol.RING_MAX - 1)) + 1, RingMode.WRAP)
+
+    strip.on_fader(0.0)
+    await settle()
+    assert backend.calls[-1][3] == 50
+    strip.on_fader(1.0)
+    await settle()
+    assert backend.calls[-1][3] == 200
+
+    # the encoder stays in the range, the reset volume too
+    strip.update(AudioState(outputs=(output("speaker", 199),)))
+    strip.on_encoder(5)
+    await settle()
+    assert backend.calls[-1][3] == 200
+    strip.update(AudioState(outputs=(output("speaker", 52),)))
+    strip.on_encoder(-5)
+    await settle()
+    assert backend.calls[-1][3] == 50
+
+    # below the range, the fader is at the bottom
+    strip.update(AudioState(outputs=(output("speaker", 20),)))
+    await surface.settled()
+    assert surface.faders(0)[-1] == 0
+    assert s.text[1] == "20%"
+
+
+async def test_a_push_on_the_encoder_resets_within_the_range(surface: RecordingSurface, backend: FakeBackend) -> None:
+    env = StripEnv(backend, BehaviorConfig(reset_volume=100))
+    strip = make(surface, env, max_volume=80)
+    strip.update(STATE)
+    strip.on_encoder_press(True)
+    await settle()
+    assert backend.calls == [("set_device_volume", Direction.OUTPUT, "speaker", 80)]
+
+
 async def test_mute_toggles_mute(surface: RecordingSurface, env: StripEnv, backend: FakeBackend) -> None:
     strip = make(surface, env)
     strip.update(STATE)
@@ -666,3 +710,25 @@ async def test_a_failed_switch_leaves_a_later_one_alone(
     # both failed: the card is still in the first profile
     assert len(backend.calls) == 2
     assert surface.strips[0].text[0] == "Phones"
+
+
+async def test_a_profile_has_a_volume_range_of_its_own(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
+    profiles = (PROFILES[0], ProfileConfig(label="Speaker", profile=DIGITAL.name, min_volume=50, max_volume=200))
+    strip = make(surface, env, device="alsa_output.pci.*", profiles=profiles, max_volume=120)
+    strip.update(on_card(ANALOG))
+    strip.on_fader(1.0)
+    await settle()
+    # the range of the strip
+    assert backend.calls[-1][3] == 120
+
+    strip.on_button(Button.REC, True)
+    await settle()
+    strip.update(on_card(DIGITAL))
+    strip.on_fader(1.0)
+    await settle()
+    assert backend.calls[-1][3] == 200
+    strip.on_fader(0.0)
+    await settle()
+    assert backend.calls[-1][3] == 50

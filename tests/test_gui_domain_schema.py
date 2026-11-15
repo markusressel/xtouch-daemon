@@ -11,11 +11,12 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
     assert options(BehaviorConfig)[0] == Option(
         name="max_volume",
         kind=Kind.INTEGER,
-        help="The volume of a fader at the top, in percent: above 100 % the audio is amplified in software.",
+        help="The volume of a fader at the top, in percent: above 100 % the audio is amplified in software. Strips may "
+        "have a\nrange of their own (`min_volume`, `max_volume`).",
         default=100,
         required=False,
         minimum=100,
-        maximum=150,
+        maximum=200,
     )
     assert [(o.name, o.kind) for o in options(BehaviorConfig)] == [
         ("max_volume", Kind.INTEGER),
@@ -35,6 +36,8 @@ def test_every_strip_type_has_its_model_and_options():
         "meter",
         "rec",
         "solo",
+        "min_volume",
+        "max_volume",
         "device",
         "label",
         "select",
@@ -42,7 +45,8 @@ def test_every_strip_type_has_its_model_and_options():
     ]
     assert strip_options("empty") == ()
 
-    color, _, rec, _, device, label, _, profiles = strip_options("input")
+    color, _, rec, _, min_volume, _, device, label, _, profiles = strip_options("input")
+    assert (min_volume.kind, min_volume.default, min_volume.minimum, min_volume.maximum) == (Kind.INTEGER, None, 0, 200)
     assert (rec.kind, rec.default) == (Kind.CHOICE, "recording")
     assert color.kind == Kind.COLOR
     assert color.choices == ("off", "red", "green", "yellow", "blue", "magenta", "cyan", "white")
@@ -55,6 +59,8 @@ def test_every_strip_type_has_its_model_and_options():
     assert [(column.name, column.kind, column.max_length) for column in profiles.columns] == [
         ("label", Kind.TEXT, 7),
         ("profile", Kind.TEXT, None),
+        ("min_volume", Kind.INTEGER, None),
+        ("max_volume", Kind.INTEGER, None),
     ]
 
 

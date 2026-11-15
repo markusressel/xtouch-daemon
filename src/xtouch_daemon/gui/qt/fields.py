@@ -361,8 +361,8 @@ class Chips(QWidget):
 
 class Tables(QWidget):
     """
-    A list of tables with texts (e.g. the profiles of a strip): a line of fields for each, a button to add one. The
-    suggestions are for the last column, the value; the ones before it describe it (e.g. a label).
+    A list of tables with texts and numbers (e.g. the profiles of a strip): a line of fields for each, a button to add
+    one. The suggestions are for the value: the first text column without a length limit (a label has one).
     """
 
     changed = pyqtSignal(list, arguments=["values"])
@@ -371,7 +371,10 @@ class Tables(QWidget):
         super().__init__()
         self.columns = columns
         self._suggest = suggest
-        self.values: list[dict[str, str]] = []
+        self._suggested = next(
+            i for i, column in enumerate(columns) if column.kind == Kind.TEXT and column.max_length is None
+        )
+        self.values: list[dict[str, str | int]] = []
         self.lines: list[list[QLineEdit]] = []
         self._row_widgets: list[QWidget] = []
         layout = QVBoxLayout(self)
@@ -387,7 +390,7 @@ class Tables(QWidget):
         add.addStretch()
         layout.addLayout(add)
 
-    def show_values(self, values: list[dict[str, str]]) -> None:
+    def show_values(self, values: list[dict[str, str | int]]) -> None:
         self.values = [dict(value) for value in values]
         for widget in self._row_widgets:
             self.rows.removeWidget(widget)
@@ -397,7 +400,7 @@ class Tables(QWidget):
         for widget in self._row_widgets:
             self.rows.addWidget(widget)
 
-    def _row(self, index: int, value: dict[str, str]) -> QWidget:
+    def _row(self, index: int, value: dict[str, str | int]) -> QWidget:
         row = QWidget(self)
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -409,18 +412,21 @@ class Tables(QWidget):
             edit.setToolTip(help_text(column.help))
             if column.max_length is not None:
                 edit.setMaxLength(column.max_length)
-                edit.setMaximumWidth(120)
             edit.textEdited.connect(lambda text, name=column.name: self._edit(index, name, text))
-            layout.addWidget(edit, 0 if column.max_length is not None else 1)
             lines.append(edit)
-        if self._suggest is not None:
-            last = lines[-1]
-            completer(last, self._suggest).activated.connect(
-                lambda text: self._edit(index, self.columns[-1].name, text)
-            )
-            layout.addWidget(
-                suggestion_menu(row, self._suggest, lambda text: self._pick(index, text), "The sound server has none")
-            )
+        for i, (column, edit) in enumerate(zip(self.columns, lines, strict=True)):
+            if i != self._suggested:
+                # a label, a number: narrow
+                edit.setMaximumWidth(120 if column.kind == Kind.TEXT else 110)
+            layout.addWidget(edit, 1 if i == self._suggested else 0)
+            if i == self._suggested and self._suggest is not None:
+                name = column.name
+                completer(edit, self._suggest).activated.connect(lambda text, name=name: self._edit(index, name, text))
+                layout.addWidget(
+                    suggestion_menu(
+                        row, self._suggest, lambda text: self._pick(index, text), "The sound server has none"
+                    )
+                )
         remove = flat_button("close", "Remove it", row)
         remove.clicked.connect(lambda: self.remove(index))
         layout.addWidget(remove)
@@ -428,16 +434,18 @@ class Tables(QWidget):
         return row
 
     def _edit(self, index: int, name: str, text: str) -> None:
+        column = next(column for column in self.columns if column.name == name)
         if text:
-            self.values[index][name] = text
+            # a number that isn't one stays text: its problem says so
+            self.values[index][name] = int(text) if column.kind == Kind.INTEGER and text.isdigit() else text
         else:
             # a missing value: its problem says it is required
             self.values[index].pop(name, None)
         self.changed.emit([dict(value) for value in self.values])
 
     def _pick(self, index: int, text: str) -> None:
-        self.lines[index][-1].setText(text)
-        self._edit(index, self.columns[-1].name, text)
+        self.lines[index][self._suggested].setText(text)
+        self._edit(index, self.columns[self._suggested].name, text)
 
     def add(self) -> None:
         self.show_values([*self.values, {}])
@@ -514,8 +522,13 @@ class OptionRow(QWidget):
                 return self._text_field(option)
             case Kind.INTEGER:
                 self.spin: QSpinBox | QDoubleSpinBox = QSpinBox(self)
-                self.spin.setRange(int(option.minimum or 0), int(option.maximum or 1_000_000))
-                self.spin.valueChanged.connect(self._edit)
+                minimum = int(option.minimum or 0)
+                if option.default is None:
+                    # one below the minimum is "not set", shown as text
+                    self._unset = minimum - 1
+                    minimum = self._unset
+                self.spin.setRange(minimum, int(option.maximum or 1_000_000))
+                self.spin.valueChanged.connect(self._edit_number)
                 return self._left(self.spin)
             case Kind.NUMBER:
                 self.spin = QDoubleSpinBox(self)
@@ -617,7 +630,10 @@ class OptionRow(QWidget):
                     # a value of another type shows the default; its problem says what is wrong
                     number = shown if isinstance(shown, int | float) else self.option.default
                     if isinstance(self.spin, QSpinBox):
-                        self.spin.setValue(int(number))
+                        if self.option.default is None:
+                            default = self._placeholder() if self._placeholder else "not set"
+                            self.spin.setSpecialValueText(f"default: {default}")
+                        self.spin.setValue(self._unset if number is None else int(number))
                     else:
                         self.spin.setValue(float(number))
                 case Kind.SWITCH:
@@ -646,6 +662,9 @@ class OptionRow(QWidget):
         self._put(value)
         self.reset.setVisible(value is not None and not self.option.required)
         self.edited.emit()
+
+    def _edit_number(self, value: float) -> None:
+        self._edit(None if self.option.default is None and value == self._unset else value)
 
     def _reset(self) -> None:
         self._put(None)

@@ -40,9 +40,9 @@ current configuration.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `max_volume` | `100` | The volume of a fader at the top, 100..150 percent. Above 100 % the audio is amplified in software. |
+| `max_volume` | `100` | The volume of a fader at the top, 100..200 percent. Above 100 % the audio is amplified in software. Strips may have their own range. |
 | `encoder_step` | `1` | Percent per encoder step, 1..10. |
-| `reset_volume` | `100` | The volume a push on an encoder sets, 0..150, at most `max_volume`. |
+| `reset_volume` | `100` | The volume a push on an encoder sets, 0..200, at most `max_volume`; within the range of the strip. |
 | `meters` | `true` | Whether the LED meters show audio levels at all. |
 | `auto_hold` | `5` | Seconds an `auto` strip keeps an application after it stopped playing. |
 | `ignore` | `["speech-dispatcher"]` | Applications `auto` strips never take: parts of the name or binary, ignoring case. |
@@ -102,6 +102,12 @@ Options of every strip type except `empty`:
 | `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). |
 | `rec` | `"recording"` | What the LED of the Rec button shows, see below. |
 | `solo` | `"off"` | What the LED of the Solo button shows, see below. |
+| `min_volume` | `0` | The volume of the fader at the bottom, 0..200 percent. |
+| `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
+
+The fader covers `min_volume` to `max_volume`, and the encoder stays in that range: e.g. `min_volume = 50` and
+`max_volume = 200` for speakers that need amplification, so the whole fader is useful. Not the `homeassistant` strip:
+Home Assistant decides what its fader means.
 
 Labels are at most 7 characters of ASCII: that is what fits on the LCD.
 
@@ -168,10 +174,11 @@ type = "output"
 device = "alsa_output.pci-0000_11_00.4.*"   # the analog and the digital output of the card
 profiles = [
   { label = "Phones", profile = "output:analog-stereo+input:analog-stereo" },
-  { label = "Speaker", profile = "output:iec958-stereo+input:analog-stereo" },
+  { label = "Speaker", profile = "output:iec958-stereo+input:analog-stereo", max_volume = 200 },
 ]
 ```
 
+- `min_volume`, `max_volume` (optional): the range of the fader in this profile, by default the one of the strip.
 - `label`: the name of the strip on the LCD while the card is in this profile, e.g. what is connected to that output
   (7 characters). It changes on the press of Rec. In a profile that isn't in the list, the strip's `label` shows.
 - `profile`: the name or the description of the profile. `xtouch-daemon list-devices` lists the profiles of each card.

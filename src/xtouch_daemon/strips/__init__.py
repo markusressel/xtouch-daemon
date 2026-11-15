@@ -49,12 +49,31 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 select=config.select,
                 indicators=indicators,
                 profiles=config.profiles,
+                min_volume=config.min_volume,
+                max_volume=config.max_volume,
             )
         case AppsStripConfig():
             return AppGroupStrip(
-                strip, env, config.match, config.label, color_of(config.color), config.meter, indicators
+                strip,
+                env,
+                config.match,
+                config.label,
+                color_of(config.color),
+                config.meter,
+                indicators,
+                config.min_volume,
+                config.max_volume,
             )
         case AutoStripConfig():
-            return AutoStrip(strip, env, aliases, color_of(config.color), config.meter, indicators)
+            return AutoStrip(
+                strip,
+                env,
+                aliases,
+                color_of(config.color),
+                config.meter,
+                indicators,
+                config.min_volume,
+                config.max_volume,
+            )
         case _ as unreachable:
             assert_never(unreachable)

@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLayout, QLineEdi
 
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.config import STRIP_TYPES, Config
+from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config
 from xtouch_daemon.gui.domain import sources
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, Validation
 from xtouch_daemon.gui.domain.looks import look
@@ -282,7 +282,11 @@ class StripPage(Page):
             self.layout_.addWidget(self._connection())
         frame, layout = card()
         suggest: dict[str, Suggest] = {"match": lambda: sources.patterns(self.audio())}
-        placeholders: dict[str, Callable[[], str]] = {"label": self._default_label}
+        placeholders: dict[str, Callable[[], str]] = {
+            "label": self._default_label,
+            "min_volume": lambda: "0",
+            "max_volume": lambda: f"{self._behavior_max_volume()} (behavior)",
+        }
         if strip_type in ("output", "input"):
             direction = Direction(strip_type)
             suggest["device"] = lambda: sources.devices(self.audio(), direction)
@@ -300,8 +304,8 @@ class StripPage(Page):
             )
             for option in strip_options(strip_type)
         ]
-        # what the strip is about first, how it looks and lights after that
-        rows.sort(key=lambda option_row: option_row.option.kind in (Kind.COLOR, Kind.SWITCH, Kind.CHOICE))
+        # what the strip is about first, how it looks, lights and moves after that
+        rows.sort(key=lambda option_row: option_row.option.kind in (Kind.COLOR, Kind.SWITCH, Kind.CHOICE, Kind.INTEGER))
         self._rows(layout, rows)
         if not rows:
             layout.addWidget(label("An empty strip has no options.", "hint"))
@@ -325,6 +329,10 @@ class StripPage(Page):
         line.addWidget(button)
         layout.addWidget(row(line))
         return frame
+
+    def _behavior_max_volume(self) -> object:
+        value = self.document.get(("behavior", "max_volume"))
+        return BehaviorConfig().max_volume if value is None else value
 
     def _default_label(self) -> str:
         values = dict(self.document.strips[self.index].values)
