@@ -26,10 +26,12 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
         ("auto_hold", Kind.NUMBER),
         ("ignore", Kind.LIST),
     ]
-    name, touch_required, touchless = options(DeviceConfig)
+    name, touch_required, touchless, startup, shutdown = options(DeviceConfig)
     assert (touch_required.kind, touch_required.default) == (Kind.SWITCH, True)
     assert name.default == "X-Touch-Ext"
     assert (touchless.kind, touchless.default, touchless.minimum, touchless.maximum) == (Kind.NUMBERS, (), 1, 8)
+    assert (startup.kind, startup.default) == (Kind.CHOICE, "sweep")
+    assert shutdown.choices == ("instant", "sweep", "curtain", "show")
 
 
 def test_every_strip_type_has_its_model_and_options():

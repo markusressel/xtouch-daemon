@@ -12,7 +12,7 @@ from tests.conftest import RecordingSurface
 from xtouch_daemon import protocol
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.surface import FADER_SMOOTH_TIME, FADER_TICK, Strip, Surface, smooth_damp
+from xtouch_daemon.surface import FADER_SMOOTH_TIME, FADER_TICK, Strip, Surface, smooth_damp, steps
 
 CARDS = """\
  0 [XTouchExt      ]: USB-Audio - X-Touch-Ext
@@ -522,6 +522,101 @@ async def test_the_shutdown_sequence_goes_from_the_right(surface: RecordingSurfa
     blanks = [m for m in surface.sent if m.startswith(protocol.SYSEX_HEADER + b"\x12") and m[6] < 0x38]
     assert [m[6] // 7 for m in blanks] == list(reversed(range(8)))
     assert all(strip.text == ["", ""] for strip in surface.strips)
+
+
+def test_the_sequences_take_the_strips_in_their_order() -> None:
+    assert steps("instant", startup=True) == [tuple(range(8))]
+    assert steps("sweep", startup=True) == [(0,), (1,), (2,), (3,), (4,), (5,), (6,), (7,)]
+    assert steps("show", startup=False) == [(7,), (6,), (5,), (4,), (3,), (2,), (1,), (0,)]
+    # a curtain opens from the middle, and closes from the outside
+    assert steps("curtain", startup=True) == [(3, 4), (2, 5), (1, 6), (0, 7)]
+    assert steps("curtain", startup=False) == [(0, 7), (1, 6), (2, 5), (3, 4)]
+
+
+def texts_in_order(surface: RecordingSurface, line: int = 0) -> list[int]:
+    """The strips whose first line was sent, in the order they were."""
+    prefix = protocol.SYSEX_HEADER + b"\x12"
+    return [m[6] // 7 for m in surface.sent if m.startswith(prefix) and m[6] < 0x38 and m[6] % 7 == 0]
+
+
+def hide(surface: RecordingSurface) -> None:
+    """Like a connect: the strips wait for their turn in the startup sequence."""
+    for strip in surface.strips:
+        strip.set_text(0, f"S{strip.index}")
+        strip.set_color(Color.GREEN)
+        strip.shown = False
+    surface.sent.clear()
+
+
+async def test_a_curtain_opens_from_the_middle_and_closes_from_the_outside(surface: RecordingSurface) -> None:
+    surface.startup = surface.shutdown = "curtain"
+    hide(surface)
+    await surface._reveal()
+    assert texts_in_order(surface) == [3, 4, 2, 5, 1, 6, 0, 7]
+
+    surface.sent.clear()
+    await surface.put_away()
+    assert texts_in_order(surface) == [0, 7, 1, 6, 2, 5, 3, 4]
+
+
+async def test_instant_sequences_take_all_strips_at_once(
+    surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # a stagger would show
+    monkeypatch.setattr(surface_module, "SEQUENCE_STAGGER", 10.0)
+    surface.startup = surface.shutdown = "instant"
+    hide(surface)
+    await asyncio.wait_for(surface._reveal(), 1)
+    assert texts_in_order(surface) == list(range(8))
+    await asyncio.wait_for(surface.put_away(), 1)
+    assert all(strip.text == ["", ""] for strip in surface.strips)
+
+
+async def test_the_show_lights_the_strips_up_before_they_show_what_they_are(surface: RecordingSurface) -> None:
+    surface.startup = "show"
+    hide(surface)
+    surface.strips[0].set_fader(0.5)
+    surface.sent.clear()
+
+    await surface._reveal()
+    await surface.settled()
+
+    sent = surface.sent
+    first_text = sent.index(protocol.lcd_text(0, 0, "S0"))
+    for index in range(8):
+        # the wave of light, before any strip shows what it is
+        wave = [
+            protocol.meter(index, protocol.METER_MAX),
+            *(protocol.led(index, button, Led.ON) for button in Button),
+            protocol.ring(index, protocol.RING_MAX, RingMode.WRAP),
+        ]
+        assert all(sent.index(message) < first_text for message in wave)
+        # its LEDs are those of the strip afterwards
+        assert sent.index(protocol.led(index, Button.SELECT, Led.OFF)) > sent.index(wave[-1])
+    assert protocol.lcd_colors([Color.WHITE] * 8) in sent[:first_text]
+    assert surface.faders(0)[-1] == protocol.fader_value(0.5)
+    colors = [m for m in sent if m.startswith(protocol.SYSEX_HEADER + b"\x72")]
+    assert colors[-1] == protocol.lcd_colors([Color.GREEN] * 8)
+    assert texts_in_order(surface) == list(range(8))
+    assert not surface._lit
+
+
+async def test_the_show_ends_with_a_flash_and_rings_that_drain(surface: RecordingSurface) -> None:
+    surface.shutdown = "show"
+    for strip in surface.strips:
+        strip.set_color(Color.BLUE)
+        strip.set_fader(1.0)
+    await surface.settled()
+    surface.sent.clear()
+
+    await surface.put_away()
+
+    rings = [m[2] & 0x0F for m in surface.sent if m[:2] == bytes([0xB0, protocol.V_POT_RING_CC + 7])]
+    assert rings == [*range(protocol.RING_MAX, 0, -1), 0]
+    assert protocol.lcd_colors([*[Color.BLUE] * 7, Color.WHITE]) in surface.sent
+    assert surface.meters(0) == [protocol.METER_MAX]
+    assert all(strip.color == Color.BLACK and strip.position == 0 for strip in surface.strips)
+    assert not surface._lit
 
 
 async def test_a_device_that_goes_away_ends_the_startup_sequence(

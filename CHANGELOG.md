@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `[device] startup` and `shutdown`: how the strips light up after a connect and go dark at the end: `instant`,
+  `sweep` (one after the other, the default), `curtain` (from the middle outwards, and back) or `show` (a wave of
+  light: white backlights, buttons, meters and filling rings).
 - The encoder shows the exact value of what it did on the LCD for 2 s: the balance (`L 15%`, `center`), the
   position in the track (`1:05`), `playing`/`paused`, which application of how many (`2/5`), `pinned`/`auto`, the
   number in Home Assistant.

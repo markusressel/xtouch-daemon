@@ -60,7 +60,8 @@ for lights, speakers in other rooms or scenes.
   and shows everything again when they are back.
 - **A proper service:** a systemd user service with readiness notification (`Type=notify`). `systemctl --user reload`
   applies a changed configuration without a restart, and the log goes to the journal with levels. Startup and
-  shutdown sequences light the strips from the left and turn them dark from the right. When it stops, it leaves the
+  shutdown sequences light the strips up and turn them dark: one after the other, all at once, like a curtain or
+  behind a wave of light. When it stops, it leaves the
   surface dark.
 
 ## Requirements

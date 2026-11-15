@@ -10,6 +10,10 @@ name = "X-Touch-Ext"
 touch_required = true
 # Faders whose touch sensor does not work (1 on the left): a move counts as a touch, a short pause as letting go.
 touchless_faders = []
+# How the strips light up after a connect and go dark when the daemon stops: "instant", "sweep" (one after the other),
+# "curtain" (from the middle outwards, and back) or "show" (a wave of light).
+startup = "sweep"
+shutdown = "sweep"
 
 [behavior]
 max_volume = 100          # the volume of a fader at the top; up to 200 amplifies in software

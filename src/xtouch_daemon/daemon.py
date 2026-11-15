@@ -70,7 +70,7 @@ class Daemon:
         self.config_path = config_path
         self.backend = backend
         self.surface = surface or Surface(config.device.name)
-        self.surface.touchless = touchless(config)
+        self._configure_surface(config)
         self.bridge = bridge or (MqttBridge(config.mqtt) if config.mqtt is not None else None)
         if self.bridge is not None:
             self.bridge.on_connection = self._on_mqtt_connection
@@ -82,6 +82,11 @@ class Daemon:
         self.surface.on_event = lambda event: self.mixer.on_event(event)
         self.surface.on_connection = self._on_connection
         self.live = LiveServer(live_socket, self.snapshot) if live_socket is not None else None
+
+    def _configure_surface(self, config: Config) -> None:
+        """The options of the [device] section that apply without a restart."""
+        self.surface.touchless = touchless(config)
+        self.surface.startup, self.surface.shutdown = config.device.startup, config.device.shutdown
 
     # -- control --------------------------------------------------------------------------------------------------
 
@@ -104,7 +109,7 @@ class Daemon:
             return False
         if config.device.name != self.config.device.name:
             _LOGGER.warning("The name in the [device] section changed: restart the daemon for it to take effect")
-        self.surface.touchless = touchless(config)
+        self._configure_surface(config)
         state = self.mixer.state
         self.mixer.close()
         self.config = config

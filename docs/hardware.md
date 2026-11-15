@@ -51,8 +51,11 @@ Only one program can have the device open. Stop the daemon before `xtouch-daemon
   away because its strip goes dark (the daemon stops, an application ended, a reload), and the first move after a
   connect. After a fast move the motor stops a little short of the bottom; a slow one gets there. Tried on the device:
   neither sending the value again nor a nudge (a little up, then down again) did as well.
-- **Startup and shutdown sequences:** after a connect the strips light up one after the other from the left, 80 ms
-  apart, and their faders come up; when the daemon stops they go dark from the right and their faders go down.
+- **Startup and shutdown sequences:** after a connect the strips light up and their faders come up; when the daemon
+  stops they go dark and their faders go down. By default one after the other, from the left and from the right;
+  `[device] startup` and `shutdown` choose others, see
+  [Startup and shutdown sequences](configuration/behavior.md#startup-and-shutdown-sequences). The device can't blink
+  a ring and has no brightness levels, so the light effects are steps of on and off.
 - **Start:** the device can't tell where its faders are. It reports a position only while a finger moves a fader,
   not after a connect, not on the device query, not after a motor move. So after a connect a fader is assumed at the
   bottom, where the daemon leaves the faders when it stops, and glides from there. If it was moved while the daemon

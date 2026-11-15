@@ -214,6 +214,10 @@ async def test_a_changed_device_name_needs_a_restart(
     config_path.write_text("[device]\ntouch_required = false\ntouchless_faders = [2]\n" + SPEAKER)
     assert daemon.reload()
     assert surface.touchless == set(range(8))
+    # the sequences too
+    config_path.write_text('[device]\nstartup = "show"\nshutdown = "curtain"\n' + SPEAKER)
+    assert daemon.reload()
+    assert (surface.startup, surface.shutdown) == ("show", "curtain")
     assert "restart the daemon" not in caplog.text
 
     config_path.write_text('[device]\nname = "X-Touch"\n' + SPEAKER)
@@ -221,6 +225,7 @@ async def test_a_changed_device_name_needs_a_restart(
 
     assert "The name in the [device] section changed: restart the daemon" in caplog.text
     assert surface.touchless == frozenset()
+    assert (surface.startup, surface.shutdown) == ("sweep", "sweep")
     daemon.mixer.close()
     await settle()
 

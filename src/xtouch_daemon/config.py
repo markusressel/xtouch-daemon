@@ -84,6 +84,10 @@ FaderNumber = Annotated[int, Field(ge=1, le=protocol.STRIPS)]
 """A fader of the device, 1 on the left."""
 
 
+Sequence = Literal["instant", "sweep", "curtain", "show"]
+"""How the strips light up after a connect and go dark at the end, see `surface.steps()`."""
+
+
 class DeviceConfig(_Model):
     """The device the daemon drives."""
 
@@ -98,6 +102,16 @@ class DeviceConfig(_Model):
     """
     Faders whose touch sensor does not work, numbered from 1 on the left: a move counts as a touch, a short pause in
     the moves as letting go.
+    """
+    startup: Sequence = "sweep"
+    """
+    How the strips light up after a connect: `instant` all at once, `sweep` one after the other from the left,
+    `curtain` from the middle outwards, `show` behind a wave of light from the left.
+    """
+    shutdown: Sequence = "sweep"
+    """
+    How the strips go dark when the daemon stops: `instant` all at once, `sweep` one after the other from the right,
+    `curtain` from the outside in, `show` with a flash of light from the right.
     """
 
 

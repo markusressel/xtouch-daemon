@@ -9,8 +9,28 @@ The sections that apply to the daemon and to every strip. The GUI shows them in 
 | `name` | `"X-Touch-Ext"` | Part of the name of the extender's sound card, as `/proc/asound/cards` lists it. |
 | `touch_required` | `true` | Whether a fader changes a value only while the device reports a touch. `false` makes every move count, see [below](#faders-without-a-touch-sensor). |
 | `touchless_faders` | `[]` | Faders whose touch sensor does not work, numbered from 1 on the left, see [below](#faders-without-a-touch-sensor). |
+| `startup` | `"sweep"` | How the strips light up after a connect, see [below](#startup-and-shutdown-sequences). |
+| `shutdown` | `"sweep"` | How the strips go dark when the daemon stops, see [below](#startup-and-shutdown-sequences). |
 
 A changed `name` needs a restart of the daemon; a reload takes the others.
+
+### Startup and shutdown sequences
+
+After a connect the strips light up and their faders come up to their values; when the daemon stops, the strips go
+dark and their faders go down. `startup` and `shutdown` choose how:
+
+| Value | Startup | Shutdown |
+|---|---|---|
+| `instant` | All strips at once. | All strips at once. |
+| `sweep` | One after the other from the left, 80 ms apart. | One after the other from the right. |
+| `curtain` | From the middle outwards, pair by pair (4 and 5 first, 1 and 8 last). | From the outside in. |
+| `show` | A wave of light runs across from the left: each strip lights up white with all its buttons, its meter jumps to the top and falls, its ring fills up. Behind the wave the strips show what they are, about 1.2 s after the connect. | From the right, each strip flashes white, its meter jumps to the top and its ring drains; then it goes dark. |
+
+```toml
+[device]
+startup = "show"
+shutdown = "curtain"
+```
 
 ### Faders without a touch sensor
 
