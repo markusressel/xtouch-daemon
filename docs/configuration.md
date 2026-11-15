@@ -246,7 +246,7 @@ The entities (`<ns>` is `mqtt.namespace`, `<id>` the strip's `id`):
 | `number.<ns>_<id>_encoder` | The encoder, 0..100. The ring shows it; turning the encoder changes it by `behavior.encoder_step` per step. |
 | `text.<ns>_<id>_top`, `text.<ns>_<id>_bottom` | The two lines of the LCD, 7 characters each. |
 | `select.<ns>_<id>_color` | The LCD color: `off`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`. |
-| `switch.<ns>_<id>_rec_led`, `_solo_led`, `_mute_led`, `_select_led` | The LEDs of the buttons. |
+| `select.<ns>_<id>_rec_led`, `_solo_led`, `_mute_led`, `_select_led` | The LEDs of the buttons: `off`, `on` or `flash`. |
 | `event.<ns>_<id>_buttons` | What happens on the strip: `rec_pressed`, `rec_released`, `solo_…`, `mute_…`, `select_…`, `encoder_pressed`, `encoder_released`, `fader_touched`, `fader_released`. |
 
 A button does not switch its LED: if a button should toggle something, an automation reacts to the event and sets
@@ -297,8 +297,10 @@ automation:
       - trigger: state
         entity_id: light.living_room
     actions:
-      - action: "switch.turn_{{ 'on' if is_state('light.living_room', 'on') else 'off' }}"
-        target: { entity_id: switch.xtouch_living_room_mute_led }
+      - action: select.select_option
+        target: { entity_id: select.xtouch_living_room_mute_led }
+        data:
+          option: "{{ 'on' if is_state('light.living_room', 'on') else 'off' }}"
 ```
 
 The same as a [haad](https://github.com/markusressel/haad) controller (a sketch: the entity wrappers are haad's, the

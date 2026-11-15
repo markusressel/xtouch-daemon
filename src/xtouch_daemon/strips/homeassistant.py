@@ -5,10 +5,10 @@ A strip that belongs to Home Assistant: every part of it is an entity there, and
 - `number.<ns>_<id>_fader` and `number.<ns>_<id>_encoder`, 0..100: Home Assistant sets them (the motor fader
   moves, the ring shows the encoder), and turning them on the device sets them.
 - `text.<ns>_<id>_top` and `text.<ns>_<id>_bottom`: the two lines of the LCD; `select.<ns>_<id>_color`: its color.
-- `switch.<ns>_<id>_mute_led` (and `select_led`, `rec_led`, `solo_led`): the LEDs of the buttons.
+- `select.<ns>_<id>_mute_led` (and `select_led`, `rec_led`, `solo_led`): the LEDs of the buttons, off, on or flash.
 - `event.<ns>_<id>_buttons`: presses and releases of the buttons and the encoder, touches of the fader.
 
-The buttons don't switch their LEDs: an automation that wants a toggle reacts to the event and switches the LED.
+The buttons don't switch their LEDs: an automation that wants a toggle reacts to the event and sets the LED.
 """
 
 import asyncio
@@ -19,7 +19,6 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.event import MQTTEvent
 from haad_mqtt_autodiscovery.entity.number import MQTTNumber
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
-from haad_mqtt_autodiscovery.entity.switch import MQTTSwitch
 from haad_mqtt_autodiscovery.entity.text import MQTTText, MQTTTextPayload
 
 from xtouch_daemon.audio.model import AudioState
@@ -40,7 +39,8 @@ EVENT_TYPES = [
     "fader_touched",
     "fader_released",
 ]
-ON = "ON"
+LEDS = {"off": Led.OFF, "on": Led.ON, "flash": Led.FLASH}
+"""The states of an LED in Home Assistant."""
 
 
 class LcdText(MQTTText):
@@ -134,9 +134,11 @@ class HomeAssistantStrip(StripController):
         def line(suffix: str) -> LcdText:
             return LcdText(namespace, f"{strip_id}_{suffix}", f"{title} {suffix} line", device=device)
 
-        def led(button: Button) -> MQTTSwitch:
+        def led(button: Button) -> MQTTSelect:
             name = button.name.lower()
-            return MQTTSwitch(namespace, f"{strip_id}_{name}_led", f"{title} {name} LED", device=device)
+            return MQTTSelect(
+                namespace, f"{strip_id}_{name}_led", f"{title} {name} LED", options=list(LEDS), device=device
+            )
 
         self.fader = number("fader")
         self.encoder = number("encoder")
@@ -157,7 +159,7 @@ class HomeAssistantStrip(StripController):
             self.top: self.default_label,
             self.bottom: "",
             self.lcd_color: color,
-            **dict.fromkeys(self.leds.values(), "OFF"),
+            **dict.fromkeys(self.leds.values(), "off"),
             self.buttons: None,
         }
         """Every entity with the state it starts with in Home Assistant (events have none)."""
@@ -194,7 +196,7 @@ class HomeAssistantStrip(StripController):
         self.strip.set_text(0, self.top.target_state or "")
         self.strip.set_text(1, self.bottom.target_state or "")
         for button, led in self.leds.items():
-            self.strip.set_led(button, Led.ON if (led.target_state or "").upper() == ON else Led.OFF)
+            self.strip.set_led(button, LEDS.get(led.target_state or "", Led.OFF))
         if not self._touched:
             self.strip.set_fader(self._fader_out.value / 100)
         self.strip.set_ring(_ring(self._encoder_out.value), RingMode.WRAP)

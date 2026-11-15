@@ -88,7 +88,7 @@ async def test_the_entities_start_with_the_configuration(
 
     assert broker.retained[topic("text", "top")] == "Lights"
     assert broker.retained[topic("select", "color")] == "cyan"
-    assert broker.retained[topic("switch", "mute_led")] == "OFF"
+    assert broker.retained[topic("select", "mute_led")] == "off"
     assert surface.strips[0].text == ["Lights", ""]
     assert surface.strips[0].color == Color.CYAN
     discovery = json.loads(broker.retained[topic("text", "top", "config")])
@@ -109,8 +109,9 @@ async def test_home_assistant_drives_the_strip(
     broker.publish(topic("text", "top", "set"), "Desk")
     broker.publish(topic("text", "bottom", "set"), "80%")
     broker.publish(topic("select", "color", "set"), "red")
-    broker.publish(topic("switch", "mute_led", "set"), "ON")
-    await until(lambda: surface.strips[0].leds.get(Button.MUTE) == Led.ON)
+    broker.publish(topic("select", "mute_led", "set"), "on")
+    broker.publish(topic("select", "rec_led", "set"), "flash")
+    await until(lambda: surface.strips[0].leds.get(Button.REC) == Led.FLASH)
     await surface.settled()
 
     s = surface.strips[0]
@@ -118,6 +119,7 @@ async def test_home_assistant_drives_the_strip(
     assert s.ring == (protocol.RING_MAX, RingMode.WRAP)
     assert s.text == ["Desk", "80%"]
     assert s.color == Color.RED
+    assert s.leds[Button.MUTE] == Led.ON
     assert s.leds[Button.SELECT] == Led.OFF
 
 
