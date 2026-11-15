@@ -34,9 +34,9 @@ check: lint typecheck coverage
 docs:
     uv run --group docs zensical build --clean --strict
 
-# serve the documentation on http://localhost:8000, rebuilt on changes
-docs-serve:
-    uv run --group docs zensical serve
+# serve the documentation on http://localhost:<port>, rebuilt on changes (8000 is often taken)
+docs-serve port="8001":
+    uv run --group docs zensical serve --dev-addr localhost:{{port}}
 
 # run the daemon in the foreground
 run *ARGS:
