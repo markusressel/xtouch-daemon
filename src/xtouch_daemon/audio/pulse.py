@@ -38,6 +38,38 @@ def _state_running(state: Any) -> bool:
     return str(state).endswith("running") or state == "running"
 
 
+def _sides(info: Any) -> tuple[list[int], list[int]]:
+    """The indexes of the left and of the right channels."""
+    names = list(getattr(info, "channel_list", None) or ())
+    return [i for i, n in enumerate(names) if "left" in n], [i for i, n in enumerate(names) if "right" in n]
+
+
+def balance_of(info: Any) -> float | None:
+    """Like PulseAudio's `pa_cvolume_get_balance`: -1 only left .. 1 only right, None without both sides."""
+    values = list(info.volume.values)
+    left_channels, right_channels = _sides(info)
+    if not left_channels or not right_channels:
+        return None
+    left = max(values[i] for i in left_channels)
+    right = max(values[i] for i in right_channels)
+    if left == right:
+        return 0.0
+    return 1 - left / right if right > left else -1 + right / left
+
+
+def balanced_volume(info: Any, balance: float) -> list[float]:
+    """The channel volumes for `balance`: the louder side keeps the volume, the other one is turned down."""
+    values = list(info.volume.values)
+    left_channels, right_channels = _sides(info)
+    top = max((values[i] for i in left_channels + right_channels), default=0.0)
+    balance = max(-1.0, min(1.0, balance))
+    for i in left_channels:
+        values[i] = top * (1 - max(0.0, balance))
+    for i in right_channels:
+        values[i] = top * (1 + min(0.0, balance))
+    return values
+
+
 def _device(info: Any, direction: Direction, cards: dict[int, str]) -> Device:
     return Device(
         name=info.name,
@@ -47,6 +79,7 @@ def _device(info: Any, direction: Direction, cards: dict[int, str]) -> Device:
         muted=bool(info.mute),
         running=_state_running(info.state),
         card=cards.get(info.card),
+        balance=balance_of(info),
     )
 
 
@@ -68,6 +101,8 @@ def _stream(info: Any) -> Stream:
         volume=_percent(info.volume),
         muted=bool(info.mute),
         corked=bool(info.corked),
+        balance=balance_of(info),
+        pid=int(pid) if (pid := properties.get("application.process.id", "")).isdigit() else None,
     )
 
 
@@ -223,9 +258,19 @@ class PulseBackend:
         info = await self._device_info(direction, name)
         await self._call(f"muting {name}", self._connected().mute(info, muted))
 
+    async def set_device_balance(self, direction: Direction, name: str, balance: float) -> None:
+        info = await self._device_info(direction, name)
+        volume = pulsectl.PulseVolumeInfo(balanced_volume(info, balance))
+        await self._call(f"setting the balance of {name}", self._connected().volume_set(info, volume))
+
     async def set_default(self, direction: Direction, name: str) -> None:
         info = await self._device_info(direction, name)
         await self._call(f"making {name} the default", self._connected().default_set(info))
+
+    async def set_stream_balance(self, index: int, balance: float) -> None:
+        info = await self._stream_info(index)
+        volume = pulsectl.PulseVolumeInfo(balanced_volume(info, balance))
+        await self._call(f"setting the balance of stream #{index}", self._connected().volume_set(info, volume))
 
     async def set_card_profile(self, card: str, profile: str) -> None:
         pulse = self._connected()

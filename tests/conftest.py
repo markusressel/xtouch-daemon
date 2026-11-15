@@ -48,8 +48,14 @@ class FakeBackend:
     async def set_device_mute(self, direction: Direction, name: str, muted: bool) -> None:
         await self._command("set_device_mute", direction, name, muted)
 
+    async def set_device_balance(self, direction: Direction, name: str, balance: float) -> None:
+        await self._command("set_device_balance", direction, name, balance)
+
     async def set_default(self, direction: Direction, name: str) -> None:
         await self._command("set_default", direction, name)
+
+    async def set_stream_balance(self, index: int, balance: float) -> None:
+        await self._command("set_stream_balance", index, balance)
 
     async def set_card_profile(self, card: str, profile: str) -> None:
         await self._command("set_card_profile", card, profile)
@@ -137,19 +143,33 @@ async def settle() -> None:
 
 
 def output(
-    name: str = "speaker", volume: int = 50, muted: bool = False, running: bool = False, card: str | None = None
+    name: str = "speaker",
+    volume: int = 50,
+    muted: bool = False,
+    running: bool = False,
+    card: str | None = None,
+    balance: float | None = 0.0,
 ) -> Device:
-    return Device(name, f"{name} description", Direction.OUTPUT, volume, muted, running, card)
+    return Device(name, f"{name} description", Direction.OUTPUT, volume, muted, running, card, balance)
 
 
-def source(name: str = "mic", volume: int = 80, muted: bool = False, running: bool = False) -> Device:
-    return Device(name, f"{name} description", Direction.INPUT, volume, muted, running)
+def source(
+    name: str = "mic", volume: int = 80, muted: bool = False, running: bool = False, balance: float | None = None
+) -> Device:
+    return Device(name, f"{name} description", Direction.INPUT, volume, muted, running, balance=balance)
 
 
 def stream(
-    index: int, app: str = "Brave", binary: str = "brave", volume: int = 100, muted: bool = False, corked: bool = False
+    index: int,
+    app: str = "Brave",
+    binary: str = "brave",
+    volume: int = 100,
+    muted: bool = False,
+    corked: bool = False,
+    balance: float | None = 0.0,
+    pid: int | None = None,
 ) -> Stream:
-    return Stream(index, app, binary, volume, muted, corked)
+    return Stream(index, app, binary, volume, muted, corked, balance, pid)
 
 
 def fader_value(fraction: float) -> int:

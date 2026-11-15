@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Card, Device, Direction
-from xtouch_daemon.config import Indicator, ProfileConfig
+from xtouch_daemon.config import EncoderMode, Indicator, ProfileConfig
 from xtouch_daemon.protocol import LCD_CELL_WIDTH, Button, Color, Led
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.surface import Strip
@@ -59,9 +59,10 @@ class DeviceStrip(VolumeStrip):
         profiles: tuple[ProfileConfig, ...] = (),
         min_volume: int | None = None,
         max_volume: int | None = None,
+        encoder: EncoderMode = "volume",
     ):
         default_label = "Output" if direction == Direction.OUTPUT else "Input"
-        super().__init__(strip, env, label or default_label, color, meter, indicators, min_volume, max_volume)
+        super().__init__(strip, env, label or default_label, color, meter, indicators, min_volume, max_volume, encoder)
         self.direction = direction
         self.devices = devices
         self.select = select and bool(devices)
@@ -94,7 +95,7 @@ class DeviceStrip(VolumeStrip):
         self._update_label()
         if self.device is None:
             return None, False
-        return Level(self.device.volume, self.device.muted), True
+        return Level(self.device.volume, self.device.muted, self.device.balance), True
 
     def update(self, state: AudioState) -> None:
         super().update(state)
@@ -210,3 +211,7 @@ class DeviceStrip(VolumeStrip):
     async def apply_mute(self, muted: bool) -> None:
         if self.device is not None:
             await self.env.backend.set_device_mute(self.direction, self.device.name, muted)
+
+    async def apply_balance(self, balance: float) -> None:
+        if self.device is not None:
+            await self.env.backend.set_device_balance(self.direction, self.device.name, balance)

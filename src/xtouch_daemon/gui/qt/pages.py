@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLayout, QLineEdi
 
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config
+from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, default_encoder
 from xtouch_daemon.gui.domain import sources
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, Validation
 from xtouch_daemon.gui.domain.looks import look
@@ -286,6 +286,7 @@ class StripPage(Page):
             "label": self._default_label,
             "min_volume": lambda: "0",
             "max_volume": lambda: f"{self._behavior_max_volume()} (behavior)",
+            "encoder": lambda: default_encoder(strip_type),
         }
         if strip_type in ("output", "input"):
             direction = Direction(strip_type)

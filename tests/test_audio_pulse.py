@@ -9,7 +9,7 @@ import pytest
 from xtouch_daemon.audio import pulse as pulse_module
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Card, Direction, Profile
-from xtouch_daemon.audio.pulse import PA_INVALID_INDEX, PulseBackend, scaled_volume
+from xtouch_daemon.audio.pulse import PA_INVALID_INDEX, PulseBackend, balance_of, balanced_volume, scaled_volume
 
 # what pulsectl reports (its enum has its values as dynamic attributes)
 RUNNING = pulsectl.PulseStateEnum["running"]
@@ -28,9 +28,20 @@ def sink(
     values=(0.5, 0.5),
     mute=0,
     card=PA_INVALID_INDEX,
+    channels: tuple[str, ...] | None = None,
 ):
+    # a channel for each volume
+    if channels is None:
+        channels = ("front-left", "front-right")[: len(values)]
     return SimpleNamespace(
-        index=index, name=name, description=description, state=state, volume=volume(*values), mute=mute, card=card
+        index=index,
+        name=name,
+        description=description,
+        state=state,
+        volume=volume(*values),
+        mute=mute,
+        card=card,
+        channel_list=list(channels),
     )
 
 
@@ -55,7 +66,13 @@ def source(index: int, name: str, monitor_of_sink: int | None = PA_INVALID_INDEX
 
 def sink_input(index: int, properties: dict[str, str], name: str = "", corked=0, values=(0.6, 0.6), mute=0):
     return SimpleNamespace(
-        index=index, name=name, proplist=properties, corked=corked, volume=volume(*values), mute=mute
+        index=index,
+        name=name,
+        proplist=properties,
+        corked=corked,
+        volume=volume(*values),
+        mute=mute,
+        channel_list=["front-left", "front-right"][: len(values)],
     )
 
 
@@ -84,7 +101,11 @@ class FakePulse:
             source(6, "gone.monitor", monitor_of_sink=9),
         ]
         self.sink_inputs = [
-            sink_input(10, {"application.name": "Brave", "application.process.binary": "brave"}),
+            sink_input(
+                10,
+                {"application.name": "Brave", "application.process.binary": "brave", "application.process.id": "42"},
+                values=(0.6, 0.3),
+            ),
             sink_input(11, {"application.process.binary": "mpv"}, corked=1),
             sink_input(12, {}, name="stream name"),
             sink_input(13, {}),
@@ -198,6 +219,8 @@ async def test_a_snapshot_maps_devices_streams_and_defaults():
     # the monitor of an output is not an input
     assert [d.name for d in state.inputs] == ["mic", "old"]
     assert all(d.direction == Direction.INPUT for d in state.inputs)
+    assert [(s.balance, s.pid) for s in state.streams][:2] == [(-0.5, 42), (0.0, None)]
+    assert state.outputs[0].balance == 0.0
     assert [(s.index, s.app, s.binary, s.volume, s.corked) for s in state.streams] == [
         (10, "Brave", "brave", 60, False),
         (11, "mpv", "mpv", 60, True),
@@ -351,13 +374,19 @@ async def test_carries_out_the_commands_of_the_strips():
     await backend.set_stream_volume(10, 30)
     await backend.set_stream_mute(10, False)
     await backend.set_card_profile("onboard", "digital")
+    await backend.set_device_balance(Direction.OUTPUT, "speaker", 0.5)
+    await backend.set_stream_balance(10, -1.0)
 
     assert fake.calls[6] == ("profile", "onboard", "digital")
+    assert fake.calls[7][:2] == ("volume", "speaker")
+    assert fake.calls[7][2] == pytest.approx([0.25, 0.5])
+    assert fake.calls[8][:2] == ("volume", 10)
+    assert fake.calls[8][2] == pytest.approx([0.6, 0.0])
     assert fake.calls[0][:2] == ("volume", "buds")
     assert fake.calls[0][2] == pytest.approx([0.4, 0.2])
     assert fake.calls[1:4] == [("mute", "mic", True), ("default", "buds", None), ("default", "mic", None)]
     assert fake.calls[4][:2] == ("volume", 10)
-    assert fake.calls[4][2] == pytest.approx([0.3, 0.3])
+    assert fake.calls[4][2] == pytest.approx([0.3, 0.15])
     assert fake.calls[5] == ("mute", 10, False)
     task.cancel()
 
@@ -391,3 +420,32 @@ async def test_commands_without_a_connection_raise_a_command_error():
         await backend.set_device_volume(Direction.OUTPUT, "speaker", 10)
     with pytest.raises(AudioCommandError, match="not connected"):
         await backend.set_stream_volume(10, 10)
+
+
+def channels(*pairs: tuple[str, float]) -> SimpleNamespace:
+    return SimpleNamespace(channel_list=[name for name, _ in pairs], volume=volume(*(value for _, value in pairs)))
+
+
+@pytest.mark.parametrize(
+    ("info", "balance"),
+    [
+        (channels(("front-left", 0.5), ("front-right", 0.5)), 0.0),
+        (channels(("front-left", 0.5), ("front-right", 0.25)), -0.5),
+        (channels(("front-left", 0.2), ("front-right", 0.8)), 0.75),
+        (channels(("front-left", 0.0), ("front-right", 0.0)), 0.0),
+        # the loudest channel of each side
+        (channels(("front-left", 0.2), ("rear-left", 0.4), ("front-right", 0.4), ("lfe", 1.0)), 0.0),
+        (channels(("mono", 0.5)), None),
+        (SimpleNamespace(volume=volume(0.5, 0.5)), None),
+    ],
+)
+def test_the_balance_is_like_pulseaudios(info: SimpleNamespace, balance: float | None):
+    assert balance_of(info) == (pytest.approx(balance) if balance is not None else None)
+
+
+def test_a_balance_turns_down_the_other_side_and_leaves_the_rest():
+    info = channels(("front-left", 0.4), ("front-right", 0.8), ("lfe", 0.3))
+    assert balanced_volume(info, 0.0) == pytest.approx([0.8, 0.8, 0.3])
+    assert balanced_volume(info, -0.25) == pytest.approx([0.8, 0.6, 0.3])
+    assert balanced_volume(info, 2.0) == pytest.approx([0.0, 0.8, 0.3])
+    assert balanced_volume(channels(("mono", 0.5)), 0.5) == [0.5]

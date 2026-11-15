@@ -18,6 +18,10 @@ class AudioBackend(Protocol):
 
     async def set_device_mute(self, direction: Direction, name: str, muted: bool) -> None: ...
 
+    async def set_device_balance(self, direction: Direction, name: str, balance: float) -> None:
+        """-1 (only left) .. 0 (centered) .. 1 (only right), keeping the volume."""
+        ...
+
     async def set_default(self, direction: Direction, name: str) -> None:
         """Makes the device the default. The streams follow it."""
         ...
@@ -29,6 +33,8 @@ class AudioBackend(Protocol):
     async def set_stream_volume(self, index: int, percent: int) -> None: ...
 
     async def set_stream_mute(self, index: int, muted: bool) -> None: ...
+
+    async def set_stream_balance(self, index: int, balance: float) -> None: ...
 
 
 class AudioCommandError(Exception):

@@ -28,6 +28,8 @@ class Device:
     """Whether audio flows: something plays to the output or records from the input."""
     card: str | None = None
     """The name of the sound card it belongs to (its profile decides which devices it has), None for others."""
+    balance: float | None = None
+    """-1 (only left) .. 0 (centered) .. 1 (only right); None without left and right channels (mono)."""
 
     def matches(self, name: str) -> bool:
         """By node name or description; `*` and `?` are wildcards (e.g. `bluez_output.*`, every Bluetooth output)."""
@@ -77,6 +79,10 @@ class Stream:
     muted: bool
     corked: bool
     """Paused by the application: no audio flows."""
+    balance: float | None = None
+    """-1 (only left) .. 0 (centered) .. 1 (only right); None without left and right channels (mono)."""
+    pid: int | None = None
+    """The process that plays it (`application.process.id`)."""
 
     @property
     def playing(self) -> bool:

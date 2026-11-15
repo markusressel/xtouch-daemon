@@ -9,9 +9,10 @@ from typing import assert_never
 from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import BehaviorConfig, Indicator
+from xtouch_daemon.config import BehaviorConfig, EncoderMode, Indicator
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.protocol import RING_MAX, Button, Color, Led, RingMode
+from xtouch_daemon.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.strips.knobs import BalanceKnob, Knob, VolumeKnob, ring_position
 from xtouch_daemon.surface import Strip
 
 _LOGGER = logging.getLogger(__name__)
@@ -91,13 +92,16 @@ class Level:
 
     volume: int
     muted: bool
+    balance: float | None = None
+    """See `Device.balance`."""
 
 
 class VolumeStrip(StripController):
     """
-    A strip that controls a volume: the fader and the encoder set it, a push on the encoder resets it, the mute
-    button mutes. The LCD shows the label and the volume (or "muted"), the ring shows the volume, and the LEDs in
-    `indicators` show what they are configured to (e.g. the rec LED whether an application records).
+    A strip that controls a volume: the fader sets it, the mute button mutes, the encoder does what `encoder` says
+    (`knobs.py`: e.g. fine steps of the volume, or the balance). The LCD shows the label and the volume (or
+    "muted"), the ring what the encoder controls, and the LEDs in `indicators` show what they are configured to (e.g.
+    the rec LED whether an application records).
 
     The fader goes from `min_volume` at the bottom to `max_volume` at the top (by default 0 and `behavior.max_volume`),
     the encoder stays in that range too.
@@ -116,6 +120,7 @@ class VolumeStrip(StripController):
         indicators: Mapping[Button, Indicator] | None = None,
         min_volume: int | None = None,
         max_volume: int | None = None,
+        encoder: EncoderMode = "volume",
     ):
         super().__init__(strip, env, color, meter)
         self.label = label
@@ -126,6 +131,7 @@ class VolumeStrip(StripController):
         self.active = False
         self._wanted: int | None = None
         self._setter: asyncio.Task[None] | None = None
+        self.knob = self.make_knob(encoder)
 
     # -- for the kinds of strips ----------------------------------------------------------------------------------
 
@@ -140,6 +146,19 @@ class VolumeStrip(StripController):
         raise NotImplementedError
 
     async def apply_mute(self, muted: bool) -> None:
+        raise NotImplementedError
+
+    def make_knob(self, encoder: EncoderMode) -> Knob:
+        """What the encoder does; the kinds of strips add theirs."""
+        match encoder:
+            case "volume":
+                return VolumeKnob(self)
+            case "balance":
+                return BalanceKnob(self)
+            case _:
+                raise ValueError(f"{type(self).__name__} has no encoder {encoder!r}")
+
+    async def apply_balance(self, balance: float) -> None:
         raise NotImplementedError
 
     def volume_range(self) -> tuple[int, int]:
@@ -202,9 +221,8 @@ class VolumeStrip(StripController):
             self.strip.set_led(Button.MUTE, Led.OFF)
             self.strip.set_text(1, self.inactive_text())
             return
-        fraction = self._fraction(level.volume)
-        self.strip.set_fader(fraction)
-        self.strip.set_ring(round(fraction * (RING_MAX - 1)) + 1, RingMode.WRAP)
+        self.strip.set_fader(self._fraction(level.volume))
+        self.strip.set_ring(*self.knob.ring())
         self.strip.set_led(Button.MUTE, Led.ON if level.muted else Led.OFF)
         if self._wanted is not None:
             self.strip.set_text(1, f"{self._wanted}%")
@@ -219,18 +237,33 @@ class VolumeStrip(StripController):
             self.set_volume(round(bottom + fraction * (top - bottom)))
 
     def on_encoder(self, steps: int) -> None:
-        if not self.accepts_input():
-            return
+        if self.accepts_input():
+            self.knob.turn(steps)
+
+    def on_encoder_press(self, pressed: bool) -> None:
+        if self.accepts_input():
+            self.knob.push(pressed)
+
+    def step_volume(self, steps: int) -> None:
+        """`steps` of `behavior.encoder_step`."""
         assert self.level is not None, "an active strip has a level"
         base = self._wanted if self._wanted is not None else self.level.volume
         self.set_volume(base + steps * self.env.behavior.encoder_step)
-        # the fader follows the encoder
+        # the fader follows
         self.strip.set_fader(self._shown_fraction())
 
-    def on_encoder_press(self, pressed: bool) -> None:
-        if pressed and self.accepts_input():
-            self.set_volume(self.env.behavior.reset_volume)
-            self.strip.set_fader(self._shown_fraction())
+    def reset_volume(self) -> None:
+        self.set_volume(self.env.behavior.reset_volume)
+        self.strip.set_fader(self._shown_fraction())
+
+    def volume_ring(self) -> tuple[int, RingMode]:
+        """The volume on the ring, from the first LED."""
+        volume = self._wanted if self._wanted is not None else self.level.volume if self.level is not None else 0
+        return ring_position(self._fraction(volume)), RingMode.WRAP
+
+    def close(self) -> None:
+        super().close()
+        self.knob.close()
 
     def on_button(self, button: Button, pressed: bool) -> None:
         if pressed and button == Button.MUTE and self.level is not None and self.accepts_input():

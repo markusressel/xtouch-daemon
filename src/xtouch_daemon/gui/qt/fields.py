@@ -640,6 +640,9 @@ class OptionRow(QWidget):
                     self.switch.setChecked(bool(shown))
                 case Kind.CHOICE:
                     self.combo.setCurrentIndex(self.option.choices.index(shown) if shown in self.option.choices else -1)
+                    if self._placeholder:
+                        # shown while none is chosen
+                        self.combo.setPlaceholderText(f"default: {self._placeholder()}")
                 case Kind.COLOR:
                     self.colors.show_value(str(shown))
                 case Kind.LIST:

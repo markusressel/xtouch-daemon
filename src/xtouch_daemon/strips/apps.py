@@ -7,7 +7,7 @@ from collections.abc import Callable, Mapping
 
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Stream
-from xtouch_daemon.config import Indicator
+from xtouch_daemon.config import EncoderMode, Indicator
 from xtouch_daemon.protocol import Button, Color
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.surface import Strip
@@ -37,8 +37,9 @@ class AppStrip(VolumeStrip):
         indicators: Mapping[Button, Indicator] | None = None,
         min_volume: int | None = None,
         max_volume: int | None = None,
+        encoder: EncoderMode = "volume",
     ):
-        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume)
+        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder)
         self.streams: dict[int, Stream] = {}
         self.group_volume: int | None = None
         """The volume of the strip: set on the strip, or the loudest stream; None before the first stream."""
@@ -72,7 +73,9 @@ class AppStrip(VolumeStrip):
         else:
             volume = max(stream.volume for stream in streams.values())
         self.group_volume = volume
-        return Level(volume, all(stream.muted for stream in streams.values())), True
+        # the balance of the first one: they get the same
+        balance = streams[min(streams)].balance
+        return Level(volume, all(stream.muted for stream in streams.values()), balance), True
 
     def meter_targets(self, state: AudioState) -> set[CaptureTarget]:
         if not self.meter:
@@ -88,6 +91,9 @@ class AppStrip(VolumeStrip):
 
     async def apply_mute(self, muted: bool) -> None:
         await self._for_all(lambda index: self.env.backend.set_stream_mute(index, muted), "mute")
+
+    async def apply_balance(self, balance: float) -> None:
+        await self._for_all(lambda index: self.env.backend.set_stream_balance(index, balance), "balance")
 
     async def _for_all(self, command: Callable[[int], object], what: str) -> None:
         results = await asyncio.gather(*(command(index) for index in self.streams), return_exceptions=True)  # type: ignore[arg-type]
@@ -110,8 +116,9 @@ class AppGroupStrip(AppStrip):
         indicators: Mapping[Button, Indicator] | None = None,
         min_volume: int | None = None,
         max_volume: int | None = None,
+        encoder: EncoderMode = "volume",
     ):
-        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume)
+        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder)
         self.patterns = patterns
 
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
@@ -134,8 +141,9 @@ class AutoStrip(AppStrip):
         indicators: Mapping[Button, Indicator] | None = None,
         min_volume: int | None = None,
         max_volume: int | None = None,
+        encoder: EncoderMode = "volume",
     ):
-        super().__init__(strip, env, "", color, meter, indicators, min_volume, max_volume)
+        super().__init__(strip, env, "", color, meter, indicators, min_volume, max_volume, encoder)
         self.aliases = aliases
         self.app: str | None = None
 

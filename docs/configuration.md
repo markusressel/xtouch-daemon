@@ -104,10 +104,18 @@ Options of every strip type except `empty`:
 | `solo` | `"off"` | What the LED of the Solo button shows, see below. |
 | `min_volume` | `0` | The volume of the fader at the bottom, 0..200 percent. |
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
+| `encoder` | `balance` for `output`/`input`, `volume` for `apps`/`auto` | What the encoder does, see below. |
 
 The fader covers `min_volume` to `max_volume`, and the encoder stays in that range: e.g. `min_volume = 50` and
 `max_volume = 200` for speakers that need amplification, so the whole fader is useful. Not the `homeassistant` strip:
 Home Assistant decides what its fader means.
+
+The fader always sets the volume. The encoder does what `encoder` says, and its ring shows it:
+
+| `encoder` | Turn | Push | Ring |
+|---|---|---|---|
+| `volume` | Changes the volume by `encoder_step` per step; the fader follows. | Sets `reset_volume`. | The volume. |
+| `balance` | Moves the balance between left and right, 5 % per step. Nothing for mono devices. | Centers it. | From the center to the side. |
 
 Labels are at most 7 characters of ASCII: that is what fits on the LCD.
 
@@ -190,13 +198,12 @@ profiles = [
 | Element | Function |
 |---|---|
 | Fader | Sets the volume, 0 at the bottom to `max_volume` at the top. Follows changes made elsewhere. |
-| Encoder | Changes the volume by `encoder_step` per step; the fader follows. |
-| Encoder push | Sets `reset_volume`. |
+| Encoder | See `encoder` above: by default the balance. |
 | Mute | Toggles mute. The LED is on while the device is muted. |
 | Rec | With `profiles`: switches the sound card to the next profile. The LED is on for every profile but the first. |
 | Select | With `device` and `select`: makes the device the default output/input, or switches to the next of several. The LED is on while it is the default. |
 | LCD | Top: the label. Bottom: the volume, or `muted`. |
-| Ring | The volume. |
+| Ring | What the encoder controls. |
 | Meter | The level: what plays on an output, what an input records. |
 
 A device that is not there (e.g. Bluetooth headphones that are switched off) shows `off` on a dark LCD. Its fader goes
@@ -231,12 +238,11 @@ play, and which strip takes each one. A stream can belong to several `apps` stri
 | Element | Function |
 |---|---|
 | Fader | Sets every stream of the group to the same volume. A stream that starts later gets that volume too. Shows the loudest stream. |
-| Encoder | Changes the volume by `encoder_step` per step. |
-| Encoder push | Sets `reset_volume` for all streams. |
+| Encoder | See `encoder` above, for all streams. |
 | Mute | Mutes all streams, or unmutes them when all are muted. The LED is on while all are muted. |
 | Select | Nothing. |
 | LCD | Top: the label. Bottom: the volume, `muted`, or `idle` while no stream of the group is there. |
-| Ring | The volume. |
+| Ring | What the encoder controls. |
 | Meter | The level of all streams of the group together. |
 
 While no stream of the group is there (e.g. the application was closed), the LCD is dark and shows `idle`, and the

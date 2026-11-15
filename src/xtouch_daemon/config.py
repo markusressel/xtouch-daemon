@@ -43,6 +43,15 @@ records at all (applications); `playing`: audio flows; `default`: the device is 
 """
 
 
+EncoderMode = Literal["volume", "balance"]
+"""What the encoder of a strip does: `volume`: fine steps, a push resets it; `balance`: left/right, a push centers."""
+
+
+def default_encoder(strip_type: str) -> EncoderMode:
+    """What the encoder of a strip of the type does without `encoder`."""
+    return "balance" if strip_type in ("output", "input") else "volume"
+
+
 def color_of(name: ColorName) -> Color:
     return Color.BLACK if name == "off" else Color[name.upper()]
 
@@ -104,6 +113,8 @@ class _StripConfig(_Model):
     """The volume of the fader at the bottom, in percent; by default 0."""
     max_volume: Volume | None = None
     """The volume of the fader at the top, in percent; by default `behavior.max_volume`."""
+    encoder: EncoderMode | None = None
+    """What the encoder does; by default `balance` for devices, `volume` for applications."""
 
     def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
         """Where each volume range of the strip is configured (e.g. `profiles[2]`, "" for the strip), and the range."""

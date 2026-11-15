@@ -38,6 +38,7 @@ def test_every_strip_type_has_its_model_and_options():
         "solo",
         "min_volume",
         "max_volume",
+        "encoder",
         "device",
         "label",
         "select",
@@ -45,7 +46,8 @@ def test_every_strip_type_has_its_model_and_options():
     ]
     assert strip_options("empty") == ()
 
-    color, _, rec, _, min_volume, _, device, label, _, profiles = strip_options("input")
+    color, _, rec, _, min_volume, _, encoder, device, label, _, profiles = strip_options("input")
+    assert (encoder.kind, encoder.default, encoder.choices) == (Kind.CHOICE, None, ("volume", "balance"))
     assert (min_volume.kind, min_volume.default, min_volume.minimum, min_volume.maximum) == (Kind.INTEGER, None, 0, 200)
     assert (rec.kind, rec.default) == (Kind.CHOICE, "recording")
     assert color.kind == Kind.COLOR

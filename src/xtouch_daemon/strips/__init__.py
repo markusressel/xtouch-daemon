@@ -12,6 +12,7 @@ from xtouch_daemon.config import (
     Indicator,
     StripConfig,
     color_of,
+    default_encoder,
 )
 from xtouch_daemon.protocol import Button
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
@@ -36,6 +37,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
         strip_id = config.id or f"strip_{strip.index + 1}"
         return HomeAssistantStrip(strip, env, env.bridge, strip_id, config.label, config.color)
     indicators: dict[Button, Indicator] = {Button.REC: config.rec, Button.SOLO: config.solo}
+    encoder = config.encoder or default_encoder(config.type)
     match config:
         case DeviceStripConfig():
             return DeviceStrip(
@@ -51,6 +53,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 profiles=config.profiles,
                 min_volume=config.min_volume,
                 max_volume=config.max_volume,
+                encoder=encoder,
             )
         case AppsStripConfig():
             return AppGroupStrip(
@@ -63,6 +66,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 indicators,
                 config.min_volume,
                 config.max_volume,
+                encoder,
             )
         case AutoStripConfig():
             return AutoStrip(
@@ -74,6 +78,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 indicators,
                 config.min_volume,
                 config.max_volume,
+                encoder,
             )
         case _ as unreachable:
             assert_never(unreachable)

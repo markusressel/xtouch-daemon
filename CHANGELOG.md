@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   becomes the default if the old one was. `list-devices` lists the profiles of the cards.
 - `min_volume` and `max_volume` on strips and profiles: the range of the fader, up to 200 % (also
   `behavior.max_volume`, which was limited to 150 %).
+- `encoder` on strips: what the encoder does; `balance` (left/right, a push centers it) is the default for devices,
+  `volume` the fine steps of the volume.
 - Motor faders that glide smoothly (also after a connect, from the bottom), follow changes made elsewhere, stay still
   while touched, and get their value again after arriving so the motor doesn't stop short. Strips with nothing to
   control (an application that ended, a device that is gone, the daemon stopping) put their faders away slowly.

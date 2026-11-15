@@ -356,6 +356,7 @@ def test_a_strip_that_is_not_configured_can_be_configured(qtbot: QtBot, window: 
         "solo",
         "min_volume",
         "max_volume",
+        "encoder",
     ]
 
 
