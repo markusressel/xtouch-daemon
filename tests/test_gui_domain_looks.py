@@ -27,6 +27,19 @@ STATE = AudioState(
         ({"type": "apps", "match": []}, ("apps", "", "no applications", "white")),
         ({"type": "auto", "color": "blue"}, ("auto", "auto", "the next application that plays, e.g. Discord", "blue")),
         ({"type": "empty"}, ("empty", "", "a dark strip", "off")),
+        (
+            {"type": "homeassistant", "id": "desk", "label": "Desk", "color": "green"},
+            ("homeassistant", "Desk", "entities of Home Assistant (desk), automations decide what it does", "green"),
+        ),
+        (
+            {"type": "homeassistant"},
+            (
+                "homeassistant",
+                "",
+                "entities of Home Assistant (strip_<position>), automations decide what it does",
+                "white",
+            ),
+        ),
         ({"type": "fader"}, ("?", "", "no valid type", "off")),
         ({}, ("?", "", "no valid type", "off")),
         # a color that is none shows the default; the strip shows the problem

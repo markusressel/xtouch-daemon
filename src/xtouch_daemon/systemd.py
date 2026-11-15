@@ -66,7 +66,7 @@ def under_journal() -> bool:
     try:
         device, inode = (int(part) for part in stream.split(":"))
         stat = os.fstat(sys.stderr.fileno())
-    except (ValueError, OSError):
+    except ValueError, OSError:
         return False
     return (stat.st_dev, stat.st_ino) == (device, inode)
 

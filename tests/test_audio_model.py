@@ -1,4 +1,4 @@
-from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Device, Direction, Stream
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Capture, Device, Direction, Stream
 
 
 def output(name: str, description: str = "", running: bool = False) -> Device:
@@ -67,3 +67,30 @@ def test_the_disconnected_state_is_empty():
     assert DISCONNECTED.device(Direction.OUTPUT, None) is None
     assert DISCONNECTED.streams == ()
     assert STATE.connected
+
+
+def capture(app: str, device: str | None, direction: Direction | None, corked: bool = False) -> Capture:
+    return Capture(1, app, app.lower(), device, direction, corked)
+
+
+def test_a_device_is_recorded_while_an_application_records_it() -> None:
+    mic = Device("mic", "Mic", Direction.INPUT, 50, False, True)
+    speaker = Device("speaker", "Speaker", Direction.OUTPUT, 50, False, True)
+    # the monitor of the speaker is not the input of the same name
+    mic_named_like_the_output = Device("speaker", "", Direction.INPUT, 50, False, True)
+    state = AudioState(captures=(capture("OBS", "speaker", Direction.OUTPUT), capture("Discord", "mic", None)))
+
+    assert state.is_recorded(speaker)
+    assert not state.is_recorded(mic)
+    assert not state.is_recorded(mic_named_like_the_output)
+    assert not AudioState(captures=(capture("OBS", "speaker", Direction.OUTPUT, corked=True),)).is_recorded(speaker)
+
+
+def test_applications_record_while_they_have_a_running_capture() -> None:
+    state = AudioState(captures=(capture("Discord", "mic", Direction.INPUT), capture("OBS", None, None, corked=True)))
+
+    assert state.records_matching(("disc",))
+    assert not state.records_matching(("obs",))
+    assert state.records_app("Discord")
+    assert not state.records_app("OBS")
+    assert not state.records_app("Disc")

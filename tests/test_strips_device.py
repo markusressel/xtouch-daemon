@@ -337,3 +337,60 @@ async def test_a_device_that_went_away_gets_no_mute(
     await settle()
 
     assert backend.calls == []
+
+
+REC_SOLO = {Button.REC: "recording", Button.SOLO: "playing"}
+
+
+async def test_the_rec_led_shows_whether_an_application_records_the_device(
+    surface: RecordingSurface, env: StripEnv
+) -> None:
+    from xtouch_daemon.audio.model import Capture
+
+    mic = make(surface, env, Direction.INPUT, "mic", indicators=REC_SOLO)
+    discord = Capture(5, "Discord", "discord", "mic", Direction.INPUT, corked=False)
+
+    mic.update(AudioState(inputs=STATE.inputs, captures=(discord,)))
+    assert surface.strips[0].leds[Button.REC] == Led.ON
+
+    mic.update(AudioState(inputs=STATE.inputs))
+    assert surface.strips[0].leds[Button.REC] == Led.OFF
+
+
+@pytest.mark.parametrize(
+    ("indicator", "device", "lit"),
+    [
+        ("playing", "buds", True),
+        ("playing", "speaker", False),
+        ("default", "buds", True),
+        ("default", "speaker", False),
+        ("muted", "speaker", False),
+        ("off", "buds", False),
+        ("recording", "buds", False),
+        # a device that is not there shows nothing
+        ("playing", "gone", False),
+        ("default", "gone", False),
+        ("muted", "gone", False),
+    ],
+)
+async def test_leds_show_what_they_are_set_to(
+    surface: RecordingSurface, env: StripEnv, indicator: str, device: str, lit: bool
+) -> None:
+    strip = make(surface, env, device=device, indicators={Button.SOLO: indicator})
+    strip.update(STATE)
+
+    assert surface.strips[0].leds[Button.SOLO] == (Led.ON if lit else Led.OFF)
+
+
+async def test_the_muted_indicator(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = make(surface, env, indicators={Button.SOLO: "muted"})
+    strip.update(AudioState(outputs=(output("speaker", 50, muted=True),)))
+
+    assert surface.strips[0].leds[Button.SOLO] == Led.ON
+
+
+async def test_leds_without_indicator_are_left_alone(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = make(surface, env)
+    strip.update(STATE)
+
+    assert Button.REC not in surface.strips[0].leds

@@ -52,7 +52,7 @@ def smooth_damp(position: float, velocity: float, target: float, smooth_time: fl
 class Strip:
     """What one strip shows. Everything is remembered and shown again after a reconnect."""
 
-    def __init__(self, surface: "Surface", index: int):
+    def __init__(self, surface: Surface, index: int):
         self._surface = surface
         self.index = index
         self.touched = False

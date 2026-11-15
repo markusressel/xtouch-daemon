@@ -18,12 +18,17 @@ from tomlkit.items import Table, Whitespace
 
 from xtouch_daemon import protocol
 from xtouch_daemon.config import Config, ConfigError, Problem, example_config, problems_of
-from xtouch_daemon.gui.domain.schema import strip_models
+from xtouch_daemon.gui.domain.schema import Section, sections, strip_models
 
-SECTIONS = ("device", "behavior")
-"""The sections with options of their own, the editor changes them option by option."""
-ORDER = ("device", "behavior", "aliases", "strip")
-"""Where a new section goes in the file."""
+SECTIONS: dict[str, Section] = {section.name: section for section in sections()}
+"""The sections with options of their own (`[device]`, `[behavior]`, `[mqtt]`), edited option by option."""
+ORDER = (
+    *(name for name, section in SECTIONS.items() if not section.optional),
+    "aliases",
+    "strip",
+    *(name for name, section in SECTIONS.items() if section.optional),
+)
+"""Where a new section goes in the file: optional ones like `[mqtt]` at the end, like in the example."""
 
 type OptionPath = tuple[int | str, ...]
 """Where an option is in the TOML data, like `Problem.path`, e.g. `("strip", 2, "label")`."""
@@ -66,7 +71,7 @@ class ConfigDocument:
         self._load(text)
 
     @classmethod
-    def open(cls, path: Path) -> "ConfigDocument":
+    def open(cls, path: Path) -> ConfigDocument:
         try:
             text = path.read_text(encoding="utf-8")
         except FileNotFoundError:
@@ -90,7 +95,10 @@ class ConfigDocument:
                 f"{self.path}: strip is not a list of tables ([[strip]]), fix that in a text editor first"
             )
         self._text = text
-        self.sections: dict[str, dict[str, Any]] = {name: data.pop(name, {}) for name in SECTIONS}
+        self.sections: dict[str, dict[str, Any] | None] = {
+            name: data.pop(name, None if section.optional else {}) for name, section in SECTIONS.items()
+        }
+        """The options of each section; None for an optional section that is not there."""
         self.aliases: list[tuple[str, str]] = list(data.pop("aliases", {}).items())
         """The aliases in the order of the file; a list, so an alias being typed can have the name of another one."""
         self.strips = [StripDraft(strip, origin) for origin, strip in enumerate(strips)]
@@ -102,7 +110,12 @@ class ConfigDocument:
 
     def data(self) -> dict[str, Any]:
         """The configuration as TOML data, as `tomllib` would read the rendered text."""
-        data: dict[str, Any] = {name: values for name, values in self.sections.items() if values}
+        data: dict[str, Any] = {
+            name: values
+            for name, values in self.sections.items()
+            # an optional section is there even without options (and then misses the required ones)
+            if values is not None and (values or SECTIONS[name].optional)
+        }
         if self.aliases:
             data["aliases"] = dict(self.aliases)
         if self.strips:
@@ -139,7 +152,10 @@ class ConfigDocument:
     def _values(self, path: OptionPath) -> tuple[dict[str, Any], str]:
         match path:
             case (str(section), str(name)) if section in SECTIONS:
-                return self.sections[section], name
+                values = self.sections[section]
+                if values is None:
+                    raise KeyError(f"[{section}] is not there, add it first")
+                return values, name
             case ("strip", int(index), str(name)):
                 return self.strips[index].values, name
             case (str(name),) if name in self.extra:
@@ -159,6 +175,19 @@ class ConfigDocument:
         """Removes an option from the file, so its default applies (or removes an unknown option)."""
         values, name = self._values(path)
         values.pop(name, None)
+
+    def has_section(self, name: str) -> bool:
+        return self.sections[name] is not None
+
+    def add_section(self, name: str) -> None:
+        """Adds an optional section (without options yet)."""
+        if self.sections[name] is None:
+            self.sections[name] = {}
+
+    def remove_section(self, name: str) -> None:
+        """Removes an optional section with all its options."""
+        assert SECTIONS[name].optional, f"[{name}] is not optional"
+        self.sections[name] = None
 
     def add_strip(self, strip_type: str = "auto") -> int:
         if len(self.strips) >= protocol.STRIPS:
@@ -190,8 +219,11 @@ class ConfigDocument:
     def render(self) -> str:
         """The TOML text: the text that was read, with the changes."""
         toml = tomlkit.parse(self._text)
-        for name in SECTIONS:
-            toml = _sync_section(toml, name, self.sections[name])
+        for name, values in self.sections.items():
+            if values is not None:
+                toml = _sync_section(toml, name, values)
+            elif name in toml:
+                del toml[name]
         toml = _sync_section(toml, "aliases", dict(self.aliases))
         _sync_strips(toml, self.strips)
         for name in [name for name in toml if name not in (*ORDER, *self.extra)]:

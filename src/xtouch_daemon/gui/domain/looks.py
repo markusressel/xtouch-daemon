@@ -63,6 +63,9 @@ def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> 
             label = "auto"
             playing = [aliases.get(stream.app, stream.app) for stream in state.streams if stream.playing]
             detail = "the next application that plays" + (f", e.g. {playing[0]}" if playing else "")
+        case "homeassistant":
+            strip_id = _text(values.get("id")) or "strip_<position>"
+            detail = f"entities of Home Assistant ({strip_id}), automations decide what it does"
         case _:
             detail = "a dark strip"
     return strip_type, label[: protocol.LCD_CELL_WIDTH], detail, color

@@ -3,11 +3,12 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Stream
-from xtouch_daemon.protocol import Color
+from xtouch_daemon.config import Indicator
+from xtouch_daemon.protocol import Button, Color
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.surface import Strip
 
@@ -26,8 +27,16 @@ class AppStrip(VolumeStrip):
     It changes the volume of the streams themselves, like the per-application sliders of pavucontrol.
     """
 
-    def __init__(self, strip: Strip, env: StripEnv, label: str, color: Color = Color.WHITE, meter: bool = True):
-        super().__init__(strip, env, label, color, meter)
+    def __init__(
+        self,
+        strip: Strip,
+        env: StripEnv,
+        label: str,
+        color: Color = Color.WHITE,
+        meter: bool = True,
+        indicators: Mapping[Button, Indicator] | None = None,
+    ):
+        super().__init__(strip, env, label, color, meter, indicators)
         self.streams: dict[int, Stream] = {}
         self.group_volume: int | None = None
         """The volume of the strip: set on the strip, or the loudest stream; None before the first stream."""
@@ -40,6 +49,9 @@ class AppStrip(VolumeStrip):
 
     def accepts_input(self) -> bool:
         return True
+
+    def playing(self, state: AudioState) -> bool:
+        return any(stream.playing for stream in self.streams_in(state))
 
     def current(self, state: AudioState) -> tuple[Level | None, bool]:
         streams = {stream.index: stream for stream in self.streams_in(state)}
@@ -96,21 +108,31 @@ class AppGroupStrip(AppStrip):
         label: str,
         color: Color = Color.WHITE,
         meter: bool = True,
+        indicators: Mapping[Button, Indicator] | None = None,
     ):
-        super().__init__(strip, env, label, color, meter)
+        super().__init__(strip, env, label, color, meter, indicators)
         self.patterns = patterns
 
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
         return state.streams_matching(self.patterns)
+
+    def recording(self, state: AudioState) -> bool:
+        return state.records_matching(self.patterns)
 
 
 class AutoStrip(AppStrip):
     """The streams of the application the `AutoAssigner` gave the strip, under its alias. Dark while it has none."""
 
     def __init__(
-        self, strip: Strip, env: StripEnv, aliases: dict[str, str], color: Color = Color.WHITE, meter: bool = True
+        self,
+        strip: Strip,
+        env: StripEnv,
+        aliases: dict[str, str],
+        color: Color = Color.WHITE,
+        meter: bool = True,
+        indicators: Mapping[Button, Indicator] | None = None,
     ):
-        super().__init__(strip, env, "", color, meter)
+        super().__init__(strip, env, "", color, meter, indicators)
         self.aliases = aliases
         self.app: str | None = None
 
@@ -125,6 +147,9 @@ class AutoStrip(AppStrip):
 
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
         return state.streams_of_app(self.app) if self.app is not None else ()
+
+    def recording(self, state: AudioState) -> bool:
+        return self.app is not None and state.records_app(self.app)
 
     def inactive_text(self) -> str:
         return "" if self.app is None else "idle"

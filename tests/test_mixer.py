@@ -1,6 +1,7 @@
 import asyncio
 import stat
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -206,3 +207,34 @@ async def test_a_meter_knows_whether_its_target_plays_from_the_latest_state(mixe
 
     mixer.on_state(AudioState(outputs=(output("speaker", 50, running=True),)))
     assert mixer.meters[0]._playing(target)
+
+
+async def test_the_entities_of_home_assistant_strips_go_to_the_bridge(
+    surface: RecordingSurface, backend: FakeBackend
+) -> None:
+    from haad_mqtt_autodiscovery.entity import MQTTEntity
+
+    from xtouch_daemon.mqtt import MqttBridge
+    from xtouch_daemon.strips.homeassistant import HomeAssistantStrip
+
+    announced: list[dict[MQTTEntity, str | None]] = []
+
+    class RecordingBridge(MqttBridge):
+        async def set_entities(self, entities: Mapping[MQTTEntity, str | None]) -> None:
+            announced.append(dict(entities))
+
+    config = parse_config('[[strip]]\ntype = "homeassistant"\n' * 2 + '[mqtt]\nhost = "broker"\n')
+    assert config.mqtt is not None
+    bridge = RecordingBridge(config.mqtt)
+    mixer = Mixer(surface, backend, config, bridge=bridge)
+
+    task = asyncio.create_task(mixer.run())
+    await settle()
+    task.cancel()
+    mixer.close()
+
+    strips = [controller for controller in mixer.controllers if isinstance(controller, HomeAssistantStrip)]
+    assert len(strips) == 2
+    assert announced == [{**strips[0].entities, **strips[1].entities}]
+    # fader, encoder, two LCD lines, color, four LEDs, buttons
+    assert len(announced[0]) == 2 * 10

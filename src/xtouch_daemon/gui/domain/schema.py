@@ -6,14 +6,15 @@ bounds, defaults and help. Forms built from these show a new option without chan
 import types
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import annotated_types
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from xtouch_daemon.config import STRIP_MODELS, ColorName
+from xtouch_daemon.config import STRIP_MODELS, ColorName, Config
 
 
 class Kind(StrEnum):
@@ -25,6 +26,10 @@ class Kind(StrEnum):
     COLOR = "color"
     LIST = "list"
     """A list of texts."""
+    SECRET = "secret"
+    """A text that is not shown, e.g. a password."""
+    PATH = "path"
+    """The path of a file."""
 
 
 @dataclass(frozen=True)
@@ -68,7 +73,14 @@ def _kind(annotation: Any) -> Kind:
         return Kind.CHOICE
     if annotation == tuple[str, ...]:
         return Kind.LIST
-    kinds = {bool: Kind.SWITCH, int: Kind.INTEGER, float: Kind.NUMBER, str: Kind.TEXT}
+    kinds = {
+        bool: Kind.SWITCH,
+        int: Kind.INTEGER,
+        float: Kind.NUMBER,
+        str: Kind.TEXT,
+        SecretStr: Kind.SECRET,
+        Path: Kind.PATH,
+    }
     if annotation not in kinds:
         raise TypeError(f"the editor has no form field for options of type {annotation}")
     return kinds[annotation]
@@ -104,6 +116,29 @@ def option(name: str, field: FieldInfo) -> Option:
 def options(model: type[BaseModel], skip: tuple[str, ...] = ()) -> tuple[Option, ...]:
     """The options of a model in the order it declares them."""
     return tuple(option(name, field) for name, field in model.model_fields.items() if name not in skip)
+
+
+@dataclass(frozen=True)
+class Section:
+    """A section of the configuration with options of its own, like `[behavior]`."""
+
+    name: str
+    model: type[BaseModel]
+    optional: bool
+    """Whether the section may be missing (`[mqtt]`), rather than having defaults for all its options."""
+    help: str
+
+
+def sections() -> tuple[Section, ...]:
+    """The sections of the configuration with options of their own, in the order `Config` declares them."""
+    result: list[Section] = []
+    for name, field in Config.model_fields.items():
+        annotation, _ = _unwrap(field.annotation)
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            optional = type(None) in get_args(field.annotation)
+            help_text = " ".join((annotation.__doc__ or "").split())
+            result.append(Section(name, annotation, optional, help_text))
+    return tuple(result)
 
 
 def strip_models() -> dict[str, type[BaseModel]]:

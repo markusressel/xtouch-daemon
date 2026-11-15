@@ -25,6 +25,9 @@ strips for your devices and applications.
 - **Mute** button with LED. The **encoder** fine-tunes the volume, a push resets it (to 100 % by default).
 - **LED meters** show the level of each strip. They are passive: they never wake a device, never light your
   desktop's microphone indicator, and never switch Bluetooth headphones into headset mode.
+- **Home Assistant strips** turn a strip into entities for your automations over MQTT discovery: the motor fader,
+  encoder, LCD lines and color, LEDs, and events for every button press. Dim lights, set the volume of another room,
+  toggle scenes; each strip belongs either to PipeWire or to Home Assistant.
 - **Robust:** survives unplugging or switching off the device and restarts of the sound server, and shows everything
   again when they are back.
 - **A proper service:** systemd notification (`Type=notify`), `systemctl --user reload` applies a changed
@@ -35,22 +38,20 @@ strips for your devices and applications.
 
 - Linux with PipeWire and `pipewire-pulse` (or PulseAudio).
 - `pw-record` (part of PipeWire) for the meters.
-- Python 3.12 or newer.
+- Python 3.14.
+- For Home Assistant strips: an MQTT broker that Home Assistant uses (e.g. the Mosquitto add-on).
 - A Behringer X-Touch Extender in **MC** mode on **USB** (see [docs/hardware.md](docs/hardware.md)). Your user needs
   access to its MIDI device in `/dev/snd`, which desktop sessions grant to the logged-in user.
 
 ## Installation
 
-With [uv](https://docs.astral.sh/uv/):
+xtouch-daemon uses [haad-mqtt-autodiscovery](https://github.com/haad-org/haad-mqtt-autodiscovery) from a checkout
+next to its own, so clone both side by side and install with [uv](https://docs.astral.sh/uv/):
 
 ```shell
-uv tool install git+https://github.com/markusressel/xtouch-daemon
-```
-
-Or with [pipx](https://pipx.pypa.io/):
-
-```shell
-pipx install git+https://github.com/markusressel/xtouch-daemon
+git clone https://github.com/markusressel/xtouch-daemon
+git clone https://github.com/haad-org/haad-mqtt-autodiscovery
+uv tool install ./xtouch-daemon
 ```
 
 ## Quick start

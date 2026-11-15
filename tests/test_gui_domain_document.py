@@ -48,7 +48,7 @@ def test_unchanged_it_writes_the_file_as_it_was():
 def test_reads_the_options_as_data():
     doc = document()
 
-    assert doc.sections == {"device": {}, "behavior": {"max_volume": 120, "meters": False}}
+    assert doc.sections == {"device": {}, "behavior": {"max_volume": 120, "meters": False}, "mqtt": None}
     assert doc.aliases == [("WEBRTC VoiceEngine", "Discord")]
     assert [strip.type for strip in doc.strips] == ["output", "apps", "empty"]
     assert doc.get(("strip", 1, "match")) == ["brave"]
@@ -303,3 +303,43 @@ def test_a_file_that_can_not_be_read_is_an_error(tmp_path: Path):
 def test_a_strip_knows_its_type():
     assert StripDraft({"type": "auto"}).type == "auto"
     assert StripDraft({}).type is None
+
+
+def test_an_optional_section_can_be_added_and_removed():
+    doc = document()
+    assert not doc.has_section("mqtt")
+    with pytest.raises(KeyError, match=r"\[mqtt\] is not there, add it first"):
+        doc.set(("mqtt", "host"), "broker")
+
+    doc.add_section("mqtt")
+    # without its required options it is a problem, not missing
+    assert doc.validate().problems == [Problem(("mqtt", "host"), "Field required", "missing")]
+    doc.set(("mqtt", "host"), "broker")
+    doc.set(("mqtt", "password_file"), "~/.mqtt-password")
+    doc.add_strip("homeassistant")
+    doc.add_section("mqtt")
+
+    text = doc.render()
+
+    assert text.endswith(
+        '[[strip]]\ntype = "homeassistant"\n\n[mqtt]\nhost = "broker"\npassword_file = "~/.mqtt-password"\n'
+    )
+    assert doc.validate().config is not None
+
+    doc.remove_section("mqtt")
+    assert "[mqtt]" not in doc.render()
+    assert doc.validate().problems == [Problem((), "homeassistant strips need an [mqtt] section", "value_error")]
+
+
+def test_a_removed_section_leaves_the_file():
+    doc = document('[mqtt]\nhost = "broker"\n')
+    assert doc.has_section("mqtt")
+
+    doc.remove_section("mqtt")
+
+    assert doc.render() == ""
+
+
+def test_only_optional_sections_can_be_removed():
+    with pytest.raises(AssertionError, match=r"\[device\] is not optional"):
+        document().remove_section("device")

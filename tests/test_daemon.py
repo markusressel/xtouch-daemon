@@ -2,19 +2,23 @@ import asyncio
 import logging
 import os
 import signal
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
 import pytest
 
 from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle
+from tests.fake_mqtt import FakeBroker
 from xtouch_daemon import daemon as daemon_module
+from xtouch_daemon import mqtt as mqtt_module
+from xtouch_daemon import protocol
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config import Config, parse_config
 from xtouch_daemon.daemon import Daemon
 from xtouch_daemon.mixer import Mixer
-from xtouch_daemon.protocol import Color
+from xtouch_daemon.mqtt import MqttBridge
+from xtouch_daemon.protocol import Button, Color, Led
 from xtouch_daemon.surface import Surface
 
 SPEAKER = '[[strip]]\ntype = "output"\ndevice = "speaker"\nlabel = "Speaker"\ncolor = "cyan"\n'
@@ -46,9 +50,9 @@ def config_path(tmp_path: Path) -> Path:
     return path
 
 
-def quiet_mixer(surface: Surface, backend: AudioBackend, config: Config) -> Mixer:
+def quiet_mixer(surface: Surface, backend: AudioBackend, config: Config, *, bridge: MqttBridge | None) -> Mixer:
     # meters that capture nothing: the tests don't touch the audio of the machine they run on
-    return Mixer(surface, backend, config, capture_command="true")
+    return Mixer(surface, backend, config, capture_command="true", bridge=bridge)
 
 
 def make(config_path: Path, surface: RecordingSurface, backend: FakeBackend) -> Daemon:
@@ -225,3 +229,138 @@ async def test_a_daemon_without_surface_makes_one_for_the_configured_device(back
 
     assert daemon.surface.device_name == "X-Touch"
     logging.getLogger().debug("no tasks were started")
+
+
+# -- Home Assistant ---------------------------------------------------------------------------------------------------
+
+HOME_ASSISTANT = '[[strip]]\ntype = "homeassistant"\nlabel = "Lights"\n\n[mqtt]\nhost = "broker"\n'
+
+
+@pytest.fixture
+def broker(monkeypatch: pytest.MonkeyPatch) -> FakeBroker:
+    monkeypatch.setattr(mqtt_module, "RECONNECT_DELAY", 0.001)
+    return FakeBroker()
+
+
+def make_with_mqtt(config_path: Path, surface: RecordingSurface, backend: FakeBackend, broker: FakeBroker) -> Daemon:
+    config = parse_config(config_path.read_text())
+    assert config.mqtt is not None
+    bridge = MqttBridge(config.mqtt, client_factory=broker.client)
+    return Daemon(config, backend, surface, config_path, mixer_factory=quiet_mixer, bridge=bridge)
+
+
+async def test_home_assistant_strips_follow_the_broker(
+    config_path: Path,
+    surface: RecordingSurface,
+    backend: FakeBackend,
+    broker: FakeBroker,
+    notifications: Notifications,
+) -> None:
+    config_path.write_text(HOME_ASSISTANT)
+    daemon = make_with_mqtt(config_path, surface, backend, broker)
+    assert daemon.bridge is not None
+
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: surface.strips[0].text == ["Lights", ""])
+    assert "STATUS=waiting for X-Touch-Ext, waiting for the sound server, MQTT connected" in notifications.states()
+
+    # the device comes and goes: Home Assistant shows the entities as available or not
+    surface.on_connection(True)
+    await until(lambda: broker.retained.get("xtouch-daemon/xtouch/availability") == "online")
+    surface.on_connection(False)
+    await until(lambda: broker.retained.get("xtouch-daemon/xtouch/availability") == "offline")
+    surface.on_connection(True)
+    await until(lambda: broker.retained.get("xtouch-daemon/xtouch/availability") == "online")
+
+    daemon.stop()
+    await task
+
+    # stopping marks them unavailable right away
+    assert broker.retained["xtouch-daemon/xtouch/availability"] == "offline"
+
+
+async def test_without_mqtt_section_there_is_no_bridge(
+    config_path: Path, surface: RecordingSurface, backend: FakeBackend
+) -> None:
+    assert make(config_path, surface, backend).bridge is None
+    config = parse_config(HOME_ASSISTANT)
+    assert Daemon(config, backend, surface, mixer_factory=quiet_mixer).bridge is not None
+
+
+async def test_a_changed_mqtt_section_needs_a_restart(
+    config_path: Path,
+    surface: RecordingSurface,
+    backend: FakeBackend,
+    broker: FakeBroker,
+    notifications: Notifications,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config_path.write_text(HOME_ASSISTANT)
+    daemon = make_with_mqtt(config_path, surface, backend, broker)
+    old = daemon.mixer
+
+    config_path.write_text(HOME_ASSISTANT.replace('"broker"', '"other"'))
+    assert not daemon.reload()
+
+    assert daemon.mixer is old
+    assert "the [mqtt] section changed" in caplog.text
+    assert notifications[-1] == ("READY=1", "STATUS=The [mqtt] section changed, restart the daemon")
+
+
+async def test_a_reload_gives_the_bridge_the_new_strips(
+    config_path: Path, surface: RecordingSurface, backend: FakeBackend, broker: FakeBroker, notifications: Notifications
+) -> None:
+    config_path.write_text(HOME_ASSISTANT)
+    daemon = make_with_mqtt(config_path, surface, backend, broker)
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: surface.strips[0].text == ["Lights", ""])
+
+    config_path.write_text(HOME_ASSISTANT.replace('"homeassistant"', '"homeassistant"\nid = "desk"'))
+    assert daemon.reload()
+    await until(lambda: "homeassistant/number/xtouch/desk_fader/config" in broker.retained)
+    daemon.stop()
+    await task
+
+    assert "homeassistant/number/xtouch/strip_1_fader/config" not in broker.retained
+
+
+# -- stopping -------------------------------------------------------------------------------------------------------
+
+
+class StreamingBackend(FakeBackend):
+    """A sound server that keeps reporting, as one does while something plays."""
+
+    async def run(self, on_state: Callable[[AudioState], None]) -> None:
+        while True:
+            on_state(STATE)
+            await asyncio.sleep(0.001)
+
+
+async def test_nothing_shows_on_the_surface_after_it_was_turned_dark(
+    config_path: Path, surface: RecordingSurface, notifications: Notifications
+) -> None:
+    daemon = make(config_path, surface, StreamingBackend())
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: surface.strips[0].text == ["Speaker", "50%"])
+    await surface.settled()
+
+    daemon.stop()
+    # a hand on the device while it stops changes nothing
+    surface.on_event(protocol.ButtonPressed(0, Button.MUTE, True))
+    await task
+
+    dark = protocol.lcd_text(0, 0, "")
+    after = surface.sent[surface.sent.index(dark) :]
+    blank_texts = {protocol.lcd_text(strip, line, "") for strip in range(protocol.STRIPS) for line in (0, 1)}
+    for message in after:
+        if message.startswith(protocol.SYSEX_HEADER + b"\x12"):
+            assert message in blank_texts
+        if message.startswith(protocol.SYSEX_HEADER + b"\x72"):
+            assert message == protocol.lcd_colors([Color.BLACK] * protocol.STRIPS)
+    faders = [value for value in surface.faders(0) if value]
+    assert faders == sorted(faders, reverse=True)
+    for strip in surface.strips:
+        assert strip.color == Color.BLACK
+        assert strip.text == ["", ""]
+        assert all(led == Led.OFF for led in strip.leds.values())
+    assert surface.faders(0)[-1] == 0

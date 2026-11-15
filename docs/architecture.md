@@ -9,7 +9,9 @@ graph LR
     Mixer -- "set volume, mute, default" --> Backend
     Backend <--> Sound[pipewire-pulse]
     Mixer -- "captures (meter.py)" --> PwRecord[pw-record, passive]
-    Daemon -- "owns, reloads, stops" --> Surface & Backend & Mixer
+    Mixer -- "entities of homeassistant strips" --> Bridge[MqttBridge<br/>aiomqtt]
+    Bridge <-- "discovery, states, commands, events" --> Broker[MQTT broker / Home Assistant]
+    Daemon -- "owns, reloads, stops" --> Surface & Backend & Mixer & Bridge
 ```
 
 ## Modules
@@ -23,7 +25,8 @@ graph LR
 | `audio/backend.py` | `AudioBackend`: the interface the strips use (snapshots, volume, mute, default). |
 | `audio/pulse.py` | `PulseBackend`: one connection to the sound server that follows it by events and carries out the commands. |
 | `audio/meter.py` | `Meter`: audio levels from passive `pw-record` captures. |
-| `strips/` | The strip controllers: `DeviceStrip`, `AppGroupStrip`, `AutoStrip` (with `AutoAssigner`), `EmptyStrip`, and the shared `VolumeStrip` base. |
+| `strips/` | The strip controllers: `DeviceStrip`, `AppGroupStrip`, `AutoStrip` (with `AutoAssigner`), `HomeAssistantStrip`, `EmptyStrip`, and the shared `VolumeStrip` base. |
+| `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` strips. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
 | `mixer.py` | `Mixer`: the controllers of one configuration, fed with every state and every event, and the meter ticker. |
 | `daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications). |
 | `config.py` | The TOML configuration, validated with pydantic. |
@@ -40,6 +43,11 @@ graph LR
    controller turns it into commands to the backend. These run as tasks: nothing blocks the event loop.
 5. The sound server reports the result as a new snapshot, which goes through step 2 again.
 
+A `homeassistant` strip ignores the snapshots. Its entities work as in haad: Home Assistant sends a command, the
+entity publishes it as its state (retained), and the copy that comes back from the broker changes the entity; the
+bridge then tells the strip, which shows it. The device's events go the other way: a fader or encoder publishes its
+number (a fader moved by hand at most every 100 ms), buttons publish events, which are not retained.
+
 ## Lifecycle
 
 - **Start:** the daemon starts the surface, the backend and the mixer as tasks and tells systemd `READY=1`. The device
@@ -50,7 +58,16 @@ graph LR
 - **Stop (SIGTERM, SIGINT):** the daemon tells systemd `STOPPING=1`, closes the mixer, turns every strip dark and
   moves the faders down, waits for the faders (at most 2 s), sends what is still queued and closes the device. A dark
   surface shows that nothing drives it anymore.
-- **Status:** `systemctl --user status xtouch-daemon` shows whether the device and the sound server are connected.
+- **Stop, in this order:** first everything stops that could show something (the sound server connection, MQTT, the
+  mixer, the device's events), then the strips are reset, and only then the surface closes. A snapshot that arrived
+  during the reset would otherwise paint the strips again.
+- **MQTT:** the bridge connects (again) on its own, like the backend. On every connect it publishes the discovery
+  configurations, subscribes, and waits for the retained states with a ping on its own sync topic: the broker sends
+  retained messages before later ones. Entities without a retained state then get their defaults. A reload hands the
+  bridge the entities of the new strips; entities of removed strips are removed from Home Assistant. A changed
+  `[mqtt]` section needs a restart.
+- **Status:** `systemctl --user status xtouch-daemon` shows whether the device, the sound server and (with `[mqtt]`)
+  the broker are connected.
 
 ## Design decisions
 
@@ -68,6 +85,12 @@ graph LR
   started again.
 - **The default device follows by name.** A strip without `device` looks up the default in every snapshot, so it
   follows a switch of the default device, including its meter.
+- **One owner per strip.** A strip belongs to PipeWire or to Home Assistant, chosen by its `type`. Mixing both on one
+  fader would make two sources fight over the motor.
+- **Availability follows the device.** The entities are available while the daemon runs and the device is connected,
+  so Home Assistant greys out controls that would do nothing. A last will covers a crash.
+- **haad-mqtt-autodiscovery as a path dependency.** The entities are the same as haad's, used from a checkout next
+  to this one (like haad does), which also sets the Python version to 3.14.
 - **No volume restore in the daemon.** The sound server keeps the volumes. The daemon remembers only the volume of an
   idle application strip, for its next stream, and only while it runs.
 
@@ -80,6 +103,8 @@ The unit tests run without hardware and without a sound server:
 - the surface with a recording `send`,
 - the strips, the mixer and the daemon with a fake `AudioBackend`,
 - `PulseBackend` with a fake pulsectl connection,
-- the meters with a fake `pw-record` script.
+- the meters with a fake `pw-record` script,
+- the MQTT bridge and the `homeassistant` strips with an in-memory broker (`tests/fake_mqtt.py`): retained messages,
+  subscriptions, last wills, lost connections.
 
 `just coverage` fails below 90 % line and branch coverage.

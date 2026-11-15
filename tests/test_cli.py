@@ -23,6 +23,8 @@ type = "input"
 device = "mic"
 select = false
 meter = false
+rec = "off"
+solo = "muted"
 
 [[strip]]
 type = "apps"
@@ -32,6 +34,18 @@ color = "yellow"
 
 [[strip]]
 type = "empty"
+
+[[strip]]
+type = "homeassistant"
+label = "Lights"
+
+[[strip]]
+type = "homeassistant"
+id = "desk"
+color = "blue"
+
+[mqtt]
+host = "broker"
 """
 
 STATE = AudioState(
@@ -87,11 +101,13 @@ def test_check_config_shows_what_each_strip_does(config_file: Path) -> None:
     assert result.exit_code == 0
     assert result.output.splitlines() == [
         f"{config_file}: valid",
-        "  1. 'Out' the default output (white)",
-        "  2. input mic (white, no meter)",
-        "  3. 'Browser' applications brave, firefox (yellow)",
+        "  1. 'Out' the default output (white, rec: recording, solo: off)",
+        "  2. input mic (white, no meter, rec: off, solo: muted)",
+        "  3. 'Browser' applications brave, firefox (yellow, rec: recording, solo: off)",
         "  4. empty",
-        *[f"  {number}. the next application that plays (white)" for number in range(5, 9)],
+        "  5. 'Lights' Home Assistant, entities *.*_strip_5_* (white)",
+        "  6. Home Assistant, entities *.*_desk_* (blue)",
+        *[f"  {number}. the next application that plays (white, rec: recording, solo: off)" for number in range(7, 9)],
     ]
 
 
@@ -107,7 +123,10 @@ def test_a_named_device_with_select_says_so(tmp_path: Path) -> None:
     path = tmp_path / "other.toml"
     path.write_text('[[strip]]\ntype = "output"\ndevice = "buds"\n')
 
-    assert "1. output buds, select makes it the default (white)" in invoke("check-config", "-c", str(path)).output
+    assert (
+        "1. output buds, select makes it the default (white, rec: recording, solo: off)"
+        in invoke("check-config", "-c", str(path)).output
+    )
 
 
 def test_check_config_reports_errors(tmp_path: Path) -> None:
@@ -316,7 +335,7 @@ def test_the_sound_server_is_read_once(monkeypatch: pytest.MonkeyPatch) -> None:
         def __init__(self, name: str) -> None:
             clients.append(name)
 
-        async def __aenter__(self) -> "FakePulse":
+        async def __aenter__(self) -> FakePulse:
             return self
 
         async def __aexit__(self, *exc: object) -> None:
@@ -370,7 +389,9 @@ def test_the_gui_reports_a_file_it_can_not_edit(tmp_path: Path) -> None:
 @pytest.mark.parametrize("package", ["PyQt6", "qtawesome", "qt_themes", "tomlkit"])
 def test_without_the_gui_extra_it_says_how_to_install_it(monkeypatch: pytest.MonkeyPatch, package: str) -> None:
     _without_gui_modules(monkeypatch)
-    monkeypatch.delitem(sys.modules, "xtouch_daemon.gui.domain.document", raising=False)
+    # as if it was not installed: its modules that are imported already too
+    for name in [name for name in sys.modules if name.startswith(f"{package}.")]:
+        monkeypatch.delitem(sys.modules, name)
     monkeypatch.setitem(sys.modules, package, None)
 
     result = CliRunner().invoke(cli.main, ["gui"])
@@ -388,3 +409,14 @@ def test_a_broken_gui_module_is_not_hidden_behind_the_extra(monkeypatch: pytest.
 
     with pytest.raises(ImportError, match=r"xtouch_daemon\.gui\.qt\.window"):
         invoke("gui")
+
+
+def test_run_reports_a_password_that_is_not_there(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(systemd, "setup_logging", lambda level: None)
+    path = tmp_path / "mqtt.toml"
+    path.write_text(f'[mqtt]\nhost = "broker"\npassword_file = "{tmp_path / "missing"}"\n')
+
+    result = CliRunner().invoke(cli.main, ["run", "-c", str(path)])
+
+    assert result.exit_code == 1
+    assert "mqtt.password_file: can't read" in result.output
