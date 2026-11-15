@@ -3,11 +3,14 @@ The preview: the 8 strips laid out like the hardware (encoder with its ring, LCD
 showing what the device shows right now while the daemon runs, or what the file would show. It is also how a strip
 is picked: a click (or the arrow keys) selects a strip, dragging a configured strip (or Ctrl+arrow) moves it, and the
 context menu has the rest.
+
+The strips are laid out and painted in logical units (a strip is WIDTH x HEIGHT) and scaled to the space the preview
+gets, so they stay sharp at any size and zoom.
 """
 
 from dataclasses import dataclass
 from itertools import pairwise
-from math import cos, radians, sin
+from math import ceil, cos, radians, sin
 
 from PyQt6.QtCore import (
     QAbstractAnimation,
@@ -16,6 +19,7 @@ from PyQt6.QtCore import (
     QPointF,
     QPropertyAnimation,
     QRectF,
+    QSize,
     QSizeF,
     Qt,
     QTimer,
@@ -36,8 +40,9 @@ from PyQt6.QtGui import (
     QPaintEvent,
     QPen,
     QRadialGradient,
+    QResizeEvent,
 )
-from PyQt6.QtWidgets import QApplication, QGraphicsOpacityEffect, QMenu, QWidget
+from PyQt6.QtWidgets import QApplication, QMenu, QSizePolicy, QWidget
 
 from xtouch_daemon import protocol
 from xtouch_daemon.gui.domain.looks import StripFace, StripLook, faces, meter_leds, ring_leds
@@ -46,10 +51,14 @@ from xtouch_daemon.gui.qt import theme
 KIND_NAMES = {"homeassistant": "Home Assistant", "?": "no type"}
 WIDTH = 104
 HEIGHT = 500
-"""A strip, in logical pixels: narrower than the device (about 1:8), mostly to leave room for the editor below."""
+"""A strip, in logical units (pixels at scale 1): narrower than the device (about 1:8)."""
 SPACING = 6
 MARGIN_X = 14
 MARGIN_Y = 12
+PANEL = QSizeF(2 * MARGIN_X + protocol.STRIPS * WIDTH + (protocol.STRIPS - 1) * SPACING, 2 * MARGIN_Y + HEIGHT)
+"""The whole panel with the 8 strips, in logical units."""
+MIN_SCALE = 0.5
+"""The smallest the preview gets: half its size still shows the LEDs, faders and LCD colors."""
 ANIMATION_MS = 160
 """How long the other strips take to make room for a dragged one: quick, but long enough to see where they go."""
 BLINK_MS = 400
@@ -238,8 +247,8 @@ def _print_font(base: QFont, size: int, weight: QFont.Weight = QFont.Weight.Demi
 class _Drag:
     source: int
     target: int
-    grab: int
-    """Where the strip was grabbed, from its left edge."""
+    grab: float
+    """Where the strip was grabbed, from its left edge (in logical units)."""
 
 
 class Preview(QWidget):
@@ -254,13 +263,12 @@ class Preview(QWidget):
 
     def __init__(self):
         super().__init__()
-        width = 2 * MARGIN_X + protocol.STRIPS * WIDTH + (protocol.STRIPS - 1) * SPACING
-        self.setFixedSize(width, 2 * MARGIN_Y + HEIGHT)
-        self.strips: list[StripView] = []
-        for index in range(protocol.STRIPS):
-            view = StripView(self, index)
-            view.move(slot_position(index))
-            self.strips.append(view)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.scale = 1.0
+        """How large the panel is drawn: it fills the space it gets, keeping its proportions."""
+        self.origin = QPointF()
+        """Where the panel starts, centered in the widget."""
+        self.strips: list[StripView] = [StripView(self, index) for index in range(protocol.STRIPS)]
         self._drag: _Drag | None = None
         self.animations: dict[int, QPropertyAnimation] = {}
         """The glides of the strips making room for a dragged one, by strip."""
@@ -269,6 +277,34 @@ class Preview(QWidget):
         self.blinker = QTimer(self)
         self.blinker.setInterval(BLINK_MS)
         self.blinker.timeout.connect(self._blink)
+
+    def sizeHint(self) -> QSize:
+        return QSize(ceil(PANEL.width()), ceil(PANEL.height()))
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(ceil(PANEL.width() * MIN_SCALE), ceil(PANEL.height() * MIN_SCALE))
+
+    def to_widget(self, point: QPointF) -> QPoint:
+        """A point of the panel (in logical units) in the widget."""
+        return (self.origin + point * self.scale).toPoint()
+
+    def slot_point(self, index: int) -> QPoint:
+        """Where the strip at `index` sits in the widget."""
+        return self.to_widget(QPointF(slot_position(index)))
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        """Scales the panel to the new size, centered, and puts every strip in its place at that scale."""
+        if self.dragging:
+            self.cancel_drag()
+        self.scale = min(self.width() / PANEL.width(), self.height() / PANEL.height())
+        self.origin = QPointF(
+            (self.width() - PANEL.width() * self.scale) / 2, (self.height() - PANEL.height() * self.scale) / 2
+        )
+        for animation in self.animations.values():
+            animation.stop()
+        for index, view in enumerate(self.strips):
+            view.resize(ceil(WIDTH * self.scale), ceil(HEIGHT * self.scale))
+            view.move(self.slot_point(index))
 
     @property
     def configured(self) -> int:
@@ -301,28 +337,26 @@ class Preview(QWidget):
 
     # -- moving strips --------------------------------------------------------------------------------------------
 
-    def start_drag(self, source: int, grab: int) -> None:
+    def start_drag(self, source: int, grab: float) -> None:
         """Lifts the strip out of the row: its place stays empty, and the others make room where it goes."""
         self._drag = _Drag(source, source, grab)
         view = self.strips[source]
         view.lifted = True
         view.raise_()
-        # see-through, so the place where it goes shows under it
-        effect = QGraphicsOpacityEffect(view)
-        effect.setOpacity(LIFTED_OPACITY)
-        view.setGraphicsEffect(effect)
+        view.update()
         view.setCursor(Qt.CursorShape.ClosedHandCursor)
         # Escape cancels: the keys come here while the mouse is held
         self.grabKeyboard()
         self.update()
 
     def drag_to(self, x: int) -> None:
-        """Follows the mouse (`x` in the preview) and lets the other strips make room at the nearest place."""
+        """Follows the mouse (`x` in the widget) and lets the other strips make room at the nearest place."""
         drag = self._drag
         assert drag is not None
         view = self.strips[drag.source]
-        left = max(MARGIN_X, min(x - drag.grab, slot_position(protocol.STRIPS - 1).x()))
-        view.move(left, MARGIN_Y - LIFT)
+        panel_x = (x - self.origin.x()) / self.scale
+        left = max(MARGIN_X, min(panel_x - drag.grab, slot_position(protocol.STRIPS - 1).x()))
+        view.move(self.to_widget(QPointF(left, MARGIN_Y - LIFT)))
         nearest = round((left - MARGIN_X) / (WIDTH + SPACING))
         target = max(0, min(nearest, self.configured - 1))
         if target != drag.target:
@@ -347,13 +381,12 @@ class Preview(QWidget):
         self.releaseKeyboard()
         view = self.strips[drag.source]
         view.lifted = False
-        view.setGraphicsEffect(None)
         view.setCursor(Qt.CursorShape.PointingHandCursor)
         # every view back to its own place at once: after a move the window shows the moved strips in them
         for animation in self.animations.values():
             animation.stop()
         for index, strip in enumerate(self.strips):
-            strip.move(slot_position(index))
+            strip.move(self.slot_point(index))
         self.update()
         return drag
 
@@ -370,7 +403,7 @@ class Preview(QWidget):
                 animation.setDuration(ANIMATION_MS)
                 animation.setEasingCurve(QEasingCurve.Type.OutCubic)
                 self.animations[index] = animation
-            end = slot_position(place)
+            end = self.slot_point(place)
             if animation.state() == QAbstractAnimation.State.Running and animation.endValue() == end:
                 continue
             animation.stop()
@@ -445,7 +478,9 @@ class Preview(QWidget):
         """The panel of the device (dark, lit from above, a bevel at the top edge), and the place of a dragged strip."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        panel = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        painter.translate(self.origin)
+        painter.scale(self.scale, self.scale)
+        panel = QRectF(QPointF(), PANEL).adjusted(0.5, 0.5, -0.5, -0.5)
         gradient = QLinearGradient(panel.topLeft(), panel.bottomLeft())
         gradient.setColorAt(0, QColor(HW.panel_top))
         gradient.setColorAt(1, QColor(HW.panel_bottom))
@@ -481,7 +516,6 @@ class StripView(QWidget):
         self.lifted = False
         """Whether it is being dragged."""
         self._press: QPoint | None = None
-        self.resize(WIDTH, HEIGHT)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
@@ -531,10 +565,15 @@ class StripView(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         face = self.face
         look, state = face.look, face.state
-        body = QRectF(self.rect()).adjusted(3, 3, -3, -3)
+        # drawn in logical units, at the scale of the preview
+        painter.scale(self.preview.scale, self.preview.scale)
+        # a lifted strip is see-through, so the place where it goes shows under it
+        opacity = LIFTED_OPACITY if self.lifted else 1.0
+        painter.setOpacity(opacity)
+        body = QRectF(0, 0, WIDTH, HEIGHT).adjusted(3, 3, -3, -3)
         self._paint_body(painter, body)
         if not look.configured:
-            painter.setOpacity(UNCONFIGURED_OPACITY)
+            painter.setOpacity(opacity * UNCONFIGURED_OPACITY)
         number = str(self.index + 1)
         painter.setFont(_print_font(self.font(), 10, QFont.Weight.Bold))
         painter.setPen(QColor(HW.print))
@@ -549,7 +588,7 @@ class StripView(QWidget):
         # not known yet: at the bottom, where the daemon leaves it
         self._paint_fader(painter, 0.0 if state.fader is None else state.fader, state.touched)
         self._paint_tag(painter, number)
-        painter.setOpacity(1)
+        painter.setOpacity(opacity)
         if look.problems:
             self._paint_badge(painter, QPointF(body.right() - 9, body.top() + 9), str(look.problems))
         if face.edited:
@@ -840,7 +879,7 @@ class StripView(QWidget):
             return
         if (point - self._press).manhattanLength() < QApplication.startDragDistance():
             return
-        self.preview.start_drag(self.index, self._press.x())
+        self.preview.start_drag(self.index, self._press.x() / self.preview.scale)
         self.preview.drag_to(self.mapToParent(point).x())
 
     def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:

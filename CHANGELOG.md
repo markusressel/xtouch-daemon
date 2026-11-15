@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- A handle between the strips and the editor of the GUI: dragging it scales the strips, and the size is kept.
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.
 - The strips of the GUI look like the device: the ring has 13 LEDs, the LCD the lit line between its two lines, the
   meter 8 LEDs next to the buttons (REC, SOLO and MUTE square, SELECT wider), whose names are printed under them,

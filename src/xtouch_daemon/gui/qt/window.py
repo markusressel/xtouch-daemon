@@ -11,8 +11,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QEvent, QObject, QRect, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent, QKeySequence, QShortcut
+from PyQt6.QtCore import QEvent, QObject, QRect, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import (
+    QAction,
+    QCloseEvent,
+    QColor,
+    QKeyEvent,
+    QKeySequence,
+    QPainter,
+    QPaintEvent,
+    QShortcut,
+    QShowEvent,
+)
 from PyQt6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -22,6 +32,8 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSplitter,
+    QSplitterHandle,
     QStackedWidget,
     QTabWidget,
     QToolButton,
@@ -110,6 +122,57 @@ class Session:
     """Where the window was, in pixels of the screen (the zoom changes the size of a window's own pixels)."""
     maximized: bool
     audio: AudioState
+    preview_share: float | None
+    """The share of the height the preview has, None while it has not been dragged."""
+
+
+EDITOR_MIN_HEIGHT = 160
+"""The editor below the preview keeps room for a few rows when the preview is dragged large."""
+GRIP = (36, 4)
+"""The grip on the handle between the preview and the editor: a short bar that shows it can be dragged."""
+
+
+class _GripHandle(QSplitterHandle):
+    """The handle between the preview and the editor, with a grip in the middle, brighter under the mouse."""
+
+    def __init__(self, orientation: Qt.Orientation, parent: QSplitter):
+        super().__init__(orientation, parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+        self.setToolTip("Drag to make the strips larger or smaller")
+
+    def paintEvent(self, event: QPaintEvent | None) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        colors = theme.current_colors()
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(colors.text_muted if self.underMouse() else colors.control_border))
+        width, height = GRIP
+        grip = QRectF((self.width() - width) / 2, (self.height() - height) / 2, width, height)
+        painter.drawRoundedRect(grip, height / 2, height / 2)
+
+
+class PreviewSplitter(QSplitter):
+    """The preview above, the editor below, and a handle with a grip between them."""
+
+    def __init__(self):
+        super().__init__(Qt.Orientation.Vertical)
+        self.setChildrenCollapsible(False)
+        self.setHandleWidth(theme.Space.M)
+
+    def createHandle(self) -> QSplitterHandle:
+        return _GripHandle(self.orientation(), self)
+
+    @property
+    def share(self) -> float:
+        """The share of the height the preview has."""
+        top, bottom = self.sizes()
+        return top / (top + bottom)
+
+    @share.setter
+    def share(self, share: float) -> None:
+        total = sum(self.sizes())
+        top = round(total * share)
+        self.setSizes([top, total - top])
 
 
 class MainWindow(QMainWindow):
@@ -140,6 +203,8 @@ class MainWindow(QMainWindow):
         self.selected = 0
         self.validation = document.validate()
         self.history = session.history if session is not None else History(document)
+        self.preview_share = session.preview_share if session is not None else theme.load_preview_share()
+        """The share of the height the preview has, None while it has not been dragged: then it has its own size."""
         self.service_state: ServiceState | None = None
         self.setWindowTitle("X-Touch Extender")
         self.resize(1000, 960)
@@ -158,9 +223,18 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._header())
         body = QVBoxLayout()
         body.setContentsMargins(theme.Space.XL, theme.Space.L, theme.Space.XL, 0)
-        body.setSpacing(theme.Space.M)
-        body.addLayout(self._preview_area())
-        body.addWidget(self._tabs(), 1)
+        body.setSpacing(theme.Space.S)
+        body.addLayout(self._preview_status())
+        self.splitter = PreviewSplitter()
+        self.splitter.addWidget(self._preview())
+        tabs = self._tabs()
+        tabs.setMinimumHeight(EDITOR_MIN_HEIGHT)
+        self.splitter.addWidget(tabs)
+        # a larger window gives the room to the editor, the preview keeps its size until the handle is dragged
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.splitterMoved.connect(self._preview_resized)
+        body.addWidget(self.splitter, 1)
         layout.addLayout(body, 1)
         layout.addWidget(self._footer())
         self.setCentralWidget(root)
@@ -193,6 +267,17 @@ class MainWindow(QMainWindow):
             self._resume(session)
         # the keys start on the strips (the arrows pick one), not on the first button of the header
         self.preview.strips[self.selected].setFocus()
+
+    def showEvent(self, event: QShowEvent | None) -> None:
+        """Gives the preview its share of the height, now that the window has its size."""
+        super().showEvent(event)
+        if self.preview_share is not None:
+            self.splitter.share = self.preview_share
+
+    def _preview_resized(self) -> None:
+        """The handle was dragged: the share of the preview is kept for the next start."""
+        self.preview_share = self.splitter.share
+        theme.save_preview_share(self.preview_share)
 
     def _resume(self, session: Session) -> None:
         """Goes on where the window before the zoom left off."""
@@ -260,9 +345,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.theme_button)
         return header
 
-    def _preview_area(self) -> QVBoxLayout:
-        area = QVBoxLayout()
-        area.setSpacing(theme.Space.S)
+    def _preview_status(self) -> QHBoxLayout:
+        """What the preview shows (live or the file), the connection to Home Assistant, and the sound server."""
         top = QHBoxLayout()
         self.mode_pill = label("", "pill")
         top.addWidget(self.mode_pill, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -277,18 +361,16 @@ class MainWindow(QMainWindow):
         self.refresh_audio = flat_button("refresh", "Read the devices and applications of the sound server again")
         self.refresh_audio.clicked.connect(self.load_audio)
         top.addWidget(self.refresh_audio)
-        area.addLayout(top)
+        return top
+
+    def _preview(self) -> Preview:
         self.preview = Preview()
         self.preview.clicked.connect(self.select)
         self.preview.moved.connect(self._moved)
         self.preview.configure.connect(self._configure)
         self.preview.remove.connect(self.remove_strip)
-        line = QHBoxLayout()
-        line.addStretch()
-        line.addWidget(self.preview)
-        line.addStretch()
-        area.addLayout(line)
-        return area
+        # it scales itself to the space the handle below it gives it, centered
+        return self.preview
 
     def _tabs(self) -> QTabWidget:
         """What applies to the selected strip, and what applies to all of them, apart."""
@@ -755,6 +837,7 @@ class MainWindow(QMainWindow):
             ),
             maximized=self.isMaximized(),
             audio=self.audio,
+            preview_share=self.preview_share,
         )
 
     def closeEvent(self, event: QCloseEvent | None) -> None:

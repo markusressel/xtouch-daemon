@@ -259,6 +259,28 @@ def save_zoom(zoom: float) -> None:
     QSettings().setValue(_ZOOM_KEY, zoom)
 
 
+# -- the size of the preview ---------------------------------------------------------------------------------------
+
+_PREVIEW_SHARE_KEY = "preview_share"
+
+
+def load_preview_share() -> float | None:
+    """
+    The share of the height the preview had last, next to the editor below it (0..1), or None while it has not been
+    dragged (or for a value that is not one).
+    """
+    value = QSettings().value(_PREVIEW_SHARE_KEY)
+    try:
+        share = float(value)  # pyright: ignore[reportArgumentType]
+    except TypeError, ValueError:
+        return None
+    return share if 0 < share < 1 else None
+
+
+def save_preview_share(share: float) -> None:
+    QSettings().setValue(_PREVIEW_SHARE_KEY, share)
+
+
 def zoom_step(zoom: float, steps: int) -> float:
     """The level `steps` levels above (or below) `zoom`, within ZOOM_LEVELS."""
     index = ZOOM_LEVELS.index(zoom) if zoom in ZOOM_LEVELS else ZOOM_LEVELS.index(1.0)

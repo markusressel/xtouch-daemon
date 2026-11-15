@@ -20,6 +20,8 @@ Without the extra, `xtouch-daemon gui` says how to install it.
   Control lights the middle 11), the LCD, the meter next to Rec, Solo, Mute and Select, and the fader with its dB
   scale: the middle of the cap marks the value, -∞ at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`).
   The type of each strip is printed under its LCD.
+- **A handle under the strips** (the short bar) makes them larger or smaller: drag it down for larger strips, up
+  for more room below. The strips keep their proportions, and the GUI keeps the size for the next start.
 - **Below them, two tabs:** "Strip N" holds the options of the selected strip. "Global settings" holds `[behavior]`,
   `[aliases]`, `[mqtt]` (as "Home Assistant") and `[device]`. A global setting never looks like an option of the
   selected strip.

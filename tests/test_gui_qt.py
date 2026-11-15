@@ -4,6 +4,7 @@ temporary directory, and the dialogs answered by the tests.
 """
 
 import dataclasses
+import math
 import signal
 import tempfile
 import tomllib
@@ -743,11 +744,14 @@ def show_state(view: preview.StripView, **changes: object) -> QImage:
     """The strip with its state changed, as painted."""
     face = view.face
     view.show_face(dataclasses.replace(face, state=dataclasses.replace(face.state, **changes)), False)
-    return view.grab().toImage()
+    image = view.grab().toImage()
+    # its pixels per logical unit of the strip: the zoom times the scale of the preview
+    image.setDevicePixelRatio(image.devicePixelRatio() * view.preview.scale)
+    return image
 
 
 def pixel(image: QImage, point: QPointF) -> QColor:
-    """The color at a point of the strip, at any zoom (the image has device pixels)."""
+    """The color at a point of the strip, in logical units, at any zoom and scale."""
     return image.pixelColor((point * image.devicePixelRatio()).toPoint())
 
 
@@ -861,21 +865,121 @@ def test_the_lcd_fits_7_characters_per_line_and_a_lit_line_between_them(window: 
 
 def test_a_dragged_strip_is_outlined_and_its_place_shown(qtbot: QtBot, window: MainWindow):
     preview = window.preview
-    edge = QPoint(3, 150)
+    edge = preview.to_widget(QPointF(3, 150)) - preview.to_widget(QPointF())
     # below the lifted strip, where the place it goes to shows on the panel
-    place = preview_module.slot_position(0) + QPoint(preview_module.WIDTH // 2, preview_module.HEIGHT - 6)
+    place = preview.to_widget(
+        QPointF(preview_module.slot_position(0)) + QPointF(preview_module.WIDTH / 2, preview_module.HEIGHT - 6)
+    )
     strip_before = preview.strips[1].grab().toImage().pixelColor(edge)
     place_before = preview.grab().toImage().pixelColor(place)
 
     preview.start_drag(1, 10)
-    preview.drag_to(preview_module.MARGIN_X + 10)
+    preview.drag_to(preview.to_widget(QPointF(preview_module.MARGIN_X + 10, 0)).x())
 
     assert preview.drop_target == 0
     # the strip that was there made room
-    qtbot.waitUntil(lambda: preview.strips[0].pos() == preview_module.slot_position(1))
+    qtbot.waitUntil(lambda: preview.strips[0].pos() == preview.slot_point(1))
     assert preview.strips[1].grab().toImage().pixelColor(edge).blue() > strip_before.blue()
     assert preview.grab().toImage().pixelColor(place).blue() > place_before.blue() + 10
     preview.cancel_drag()
+
+
+def drag_handle(window: MainWindow, share: float) -> None:
+    """Drags the handle between the preview and the editor to `share` of the height, as a hand does."""
+    top, bottom = window.splitter.sizes()
+    window.splitter.moveSplitter(round((top + bottom) * share), 1)
+    QApplication.processEvents()
+
+
+def test_the_preview_scales_to_the_space_it_gets(window: MainWindow):
+    preview = window.preview
+    large = preview.scale
+    assert preview.minimumSizeHint().height() == round(preview_module.PANEL.height() * preview_module.MIN_SCALE)
+
+    drag_handle(window, 0.1)
+
+    # down to its minimum, keeping its proportions, centered
+    assert preview.scale < large
+    assert preview.height() >= preview.minimumSizeHint().height()
+    assert preview.scale == pytest.approx(
+        min(preview.width() / preview_module.PANEL.width(), preview.height() / preview_module.PANEL.height())
+    )
+    panel = preview_module.PANEL * preview.scale
+    assert preview.origin.x() == pytest.approx((preview.width() - panel.width()) / 2)
+    assert preview.origin.y() == pytest.approx((preview.height() - panel.height()) / 2)
+    for index, view in enumerate(preview.strips):
+        assert view.pos() == preview.slot_point(index)
+        assert view.width() == math.ceil(preview_module.WIDTH * preview.scale)
+    # the editor keeps its room
+    assert window.tabs.height() >= window_module.EDITOR_MIN_HEIGHT
+    handle = window.splitter.handle(1)
+    assert handle is not None
+    assert handle.cursor().shape() == Qt.CursorShape.SplitVCursor
+    assert "Drag" in handle.toolTip()
+    assert not handle.grab().isNull()
+
+
+def test_strips_are_picked_and_dragged_at_any_scale(qtbot: QtBot, window: MainWindow):
+    preview = window.preview
+    drag_handle(window, 0.1)
+    assert preview.scale < 0.8
+    # the strip under a point in the middle of its place
+    third = preview.to_widget(QPointF(preview_module.slot_position(2)) + QPointF(preview_module.WIDTH / 2, 250))
+    view = preview.childAt(third)
+    assert view is preview.strips[2]
+
+    click(qtbot, view)
+    assert window.selected == 2
+
+    first = preview.strips[0]
+    grab = QPoint(first.width() // 2, first.height() // 2)
+    qtbot.mousePress(first, Qt.MouseButton.LeftButton, pos=grab)
+    qtbot.mouseMove(first, grab + QPoint(preview.slot_point(1).x() - first.x(), 0))
+    assert preview.drop_target == 1
+    # the place under the strip follows the scale too: just short of the middle between two places
+    middle = (preview.slot_point(0).x() + preview.slot_point(1).x()) / 2
+    qtbot.mouseMove(first, grab + QPoint(round(middle - first.x()) + 2, 0))
+    assert preview.drop_target == 1
+    qtbot.mouseMove(first, grab + QPoint(round(middle - first.x()) - 2, 0))
+    assert preview.drop_target == 0
+    qtbot.mouseRelease(first, Qt.MouseButton.LeftButton, pos=grab)
+    assert not preview.dragging
+
+
+def test_a_new_size_ends_a_drag(window: MainWindow):
+    preview = window.preview
+    preview.start_drag(0, 10)
+    preview.drag_to(preview.slot_point(2).x())
+
+    drag_handle(window, 0.1)
+
+    assert not preview.dragging
+    assert [view.pos() for view in preview.strips] == [preview.slot_point(index) for index in range(8)]
+
+
+def test_the_size_of_the_preview_is_kept(make_window: MakeWindow, isolated: Dialogs):
+    window = make_window()
+    assert window.preview_share is None
+    assert theme.load_preview_share() is None
+    natural = window.preview.scale
+
+    drag_handle(window, 0.4)
+
+    share = window.splitter.share
+    assert theme.load_preview_share() == pytest.approx(share)
+    assert window.session().preview_share == pytest.approx(share)
+    # the next start, and the window after a new zoom
+    for after in (make_window(), make_window(session=window.session())):
+        assert after.splitter.share == pytest.approx(share, abs=0.01)
+        assert after.preview.scale < natural
+
+
+def test_a_kept_size_of_the_preview_that_is_none_is_ignored(isolated: Dialogs):
+    theme.save_preview_share(0.4)
+    assert theme.load_preview_share() == 0.4
+    for odd in ("huge", 0, 1.5):
+        QSettings().setValue("preview_share", odd)
+        assert theme.load_preview_share() is None
 
 
 def luminance(color: str) -> float:
