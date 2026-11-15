@@ -471,6 +471,21 @@ async def test_a_fader_waits_for_its_turn_and_then_comes_up_slowly(
     assert len(surface.faders(1)) > 1.5 * len(surface.faders(0))
 
 
+async def test_after_a_reconnect_a_fader_comes_up_from_the_bottom_again(surface: RecordingSurface) -> None:
+    strip = surface.strips[0]
+    strip.set_fader(0.5)
+    await surface.settled()
+    surface.sent.clear()
+
+    # switched off and on again: the device put its faders down meanwhile, without telling
+    strip.connected()
+    strip.reveal()
+    await surface.settled()
+
+    assert surface.faders(0)[0] < protocol.fader_value(0.05)
+    assert surface.faders(0)[-1] == protocol.fader_value(0.5)
+
+
 async def test_a_slow_move_stays_slow_until_the_fader_arrived(
     surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:

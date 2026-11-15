@@ -62,6 +62,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- After the device was switched off and on again, the faders stayed at the bottom: they come up to their values
+  again.
 - The meter of an output that was the default followed the default to the next output after Select (WirePlumber
   makes such a capture follow the default); meters now stay with their device.
 - A balance a hair off the center lit only the center LED of the ring, like an exact center.

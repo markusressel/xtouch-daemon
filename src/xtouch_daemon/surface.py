@@ -244,10 +244,12 @@ class Strip:
 
     def connected(self) -> list[bytes]:
         """
-        Everything the strip shows, for a device that was just connected. The fader glides to its place (from where it
-        was before, or from FADER_REST): see `reveal()`.
+        Everything the strip shows, for a device that was just connected. The fader glides to its place from
+        FADER_REST (see `reveal()`): a device that was switched off and on again put its faders there before it was
+        connected, without telling.
         """
         self.touched = False
+        self._position = None
         self._velocity = 0.0
         return [
             *(protocol.led(self.index, button, state) for button, state in self.leds.items()),
