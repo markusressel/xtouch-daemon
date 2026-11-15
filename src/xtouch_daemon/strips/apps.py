@@ -21,8 +21,8 @@ class AppStrip(VolumeStrip):
     starts later gets it too. The mute button mutes all (or unmutes them when all are muted). The strip shows the
     loudest of them, and the meter the level of all of them together.
 
-    While none of them is there, the strip shows "idle" on a dark LCD. The fader still sets the volume the next
-    stream gets.
+    While none of them is there, the strip shows "idle" on a dark LCD, its fader is down and does nothing. The strip
+    keeps its volume: the next stream gets it.
 
     It changes the volume of the streams themselves, like the per-application sliders of pavucontrol.
     """
@@ -46,9 +46,6 @@ class AppStrip(VolumeStrip):
 
     def inactive_text(self) -> str:
         return "idle"
-
-    def accepts_input(self) -> bool:
-        return True
 
     def playing(self, state: AudioState) -> bool:
         return any(stream.playing for stream in self.streams_in(state))
@@ -153,9 +150,6 @@ class AutoStrip(AppStrip):
 
     def inactive_text(self) -> str:
         return "" if self.app is None else "idle"
-
-    def accepts_input(self) -> bool:
-        return self.app is not None
 
 
 class AutoAssigner:

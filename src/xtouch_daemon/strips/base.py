@@ -178,8 +178,9 @@ class VolumeStrip(StripController):
         self.strip.set_color(self.color if self.active else Color.BLACK)
         self.strip.set_text(0, self.label)
         level = self.level
-        if level is None:
-            self.strip.set_fader(0.0)
+        if level is None or not self.active:
+            # nothing to control (e.g. an application that ended): the fader goes away
+            self.strip.park()
             self.strip.set_ring(0)
             self.strip.set_led(Button.MUTE, Led.OFF)
             self.strip.set_text(1, self.inactive_text())
@@ -189,9 +190,7 @@ class VolumeStrip(StripController):
         self.strip.set_fader(shown / maximum)
         self.strip.set_ring(round(shown / maximum * (RING_MAX - 1)) + 1, RingMode.WRAP)
         self.strip.set_led(Button.MUTE, Led.ON if level.muted else Led.OFF)
-        if not self.active:
-            self.strip.set_text(1, self.inactive_text())
-        elif self._wanted is not None:
+        if self._wanted is not None:
             self.strip.set_text(1, f"{self._wanted}%")
         else:
             self.strip.set_text(1, "muted" if level.muted else f"{level.volume}%")
@@ -205,9 +204,8 @@ class VolumeStrip(StripController):
     def on_encoder(self, steps: int) -> None:
         if not self.accepts_input():
             return
-        base = self._wanted if self._wanted is not None else self.level.volume if self.level else None
-        if base is None:
-            return
+        assert self.level is not None, "an active strip has a level"
+        base = self._wanted if self._wanted is not None else self.level.volume
         self.set_volume(base + steps * self.env.behavior.encoder_step)
         # the fader follows the encoder
         self.strip.set_fader(self._shown_fraction())

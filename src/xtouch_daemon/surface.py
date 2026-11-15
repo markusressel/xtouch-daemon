@@ -91,6 +91,10 @@ class Strip:
         for button in Button:
             self.set_led(button, Led.OFF)
         self.set_ring(0)
+        self.park()
+
+    def park(self) -> None:
+        """Puts the fader away: slowly to the bottom (see FADER_PARK_SMOOTH_TIME)."""
         self.set_fader(0.0, FADER_PARK_SMOOTH_TIME)
 
     def set_fader(self, fraction: float, smooth_time: float = FADER_SMOOTH_TIME) -> None:

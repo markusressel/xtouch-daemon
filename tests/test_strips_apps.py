@@ -7,7 +7,7 @@ from xtouch_daemon import protocol
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Capture, Direction
 from xtouch_daemon.config import BehaviorConfig
-from xtouch_daemon.protocol import Button, Color, Led
+from xtouch_daemon.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoStrip
 from xtouch_daemon.strips.base import StripEnv
 
@@ -72,23 +72,6 @@ async def test_a_new_stream_gets_the_volume_of_the_group(
     assert surface.strips[0].text[1] == "40%"
 
 
-async def test_an_idle_group_keeps_the_fader_volume_for_the_next_stream(
-    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
-) -> None:
-    strip = group(surface, env)
-    strip.update(state())
-
-    strip.on_fader(0.25)
-    await settle()
-    assert backend.calls == []
-    assert surface.strips[0].text[1] == "idle"
-
-    strip.update(state(stream(7, volume=100)))
-    await settle()
-    assert backend.calls == [("set_stream_volume", 7, 25)]
-    assert surface.strips[0].text[1] == "25%"
-
-
 async def test_before_the_first_stream_a_new_stream_keeps_its_volume(
     surface: RecordingSurface, env: StripEnv, backend: FakeBackend
 ) -> None:
@@ -109,13 +92,28 @@ async def test_a_volume_changed_elsewhere_is_followed(surface: RecordingSurface,
     assert strip.group_volume == 30
 
 
-async def test_the_group_shows_the_volume_it_keeps_while_idle(surface: RecordingSurface, env: StripEnv) -> None:
+async def test_an_application_that_ends_puts_the_fader_away_and_back_when_it_returns(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+) -> None:
     strip = group(surface, env)
     strip.update(state(stream(1, volume=70)))
-    strip.update(state())
     await surface.settled()
 
-    assert surface.strips[0].text[1] == "idle"
+    strip.update(state())
+    await surface.settled()
+    s = surface.strips[0]
+    assert s.text == ["Browser", "idle"]
+    assert surface.faders(0)[-1] == 0
+    assert s.ring == (0, RingMode.DOT)
+
+    # while idle the fader does nothing; the next stream gets the volume the group had
+    strip.on_fader(0.25)
+    strip.on_encoder(3)
+    await settle()
+    assert backend.calls == []
+    strip.update(state(stream(7, volume=100)))
+    await surface.settled()
+    assert backend.calls == [("set_stream_volume", 7, 70)]
     assert surface.faders(0)[-1] == protocol.fader_value(0.7)
 
 
