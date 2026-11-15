@@ -13,7 +13,7 @@ import pulsectl
 import pulsectl_asyncio
 
 from xtouch_daemon.audio.backend import AudioCommandError
-from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Device, Direction, Stream
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Capture, Device, Direction, Stream
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ CLIENT_NAME = "xtouch-daemon"
 RECONNECT_DELAY = 2.0
 SETTLE_DELAY = 0.02
 """Events come in bursts (a new stream changes the stream, its sink and the server): one snapshot after them."""
-EVENT_FACILITIES = ("sink", "source", "sink_input", "server")
+EVENT_FACILITIES = ("sink", "source", "sink_input", "source_output", "server")
 
 PA_INVALID_INDEX = 0xFFFFFFFF
 
@@ -60,6 +60,29 @@ def _stream(info: Any) -> Stream:
         muted=bool(info.mute),
         corked=bool(info.corked),
     )
+
+
+def _is_passive(info: Any) -> bool:
+    properties = info.proplist
+    return properties.get("node.passive") == "true" or properties.get("stream.monitor") == "true"
+
+
+def _capture(info: Any, targets: dict[int, tuple[str, Direction]]) -> Capture:
+    properties = info.proplist
+    binary = properties.get("application.process.binary", "")
+    device, direction = targets.get(info.source, (None, None))
+    return Capture(
+        index=info.index,
+        app=properties.get("application.name") or binary or info.name or f"#{info.index}",
+        binary=binary,
+        device=device,
+        direction=direction,
+        corked=bool(info.corked),
+    )
+
+
+def _is_monitor(source: Any) -> bool:
+    return getattr(source, "monitor_of_sink", PA_INVALID_INDEX) not in (PA_INVALID_INDEX, None)
 
 
 def scaled_volume(values: list[float], percent: int) -> list[float]:
@@ -131,15 +154,22 @@ class PulseBackend:
         sinks = await pulse.sink_list()
         sources = await pulse.source_list()
         sink_inputs = await pulse.sink_input_list()
+        source_outputs = await pulse.source_output_list()
+        sink_names = {sink.index: sink.name for sink in sinks}
+        # what a capture records: an input, or the monitor of an output
+        targets = {
+            source.index: (sink_names[source.monitor_of_sink], Direction.OUTPUT)
+            if _is_monitor(source)
+            else (source.name, Direction.INPUT)
+            for source in sources
+            if not _is_monitor(source) or source.monitor_of_sink in sink_names
+        }
         return AudioState(
             outputs=tuple(_device(sink, Direction.OUTPUT) for sink in sinks),
             # the monitors of the outputs are sources too, they are not inputs
-            inputs=tuple(
-                _device(source, Direction.INPUT)
-                for source in sources
-                if getattr(source, "monitor_of_sink", PA_INVALID_INDEX) in (PA_INVALID_INDEX, None)
-            ),
+            inputs=tuple(_device(source, Direction.INPUT) for source in sources if not _is_monitor(source)),
             streams=tuple(_stream(sink_input) for sink_input in sink_inputs),
+            captures=tuple(_capture(output, targets) for output in source_outputs if not _is_passive(output)),
             default_output=server.default_sink_name or None,
             default_input=server.default_source_name or None,
         )

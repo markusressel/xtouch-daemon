@@ -2,13 +2,14 @@
 
 import asyncio
 import logging
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
+from typing import assert_never
 
 from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import BehaviorConfig
+from xtouch_daemon.config import BehaviorConfig, Indicator
 from xtouch_daemon.protocol import RING_MAX, Button, Color, Led, RingMode
 from xtouch_daemon.surface import Strip
 
@@ -92,15 +93,25 @@ class Level:
 class VolumeStrip(StripController):
     """
     A strip that controls a volume: the fader and the encoder set it, a push on the encoder resets it, the mute
-    button mutes. The LCD shows the label and the volume (or "muted"), the ring shows the volume.
+    button mutes. The LCD shows the label and the volume (or "muted"), the ring shows the volume, and the LEDs in
+    `indicators` show what they are configured to (e.g. the rec LED whether an application records).
 
     Fader moves come faster than the sound server carries them out, so only the latest volume is set once the
     previous command is done.
     """
 
-    def __init__(self, strip: Strip, env: StripEnv, label: str, color: Color = Color.WHITE, meter: bool = True):
+    def __init__(
+        self,
+        strip: Strip,
+        env: StripEnv,
+        label: str,
+        color: Color = Color.WHITE,
+        meter: bool = True,
+        indicators: Mapping[Button, Indicator] | None = None,
+    ):
         super().__init__(strip, env, color, meter)
         self.label = label
+        self.indicators: dict[Button, Indicator] = dict(indicators or {})
         self.level: Level | None = None
         self.active = False
         self._wanted: int | None = None
@@ -125,11 +136,40 @@ class VolumeStrip(StripController):
         """Whether the fader and encoder do something now (e.g. not for a device that is not there)."""
         return self.active
 
+    def recording(self, state: AudioState) -> bool:
+        """Whether an application records what the strip controls."""
+        return False
+
+    def playing(self, state: AudioState) -> bool:
+        """Whether audio flows through what the strip controls."""
+        return False
+
+    def is_default(self, state: AudioState) -> bool:
+        """Whether the strip controls the default device."""
+        return False
+
     # -- showing --------------------------------------------------------------------------------------------------
 
     def update(self, state: AudioState) -> None:
         self.level, self.active = self.current(state)
         self.show()
+        for button, indicator in self.indicators.items():
+            self.strip.set_led(button, Led.ON if self.indicates(indicator, state) else Led.OFF)
+
+    def indicates(self, indicator: Indicator, state: AudioState) -> bool:
+        match indicator:
+            case "off":
+                return False
+            case "recording":
+                return self.recording(state)
+            case "playing":
+                return self.playing(state)
+            case "default":
+                return self.is_default(state)
+            case "muted":
+                return self.level is not None and self.level.muted
+            case _ as unreachable:
+                assert_never(unreachable)
 
     def show(self) -> None:
         self.strip.set_color(self.color if self.active else Color.BLACK)

@@ -5,7 +5,7 @@ import pytest
 from tests.conftest import FakeBackend, RecordingSurface, settle, stream
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.meter import CaptureTarget
-from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.audio.model import AudioState, Capture, Direction
 from xtouch_daemon.config import BehaviorConfig
 from xtouch_daemon.protocol import Button, Color, Led
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoStrip
@@ -301,6 +301,9 @@ async def test_the_volume_strip_base_needs_a_kind(surface: RecordingSurface, beh
     with pytest.raises(NotImplementedError):
         await strip.apply_mute(True)
     assert strip.inactive_text() == "off"
+    assert not strip.recording(state())
+    assert not strip.playing(state())
+    assert not strip.is_default(state())
 
 
 async def test_the_base_of_application_strips_needs_streams(surface: RecordingSurface, env: StripEnv) -> None:
@@ -337,3 +340,38 @@ async def test_the_encoder_of_an_auto_strip_without_volume_does_nothing(
     await settle()
 
     assert backend.calls == []
+
+
+def recording(app: str, binary: str, corked: bool = False) -> Capture:
+    return Capture(30, app, binary, "mic", Direction.INPUT, corked)
+
+
+async def test_the_rec_led_of_a_group_shows_whether_one_of_its_applications_records(
+    surface: RecordingSurface, env: StripEnv
+) -> None:
+    strip = AppGroupStrip(
+        surface.strips[0], env, ("discord",), "VoIP", indicators={Button.REC: "recording", Button.SOLO: "playing"}
+    )
+
+    # it records without playing anything: the strip is idle, the LED is on all the same
+    strip.update(AudioState(captures=(recording("WEBRTC VoiceEngine", "Discord"),)))
+    assert surface.strips[0].leds[Button.REC] == Led.ON
+    assert surface.strips[0].leds[Button.SOLO] == Led.OFF
+
+    strip.update(AudioState(streams=(stream(1, "Discord", "discord"),)))
+    assert surface.strips[0].leds[Button.REC] == Led.OFF
+    assert surface.strips[0].leds[Button.SOLO] == Led.ON
+
+
+async def test_the_rec_led_of_an_auto_strip_follows_its_application(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = AutoStrip(surface.strips[0], env, {}, indicators={Button.REC: "recording", Button.SOLO: "default"})
+    capturing = AudioState(captures=(recording("Discord", "discord"),))
+
+    strip.update(capturing)
+    assert surface.strips[0].leds[Button.REC] == Led.OFF
+
+    strip.assign("Discord")
+    strip.update(capturing)
+    assert surface.strips[0].leds[Button.REC] == Led.ON
+    # applications are never the default
+    assert surface.strips[0].leds[Button.SOLO] == Led.OFF

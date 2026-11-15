@@ -1,7 +1,10 @@
 """A strip for an output or an input device, or for the default one."""
 
+from collections.abc import Mapping
+
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Device, Direction
+from xtouch_daemon.config import Indicator
 from xtouch_daemon.protocol import LCD_CELL_WIDTH, Button, Color, Led
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.surface import Strip
@@ -24,8 +27,10 @@ class DeviceStrip(VolumeStrip):
         color: Color = Color.WHITE,
         meter: bool = True,
         select: bool = True,
+        indicators: Mapping[Button, Indicator] | None = None,
     ):
-        super().__init__(strip, env, label or ("Output" if direction == Direction.OUTPUT else "Input"), color, meter)
+        default_label = "Output" if direction == Direction.OUTPUT else "Input"
+        super().__init__(strip, env, label or default_label, color, meter, indicators)
         self.direction = direction
         self.device_name = device
         self.select = select and device is not None
@@ -42,8 +47,16 @@ class DeviceStrip(VolumeStrip):
 
     def update(self, state: AudioState) -> None:
         super().update(state)
-        is_default = self.select and self.device is not None and state.is_default(self.device)
-        self.strip.set_led(Button.SELECT, Led.ON if is_default else Led.OFF)
+        self.strip.set_led(Button.SELECT, Led.ON if self.select and self.is_default(state) else Led.OFF)
+
+    def recording(self, state: AudioState) -> bool:
+        return self.device is not None and state.is_recorded(self.device)
+
+    def playing(self, state: AudioState) -> bool:
+        return self.device is not None and self.device.running
+
+    def is_default(self, state: AudioState) -> bool:
+        return self.device is not None and state.is_default(self.device)
 
     def meter_targets(self, state: AudioState) -> set[CaptureTarget]:
         device = state.device(self.direction, self.device_name)

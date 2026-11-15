@@ -38,18 +38,38 @@ def sink_input(index: int, properties: dict[str, str], name: str = "", corked=0,
     )
 
 
+def source_output(index: int, source: int, properties: dict[str, str], name: str = "", corked=0):
+    return SimpleNamespace(index=index, source=source, name=name, proplist=properties, corked=corked)
+
+
 class FakePulse:
     """The parts of pulsectl_asyncio.PulseAsync the backend uses."""
 
     def __init__(self) -> None:
         self.server = SimpleNamespace(default_sink_name="speaker", default_source_name="mic")
         self.sinks = [sink(1, "speaker", "Speaker", RUNNING), sink(2, "buds", "", values=(0.8, 0.4), mute=1)]
-        self.sources = [source(3, "speaker.monitor", monitor_of_sink=1), source(4, "mic"), source(5, "old", None)]
+        self.sources = [
+            source(3, "speaker.monitor", monitor_of_sink=1),
+            source(4, "mic"),
+            source(5, "old", None),
+            source(6, "gone.monitor", monitor_of_sink=9),
+        ]
         self.sink_inputs = [
             sink_input(10, {"application.name": "Brave", "application.process.binary": "brave"}),
             sink_input(11, {"application.process.binary": "mpv"}, corked=1),
             sink_input(12, {}, name="stream name"),
             sink_input(13, {}),
+        ]
+        self.source_outputs = [
+            source_output(20, 4, {"application.name": "WEBRTC VoiceEngine", "application.process.binary": "Discord"}),
+            source_output(21, 3, {"application.process.binary": "obs"}, corked=1),
+            # what a capture of something else than a device records is not known
+            source_output(22, PA_INVALID_INDEX, {}, name="per stream"),
+            # the monitor of an output that is gone
+            source_output(23, 6, {"application.name": "recorder"}),
+            # level meters (pavucontrol's, the daemon's own) don't count
+            source_output(24, 4, {"media.name": "Peak detect", "stream.monitor": "true"}),
+            source_output(25, 4, {"application.name": "xtouch-daemon", "node.passive": "true"}),
         ]
         self.events: asyncio.Queue[object] = asyncio.Queue()
         self.calls: list[tuple[str, Any, Any]] = []
@@ -74,6 +94,9 @@ class FakePulse:
 
     async def sink_input_list(self) -> list[Any]:
         return self.sink_inputs
+
+    async def source_output_list(self) -> list[Any]:
+        return self.source_outputs
 
     async def subscribe_events(self, *facilities: str) -> AsyncIterator[object]:
         while True:
@@ -140,6 +163,12 @@ async def test_a_snapshot_maps_devices_streams_and_defaults():
         (11, "mpv", "mpv", 60, True),
         (12, "stream name", "", 60, False),
         (13, "#13", "", 60, False),
+    ]
+    assert [(c.index, c.app, c.binary, c.device, c.direction, c.corked) for c in state.captures] == [
+        (20, "WEBRTC VoiceEngine", "Discord", "mic", Direction.INPUT, False),
+        (21, "obs", "obs", "speaker", Direction.OUTPUT, True),
+        (22, "per stream", "", None, None, False),
+        (23, "recorder", "", None, None, False),
     ]
     assert state.default_output == "speaker"
     assert state.default_input == "mic"

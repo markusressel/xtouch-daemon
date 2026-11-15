@@ -62,8 +62,28 @@ Options of every strip type except `empty`:
 |---|---|---|
 | `color` | `"white"` | The LCD backlight: `off`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`. |
 | `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). |
+| `rec` | `"recording"` | What the LED of the Rec button shows, see below. |
+| `solo` | `"off"` | What the LED of the Solo button shows, see below. |
 
 Labels are at most 7 characters of ASCII: that is what fits on the LCD.
+
+The Rec and Solo LEDs are indicators; their buttons do nothing. Each shows one of:
+
+| Indicator | Lit while |
+|---|---|
+| `recording` | An application records: from the input, from the monitor of the output (e.g. a screen recorder), or for `apps`/`auto` strips, the application records anything (e.g. Discord using a microphone). Level meters don't count: the daemon's own, pavucontrol's. |
+| `playing` | Audio flows: the device runs, or a stream of the applications plays. |
+| `default` | The device is the default output/input. Never for applications. |
+| `muted` | The strip is muted (like the Mute LED). |
+| `off` | Never. |
+
+```toml
+[[strip]]
+type = "input"
+label = "Mic"
+rec = "recording"   # the default: lit while an application uses the microphone
+solo = "default"
+```
 
 ### `type = "output"` / `type = "input"`
 

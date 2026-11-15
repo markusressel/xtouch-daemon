@@ -34,6 +34,13 @@ class _Model(BaseModel):
 ColorName = Literal["off", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
 
 
+Indicator = Literal["off", "recording", "playing", "default", "muted"]
+"""
+What a button LED shows: `recording`: an application records the device (an input, or the monitor of an output) or
+records at all (applications); `playing`: audio flows; `default`: the device is the default; `muted`: muted.
+"""
+
+
 def color_of(name: ColorName) -> Color:
     return Color.BLACK if name == "off" else Color[name.upper()]
 
@@ -72,6 +79,10 @@ class _StripConfig(_Model):
     color: ColorName = "white"
     meter: bool = True
     """Whether this strip's LED meter shows the level (if `behavior.meters` is on)."""
+    rec: Indicator = "recording"
+    """What the LED of the rec button shows."""
+    solo: Indicator = "off"
+    """What the LED of the solo button shows."""
 
 
 class DeviceStripConfig(_StripConfig):

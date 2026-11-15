@@ -97,7 +97,9 @@ def describe_strip(config: StripConfig) -> str:
         case _ as unreachable:
             assert_never(unreachable)
     label = f"{config.label!r} " if isinstance(config, DeviceStripConfig | AppsStripConfig) and config.label else ""
-    return f"{label}{what} ({config.color}{'' if config.meter else ', no meter'})"
+    details = [config.color, *([] if config.meter else ["no meter"])]
+    details += [f"{button}: {indicator}" for button, indicator in (("rec", config.rec), ("solo", config.solo))]
+    return f"{label}{what} ({', '.join(details)})"
 
 
 @main.command("check-config")
