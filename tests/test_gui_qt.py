@@ -946,6 +946,50 @@ def test_strips_are_picked_and_dragged_at_any_scale(qtbot: QtBot, window: MainWi
     assert not preview.dragging
 
 
+def test_strips_are_drawn_again_only_when_they_show_something_else(qtbot: QtBot, window: MainWindow):
+    preview = window.preview
+    qtbot.waitUntil(lambda: not preview.resizing)
+    view = preview.strips[0]
+    view.grab()
+    picture, printed = view.picture, view.printed
+
+    # painted again (e.g. the blink of another strip): the same picture
+    view.grab()
+    assert view.picture is picture
+    # a new state: drawn again, on the same picture of its printed parts
+    show_state(view, meter=6)
+    assert view.picture is not picture
+    assert view.printed is printed
+
+
+def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window: MainWindow):
+    preview = window.preview
+    qtbot.waitUntil(lambda: not preview.resizing)
+    views = preview.strips
+    for view in views:
+        view.grab()
+    before = [view.picture for view in views]
+
+    drag_handle(window, 0.1)
+
+    assert preview.resizing
+    for view in views:
+        view.grab()
+    # the pictures of before, scaled: much faster than drawing them
+    assert [view.picture for view in views] == before
+    # what shows something new is drawn at once, sharp
+    show_state(views[0], meter=6)
+    picture = views[0].picture
+    assert picture is not None
+    assert picture.scale == preview.scale
+    # once the size stays, every strip is sharp again
+    qtbot.waitUntil(lambda: not preview.resizing)
+    for view in views:
+        view.grab()
+        assert view.picture is not None
+        assert view.picture.scale == preview.scale
+
+
 def test_a_new_size_ends_a_drag(window: MainWindow):
     preview = window.preview
     preview.start_drag(0, 10)

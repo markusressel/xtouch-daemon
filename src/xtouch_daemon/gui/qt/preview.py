@@ -8,6 +8,7 @@ The strips are laid out and painted in logical units (a strip is WIDTH x HEIGHT)
 gets, so they stay sharp at any size and zoom.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import pairwise
 from math import ceil, cos, radians, sin
@@ -37,8 +38,10 @@ from PyQt6.QtGui import (
     QLinearGradient,
     QMouseEvent,
     QPainter,
+    QPainterPath,
     QPaintEvent,
     QPen,
+    QPixmap,
     QRadialGradient,
     QResizeEvent,
 )
@@ -59,6 +62,11 @@ PANEL = QSizeF(2 * MARGIN_X + protocol.STRIPS * WIDTH + (protocol.STRIPS - 1) * 
 """The whole panel with the 8 strips, in logical units."""
 MIN_SCALE = 0.5
 """The smallest the preview gets: half its size still shows the LEDs, faders and LCD colors."""
+SETTLE_MS = 150
+"""
+How long after the last change of size the strips are drawn sharp again: meanwhile (e.g. while the handle above the
+editor is dragged) their printed parts are the picture of before, scaled, which is much faster.
+"""
 ANIMATION_MS = 160
 """How long the other strips take to make room for a dragged one: quick, but long enough to see where they go."""
 BLINK_MS = 400
@@ -117,6 +125,8 @@ bottom one SIG), lit while the audio clips.
 """
 METER_GREEN = 4
 CAP_SIZE = QSizeF(34, 30)
+BODY = QRectF(3, 3, WIDTH - 6, HEIGHT - 6)
+"""The strip on the panel, inside its place."""
 STRIP_TAG = QRectF(CENTER_X - 7, HEIGHT - 22, 14, 12)
 """The number of the strip again, on a light tag at the bottom."""
 TRAVEL = (BUTTONS_BOTTOM + CAP_SIZE.height() / 2 + 3, STRIP_TAG.top() - CAP_SIZE.height() / 2 - 3)
@@ -235,6 +245,51 @@ def _paint_led(painter: QPainter, start: QPointF, end: QPointF, width: float, co
     painter.drawLine(start, end)
 
 
+def _ring_led(led: int) -> tuple[QPointF, QPointF]:
+    """Where the LED `led` of the ring (0..12) starts and ends."""
+    angle = radians(ring_angle(led))
+    direction = QPointF(cos(angle), -sin(angle))
+    return ENCODER + direction * RING_RADII[0], ENCODER + direction * RING_RADII[1]
+
+
+def _paint_meter_led(painter: QPainter, led: int, lit: bool) -> None:
+    """The LED `led` of the meter (0 at the bottom): green, orange, and red at the top."""
+    color = HW.meter_high if led == METER_LEDS - 1 else HW.meter_mid if led >= METER_GREEN else HW.meter_low
+    rect = meter_led(led)
+    half = QPointF(0, rect.height() / 2 - 1.5)
+    _paint_led(painter, rect.center() - half, rect.center() + half, rect.width(), color, lit)
+
+
+@dataclass(frozen=True)
+class _Picture:
+    """A picture of a strip (or a part of it), and what it was drawn for."""
+
+    pixmap: QPixmap
+    key: object
+    """What it shows."""
+    scale: float
+    ratio: float
+    """The device pixel ratio."""
+
+    def paint(self, painter: QPainter) -> None:
+        """Draws it on a painter in logical units: exact at its own scale, else scaled."""
+        size = QSizeF(self.pixmap.width(), self.pixmap.height()) / (self.scale * self.ratio)
+        painter.drawPixmap(QRectF(QPointF(), size), self.pixmap, QRectF(self.pixmap.rect()))
+
+
+def _draw(key: object, scale: float, ratio: float, paint: Callable[[QPainter, float, float], None]) -> _Picture:
+    """A picture of a strip at a scale and pixel ratio, painted in logical units by `paint`."""
+    pixmap = QPixmap(ceil(WIDTH * scale * ratio), ceil(HEIGHT * scale * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.scale(scale, scale)
+    paint(painter, scale, ratio)
+    painter.end()
+    return _Picture(pixmap, key, scale, ratio)
+
+
 def _print_font(base: QFont, size: int, weight: QFont.Weight = QFont.Weight.DemiBold) -> QFont:
     """The font of the fine print on the panel."""
     font = QFont(base)
@@ -268,6 +323,11 @@ class Preview(QWidget):
         """How large the panel is drawn: it fills the space it gets, keeping its proportions."""
         self.origin = QPointF()
         """Where the panel starts, centered in the widget."""
+        self.settle = QTimer(self)
+        """Runs while the size changes: until it times out, strips scale the picture of their printed parts."""
+        self.settle.setSingleShot(True)
+        self.settle.setInterval(SETTLE_MS)
+        self.settle.timeout.connect(self._settled)
         self.strips: list[StripView] = [StripView(self, index) for index in range(protocol.STRIPS)]
         self._drag: _Drag | None = None
         self.animations: dict[int, QPropertyAnimation] = {}
@@ -296,6 +356,10 @@ class Preview(QWidget):
         """Scales the panel to the new size, centered, and puts every strip in its place at that scale."""
         if self.dragging:
             self.cancel_drag()
+        assert event is not None
+        if not event.oldSize().isEmpty():
+            # a change of size, not the first one: draw fast until it ends
+            self.settle.start()
         self.scale = min(self.width() / PANEL.width(), self.height() / PANEL.height())
         self.origin = QPointF(
             (self.width() - PANEL.width() * self.scale) / 2, (self.height() - PANEL.height() * self.scale) / 2
@@ -305,6 +369,15 @@ class Preview(QWidget):
         for index, view in enumerate(self.strips):
             view.resize(ceil(WIDTH * self.scale), ceil(HEIGHT * self.scale))
             view.move(self.slot_point(index))
+
+    @property
+    def resizing(self) -> bool:
+        """Whether the size is changing: then strips may scale the picture of their printed parts."""
+        return self.settle.isActive()
+
+    def _settled(self) -> None:
+        for view in self.strips:
+            view.update()
 
     @property
     def configured(self) -> int:
@@ -522,6 +595,10 @@ class StripView(QWidget):
         self.lcd_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
         self.lcd_font.setPixelSize(14)
         self.lcd_font.setWeight(QFont.Weight.DemiBold)
+        self.printed: _Picture | None = None
+        """The picture of the parts that don't change with the state, drawn once per size."""
+        self.picture: _Picture | None = None
+        """The picture of the whole strip, drawn again when it shows something else."""
 
     @property
     def look(self) -> StripLook:
@@ -560,62 +637,142 @@ class StripView(QWidget):
     def _lit(self, led: str) -> bool:
         return led == "on" or (led == "flash" and self.preview.blink)
 
+    def _printed_key(self) -> tuple[int, str, bool, bool]:
+        """What the printed parts depend on: the number, the type, whether it is configured, and lifted."""
+        return self.index, self.look.kind, self.look.configured, self.lifted
+
+    def _shown_key(self) -> tuple[object, ...]:
+        """Everything the strip shows depends on."""
+        return (
+            self._printed_key(),
+            self.face,
+            self.selected,
+            self.hasFocus(),
+            self.underMouse(),
+            self.preview.blink,
+            theme.current_mode(),
+        )
+
+    def _current(self, picture: _Picture | None, key: object, scale: float, ratio: float) -> bool:
+        """
+        Whether a picture shows what the strip shows now: at this scale, or at the one before while the size changes
+        (it is scaled then).
+        """
+        if picture is None or picture.key != key:
+            return False
+        return (picture.scale, picture.ratio) == (scale, ratio) or self.preview.resizing
+
     def paintEvent(self, event: QPaintEvent | None) -> None:
+        """
+        The picture of the strip, drawn again when it shows something else, and for a new size once the size has
+        stopped changing; the picture of the printed parts saves most of the work of that.
+        """
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        face = self.face
-        look, state = face.look, face.state
-        # drawn in logical units, at the scale of the preview
-        painter.scale(self.preview.scale, self.preview.scale)
+        scale, ratio = self.preview.scale, self.devicePixelRatioF()
+        key = self._shown_key()
+        if not self._current(self.picture, key, scale, ratio):
+            self.picture = _draw(key, scale, ratio, self._paint_strip)
+        picture = self.picture
+        assert picture is not None
+        # drawn in logical units, at the scale of the preview; while the size changes, the picture of before is scaled
+        painter.scale(scale, scale)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         # a lifted strip is see-through, so the place where it goes shows under it
-        opacity = LIFTED_OPACITY if self.lifted else 1.0
-        painter.setOpacity(opacity)
-        body = QRectF(0, 0, WIDTH, HEIGHT).adjusted(3, 3, -3, -3)
-        self._paint_body(painter, body)
+        painter.setOpacity(LIFTED_OPACITY if self.lifted else 1.0)
+        picture.paint(painter)
+
+    def _paint_strip(self, painter: QPainter, scale: float, ratio: float) -> None:
+        """The whole strip: the printed parts from their picture, and what the strip shows on top of them."""
+        key = self._printed_key()
+        if not self._current(self.printed, key, scale, ratio):
+            self.printed = _draw(key, scale, ratio, self._paint_printed)
+        printed = self.printed
+        assert printed is not None
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        printed.paint(painter)
+        self._paint_shown(painter)
+
+    def _paint_printed(self, painter: QPainter, scale: float, ratio: float) -> None:
+        """
+        The parts that don't change with the state: the strip, the encoder with its LEDs dark, the labels, the meter
+        and the buttons dark, the scale and the slot of the fader.
+        """
+        look = self.look
+        self._paint_body(painter, BODY)
         if not look.configured:
-            painter.setOpacity(opacity * UNCONFIGURED_OPACITY)
+            painter.setOpacity(UNCONFIGURED_OPACITY)
         number = str(self.index + 1)
         painter.setFont(_print_font(self.font(), 10, QFont.Weight.Bold))
         painter.setPen(QColor(HW.print))
         painter.drawText(NUMBER, Qt.AlignmentFlag.AlignCenter, number)
-        self._paint_encoder(painter, ring_leds(state.ring, state.ring_mode))
-        self._paint_lcd(painter)
+        self._paint_encoder(painter)
         kind = KIND_NAMES.get(look.kind, look.kind).upper()
         self._paint_print(painter, KIND, kind, look.kind == "?")
-        self._paint_meter(painter, meter_leds(state.meter))
+        self._paint_meter(painter)
         for row, (name, color) in enumerate(BUTTONS):
-            self._paint_button(painter, button_rect(row), name, color, self._lit(state.leds[name.lower()]))
-        # not known yet: at the bottom, where the daemon leaves it
-        self._paint_fader(painter, 0.0 if state.fader is None else state.fader, state.touched)
+            self._paint_button(painter, button_rect(row), name, color)
+        self._paint_scale(painter)
+        painter.setPen(QPen(QColor(HW.strip_edge), 1))
+        painter.setBrush(QColor(HW.slot))
+        painter.drawRoundedRect(SLOT, 2.5, 2.5)
         self._paint_tag(painter, number)
-        painter.setOpacity(opacity)
+
+    def _paint_shown(self, painter: QPainter) -> None:
+        """What the strip shows: its outline, the lit LEDs, the LCD, the fader, and the marks of the GUI."""
+        face = self.face
+        look, state = face.look, face.state
+        self._paint_outline(painter, BODY)
+        if not look.configured:
+            painter.setOpacity(UNCONFIGURED_OPACITY)
+        self._paint_ring(painter, ring_leds(state.ring, state.ring_mode))
+        self._paint_lcd(painter)
+        self._paint_meter_leds(painter, meter_leds(state.meter))
+        for row, (name, color) in enumerate(BUTTONS):
+            if self._lit(state.leds[name.lower()]):
+                self._paint_key(painter, button_rect(row), color, lit=True)
+        # not known yet: at the bottom, where the daemon leaves it
+        self._paint_cap(painter, 0.0 if state.fader is None else state.fader, state.touched)
+        painter.setOpacity(1)
         if look.problems:
-            self._paint_badge(painter, QPointF(body.right() - 9, body.top() + 9), str(look.problems))
+            self._paint_badge(painter, QPointF(BODY.right() - 9, BODY.top() + 9), str(look.problems))
         if face.edited:
-            self._paint_edited(painter, QPointF(body.left() + 9, body.top() + 9))
+            self._paint_edited(painter, QPointF(BODY.left() + 9, BODY.top() + 9))
         if self.hasFocus():
             painter.setPen(QPen(QColor(theme.current_colors().accent), 1.5, Qt.PenStyle.DotLine))
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRoundedRect(body.adjusted(-2, -2, 2, 2), STRIP_RADIUS + 2, STRIP_RADIUS + 2)
+            painter.drawRoundedRect(BODY.adjusted(-2, -2, 2, 2), STRIP_RADIUS + 2, STRIP_RADIUS + 2)
 
     def _paint_body(self, painter: QPainter, body: QRectF) -> None:
-        """
-        The part of the panel that is this strip, outlined when it is selected or dragged, dashed with unsaved changes
-        (in the accent) or when it is not configured.
-        """
+        """The part of the panel that is this strip, lighter while it is lifted."""
         gradient = QLinearGradient(body.topLeft(), body.bottomLeft())
         top = QColor(HW.strip_top)
         gradient.setColorAt(0, top.lighter(125) if self.lifted else top)
         gradient.setColorAt(1, QColor(HW.strip_bottom))
         painter.setBrush(gradient)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(body, STRIP_RADIUS, STRIP_RADIUS)
+
+    def _paint_outline(self, painter: QPainter, body: QRectF) -> None:
+        """
+        The outline of the strip: in the accent when it is selected or dragged, dashed with unsaved changes (in the
+        accent) or when it is not configured.
+        """
+        painter.setBrush(Qt.BrushStyle.NoBrush)
         accent = QColor(theme.current_colors().accent)
         if self.selected or self.lifted:
-            # a soft glow around the outline
+            # a soft glow around the outline, outside of the strip only
+            outside = QPainterPath()
+            outside.addRect(QRectF(0, 0, WIDTH, HEIGHT))
+            inside = QPainterPath()
+            inside.addRoundedRect(body, STRIP_RADIUS, STRIP_RADIUS)
+            painter.save()
+            painter.setClipPath(outside.subtracted(inside))
             glow = QColor(accent)
             for width, alpha in ((6, 40), (4, 80)):
                 glow.setAlpha(alpha)
                 painter.setPen(QPen(glow, width))
                 painter.drawRoundedRect(body, STRIP_RADIUS, STRIP_RADIUS)
+            painter.restore()
             pen = QPen(accent, 2)
         elif self.face.edited:
             pen = QPen(accent, 1.4, Qt.PenStyle.DashLine)
@@ -626,11 +783,8 @@ class StripView(QWidget):
         painter.setPen(pen)
         painter.drawRoundedRect(body, STRIP_RADIUS, STRIP_RADIUS)
 
-    def _paint_encoder(self, painter: QPainter, ring: frozenset[int]) -> None:
-        """
-        The encoder: a gray collar with the 13 LEDs of the ring (`ring`: the lit positions, 1..RING_MAX), and the
-        black knob in it.
-        """
+    def _paint_encoder(self, painter: QPainter) -> None:
+        """The encoder: a gray collar with the 13 LEDs of the ring, dark, and the black knob in it."""
         center = ENCODER
         outer = RING_RADII[1] + 3
         collar = QRadialGradient(center, outer)
@@ -639,13 +793,8 @@ class StripView(QWidget):
         painter.setBrush(collar)
         painter.setPen(QPen(QColor(HW.lcd_bezel), 1))
         painter.drawEllipse(center, outer, outer)
-        # the positions light the middle LEDs: the first and the last one stay dark in Mackie Control
-        offset = (RING_LEDS - protocol.RING_MAX) // 2
         for led in range(RING_LEDS):
-            angle = radians(ring_angle(led))
-            direction = QPointF(cos(angle), -sin(angle))
-            start, end = center + direction * RING_RADII[0], center + direction * RING_RADII[1]
-            _paint_led(painter, start, end, 2.4, HW.ring, led - offset + 1 in ring)
+            _paint_led(painter, *_ring_led(led), 2.4, HW.ring, False)
         # the knob: black rubber with a ribbed edge around a smooth top, lit from the top left
         painter.setPen(QPen(QColor(HW.lcd_bezel), 1))
         side = QRadialGradient(center + QPointF(-5, -6), 22)
@@ -664,6 +813,13 @@ class StripView(QWidget):
         painter.setBrush(top)
         painter.setPen(QPen(QColor(0, 0, 0, 160), 1))
         painter.drawEllipse(center, 10, 10)
+
+    def _paint_ring(self, painter: QPainter, ring: frozenset[int]) -> None:
+        """The lit LEDs of the ring (`ring`: the positions, 1..RING_MAX), over the dark ones."""
+        # the positions light the middle LEDs: the first and the last one stay dark in Mackie Control
+        offset = (RING_LEDS - protocol.RING_MAX) // 2
+        for position in ring:
+            _paint_led(painter, *_ring_led(position - 1 + offset), 2.4, HW.ring, True)
 
     def _paint_lcd(self, painter: QPainter) -> None:
         """
@@ -725,10 +881,20 @@ class StripView(QWidget):
         painter.setPen(QColor(HW.badge_text if error else HW.print))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
-    def _paint_button(self, painter: QPainter, rect: QRectF, name: str, color: str, lit: bool) -> None:
+    def _paint_button(self, painter: QPainter, rect: QRectF, name: str, color: str) -> None:
+        """A button, dark, and its name printed under it."""
+        self._paint_key(painter, rect, color, lit=False)
+        font = _print_font(self.font(), 8, QFont.Weight.Bold)
+        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.4)
+        painter.setFont(font)
+        painter.setPen(QColor(HW.print))
+        label = QRectF(rect.left() - 8, rect.bottom() + 1, rect.width() + 16, 10)
+        painter.drawText(label, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, name)
+
+    @staticmethod
+    def _paint_key(painter: QPainter, rect: QRectF, color: str, lit: bool) -> None:
         """
-        A button with its LED: translucent gray rubber (with a hint of its color) when off, glowing when on, and its
-        name printed under it.
+        A button with its LED: translucent gray rubber (with a hint of its color) when off, glowing when on.
         """
         led = QColor(color)
         if lit:
@@ -744,37 +910,25 @@ class StripView(QWidget):
         painter.setBrush(gradient)
         painter.setPen(QPen(QColor(HW.lcd_bezel), 1.5))
         painter.drawRoundedRect(rect, 4, 4)
-        font = _print_font(self.font(), 8, QFont.Weight.Bold)
-        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.4)
-        painter.setFont(font)
-        painter.setPen(QColor(HW.print))
-        label = QRectF(rect.left() - 8, rect.bottom() + 1, rect.width() + 16, 10)
-        painter.drawText(label, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, name)
 
-    def _paint_meter(self, painter: QPainter, level: int) -> None:
-        """
-        The LED meter, `level` of its LEDs lit from the bottom: green, orange, and the red clip LED at the top, in
-        a dark window labeled CLIP and SIG.
-        """
+    def _paint_meter(self, painter: QPainter) -> None:
+        """The LED meter, dark (green, orange, and the red clip LED at the top), in a window labeled CLIP and SIG."""
         painter.setPen(QPen(QColor(HW.strip_edge), 1))
         painter.setBrush(QColor(HW.slot))
         painter.drawRoundedRect(METER, 3, 3)
         for led in range(METER_LEDS):
-            color = HW.meter_high if led == METER_LEDS - 1 else HW.meter_mid if led >= METER_GREEN else HW.meter_low
-            rect = meter_led(led)
-            _paint_led(
-                painter,
-                rect.center() - QPointF(0, rect.height() / 2 - 1.5),
-                rect.center() + QPointF(0, rect.height() / 2 - 1.5),
-                rect.width(),
-                color,
-                led < level,
-            )
+            _paint_meter_led(painter, led, lit=False)
         painter.setFont(_print_font(self.font(), 7, QFont.Weight.Bold))
         painter.setPen(QColor(HW.print))
         for text, led in (("CLIP", METER_LEDS - 1), ("SIG", 0)):
             y = meter_led(led).center().y()
             painter.drawText(QRectF(METER.right() + 3, y - 5, 26, 10), Qt.AlignmentFlag.AlignVCenter, text)
+
+    @staticmethod
+    def _paint_meter_leds(painter: QPainter, level: int) -> None:
+        """`level` LEDs of the meter lit from the bottom, over the dark ones."""
+        for led in range(level):
+            _paint_meter_led(painter, led, lit=True)
 
     def _paint_scale(self, painter: QPainter) -> None:
         """The dB scale on both sides of the slot: the marks, the ticks between them, and the boxes around 0 dB."""
@@ -800,15 +954,12 @@ class StripView(QWidget):
             label = QRectF(CENTER_X - far - 26, y - 5, 24, 10)
             painter.drawText(label, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, mark.label)
 
-    def _paint_fader(self, painter: QPainter, fraction: float, touched: bool) -> None:
+    @staticmethod
+    def _paint_cap(painter: QPainter, fraction: float, touched: bool) -> None:
         """
-        The scale, the slot, and the metal cap at `fraction` (0 at the bottom, 1 at the top): outlined in the accent
-        while a finger is on it, as the motor stays still meanwhile.
+        The metal cap of the fader at `fraction` (0 at the bottom, 1 at the top): outlined in the accent while a
+        finger is on it, as the motor stays still meanwhile.
         """
-        self._paint_scale(painter)
-        painter.setPen(QPen(QColor(HW.strip_edge), 1))
-        painter.setBrush(QColor(HW.slot))
-        painter.drawRoundedRect(SLOT, 2.5, 2.5)
         y = travel_y(fraction)
         cap = QRectF(CENTER_X - CAP_SIZE.width() / 2, y - CAP_SIZE.height() / 2, CAP_SIZE.width(), CAP_SIZE.height())
         # its shadow on the panel
