@@ -1,5 +1,8 @@
 # Architecture
 
+How the daemon works inside, for developers. To set up the project and run the tests, see
+[Contributing](https://github.com/markusressel/xtouch-daemon/blob/main/CONTRIBUTING.md).
+
 ```mermaid
 graph LR
     Device[X-Touch Extender<br/>/dev/snd/midiC*D0] <-- "raw MIDI (midi.py, protocol.py)" --> Surface

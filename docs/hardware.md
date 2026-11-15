@@ -90,5 +90,12 @@ marked otherwise. `n` is the strip, 0..7.
 | LCD text | `F0 00 00 66 15 12 <offset> <ASCII> F7`, offset `line * 56 + n * 7` |
 | LCD colors | `F0 00 00 66 15 72 <8 colors> F7` (a Behringer extension, works in MC mode): 0 black, 1 red, 2 green, 3 yellow, 4 blue, 5 magenta, 6 cyan, 7 white |
 
-The codec is in [`protocol.py`](../src/xtouch_daemon/protocol.py): pure functions that decode the device's messages
-into events and build the messages that drive it.
+The codec is in
+[`protocol.py`](https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/protocol.py): pure
+functions that decode the device's messages into events and build the messages that drive it.
+
+Messages the daemon does not use are not lost: `xtouch-daemon test` prints them (`unknown message: ...`), and the
+daemon logs them at debug level (`xtouch-daemon run -l debug`). They show what a device sends that differs from the
+table above, e.g. a touch that is not the usual note.
+
+See [Troubleshooting](troubleshooting.md) for problems with the device.

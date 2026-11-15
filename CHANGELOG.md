@@ -44,5 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Global settings have a tab of their own, apart from the options of the selected strip. A dragged strip leaves its
   place and the others make room (Escape cancels); strips also move with Ctrl+arrows and their context menu. Every edit
   can be undone (Ctrl+Z), also removing a strip and reverting the file.
+- A documentation site (Zensical, published to GitHub Pages): getting started, a page per topic of the
+  configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 
 [0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/v0.1.0

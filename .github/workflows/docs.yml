@@ -1,0 +1,34 @@
+# Builds the documentation with Zensical and publishes it to GitHub Pages, as https://zensical.org/docs/publish-your-site/
+# describes it. GitHub Pages must be set to publish with GitHub Actions (Settings > Pages > Source).
+name: Documentation
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/configure-pages@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+      - run: pip install zensical
+      # --strict: a broken link or anchor fails the build
+      - run: zensical build --clean --strict
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - uses: actions/deploy-pages@v5
+        id: deployment

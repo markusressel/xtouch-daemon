@@ -20,7 +20,7 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 | `src/xtouch_daemon/cli.py`, `selftest.py`, `systemd.py` | CLI, device self-test, systemd integration (incl. controlling the user service). |
 | `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested, `qt/` the widgets. Forms come from the pydantic models, so new options need no GUI code. |
 | `tests/` | One test module per source module; fakes in `tests/conftest.py`, an in-memory MQTT broker in `tests/fake_mqtt.py`. |
-| `docs/` | `configuration.md`, `hardware.md`, `architecture.md`. |
+| `docs/`, `zensical.toml` | The documentation site (Zensical, published to GitHub Pages by `.github/workflows/docs.yml`): `index.md`, `getting-started.md`, `configuration/*.md` (one page per topic), `home-assistant.md`, `gui.md`, `commands.md`, `troubleshooting.md`, `hardware.md`, `architecture.md`. Build it with `just docs`. |
 | `contrib/xtouch-daemon.service` | systemd user unit, same as `systemd.UNIT_TEMPLATE`. |
 
 ## Commands
@@ -32,12 +32,14 @@ just coverage        # fails below 90 %
 just lint            # ruff check + ruff format --check
 just typecheck       # pyright
 just check           # all of the above, like CI
+just docs            # builds the documentation site (strict: broken links fail)
 ```
 
 ## Rules
 
 - Update the docs (README, `docs/`, `config.example.toml`, `CHANGELOG.md`) with every behaviour change. Verify every
-  documented command and option against `cli.py` and `config.py`.
+  documented command and option against `cli.py` and `config.py`. Links between pages are relative (they work on
+  GitHub and on the site); links to files outside `docs/` are absolute GitHub URLs. `just docs` must pass.
 - Every behaviour change needs tests. Coverage stays ≥ 90 % (lines and branches).
 - No hardware and no PipeWire/PulseAudio in unit tests: use a fake `AudioBackend`, a fake pulsectl connection, a
   recording surface, a FIFO or pty for MIDI, a fake `pw-record` script.

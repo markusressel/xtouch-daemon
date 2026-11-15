@@ -24,6 +24,8 @@ just check       # runs everything CI runs
 | `just typecheck` | `pyright`. |
 | `just check` | `lint`, `typecheck` and `coverage`, like CI. |
 | `just run [ARGS]` | Runs the daemon from the checkout, e.g. `just run -l debug`. |
+| `just docs` | Builds the documentation site into `site/`; broken links fail. |
+| `just docs-serve` | Serves the documentation on http://localhost:8000 and rebuilds it on changes. |
 
 Optional: `uvx pre-commit install` runs ruff before every commit.
 
@@ -33,7 +35,7 @@ In PyCharm, use `.venv` as the interpreter. `.run/` holds run configurations for
 
 ## Rules
 
-- Every behaviour change comes with tests, and with matching changes to the README and `docs/`.
+- Every behaviour change comes with tests, and with matching changes to `docs/` (the documentation site, see `zensical.toml`).
 - The unit tests need neither the device nor a sound server: use the fakes in `tests/conftest.py`.
 - Coverage stays at 90 % or above.
 - Type hints everywhere; `pyright` and `ruff` must pass.
