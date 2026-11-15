@@ -45,7 +45,7 @@ from xtouch_daemon.gui.qt import theme
 
 KIND_NAMES = {"homeassistant": "Home Assistant", "?": "no type"}
 WIDTH = 104
-HEIGHT = 480
+HEIGHT = 500
 """A strip, in logical pixels: narrower than the device (about 1:8), mostly to leave room for the editor below."""
 SPACING = 6
 MARGIN_X = 14
@@ -84,13 +84,22 @@ RING_SPAN = 300
 RING_RADII = (20.5, 25.5)
 """Where the LEDs of the ring start and end, from the center of the encoder."""
 LCD = QRectF(8, 80, WIDTH - 16, 44)
+LCD_CELLS = LCD.adjusted(5, 6, -5, -6)
+"""Where the 2 lines of 7 characters are, inside the bezel; a lit line divides them."""
 KIND = QRectF(3, 126, WIDTH - 6, 13)
 """The type of the strip, printed under the LCD (the device has nothing there)."""
 BUTTON_TOP = 143
-BUTTON_PITCH = 29
+BUTTON_PITCH = 36
 """The buttons are one above the other, each with its name printed under it."""
-BUTTON_SIZE = QSizeF(36, 18)
-METER = QRectF(13, BUTTON_TOP - 1, 9, 3 * BUTTON_PITCH + BUTTON_SIZE.height() + 2)
+BUTTON_X = CENTER_X + 19
+"""The middle of the column of buttons."""
+BUTTON_SIZE = QSizeF(24, 24)
+"""REC, SOLO and MUTE are square."""
+SELECT_SIZE = QSizeF(30, 24)
+"""SELECT is a little wider."""
+BUTTONS_BOTTOM = BUTTON_TOP + 3 * BUTTON_PITCH + SELECT_SIZE.height() + 10
+"""Where the name printed under SELECT ends."""
+METER = QRectF(13, BUTTON_TOP - 1, 9, 3 * BUTTON_PITCH + SELECT_SIZE.height() + 2)
 """The window of the meter, left of the buttons: from the top of REC to the bottom of SELECT."""
 METER_LEDS = 8
 """
@@ -98,13 +107,16 @@ METER_LEDS = 8
 bottom one SIG). The live view does not tell the overload, so it stays dark.
 """
 METER_GREEN = 4
-SLOT = QRectF(CENTER_X - 2.5, 270, 5, 186)
-"""The slot of the fader."""
-TRAVEL = (SLOT.top() + 7, SLOT.bottom() - 7)
-"""Where the middle of the cap is at the top (1) and at the bottom (0) of the travel."""
 CAP_SIZE = QSizeF(34, 30)
 STRIP_TAG = QRectF(CENTER_X - 7, HEIGHT - 22, 14, 12)
 """The number of the strip again, on a light tag at the bottom."""
+TRAVEL = (BUTTONS_BOTTOM + CAP_SIZE.height() / 2 + 3, STRIP_TAG.top() - CAP_SIZE.height() / 2 - 3)
+"""
+Where the middle of the cap is at the top (1, +10 dB) and at the bottom (0, -∞) of the travel: the cap stays clear
+of the buttons and the tag.
+"""
+SLOT = QRectF(CENTER_X - 2.5, TRAVEL[0] - 8, 5, TRAVEL[1] - TRAVEL[0] + 16)
+"""The slot of the fader, a little longer than the travel."""
 
 
 @dataclass(frozen=True)
@@ -120,23 +132,45 @@ class Mark:
     """Whether there is a box instead, as from +5 to -5 dB, where most people put a fader."""
 
 
-SCALE = (
-    Mark("10", 1.0, 4),
-    Mark("5", 0.885, 0, boxed=True),
-    Mark("0", 0.77, 0, boxed=True),
-    Mark("-5", 0.655, 4),
-    Mark("-10", 0.54, 4),
-    Mark("-20", 0.425, 4),
-    Mark("-30", 0.31, 1),
-    Mark("-40", 0.2525, 1),
-    Mark("-50", 0.195, 1),
-    Mark("-60", 0.1375, 1),
-    Mark("-∞", 0.08, 0),
+UNITY = 0.77
+"""Where 0 dB is, as a fraction of the travel: the default of `behavior.unity_at`."""
+PRINTED_SCALE = (
+    ("10", 16, 4),
+    ("5", 14, 0),
+    ("0", 12, 0),
+    ("-5", 10, 4),
+    ("-10", 8, 4),
+    ("-20", 6, 4),
+    ("-30", 4, 1),
+    ("-40", 3, 1),
+    ("-50", 2, 1),
+    ("-60", 1, 1),
+    ("-∞", 0, 0),
 )
 """
-The dB scale as printed on the device: equal steps from +10 down to -30 dB, half steps below. 0 dB is at 77 % of the
-travel (`behavior.unity_at`), +10 dB at the top; the steps are measured from photos of the device.
+The marks printed on the device, measured on a photo: their height above -∞ in half steps (equal steps from +10 down
+to -30 dB, half steps below), and the small ticks between each and the next one down.
 """
+
+
+def _scale() -> tuple[Mark, ...]:
+    """
+    The printed marks on the travel: -∞ at the bottom, +10 dB at the top and 0 dB at UNITY, the marks between them
+    evenly spaced as printed.
+    """
+    unity = next(height for label, height, _ in PRINTED_SCALE if label == "0")
+    top = PRINTED_SCALE[0][1]
+    marks: list[Mark] = []
+    for label, height, ticks in PRINTED_SCALE:
+        below = height <= unity
+        at = height / unity * UNITY if below else UNITY + (height - unity) / (top - unity) * (1 - UNITY)
+        # a box instead of ticks from +5 to -5 dB, where a fader is most of the time
+        marks.append(Mark(label, at, ticks, boxed=label in ("5", "0")))
+    return tuple(marks)
+
+
+SCALE = _scale()
+"""The dB scale beside the fader, where a cap in the middle of a mark shows that value."""
 
 
 def slot_position(index: int) -> QPoint:
@@ -151,9 +185,9 @@ def travel_y(fraction: float) -> float:
 
 
 def button_rect(row: int) -> QRectF:
-    """The button in `row` (REC is 0), without its printed name."""
-    left = CENTER_X + 19 - BUTTON_SIZE.width() / 2
-    return QRectF(QPointF(left, BUTTON_TOP + row * BUTTON_PITCH), BUTTON_SIZE)
+    """The button in `row` (REC is 0, SELECT 3), without its printed name."""
+    size = SELECT_SIZE if row == len(BUTTONS) - 1 else BUTTON_SIZE
+    return QRectF(QPointF(BUTTON_X - size.width() / 2, BUTTON_TOP + row * BUTTON_PITCH), size)
 
 
 def meter_led(led: int) -> QRectF:
@@ -506,7 +540,7 @@ class StripView(QWidget):
         painter.setPen(QColor(HW.print))
         painter.drawText(NUMBER, Qt.AlignmentFlag.AlignCenter, number)
         self._paint_encoder(painter, ring_leds(state.ring, state.ring_mode))
-        self._paint_lcd(painter, LCD)
+        self._paint_lcd(painter)
         kind = KIND_NAMES.get(look.kind, look.kind).upper()
         self._paint_print(painter, KIND, kind, look.kind == "?")
         self._paint_meter(painter, meter_leds(state.meter))
@@ -592,8 +626,12 @@ class StripView(QWidget):
         painter.setPen(QPen(QColor(0, 0, 0, 160), 1))
         painter.drawEllipse(center, 10, 10)
 
-    def _paint_lcd(self, painter: QPainter, rect: QRectF) -> None:
-        """The LCD: a black bezel, the backlit glass, and 2 lines of 7 character cells, written from the left."""
+    def _paint_lcd(self, painter: QPainter) -> None:
+        """
+        The LCD: a black bezel, the backlit glass, and 2 lines of 7 character cells, written from the left, with the
+        lit line between them.
+        """
+        rect = LCD
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(HW.lcd_bezel))
         painter.drawRoundedRect(rect, 4, 4)
@@ -615,7 +653,7 @@ class StripView(QWidget):
         gradient.setColorAt(1, backlight.darker(106))
         painter.setBrush(gradient)
         painter.drawRoundedRect(glass, 2, 2)
-        cells = glass.adjusted(2, 3, -2, -3)
+        cells = LCD_CELLS
         width = cells.width() / protocol.LCD_CELL_WIDTH
         height = (cells.height() - 2) / 2
         painter.setBrush(QColor(0, 0, 0, 20) if lit else QColor(255, 255, 255, 8))
@@ -629,6 +667,11 @@ class StripView(QWidget):
             for column, char in enumerate(text[: protocol.LCD_CELL_WIDTH]):
                 cell = QRectF(cells.left() + column * width, cells.top() + line * (height + 2), width, height)
                 painter.drawText(cell, Qt.AlignmentFlag.AlignCenter, char)
+        # the device has a slim line between the two lines, lit even with the backlight off
+        painter.setPen(QPen(QColor(HW.lcd_line), 1))
+        # in the middle of the pixel row between the lines, so that it is sharp
+        middle = cells.top() + height + 1.5
+        painter.drawLine(QPointF(glass.left() + 1, middle), QPointF(glass.right() - 1, middle))
 
     def _paint_print(self, painter: QPainter, rect: QRectF, text: str, error: bool) -> None:
         """A label printed on the panel, in small capitals; a problem in white on red."""
@@ -666,7 +709,7 @@ class StripView(QWidget):
         font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.4)
         painter.setFont(font)
         painter.setPen(QColor(HW.print))
-        label = QRectF(rect.left() - 8, rect.bottom() + 1, rect.width() + 16, BUTTON_PITCH - rect.height() - 2)
+        label = QRectF(rect.left() - 8, rect.bottom() + 1, rect.width() + 16, 10)
         painter.drawText(label, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, name)
 
     def _paint_meter(self, painter: QPainter, level: int) -> None:

@@ -9,8 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.
-- The strips of the GUI look like the device: the ring has 13 LEDs, the meter 8 next to the buttons, whose names
-  are printed under them, and the faders are longer, with the dB scale of the device: 0 dB at 77 % of the travel.
+- The strips of the GUI look like the device: the ring has 13 LEDs, the LCD the lit line between its two lines, the
+  meter 8 LEDs next to the buttons (REC, SOLO and MUTE square, SELECT wider), whose names are printed under them,
+  and the faders are longer, with the dB scale of the device: the middle of the cap marks the value, -∞ at the
+  bottom, 0 dB at 77 % of the travel and +10 dB at the top.
   The meter lights its LEDs for a level as the device does (7 at the top level; the red CLIP LED is the overload).
 - GUI zoom, 67..300 %: Ctrl++ / Ctrl+= larger, Ctrl+- smaller, Ctrl+0 100 %, and a button in the header. It scales
   the whole window, the strips too, and is kept for the next start.

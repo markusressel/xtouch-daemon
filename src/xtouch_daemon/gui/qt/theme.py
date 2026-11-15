@@ -203,6 +203,8 @@ class Hardware:
     key: str = "#5c6168"
     """An unlit button: gray rubber, its LED color shows only as a tint."""
     lcd_bezel: str = "#060708"
+    lcd_line: str = "#f2f4f7"
+    """The lit line between the two lines of an LCD."""
     knob_top: str = "#4b515b"
     knob_bottom: str = "#1d2025"
     collar_inner: str = "#2b2e33"

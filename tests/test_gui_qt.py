@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, QSettings, Qt
-from PyQt6.QtGui import QColor, QContextMenuEvent, QImage, QTextDocument
+from PyQt6.QtGui import QColor, QContextMenuEvent, QFontMetricsF, QImage, QTextDocument
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QAbstractButton,
@@ -803,20 +803,56 @@ def test_the_ring_lights_the_middle_11_of_its_13_leds(window: MainWindow):
     assert pixel(centered, ring_led(5)).red() < 100
 
 
-def test_the_scale_has_0_db_where_100_percent_is(window: MainWindow):
+def test_the_scale_has_0_db_where_100_percent_is():
     marks = {mark.label: mark.at for mark in preview.SCALE}
     assert marks["0"] == BehaviorConfig().unity_at / 100
-    assert marks["10"] == 1
+    assert marks["10"] == pytest.approx(1)
+    assert marks["-∞"] == 0
     assert [mark.at for mark in preview.SCALE] == sorted(marks.values(), reverse=True)
+
+
+@pytest.mark.parametrize("label", ["10", "0", "-20", "-∞"])
+def test_the_middle_of_the_cap_shows_the_value(window: MainWindow, label: str):
+    at = next(mark.at for mark in preview.SCALE if mark.label == label)
     view = window.preview.strips[0]
-    # the metal cap on the 0 dB mark, the scale there without it
-    cap = preview.CAP_SIZE
-    mark = QPointF(preview.CENTER_X + cap.width() / 2 - 3, preview.travel_y(marks["0"]) - cap.height() / 2 + 3)
 
-    unity = show_state(view, fader=marks["0"], touched=False)
-    bottom = show_state(view, fader=0.0)
+    image = show_state(view, fader=at, touched=False)
 
-    assert pixel(unity, mark).lightness() > pixel(bottom, mark).lightness() + 60
+    # the dark line across the middle of the cap is on the mark
+    x = preview.CENTER_X + 10
+    half = int(preview.CAP_SIZE.height() / 2) - 2
+    mark = round(preview.travel_y(at))
+    darkest = min(range(mark - half, mark + half), key=lambda y: pixel(image, QPointF(x, y)).lightness())
+    assert abs(darkest - mark) <= 1
+    # the cap stays clear of the buttons and of the tag at the bottom
+    assert preview.travel_y(1) - preview.CAP_SIZE.height() / 2 > preview.button_rect(3).bottom() + 10
+    assert preview.travel_y(0) + preview.CAP_SIZE.height() / 2 < preview.STRIP_TAG.top()
+
+
+def test_rec_solo_and_mute_are_square_and_select_wider_below_them():
+    rec, solo, mute, select = (preview.button_rect(row) for row in range(4))
+
+    for button in (rec, solo, mute):
+        assert button.width() == button.height()
+        assert button.center().x() == select.center().x()
+    assert select.width() > rec.width()
+    assert rec.bottom() < solo.top() < mute.top() < select.top()
+
+
+def test_the_lcd_fits_7_characters_per_line_and_a_lit_line_between_them(window: MainWindow):
+    view = window.preview.strips[0]
+    metrics = QFontMetricsF(view.lcd_font)
+    cells = preview.LCD_CELLS
+    assert metrics.horizontalAdvance("W") * protocol.LCD_CELL_WIDTH <= cells.width()
+    assert 2 * metrics.capHeight() < cells.height()
+    face = view.face
+    middle = QPointF(cells.center().x() + 0.5, cells.top() + (cells.height() - 2) / 2 + 1)
+
+    for color in ("off", "blue"):
+        image = show_state(view, color=color, text=("Browser", "Phones "))
+        # white, lit even when the backlight is off
+        assert pixel(image, middle).lightness() > 200
+    view.show_face(face, False)
 
 
 def test_a_dragged_strip_is_outlined_and_its_place_shown(qtbot: QtBot, window: MainWindow):

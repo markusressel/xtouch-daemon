@@ -18,7 +18,8 @@ Without the extra, `xtouch-daemon gui` says how to install it.
 
 - **The strips on top** show the device, laid out and labeled like it: the encoder with its ring of 13 LEDs (Mackie
   Control lights the middle 11), the LCD, the meter next to Rec, Solo, Mute and Select, and the fader with its dB
-  scale, 0 dB at 77 % of the travel (`behavior.unity_at`). The type of each strip is printed under its LCD.
+  scale: the middle of the cap marks the value, -∞ at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`).
+  The type of each strip is printed under its LCD.
 - **Below them, two tabs:** "Strip N" holds the options of the selected strip. "Global settings" holds `[behavior]`,
   `[aliases]`, `[mqtt]` (as "Home Assistant") and `[device]`. A global setting never looks like an option of the
   selected strip.
