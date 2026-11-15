@@ -22,5 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Reconnects to the device and the sound server.
 - systemd user service with `Type=notify`, reload on SIGHUP, journal log levels, and a dark surface on shutdown.
 - Commands `run`, `check-config`, `init-config`, `list-devices`, `list-apps`, `test` and `install-service`.
+- `xtouch-daemon gui` (extra `gui`): edits the configuration in a window with a preview of the eight strips (click to
+  edit, drag to move), suggestions from the sound server, the errors next to the options, and the comments of the file
+  kept on saving. It reloads the service after saving, and shows, installs, starts and restarts it.
 
 [0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/v0.1.0

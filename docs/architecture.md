@@ -30,7 +30,9 @@ graph LR
 | `mixer.py` | `Mixer`: the controllers of one configuration, fed with every state and every event, and the meter ticker. |
 | `daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications). |
 | `config.py` | The TOML configuration, validated with pydantic. |
-| `cli.py`, `selftest.py`, `systemd.py` | The command line, the device self-test, systemd integration (notify, journal log levels, the unit file). |
+| `cli.py`, `selftest.py`, `systemd.py` | The command line, the device self-test, systemd integration (notify, journal log levels, the unit file, controlling the user service). |
+| `gui/domain/` | The configuration editor without a toolkit: the editable document, the options of the models, the look of the strips, suggestions from the sound server, applying a saved file. See [GUI](#gui). |
+| `gui/qt/` | The widgets of `xtouch-daemon gui` (the `gui` extra). |
 
 ## Data flow
 
@@ -94,6 +96,29 @@ number (a fader moved by hand at most every 100 ms), buttons publish events, whi
 - **No volume restore in the daemon.** The sound server keeps the volumes. The daemon remembers only the volume of an
   idle application strip, for its next stream, and only while it runs.
 
+## GUI
+
+`xtouch-daemon gui` is an optional editor for the configuration file, in the subpackage `gui` and the extra of the same
+name, like the GUI of [openhasp-config-manager](https://github.com/markusressel/openhasp-config-manager). The daemon
+itself does not import it.
+
+- **Toolkit-free domain, thin widgets.** `gui/domain` decides everything: `ConfigDocument` holds the file as plain
+  values, validates it with the pydantic models (the same messages as `check-config`), and saves it. `looks()` says
+  how each strip appears on the device, `sources` turns sound server snapshots into suggestions, `apply()` decides
+  between reload, restart and "the service does not run". `gui/qt` only shows that and passes edits back.
+- **Forms from the models.** `schema.py` reads the options of every section and strip type from the pydantic models:
+  the type picks the widget (switch, number, choice, color swatches, list chips, masked secret, file), the attribute
+  docstrings become the help, `Field` constraints the ranges. A new option or strip type needs no GUI code.
+- **The comments stay.** Saving edits the TOML document with tomlkit: unchanged values keep their place and their
+  comments, and moved strips take theirs along. The file is written in place, so a symlinked configuration stays one.
+- **The service is applied, not guessed.** `systemd.Service` (shared with `install-service`) reads the state of the
+  unit. A saved file is reloaded only when the service runs and reads that file; a changed `[device]` or `[mqtt]`
+  offers a restart, since a reload does not take them.
+- **PyQt6, QtAwesome and qt-themes.** The same as openhasp-config-manager, so the tools look and work alike. The wheels
+  carry Qt itself, so `uv tool install` needs no system packages (GTK 4 through PyGObject needs the system libraries
+  and a compiler), Qt paints the strip preview with `QPainter` and does drag and drop, and pytest-qt runs the widgets
+  offscreen.
+
 ## Testing
 
 The unit tests run without hardware and without a sound server:
@@ -105,6 +130,8 @@ The unit tests run without hardware and without a sound server:
 - `PulseBackend` with a fake pulsectl connection,
 - the meters with a fake `pw-record` script,
 - the MQTT bridge and the `homeassistant` strips with an in-memory broker (`tests/fake_mqtt.py`): retained messages,
-  subscriptions, last wills, lost connections.
+  subscriptions, last wills, lost connections,
+- the GUI domain with configuration files in a temporary directory and a fake `systemctl`, and the GUI widgets with
+  pytest-qt on the offscreen platform, with a fake sound server and the dialogs answered by the tests.
 
 `just coverage` fails below 90 % line and branch coverage.

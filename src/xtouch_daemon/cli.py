@@ -201,9 +201,8 @@ def install_service(now: bool) -> None:
 
 GUI_PACKAGES = ("PyQt6", "qtawesome", "qt_themes", "qtpy", "tomlkit")
 GUI_MISSING = """\
-the GUI needs the gui extra, install xtouch-daemon with it:
-  uv tool install --force 'xtouch-daemon[gui] @ git+https://github.com/markusressel/xtouch-daemon'
-  (or: pipx install --force 'xtouch-daemon[gui] @ git+https://github.com/markusressel/xtouch-daemon')"""
+the GUI needs the gui extra, install xtouch-daemon with it from the checkout:
+  uv tool install --force './xtouch-daemon[gui]'"""
 
 
 @main.command()

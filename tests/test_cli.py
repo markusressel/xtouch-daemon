@@ -398,9 +398,7 @@ def test_without_the_gui_extra_it_says_how_to_install_it(monkeypatch: pytest.Mon
 
     assert result.exit_code == 1
     assert "the GUI needs the gui extra" in result.output
-    assert "uv tool install --force 'xtouch-daemon[gui] @ git+https://github.com/markusressel/xtouch-daemon'" in (
-        result.output
-    )
+    assert "uv tool install --force './xtouch-daemon[gui]'" in result.output
 
 
 def test_a_broken_gui_module_is_not_hidden_behind_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
