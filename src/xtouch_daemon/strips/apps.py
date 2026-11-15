@@ -27,7 +27,8 @@ class AppStrip(VolumeStrip):
     loudest of them, and the meter the level of all of them together.
 
     While none of them is there, the strip shows "idle" on a dark LCD, its fader is down and does nothing. The strip
-    keeps its volume: the next stream gets it.
+    keeps its volume: the next stream gets it. A paused media player of the applications keeps the strip active (see
+    `MediaKnob`): the fader sets the volume the next stream gets.
 
     It changes the volume of the streams themselves, like the per-application sliders of pavucontrol.
     """
@@ -71,7 +72,7 @@ class AppStrip(VolumeStrip):
                 self.run_command(self.env.backend.set_stream_volume(index, group_volume), f"volume of {stream.app}")
         previous, self.streams = self.streams, streams
         if not streams:
-            return (Level(group_volume, False) if group_volume is not None else None), False
+            return (Level(group_volume, False) if group_volume is not None else None), self.knob.keeps_active()
         known = [stream.volume for index, stream in streams.items() if index in previous]
         if known:
             # the streams that were there before show what the volume is (it may have been changed elsewhere)
@@ -85,6 +86,12 @@ class AppStrip(VolumeStrip):
         # the balance of the first one: they get the same
         balance = streams[min(streams)].balance
         return Level(volume, all(stream.muted for stream in streams.values()), balance), True
+
+    def release(self) -> None:
+        """What kept the strip active without streams is gone (see `Knob.keeps_active()`)."""
+        if not self.streams:
+            self.active = False
+            self.show()
 
     def meter_targets(self, state: AudioState) -> set[CaptureTarget]:
         if not self.meter:
@@ -171,9 +178,10 @@ class AutoStrip(AppStrip):
             return
         self.app = app
         self.label = "" if app is None else self.aliases.get(app, app)
-        # a new application keeps its own volume
+        # a new application keeps its own volume, and its own player
         self.streams = {}
         self.group_volume = None
+        self.knob.reset()
 
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
         return state.streams_of_app(self.app) if self.app is not None else ()

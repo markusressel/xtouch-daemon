@@ -67,13 +67,19 @@ of the candidates the strip has, as a dot; while pinned, it is lit up to there. 
 The default for `apps` strips. The encoder controls the media player of the strip's applications: Spotify, a browser,
 mpv with mpv-mpris, anything that speaks [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/) on the
 session bus. Turning seeks 5 seconds per step, a push plays or pauses. The ring fills up from the left with how far the track
-is, also while the strip is idle (e.g. paused). It blinks slowly (1 s on, 1 s off) while the track is paused and is
+is, also while the strip is idle (e.g. paused). It blinks (0.5 s on, 0.5 s off) while the track is paused and is
 dark while it is stopped, or for live streams without a length. The LCD shows where the track is
 after a seek (`1:05`), and what a push made of it (`playing`, `paused`).
 
 The player is the one of the process that plays a stream of the strip or of one of its parents, since browsers play
 from a child process. Without such a player, one named like the application (`spotify` for Spotify). Playing streams
 come first. Applications without a player leave the encoder without a function.
+
+A paused player keeps the strip active, also after its streams are gone: browsers end the stream of a paused video
+a few seconds after the pause, and the strip would go dark with it. It stays lit with its fader at the volume, and
+the ring blinks; a move of the fader sets the volume the stream gets when it plays again. The strip goes dark when
+the player is stopped or closed. On an `auto` strip this lasts as long as the strip keeps the application
+(`behavior.auto_hold`).
 
 `xtouch-daemon` needs the D-Bus session bus for this, which a systemd user service has. Without it the daemon logs
 `No media players: the session bus is not reachable (...)` once and keeps trying.

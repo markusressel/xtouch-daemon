@@ -14,9 +14,9 @@ from tests.conftest import FakeBackend, RecordingSurface, settle, stream
 from xtouch_daemon import media
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.media import MediaCommandError, MprisPlayers, Player, ancestors, parent_pid, player_of
-from xtouch_daemon.protocol import RingMode
+from xtouch_daemon.protocol import Color, RingMode
 from xtouch_daemon.strips import knobs
-from xtouch_daemon.strips.apps import AppGroupStrip
+from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
 from xtouch_daemon.strips.base import StripEnv
 
 # -- which player plays the streams ---------------------------------------------------------------------------------
@@ -314,6 +314,77 @@ async def test_the_encoder_seeks_and_plays_or_pauses_the_player(
     # a player that went away
     players.failing = True
     await wait_for(lambda: surface.strips[0].ring == (0, RingMode.DOT))
+    strip.close()
+
+
+async def test_a_paused_player_keeps_the_strip_active_until_it_is_stopped_or_closed(
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(knobs, "PROGRESS_INTERVAL", 0.01)
+    players = FakePlayers(SPOTIFY)
+    players.progresses["spotify"] = 0.5
+    strip = browser(surface, env, players)
+    playing = AudioState(streams=(stream(1, "Spotify", "spotify", volume=40),))
+    strip.update(playing)
+    await wait_for(lambda: strip.knob.status == "Playing")  # type: ignore[attr-defined]
+
+    # a stream that ends while it plays: the application is gone
+    strip.update(AudioState())
+    assert not strip.active
+    strip.update(playing)
+    players.playback = "Paused"
+    await wait_for(lambda: strip.knob.status == "Paused")  # type: ignore[attr-defined]
+    # the browser ends the stream of the paused track: the strip stays, and blinks
+    strip.update(AudioState())
+    assert strip.active
+    assert surface.strips[0].color == Color.WHITE
+    await wait_for(lambda: surface.strips[0].ring == (0, RingMode.DOT))
+    await wait_for(lambda: surface.strips[0].ring == (6, RingMode.WRAP))
+    # the fader sets the volume of the next stream
+    strip.on_fader(0.6)
+    await settle()
+    assert strip.group_volume == 60
+    assert backend.calls == []
+    # stopped: dark
+    players.playback = "Stopped"
+    await wait_for(lambda: not strip.active)
+    assert surface.strips[0].color == Color.BLACK
+    # a stream that starts again gets the volume of the strip
+    strip.update(playing)
+    await settle()
+    assert ("set_stream_volume", 1, 60) in backend.calls
+
+    # closed: the player leaves the bus
+    players.playback = "Paused"
+    await wait_for(lambda: strip.knob.status == "Paused")  # type: ignore[attr-defined]
+    strip.update(AudioState())
+    assert strip.active
+    players.players = ()
+    await wait_for(lambda: not strip.active)
+    # a stream that came back while the player was asked keeps the strip active
+    strip.update(playing)
+    strip.release()
+    assert strip.active
+    await settle()
+    strip.close()
+
+
+async def test_an_auto_strip_forgets_the_paused_player_of_its_application(
+    surface: RecordingSurface, env: StripEnv, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(knobs, "PROGRESS_INTERVAL", 0.01)
+    players = FakePlayers(SPOTIFY)
+    players.playback = "Paused"
+    strip = AutoStrip(surface.strips[0], StripEnv(env.backend, env.behavior, players=players), {}, encoder="media")
+    strip.assign("Spotify")
+    strip.update(AudioState(streams=(stream(1, "Spotify", "spotify"),)))
+    await wait_for(lambda: strip.knob.status == "Paused")  # type: ignore[attr-defined]
+    strip.update(AudioState())
+    assert strip.active
+
+    strip.assign(None)
+    strip.update(AudioState())
+    assert not strip.active
     strip.close()
 
 

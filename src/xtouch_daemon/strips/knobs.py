@@ -21,7 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SEEK_STEP = 5.0
 """Seconds one step of the encoder seeks in a track."""
-PROGRESS_INTERVAL = 1.0
+PROGRESS_INTERVAL = 0.5
 """How often the ring shows how far the track is, and whether it plays (a paused one blinks at this pace)."""
 BALANCE_STEP = 0.05
 """How far one step of the encoder moves the balance (from the center to one side: 20 steps)."""
@@ -66,6 +66,13 @@ class Knob:
     def ring(self) -> tuple[int, RingMode]:
         """What the ring shows: a position (0: off) and a mode."""
         return 0, RingMode.DOT
+
+    def keeps_active(self) -> bool:
+        """Whether the strip stays active without anything to control (see `MediaKnob`)."""
+        return False
+
+    def reset(self) -> None:
+        """The strip controls something else now (e.g. an `auto` strip another application)."""
 
     def close(self) -> None:
         """The strip is taken over by another configuration."""
@@ -181,6 +188,9 @@ class MediaKnob(Knob):
     The media player of the applications of the strip (MPRIS, see `media.py`): turning seeks by `SEEK_STEP`, a push
     plays or pauses, and the ring fills up with how far the track is: steady while it plays, blinking slowly while it is
     paused, dark while it is stopped. Nothing for applications without a player.
+
+    A paused player keeps the strip active after its streams are gone (browsers end them a few seconds after a pause),
+    until it is stopped or closed.
     """
 
     def __init__(self, owner: AppStrip):
@@ -191,6 +201,10 @@ class MediaKnob(Knob):
         """`Playing`, `Paused` or `Stopped`; None without a player, or a player that does not tell."""
         self._lit = True
         """Whether a blinking ring is on at the moment."""
+        self._last: Player | None = None
+        """The player of the streams when the progress was read last."""
+        self.held: Player | None = None
+        """The paused player that keeps the strip active without streams."""
         self._poller: asyncio.Task[None] | None = None
         self._seek_steps = 0
         """Steps not sought yet: turns come faster than a player seeks."""
@@ -245,17 +259,40 @@ class MediaKnob(Knob):
             return 0, RingMode.DOT
         return ring_position(self.progress), RingMode.WRAP
 
+    def keeps_active(self) -> bool:
+        if self.held is None and self.status == "Paused":
+            # the streams of a paused player are gone
+            self.held = self._last
+        return self.held is not None
+
+    def reset(self) -> None:
+        self._last = self.held = None
+
+    def _watched(self, players: MediaPlayers) -> Player | None:
+        """The player to show: the one of the streams, else the held one while it is there."""
+        if self.apps.streams:
+            self.held = None
+            self._last = self.player()
+            return self._last
+        if self.held is not None and self.held not in players.players:
+            return None
+        return self.held
+
     async def _poll(self) -> None:
         players = self.apps.env.players
         assert players is not None, "polls only with players"
         while True:
-            player = self.player() if self.apps.active else None
+            player = self._watched(players) if self.apps.active else None
             progress = status = None
             if player is not None:
                 with contextlib.suppress(AudioCommandError):
                     progress = await players.progress(player)
                     status = await players.status(player)
             self.progress, self.status = progress, status
+            if self.held is not None and status in (None, "Stopped"):
+                # stopped, closed, or it does not answer any more: nothing keeps the strip active
+                self.held = None
+                self.apps.release()
             self._lit = not self._lit if status == "Paused" else True
             if self.apps.active:
                 self.apps.strip.set_ring(*self.ring())
