@@ -23,6 +23,12 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+NOTICE_TIME = 2.0
+"""
+Seconds the second line of the LCD shows the exact value of what the encoder did (e.g. the balance or the position in
+the track, see `VolumeStrip.notify`) instead of the volume.
+"""
+
 
 @dataclass(frozen=True)
 class StripEnv:
@@ -149,6 +155,9 @@ class VolumeStrip(StripController):
         self.active = False
         self._wanted: int | None = None
         self._setter: asyncio.Task[None] | None = None
+        self.notice: str | None = None
+        """Shown on the second line instead of the volume for a moment (`notify`)."""
+        self._notice_timer: asyncio.TimerHandle | None = None
         self.knob = self.make_knob(encoder)
 
     # -- for the kinds of strips ----------------------------------------------------------------------------------
@@ -247,16 +256,35 @@ class VolumeStrip(StripController):
                 self.strip.park()
             self.strip.set_ring(*(self.knob.ring() if self.knob.idle_too else (0, RingMode.DOT)))
             self.strip.set_led(Button.MUTE, Led.OFF)
-            self.strip.set_text(1, self.inactive_text())
+            self.strip.set_text(1, self.notice or self.inactive_text())
             return
         if self.ha_fader is None:
             self.strip.set_fader(self._fraction(level.volume))
         self.strip.set_ring(*self.knob.ring())
         self.strip.set_led(Button.MUTE, Led.ON if level.muted else Led.OFF)
-        if self._wanted is not None:
+        if self.notice is not None:
+            self.strip.set_text(1, self.notice)
+        elif self._wanted is not None:
             self.strip.set_text(1, f"{self._wanted}%")
         else:
             self.strip.set_text(1, "muted" if level.muted else f"{level.volume}%")
+
+    def notify(self, text: str) -> None:
+        """Shows `text` on the second line instead of the volume for NOTICE_TIME, e.g. `R 15%` for the balance."""
+        self._end_notice_timer()
+        self.notice = text
+        self._notice_timer = asyncio.get_running_loop().call_later(NOTICE_TIME, self._end_notice)
+        self.strip.set_text(1, text)
+
+    def _end_notice(self) -> None:
+        self._notice_timer = None
+        self.notice = None
+        self.show()
+
+    def _end_notice_timer(self) -> None:
+        if self._notice_timer is not None:
+            self._notice_timer.cancel()
+            self._notice_timer = None
 
     # -- the device -----------------------------------------------------------------------------------------------
 
@@ -312,6 +340,7 @@ class VolumeStrip(StripController):
 
     def close(self) -> None:
         super().close()
+        self._end_notice_timer()
         self.knob.close()
         if self.controls is not None:
             self.controls.close()
@@ -326,6 +355,9 @@ class VolumeStrip(StripController):
     def set_volume(self, percent: int) -> None:
         bottom, top = self.volume_range()
         self._wanted = max(bottom, min(top, percent))
+        # the volume is what changes now: it replaces a notice
+        self._end_notice_timer()
+        self.notice = None
         # right away, the sound server confirms it a moment later
         self.strip.set_text(1, f"{self._wanted}%")
         if self._setter is None or self._setter.done():

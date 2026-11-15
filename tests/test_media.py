@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator, Callable, Iterator
 
 import pytest
 import pytest_asyncio
-from dbus_fast import Variant
+from dbus_fast import DBusError, Variant
 from dbus_fast.aio import MessageBus
 from dbus_fast.constants import PropertyAccess
 from dbus_fast.service import ServiceInterface, dbus_property, method
@@ -75,10 +75,11 @@ def bus_address() -> Iterator[str]:
 class Player2(ServiceInterface):
     """The parts of the MPRIS player interface the daemon uses."""
 
-    def __init__(self, length: int | None) -> None:
+    def __init__(self, length: int | None, position: int | None = 30_000_000) -> None:
         super().__init__("org.mpris.MediaPlayer2.Player")
         self.calls: list[object] = []
         self.length = length
+        self.position = position
 
     @method()
     def PlayPause(self) -> None:
@@ -90,7 +91,13 @@ class Player2(ServiceInterface):
 
     @dbus_property(access=PropertyAccess.READ)
     def Position(self) -> "x":  # type: ignore[valid-type]  # noqa: F821, UP037
-        return 30_000_000
+        if self.position is None:
+            raise DBusError("org.freedesktop.DBus.Error.NotSupported", "no position")
+        return self.position
+
+    @dbus_property(access=PropertyAccess.READ)
+    def PlaybackStatus(self) -> "s":  # type: ignore[valid-type]  # noqa: F821, UP037
+        return "Playing"
 
     @dbus_property(access=PropertyAccess.READ)
     def Metadata(self) -> "a{sv}":  # type: ignore[valid-type]  # noqa: F722
@@ -107,9 +114,11 @@ async def players(bus_address: str) -> AsyncIterator[MprisPlayers]:
         await task
 
 
-async def serve(bus_address: str, name: str, length: int | None) -> tuple[MessageBus, Player2]:
+async def serve(
+    bus_address: str, name: str, length: int | None, position: int | None = 30_000_000
+) -> tuple[MessageBus, Player2]:
     bus = await MessageBus(bus_address=bus_address).connect()
-    player = Player2(length)
+    player = Player2(length, position)
     bus.export("/org/mpris/MediaPlayer2", player)
     await bus.request_name(name)
     return bus, player
@@ -134,6 +143,8 @@ async def test_players_come_and_go_and_take_commands(bus_address: str, players: 
     await players.seek(player, -5)
     assert service.calls == ["PlayPause", ("Seek", -5_000_000)]
     assert await players.progress(player) == 0.25
+    assert await players.position(player) == 30.0
+    assert await players.status(player) == "Playing"
 
     bus.disconnect()
     other.disconnect()
@@ -143,9 +154,11 @@ async def test_players_come_and_go_and_take_commands(bus_address: str, players: 
 
 
 async def test_a_track_without_a_length_has_no_progress(bus_address: str, players: MprisPlayers) -> None:
-    bus, _ = await serve(bus_address, "org.mpris.MediaPlayer2.radio", None)
+    bus, _ = await serve(bus_address, "org.mpris.MediaPlayer2.radio", None, position=None)
     await wait_for(lambda: bool(players.players))
     assert await players.progress(players.players[0]) is None
+    # nor a position, for a player that has none
+    assert await players.position(players.players[0]) is None
     bus.disconnect()
 
 
@@ -198,6 +211,9 @@ class FakePlayers:
         self.calls: list[tuple[str, object]] = []
         self.progresses: dict[str, float | None] = {}
         self.failing = False
+        self.positions: list[float | None] = []
+        self.statuses = ["Playing"]
+        self.gate: asyncio.Event | None = None
 
     async def run(self) -> None:
         await asyncio.Event().wait()
@@ -207,6 +223,17 @@ class FakePlayers:
 
     async def seek(self, player: Player, seconds: float) -> None:
         self.calls.append(("seek", seconds))
+        if self.gate is not None:
+            await self.gate.wait()
+
+    async def position(self, player: Player) -> float | None:
+        return self.positions.pop(0) if self.positions else None
+
+    async def status(self, player: Player) -> str:
+        status = self.statuses.pop(0)
+        if status == "gone":
+            raise MediaCommandError("gone")
+        return status
 
     async def progress(self, player: Player) -> float | None:
         if self.failing:
@@ -237,11 +264,39 @@ async def test_the_encoder_seeks_and_plays_or_pauses_the_player(
     strip.update(AudioState(streams=(stream(1, "Spotify", "spotify"),)))
     await wait_for(lambda: surface.strips[0].ring == (6, RingMode.DOT))
 
+    players.positions = [65.0]
     strip.on_encoder(-2)
+    await settle()
+    # where the track is now, for a moment
+    assert surface.strips[0].text[1] == "1:05"
     strip.on_encoder_press(True)
     strip.on_encoder_press(False)
     await settle()
     assert players.calls == [("seek", -10.0), ("play_pause", "spotify")]
+    # what it becomes
+    assert surface.strips[0].text[1] == "paused"
+    players.statuses = ["Paused", "gone"]
+    strip.on_encoder_press(True)
+    await settle()
+    assert surface.strips[0].text[1] == "playing"
+    # a player that does not tell: it was not playing
+    strip.on_encoder_press(True)
+    await settle()
+    assert surface.strips[0].text[1] == "playing"
+
+    # turns while a seek is on its way go together into the next one; no position, nothing to show
+    players.calls.clear()
+    players.gate = asyncio.Event()
+    strip._end_notice()
+    strip.on_encoder(1)
+    await settle()
+    strip.on_encoder(1)
+    strip.on_encoder(2)
+    players.gate.set()
+    await settle()
+    assert players.calls == [("seek", 5.0), ("seek", 15.0)]
+    assert strip.notice is None
+    players.gate = None
 
     # a player that went away
     players.failing = True

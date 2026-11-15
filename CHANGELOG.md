@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The encoder shows the exact value of what it did on the LCD for 2 s: the balance (`L 15%`, `center`), the
+  position in the track (`1:05`), `playing`/`paused`, which application of how many (`2/5`), `pinned`/`auto`, the
+  number in Home Assistant.
 - `[device] touchless_faders`: faders whose touch sensor failed work without it: a move counts as a touch, half a
   second without a move as letting go.
 - Strip types `output` and `input` (a device, several with Select switching between them, e.g. any Bluetooth
@@ -59,3 +62,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The meter of an output that was the default followed the default to the next output after Select (WirePlumber
   makes such a capture follow the default); meters now stay with their device.
+- A balance a hair off the center lit only the center LED of the ring, like an exact center.

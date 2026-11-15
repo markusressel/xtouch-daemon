@@ -347,6 +347,7 @@ async def test_the_encoder_of_an_audio_strip_is_a_number_of_home_assistant(
     await until(lambda: surface.strips[0].ring == (6, RingMode.WRAP))
     strip.on_encoder(2)
     await until(lambda: published(broker, topic("number", "encoder"))[-1:] == ["60"])
+    assert surface.strips[0].text[1] == "60%"
     strip.on_encoder_press(True)
     await until(lambda: len(published(broker, topic("event", "buttons"))) == 1)
     assert json.loads(published(broker, topic("event", "buttons"))[0])["event_type"] == "encoder_pressed"

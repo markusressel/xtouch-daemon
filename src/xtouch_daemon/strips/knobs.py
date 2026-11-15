@@ -13,7 +13,7 @@ from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.protocol import RING_MAX, RingMode
 
 if TYPE_CHECKING:
-    from xtouch_daemon.media import Player
+    from xtouch_daemon.media import MediaPlayers, Player
     from xtouch_daemon.strips.apps import AppStrip, AutoStrip
     from xtouch_daemon.strips.base import VolumeStrip
 
@@ -26,6 +26,21 @@ PROGRESS_INTERVAL = 1.0
 BALANCE_STEP = 0.05
 """How far one step of the encoder moves the balance (from the center to one side: 20 steps)."""
 RING_CENTER = (RING_MAX + 1) // 2
+
+
+def balance_text(balance: float) -> str:
+    """The balance for the LCD: `center`, or the side and how far, e.g. `L 15%` (`L <1%` for a hair off the center)."""
+    if balance == 0:
+        return "center"
+    side, percent = "L" if balance < 0 else "R", round(abs(balance) * 100)
+    return f"{side} {percent}%" if percent else f"{side} <1%"
+
+
+def clock(seconds: float) -> str:
+    """A position in a track for the LCD: `1:05`, `1:02:05`."""
+    minutes, secs = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}:{minutes:02}:{secs:02}" if hours else f"{minutes}:{secs:02}"
 
 
 def ring_position(fraction: float) -> int:
@@ -98,14 +113,15 @@ class BalanceKnob(Knob):
     def ring(self) -> tuple[int, RingMode]:
         if (current := self.current) is None:
             return 0, RingMode.DOT
-        # from the center, rounding halves away from it, so both sides look alike
+        # from the center, rounding halves away from it, so both sides look alike; only the exact center is the center
         offset = current * (RING_CENTER - 1)
-        steps = int(abs(offset) + 0.5)
+        steps = int(abs(offset) + 0.5) or (1 if current else 0)
         return RING_CENTER + (steps if offset > 0 else -steps), RingMode.BOOST_CUT
 
     def _set(self, balance: float) -> None:
         self.wanted = balance
         self.owner.strip.set_ring(*self.ring())
+        self.owner.notify(balance_text(balance))
         if not self._setting:
             self._setting = True
             self.owner.run_command(self._apply(), "balance")
@@ -139,10 +155,16 @@ class PickKnob(Knob):
     def turn(self, steps: int) -> None:
         if self.auto.slot is not None:
             self.auto.slot.pick(steps)
+            if (position := self.auto.slot.position()) is not None:
+                # which of how many: the label names it
+                index, count = position
+                self.auto.notify(f"{index + 1}/{count}")
 
     def push(self, pressed: bool) -> None:
         if pressed and self.auto.slot is not None:
             self.auto.slot.toggle_pin()
+            # pinned, or the strip picks by itself again
+            self.auto.notify("pinned" if self.auto.slot.pinned else "auto")
 
     def ring(self) -> tuple[int, RingMode]:
         slot = self.auto.slot
@@ -165,6 +187,8 @@ class MediaKnob(Knob):
         self.apps = owner
         self.progress: float | None = None
         self._poller: asyncio.Task[None] | None = None
+        self._seek_steps = 0
+        """Steps not sought yet: turns come faster than a player seeks."""
 
     def player(self) -> Player | None:
         players = self.apps.env.players
@@ -176,13 +200,38 @@ class MediaKnob(Knob):
 
     def turn(self, steps: int) -> None:
         players, player = self.apps.env.players, self.player()
-        if players is not None and player is not None:
-            self.apps.run_command(players.seek(player, steps * SEEK_STEP), "seek")
+        if players is None or player is None:
+            return
+        seeking = self._seek_steps != 0
+        self._seek_steps += steps
+        if not seeking:
+            self.apps.run_command(self._seek(players, player), "seek")
+
+    async def _seek(self, players: MediaPlayers, player: Player) -> None:
+        """Seeks by the steps so far, then shows where the track is; again while more steps came meanwhile."""
+        try:
+            while steps := self._seek_steps:
+                await players.seek(player, steps * SEEK_STEP)
+                self._seek_steps -= steps
+                position = await players.position(player)
+                if position is not None:
+                    self.apps.notify(clock(position))
+        finally:
+            self._seek_steps = 0
 
     def push(self, pressed: bool) -> None:
         players, player = self.apps.env.players, self.player()
         if pressed and players is not None and player is not None:
-            self.apps.run_command(players.play_pause(player), "play/pause")
+            self.apps.run_command(self._play_pause(players, player), "play/pause")
+
+    async def _play_pause(self, players: MediaPlayers, player: Player) -> None:
+        # what it becomes: the opposite of what it was (players report their new status late)
+        try:
+            playing = await players.status(player) == "Playing"
+        except AudioCommandError:
+            playing = False
+        await players.play_pause(player)
+        self.apps.notify("paused" if playing else "playing")
 
     def ring(self) -> tuple[int, RingMode]:
         if self._poller is None and self.apps.env.players is not None:
@@ -230,6 +279,7 @@ class HomeAssistantKnob(Knob):
     def turn(self, steps: int) -> None:
         if self.controls.connected:
             self.encoder.turn(steps)
+            self.owner.notify(f"{self.encoder.out.value:g}%")
 
     def push(self, pressed: bool) -> None:
         self.owner.ha_event("encoder_pressed" if pressed else "encoder_released")

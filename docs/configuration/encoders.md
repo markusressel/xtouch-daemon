@@ -1,15 +1,16 @@
 # Encoders
 
 The fader of an audio strip sets the volume, unless it is in [Home Assistant](#fader-homeassistant). The encoder
-does what the strip's `encoder` option says, and its LED ring shows it.
+does what the strip's `encoder` option says, and its LED ring shows it. After a turn or a push, the second line of
+the LCD shows the exact value for 2 seconds instead of the volume; moving the fader ends that.
 
-| `encoder` | Turn | Push | Ring |
-|---|---|---|---|
-| `volume` | Changes the volume by `behavior.encoder_step` per step; the fader follows. | Sets `behavior.reset_volume`. | The volume, lit from the left. |
-| `balance` | Moves the balance between left and right, 5 % per step. Nothing for mono devices and streams. | Centers it. | From the center to the side. |
-| `pick` | Picks the application among those without a strip of their own. | Pins it. | Which of them, as a dot; pinned, lit up to there. |
-| `media` | Seeks in the track of the applications' media player, 5 s per step. | Plays or pauses. | How far the track is. |
-| `homeassistant` | Changes a number entity in Home Assistant. | An event in Home Assistant. | The number. |
+| `encoder` | Turn | Push | Ring | LCD |
+|---|---|---|---|---|
+| `volume` | Changes the volume by `behavior.encoder_step` per step; the fader follows. | Sets `behavior.reset_volume`. | The volume, lit from the left. | The volume. |
+| `balance` | Moves the balance between left and right, 5 % per step. Nothing for mono devices and streams. | Centers it. | From the center to the side. | `L 15%`, `center`, `R 5%`. |
+| `pick` | Picks the application among those without a strip of their own. | Pins it. | Which of them, as a dot; pinned, lit up to there. | Which of how many (`2/5`); `pinned` or `auto`. |
+| `media` | Seeks in the track of the applications' media player, 5 s per step. | Plays or pauses. | How far the track is. | Where the track is (`1:05`); `playing` or `paused`. |
+| `homeassistant` | Changes a number entity in Home Assistant. | An event in Home Assistant. | The number. | The number (`42%`). |
 
 Which strip types have which modes, the default first:
 
@@ -47,8 +48,10 @@ strip.
 ## `balance`
 
 The balance between the left and the right channel. One step moves it 5 %, so 20 steps go from the center to one side.
-A push centers it. The ring lights from its center towards the side the balance leans to. On mono devices and streams
-the encoder does nothing.
+A push centers it. The ring lights from its center towards the side the balance leans to; only a balance exactly in
+the center lights the center LED alone, so one a hair off lights the next LED too. The LCD shows the exact balance,
+e.g. `L 15%` (the left side 15 % towards the full left), `R <1%` or `center`. On mono devices and streams the encoder
+does nothing.
 
 ## `pick`
 
@@ -56,14 +59,16 @@ For `auto` strips. Turning the encoder picks the strip's application among those
 paused ones too. One that another `auto` strip has swaps with it. It works on a strip without an application too.
 
 A push pins the application: it stays on the strip after it stopped playing, until the next push. The ring shows which
-of the candidates the strip has, as a dot; while pinned, it is lit up to there.
+of the candidates the strip has, as a dot; while pinned, it is lit up to there. The LCD shows which one of how many
+(`2/5`) after a turn, and `pinned` or `auto` (picked by itself again) after a push.
 
 ## `media`
 
 The default for `apps` strips. The encoder controls the media player of the strip's applications: Spotify, a browser,
 mpv with mpv-mpris, anything that speaks [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/) on the
 session bus. Turning seeks 5 seconds per step, a push plays or pauses. The ring shows how far the track is, also while
-the strip is idle (e.g. paused); it stays dark for live streams without a length.
+the strip is idle (e.g. paused); it stays dark for live streams without a length. The LCD shows where the track is
+after a seek (`1:05`), and what a push made of it (`playing`, `paused`).
 
 The player is the one of the process that plays a stream of the strip or of one of its parents, since browsers play
 from a child process. Without such a player, one named like the application (`spotify` for Spotify). Playing streams
@@ -76,7 +81,7 @@ come first. Applications without a player leave the encoder without a function.
 
 The encoder belongs to Home Assistant, the fader still sets the volume. For example, the encoder dims the light next
 to the speakers. Turning changes `number.<ns>_<id>_encoder` (0..100) by `behavior.encoder_step` per step, the ring
-shows it, and a push sends `encoder_pressed`/`encoder_released` on `event.<ns>_<id>_buttons`. It works while the strip
+shows it, the LCD shows the value (`42%`), and a push sends `encoder_pressed`/`encoder_released` on `event.<ns>_<id>_buttons`. It works while the strip
 is idle too. An automation in Home Assistant decides what the number does, see
 [Home Assistant](../home-assistant.md#audio-strips-with-home-assistant-controls).
 

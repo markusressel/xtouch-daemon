@@ -352,6 +352,31 @@ async def test_a_single_application_is_at_the_start_of_the_ring(surface: Recordi
     assert surface.strips[0].ring == (1, RingMode.DOT)
 
 
+async def test_the_pick_knob_says_which_one_and_whether_pinned(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = AutoStrip(surface.strips[0], env, {}, encoder="pick")
+    assigner = AutoAssigner(1, hold=5, ignore=())
+    playing = state(stream(1, "Spotify"), stream(2, "Discord"))
+    strip.slot = AutoSlot(assigner, 0, lambda: playing, (), lambda: strip.update(playing))
+    strip.update(playing)
+    text = surface.strips[0].text
+
+    strip.on_encoder(1)
+    assert text[1] == "1/2"
+    strip.on_encoder(1)
+    assert text[1] == "2/2"
+    strip.on_encoder_press(True)
+    assert text[1] == "pinned"
+    strip.on_encoder_press(True)
+    assert text[1] == "auto"
+
+    # nothing to pick: nothing to say
+    strip.slot = AutoSlot(assigner, 0, lambda: state(), (), lambda: None)
+    strip._end_notice()
+    strip.on_encoder(1)
+    assert strip.notice is None
+    strip.close()
+
+
 def test_without_auto_strips_nothing_is_assigned() -> None:
     assert AutoAssigner(0, hold=5, ignore=()).assign(state(stream(1))) == []
 

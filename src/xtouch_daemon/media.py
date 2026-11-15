@@ -100,6 +100,14 @@ class MediaPlayers(Protocol):
         """How far the track is, 0..1; None without a position or a length (e.g. a live stream)."""
         ...
 
+    async def position(self, player: Player) -> float | None:
+        """Where the track is, in seconds; None if the player does not tell."""
+        ...
+
+    async def status(self, player: Player) -> str:
+        """`Playing`, `Paused` or `Stopped`."""
+        ...
+
 
 type BusFactory = Callable[[], Awaitable[Any]]
 
@@ -190,3 +198,14 @@ class MprisPlayers:
             return None
         position = await self._property(player, "Position")
         return max(0.0, min(1.0, position / length.value))
+
+    async def position(self, player: Player) -> float | None:
+        try:
+            microseconds = await self._property(player, "Position")
+        except MediaCommandError:
+            # players without a position answer with an error
+            return None
+        return max(0.0, microseconds / 1_000_000)
+
+    async def status(self, player: Player) -> str:
+        return str(await self._property(player, "PlaybackStatus"))

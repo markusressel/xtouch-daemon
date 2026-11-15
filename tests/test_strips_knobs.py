@@ -6,11 +6,11 @@ from tests.conftest import FakeBackend, RecordingSurface, output, settle, source
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import AppsStripConfig, AutoStripConfig, DeviceStripConfig, StripConfig
 from xtouch_daemon.protocol import Color, RingMode
-from xtouch_daemon.strips import build_strip
+from xtouch_daemon.strips import base, build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip
 from xtouch_daemon.strips.base import StripEnv
 from xtouch_daemon.strips.device import DeviceStrip
-from xtouch_daemon.strips.knobs import BalanceKnob, Knob, MediaKnob, VolumeKnob, ring_position
+from xtouch_daemon.strips.knobs import BalanceKnob, Knob, MediaKnob, VolumeKnob, balance_text, clock, ring_position
 
 
 def device(surface: RecordingSurface, env: StripEnv, direction: Direction = Direction.OUTPUT) -> DeviceStrip:
@@ -22,9 +22,30 @@ def test_the_ring_goes_from_the_first_to_the_last_led():
     assert [ring_position(f) for f in (-1, 0, 0.5, 1, 2)] == [1, 1, 6, 11, 11]
 
 
+def test_the_balance_and_the_position_in_a_track_read_exactly():
+    assert [balance_text(b) for b in (0.0, -0.15, 1.0, 0.004, -0.001)] == [
+        "center",
+        "L 15%",
+        "R 100%",
+        "R <1%",
+        "L <1%",
+    ]
+    assert [clock(s) for s in (0, 65.9, 3725)] == ["0:00", "1:05", "1:02:05"]
+
+
+async def test_a_balance_off_the_center_never_shows_as_the_center(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = device(surface, env)
+    rings = []
+    for balance in (0.0, 0.01, -0.01, 0.1, 0.3):
+        strip.update(AudioState(outputs=(output("speaker", balance=balance),)))
+        rings.append(surface.strips[0].ring[0])
+    assert rings == [6, 7, 5, 7, 8]
+
+
 async def test_the_balance_turns_from_the_center_and_a_push_centers_it(
-    surface: RecordingSurface, env: StripEnv, backend: FakeBackend
+    surface: RecordingSurface, env: StripEnv, backend: FakeBackend, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(base, "NOTICE_TIME", 0.05)
     strip = device(surface, env)
     strip.update(AudioState(outputs=(output("speaker", balance=0.0),)))
     s = surface.strips[0]
@@ -37,6 +58,8 @@ async def test_the_balance_turns_from_the_center_and_a_push_centers_it(
     strip.on_encoder(6)
     strip.on_encoder(10)
     assert s.ring == (11, RingMode.BOOST_CUT)
+    # the exact value on the LCD for a moment
+    assert s.text[1] == "R 100%"
     backend.gate.set()
     await settle()
     assert backend.calls == [
@@ -50,8 +73,19 @@ async def test_the_balance_turns_from_the_center_and_a_push_centers_it(
     strip.on_encoder_press(True)
     await settle()
     assert backend.calls[-1] == ("set_device_balance", Direction.OUTPUT, "speaker", 0.0)
-    # the volume stays on the fader
+    assert s.text[1] == "center"
+    # then the volume again
+    await asyncio.sleep(0.1)
     assert s.text[1] == "50%"
+
+    # a volume ends the notice: it is what changes then
+    strip.on_encoder(1)
+    strip.on_fader(0.3)
+    assert s.text[1] == "30%"
+    strip.update(AudioState(outputs=(output("speaker", 30, balance=0.05),)))
+    assert s.text[1] == "30%"
+    await settle()
+    strip.close()
 
 
 async def test_a_mono_device_has_no_balance(surface: RecordingSurface, env: StripEnv, backend: FakeBackend) -> None:
