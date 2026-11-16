@@ -31,3 +31,9 @@ class RecordingSurface(Surface):
 
 def fader_value(fraction: float) -> int:
     return protocol.fader_value(fraction)
+
+
+CARDS = """\
+ 0 [XTouchExt      ]: USB-Audio - X-Touch-Ext
+                      BEHRINGER X-Touch-Ext at usb-0000:11:00.3-3.3, full speed
+"""

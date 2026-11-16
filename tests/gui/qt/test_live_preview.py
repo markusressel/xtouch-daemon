@@ -1,5 +1,5 @@
 """
-The live preview of the window, against a fake live view that takes requests (see `test_gui_qt.py` for the setup:
+The live preview of the window, against a fake live view that takes requests (see `conftest.py` for the setup:
 offscreen, a fake systemctl, a configuration in a temporary directory, the dialogs answered by the tests).
 """
 
@@ -13,8 +13,7 @@ from PyQt6.QtNetwork import QLocalSocket
 from PyQt6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from tests.gui.qt import test_window as test_gui_qt
-from tests.gui.qt.test_window import Dialogs, FakeLiveDaemon, MakeWindow, click, row, strip_state, type_into
+from tests.support.gui import Dialogs, FakeLiveDaemon, MakeWindow, click, row, strip_state, type_into
 from tests.support.instance import RecordingInstance
 from xtouch_daemon.gui.qt import live_preview as live_preview_module
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -29,13 +28,6 @@ from xtouch_daemon.live.messages import (
     StartPreview,
     fingerprint,
 )
-
-# the fixtures of the window
-isolated = test_gui_qt.isolated
-path = test_gui_qt.path
-systemctl = test_gui_qt.systemctl
-daemon = test_gui_qt.daemon
-make_window = test_gui_qt.make_window
 
 
 @pytest.fixture(autouse=True)
