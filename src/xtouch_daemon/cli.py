@@ -15,6 +15,7 @@ from xtouch_daemon import __version__, instance, live, mumble, presets, protocol
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.audio.pulse import PulseBackend, SoundServerError, read_state
 from xtouch_daemon.config import (
+    DEFAULT_LAYOUT,
     AppsStripConfig,
     AutoStripConfig,
     Config,
@@ -24,6 +25,7 @@ from xtouch_daemon.config import (
     HomeAssistantStripConfig,
     InheritStripConfig,
     LayoutConfig,
+    MeterPoint,
     StripConfig,
     VoipStripConfig,
     default_config_path,
@@ -98,7 +100,8 @@ def run(config_path: Path | None, log_level: str) -> None:
         raise click.ClickException(str(e)) from e
 
 
-def describe_strip(config: StripConfig, number: int) -> str:
+def describe_strip(config: StripConfig, number: int, meter_point: MeterPoint = "pre_fader") -> str:
+    """What the strip does, for `check-config`; `meter_point` is where its meter takes the level (see `Config`)."""
     match config:
         case DeviceStripConfig(choices=choices) if choices:
             titles = [choice.title for choice in choices]
@@ -135,6 +138,8 @@ def describe_strip(config: StripConfig, number: int) -> str:
             assert_never(unreachable)
     label = f"{config.label!r} " if isinstance(config, DeviceStripConfig | AppsStripConfig) and config.label else ""
     details = [config.color, *([] if config.meter else ["no meter"])]
+    if config.meter and meter_point == "post_fader":
+        details.append("meter post-fader")
     rec = (
         f"profile {' / '.join(p.label for p in config.profiles)}"
         if isinstance(config, DeviceStripConfig) and config.profiles
@@ -160,15 +165,17 @@ def check_config(config_path: Path | None) -> None:
     config = _load(config_path)
     source = str(path) if path.exists() else "No configuration file, the defaults"
     click.echo(f"{source}: valid")
-    _describe_strips(config.all_strips(), config.inherited())
+    _describe_strips(config)
     for layout in config.layouts:
         click.echo(f"Layout {layout.name}{f' ({layout.label})' if layout.label else ''}{describe_rules(layout)}:")
-        _describe_strips(config.all_strips(layout.name), config.inherited(layout.name))
+        _describe_strips(config, layout.name)
 
 
-def _describe_strips(strips: tuple[StripConfig, ...], inherited: tuple[str | None, ...]) -> None:
-    for number, (strip, where) in enumerate(zip(strips, inherited, strict=True), start=1):
-        click.echo(f"  {number}. {describe_strip(strip, number)}{f', from {where}' if where else ''}")
+def _describe_strips(config: Config, layout: str = DEFAULT_LAYOUT) -> None:
+    strips = config.all_strips(layout)
+    for number, (strip, where) in enumerate(zip(strips, config.inherited(layout), strict=True), start=1):
+        what = describe_strip(strip, number, config.meter_point(strip, layout))
+        click.echo(f"  {number}. {what}{f', from {where}' if where else ''}")
     if len(strips) > protocol.STRIPS:
         click.echo(f"  The device shows the first {protocol.STRIPS} of them that don't collapse.")
 

@@ -8,6 +8,16 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 
+def gain_of(volume: int, fraction: float | None, muted: bool) -> float:
+    """
+    What the sound server multiplies the amplitude of the audio with: the cube of the volume (PulseAudio's volume
+    scale, which pipewire-pulse turns into PipeWire's linear channel volumes), 0 while muted.
+    """
+    if muted:
+        return 0.0
+    return (volume / 100 if fraction is None else fraction) ** 3
+
+
 class Direction(StrEnum):
     OUTPUT = "output"
     INPUT = "input"
@@ -30,6 +40,13 @@ class Device:
     """The name of the sound card it belongs to (its profile decides which devices it has), None for others."""
     balance: float | None = None
     """-1 (only left) .. 0 (centered) .. 1 (only right); None without left and right channels (mono)."""
+    fraction: float | None = None
+    """The volume of the loudest channel, not rounded: 1.0 is 100 %. None: `volume`."""
+
+    @property
+    def gain(self) -> float:
+        """What the device multiplies the amplitude of its audio with: its volume and Mute (see `gain_of()`)."""
+        return gain_of(self.volume, self.fraction, self.muted)
 
     def matches(self, name: str) -> bool:
         """By node name or description; `*` and `?` are wildcards (e.g. `bluez_output.*`, every Bluetooth output)."""
@@ -92,10 +109,17 @@ class Stream:
     """-1 (only left) .. 0 (centered) .. 1 (only right); None without left and right channels (mono)."""
     pid: int | None = None
     """The process that plays it (`application.process.id`)."""
+    fraction: float | None = None
+    """The volume of the loudest channel, not rounded: 1.0 is 100 %. None: `volume`."""
 
     @property
     def playing(self) -> bool:
         return not self.corked
+
+    @property
+    def gain(self) -> float:
+        """What the stream multiplies the amplitude of its audio with: its volume and Mute (see `gain_of()`)."""
+        return gain_of(self.volume, self.fraction, self.muted)
 
     def matches(self, patterns: tuple[str, ...]) -> bool:
         """Whether the application name or binary contains one of the patterns (ignoring case)."""

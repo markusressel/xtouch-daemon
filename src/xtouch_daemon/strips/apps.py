@@ -139,6 +139,9 @@ class AppStrip(VolumeStrip):
     def is_playing(self, target: CaptureTarget, state: AudioState) -> bool:
         return any(str(stream.index) == target.node and stream.playing for stream in state.streams)
 
+    def target_gain(self, target: CaptureTarget, state: AudioState) -> float | None:
+        return next((stream.gain for stream in state.streams if str(stream.index) == target.node), None)
+
     async def apply_volume(self, percent: int) -> None:
         self.group_volume = percent
         await self._for_all(lambda index: self.env.backend.set_stream_volume(index, percent), "volume")

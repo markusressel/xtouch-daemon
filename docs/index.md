@@ -41,8 +41,8 @@ for lights, speakers in other rooms or scenes.
   dim a light, while the other control keeps the volume. See [Encoders](configuration/encoders.md).
 - **Rec and Solo LEDs as indicators:** recording, playing, default or muted. See
   [LEDs](configuration/indicators.md).
-- **LED meters** show the level of each strip, and light their red LED for half a second when the audio clips (a
-  peak at full scale). They are passive: they never wake a device, never light your desktop's microphone indicator,
+- **LED meters** show the level of each strip, before or after its fader (`meter_point`), and light their red LED for
+  half a second when the audio clips (a peak at full scale). They are passive: they never wake a device, never light your desktop's microphone indicator,
   and never switch Bluetooth headphones into headset mode.
 
 ### Around it

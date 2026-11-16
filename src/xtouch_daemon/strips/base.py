@@ -79,6 +79,13 @@ class StripController:
         """Whether audio should flow at the target, so a capture without audio is not linked."""
         return False
 
+    def target_gain(self, target: CaptureTarget, state: AudioState) -> float | None:
+        """
+        The volume of a target of the meter, with Mute, as the factor of the amplitude (see `Device.gain`); None if it
+        is not there.
+        """
+        return None
+
     def absent(self, state: AudioState) -> bool:
         """
         Whether the strip has nothing to control (its devices are not there, no application has a stream), so with

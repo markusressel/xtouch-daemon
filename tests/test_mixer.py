@@ -253,6 +253,40 @@ async def test_a_meter_knows_whether_its_target_plays_from_the_latest_state(mixe
     assert mixer.meters[0]._playing(target)
 
 
+async def test_a_meter_knows_the_volume_of_its_target_from_the_latest_state(mixer: Mixer) -> None:
+    speaker = CaptureTarget("speaker", monitor=True)
+    brave = CaptureTarget("1", monitor=False)
+    mixer.on_state(STATE)
+    assert mixer.meters[0]._gain(speaker) == 0.125
+    assert mixer.meters[1]._gain(brave) == 1.0
+
+    mixer.on_state(AudioState(outputs=(output("speaker", 100, muted=True),), streams=(stream(1, volume=50),)))
+    assert mixer.meters[0]._gain(speaker) == 0.0
+    assert mixer.meters[1]._gain(brave) == 0.125
+    # gone: the audio stays as captured
+    mixer.on_state(DISCONNECTED)
+    assert mixer.meters[0]._gain(speaker) is None
+    assert mixer.meters[1]._gain(brave) is None
+    # strips without captures know no volumes
+    assert mixer.meters[2]._gain(brave) is None
+
+
+async def test_each_meter_takes_the_level_where_its_strip_says(surface: RecordingSurface, backend: FakeBackend) -> None:
+    config = parse_config(
+        '[behavior]\nmeter_point = "post_fader"\n'
+        '[[strip]]\ntype = "output"\n'
+        '[[strip]]\ntype = "input"\nmeter_point = "pre_fader"\n'
+        '[[layout]]\nname = "gaming"\nmeter_point = "pre_fader"\n'
+        '[[layout.strip]]\ntype = "inherit"\n'
+    )
+    mixer = Mixer(surface, backend, config, capture_command="true")
+    assert [meter.point for meter in mixer.meters][:3] == ["post_fader", "pre_fader", "post_fader"]
+    mixer.close()
+    gaming = Mixer(surface, backend, config, capture_command="true", layout="gaming")
+    assert [meter.point for meter in gaming.meters][:2] == ["pre_fader", "pre_fader"]
+    gaming.close()
+
+
 async def test_the_entities_of_home_assistant_strips_go_to_the_bridge(
     surface: RecordingSurface, backend: FakeBackend
 ) -> None:

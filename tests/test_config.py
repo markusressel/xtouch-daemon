@@ -10,6 +10,7 @@ from xtouch_daemon.config import (
     STRIP_TYPES,
     AppsStripConfig,
     AutoStripConfig,
+    BehaviorConfig,
     ChoiceConfig,
     Config,
     ConfigError,
@@ -446,6 +447,11 @@ def test_the_default_switching() -> None:
             r"layout\[1\].strip\[1\]: count is gone: write N voip strips; voip strips without `person` form a group",
         ),
         (
+            '[[strip]]\ntype = "voip"\nmeter_point = "pre_fader"\n',
+            r"strip\[1\]: meter_point: the voice chat tells the level of a participant after their volume",
+        ),
+        ('[behavior]\nmeter_point = "pre"\n', r"behavior.meter_point: Input should be 'pre_fader' or 'post_fader'"),
+        (
             '[[strip]]\ntype = "voip"\nperson = "Bob"\n[[strip]]\ntype = "voip"\nperson = ["Carol", "BOB"]\n',
             "voip strips with the same person: bob",
         ),
@@ -860,3 +866,53 @@ def test_a_strip_given_as_a_model_keeps_its_presets():
     assert isinstance(again, AppsStripConfig)
     assert again.written("match") == ("@voip",)
     assert AppsStripConfig.model_validate(strip).written("match") == ("@voip",)
+
+
+METER_POINTS = """
+[behavior]
+meter_point = "post_fader"
+
+[[strip]]
+type = "output"
+
+[[strip]]
+type = "input"
+meter_point = "pre_fader"
+
+[[layout]]
+name = "gaming"
+meter_point = "pre_fader"
+
+[[layout.strip]]
+type = "inherit"
+strip = 2
+
+[[layout.strip]]
+type = "inherit"
+strip = 1
+
+[[layout.strip]]
+type = "apps"
+label = "Game"
+match = [".exe"]
+meter_point = "post_fader"
+
+[[layout]]
+name = "plain"
+"""
+
+
+def test_the_meter_point_of_a_strip_wins_over_the_layout_which_wins_over_the_behavior():
+    config = parse_config(METER_POINTS)
+    assert BehaviorConfig().meter_point == "pre_fader"
+
+    def points(layout: str) -> list[str]:
+        return [config.meter_point(strip, layout) for strip in config.all_strips(layout)][:3]
+
+    # the default layout has no option of its own: [behavior] is its
+    assert points("default") == ["post_fader", "pre_fader", "post_fader"]
+    # an inherited strip brings its own along, else it takes the one of the layout it is in
+    assert points("gaming") == ["pre_fader", "pre_fader", "post_fader"]
+    assert points("plain") == ["post_fader"] * 3
+    # the auto strips that fill a layout up too
+    assert config.meter_point(config.all_strips("gaming")[7], "gaming") == "pre_fader"

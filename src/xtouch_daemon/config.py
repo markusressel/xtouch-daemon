@@ -164,6 +164,19 @@ ENCODER_MODES = Meanings(
     }
 )
 
+MeterPoint = Literal["pre_fader", "post_fader"]
+"""Where the meter of a strip takes the level, see `METER_POINTS`."""
+
+METER_POINTS = Meanings(
+    {
+        "pre_fader": "The level before the volume, like the channel meter of a hardware mixer: the meter keeps "
+        "showing the audio while the fader is down. Outputs also before their Mute. Applications and inputs go "
+        "silent when muted (PipeWire mutes them before anyone can listen), so their meter stays dark then.",
+        "post_fader": "The level after the volume and Mute: what goes out of the output, what the applications play, "
+        "what applications get from the input. Dark while muted.",
+    }
+)
+
 FaderMode = Literal["volume", "homeassistant"]
 
 FADER_MODES = Meanings(
@@ -282,6 +295,11 @@ class BehaviorConfig(_WithPresets):
     """The volume a push on a `volume` encoder sets, at most `max_volume` (and within the range of the strip)."""
     meters: bool = True
     """Whether the LED meters show audio levels at all. Off, every meter stays dark; `meter` turns off a single one."""
+    meter_point: Annotated[MeterPoint, METER_POINTS] = "pre_fader"
+    """
+    Where the meters take the level: before the volume and Mute of the strip, or after them. A `[[layout]]` or a strip
+    may have its own (`meter_point`). Not for `voip` strips: the voice chat tells their level after the volume.
+    """
     auto_hold: Annotated[float, Field(ge=0)] = 5.0
     """
     Seconds an `auto` strip keeps an application after it stopped playing, so a music player does not jump to
@@ -320,6 +338,11 @@ class _StripConfig(_Model):
     """
     meter: bool = True
     """Whether this strip's LED meter shows the level (if `behavior.meters` is on)."""
+    meter_point: Annotated[MeterPoint, METER_POINTS] | None = None
+    """
+    Where the meter takes the level: before the volume and Mute of the strip, or after them; by default the
+    `meter_point` of the layout, else `behavior.meter_point`.
+    """
     rec: Annotated[Indicator, INDICATORS] = "recording"
     """What the LED of the Rec button shows. The button itself does nothing (except with `profiles`)."""
     solo: Annotated[Indicator, INDICATORS] = "off"
@@ -802,9 +825,14 @@ class VoipStripConfig(_Model):
 
     @model_validator(mode="before")
     @classmethod
-    def _no_count(cls, data: object) -> object:
+    def _refused(cls, data: object) -> object:
         if isinstance(data, Mapping) and "count" in data:
             raise ValueError("count is gone: write N voip strips; voip strips without `person` form a group")
+        if isinstance(data, Mapping) and "meter_point" in data:
+            raise ValueError(
+                "meter_point: the voice chat tells the level of a participant after their volume, a voip strip has "
+                "no other"
+            )
         return data
 
     @model_validator(mode="after")
@@ -913,6 +941,11 @@ class LayoutConfig(_WithPresets):
     """
     priority: int = 0
     """Of several layouts whose rules match, the one with the highest priority comes, then the first in the file."""
+    meter_point: Annotated[MeterPoint, METER_POINTS] | None = None
+    """
+    Where the meters of the layout's strips take the level, unless a strip has its own `meter_point`; by default
+    `behavior.meter_point`.
+    """
     strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=MAX_STRIPS)] = ()
     """Up to 8 strips from the left (more with `collapse`), as the top-level ones; missing ones are `auto`."""
 
@@ -1077,6 +1110,15 @@ class Config(_Model):
             if layout.name == name:
                 return layout
         raise KeyError(name)
+
+    def meter_point(self, strip: StripConfig, layout: str = DEFAULT_LAYOUT) -> MeterPoint:
+        """
+        Where the meter of a strip of `all_strips(layout)` takes the level: its own `meter_point`, else the layout's,
+        else `behavior.meter_point`. An `inherit` strip brings its own along, the layout is the one it is shown in.
+        """
+        if isinstance(strip, _StripConfig) and strip.meter_point is not None:
+            return strip.meter_point
+        return self.layout(layout).meter_point or self.behavior.meter_point
 
     def all_strips(self, layout: str = DEFAULT_LAYOUT) -> tuple[StripConfig, ...]:
         """

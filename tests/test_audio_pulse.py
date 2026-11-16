@@ -229,6 +229,9 @@ async def test_a_snapshot_maps_devices_streams_and_defaults():
     assert all(d.direction == Direction.INPUT for d in state.inputs)
     assert [(s.balance, s.pid) for s in state.streams][:2] == [(-0.5, 42), (0.0, None)]
     assert state.outputs[0].balance == 0.0
+    # the volume not rounded, for the gain of the meters; a muted device has none
+    assert [(d.fraction, d.gain) for d in state.outputs] == [(0.5, 0.125), (0.8, 0.0)]
+    assert state.streams[0].fraction == 0.6
     assert [(s.index, s.app, s.binary, s.volume, s.corked) for s in state.streams] == [
         (10, "Brave", "brave", 60, False),
         (11, "mpv", "mpv", 60, True),
@@ -264,6 +267,7 @@ async def test_a_snapshot_without_defaults_or_channels():
     assert state.default_output is None
     assert state.default_input is None
     assert state.outputs[0].volume == 0
+    assert state.outputs[0].fraction is None
 
 
 def test_a_volume_keeps_the_balance_between_the_channels():

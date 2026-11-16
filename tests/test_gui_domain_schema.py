@@ -48,6 +48,7 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
         ("encoder_step", Kind.INTEGER),
         ("reset_volume", Kind.INTEGER),
         ("meters", Kind.SWITCH),
+        ("meter_point", Kind.CHOICE),
         ("auto_hold", Kind.NUMBER),
         ("ignore", Kind.LIST),
         ("collapse_hold", Kind.NUMBER),
@@ -76,6 +77,7 @@ def test_every_strip_type_has_its_model_and_options():
         "color",
         "lit_when_idle",
         "meter",
+        "meter_point",
         "rec",
         "solo",
         "select",
@@ -99,9 +101,31 @@ def test_every_strip_type_has_its_model_and_options():
     ]
     assert strip_options("empty") == ()
 
-    device, choices, profiles, collapse, encoder, label, color, _, _, rec, _, _, fader, min_volume, _, _ = (
-        strip_options("input")
+    (
+        device,
+        choices,
+        profiles,
+        collapse,
+        encoder,
+        label,
+        color,
+        _,
+        _,
+        meter_point,
+        rec,
+        _,
+        _,
+        fader,
+        min_volume,
+        _,
+        _,
+    ) = strip_options("input")
+    assert (meter_point.kind, meter_point.default, meter_point.choices) == (
+        Kind.CHOICE,
+        None,
+        ("pre_fader", "post_fader"),
     )
+    assert "hardware mixer" in meter_point.meaning("pre_fader")
     assert (encoder.kind, encoder.default, encoder.choices) == (
         Kind.CHOICE,
         None,

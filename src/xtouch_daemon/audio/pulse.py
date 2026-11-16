@@ -35,6 +35,11 @@ def _percent(volume: Any) -> int:
     return round(max(values) * 100) if values else 0
 
 
+def _fraction(volume: Any) -> float | None:
+    values = list(volume.values)
+    return max(values) if values else None
+
+
 def _state_running(state: Any) -> bool:
     return str(state).endswith("running") or state == "running"
 
@@ -81,6 +86,7 @@ def _device(info: Any, direction: Direction, cards: dict[int, str]) -> Device:
         running=_state_running(info.state),
         card=cards.get(info.card),
         balance=balance_of(info),
+        fraction=_fraction(info.volume),
     )
 
 
@@ -105,6 +111,7 @@ def _stream(info: Any) -> Stream:
         corked=bool(info.corked),
         balance=balance_of(info),
         pid=int(pid) if (pid := properties.get("application.process.id", "")).isdigit() else None,
+        fraction=_fraction(info.volume),
     )
 
 

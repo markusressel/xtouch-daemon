@@ -7,6 +7,12 @@ indicator of the desktop, or switch Bluetooth headphones into their headset mode
 
 They are native PipeWire streams on purpose: WirePlumber 0.5.18 (PipeWire 1.6.10) restores captures of PulseAudio
 clients (`parec`, peak detection streams) at 0 % volume, so they would only get silence.
+
+Where the volume is (measured with PipeWire 1.6.10, see docs/architecture.md): a stream and an input apply their
+volume and Mute in their own node (audioconvert), so everything that links to them gets the audio after both. The
+monitor of an output is taken before the output's volume and Mute (`monitor.channel-volumes` is off by default). The
+meters capture what they can and turn it into the level of the strip's `meter_point` with the volume the sound server
+tells (`scale_of()`): the audio of a muted stream or input is gone, its pre-fader level with it.
 """
 
 import array
@@ -19,6 +25,7 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
+from xtouch_daemon.config import MeterPoint
 from xtouch_daemon.protocol import METER_MAX, METER_SIGNAL_MAX
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,6 +49,13 @@ passive capture only once and gives up when that fails (e.g. "item deactivated b
 headphones go away and the streams move).
 """
 RESTART_DELAY = 1.0
+GAIN_SETTLE = 0.3
+"""
+Seconds a volume still counts after it changed, for a pre-fader level from audio captured after the volume: the
+audio comes that much later than the news of the change, so a fader pulled down would make the level of the audio
+from before jump up (and light the clip LED). Until then the level is divided by the loudest of these volumes, which
+shows it too low for a moment instead.
+"""
 PW_RECORD = "pw-record"
 STDBUF = shutil.which("stdbuf")
 """
@@ -79,6 +93,27 @@ class CaptureTarget:
     """A node name, or the serial of a stream (the index PulseAudio tools show); None for the default output."""
     monitor: bool
     """The node is an output: its monitor is captured."""
+
+
+def scale_of(
+    target: CaptureTarget, point: MeterPoint, gain: float | None, settled: float | None = None
+) -> float | None:
+    """
+    What the peaks captured from the target are multiplied by for the level at `point`, with `gain` the volume of the
+    target (with Mute, see `Device.gain`; None if unknown: the peaks as they come) and `settled` the loudest of its
+    gains of the last GAIN_SETTLE seconds. None: the capture tells nothing about that level (a muted stream).
+
+    The monitor of an output is before its volume, the audio of a stream or an input after it.
+    """
+    if gain is None:
+        return 1.0
+    if point == "post_fader":
+        return gain if target.monitor else 1.0
+    if target.monitor:
+        return 1.0
+    if gain <= 0.0:
+        return None
+    return 1.0 / max(gain, settled or 0.0)
 
 
 def capture_command(target: CaptureTarget, command: str = PW_RECORD, stdbuf: str | None = STDBUF) -> list[str]:
@@ -183,10 +218,20 @@ class Meter:
         playing: Callable[[CaptureTarget], bool],
         command: str = PW_RECORD,
         clock: Callable[[], float] = time.monotonic,
+        gain: Callable[[CaptureTarget], float | None] = lambda target: None,
+        point: MeterPoint = "pre_fader",
     ):
+        """
+        `gain` tells the volume of a target (with Mute, see `Device.gain`; None if unknown), `point` where the meter
+        takes the level (see `scale_of()`).
+        """
         self._playing = playing
         self._command = command
         self._clock = clock
+        self._gain = gain
+        self.point: MeterPoint = point
+        self._gains: dict[CaptureTarget, tuple[float, list[tuple[float, float]]]] = {}
+        """For each target: its gain, and the gains before it with when they stop counting (see GAIN_SETTLE)."""
         self._peak: float | None = None
         self._clipped: float | None = None
         """When the last peak at full scale came."""
@@ -202,6 +247,24 @@ class Meter:
         self._peak = peak if self._peak is None else max(self._peak, peak)
         if peak >= 1.0:
             self._clipped = self._clock()
+
+    def feed_from(self, target: CaptureTarget, peak: float) -> None:
+        """A peak captured from the target, as the level at the meter point."""
+        scale = scale_of(target, self.point, (gain := self._gain(target)), self._settled(target, gain))
+        if scale is not None:
+            self.feed(peak * scale)
+
+    def _settled(self, target: CaptureTarget, gain: float | None) -> float | None:
+        """The loudest gain of the target in the last GAIN_SETTLE seconds before `gain`, None for none."""
+        if gain is None:
+            return None
+        now = self._clock()
+        last, before = self._gains.get(target, (gain, []))
+        if gain != last:
+            before.append((now + GAIN_SETTLE, last))
+        before = [(until, value) for until, value in before if until > now]
+        self._gains[target] = (gain, before)
+        return max((value for _, value in before), default=None)
 
     def take_level(self) -> int | None:
         """
@@ -219,6 +282,7 @@ class Meter:
 
     def watch(self, targets: Iterable[CaptureTarget]) -> None:
         wanted = set(targets)
+        self._gains = {target: gains for target, gains in self._gains.items() if target in wanted}
         for target in [target for target in self._captures if target not in wanted]:
             task = self._captures.pop(target)
             task.cancel()
@@ -229,7 +293,9 @@ class Meter:
 
     async def _keep_capturing(self, target: CaptureTarget) -> None:
         while True:
-            await capture(target, self.feed, lambda: self._playing(target), self._command)
+            await capture(
+                target, lambda peak: self.feed_from(target, peak), lambda: self._playing(target), self._command
+            )
             await asyncio.sleep(RESTART_DELAY)
 
     def close(self) -> None:

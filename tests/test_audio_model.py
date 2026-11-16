@@ -1,4 +1,4 @@
-from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Capture, Card, Device, Direction, Stream
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Capture, Card, Device, Direction, Stream, gain_of
 
 
 def output(name: str, description: str = "", running: bool = False) -> Device:
@@ -106,3 +106,15 @@ def test_a_card_by_its_name_or_description() -> None:
     # without a description only by its name
     assert Card("usb", "off").matches("us?")
     assert not Card("usb", "off").matches("")
+
+
+def test_the_gain_is_the_cube_of_the_volume_as_pipewire_pulse_applies_it() -> None:
+    # measured with PipeWire 1.6.10: pactl's 50 % is the channel volume 0.125
+    assert gain_of(50, None, muted=False) == 0.125
+    # the unrounded volume wins over the percent
+    assert gain_of(1, 0.014, muted=False) == 0.014**3
+    assert gain_of(100, 1.0, muted=True) == 0.0
+    assert stream(1, "Brave").gain == 0.8**3
+    assert Stream(1, "Brave", "", 80, True, False).gain == 0.0
+    assert SPEAKER.gain == 0.125
+    assert Device("x", "x", Direction.OUTPUT, 50, False, False, fraction=0.5).gain == 0.125

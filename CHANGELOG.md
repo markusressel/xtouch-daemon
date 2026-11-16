@@ -177,6 +177,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A clip indicator: when the audio of a strip peaks at full scale, its meter lights all 8 LEDs, the red one at the
   top too, for half a second. Below that, the meter uses 7 LEDs. The `homeassistant` meter entity reaches the red LED
   at 100 %.
+- `meter_point`: whether the meters show the level before the volume and Mute of a strip (`"pre_fader"`, the
+  default, like the channel meters of a hardware mixer) or after them (`"post_fader"`). Set in `[behavior]`, per
+  `[[layout]]` (the first setting of a layout for its strips) and per strip; the strip wins over the layout, the
+  layout over `[behavior]`. The monitor of an output is before its volume (so its pre-fader meter is what it was
+  before, and post-fader multiplies by the volume); streams and inputs apply their volume and Mute in their own
+  PipeWire node, so their pre-fader level is the captured one divided by the volume, and a muted stream or input
+  stays dark either way. `voip` strips refuse it: the voice chat tells their level after the volume. The GUI shows
+  it next to `meter`, on the layout page and on the behavior page; `check-config` names post-fader meters.
 - A documentation site (Zensical, published to GitHub Pages): getting started, a page per topic of the
   configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 

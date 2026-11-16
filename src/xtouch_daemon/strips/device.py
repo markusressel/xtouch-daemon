@@ -184,6 +184,10 @@ class DeviceStrip(VolumeStrip):
         device = state.device(self.direction, target.node)
         return device is not None and device.running
 
+    def target_gain(self, target: CaptureTarget, state: AudioState) -> float | None:
+        device = state.device(self.direction, target.node)
+        return None if device is None else device.gain
+
     def on_button(self, button: Button, pressed: bool) -> None:
         super().on_button(button, pressed)
         if pressed and button == Button.REC and self.profiles:

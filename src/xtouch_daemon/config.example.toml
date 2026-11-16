@@ -21,6 +21,7 @@ unity_at = 77             # where on the fader 100 % is (the device marks 0 dB t
 encoder_step = 1          # percent per encoder step
 reset_volume = 100        # the volume a push on an encoder sets
 meters = true             # LED meters show audio levels
+meter_point = "pre_fader" # meters before the volume and Mute of a strip; "post_fader": after them
 auto_hold = 5             # seconds an "auto" strip keeps an application after it stopped playing
 ignore = ["speech-dispatcher"]   # applications "auto" strips never take
 collapse_hold = 3         # seconds a strip with `collapse` stays after it has nothing to control
@@ -45,6 +46,8 @@ collapse_hold = 3         # seconds a strip with `collapse` stays after it has n
 # label  = "..."    the top line of the LCD (7 characters)
 # color  = off | red | green | yellow | blue | magenta | cyan | white
 # meter  = false    no level on this strip's LED meter
+# meter_point = "post_fader"   this strip's meter after its volume and Mute (default: [behavior], or the
+#                   layout's); not on voip strips
 # rec    = "recording"   what the Rec LED shows: recording (an application records the device, or the
 # solo   = "off"         applications record), playing, default, muted, off; the same for the Solo LED
 # select = false    (output/input with a device) the select button does not make the device the default
@@ -163,6 +166,7 @@ color = "white"
 # name = "gaming"
 # label = "Gaming"
 # processes = ["@steam-games"]        # while a game from Steam runs
+# meter_point = "post_fader"         # the meters of this layout's strips, unless a strip has its own
 #
 # [[layout.strip]]
 # type = "apps"

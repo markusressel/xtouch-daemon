@@ -63,7 +63,9 @@ defaults. Example output:
 
 A strip with [`choices`](configuration/devices.md#choices) lists them, e.g.
 `output: Phones, Speaker or Buds (Select switches)`, and one with [`collapse`](configuration/collapsing.md) ends
-with `collapses`. More than eight strips end with `The device shows the first 8 of them that don't collapse.`
+with `collapses`. A strip whose meter shows the level after its fader (`meter_point = "post_fader"`, from the strip,
+its layout or `[behavior]`, see [Meters](configuration/strips.md#meters)) says `meter post-fader`. More than eight
+strips end with `The device shows the first 8 of them that don't collapse.`
 
 A file with errors names the place of each one, e.g. `strip[3].label: String should have at most 7 characters`, and
 the command fails.
