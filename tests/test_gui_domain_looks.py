@@ -145,3 +145,38 @@ def test_a_ring_lights_like_the_device(position: int, mode: str, lit: set[int]):
 def test_a_meter_lights_its_segments():
     assert [meter_leds(level) for level in range(15)] == [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 7, 8]
     assert (meter_leds(-1), meter_leds(15)) == (0, 8)
+
+
+@pytest.mark.parametrize(
+    ("values", "detail"),
+    [
+        ({"type": "voip"}, "participants of the voice chat, a strip, the select button pages"),
+        ({"type": "voip", "count": 3}, "participants of the voice chat, 3 strips, the select button pages"),
+    ],
+)
+def test_a_voip_strip_shows_the_voice_chat(values: dict[str, object], detail: str):
+    assert look(values, STATE, {}) == ("voip", "voip", detail, "white")
+
+
+def test_an_inherit_strip_looks_like_the_one_of_the_default_layout(tmp_path: Path):
+    text = (
+        '[[strip]]\ntype = "output"\n'
+        '[voip]\nprovider = "demo"\n'
+        '[[layout]]\nname = "gaming"\n'
+        '[[layout.strip]]\ntype = "inherit"\n'
+        '[[layout.strip]]\ntype = "inherit"\n'
+        '[[layout.strip]]\ntype = "voip"\ncolor = "cyan"\n'
+    )
+    doc = ConfigDocument(tmp_path / "c.toml", text, exists=True)
+    doc.edit_layout(0)
+
+    result = looks(doc, doc.validate(), STATE)
+
+    assert result[0] == StripLook(
+        "output", "Output", "like the default layout: the default output: speaker description", "white", True, 0
+    )
+    # the default layout has an auto strip there
+    assert (result[1].kind, result[1].configured) == ("auto", True)
+    assert result[1].detail.startswith("like the default layout: the next application that plays")
+    assert (result[2].kind, result[2].color) == ("voip", "cyan")
+    assert not result[3].configured

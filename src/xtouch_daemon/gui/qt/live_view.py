@@ -35,6 +35,14 @@ class LiveView(QObject):
         self.socket.abort()
         self._lost()
 
+    def send(self, line: bytes) -> bool:
+        """Sends a command (`live.command`) to the daemon; False while it is not connected."""
+        if self.socket.state() != QLocalSocket.LocalSocketState.ConnectedState:
+            return False
+        self.socket.write(line)
+        self.socket.flush()
+        return True
+
     def _read(self) -> None:
         # only the latest complete line counts: each is the whole state
         latest: Snapshot | None = None

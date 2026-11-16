@@ -30,9 +30,13 @@ Without the extra, `xtouch-daemon gui` says how to install it.
   The type of each strip is printed under its LCD.
 - **A handle under the strips** (the short bar) makes them larger or smaller: drag it down for larger strips, up
   for more room below. The strips keep their proportions, and the GUI keeps the size for the next start.
-- **Below them, two tabs:** "Strip N" holds the options of the selected strip. "Global settings" holds `[behavior]`,
-  `[aliases]`, `[mqtt]` (as "Home Assistant") and `[device]`. A global setting never looks like an option of the
-  selected strip.
+- **Above them, the layouts** of the file, one tab each (see [Layouts](configuration/layouts.md)): the strips and
+  the "Strip N" tab show the layout picked there. ● marks the one the device shows. + adds a layout, empty or a copy
+  of the one shown, and "Show on the device" switches the running daemon to the layout (as saved).
+- **Below them, three tabs:** "Strip N" holds the options of the selected strip. "Global settings" holds `[behavior]`,
+  `[aliases]`, `[mqtt]` (as "Home Assistant"), `[switching]` (as "Layouts"), `[voip]` (as "Voice chat") and
+  `[device]`. "Layout" holds the name, label and rules of the layout shown, with buttons to move it in the order
+  and to remove it. A global setting never looks like an option of the selected strip.
 - **The footer** shows the file, whether the device runs it, the problems, and the buttons Undo, Redo, Revert and
   "Save and apply".
 - **The header** shows the state of the service with buttons to install, start, restart or stop it, which unit it
@@ -72,6 +76,9 @@ the device will show once it is there.
 While the daemon runs with an `[mqtt]` section, a second pill tells how its connection to Home Assistant is doing:
 "Home Assistant" while it is connected, otherwise what is wrong, e.g. "Home Assistant · not authorized" or
 "Home Assistant · refused". Its tooltip has the broker's own words and what to check; a click opens the settings.
+
+The strips are live only while the device shows the layout picked above; the others show what the file would
+show. An `inherit` strip shows the strip of the default layout at its place.
 
 A strip with unsaved changes shows how it will look once saved, marked with a dot; the others stay live. Strips after
 the configured ones are drawn fainter: they are not configured, so they are `auto` strips.
