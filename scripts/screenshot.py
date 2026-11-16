@@ -99,7 +99,8 @@ def shoot(home: Path, out: Path) -> None:
 
     from xtouch_daemon.audio.model import AudioState, Card, Device, Direction, Profile, Stream
     from xtouch_daemon.gui.domain.document import ConfigDocument
-    from xtouch_daemon.gui.qt import theme
+    from xtouch_daemon.gui.qt.theme.style import apply_theme
+    from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
     from xtouch_daemon.gui.qt.window import MainWindow
     from xtouch_daemon.live.codec import encode
     from xtouch_daemon.live.messages import MqttState, Snapshot, StripState, fingerprint
@@ -110,7 +111,7 @@ def shoot(home: Path, out: Path) -> None:
     QCoreApplication.setApplicationName("xtouch-daemon-screenshot")
     QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(home / "settings"))
     app = QApplication(sys.argv[:1])
-    theme.apply_theme(theme.ThemeMode.DARK)
+    apply_theme(ThemeMode.DARK)
 
     path = home / "config" / "xtouch-daemon" / "config.toml"
     path.parent.mkdir(parents=True)

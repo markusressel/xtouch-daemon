@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QW
 
 from xtouch_daemon.gui.domain.schema import Kind, Option
 from xtouch_daemon.gui.domain.sources import Suggestion
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields.basics import (
     ColumnSuggest,
     Suggest,
@@ -19,6 +18,8 @@ from xtouch_daemon.gui.qt.fields.basics import (
     help_text,
     suggestion_menu,
 )
+from xtouch_daemon.gui.qt.theme.icons import set_icon
+from xtouch_daemon.gui.qt.theme.tokens import Space
 
 
 class Tables(QWidget):
@@ -45,12 +46,12 @@ class Tables(QWidget):
         self._row_widgets: list[QWidget] = []
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(theme.Space.XS)
+        layout.setSpacing(Space.XS)
         self.rows = QVBoxLayout()
-        self.rows.setSpacing(theme.Space.XS)
+        self.rows.setSpacing(Space.XS)
         layout.addLayout(self.rows)
         self.add_button = QPushButton("Add", self)
-        theme.set_icon(self.add_button, "plus")
+        set_icon(self.add_button, "plus")
         self.add_button.clicked.connect(self.add)
         add = QHBoxLayout()
         add.addWidget(self.add_button)
@@ -71,7 +72,7 @@ class Tables(QWidget):
         row = QWidget(self)
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(theme.Space.XS)
+        layout.setSpacing(Space.XS)
         lines: list[QLineEdit] = []
         for column in self.columns:
             edit = QLineEdit(str(value.get(column.name, "")), row)

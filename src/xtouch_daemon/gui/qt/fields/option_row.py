@@ -20,7 +20,6 @@ from PyQt6.QtWidgets import (
 
 from xtouch_daemon.config.files import Problem
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields.basics import (
     LABEL_WIDTH,
     NO_SUGGESTIONS,
@@ -37,6 +36,8 @@ from xtouch_daemon.gui.qt.fields.basics import (
 from xtouch_daemon.gui.qt.fields.chips import Chips
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Switch
 from xtouch_daemon.gui.qt.fields.tables import Tables
+from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.tokens import Space
 
 
 class OptionRow(QWidget):
@@ -65,10 +66,10 @@ class OptionRow(QWidget):
         self._placeholder = placeholder
         self._loading = False
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, theme.Space.XS, 0, theme.Space.XS)
-        outer.setSpacing(theme.Space.XS)
+        outer.setContentsMargins(0, Space.XS, 0, Space.XS)
+        outer.setSpacing(Space.XS)
         top = QHBoxLayout()
-        top.setSpacing(theme.Space.S)
+        top.setSpacing(Space.S)
         title = label(option.title + ("  *" if option.required else ""))
         title.setFixedWidth(LABEL_WIDTH)
         title.setToolTip(option.name + (", required" if option.required else ""))
@@ -79,7 +80,7 @@ class OptionRow(QWidget):
         top.addWidget(self.reset)
         outer.addLayout(top)
         details = QVBoxLayout()
-        details.setContentsMargins(LABEL_WIDTH + theme.Space.S, 0, 0, 0)
+        details.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
         details.setSpacing(2)
         # what the chosen value means, for choices that say it (shown by `load` and `_edit`), right under the field
         self.meaning = help_label("", "meaning")
@@ -180,7 +181,7 @@ class OptionRow(QWidget):
         container = QWidget(self)
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(theme.Space.XS)
+        layout.setSpacing(Space.XS)
         layout.addWidget(edit, 1)
         if suggest is not None:
             completer(edit, suggest).activated.connect(self._pick)
@@ -299,7 +300,7 @@ class OptionRow(QWidget):
     def show_problems(self, problems: list[Problem]) -> None:
         self.error.setText("\n".join(self._problem_text(problem) for problem in problems))
         self.error.setVisible(bool(problems))
-        theme.set_role(self.input, bool(problems), "problem")
+        set_role(self.input, bool(problems), "problem")
 
     def _problem_text(self, problem: Problem) -> str:
         """The message, after the table and column for a problem in one of `TABLES` (e.g. "2. label: ...")."""

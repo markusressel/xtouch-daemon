@@ -46,7 +46,6 @@ from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.schema import Kind, Option, strip_options
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt import window as window_module
 from xtouch_daemon.gui.qt.fields.chips import Chips
 from xtouch_daemon.gui.qt.fields.controls import Switch
@@ -77,6 +76,25 @@ from xtouch_daemon.gui.qt.preview.geometry import (
 from xtouch_daemon.gui.qt.preview.painting import DIM, DIM_TEXT, HW, LCD_PANEL, LCD_TINT, SPRITES_KEPT, _sprites
 from xtouch_daemon.gui.qt.preview.panel import MIN_SCALE, SETTLE_MS
 from xtouch_daemon.gui.qt.preview.strip_view import StripView
+from xtouch_daemon.gui.qt.theme.settings import (
+    ZOOM_LEVELS,
+    load_preview_share,
+    load_zoom,
+    save_preview_share,
+    save_zoom,
+    zoom_step,
+    zoom_text,
+)
+from xtouch_daemon.gui.qt.theme.style import apply_theme, current_mode, load_theme_mode
+from xtouch_daemon.gui.qt.theme.tokens import (
+    HARDWARE,
+    LCD_COLORS,
+    LCD_TEXT,
+    LCD_TEXT_OFF,
+    THEMES,
+    TINT_ALPHA,
+    ThemeMode,
+)
 from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.codec import encode, encode_reply, encode_request
@@ -160,7 +178,7 @@ def isolated(qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(QMessageBox, "question", dialogs.question)
     monkeypatch.setattr(QMessageBox, "warning", dialogs.message)
     monkeypatch.setattr(QMessageBox, "critical", dialogs.message)
-    theme.apply_theme(theme.ThemeMode.DARK)
+    apply_theme(ThemeMode.DARK)
     return dialogs
 
 
@@ -1284,12 +1302,12 @@ def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window:
     qtbot.wait(SETTLE_MS * 2)
     assert preview.resizing
     # nothing is saved before
-    assert theme.load_preview_share() is None
+    assert load_preview_share() is None
     handle = window.splitter.handle(1)
     assert handle is not None
     send_mouse(handle, QEvent.Type.MouseButtonRelease, QPointF(), Qt.MouseButton.NoButton)
     assert not preview.resizing
-    assert theme.load_preview_share() == pytest.approx(window.splitter.share)
+    assert load_preview_share() == pytest.approx(window.splitter.share)
     for view in views:
         view.grab()
         assert view.picture is not None
@@ -1336,13 +1354,13 @@ def test_a_new_size_ends_a_drag(window: MainWindow):
 def test_the_size_of_the_preview_is_kept(make_window: MakeWindow, isolated: Dialogs):
     window = make_window()
     assert window.preview_share is None
-    assert theme.load_preview_share() is None
+    assert load_preview_share() is None
     natural = window.preview.scale
 
     drag_handle(window, 0.4)
 
     share = window.splitter.share
-    assert theme.load_preview_share() == pytest.approx(share)
+    assert load_preview_share() == pytest.approx(share)
     assert window.session().preview_share == pytest.approx(share)
     # the next start, and the window after a new zoom
     for after in (make_window(), make_window(session=window.session())):
@@ -1351,11 +1369,11 @@ def test_the_size_of_the_preview_is_kept(make_window: MakeWindow, isolated: Dial
 
 
 def test_a_kept_size_of_the_preview_that_is_none_is_ignored(isolated: Dialogs):
-    theme.save_preview_share(0.4)
-    assert theme.load_preview_share() == 0.4
+    save_preview_share(0.4)
+    assert load_preview_share() == 0.4
     for odd in ("huge", 0, 1.5):
         QSettings().setValue("preview_share", odd)
-        assert theme.load_preview_share() is None
+        assert load_preview_share() is None
 
 
 def luminance(color: str) -> float:
@@ -1380,10 +1398,10 @@ def over(color: str, background: str, alpha: int) -> str:
     return QColor(*mix).name()
 
 
-@pytest.mark.parametrize("mode", list(theme.ThemeMode))
-def test_the_colors_are_legible(mode: theme.ThemeMode):
+@pytest.mark.parametrize("mode", list(ThemeMode))
+def test_the_colors_are_legible(mode: ThemeMode):
     """WCAG 2.2 AA: 4.5:1 for text, 3:1 for the outlines of controls."""
-    colors = theme.THEMES[mode]
+    colors = THEMES[mode]
     surfaces = (colors.surface, colors.raised, colors.sunken, colors.chrome)
     for surface in surfaces:
         assert contrast(colors.text, surface) >= 4.5
@@ -1400,15 +1418,15 @@ def test_the_colors_are_legible(mode: theme.ThemeMode):
         (colors.tone_bad, colors.error),
         (colors.tone_neutral, colors.tone_neutral),
     ):
-        assert contrast(tone, over(background, colors.chrome, theme.TINT_ALPHA)) >= 4.5
+        assert contrast(tone, over(background, colors.chrome, TINT_ALPHA)) >= 4.5
 
 
 def test_the_device_is_legible():
-    hardware = theme.HARDWARE
-    off = theme.LCD_COLORS["off"]
-    for name, color in theme.LCD_COLORS.items():
+    hardware = HARDWARE
+    off = LCD_COLORS["off"]
+    for name, color in LCD_COLORS.items():
         # the marks on the swatches of the color picker
-        assert contrast(theme.LCD_TEXT_OFF if name == "off" else theme.LCD_TEXT, color) >= 4.5
+        assert contrast(LCD_TEXT_OFF if name == "off" else LCD_TEXT, color) >= 4.5
         if name == "off":
             continue
         # the characters, the backlight through the dark panel
@@ -2084,13 +2102,13 @@ def test_closing_without_changes_does_not_ask(window: MainWindow, isolated: Dial
 
 def test_the_theme_switches_and_is_remembered(qtbot: QtBot, window: MainWindow):
     click(qtbot, window.theme_button)
-    assert theme.current_mode() == theme.ThemeMode.LIGHT
-    assert theme.load_theme_mode() == theme.ThemeMode.LIGHT
+    assert current_mode() == ThemeMode.LIGHT
+    assert load_theme_mode() == ThemeMode.LIGHT
 
     click(qtbot, window.theme_button)
-    assert theme.load_theme_mode() == theme.ThemeMode.DARK
+    assert load_theme_mode() == ThemeMode.DARK
     QSettings().setValue("theme", "purple")
-    assert theme.load_theme_mode() == theme.ThemeMode.DARK
+    assert load_theme_mode() == ThemeMode.DARK
 
 
 def test_run_gui_shows_the_window(path: Path, monkeypatch: pytest.MonkeyPatch, qapp: QApplication):
@@ -2541,21 +2559,21 @@ def test_the_installer_runs_in_a_thread():
 
 
 def test_zoom_goes_through_the_levels(isolated: Dialogs):
-    assert theme.zoom_step(1.0, 1) == 1.1
-    assert theme.zoom_step(1.0, -1) == 0.9
+    assert zoom_step(1.0, 1) == 1.1
+    assert zoom_step(1.0, -1) == 0.9
     # at the ends it stays
-    assert theme.zoom_step(3.0, 1) == 3.0
-    assert theme.zoom_step(0.67, -1) == 0.67
+    assert zoom_step(3.0, 1) == 3.0
+    assert zoom_step(0.67, -1) == 0.67
     # from a level that is none, from 100 %
-    assert theme.zoom_step(1.03, 1) == 1.1
-    assert theme.zoom_text(0.67) == "67 %"
+    assert zoom_step(1.03, 1) == 1.1
+    assert zoom_text(0.67) == "67 %"
 
-    assert theme.load_zoom() == 1.0
-    theme.save_zoom(1.5)
-    assert theme.load_zoom() == 1.5
+    assert load_zoom() == 1.0
+    save_zoom(1.5)
+    assert load_zoom() == 1.5
     for odd in ("huge", 1.3):
         QSettings().setValue("zoom", odd)
-        assert theme.load_zoom() == 1.0
+        assert load_zoom() == 1.0
 
 
 def test_the_scale_of_a_zoom_is_on_top_of_the_users_own():
@@ -2582,7 +2600,7 @@ def test_a_new_zoom_takes_a_new_window_that_goes_on_where_this_one_was(
     assert window.rezoom == 1.1
     assert not window.isVisible()
     assert isolated.shown == []
-    assert theme.load_zoom() == 1.1
+    assert load_zoom() == 1.1
 
     session = window.session()
     assert (session.selected, session.page, session.maximized) == (2, "behavior", False)
@@ -2609,7 +2627,7 @@ def test_zoom_keys_and_menu(qtbot: QtBot, window: MainWindow, isolated: Dialogs)
     assert menu is not None
     actions = menu.actions()
     assert [action.text() for action in actions][:3] == ["67 %", "75 %", "80 %"]
-    assert [action.isChecked() for action in actions].index(True) == theme.ZOOM_LEVELS.index(1.0)
+    assert [action.isChecked() for action in actions].index(True) == ZOOM_LEVELS.index(1.0)
     actions[-1].trigger()
     assert zooms == [0.9, 1.1, 1.0, 3.0]
 

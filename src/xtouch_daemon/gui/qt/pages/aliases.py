@@ -8,10 +8,10 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.drafts import Validation
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import completer, flat_button, help_label, label, suggestion_menu
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, page_title, row
+from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.hardware import protocol
 
 
@@ -117,6 +117,6 @@ class AliasesPage(Page):
     def show_problems(self, validation: Validation) -> None:
         for name, alias in self.edits:
             problems = validation.at("aliases", name.text())
-            theme.set_role(name, any(problem.kind in ("missing", "duplicate") for problem in problems), "problem")
-            theme.set_role(alias, any(problem.kind not in ("missing", "duplicate") for problem in problems), "problem")
+            set_role(name, any(problem.kind in ("missing", "duplicate") for problem in problems), "problem")
+            set_role(alias, any(problem.kind not in ("missing", "duplicate") for problem in problems), "problem")
         self._show_rest([f"{problem.path[-1]!r}: {problem.message}" for problem in validation.at("aliases")])

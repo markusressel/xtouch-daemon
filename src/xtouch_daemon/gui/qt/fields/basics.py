@@ -20,7 +20,9 @@ from PyQt6.QtWidgets import (
 from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions
 from xtouch_daemon.gui.domain.status import Status
-from xtouch_daemon.gui.qt import theme
+from xtouch_daemon.gui.qt.theme.icons import set_icon
+from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.tokens import Radius
 
 type Suggest = Callable[[], tuple[Suggestion, ...]]
 """What the sound server has now for an option, asked for every time it is needed."""
@@ -36,7 +38,7 @@ NO_SUGGESTIONS_OF: dict[str, str] = {
 }
 """What it says for the options whose suggestions come from somewhere else, by name."""
 
-CHIP_HEIGHT = 2 * theme.Radius.PILL
+CHIP_HEIGHT = 2 * Radius.PILL
 
 LABEL_WIDTH = 144
 """The width of the names of the options, so the fields line up (on the 8 px grid)."""
@@ -45,7 +47,7 @@ LABEL_WIDTH = 144
 def label(text: str, role: str = "", wrap: bool = False) -> QLabel:
     widget = QLabel(text)
     if role:
-        theme.set_role(widget, role)
+        set_role(widget, role)
     widget.setWordWrap(wrap)
     return widget
 
@@ -54,7 +56,7 @@ def show_status(pill: QLabel, status: Status) -> None:
     """A status in a pill: its text, its tone as the color, and its tip."""
     pill.setText(status.text)
     pill.setToolTip(status.tip)
-    theme.set_role(pill, status.tone.value, "tone")
+    set_role(pill, status.tone.value, "tone")
 
 
 def help_text(text: str) -> str:
@@ -85,10 +87,10 @@ def help_label(text: str, role: str, link: str | None = None) -> QLabel:
 
 def flat_button(icon: str, tip: str, parent: QWidget | None = None) -> QToolButton:
     button = QToolButton(parent)
-    theme.set_icon(button, icon)
+    set_icon(button, icon)
     button.setToolTip(tip)
     button.setAutoRaise(True)
-    theme.set_role(button, "flat", "variant")
+    set_role(button, "flat", "variant")
     return button
 
 

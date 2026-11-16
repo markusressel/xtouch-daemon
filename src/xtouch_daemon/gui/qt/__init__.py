@@ -12,7 +12,8 @@ from PyQt6.QtWidgets import QApplication
 
 from xtouch_daemon.audio.pulse import read_state
 from xtouch_daemon.gui.domain.document import ConfigDocument
-from xtouch_daemon.gui.qt.theme import apply_theme, load_theme_mode, load_zoom
+from xtouch_daemon.gui.qt.theme.settings import load_zoom
+from xtouch_daemon.gui.qt.theme.style import apply_theme, load_theme_mode
 from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.system.systemd import Service
 

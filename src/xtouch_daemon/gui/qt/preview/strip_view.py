@@ -33,7 +33,6 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QWidget
 
 from xtouch_daemon.gui.domain.looks import StripFace, StripLook, faces, meter_leds, ring_leds
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.preview.geometry import (
     BODY,
     CAP_AREA,
@@ -77,6 +76,8 @@ from xtouch_daemon.gui.qt.preview.painting import (
     paint_meter_led,
     print_font,
 )
+from xtouch_daemon.gui.qt.theme.style import current_colors, current_mode
+from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS
 from xtouch_daemon.hardware import protocol
 
 if TYPE_CHECKING:
@@ -174,7 +175,7 @@ class StripView(QWidget):
             self.hasFocus(),
             self.underMouse(),
             self.preview.blink,
-            theme.current_mode(),
+            current_mode(),
         )
 
     def _moving_key(self) -> tuple[frozenset[int], int, float, str | None]:
@@ -187,7 +188,7 @@ class StripView(QWidget):
             ring_leds(state.ring, state.ring_mode),
             meter_leds(state.meter),
             0.0 if state.fader is None else state.fader,
-            theme.current_colors().accent if state.touched else None,
+            current_colors().accent if state.touched else None,
         )
 
     def _current(self, picture: _Picture | None, key: object, scale: float, ratio: float) -> bool:
@@ -312,7 +313,7 @@ class StripView(QWidget):
         if face.edited:
             self._paint_edited(painter, QPointF(BODY.left() + 9, BODY.top() + 9))
         if self.hasFocus():
-            painter.setPen(QPen(QColor(theme.current_colors().accent), 1.5, Qt.PenStyle.DotLine))
+            painter.setPen(QPen(QColor(current_colors().accent), 1.5, Qt.PenStyle.DotLine))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(BODY.adjusted(-2, -2, 2, 2), STRIP_RADIUS + 2, STRIP_RADIUS + 2)
 
@@ -332,7 +333,7 @@ class StripView(QWidget):
         accent) or when it is not configured.
         """
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        accent = QColor(theme.current_colors().accent)
+        accent = QColor(current_colors().accent)
         if self.selected or self.lifted:
             # a soft glow around the outline, outside of the strip only
             outside = QPainterPath()
@@ -397,7 +398,7 @@ class StripView(QWidget):
         rect = LCD
         state = self.face.state
         level = self._backlight()
-        color, off = QColor(theme.LCD_COLORS[state.color]), QColor(theme.LCD_COLORS["off"])
+        color, off = QColor(LCD_COLORS[state.color]), QColor(LCD_COLORS["off"])
         backlight = mix(color, off, level)
         painter.setPen(Qt.PenStyle.NoPen)
         if level == 1.0:
@@ -580,7 +581,7 @@ class StripView(QWidget):
     def _paint_edited(self, painter: QPainter, center: QPointF) -> None:
         # unsaved changes: a dot, like the marker of a modified file in an editor tab
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(theme.current_colors().accent))
+        painter.setBrush(QColor(current_colors().accent))
         painter.drawEllipse(center, 4.5, 4.5)
 
     # -- input ----------------------------------------------------------------------------------------------------

@@ -26,10 +26,11 @@ from xtouch_daemon.gui.domain.drafts import SECTIONS, Validation
 from xtouch_daemon.gui.domain.schema import options
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import LEARN_MORE, Suggest, help_label, help_text, label, show_status
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, page_title, row, set_text
+from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.voip import mumble
 
@@ -63,7 +64,7 @@ class SectionPage(Page):
         self.present = QWidget()
         present = QVBoxLayout(self.present)
         present.setContentsMargins(0, 0, 0, 0)
-        present.setSpacing(theme.Space.M)
+        present.setSpacing(Space.M)
         self._above_options(present)
         frame, layout = card()
         suggest: dict[str, Suggest] = {"ignore": lambda: sources.patterns(self.audio())}
@@ -254,10 +255,10 @@ class MumbleBox(QFrame):
 
     def __init__(self) -> None:
         super().__init__()
-        theme.set_role(self, "card")
+        set_role(self, "card")
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(theme.Space.L, theme.Space.L, theme.Space.L, theme.Space.L)
-        layout.setSpacing(theme.Space.S)
+        layout.setContentsMargins(Space.L, Space.L, Space.L, Space.L)
+        layout.setSpacing(Space.S)
         line = QHBoxLayout()
         line.addWidget(label("Mumble", "hint"))
         self.live_pill = label("", "pill")
@@ -285,7 +286,7 @@ class MumbleBox(QFrame):
         self.result.setVisible(result is not None)
         if result is not None:
             set_text(self.result, result.text)
-            theme.set_role(self.result, "error" if result.tone == Tone.BAD else "")
+            set_role(self.result, "error" if result.tone == Tone.BAD else "")
 
 
 class ConnectionBox(QFrame):
@@ -293,10 +294,10 @@ class ConnectionBox(QFrame):
 
     def __init__(self) -> None:
         super().__init__()
-        theme.set_role(self, "card")
+        set_role(self, "card")
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(theme.Space.L, theme.Space.L, theme.Space.L, theme.Space.L)
-        layout.setSpacing(theme.Space.S)
+        layout.setContentsMargins(Space.L, Space.L, Space.L, Space.L)
+        layout.setSpacing(Space.S)
         line = QHBoxLayout()
         line.addWidget(label("The daemon", "hint"))
         self.live_pill = label("", "pill")
@@ -319,5 +320,5 @@ class ConnectionBox(QFrame):
         self.test_hint.setVisible(status is not None and bool(status.tip))
         if status is not None:
             self.test_result.setText(status.text)
-            theme.set_role(self.test_result, {Tone.GOOD: "", Tone.BAD: "error"}.get(status.tone, "hint"))
+            set_role(self.test_result, {Tone.GOOD: "", Tone.BAD: "error"}.get(status.tone, "hint"))
             self.test_hint.setText(help_text(status.tip))

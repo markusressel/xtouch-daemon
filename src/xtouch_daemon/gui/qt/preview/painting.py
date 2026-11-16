@@ -10,10 +10,10 @@ from math import ceil, floor
 from PyQt6.QtCore import QPointF, QRectF, QSizeF, Qt
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QPixmap
 
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.preview.geometry import HEIGHT, METER_GREEN, METER_LEDS, WIDTH, meter_led
+from xtouch_daemon.gui.qt.theme.tokens import HARDWARE
 
-HW = theme.HARDWARE
+HW = HARDWARE
 BUTTONS = (("REC", HW.rec), ("SOLO", HW.solo), ("MUTE", HW.mute), ("SELECT", HW.select))
 STRIP_RADIUS = 8
 PANEL_RADIUS = 14

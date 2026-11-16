@@ -12,10 +12,12 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.drafts import Validation
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, label
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.theme.icons import set_icon
+from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.tokens import Space
 
 type Audio = Callable[[], AudioState]
 
@@ -38,10 +40,10 @@ def type_title(strip_type: str) -> str:
 
 def card() -> tuple[QFrame, QVBoxLayout]:
     frame = QFrame()
-    theme.set_role(frame, "card")
+    set_role(frame, "card")
     layout = QVBoxLayout(frame)
-    layout.setContentsMargins(theme.Space.L, theme.Space.L, theme.Space.L, theme.Space.L)
-    layout.setSpacing(theme.Space.S)
+    layout.setContentsMargins(Space.L, Space.L, Space.L, Space.L)
+    layout.setSpacing(Space.S)
     return frame, layout
 
 
@@ -54,11 +56,11 @@ def row(layout: QLayout) -> QWidget:
 
 
 def button(icon: str, text: str, color: str | None = None, role: str = "") -> QPushButton:
-    """A push button with an icon that follows the theme (see `theme.set_icon`), in a style role ("primary", ...)."""
+    """A push button with an icon that follows the theme (see `set_icon`), in a style role ("primary", ...)."""
     widget = QPushButton(text)
-    theme.set_icon(widget, icon, color)
+    set_icon(widget, icon, color)
     if role:
-        theme.set_role(widget, role, "variant")
+        set_role(widget, role, "variant")
     return widget
 
 
@@ -101,8 +103,8 @@ class Page(QWidget):
         self.editor = editor
         self.audio = audio
         self.layout_ = QVBoxLayout(self)
-        self.layout_.setContentsMargins(theme.Space.XS, theme.Space.XS, theme.Space.M, theme.Space.M)
-        self.layout_.setSpacing(theme.Space.M)
+        self.layout_.setContentsMargins(Space.XS, Space.XS, Space.M, Space.M)
+        self.layout_.setSpacing(Space.M)
         self.option_rows: list[OptionRow] = []
         self.problem = label("", "error", wrap=True)
         """Problems that belong to no row: of the whole section or strip, and unknown options."""

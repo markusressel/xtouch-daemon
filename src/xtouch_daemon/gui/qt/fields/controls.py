@@ -7,7 +7,8 @@ from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import QAbstractButton, QButtonGroup, QHBoxLayout, QPushButton, QWidget
 
 from xtouch_daemon.gui.domain.schema import Option
-from xtouch_daemon.gui.qt import theme
+from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
+from xtouch_daemon.gui.qt.theme.tokens import CONTROL_HEIGHT, LCD_COLORS, LCD_TEXT, LCD_TEXT_OFF, Space
 
 
 class Switch(QAbstractButton):
@@ -28,10 +29,10 @@ class Switch(QAbstractButton):
         self.setFixedSize(self.sizeHint())
 
     def sizeHint(self) -> QSize:
-        return QSize(self.TRACK.width(), theme.CONTROL_HEIGHT)
+        return QSize(self.TRACK.width(), CONTROL_HEIGHT)
 
     def paintEvent(self, event: QPaintEvent | None) -> None:
-        colors = theme.current_colors()
+        colors = current_colors()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if not self.isEnabled():
@@ -74,7 +75,7 @@ class Swatch(QAbstractButton):
         self.setFixedSize(self.SIZE, self.SIZE)
 
     def paintEvent(self, event: QPaintEvent | None) -> None:
-        colors = theme.current_colors()
+        colors = current_colors()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         center = QRectF(self.rect()).center()
@@ -83,17 +84,17 @@ class Swatch(QAbstractButton):
             painter.setPen(QPen(QColor(ring), 2))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawEllipse(center, 14, 14)
-        backlight = QColor(theme.LCD_COLORS[self.name])
+        backlight = QColor(LCD_COLORS[self.name])
         painter.setPen(QPen(QColor(colors.control_border), 1))
         painter.setBrush(backlight)
         painter.drawEllipse(center, 10, 10)
         if self.name == "off":
             # a dark LCD: a slash through it
-            painter.setPen(QPen(QColor(theme.LCD_TEXT_OFF), 1.5, cap=Qt.PenCapStyle.RoundCap))
+            painter.setPen(QPen(QColor(LCD_TEXT_OFF), 1.5, cap=Qt.PenCapStyle.RoundCap))
             painter.drawLine(center + QPointF(-5, 5), center + QPointF(5, -5))
         if self.isChecked():
             # a tick as well, for those who can't tell the ring by its color
-            tick = theme.LCD_TEXT if backlight.lightnessF() > 0.5 else "#ffffff"
+            tick = LCD_TEXT if backlight.lightnessF() > 0.5 else "#ffffff"
             pen = QPen(QColor(tick), 2, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -111,7 +112,7 @@ class ColorPicker(QWidget):
         super().__init__()
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(theme.Space.XS)
+        layout.setSpacing(Space.XS)
         self.group = QButtonGroup(self)
         self.swatches: dict[str, Swatch] = {}
         for name in option.choices:
@@ -146,7 +147,7 @@ class NumberToggles(QWidget):
         self.buttons: dict[int, QPushButton] = {}
         for number in range(minimum, maximum + 1):
             button = QPushButton(str(number), self)
-            theme.set_role(button, "segment", "variant")
+            set_role(button, "segment", "variant")
             button.setCheckable(True)
             button.clicked.connect(lambda _=False: self.changed.emit(self.values))
             self.buttons[number] = button

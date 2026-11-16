@@ -16,7 +16,6 @@ from xtouch_daemon.gui.domain.drafts import StripDraft, Validation
 from xtouch_daemon.gui.domain.looks import look
 from xtouch_daemon.gui.domain.schema import strip_models, strip_options, strip_type_help
 from xtouch_daemon.gui.domain.voip import participants
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import (
     Suggest,
@@ -29,6 +28,9 @@ from xtouch_daemon.gui.qt.fields.basics import (
 )
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import LAYOUT_TYPES, Audio, Page, Stack, button, card, row, set_text, type_title
+from xtouch_daemon.gui.qt.theme.icons import set_icon
+from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Snapshot
 
@@ -186,14 +188,14 @@ class StripForm(QWidget):
         self.strip_type = strip_type
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(theme.Space.M)
+        layout.setSpacing(Space.M)
         types = QHBoxLayout()
         types.setSpacing(0)
         self.types = QButtonGroup(self)
         self.type_buttons: dict[str, QPushButton] = {}
         for name in STRIP_TYPES:
             segment = QPushButton(type_title(name))
-            theme.set_role(segment, "segment", "variant")
+            set_role(segment, "segment", "variant")
             segment.setCheckable(True)
             segment.setChecked(name == strip_type)
             segment.setToolTip(help_text(strip_type_help(name)))
@@ -331,8 +333,8 @@ class StripForm(QWidget):
             title, icon, color, role = "Set up the connection", "plus", "white", "primary"
         set_text(self.connection, text)
         set_text(self.connection_button, title)
-        theme.set_icon(self.connection_button, icon, color)
-        theme.set_role(self.connection_button, role, "variant")
+        set_icon(self.connection_button, icon, color)
+        set_role(self.connection_button, role, "variant")
 
     def show_rest(self, rest: list[str]) -> None:
         set_text(self.problem, "\n".join(rest))

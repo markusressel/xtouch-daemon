@@ -59,7 +59,6 @@ from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unava
 from xtouch_daemon.gui.domain.looks import faces, looks
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
 from xtouch_daemon.gui.domain.voip import people_on_strips
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import flat_button, label, show_status
 from xtouch_daemon.gui.qt.fields.controls import Switch
@@ -79,6 +78,18 @@ from xtouch_daemon.gui.qt.pages.sections import (
 from xtouch_daemon.gui.qt.pages.strip import StripPage
 from xtouch_daemon.gui.qt.preview.panel import Preview
 from xtouch_daemon.gui.qt.strip_list import StripList
+from xtouch_daemon.gui.qt.theme.icons import icon, refresh_icons, set_icon
+from xtouch_daemon.gui.qt.theme.settings import (
+    ZOOM_LEVELS,
+    load_preview_share,
+    load_zoom,
+    save_preview_share,
+    save_zoom,
+    zoom_step,
+    zoom_text,
+)
+from xtouch_daemon.gui.qt.theme.style import apply_theme, current_colors, current_mode, set_role
+from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Reply, Snapshot, SwitchLayout
 from xtouch_daemon.system import instance
@@ -198,7 +209,7 @@ class _GripHandle(QSplitterHandle):
     def paintEvent(self, event: QPaintEvent | None) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        colors = theme.current_colors()
+        colors = current_colors()
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(colors.text_muted if self.underMouse() else colors.control_border))
         width, height = GRIP
@@ -215,7 +226,7 @@ class PreviewSplitter(QSplitter):
     def __init__(self):
         super().__init__(Qt.Orientation.Vertical)
         self.setChildrenCollapsible(False)
-        self.setHandleWidth(theme.Space.M)
+        self.setHandleWidth(Space.M)
 
     def createHandle(self) -> QSplitterHandle:
         return _GripHandle(self.orientation(), self)
@@ -252,7 +263,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.try_broker = try_broker
         self.mumble_installer = mumble_installer or MumbleInstaller()
-        self.zoom = theme.load_zoom()
+        self.zoom = load_zoom()
         self.rezoom: float | None = None
         """The zoom the next window gets: set when this one closes for a new zoom (see `Session`)."""
         self.editor = Editor(document, session.history if session is not None else None)
@@ -263,7 +274,7 @@ class MainWindow(QMainWindow):
         self.audio = DISCONNECTED
         self._layout_tabs_shown: object = None
         """What the tabs of the layouts show, so that they are filled again only when that changes."""
-        self.preview_share = session.preview_share if session is not None else theme.load_preview_share()
+        self.preview_share = session.preview_share if session is not None else load_preview_share()
         """The share of the height the preview has, None while it has not been dragged: then it has its own size."""
         self.service_state: ServiceState | None = None
         self.setWindowTitle("X-Touch Extender")
@@ -287,8 +298,8 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
         layout.addWidget(self._header())
         body = QVBoxLayout()
-        body.setContentsMargins(theme.Space.XL, theme.Space.L, theme.Space.XL, 0)
-        body.setSpacing(theme.Space.S)
+        body.setContentsMargins(Space.XL, Space.L, Space.XL, 0)
+        body.setSpacing(Space.S)
         body.addLayout(self._preview_status())
         self.preview_message = label("", "error", wrap=True)
         """What the daemon said about the live preview: why it did not take the latest change, or why it ended."""
@@ -380,7 +391,7 @@ class MainWindow(QMainWindow):
         """
         self.preview.hold(held)
         if not held and self.preview_share is not None:
-            theme.save_preview_share(self.preview_share)
+            save_preview_share(self.preview_share)
 
     def _resume(self, session: Session) -> None:
         """Goes on where the window before the zoom left off."""
@@ -402,10 +413,10 @@ class MainWindow(QMainWindow):
 
     def _header(self) -> QWidget:
         header = QWidget()
-        theme.set_role(header, "bar")
+        set_role(header, "bar")
         header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         layout = QHBoxLayout(header)
-        layout.setContentsMargins(theme.Space.XL, theme.Space.M, theme.Space.L, theme.Space.M)
+        layout.setContentsMargins(Space.XL, Space.M, Space.L, Space.M)
         titles = QVBoxLayout()
         titles.setSpacing(0)
         titles.addWidget(label("X-Touch Extender", "title"))
@@ -436,15 +447,15 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.stop_button)
         layout.addSpacing(8)
         self.zoom_button = QToolButton()
-        self.zoom_button.setText(theme.zoom_text(self.zoom))
+        self.zoom_button.setText(zoom_text(self.zoom))
         self.zoom_button.setToolTip("Zoom: Ctrl++ larger, Ctrl+- smaller, Ctrl+0 100 %")
         self.zoom_button.setAutoRaise(True)
         self.zoom_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.zoom_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        theme.set_role(self.zoom_button, "flat", "variant")
+        set_role(self.zoom_button, "flat", "variant")
         zooms = QMenu(self.zoom_button)
-        for level in theme.ZOOM_LEVELS:
-            action = zooms.addAction(theme.zoom_text(level))
+        for level in ZOOM_LEVELS:
+            action = zooms.addAction(zoom_text(level))
             assert action is not None
             action.setCheckable(True)
             action.setChecked(level == self.zoom)
@@ -467,7 +478,7 @@ class MainWindow(QMainWindow):
         self.preview_label.setBuddy(self.preview_switch)
         layout.addWidget(self.preview_label)
         layout.addWidget(self.preview_switch)
-        layout.addSpacing(theme.Space.L)
+        layout.addSpacing(Space.L)
 
     def _preview_status(self) -> QHBoxLayout:
         """What the preview shows (live or the file), the connection to Home Assistant, and the sound server."""
@@ -501,7 +512,7 @@ class MainWindow(QMainWindow):
         self.layout_tabs.currentChanged.connect(self._layout_picked)
         bar.addWidget(self.layout_tabs)
         self.add_layout_button = QToolButton()
-        theme.set_icon(self.add_layout_button, "plus")
+        set_icon(self.add_layout_button, "plus")
         self.add_layout_button.setToolTip("Add a layout")
         self.add_layout_button.setAutoRaise(True)
         self.add_layout_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
@@ -607,12 +618,12 @@ class MainWindow(QMainWindow):
                 self.pages[name] = self.voip_page
             else:
                 self.pages[name] = SectionPage(name, self.editor, audio)
-        self.tabs.addTab(self._scroll(self.strip_page), theme.icon("tune-vertical"), "Strip 1")
+        self.tabs.addTab(self._scroll(self.strip_page), icon("tune-vertical"), "Strip 1")
         self.tabs.setTabToolTip(STRIP_TAB, "The options of the strip selected above: they apply to it alone")
 
         settings = QWidget()
         layout = QVBoxLayout(settings)
-        layout.setContentsMargins(0, theme.Space.M, 0, 0)
+        layout.setContentsMargins(0, Space.M, 0, 0)
         layout.addWidget(label("These settings apply to the daemon and to every strip.", "hint"))
         pages = QHBoxLayout()
         pages.setSpacing(16)
@@ -623,7 +634,7 @@ class MainWindow(QMainWindow):
         self.nav_buttons: dict[str, QPushButton] = {}
         for name in GLOBAL_PAGES:
             button = QPushButton(page_title(name))
-            theme.set_role(button, "nav", "variant")
+            set_role(button, "nav", "variant")
             button.setCheckable(True)
             button.setToolTip(f"[{name}] in the file")
             button.clicked.connect(lambda _=False, name=name: self.show_page(name))
@@ -640,9 +651,9 @@ class MainWindow(QMainWindow):
         pages.addWidget(holder)
         pages.addWidget(self.stack, 1)
         layout.addLayout(pages, 1)
-        self.tabs.addTab(settings, theme.icon("cog-outline"), "Global settings")
+        self.tabs.addTab(settings, icon("cog-outline"), "Global settings")
         self.tabs.setTabToolTip(GLOBAL_TAB, "Behavior, aliases, the Home Assistant connection and the device")
-        self.tabs.addTab(self._scroll(self.layout_page), theme.icon("view-dashboard-variant-outline"), "Layout")
+        self.tabs.addTab(self._scroll(self.layout_page), icon("view-dashboard-variant-outline"), "Layout")
         self.tabs.setTabToolTip(LAYOUT_TAB, "The layout shown above: its name, and when the device switches to it")
         self.nav_buttons[GLOBAL_PAGES[0]].setChecked(True)
         self.tabs.currentChanged.connect(lambda _: self.refresh_preview())
@@ -658,13 +669,13 @@ class MainWindow(QMainWindow):
 
     def _footer(self) -> QWidget:
         footer = QWidget()
-        theme.set_role(footer, "bar")
+        set_role(footer, "bar")
         footer.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         layout = QHBoxLayout(footer)
-        layout.setContentsMargins(theme.Space.XL, theme.Space.M, theme.Space.XL, theme.Space.M)
+        layout.setContentsMargins(Space.XL, Space.M, Space.XL, Space.M)
         self.problems_button = QToolButton()
-        theme.set_role(self.problems_button, "problems")
-        theme.set_icon(self.problems_button, "alert-circle", "error")
+        set_role(self.problems_button, "problems")
+        set_icon(self.problems_button, "alert-circle", "error")
         self.problems_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.problems_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.problems_menu = QMenu(self.problems_button)
@@ -673,7 +684,7 @@ class MainWindow(QMainWindow):
         self.status = label("", "hint", wrap=True)
         layout.addWidget(self.status, 1)
         self.restart_button = QPushButton("Restart the service")
-        theme.set_icon(self.restart_button, "restart")
+        set_icon(self.restart_button, "restart")
         self.restart_button.clicked.connect(self._restart)
         self.restart_button.hide()
         layout.addWidget(self.restart_button)
@@ -684,13 +695,13 @@ class MainWindow(QMainWindow):
         self.redo_button.clicked.connect(self.redo)
         layout.addWidget(self.redo_button)
         self.revert_button = QPushButton("Revert")
-        theme.set_icon(self.revert_button, "file-undo-outline")
+        set_icon(self.revert_button, "file-undo-outline")
         self.revert_button.setToolTip("Drop the changes and read the file again (Undo brings them back)")
         self.revert_button.clicked.connect(self.revert)
         layout.addWidget(self.revert_button)
         self.save_button = QPushButton("Save and apply")
-        theme.set_icon(self.save_button, "content-save", "white")
-        theme.set_role(self.save_button, "primary", "variant")
+        set_icon(self.save_button, "content-save", "white")
+        set_role(self.save_button, "primary", "variant")
         self.save_button.setToolTip("Write the file and reload the daemon (Ctrl+S)")
         self.save_button.clicked.connect(self.save)
         layout.addWidget(self.save_button)
@@ -852,13 +863,13 @@ class MainWindow(QMainWindow):
         self.editor.unset(problem.path)
 
     def toggle_theme(self) -> None:
-        dark = theme.current_mode() == theme.ThemeMode.DARK
-        theme.apply_theme(theme.ThemeMode.LIGHT if dark else theme.ThemeMode.DARK)
+        dark = current_mode() == ThemeMode.DARK
+        apply_theme(ThemeMode.LIGHT if dark else ThemeMode.DARK)
         # the icons are drawn in the colors of the theme
-        theme.refresh_icons(self)
-        self.tabs.setTabIcon(STRIP_TAB, theme.icon("tune-vertical"))
-        self.tabs.setTabIcon(GLOBAL_TAB, theme.icon("cog-outline"))
-        self.tabs.setTabIcon(LAYOUT_TAB, theme.icon("view-dashboard-variant-outline"))
+        refresh_icons(self)
+        self.tabs.setTabIcon(STRIP_TAB, icon("tune-vertical"))
+        self.tabs.setTabIcon(GLOBAL_TAB, icon("cog-outline"))
+        self.tabs.setTabIcon(LAYOUT_TAB, icon("view-dashboard-variant-outline"))
         self.preview.update()
 
     # -- editing --------------------------------------------------------------------------------------------------
@@ -976,7 +987,7 @@ class MainWindow(QMainWindow):
         _pill(self.pill, Status(state.describe(), tone, f"systemctl --user status {UNIT_NAME}"))
         self.service_button.setText(text)
         self.service_button.setToolTip(tip)
-        theme.set_role(self.service_button, "primary" if highlight else "", "variant")
+        set_role(self.service_button, "primary" if highlight else "", "variant")
         self.service_button.show()
         self.stop_button.setVisible(state.running)
         overrides = overrides_packaged_unit()
@@ -1097,10 +1108,10 @@ class MainWindow(QMainWindow):
     # -- zoom -----------------------------------------------------------------------------------------------------
 
     def zoom_in(self) -> None:
-        self.zoom_to(theme.zoom_step(self.zoom, 1))
+        self.zoom_to(zoom_step(self.zoom, 1))
 
     def zoom_out(self) -> None:
-        self.zoom_to(theme.zoom_step(self.zoom, -1))
+        self.zoom_to(zoom_step(self.zoom, -1))
 
     def zoom_reset(self) -> None:
         self.zoom_to(1.0)
@@ -1109,7 +1120,7 @@ class MainWindow(QMainWindow):
         """Closes the window for a new one at `zoom` (see `Session`), keeping everything that is not saved."""
         if zoom == self.zoom:
             return
-        theme.save_zoom(zoom)
+        save_zoom(zoom)
         self.rezoom = zoom
         self.close()
 

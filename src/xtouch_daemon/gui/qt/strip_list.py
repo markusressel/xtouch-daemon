@@ -11,9 +11,11 @@ from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QScrollArea,
 
 from xtouch_daemon.gui.domain.flow import FlowRow, Where, why_not_add
 from xtouch_daemon.gui.domain.looks import StripLook
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields.basics import label
 from xtouch_daemon.gui.qt.pages.base import set_text
+from xtouch_daemon.gui.qt.theme.icons import set_icon
+from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.hardware import protocol
 
 
@@ -32,7 +34,7 @@ class StripList(QWidget):
         super().__init__()
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(theme.Space.S)
+        layout.setSpacing(Space.S)
         layout.addWidget(label("Strips", "hint"))
         holder = QWidget()
         self.row = QHBoxLayout(holder)
@@ -45,7 +47,7 @@ class StripList(QWidget):
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         layout.addWidget(scroll, 1)
         self.add_button = QPushButton("Add strip")
-        theme.set_icon(self.add_button, "plus")
+        set_icon(self.add_button, "plus")
         self.add_button.clicked.connect(self.add.emit)
         layout.addWidget(self.add_button)
         self.group = QButtonGroup(self)
@@ -66,7 +68,7 @@ class StripList(QWidget):
         self.setVisible(wanted(strips))
         while len(self.buttons) < len(strips):
             button = QPushButton()
-            theme.set_role(button, "nav", "variant")
+            set_role(button, "nav", "variant")
             button.setCheckable(True)
             index = len(self.buttons)
             button.clicked.connect(self._clicked(index))

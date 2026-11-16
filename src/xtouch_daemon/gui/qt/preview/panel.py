@@ -27,10 +27,11 @@ from PyQt6.QtGui import QAction, QColor, QKeyEvent, QLinearGradient, QPainter, Q
 from PyQt6.QtWidgets import QMenu, QSizePolicy, QWidget
 
 from xtouch_daemon.gui.domain.looks import StripFace
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.preview.geometry import HEIGHT, MARGIN_X, MARGIN_Y, PANEL, SPACING, WIDTH, slot_position
 from xtouch_daemon.gui.qt.preview.painting import HW, PANEL_RADIUS, STRIP_RADIUS
 from xtouch_daemon.gui.qt.preview.strip_view import StripView
+from xtouch_daemon.gui.qt.theme.icons import icon
+from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.hardware import protocol
 
 MIN_SCALE = 0.5
@@ -284,20 +285,20 @@ class Preview(QWidget):
         """What can be done with a strip, the same as with its keys and on its page, for those who look here."""
         menu = QMenu(self)
         if self.strips[index].look.configured:
-            for text, icon, target, keys in (
+            for text, icon_name, target, keys in (
                 ("Move left", "chevron-left", index - 1, "Ctrl+Left"),
                 ("Move right", "chevron-right", index + 1, "Ctrl+Right"),
             ):
-                action = QAction(theme.icon(icon), f"{text}\t{keys}", menu)
+                action = QAction(icon(icon_name), f"{text}\t{keys}", menu)
                 action.setEnabled(0 <= target < protocol.STRIPS)
                 action.triggered.connect(lambda _=False, target=target: self.moved.emit(index, target))
                 menu.addAction(action)
             menu.addSeparator()
-            remove = QAction(theme.icon("delete-outline", theme.current_colors().error), "Remove\tDel", menu)
+            remove = QAction(icon("delete-outline", current_colors().error), "Remove\tDel", menu)
             remove.triggered.connect(lambda: self.remove.emit(index))
             menu.addAction(remove)
         else:
-            configure = QAction(theme.icon("plus"), f"Configure strip {index + 1}", menu)
+            configure = QAction(icon("plus"), f"Configure strip {index + 1}", menu)
             configure.triggered.connect(lambda: self.configure.emit(index))
             menu.addAction(configure)
         return menu
@@ -325,7 +326,7 @@ class Preview(QWidget):
         if self._drag is not None:
             # where the strip goes when it is let go: an empty place in the row
             place = QRectF(QPointF(slot_position(self._drag.target)), QSizeF(WIDTH, HEIGHT)).adjusted(3, 3, -3, -3)
-            accent = QColor(theme.current_colors().accent)
+            accent = QColor(current_colors().accent)
             fill = QColor(accent)
             fill.setAlpha(40)
             painter.setBrush(fill)

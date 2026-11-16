@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLayout, QLayoutItem, QLineEdit
 
 from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.sources import preset_tip
-from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields.basics import (
     CHIP_HEIGHT,
     MENU_TIP,
@@ -21,12 +20,14 @@ from xtouch_daemon.gui.qt.fields.basics import (
     suggestion_menu,
     with_presets,
 )
+from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.tokens import CONTROL_HEIGHT, Space
 
 
 class FlowLayout(QLayout):
     """Lays out its widgets in lines, like words (for the chips of a list)."""
 
-    def __init__(self, parent: QWidget | None = None, spacing: int = theme.Space.XS):
+    def __init__(self, parent: QWidget | None = None, spacing: int = Space.XS):
         super().__init__(parent)
         self._items: list[QLayoutItem] = []
         self._spacing = spacing
@@ -104,14 +105,14 @@ class Chips(QWidget):
         super().__init__()
         self._placeholder = placeholder
         self._presets = presets
-        theme.set_role(self, "chips")
+        set_role(self, "chips")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self.values: list[str] = []
         self.chips: list[QWidget] = []
         self.flow = FlowLayout(self)
         # a chip and the margins make up the height of a field, so a list lines up with the other fields
-        vertical = (theme.CONTROL_HEIGHT - 2 - CHIP_HEIGHT) // 2
-        self.flow.setContentsMargins(theme.Space.XS, vertical, theme.Space.XS, vertical)
+        vertical = (CONTROL_HEIGHT - 2 - CHIP_HEIGHT) // 2
+        self.flow.setContentsMargins(Space.XS, vertical, Space.XS, vertical)
         self.input = QLineEdit(self)
         self.input.setPlaceholderText("Add…")
         self.input.setMinimumWidth(140)
@@ -140,16 +141,16 @@ class Chips(QWidget):
 
     def _chip(self, index: int, value: str) -> QWidget:
         chip = QWidget(self)
-        theme.set_role(chip, "chip")
+        set_role(chip, "chip")
         chip.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         layout = QHBoxLayout(chip)
         chip.setFixedHeight(CHIP_HEIGHT)
-        layout.setContentsMargins(theme.Space.M - 2, 0, 2, 0)
-        layout.setSpacing(theme.Space.XS)
+        layout.setContentsMargins(Space.M - 2, 0, 2, 0)
+        layout.setSpacing(Space.XS)
         layout.addWidget(QLabel(value))
         tip = preset_tip(value, self._presets) if self._presets is not None else ""
         if tip:
-            theme.set_role(chip, "preset", "variant")
+            set_role(chip, "preset", "variant")
             chip.setToolTip(tip)
         remove = flat_button("close", f"Remove {value!r}", chip)
         remove.setFixedSize(CHIP_HEIGHT - 4, CHIP_HEIGHT - 4)
