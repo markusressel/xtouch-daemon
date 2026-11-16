@@ -66,7 +66,7 @@ Select launches only while none of the strip's applications runs. "Runs" for eac
 |---|---|
 | `apps` | a stream matches `match`, or a process whose name contains one of the `match` entries runs, or the program of `launch` runs |
 | `auto` | the strip has an application (it plays, was picked, or its hold time is not over), or the program of `launch` runs |
-| `voip` | the provider reports the voice chat (`connected`: the plugin is there, also while nobody talks), or the program of `launch` runs |
+| `voip` | the provider reports the voice chat (`connected`: the [Mumble plugin](../integrations/mumble.md) is there, also while nobody talks), or the program of `launch` runs |
 
 - Processes are matched like the `processes` rule of layouts (`layouts.process_matching()`): the names from
   `layouts.running_processes()` (the kernel's `comm` and the file name of the program, in lower case), containing
