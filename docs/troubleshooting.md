@@ -58,7 +58,7 @@ should list `WAYLAND_DISPLAY` or `DISPLAY`); most desktops import them at login.
 
 **An application lands on the wrong strip.** `xtouch-daemon list-apps` names the strip that takes it. An `apps` strip
 takes every application whose name or binary contains one of its `match` entries, so a short entry can match more than
-intended.
+intended. `check-config` shows what the [presets](configuration/presets.md) in `match` stand for.
 
 ## Configuration
 

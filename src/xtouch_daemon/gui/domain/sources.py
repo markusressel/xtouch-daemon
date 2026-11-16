@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from xtouch_daemon import presets
 from xtouch_daemon.audio.model import AudioState, Direction
 
 
@@ -11,6 +12,36 @@ class Suggestion:
     """What goes into the option."""
     detail: str
     """What it is, for people."""
+    tip: str = ""
+    """More about it, e.g. what a preset stands for."""
+
+    @property
+    def preset(self) -> bool:
+        """Whether it is a preset (`@browsers`) rather than a name."""
+        return presets.is_preset(self.value)
+
+
+def preset_tip(value: str, kind: presets.Kind) -> str:
+    """
+    What a preset in a list of the kind stands for, e.g. "Web browsers: firefox, librewolf, ...", or that it can't be
+    used there; "" for a plain name or an unknown preset.
+    """
+    preset = presets.preset_of(value)
+    if preset is None:
+        return ""
+    names = preset.names(kind)
+    if names is None:
+        return f"{preset.description}: not for {presets.WHERE[kind]}"
+    return f"{preset.description}: {', '.join(names)}" + (f"\n\n{preset.note}" if preset.note else "")
+
+
+def preset_suggestions(kind: presets.Kind) -> tuple[Suggestion, ...]:
+    """The presets that can be used in a list of the kind, with what they stand for as the tip."""
+    return tuple(
+        Suggestion(preset.entry, preset.description, preset_tip(preset.entry, kind))
+        for preset in presets.PRESETS.values()
+        if kind in preset.kinds
+    )
 
 
 def _count(number: int, thing: str) -> str:

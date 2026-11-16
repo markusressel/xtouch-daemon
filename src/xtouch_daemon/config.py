@@ -18,13 +18,15 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     Field,
+    ModelWrapValidatorHandler,
+    PrivateAttr,
     SecretStr,
     ValidationError,
     field_validator,
     model_validator,
 )
 
-from xtouch_daemon import protocol
+from xtouch_daemon import presets, protocol
 from xtouch_daemon.protocol import Color
 
 APP_NAME = "xtouch-daemon"
@@ -43,6 +45,73 @@ class _Model(BaseModel):
     # a typo in an option name is an error, not silently ignored; the docstrings of the fields are their descriptions,
     # which the GUI shows as help
     model_config = ConfigDict(extra="forbid", frozen=True, use_attribute_docstrings=True)
+
+
+def _no_blank(value: tuple[str, ...]) -> tuple[str, ...]:
+    if any(not pattern.strip() for pattern in value):
+        raise ValueError("an empty pattern would match every application")
+    return value
+
+
+@dataclass(frozen=True)
+class Presets:
+    """
+    The metadata of a list of names that may have presets (`@browsers`): what its names are matched against. The
+    list holds the expanded names; `_WithPresets.written()` has the entries as written.
+    """
+
+    kind: presets.Kind
+
+
+def _expand_streams(value: tuple[str, ...]) -> tuple[str, ...]:
+    return presets.expand(value, presets.Kind.STREAMS)
+
+
+def _expand_processes(value: tuple[str, ...]) -> tuple[str, ...]:
+    return presets.expand(value, presets.Kind.PROCESSES)
+
+
+StreamNames = Annotated[
+    tuple[str, ...], AfterValidator(_no_blank), AfterValidator(_expand_streams), Presets(presets.Kind.STREAMS)
+]
+"""Parts of the names or binaries of applications (ignoring case), and presets of them."""
+ProcessNames = Annotated[
+    tuple[str, ...], AfterValidator(_no_blank), AfterValidator(_expand_processes), Presets(presets.Kind.PROCESSES)
+]
+"""Parts of the names of processes (ignoring case), and presets of them."""
+
+
+class _WithPresets(_Model):
+    """A model with lists of names (`StreamNames`, `ProcessNames`): they keep the entries as written."""
+
+    _written: dict[str, tuple[str, ...]] = PrivateAttr(default_factory=dict)
+    """The lists with presets as written, by option; the options hold what the presets stand for."""
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _keep_written(cls, data: object, handler: ModelWrapValidatorHandler[_WithPresets]) -> _WithPresets:
+        model = handler(data)
+        if isinstance(data, Mapping):
+            for name in cls.preset_options():
+                written = data.get(name)
+                if isinstance(written, list | tuple) and any(presets.is_preset(str(entry)) for entry in written):
+                    model._written[name] = tuple(map(str, written))
+        return model
+
+    @classmethod
+    def preset_options(cls) -> dict[str, presets.Kind]:
+        """The options that are lists of names with presets, and what their names are matched against."""
+        return {
+            name: item.kind
+            for name, field in cls.model_fields.items()
+            for item in field.metadata
+            if isinstance(item, Presets)
+        }
+
+    def written(self, name: str) -> tuple[str, ...]:
+        """The entries of a list of names as written, with the presets (e.g. `@browsers`) instead of their names."""
+        written: tuple[str, ...] = self._written[name] if name in self._written else getattr(self, name)
+        return written
 
 
 @dataclass(frozen=True, eq=False)
@@ -188,7 +257,7 @@ class DeviceConfig(_Model):
     """How the strips go dark when the daemon stops."""
 
 
-class BehaviorConfig(_Model):
+class BehaviorConfig(_WithPresets):
     """How the faders, encoders, meters and `auto` strips behave."""
 
     max_volume: Annotated[int, Field(ge=100, le=VOLUME_LIMIT)] = 130
@@ -218,10 +287,10 @@ class BehaviorConfig(_Model):
     Seconds an `auto` strip keeps an application after it stopped playing, so a music player does not jump to
     another strip between two tracks.
     """
-    ignore: tuple[str, ...] = ("speech-dispatcher",)
+    ignore: StreamNames = ("speech-dispatcher",)
     """
     Applications that `auto` strips never take: parts of the name or binary, ignoring case, e.g. "notification" for
-    notification sounds.
+    notification sounds, or presets like `@games`.
     """
     collapse_hold: Annotated[float, Field(ge=0)] = 3.0
     """
@@ -477,12 +546,6 @@ class DeviceStripConfig(_StripConfig):
         return bool(self.choices)
 
 
-def _no_blank(value: tuple[str, ...]) -> tuple[str, ...]:
-    if any(not pattern.strip() for pattern in value):
-        raise ValueError("an empty pattern would match every application")
-    return value
-
-
 def _split_command(value: object) -> object:
     """A command as one string is split like a shell would (quotes), but nothing is expanded."""
     if not isinstance(value, str):
@@ -516,24 +579,27 @@ LAUNCH_WHEN_RUNNING_HELP = (
 )
 
 
-class AppsStripConfig(_StripConfig):
+class AppsStripConfig(_StripConfig, _WithPresets):
     """All streams of a group of applications, e.g. every browser."""
 
     type: Annotated[Literal["apps"], STRIP_TYPE_MEANINGS]
-    match: Annotated[tuple[str, ...], Field(min_length=1)]
+    match: Annotated[StreamNames, Field(min_length=1)]
     """
-    Parts of the names or binaries of the applications (ignoring case), see `xtouch-daemon list-apps`, e.g. "discord"
-    and "webrtc" for voice chats, ".exe" for games under Proton.
+    Parts of the names or binaries of the applications (ignoring case), see `xtouch-daemon list-apps`, e.g. "brave",
+    or presets of well-known ones, e.g. `@browsers`, `@voip`, `@games`.
     """
     label: Label
     """The top line of the LCD, e.g. "VoIP"."""
     launch: Command | None = Field(default=None, description=LAUNCH_HELP)
     launch_when_running: bool = Field(default=False, description=LAUNCH_WHEN_RUNNING_HELP)
 
-    @field_validator("match")
-    @classmethod
-    def _not_blank(cls, value: tuple[str, ...]) -> tuple[str, ...]:
-        return _no_blank(value)
+    @property
+    def process_names(self) -> tuple[str, ...]:
+        """
+        The parts of the names of the processes of the applications, whose processes count as running (`launch`): the
+        plain entries of `match`, and the processes of its presets.
+        """
+        return presets.expand_known(self.written("match"), presets.Kind.PROCESSES)
 
 
 class AutoStripConfig(_StripConfig):
@@ -825,7 +891,7 @@ LayoutLabel = Annotated[str, Field(max_length=protocol.LCD_CELL_WIDTH * protocol
 """What fits on the top lines of all LCDs: 56 characters of ASCII."""
 
 
-class LayoutConfig(_Model):
+class LayoutConfig(_WithPresets):
     """A set of strips to switch to, e.g. for games: by hand, from Home Assistant, or when an application runs."""
 
     name: Slug
@@ -835,25 +901,20 @@ class LayoutConfig(_Model):
     """
     label: LayoutLabel = ""
     """What the LCDs show when the layout comes, across the strips; by default the name."""
-    apps: tuple[str, ...] = ()
+    apps: StreamNames = ()
     """
     Switch to the layout while one of these applications has a stream (playing or paused): parts of the names or
-    binaries, ignoring case, as `match` of `apps` strips, e.g. "steam_app_" and ".exe" for games.
+    binaries, ignoring case, as `match` of `apps` strips, or presets, e.g. `@games`.
     """
-    processes: tuple[str, ...] = ()
+    processes: ProcessNames = ()
     """
     Switch to the layout while a process of one of these names runs (parts of the name, ignoring case), e.g.
-    "mumble" for the voice chat even while nobody talks.
+    "mumble" for the voice chat even while nobody talks, or presets, e.g. `@steam-games` while a game from Steam runs.
     """
     priority: int = 0
     """Of several layouts whose rules match, the one with the highest priority comes, then the first in the file."""
     strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=MAX_STRIPS)] = ()
     """Up to 8 strips from the left (more with `collapse`), as the top-level ones; missing ones are `auto`."""
-
-    @field_validator("apps", "processes")
-    @classmethod
-    def _not_blank(cls, value: tuple[str, ...]) -> tuple[str, ...]:
-        return _no_blank(value)
 
     @property
     def title(self) -> str:

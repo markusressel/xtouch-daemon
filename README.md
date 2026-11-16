@@ -64,7 +64,7 @@ color = "green"
 
 [[strip]]
 type = "apps"
-match = ["discord", "teamspeak", "mumble"]
+match = ["@voip"]   # every well-known voice chat, see the presets
 label = "VoIP"
 color = "white"
 

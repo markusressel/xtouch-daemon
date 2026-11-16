@@ -38,20 +38,20 @@ color = "green"
 
 [[strip]]
 type = "apps"
-match = ["brave", "firefox"]
+match = ["@browsers"]
 label = "Browser"
 color = "blue"
 meter = true
 
 [[strip]]
 type = "apps"
-match = ["steam", "wine", "proton", ".exe"]
+match = ["@games"]
 label = "Games"
 color = "red"
 
 [[strip]]
 type = "apps"
-match = ["discord", "webrtc", "teamspeak", "mumble"]
+match = ["@voip"]
 label = "VoIP"
 color = "yellow"
 lit_when_idle = true

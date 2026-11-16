@@ -83,13 +83,13 @@ color = "red"
 
 [[strip]]
 type = "apps"
-match = ["brave", "firefox"]
+match = ["@browsers"]
 label = "Browser"
 color = "yellow"
 
 [[strip]]
 type = "apps"
-match = ["steam", "wine", "proton", ".exe"]
+match = ["@games"]
 label = "Games"
 color = "magenta"
 

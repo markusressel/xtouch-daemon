@@ -11,7 +11,7 @@ from typing import Any, BinaryIO, assert_never
 
 import click
 
-from xtouch_daemon import __version__, instance, live, mumble, protocol, systemd
+from xtouch_daemon import __version__, instance, live, mumble, presets, protocol, systemd
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.audio.pulse import PulseBackend, SoundServerError, read_state
 from xtouch_daemon.config import (
@@ -111,7 +111,7 @@ def describe_strip(config: StripConfig, number: int) -> str:
                 ", select makes it the default" if config.select else ""
             )
         case AppsStripConfig():
-            what = "applications " + ", ".join(config.match)
+            what = "applications " + presets.describe(config.written("match"), presets.Kind.STREAMS)
         case AutoStripConfig():
             what = "the next application that plays"
         case HomeAssistantStripConfig():
@@ -176,13 +176,18 @@ def _describe_strips(strips: tuple[StripConfig, ...], inherited: tuple[str | Non
 def describe_rules(layout: LayoutConfig) -> str:
     """When the rules of a layout switch to it, e.g. ", while steam plays or mumble runs"."""
     rules = [
-        *([f"{' or '.join(layout.apps)} has a stream"] if layout.apps else []),
-        *([f"{' or '.join(layout.processes)} runs"] if layout.processes else []),
+        *([f"{_any_of(layout.written('apps'), presets.Kind.STREAMS)} has a stream"] if layout.apps else []),
+        *([f"{_any_of(layout.written('processes'), presets.Kind.PROCESSES)} runs"] if layout.processes else []),
     ]
     if not rules:
         return ""
     priority = f", priority {layout.priority}" if layout.priority else ""
     return f", while {' or '.join(rules)}{priority}"
+
+
+def _any_of(entries: tuple[str, ...], kind: presets.Kind) -> str:
+    """The entries of a rule, joined with "or", presets with what they stand for."""
+    return " or ".join(presets.describe((entry,), kind) for entry in entries)
 
 
 LAYOUT_TIMEOUT = 3.0
@@ -328,6 +333,8 @@ def list_apps(config_path: Path | None) -> None:
     for stream in state.streams:
         alias = config.aliases.get(stream.app)
         name = f"{stream.app} (shown as {alias!r})" if alias else stream.app
+        groups = presets.matching_stream(stream.app, stream.binary)
+        name += f" ({', '.join(groups)})" if groups else ""
         paused = ", paused" if stream.corked else ""
         click.echo(f"  {name}  binary: {stream.binary or '-'}, {stream.volume}%{paused}")
         click.echo(f"      goes to {strip_for(stream.matches, config)}")

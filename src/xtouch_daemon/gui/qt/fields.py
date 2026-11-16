@@ -33,9 +33,10 @@ from PyQt6.QtWidgets import (
 
 from xtouch_daemon.config import Problem
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
-from xtouch_daemon.gui.domain.sources import Suggestion
+from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions, preset_tip
 from xtouch_daemon.gui.domain.status import Status
 from xtouch_daemon.gui.qt import theme
+from xtouch_daemon.presets import Kind as PresetKind
 
 type Suggest = Callable[[], tuple[Suggestion, ...]]
 """What the sound server has now for an option, asked for every time it is needed."""
@@ -118,11 +119,25 @@ def completer(edit: QLineEdit, suggest: Suggest) -> QCompleter:
     return result
 
 
-def suggestion_menu(parent: QWidget, suggest: Suggest, pick: Callable[[str], None], empty: str) -> QToolButton:
-    """A button with a menu of what the sound server has now; picking one calls `pick` with its value."""
-    button = flat_button("menu-down", "Pick from what the sound server has now", parent)
+MENU_TIP = "Pick from what the sound server has now"
+PRESETS_MENU_TIP = "Pick a preset, or from what the sound server has now"
+
+
+def suggestion_menu(
+    parent: QWidget,
+    suggest: Suggest,
+    pick: Callable[[str], None],
+    empty: str,
+    tip: str = MENU_TIP,
+) -> QToolButton:
+    """
+    A button with a menu of what the sound server has now; picking one calls `pick` with its value. Presets come
+    first, under a heading of their own, with what they stand for as their tooltips.
+    """
+    button = flat_button("menu-down", tip, parent)
     button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
     menu = QMenu(button)
+    menu.setToolTipsVisible(True)
     button.setMenu(menu)
 
     def fill() -> None:
@@ -132,14 +147,25 @@ def suggestion_menu(parent: QWidget, suggest: Suggest, pick: Callable[[str], Non
             action = QAction(empty, menu)
             action.setEnabled(False)
             menu.addAction(action)
-        for suggestion in suggestions:
-            text = f"{suggestion.value}    {suggestion.detail}" if suggestion.detail else suggestion.value
-            action = QAction(text, menu)
-            action.triggered.connect(lambda _=False, value=suggestion.value: pick(value))
-            menu.addAction(action)
+        named = [suggestion for suggestion in suggestions if suggestion.preset]
+        others = [suggestion for suggestion in suggestions if not suggestion.preset]
+        for heading, group in (("Presets", named), ("Names", others)):
+            if named and group:
+                menu.addSection(heading)
+            for suggestion in group:
+                text = f"{suggestion.value}    {suggestion.detail}" if suggestion.detail else suggestion.value
+                action = QAction(text, menu)
+                action.setToolTip(suggestion.tip or text)
+                action.triggered.connect(lambda _=False, value=suggestion.value: pick(value))
+                menu.addAction(action)
 
     menu.aboutToShow.connect(fill)
     return button
+
+
+def with_presets(kind: PresetKind, suggest: Suggest | None) -> Suggest:
+    """The presets of a list of names of the kind, and then the suggestions of the sound server."""
+    return lambda: preset_suggestions(kind) + (suggest() if suggest is not None else ())
 
 
 class Switch(QAbstractButton):
@@ -361,11 +387,20 @@ class Chips(QWidget):
     changed = pyqtSignal(list, arguments=["values"])
 
     def __init__(
-        self, suggest: Suggest | None, placeholder: Callable[[], str] | None = None, nothing: str = NO_SUGGESTIONS
+        self,
+        suggest: Suggest | None,
+        placeholder: Callable[[], str] | None = None,
+        nothing: str = NO_SUGGESTIONS,
+        presets: PresetKind | None = None,
     ):
-        """`placeholder` says what no value at all means, `nothing` what the suggestions say without any."""
+        """
+        `placeholder` says what no value at all means, `nothing` what the suggestions say without any. With `presets`
+        the list may have presets of the kind: they are suggested first, and their chips look different and tell what
+        they stand for.
+        """
         super().__init__()
         self._placeholder = placeholder
+        self._presets = presets
         theme.set_role(self, "chips")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self.values: list[str] = []
@@ -379,9 +414,12 @@ class Chips(QWidget):
         self.input.setMinimumWidth(140)
         self.input.returnPressed.connect(lambda: self.add(self.input.text().strip()))
         self.flow.addWidget(self.input)
+        if presets is not None:
+            suggest = with_presets(presets, suggest)
         if suggest is not None:
             completer(self.input, suggest).activated.connect(self.add)
-            self.flow.addWidget(suggestion_menu(self, suggest, self.add, nothing))
+            tip = PRESETS_MENU_TIP if presets is not None else MENU_TIP
+            self.flow.addWidget(suggestion_menu(self, suggest, self.add, nothing, tip))
 
     def show_values(self, values: list[str]) -> None:
         if values != self.values:
@@ -406,6 +444,10 @@ class Chips(QWidget):
         layout.setContentsMargins(theme.Space.M - 2, 0, 2, 0)
         layout.setSpacing(theme.Space.XS)
         layout.addWidget(QLabel(value))
+        tip = preset_tip(value, self._presets) if self._presets is not None else ""
+        if tip:
+            theme.set_role(chip, "preset", "variant")
+            chip.setToolTip(tip)
         remove = flat_button("close", f"Remove {value!r}", chip)
         remove.setFixedSize(CHIP_HEIGHT - 4, CHIP_HEIGHT - 4)
         remove.setIconSize(QSize(14, 14))
@@ -638,6 +680,7 @@ class OptionRow(QWidget):
                     None if isinstance(suggest, Mapping) else suggest,
                     self._placeholder,
                     NO_SUGGESTIONS_OF.get(option.name, NO_SUGGESTIONS),
+                    option.presets,
                 )
                 self.chips.changed.connect(self._edit)
                 self.input = self.chips

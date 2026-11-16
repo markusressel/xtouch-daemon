@@ -612,3 +612,21 @@ def test_a_strip_without_streams_or_application_is_absent(surface: RecordingSurf
     strip.assign("WEBRTC VoiceEngine")
     assert not strip.absent(state())
     assert strip.title == "Discord"
+
+
+async def test_the_processes_of_the_presets_of_a_group_count_as_running(
+    surface: RecordingSurface, env: StripEnv
+) -> None:
+    # a game from Steam that makes no sound: Steam's reaper runs, the `.exe` of the streams is no process name
+    config = AppsStripConfig(type="apps", match=("@steam-games",), label="Game", launch=("steam",))
+    running, launcher = launching_env(env, "reaper")
+    strip = build_strip(config, surface.strips[0], running, {})
+    strip.update(state())
+    press_select(strip)
+    assert launcher.spawned == []
+
+    idle, launcher = launching_env(env, "explorer.exe", "steamwebhelper")
+    strip = build_strip(config, surface.strips[1], idle, {})
+    strip.update(state())
+    press_select(strip)
+    assert len(launcher.spawned) == 1

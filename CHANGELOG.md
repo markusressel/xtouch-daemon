@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Presets: named groups of well-known applications for the lists that match applications by name, e.g.
+  `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
+  `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` strips, `apps` and `processes` of layouts
+  and `behavior.ignore`, each with the names of the streams or of the processes of its applications (e.g. Steam's
+  `reaper` for `@steam-games` in `processes`). An unknown preset, or one in a list it is not for, is an error that says
+  what fits. `check-config` shows what each one stands for, `list-apps` the presets of each application that plays
+  (`Brave (@browsers)`), and the GUI suggests the presets that fit a list, with what they stand for as the tooltip.
+  See the new page Presets.
 - `choices` on `output` and `input` strips: one strip for several devices used one at a time, each maybe in a
   profile of its sound card (`card`, `profile`), with a label and a volume range of its own. Select goes to the next
   one that is there: it switches the card's profile first if needed, then makes the device the default; the label

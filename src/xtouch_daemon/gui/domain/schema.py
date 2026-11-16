@@ -16,7 +16,8 @@ from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from xtouch_daemon.config import ENCODERS, STRIP_MODELS, ColorName, Config, Meanings
+from xtouch_daemon.config import ENCODERS, STRIP_MODELS, ColorName, Config, Meanings, Presets
+from xtouch_daemon.presets import Kind as PresetKind
 
 
 class Kind(StrEnum):
@@ -59,6 +60,8 @@ class Option:
     """What the choices mean (`Meanings` of the option), as pairs of the value and its meaning."""
     whole_numbers: bool = False
     """Whether a text of digits alone is a whole number (e.g. `strip = 3`), any other one a name."""
+    presets: PresetKind | None = None
+    """For a list of names that may have presets (`@browsers`): what its names are matched against."""
 
     @property
     def title(self) -> str:
@@ -155,6 +158,8 @@ def option(name: str, field: FieldInfo) -> Option:
                 bounds["whole_numbers"] = True
             case Meanings(meanings=meanings):
                 bounds["meanings"] = tuple(meanings.items())
+            case Presets(kind=preset_kind):
+                bounds["presets"] = preset_kind
             case annotated_types.Ge(ge=value):
                 bounds["minimum"] = value
             case annotated_types.Le(le=value):

@@ -200,7 +200,8 @@ The GUI reads the sound server and suggests what it has:
 |---|---|
 | `device` | The outputs or inputs by node name, with their descriptions; the default is marked. |
 | `profiles` | The profiles of the sound cards of those devices; the active one is marked. |
-| `match`, `behavior.ignore` | The names and binaries of the applications that play. |
+| `match`, `behavior.ignore`, `apps` of a layout | The [presets](configuration/presets.md) (`@browsers`, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined. |
+| `processes` of a layout | The presets for processes. |
 | `[aliases]` | The names of the applications that play. |
 | `person` of a `voip` strip | The people in the voice chat now, as the running daemon tells them. |
 

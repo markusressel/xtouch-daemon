@@ -88,7 +88,7 @@ color = "green"
 
 [[strip]]
 type = "apps"
-match = ["discord", "teamspeak", "mumble"]
+match = ["@voip"]   # Discord, Mumble, TeamSpeak and more, see Presets
 label = "VoIP"
 color = "white"
 

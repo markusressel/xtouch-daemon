@@ -25,6 +25,7 @@ nav = [
     { "Strips" = "configuration/strips.md" },
     { "Devices" = "configuration/devices.md" },
     { "Applications" = "configuration/applications.md" },
+    { "Presets" = "configuration/presets.md" },
     { "Encoders" = "configuration/encoders.md" },
     { "LEDs" = "configuration/indicators.md" },
     { "Layouts" = "configuration/layouts.md" },
@@ -40,6 +41,7 @@ nav = [
   { "Design: layouts" = "design/layouts.md" },
   { "Design: launching applications" = "design/launch.md" },
   { "Design: choices and collapsing strips" = "design/dynamic-strips.md" },
+  { "Design: presets" = "design/presets.md" },
   { "Changelog" = "https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" },
 ]
 

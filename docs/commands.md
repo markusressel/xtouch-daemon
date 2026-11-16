@@ -102,9 +102,10 @@ Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa
 xtouch-daemon list-apps [-c FILE]
 ```
 
-Lists the applications that play now: their names (and aliases), binaries and volumes, and which strip takes each
-one: an `apps` strip, an `auto` strip, "ignored" (`behavior.ignore`) or no strip. Use the names and binaries for
-`match`, `ignore` and `[aliases]`.
+Lists the applications that play now: their names (and aliases), the [presets](configuration/presets.md) they are
+part of (e.g. `Brave (@browsers)`), binaries and volumes, and which strip takes each one: an `apps` strip, an `auto`
+strip, "ignored" (`behavior.ignore`) or no strip. Use the names and binaries, or the presets, for `match`, `ignore`
+and `[aliases]`.
 
 ## `test`
 

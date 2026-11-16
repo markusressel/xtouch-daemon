@@ -53,6 +53,7 @@ from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, MumbleInstaller,
 from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import MqttState, Snapshot, StripState, VoipState
+from xtouch_daemon.presets import Kind as PresetKind
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, unit_file, unit_path
 
 CONFIG = """\
@@ -1480,8 +1481,7 @@ def test_suggestions_come_from_the_sound_server(qtbot: QtBot, window: MainWindow
 
 def test_an_empty_suggestion_list_says_so(make_window: MakeWindow):
     window = make_window(lambda: AudioState())
-    window.select(1)
-    menu_button = next(button for button in row(window, "match").findChildren(QToolButton) if button.menu())
+    menu_button = next(button for button in row(window, "device").findChildren(QToolButton) if button.menu())
     menu = menu_button.menu()
     assert menu is not None
     menu.aboutToShow.emit()
@@ -1489,6 +1489,48 @@ def test_an_empty_suggestion_list_says_so(make_window: MakeWindow):
     (action,) = menu.actions()
     assert action.text() == "The sound server has none right now"
     assert not action.isEnabled()
+
+
+def test_a_list_of_applications_suggests_presets_first(window: MainWindow):
+    window.select(1)
+    match = row(window, "match")
+    menu_button = next(button for button in match.findChildren(QToolButton) if button.menu())
+    assert menu_button.toolTip() == "Pick a preset, or from what the sound server has now"
+    menu = menu_button.menu()
+    assert menu is not None
+    menu.aboutToShow.emit()
+
+    actions = menu.actions()
+    assert [action.text() for action in actions if action.isSeparator()] == ["Presets", "Names"]
+    browsers = next(action for action in actions if action.text().startswith("@browsers"))
+    assert browsers.text() == "@browsers    Web browsers"
+    assert browsers.toolTip().startswith("Web browsers: firefox, librewolf, ")
+    named = actions[[action.text() for action in actions].index("Names") + 1]
+    # a name of the sound server: the tip is the text
+    assert named.toolTip() == named.text()
+
+    browsers.trigger()
+    assert window.document.get(("strip", 1, "match")) == ["brave", "@browsers"]
+    chip = match.chips.chips[1]
+    assert chip.property("variant") == "preset"
+    assert chip.toolTip().startswith("Web browsers: firefox")
+    assert match.chips.chips[0].property("variant") is None
+
+
+def test_a_list_of_processes_suggests_the_presets_for_processes(qtbot: QtBot):
+    chips = Chips(None, presets=PresetKind.PROCESSES)
+    qtbot.addWidget(chips)
+    chips.show_values(["@browsers", "@nope", "steam"])
+
+    # the presets, though the sound server has nothing for processes
+    assert chips.input.completer() is not None
+    assert (
+        chips.chips[0]
+        .toolTip()
+        .startswith("Web browsers: firefox, librewolf, floorp, waterfox, zen-bin, chromium, brave")
+    )
+    # an unknown preset and a name are plain chips: validation tells what is wrong
+    assert [chip.property("variant") for chip in chips.chips[1:]] == [None, None]
 
 
 def test_typing_completes_from_the_sound_server(qtbot: QtBot, window: MainWindow):

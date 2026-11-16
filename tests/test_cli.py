@@ -213,9 +213,9 @@ def test_list_apps_tells_which_strip_takes_each_application() -> None:
     lines = invoke("list-apps").output.splitlines()
 
     assert lines == [
-        "  Brave  binary: brave, 100%",
+        "  Brave (@browsers)  binary: brave, 100%",
         "      goes to strip 3 (Browser)",
-        "  WEBRTC VoiceEngine (shown as 'Discord')  binary: Discord, 60%, paused",
+        "  WEBRTC VoiceEngine (shown as 'Discord') (@voip)  binary: Discord, 60%, paused",
         "      goes to an auto strip",
         "  speech-dispatcher-espeak  binary: -, 100%",
         "      goes to ignored",
@@ -808,3 +808,19 @@ def test_check_config_describes_choices_and_strips_that_collapse(tmp_path: Path)
     assert "encoder: balance, collapses)" in output
     assert "  9. a participant of the voice chat, in the group (white, talking: green, collapses)" in output
     assert "  The device shows the first 8 of them that don't collapse." in output
+
+
+def test_check_config_shows_what_presets_stand_for(tmp_path: Path) -> None:
+    path = tmp_path / "presets.toml"
+    path.write_text(
+        '[[strip]]\ntype = "apps"\nmatch = ["@video", "netflix"]\nlabel = "Video"\n'
+        '[[layout]]\nname = "gaming"\napps = ["@steam-games", "minecraft"]\nprocesses = ["@steam-games"]\n'
+    )
+    lines = invoke("check-config", "-c", str(path)).output.splitlines()
+    assert lines[1].startswith(
+        "  1. 'Video' applications @video (vlc, mpv, celluloid, totem, kodi, haruna, clapper, mplayer), netflix ("
+    )
+    assert (
+        "Layout gaming, while @steam-games (steam_app_, .exe, wine-preloader, wine64-preloader) or minecraft has a "
+        "stream or @steam-games (reaper) runs:" in lines
+    )

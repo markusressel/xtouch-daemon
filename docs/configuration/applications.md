@@ -10,7 +10,7 @@ All playback streams of a group of applications.
 | Option | Default | Meaning |
 |---|---|---|
 | `type` | required | `"apps"`. |
-| `match` | required | Parts of application names or binaries, ignoring case. |
+| `match` | required | Parts of application names or binaries, ignoring case, or [presets](presets.md) like `"@browsers"`. |
 | `label` | required | The top line of the LCD. |
 | `encoder` | `"media"` | `media`, `volume`, `balance` or `homeassistant`, see [Encoders](encoders.md). |
 | `launch` | none | A command that Select starts while none of the applications runs, see [Launching the application](#launching-the-application). |
@@ -22,7 +22,7 @@ They also have the [options of every audio strip](strips.md#options-of-every-aud
 ```toml
 [[strip]]
 type = "apps"
-match = ["discord", "webrtc", "teamspeak", "mumble"]
+match = ["@voip"]
 label = "VoIP"
 color = "white"
 ```
@@ -31,6 +31,10 @@ A stream belongs to the strip when its application name (`application.name`) or 
 (`application.process.binary`) contains one of the `match` entries. `"wine"` matches `wine64-preloader`, `".exe"`
 matches Windows games under Proton. `xtouch-daemon list-apps` shows the names and binaries of the applications that
 play, and which strip takes each one. A stream can belong to several `apps` strips.
+
+For common groups there are [presets](presets.md): `@browsers`, `@voip`, `@games`, `@steam-games`, `@music` and
+`@video` stand for the names of well-known applications of the group, e.g. `match = ["@browsers"]` for every browser,
+and mix with names of your own (`match = ["@voip", "my-voice-app"]`).
 
 | Element | Function |
 |---|---|
@@ -88,7 +92,7 @@ while it does not run: the voice chat, the music player.
 ```toml
 [[strip]]
 type = "apps"
-match = ["discord", "webrtc", "teamspeak", "ts3client", "signal", "mumble"]
+match = ["@voip"]
 label = "VoIP"
 color = "yellow"
 lit_when_idle = true
@@ -100,7 +104,8 @@ launch = ["mumble", "mumble://markus@voice.example.org/Gaming"]
   shell splits it, with quotes, but nothing is expanded.
 - Select starts it only while none of the strip's applications runs:
     - `apps`: no stream matches `match`, and no process whose name contains one of the `match` entries runs (like the
-      [`processes` rule](layouts.md#rules)), so a silent voice chat counts as running.
+      [`processes` rule](layouts.md#rules)), so a silent voice chat counts as running. For a [preset](presets.md),
+      its processes count, e.g. Steam's `reaper` for `@steam-games`.
     - `auto`: the strip has no application.
     - `voip`: the [voice chat](layouts.md#voice-chat) is not there (its plugin does not report).
     - On all of them, a process named like the program of `launch` (the file name of its first part, exactly) counts

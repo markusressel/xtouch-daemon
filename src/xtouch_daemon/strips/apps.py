@@ -157,7 +157,10 @@ class AppStrip(VolumeStrip):
 
 
 class AppGroupStrip(AppStrip):
-    """The streams of the applications whose name or binary contains one of `patterns` (ignoring case)."""
+    """
+    The streams of the applications whose name or binary contains one of `patterns` (ignoring case). `processes` are
+    the parts of the names of their processes (by default `patterns`), which count as the applications running.
+    """
 
     def __init__(
         self,
@@ -172,21 +175,23 @@ class AppGroupStrip(AppStrip):
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
+        processes: tuple[str, ...] | None = None,
     ):
         super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder, controls)
         self.patterns = patterns
+        self.processes = patterns if processes is None else processes
 
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
         return state.streams_matching(self.patterns)
 
     def runs(self, state: AudioState) -> bool:
         """
-        An application of the group has a stream, or a process whose name contains one of the patterns runs (like the
+        An application of the group has a stream, or a process whose name contains one of `processes` runs (like the
         `processes` rule of a layout), or the program of `launch`: a silent voice chat runs too.
         """
         return (
             bool(self.streams_in(state))
-            or process_matching(self.patterns, self.env.processes()) is not None
+            or process_matching(self.processes, self.env.processes()) is not None
             or super().runs(state)
         )
 

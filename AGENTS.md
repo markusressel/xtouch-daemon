@@ -18,6 +18,7 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 | `src/xtouch_daemon/daemon.py` | Lifecycle: signals, reload, shutdown, sd_notify. |
 | `src/xtouch_daemon/instance.py`, `live.py` | The running daemon for the GUI: its runtime file, and the live view of the device over a Unix socket. |
 | `src/xtouch_daemon/config.py`, `config.example.toml` | pydantic configuration and the example file. |
+| `src/xtouch_daemon/presets.py` | The presets (`@browsers`, ...) for lists of application and process names; `docs/configuration/presets.md` has their table, kept in line by a test. |
 | `src/xtouch_daemon/cli.py`, `selftest.py`, `systemd.py` | CLI, device self-test, systemd integration (incl. controlling the user service). |
 | `src/xtouch_daemon/voip/`, `layouts.py` | VoIP providers (`bridge` socket for plugins, `demo`), layout switching and rules. |
 | `src/xtouch_daemon/mumble.py`, `integrations/mumble/` | The Mumble plugin (C, CMake, vendored `MumblePlugin.h`) and finding, building and installing its bundle. `test/fake_mumble.c` is the host `tests/test_mumble_plugin.py` loads it into. |

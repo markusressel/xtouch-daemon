@@ -3,7 +3,14 @@ from typing import Annotated, Literal
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
-from xtouch_daemon.config import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
+from xtouch_daemon.config import (
+    BehaviorConfig,
+    DeviceConfig,
+    LayoutConfig,
+    MqttConfig,
+    SwitchingConfig,
+    VoipConfig,
+)
 from xtouch_daemon.gui.domain.schema import (
     STRIP_OPTION_ORDER,
     Kind,
@@ -16,6 +23,11 @@ from xtouch_daemon.gui.domain.schema import (
     strip_options,
     strip_type_help,
 )
+from xtouch_daemon.presets import Kind as PresetKind
+
+
+def strip_option(strip_type: str, name: str) -> Option:
+    return next(item for item in strip_options(strip_type) if item.name == name)
 
 
 def test_options_come_from_the_models_with_bounds_defaults_and_help():
@@ -234,3 +246,13 @@ def test_the_default_for_people():
     assert describe(False) == "off"
     assert describe(()) == "none"
     assert describe(None) == "not set"
+
+
+def test_lists_of_names_say_which_presets_they_take():
+    assert strip_option("apps", "match").presets == PresetKind.STREAMS
+    assert next(item for item in options(BehaviorConfig) if item.name == "ignore").presets == PresetKind.STREAMS
+    layout = {item.name: item for item in options(LayoutConfig, skip=("strips",))}
+    assert layout["apps"].presets == PresetKind.STREAMS
+    assert layout["processes"].presets == PresetKind.PROCESSES
+    assert layout["processes"].kind == Kind.LIST
+    assert strip_option("output", "device").presets is None

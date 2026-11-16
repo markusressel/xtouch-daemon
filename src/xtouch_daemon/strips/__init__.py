@@ -123,6 +123,7 @@ def build_strip(
                 config.max_volume,
                 encoder,
                 controls,
+                config.process_names,
             )
         case AutoStripConfig():
             controller = AutoStrip(

@@ -35,7 +35,8 @@ collapse_hold = 3         # seconds a strip with `collapse` stays after it has n
 # type = "output"   an output: `device` (a node name from `xtouch-daemon list-devices`), or the default output
 #                   (or several: device = ["bluez_output.*"], Select switches between those connected)
 # type = "input"    an input, the same way
-# type = "apps"     the streams of applications: match = ["firefox", "brave"] (parts of the name or binary)
+# type = "apps"     the streams of applications: match = ["firefox", "brave"] (parts of the name or binary), or
+#                   presets of well-known ones: match = ["@browsers"] (also @voip, @games, @steam-games, @music, @video)
 # type = "auto"     the next application that plays and has no strip of its own
 # type = "homeassistant"   a strip for Home Assistant automations (needs [mqtt], see docs/home-assistant.md):
 #                   its fader, encoder, meter, LCD, LEDs and buttons are entities there; id = "living_room" names them
@@ -65,7 +66,7 @@ collapse_hold = 3         # seconds a strip with `collapse` stays after it has n
 #
 # [[strip]]
 # type = "apps"
-# match = ["discord", "teamspeak", "mumble"]
+# match = ["@voip"]                   # Discord, Mumble, TeamSpeak, Signal, ... (`xtouch-daemon check-config` lists them)
 # label = "VoIP"
 # color = "green"
 # launch = ["mumble", "mumble://me@voice.example.org/Gaming"]   # Select starts Mumble and joins the channel
@@ -161,17 +162,17 @@ color = "white"
 # [[layout]]
 # name = "gaming"
 # label = "Gaming"
-# apps = ["steam_app_", ".exe"]       # while a game has a stream
+# processes = ["@steam-games"]        # while a game from Steam runs
 #
 # [[layout.strip]]
 # type = "apps"
 # label = "Game"
-# match = ["steam_app_", ".exe"]
+# match = ["@games"]
 #
 # [[layout.strip]]
 # type = "apps"
 # label = "VoIP"
-# match = ["mumble"]
+# match = ["@voip"]
 #
 # [[layout.strip]]
 # type = "inherit"                    # strip 3 of the default layout

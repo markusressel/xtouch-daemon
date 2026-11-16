@@ -16,17 +16,17 @@ label = "Mic"
 [[layout]]
 name = "gaming"
 label = "Gaming"
-apps = ["steam_app_", ".exe"]   # while a game plays, see Rules
+processes = ["@steam-games"]    # while a game from Steam runs, see Rules
 
 [[layout.strip]]
 type = "apps"
 label = "Game"
-match = ["steam_app_", ".exe"]
+match = ["@games"]
 
 [[layout.strip]]
 type = "apps"
 label = "VoIP"
-match = ["mumble"]
+match = ["@voip"]
 
 [[layout.strip]]
 type = "inherit"    # the Mic of the default layout
@@ -90,11 +90,14 @@ When a layout comes, the strips change at once, like after a reload, and the LCD
 - `processes`: while a process of one of these names runs (parts of the name, ignoring case), e.g. `"mumble"` for
   the voice chat even while nobody talks. Kernel threads don't count.
 
-For games from Steam, `processes = ["reaper"]` matches while any game runs, native or with Proton: Steam starts
-every game through its `reaper` process. Proton games play as `<Game>.exe` (e.g. "Planet Crafter.exe"), which
-`apps = [".exe"]` catches once they make a sound. Don't use `steam` (the client runs all the time) or `.exe` in
-`processes` (Wine's helpers, like `explorer.exe`, run for other Windows programs too). `ps -eo comm,args` while a
-game runs shows the names to use for others, e.g. from Lutris or Heroic.
+Both take [presets](presets.md), e.g. `processes = ["@steam-games"]` or `apps = ["@voip"]`. A preset stands for
+other names in each: in `processes` the names of the processes, in `apps` those of the streams.
+
+For games from Steam, `processes = ["@steam-games"]` matches while any game runs, native or with Proton: Steam starts
+every game through its `reaper` process, which is what the preset stands for. Proton games play as `<Game>.exe` (e.g.
+"Planet Crafter.exe"), which `apps = ["@games"]` catches once they make a sound. Don't use `steam` (the client runs
+all the time) or `.exe` in `processes` (Wine's helpers, like `explorer.exe`, run for other Windows programs too).
+`ps -eo comm,args` while a game runs shows the names to use for others.
 
 If several layouts match, the one with the highest `priority` comes, then the first one in the file. When none
 matches any more, the `default` layout comes back, after `hold` seconds.

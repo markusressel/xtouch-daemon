@@ -1,4 +1,7 @@
+import pytest
+
 from tests.conftest import output, source, stream
+from xtouch_daemon import presets
 from xtouch_daemon.audio.model import AudioState, Card, Direction, Profile
 from xtouch_daemon.gui.domain.sources import (
     Suggestion,
@@ -7,9 +10,13 @@ from xtouch_daemon.gui.domain.sources import (
     cards,
     devices,
     patterns,
+    preset_suggestions,
+    preset_tip,
     profiles,
     summary,
 )
+from xtouch_daemon.presets import PRESETS, Preset
+from xtouch_daemon.presets import Kind as PresetKind
 
 STATE = AudioState(
     outputs=(output("speaker"), output("buds")),
@@ -83,3 +90,24 @@ def test_cards_and_their_profiles_for_choices():
     # by its description too
     assert card_profiles(state, "HD*") == (Suggestion("analog", "Analog (active)"), Suggestion("digital", "Digital"))
     assert card_profiles(state, "") == card_profiles(state, "gone") == ()
+
+
+def test_the_presets_of_a_kind_of_list_with_what_they_stand_for():
+    suggestions = preset_suggestions(PresetKind.PROCESSES)
+    assert [suggestion.value for suggestion in suggestions] == [f"@{name}" for name in PRESETS]
+    steam = next(suggestion for suggestion in suggestions if suggestion.value == "@steam-games")
+    assert steam.detail == "Games started from Steam"
+    assert steam.tip.startswith("Games started from Steam: reaper\n\nSteam starts every game through its `reaper`")
+    assert steam.preset
+    assert not Suggestion("brave", "").preset
+    assert preset_tip("@video", PresetKind.STREAMS) == (
+        "Video players: vlc, mpv, celluloid, totem, kodi, haruna, clapper, mplayer"
+    )
+
+
+def test_a_tip_for_names_and_presets_that_do_not_fit(monkeypatch: pytest.MonkeyPatch):
+    assert preset_tip("brave", PresetKind.STREAMS) == ""
+    assert preset_tip("@nope", PresetKind.STREAMS) == ""
+    monkeypatch.setattr(presets, "PRESETS", {"toys": Preset("toys", "Toys", streams=("rattle",))})
+    assert preset_tip("@toys", PresetKind.PROCESSES) == "Toys: not for `processes` of layouts"
+    assert preset_suggestions(PresetKind.PROCESSES) == ()

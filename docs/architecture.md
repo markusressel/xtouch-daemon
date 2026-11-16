@@ -45,6 +45,7 @@ graph LR
 | `instance.py` | The running daemon for other processes: its runtime file (process, configuration file) and where its live view is served. |
 | `live.py` | `LiveServer`: what the device shows right now, for the GUI, over a Unix socket. See [Live view](#live-view). |
 | `config.py` | The TOML configuration, validated with pydantic. |
+| `presets.py` | The presets (`@browsers`, `@steam-games`, ...): named groups of applications for the lists that match them by name, expanded when the configuration is validated. See [Design: presets](design/presets.md). |
 | `cli.py`, `selftest.py`, `systemd.py` | The command line, the device self-test, systemd integration (notify, journal log levels, the unit file, controlling the user service). |
 | `gui/domain/` | The configuration editor without a toolkit: the editable document, the options of the models, the look of the strips, suggestions from the sound server, applying a saved file. See [GUI](#gui). |
 | `gui/qt/` | The widgets of `xtouch-daemon gui` (the `gui` extra). |
@@ -146,7 +147,8 @@ itself does not import it.
 - **Forms from the models.** `schema.py` reads the options of every section and strip type from the pydantic models:
   the type picks the widget (switch, number, choice, color swatches, list chips, masked secret, file), the attribute
   docstrings become the help, `Field` constraints the ranges, and `Meanings` next to a choice (`config.py`, e.g.
-  `INDICATORS`) say what each value does. A new option or strip type needs no GUI code; a test fails for an option
+  `INDICATORS`) say what each value does; `Presets` on a list of names (`StreamNames`, `ProcessNames`) makes it
+  suggest the presets of its kind. A new option or strip type needs no GUI code; a test fails for an option
   without help or a value without a meaning. `gui/domain/docs.py` holds the "Learn more" links into this site, and a
   test checks each against the headings of `docs/`.
 - **The comments stay.** Saving edits the TOML document with tomlkit: unchanged values keep their place and their
