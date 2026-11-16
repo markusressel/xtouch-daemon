@@ -401,10 +401,27 @@ class ConfigDocument:
             self.add_strip("auto")
 
     def remove_strip(self, index: int) -> None:
+        """
+        Removes a strip from its place, which becomes an `auto` strip (what a place without a strip is): the strips
+        after it stay where they are. The last one goes, and so do `auto` strips without options it leaves at the end.
+        """
+        if index < len(self.strips) - 1:
+            self.strips[index] = StripDraft({"type": "auto"})
+            return
         del self.strips[index]
+        self._trim()
 
     def move_strip(self, index: int, to: int) -> None:
+        """Moves a strip to another place, also to one after the last strip: the places in between are `auto` strips."""
+        while len(self.strips) <= to:
+            self.strips.append(StripDraft({"type": "auto"}))
         self.strips.insert(to, self.strips.pop(index))
+        self._trim()
+
+    def _trim(self) -> None:
+        """Drops the `auto` strips without options at the end: a place without a strip is one."""
+        while self.strips and self.strips[-1].values == {"type": "auto"} and not self.strips[-1].kept:
+            self.strips.pop()
 
     def set_strip_type(self, index: int, strip_type: str) -> None:
         """

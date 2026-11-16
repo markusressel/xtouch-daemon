@@ -454,11 +454,6 @@ class Preview(QWidget):
             view.update()
 
     @property
-    def configured(self) -> int:
-        """How many strips are configured: only those move, and only among each other."""
-        return sum(view.look.configured for view in self.strips)
-
-    @property
     def dragging(self) -> bool:
         return self._drag is not None
 
@@ -505,7 +500,7 @@ class Preview(QWidget):
         left = max(MARGIN_X, min(panel_x - drag.grab, slot_position(protocol.STRIPS - 1).x()))
         view.move(self.to_widget(QPointF(left, MARGIN_Y - LIFT)))
         nearest = round((left - MARGIN_X) / (WIDTH + SPACING))
-        target = max(0, min(nearest, self.configured - 1))
+        target = max(0, min(nearest, protocol.STRIPS - 1))
         if target != drag.target:
             drag.target = target
             self._arrange(drag.source, target)
@@ -586,7 +581,7 @@ class Preview(QWidget):
         if not 0 <= target < protocol.STRIPS:
             return True
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            if self.strips[index].look.configured and target < self.configured:
+            if self.strips[index].look.configured:
                 self.moved.emit(index, target)
                 self.strips[target].setFocus()
             return True
@@ -606,7 +601,7 @@ class Preview(QWidget):
                 ("Move right", "chevron-right", index + 1, "Ctrl+Right"),
             ):
                 action = QAction(theme.icon(icon), f"{text}\t{keys}", menu)
-                action.setEnabled(0 <= target < self.configured)
+                action.setEnabled(0 <= target < protocol.STRIPS)
                 action.triggered.connect(lambda _=False, target=target: self.moved.emit(index, target))
                 menu.addAction(action)
             menu.addSeparator()

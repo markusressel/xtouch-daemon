@@ -531,7 +531,9 @@ class StripPage(Page):
             header.addWidget(move)
             self.moves.append((move, step))
         self.remove_button = button("delete-outline", "Remove", "error", "danger")
-        self.remove_button.setToolTip("Remove the strip: the strips right of it move left, free places are auto strips")
+        self.remove_button.setToolTip(
+            "Remove the strip: its place becomes an auto strip, the other strips stay where they are"
+        )
         self.remove_button.clicked.connect(lambda: self.editor.remove_strip(self.index))
         header.addWidget(self.remove_button)
         self.layout_.addWidget(row(header))
@@ -591,7 +593,7 @@ class StripPage(Page):
         set_text(self.hint, f"These options apply to strip {index + 1} alone.")
         for move, step in self.moves:
             move.setVisible(self.configured)
-            move.setEnabled(0 <= index + step < len(self.document.strips))
+            move.setEnabled(0 <= index + step < max(len(self.document.strips), protocol.STRIPS))
         self.remove_button.setVisible(self.configured)
         if not self.configured:
             set_text(

@@ -137,23 +137,37 @@ def test_a_moved_strip_takes_its_comments_along():
 
 def test_strips_can_be_added_and_removed():
     doc = document()
+    # its place becomes an auto strip: the strips after it stay where they are
     doc.remove_strip(1)
-    assert doc.add_strip("input") == 2
-    doc.set(("strip", 2, "label"), "Mic")
+    assert doc.add_strip("input") == 3
+    doc.set(("strip", 3, "label"), "Mic")
 
     data = tomllib.loads(doc.render())
 
     assert data["strip"] == [
         {"type": "output", "device": "alsa_output.analog", "label": "Speaker", "color": "cyan"},
+        {"type": "auto"},
         {"type": "empty"},
         {"type": "input", "label": "Mic"},
     ]
 
+    # the last one goes, and the auto strips without options it leaves at the end with it
+    doc.remove_strip(3)
+    doc.remove_strip(2)
+    assert [strip.type for strip in doc.strips] == ["output"]
+
+
+def test_a_strip_moves_to_any_place():
+    doc = document()
+    # after the last strip: the places in between are auto strips, the ones it passed move over (as when dragged)
+    doc.move_strip(2, 5)
+    assert [strip.type for strip in doc.strips] == ["output", "apps", "auto", "auto", "auto", "empty"]
+
 
 def test_without_strips_there_is_no_strip_left():
     doc = document()
-    for _ in range(3):
-        doc.remove_strip(0)
+    for index in (2, 1, 0):
+        doc.remove_strip(index)
 
     assert "[[strip]]" not in doc.render()
     # and none comes from nowhere

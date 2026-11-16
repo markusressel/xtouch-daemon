@@ -132,8 +132,9 @@ daemon from before the live preview (restart it to run the installed version).
 | Remove a strip | Context menu, or "Remove" on its tab. | Delete. |
 | Configure a strip that is not configured | Double-click it, or its context menu. | |
 
-Only configured strips move, and only among each other. Removing a strip moves the strips right of it to the left; the
-free places are `auto` strips. The tab of a strip also has buttons to move it left and right.
+Only configured strips move, to any of the 8 places; the places in between become `auto` strips. Removing a strip
+makes its place an `auto` strip, so the other strips stay where they are. The tab of a strip also has buttons to move
+it left and right.
 
 The strips on top are the first 8 of the layout. While it has 8 strips or more, or one of them collapses (see
 [Collapsing strips](configuration/collapsing.md)), a row of buttons above them lists every strip with where it is: on a

@@ -4,6 +4,7 @@ temporary directory, and the dialogs answered by the tests.
 """
 
 import dataclasses
+import itertools
 import math
 import signal
 import tempfile
@@ -424,8 +425,9 @@ def test_strips_move_and_go(qtbot: QtBot, window: MainWindow):
     assert [strip.type for strip in window.document.strips] == ["output", "apps"]
     assert window.selected == 0
 
+    # its place stays: an auto strip
     click(qtbot, header("Remove the strip"))
-    assert [strip.type for strip in window.document.strips] == ["apps"]
+    assert [strip.type for strip in window.document.strips] == ["auto", "apps"]
 
 
 def test_a_strip_that_is_not_configured_can_be_configured(qtbot: QtBot, window: MainWindow):
@@ -626,16 +628,19 @@ def test_a_dragged_strip_leaves_a_place_and_the_others_make_room(qtbot: QtBot, m
     qtbot.waitUntil(lambda: x_of(window, 1) == first and x_of(window, 2) == second)
     assert not window.grab().isNull()
 
-    # dropped beyond the configured strips, it goes after the last one
+    # dropped beyond the configured strips, it goes to that place: auto strips in between
     qtbot.mouseMove(view, QPoint(50 + 7 * (third - second), 50))
-    assert preview.drop_target == 2
+    assert preview.drop_target == 7
     qtbot.mouseRelease(view, Qt.MouseButton.LeftButton, pos=QPoint(50 + 7 * (third - second), 50))
 
     assert not preview.dragging
-    assert [strip.type for strip in window.document.strips] == ["apps", "auto", "output"]
-    assert window.selected == 2
-    assert [x_of(window, index) for index in range(3)] == [first, second, third]
-    assert window.status.text() == "Moved strip 1 to place 3."
+    assert [strip.type for strip in window.document.strips] == ["apps", "auto", *["auto"] * 5, "output"]
+    assert window.selected == 7
+    # every view at its own place again (eight strips show the strip list, so the preview may have a new scale)
+    places = [x_of(window, index) for index in range(8)]
+    assert places == sorted(places)
+    assert len({right - left for left, right in itertools.pairwise(places)}) <= 2
+    assert window.status.text() == "Moved strip 1 to place 8."
 
 
 def test_escape_cancels_a_drag(qtbot: QtBot, window: MainWindow):
@@ -682,30 +687,43 @@ def test_the_keyboard_selects_and_moves_strips(qtbot: QtBot, window: MainWindow)
     qtbot.keyClick(strips[1], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
     assert [strip.type for strip in window.document.strips] == ["apps", "output"]
     assert window.selected == 0
-    # not past the configured strips, nor past the ends
+    # not past the ends
     qtbot.keyClick(strips[0], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
-    qtbot.keyClick(strips[1], Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
     qtbot.keyClick(strips[0], Qt.Key.Key_Left)
+    assert [strip.type for strip in window.document.strips] == ["apps", "output"]
+    # but to a free place: an auto strip comes in between, and goes again with it
+    qtbot.keyClick(strips[1], Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
+    assert [strip.type for strip in window.document.strips] == ["apps", "auto", "output"]
+    qtbot.keyClick(strips[2], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
     assert [strip.type for strip in window.document.strips] == ["apps", "output"]
 
     qtbot.keyClick(strips[0], Qt.Key.Key_End)
     assert window.selected == 7
     qtbot.keyClick(strips[7], Qt.Key.Key_Delete)
+    qtbot.keyClick(strips[7], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
     qtbot.keyClick(strips[7], Qt.Key.Key_A)
+    # an unconfigured strip doesn't move
     assert len(window.document.strips) == 2
+    assert window.selected == 7
     qtbot.keyClick(strips[7], Qt.Key.Key_Home)
     assert window.selected == 0
 
+    # the other strips stay where they are
     qtbot.keyClick(strips[0], Qt.Key.Key_Delete)
-    assert [strip.type for strip in window.document.strips] == ["output"]
-    assert window.status.text() == "Removed strip 1, the strips right of it moved left. Ctrl+Z brings it back."
+    assert [strip.type for strip in window.document.strips] == ["auto", "output"]
+    assert window.status.text() == "Removed strip 1, its place is an auto strip now. Ctrl+Z brings it back."
+    qtbot.keyClick(strips[1], Qt.Key.Key_Delete)
+    assert window.document.strips == []
+    assert window.status.text() == "Removed strip 2. Ctrl+Z brings it back."
 
 
 def test_the_menu_of_a_strip(qtbot: QtBot, window: MainWindow):
     menu = window.preview.menu_for(1)
     left, right, _, remove = menu.actions()
     assert left.text() == "Move left\tCtrl+Left"
-    assert not right.isEnabled()
+    # also to a free place
+    assert right.isEnabled()
+    assert not window.preview.menu_for(0).actions()[0].isEnabled()
 
     left.trigger()
     assert [strip.type for strip in window.document.strips] == ["apps", "output"]
@@ -938,7 +956,7 @@ def test_a_revert_can_be_undone(qtbot: QtBot, window: MainWindow):
     assert len(window.document.strips) == 2
 
     window.undo()
-    assert len(window.document.strips) == 1
+    assert [strip.type for strip in window.document.strips] == ["auto", "apps"]
     assert window.document.modified
 
 

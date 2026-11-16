@@ -172,7 +172,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The GUI shows the strips live, as the device shows them (LCDs, LEDs, rings, faders, meters), from the running
   daemon, which serves them on `$XDG_RUNTIME_DIR/xtouch-daemon.sock`, and says whether the device runs the saved file.
   Global settings have a tab of their own, apart from the options of the selected strip. A dragged strip leaves its
-  place and the others make room (Escape cancels); strips also move with Ctrl+arrows and their context menu. Every edit
+  place and the others make room (Escape cancels); strips also move with Ctrl+arrows and their context menu, to any of
+  the 8 places. Removing a strip leaves an `auto` strip in its place, so the others stay where they are. Every edit
   can be undone (Ctrl+Z), also removing a strip and reverting the file.
 - A clip indicator: when the audio of a strip peaks at full scale, its meter lights all 8 LEDs, the red one at the
   top too, for half a second. Below that, the meter uses 7 LEDs. The `homeassistant` meter entity reaches the red LED

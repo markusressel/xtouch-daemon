@@ -876,9 +876,11 @@ class MainWindow(QMainWindow):
         self.status.setText(f"Added strip {self.selected + 1}, an auto strip.")
 
     def remove_strip(self, index: int) -> None:
+        last = index == len(self.document.strips) - 1
         self.editor.remove_strip(index)
         self.select(index)
-        self.status.setText(f"Removed strip {index + 1}, the strips right of it moved left. Ctrl+Z brings it back.")
+        where = "" if last else ", its place is an auto strip now"
+        self.status.setText(f"Removed strip {index + 1}{where}. Ctrl+Z brings it back.")
 
     def undo(self) -> None:
         if self.editor.undo():
