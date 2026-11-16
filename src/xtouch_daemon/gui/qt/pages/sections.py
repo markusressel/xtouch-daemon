@@ -52,9 +52,10 @@ class SectionPage(Page):
         self.layout_.addWidget(row(header))
         self.layout_.addWidget(help_label(self.section.help, "hint", docs.page_link(name)))
         self.layout_.addWidget(self.problem)
+        self._above_parts(self.layout_)
         self.parts = Stack()
         self.absent, layout = card()
-        layout.addWidget(label(f"There is no [{name}] section in the file.", wrap=True))
+        layout.addWidget(label(self._absent_text(), wrap=True))
         add = button("plus", f"Add [{name}]", "white", "primary")
         add.clicked.connect(lambda: self.editor.add_section(name))
         buttons = QHBoxLayout()
@@ -84,8 +85,15 @@ class SectionPage(Page):
         self.layout_.addStretch()
         self._show()
 
+    def _above_parts(self, layout: QVBoxLayout) -> None:
+        """What a page shows below the help of its section, whether the file has it or not: nothing here."""
+
     def _above_options(self, layout: QVBoxLayout) -> None:
         """What a page shows above the options of its section while the file has it: nothing here."""
+
+    def _absent_text(self) -> str:
+        """What the page says while the file has no such section."""
+        return f"There is no [{self.section.name}] section in the file."
 
     def _value(self, path: tuple[str | int, ...]) -> Any:
         # the rows are there also while the file has no such section
@@ -228,11 +236,18 @@ class VoipPage(SectionPage):
         super().__init__("voip", editor, audio)
         self.show_live(None)
 
-    def _above_options(self, layout: QVBoxLayout) -> None:
+    def _above_parts(self, layout: QVBoxLayout) -> None:
+        # voip strips work without the section (see `Config._voip_strips`), so the plugin shows without it too
         self.box = MumbleBox()
         """The voice chat and the setup of the plugin, below the help of the section, above its options."""
         self.box.install_button.clicked.connect(self.install)
         layout.addWidget(self.box)
+
+    def _absent_text(self) -> str:
+        return (
+            "There is no [voip] section in the file, so voip strips use its defaults: the participants come from the "
+            "Mumble plugin. Add it to change that."
+        )
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         self.snapshot = snapshot

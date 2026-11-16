@@ -9,6 +9,7 @@ import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QFileDialog,
+    QLabel,
     QLineEdit,
     QPushButton,
     QToolButton,
@@ -215,6 +216,23 @@ def test_the_voice_chat_page_tells_whether_mumble_is_connected(
         live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), voip=voip))
         qtbot.waitUntil(lambda text=text: box.live_pill.text() == text)
         assert tip in box.live_detail.text()
+
+
+def test_the_voice_chat_page_shows_the_plugin_without_the_section(make_window: MakeWindow):
+    # voip strips use the defaults of [voip] without it, so the voice chat is there all the same
+    window = make_window()
+    window.show_page("voip")
+    page = window.voip_page
+    assert not window.document.has_section("voip")
+    assert shows(page.box, page)
+    assert shows(page.absent, page)
+    note = page.absent.findChild(QLabel)
+    assert note is not None
+    assert "voip strips use its defaults" in note.text()
+
+    window.editor.add_section("voip")
+    assert shows(page.box, page)
+    assert not shows(page.absent, page)
 
 
 def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: MakeWindow, tmp_path: Path):
