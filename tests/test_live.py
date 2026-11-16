@@ -390,3 +390,21 @@ def test_the_peer_is_the_user_itself():
     first, second = socket.socketpair(socket.AF_UNIX)
     with first, second:
         assert peer_uid(first) == os.getuid()
+
+
+def test_the_layouts_go_through_a_line(surface: RecordingSurface):
+    snapshot = Snapshot(
+        "abc", True, True, None, strip_states(surface, 0.0), layout="gaming", layouts=("default", "gaming")
+    )
+    assert decode(encode(snapshot)) == snapshot
+    # an older daemon does not tell them
+    older = encode(snapshot).replace(b',"layout":"gaming","layouts":["default","gaming"]', b"")
+    decoded = decode(older)
+    assert decoded is not None
+    assert (decoded.layout, decoded.layouts) == (None, ())
+
+
+def test_the_live_view_shows_a_banner(surface: RecordingSurface):
+    surface.strips[0].set_text(0, "Speaker")
+    surface.strips[0].set_overlay(("Gaming", ""))
+    assert strip_states(surface, 0.0)[0].text == ("Gaming", "")
