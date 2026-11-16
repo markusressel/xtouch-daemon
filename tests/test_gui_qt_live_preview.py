@@ -17,6 +17,7 @@ from tests import test_gui_qt
 from tests.test_gui_qt import Dialogs, FakeLiveDaemon, MakeWindow, click, row, strip_state, type_into
 from tests.test_instance import RecordingInstance
 from xtouch_daemon import live
+from xtouch_daemon.gui.qt import live_preview as live_preview_module
 from xtouch_daemon.gui.qt.window import MainWindow
 from xtouch_daemon.live import EndPreview, KeepPreview, Reply, Request, Snapshot, StartPreview
 
@@ -26,6 +27,12 @@ path = test_gui_qt.path
 systemctl = test_gui_qt.systemctl
 daemon = test_gui_qt.daemon
 make_window = test_gui_qt.make_window
+
+
+@pytest.fixture(autouse=True)
+def quick_previews(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An edit is previewed a moment after it, not after DEBOUNCE_MS: waiting for that adds nothing to the tests."""
+    monkeypatch.setattr(live_preview_module, "DEBOUNCE_MS", 1)
 
 
 class PreviewingDaemon(FakeLiveDaemon):
@@ -203,7 +210,8 @@ def test_a_document_with_problems_is_not_previewed(qtbot: QtBot, make_window: Ma
 
     window.document.set(("strip", 0, "color"), "pink")
     window.editor.edited()
-    qtbot.wait(2 * 300)
+    # what the debounce does when its time is over
+    window.live_preview.debounce.timeout.emit()
 
     assert previewing.previews == []
     assert window.preview_pill.text() == "Live preview paused"

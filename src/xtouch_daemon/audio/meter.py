@@ -148,10 +148,28 @@ async def capture(
                 return
             feed(peak_of(data))
     finally:
-        if process.returncode is None:
-            with contextlib.suppress(ProcessLookupError):
-                process.kill()
-        await process.wait()
+        await _end(process)
+
+
+async def _end(process: asyncio.subprocess.Process) -> None:
+    """
+    Kills the capture and waits for it, also when the task is cancelled again meanwhile (a reload cancels it, then the
+    end of the event loop): otherwise the process is never waited for.
+    """
+    if process.returncode is None:
+        with contextlib.suppress(ProcessLookupError):
+            process.kill()
+    cancelled = False
+    while True:
+        try:
+            await process.wait()
+        except asyncio.CancelledError:
+            # killed, so the wait is short
+            cancelled = True
+        else:
+            break
+    if cancelled:
+        raise asyncio.CancelledError
 
 
 class Meter:
@@ -173,6 +191,8 @@ class Meter:
         self._clipped: float | None = None
         """When the last peak at full scale came."""
         self._captures: dict[CaptureTarget, asyncio.Task[None]] = {}
+        self._ending: set[asyncio.Task[None]] = set()
+        """Captures that are cancelled and still end their process."""
 
     @property
     def targets(self) -> frozenset[CaptureTarget]:
@@ -200,7 +220,10 @@ class Meter:
     def watch(self, targets: Iterable[CaptureTarget]) -> None:
         wanted = set(targets)
         for target in [target for target in self._captures if target not in wanted]:
-            self._captures.pop(target).cancel()
+            task = self._captures.pop(target)
+            task.cancel()
+            self._ending.add(task)
+            task.add_done_callback(self._ending.discard)
         for target in wanted - self._captures.keys():
             self._captures[target] = asyncio.create_task(self._keep_capturing(target), name=f"meter {target.node}")
 
@@ -210,4 +233,8 @@ class Meter:
             await asyncio.sleep(RESTART_DELAY)
 
     def close(self) -> None:
+        """Stops the captures; `wait_closed()` waits until their processes ended."""
         self.watch(())
+
+    async def wait_closed(self) -> None:
+        await asyncio.gather(*self._ending, return_exceptions=True)

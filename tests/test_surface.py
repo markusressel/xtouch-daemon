@@ -156,7 +156,8 @@ async def test_an_arrived_fader_gets_its_target_again_later(
 
     # the motor of the device may have stopped short of it: the target again, twice
     assert surface.faders(0)[count:] == [protocol.fader_value(0.5)] * 2
-    assert loop.time() - arrived >= 0.05
+    # after the last delay (`arrival()` sees the arrival up to a millisecond late)
+    assert loop.time() - arrived == pytest.approx(0.05, abs=0.001)
 
 
 async def test_a_touched_fader_gets_no_target_again(surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch) -> None:

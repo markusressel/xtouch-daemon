@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import child_processes
 from xtouch_daemon.audio import meter as meter_module
 from xtouch_daemon.audio.meter import (
     CHUNK_BYTES,
@@ -21,6 +22,9 @@ from xtouch_daemon.protocol import METER_MAX, METER_SIGNAL_MAX
 
 OUTPUT = CaptureTarget(node=None, monitor=True)
 STREAM = CaptureTarget(node="42", monitor=False)
+
+# real pw-record stand-ins: their output comes in real time
+pytestmark = pytest.mark.looptime(False)
 
 
 def samples(*values: float) -> bytes:
@@ -180,4 +184,20 @@ async def test_watches_its_targets_and_captures_again_after_a_capture_ended(
     assert meter.targets == {OUTPUT}
     meter.close()
     assert meter.targets == frozenset()
+    await meter.wait_closed()
+    assert child_processes() == set()
+
+
+async def test_a_capture_that_is_cancelled_again_while_it_ends_still_waits_for_its_process(tmp_path: Path):
+    started = tmp_path / "started"
+    command = executable(tmp_path, f"touch {started}\nexec sleep 10\n")
+    task = asyncio.create_task(capture(STREAM, lambda peak: None, lambda: False, command))
+    await wait_for(started.exists)
+
+    task.cancel()
+    # in its end, waiting for the killed process
     await asyncio.sleep(0)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert child_processes() == set()

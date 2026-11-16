@@ -13,9 +13,9 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from xtouch_daemon import protocol
+from xtouch_daemon import midi, protocol
 from xtouch_daemon.config import Sequence
-from xtouch_daemon.midi import DEV_SND, PROC_ASOUND_CARDS, RawMidi, find_card
+from xtouch_daemon.midi import RawMidi, find_card
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
 
 _LOGGER = logging.getLogger(__name__)
@@ -386,9 +386,10 @@ class Surface:
     def __init__(
         self,
         device_name: str = DEVICE_NAME,
-        proc_asound_cards: Path = PROC_ASOUND_CARDS,
-        dev_snd: Path = DEV_SND,
+        proc_asound_cards: Path | None = None,
+        dev_snd: Path | None = None,
     ):
+        """`proc_asound_cards` and `dev_snd` are where the sound cards are, `midi.PROC_ASOUND_CARDS` and `DEV_SND`."""
         self.device_name = device_name
         self.startup: Sequence = "sweep"
         self.shutdown: Sequence = "sweep"
@@ -398,8 +399,8 @@ class Surface:
         The strips (from 0) whose fader has no working touch sensor: a move counts as a touch, a pause of
         TOUCHLESS_LET_GO as letting go.
         """
-        self.proc_asound_cards = proc_asound_cards
-        self.dev_snd = dev_snd
+        self.proc_asound_cards = proc_asound_cards or midi.PROC_ASOUND_CARDS
+        self.dev_snd = dev_snd or midi.DEV_SND
         self.strips = [Strip(self, index) for index in range(protocol.STRIPS)]
         self.on_event: EventHandler = lambda event: None
         self.on_connection: ConnectionHandler = lambda connected: None

@@ -58,6 +58,7 @@ dev = [
     "xtouch-daemon[gui]",
     "ruff>=0.11",
     "pytest-xdist>=3.8.0",
+    "looptime>=0.9",
 ]
 docs = [
     "zensical>=0.1.1",
@@ -68,7 +69,8 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 qt_api = "pyqt6"
-addopts = "--strict-markers"
+addopts = "--strict-markers --looptime"
+markers = ["host: the test looks at the machine it runs on on purpose (see `no_host` in tests/conftest.py)"]
 filterwarnings = ["error"]
 
 [tool.coverage.run]

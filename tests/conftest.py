@@ -1,16 +1,21 @@
 """Fakes with the shape of the real thing: a backend that records commands, and a surface without device."""
 
 import asyncio
+import contextlib
+import gc
 import os
-from collections.abc import Callable
+import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 
 from xtouch_daemon import launch as launch_module
-from xtouch_daemon import protocol, systemd
+from xtouch_daemon import layouts, midi, protocol, systemd
 from xtouch_daemon import surface as surface_module
+from xtouch_daemon.audio import meter as meter_module
 from xtouch_daemon.audio.backend import AudioCommandError
+from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Device, Direction, Stream
 from xtouch_daemon.config import BehaviorConfig
 from xtouch_daemon.launch import Launcher
@@ -19,6 +24,142 @@ from xtouch_daemon.surface import Surface
 
 # windows of the GUI tests are never shown on the display of the machine
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
+
+def child_processes() -> set[int]:
+    """The processes this one started that are not waited for yet: running, or ended (zombies)."""
+    children: set[int] = set()
+    for thread in Path("/proc/self/task").iterdir():
+        # a thread may end meanwhile
+        with contextlib.suppress(FileNotFoundError):
+            children.update(int(pid) for pid in (thread / "children").read_text().split())
+    return children
+
+
+@pytest.fixture(autouse=True)
+def no_leaks() -> Iterator[None]:
+    """
+    Fails the test that leaves a process behind, instead of a random later one: the transport of a process that is not
+    waited for warns when it is garbage collected (`filterwarnings = ["error"]`), whichever test runs then. Its teardown
+    runs after the event loop of the test is closed, which cancels the tasks the test left and waits for them.
+    """
+    before = child_processes()
+    yield
+    # the transports of what the test left warn now, in this test
+    gc.collect()
+    leaked = child_processes() - before
+    assert not leaked, f"the test left processes behind: {sorted(leaked)}"
+
+
+def in_real_time(node: pytest.Item) -> bool:
+    """Whether the test runs in real time (`pytest.mark.looptime(False)`), not in the virtual time of looptime."""
+    marker = node.get_closest_marker("looptime")
+    return marker is not None and bool(marker.args) and not marker.args[0]
+
+
+async def capture_nothing(
+    target: CaptureTarget, feed: Callable[[float], None], playing: Callable[[], bool], command: str
+) -> None:
+    await asyncio.Event().wait()
+
+
+@pytest.fixture(autouse=True)
+def no_captures_in_virtual_time(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    In virtual time the meters start no process: it would end in real time, and the virtual time of a timeout that
+    waits for it (e.g. for the shutdown of the daemon) could be over long before.
+    """
+    assert isinstance(request.node, pytest.Item)
+    if not in_real_time(request.node):
+        monkeypatch.setattr(meter_module, "capture", capture_nothing)
+
+
+HOME = Path.home()
+RUNTIME_DIR = os.environ.get("XDG_RUNTIME_DIR")
+HOST_PATHS = (
+    Path("/dev/snd"),
+    Path("/proc/asound"),
+    HOME / ".config",
+    HOME / ".local" / "state",
+    HOME / ".local" / "share" / "Mumble",
+    HOME / ".local" / "share" / "flatpak",
+    HOME / ".var",
+    *([Path(RUNTIME_DIR)] if RUNTIME_DIR else []),
+)
+"""What the machine the tests run on has, and the tests never look at: devices, the user's files, the processes."""
+
+
+class HostAccessError(Exception):
+    """Not an OSError: code that expects a missing file does not take it for one."""
+
+
+_host_access: list[str] | None = None
+"""What the running test touched of the machine, None outside of a test (or in one marked `host`)."""
+
+
+def _host_path(path: str) -> bool:
+    absolute = Path(os.path.abspath(path))
+    if absolute == Path("/proc"):
+        # the list of the processes
+        return True
+    parts = absolute.parts
+    if len(parts) > 2 and parts[1] == "proc" and parts[2].isdigit():
+        pid = int(parts[2])
+        # the processes of the tests themselves are theirs to look at
+        return pid != os.getpid() and pid not in child_processes()
+    return any(absolute.is_relative_to(host) for host in HOST_PATHS)
+
+
+def _audit(event: str, args: tuple[object, ...]) -> None:
+    global _host_access
+    if _host_access is None or event not in ("open", "os.listdir", "os.scandir", "socket.connect"):
+        return
+    target = args[1] if event == "socket.connect" else args[0] if args else None
+    if isinstance(target, bytes):
+        target = target.decode(errors="replace")
+    if isinstance(target, os.PathLike):
+        target = os.fspath(target)
+    if not isinstance(target, str) or not target or not _host_path(target):
+        return
+    accessed, guard = f"{event} {target}", _host_access
+    _host_access = None
+    try:
+        guard.append(accessed)
+    finally:
+        _host_access = guard
+    raise HostAccessError(f"a test touched the machine it runs on: {accessed}")
+
+
+sys.addaudithook(_audit)
+
+
+@pytest.fixture(autouse=True)
+def no_host(request: pytest.FixtureRequest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """
+    Tests see nothing of the machine they run on: not the user's files, the session bus, systemd, the processes, sound
+    cards or MIDI devices. Touching them fails the test (`HostAccessError`), unless it is marked `host`.
+    """
+    global _host_access
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("DBUS_SESSION_BUS_ADDRESS", f"unix:path={tmp_path / 'no-session-bus'}")
+    for variable in ("NOTIFY_SOCKET", "JOURNAL_STREAM", "INVOCATION_ID"):
+        monkeypatch.delenv(variable, raising=False)
+    # no processes run
+    (tmp_path / "proc").mkdir()
+    monkeypatch.setattr(layouts, "PROC", tmp_path / "proc")
+    monkeypatch.setattr(midi, "PROC_ASOUND_CARDS", tmp_path / "proc" / "asound" / "cards")
+    monkeypatch.setattr(midi, "DEV_SND", tmp_path / "dev" / "snd")
+    if request.node.get_closest_marker("host") is not None:
+        yield
+        return
+    accessed: list[str] = []
+    _host_access = accessed
+    try:
+        yield
+    finally:
+        _host_access = None
+    assert not accessed, f"the test touched the machine it runs on: {accessed}"
 
 
 @pytest.fixture(autouse=True)

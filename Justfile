@@ -5,13 +5,13 @@ default:
 sync:
     uv sync
 
-# run the tests
+# run the tests, in parallel (`-n0` runs them in this process, e.g. for a debugger)
 test *ARGS:
-    uv run pytest {{ARGS}}
+    uv run pytest -n auto {{ARGS}}
 
-# run the tests with coverage, fails below 90 %
+# run the tests in parallel with coverage, fails below 90 %
 coverage:
-    uv run pytest --cov --cov-report=term-missing
+    uv run pytest -n auto --cov --cov-report=term-missing
 
 # check style and formatting
 lint:

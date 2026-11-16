@@ -81,8 +81,9 @@ def test_running_processes_are_the_names_and_programs_of_proc(tmp_path: Path):
     assert running_processes(tmp_path) == {"mumble", "web content", "firefox", "kworker/0:1"}
 
 
+@pytest.mark.host
 def test_running_processes_of_this_machine_include_this_one():
-    assert running_processes()
+    assert running_processes(Path("/proc"))
 
 
 def test_a_rule_matches_an_application_with_a_stream_or_a_process(config: Config):

@@ -158,6 +158,8 @@ async def test_the_encoder_of_an_auto_strip_picks_its_application(mixer: Mixer, 
     assert surface.strips[5].ring == (11, RingMode.DOT)
 
 
+# a real capture process: its audio comes in real time
+@pytest.mark.looptime(False)
 async def test_the_meters_show_the_captured_level(
     mixer: Mixer, surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -165,7 +167,8 @@ async def test_the_meters_show_the_captured_level(
     mixer.on_state(STATE)
 
     task = asyncio.create_task(mixer.run())
-    for _ in range(200):
+    # a process starts: slow on a busy machine
+    for _ in range(1000):
         if surface.meters(0):
             break
         await asyncio.sleep(0.01)
