@@ -42,6 +42,7 @@ nav = [
   { "Design: launching applications" = "design/launch.md" },
   { "Design: choices and collapsing strips" = "design/dynamic-strips.md" },
   { "Design: presets" = "design/presets.md" },
+  { "Design: channels, states and slots" = "design/channels-states-slots.md" },
   { "Changelog" = "https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" },
 ]
 
