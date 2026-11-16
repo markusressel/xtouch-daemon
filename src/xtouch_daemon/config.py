@@ -4,6 +4,7 @@ The configuration: a TOML file, by default `$XDG_CONFIG_HOME/xtouch-daemon/confi
 """
 
 import os
+import shlex
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -11,7 +12,17 @@ from importlib import resources
 from pathlib import Path
 from typing import Annotated, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from xtouch_daemon import protocol
 from xtouch_daemon.protocol import Color
@@ -267,6 +278,8 @@ class _StripConfig(_Model):
             )
         if self.fader == "homeassistant" and self.encoder not in (None, "volume"):
             raise ValueError("encoder: with the fader in Home Assistant, the encoder sets the volume")
+        if getattr(self, "launch_when_running", False) and getattr(self, "launch", None) is None:
+            raise ValueError("launch_when_running: needs launch")
         return self
 
     def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
@@ -386,6 +399,39 @@ def _no_blank(value: tuple[str, ...]) -> tuple[str, ...]:
     return value
 
 
+def _split_command(value: object) -> object:
+    """A command as one string is split like a shell would (quotes), but nothing is expanded."""
+    if not isinstance(value, str):
+        return value
+    try:
+        return tuple(shlex.split(value))
+    except ValueError as e:
+        raise ValueError(f"can't split the command: {e}") from e
+
+
+def _a_command(value: tuple[str, ...]) -> tuple[str, ...]:
+    if not value:
+        raise ValueError("an empty command: name the program first")
+    if any(not part.strip() for part in value):
+        raise ValueError("an empty part of the command")
+    return value
+
+
+Command = Annotated[tuple[str, ...], BeforeValidator(_split_command), AfterValidator(_a_command)]
+"""A program and its arguments, run without a shell (`launch`)."""
+
+LAUNCH_HELP = (
+    "A command that Select starts while none of the strip's applications runs, as a list: the program, then its "
+    'arguments, e.g. `["mumble", "mumble://me@voice.example.org/Gaming"]`. Never through a shell. A single string is '
+    "split like a shell would (quotes), but nothing is expanded."
+)
+"""The help of `launch`, which several strip types have."""
+LAUNCH_WHEN_RUNNING_HELP = (
+    "Whether Select starts `launch` also while the application runs, e.g. a `mumble://` URL to connect a running "
+    "Mumble to the server. Otherwise Select does nothing then."
+)
+
+
 class AppsStripConfig(_StripConfig):
     """All streams of a group of applications, e.g. every browser."""
 
@@ -397,6 +443,8 @@ class AppsStripConfig(_StripConfig):
     """
     label: Label
     """The top line of the LCD, e.g. "VoIP"."""
+    launch: Command | None = Field(default=None, description=LAUNCH_HELP)
+    launch_when_running: bool = Field(default=False, description=LAUNCH_WHEN_RUNNING_HELP)
 
     @field_validator("match")
     @classmethod
@@ -408,6 +456,8 @@ class AutoStripConfig(_StripConfig):
     """The next application that plays and has no strip of its own."""
 
     type: Annotated[Literal["auto"], STRIP_TYPE_MEANINGS]
+    launch: Command | None = Field(default=None, description=LAUNCH_HELP)
+    launch_when_running: bool = Field(default=False, description=LAUNCH_WHEN_RUNNING_HELP)
 
 
 class EmptyStripConfig(_Model):
@@ -454,6 +504,12 @@ class VoipStripConfig(_Model):
     """Whether the LED meter shows the participant's voice (if the provider tells it and `behavior.meters` is on)."""
     max_volume: Annotated[int, Field(ge=1, le=VOLUME_LIMIT)] = 100
     """The volume of a participant with the fader at the top, in percent."""
+    launch: Command | None = None
+    """
+    A command that Select starts while the voice chat is not there (no plugin reports it, and its program does not
+    run), e.g. `["mumble", "mumble://me@voice.example.org/Gaming"]`. Never through a shell. While it is there, Select
+    pages as before.
+    """
 
 
 StripConfig = Annotated[

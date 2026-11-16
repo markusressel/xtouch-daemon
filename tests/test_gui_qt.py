@@ -445,6 +445,8 @@ def test_a_strip_that_is_not_configured_can_be_configured(qtbot: QtBot, window: 
         "meter",
         "rec",
         "solo",
+        "launch",
+        "launch_when_running",
         "fader",
         "min_volume",
         "max_volume",
@@ -569,24 +571,24 @@ def test_a_strip_of_another_type_shows_the_form_of_its_type(qtbot: QtBot, window
 def test_a_short_form_takes_its_own_height(qtbot: QtBot, window: MainWindow):
     window.show()
     page = window.strip_page
-    # the form of an output strip is the tallest, the one of an apps strip shorter
-    window.select(1)
-    qtbot.wait(10)
-    apps = page.form
-    assert apps is not None
+    # the form of an apps strip is the tallest (with launch), the one of an output strip shorter
     window.select(0)
     qtbot.wait(10)
     output = page.form
     assert output is not None
-    assert output.height() > apps.height()
-
     window.select(1)
+    qtbot.wait(10)
+    apps = page.form
+    assert apps is not None
+    assert apps.height() > output.height()
+
+    window.select(0)
     qtbot.wait(10)
 
     # no gap under it, and its fields are not stretched to fill one
-    assert page.parts.height() == apps.heightForWidth(page.parts.width())
-    match = row(window, "match")
-    assert match.height() == match.heightForWidth(match.width())
+    assert page.parts.height() == output.heightForWidth(page.parts.width())
+    device = row(window, "device")
+    assert device.height() == device.heightForWidth(device.width())
 
 
 # -- the preview: moving strips ----------------------------------------------------------------------------------

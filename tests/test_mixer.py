@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle, stream
+from tests.conftest import FakeBackend, FakeLauncher, RecordingSurface, finish_tasks, output, settle, stream
 from xtouch_daemon import mixer as mixer_module
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.meter import CHUNK_BYTES, CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import Config, parse_config
 from xtouch_daemon.mixer import Mixer
-from xtouch_daemon.protocol import Button, RingMode
+from xtouch_daemon.protocol import Button, Led, RingMode
 from xtouch_daemon.strips import EmptyStrip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
 from xtouch_daemon.strips.device import DeviceStrip
@@ -365,4 +365,72 @@ def test_an_inherited_voip_strip_stays_one_group(surface: RecordingSurface, back
     assert isinstance(first, VoipStrip)
     assert isinstance(second, VoipStrip)
     assert first.group is second.group
+    mixer.close()
+
+
+LAUNCH_CONFIG = """
+[voip]
+[[strip]]
+type = "apps"
+label = "VoIP"
+match = ["discord"]
+launch = ["mumble", "mumble://markus@voice.example.org/Gaming"]
+[[strip]]
+type = "voip"
+launch = "mumble 'mumble://markus@voice.example.org/Gaming'"
+"""
+
+
+async def test_strips_with_launch_follow_the_processes(
+    surface: RecordingSurface, backend: FakeBackend, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from xtouch_daemon.strips.voip import VoipStrip
+    from xtouch_daemon.voip.demo import DemoProvider
+
+    running = [frozenset({"bash"})]
+    launcher = FakeLauncher()
+    mixer = Mixer(
+        surface,
+        backend,
+        parse_config(LAUNCH_CONFIG),
+        capture_command="true",
+        voip=DemoProvider(()),
+        launcher=launcher,
+        processes=lambda: running[0],
+    )
+    apps, voip = mixer.controllers[:2]
+    assert isinstance(apps, AppGroupStrip)
+    assert isinstance(voip, VoipStrip)
+    assert apps.launch is not None
+    assert voip.group.launch is not None
+    assert voip.group.launch.what == "Strip 2"
+    assert mixer.watches_processes
+    assert mixer.processes == {"bash"}
+    mixer.on_state(AudioState())
+
+    mixer.on_event(protocol.ButtonPressed(0, Button.SELECT, True))
+    assert len(launcher.spawned) == 1
+    assert surface.strips[0].leds[Button.SELECT] == Led.FLASH
+
+    # it shows up: the next look at the processes sees it
+    running[0] = frozenset({"bash", "mumble"})
+    monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(mixer_module, "PROCESS_INTERVAL", 0.002)
+    task = asyncio.create_task(mixer.run())
+    for _ in range(100):
+        if surface.strips[0].leds[Button.SELECT] == Led.ON:
+            break
+        await asyncio.sleep(0.005)
+    task.cancel()
+    assert surface.strips[0].leds[Button.SELECT] == Led.ON
+    mixer.close()
+    await finish_tasks()
+
+
+async def test_without_launch_the_processes_are_not_read(surface: RecordingSurface, backend: FakeBackend) -> None:
+    def processes() -> frozenset[str]:
+        raise AssertionError("read the processes")
+
+    mixer = Mixer(surface, backend, parse_config(CONFIG), capture_command="true", processes=processes)
+    assert not mixer.watches_processes
     mixer.close()

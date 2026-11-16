@@ -18,6 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The daemon remembers the layout across restarts (in `~/.local/state/xtouch-daemon/layout`), unless a rule put it
   there; a rule that matches at the start still wins. Home Assistant's select follows the daemon, a retained state of
   the last run no longer switches the layout.
+- `launch` on `apps`, `auto` and `voip` strips: Select starts the command (a list, or one string split like a shell
+  would, never through a shell) while the strip's application does not run, e.g. Mumble with a `mumble://` URL that
+  joins a channel. "Runs" counts processes too (a silent Mumble), the Select LED flashes while it starts and is on
+  while it runs. It starts as a transient systemd user service, so a restart of the daemon does not end it.
+  `launch_when_running` starts it always (`apps`, `auto`). `check-config` shows it, the GUI edits it.
 - `inherit` strips: in a layout, the strip of the default layout at the same place.
 - `voip` strips: the participants of a voice chat, one per strip (`count` strips), the name on the LCD, lit in
   `talking_color` while they talk, the fader for their volume and Mute to mute them; Select pages through more

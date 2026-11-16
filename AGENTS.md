@@ -14,6 +14,7 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 | `src/xtouch_daemon/strips/` | Strip controllers (`output`/`input`, `apps`, `auto`, `homeassistant`, `empty`). |
 | `src/xtouch_daemon/mqtt.py` | `MqttBridge`: the MQTT connection for Home Assistant (discovery, retained states, availability). |
 | `src/xtouch_daemon/mixer.py` | Feeds states and events to the controllers. |
+| `src/xtouch_daemon/launch.py` | Starting the application of a strip's `launch` (Select), detached from the daemon. Tests use `FakeLauncher`; `conftest.no_launches` makes a real start fail. |
 | `src/xtouch_daemon/daemon.py` | Lifecycle: signals, reload, shutdown, sd_notify. |
 | `src/xtouch_daemon/instance.py`, `live.py` | The running daemon for the GUI: its runtime file, and the live view of the device over a Unix socket. |
 | `src/xtouch_daemon/config.py`, `config.example.toml` | pydantic configuration and the example file. |

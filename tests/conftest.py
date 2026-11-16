@@ -7,11 +7,13 @@ from pathlib import Path
 
 import pytest
 
+from xtouch_daemon import launch as launch_module
 from xtouch_daemon import protocol, systemd
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.model import AudioState, Device, Direction, Stream
 from xtouch_daemon.config import BehaviorConfig
+from xtouch_daemon.launch import Launcher
 from xtouch_daemon.strips.base import StripEnv
 from xtouch_daemon.surface import Surface
 
@@ -102,6 +104,28 @@ class RecordingSurface(Surface):
 
     def meters(self, strip: int) -> list[int]:
         return [m[1] & 0x0F for m in self.sent if m[0] == 0xD0 and m[1] >> 4 == strip]
+
+
+class FakeLauncher(Launcher):
+    """Records the commands it launches instead of starting them; `missing` programs are not there."""
+
+    def __init__(self, user_manager: bool = True) -> None:
+        self.spawned: list[list[str]] = []
+        self.missing: set[str] = set()
+        super().__init__(self.spawned.append, self.which, lambda: user_manager)
+
+    def which(self, program: str) -> str | None:
+        return None if program in self.missing else f"/usr/bin/{program}"
+
+
+@pytest.fixture(autouse=True)
+def no_launches(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing a test does starts a program on the machine it runs on (e.g. a Mumble): use a `FakeLauncher`."""
+
+    def refuse(command: list[str]) -> None:
+        raise AssertionError(f"a test would launch {command}")
+
+    monkeypatch.setattr(launch_module, "spawn_detached", refuse)
 
 
 @pytest.fixture(autouse=True)

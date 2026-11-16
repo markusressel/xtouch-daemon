@@ -102,7 +102,7 @@ top. The GUI shows the option in "Global settings", "Behavior".
 | Encoder | What `encoder` says, see [Encoders](encoders.md). |
 | Mute | Toggles mute. Its LED is on while muted. |
 | Rec, Solo | Their LEDs are [indicators](indicators.md). The buttons do nothing, except Rec with [profiles](devices.md#profiles). |
-| Select | On device strips: makes the device the default. Nothing on application strips. |
+| Select | On device strips: makes the device the default. On application and `voip` strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. |
 | LCD | Top: the label. Bottom: the volume, or `muted`, `idle`, `off`. The backlight in `color`, dark while the strip has nothing to control. |
 | Ring | What the encoder controls. |
 | Meter | The level of what the strip controls. |

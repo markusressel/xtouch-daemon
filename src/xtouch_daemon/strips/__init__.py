@@ -16,8 +16,9 @@ from xtouch_daemon.config import (
     color_of,
     default_encoder,
 )
+from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.protocol import Button
-from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
+from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv, VolumeStrip
 from xtouch_daemon.strips.device import DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
@@ -30,6 +31,14 @@ class EmptyStrip(StripController):
 
     def update(self, state: AudioState) -> None:
         self.strip.reset()
+
+
+def launch_button(config: StripConfig, strip: Strip, env: StripEnv) -> LaunchButton | None:
+    """What Select starts on a strip with `launch`; None for one without."""
+    if not isinstance(config, AppsStripConfig | AutoStripConfig | VoipStripConfig) or config.launch is None:
+        return None
+    always = not isinstance(config, VoipStripConfig) and config.launch_when_running
+    return LaunchButton(config.launch, env.launcher, f"Strip {strip.index + 1}", always=always)
 
 
 def build_strip(
@@ -115,4 +124,6 @@ def build_strip(
         case _ as unreachable:
             assert_never(unreachable)
     controller.lit_when_idle = config.lit_when_idle
+    if isinstance(controller, AppStrip):
+        controller.launch = launch_button(config, strip, env)
     return controller

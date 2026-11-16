@@ -701,6 +701,24 @@ def test_layout_reports_what_goes_wrong(live_socket: Path, monkeypatch: pytest.M
     fake.close()
 
 
+def test_check_config_shows_what_select_launches() -> None:
+    config = parse_config(
+        '[voip]\n[[strip]]\ntype = "apps"\nmatch = ["mumble"]\nlabel = "VoIP"\n'
+        'launch = ["mumble", "mumble://me@example.org/Gaming Night"]\n'
+        '[[strip]]\ntype = "auto"\nlaunch = "spotify"\nlaunch_when_running = true\n'
+        '[[strip]]\ntype = "voip"\nlaunch = ["mumble"]\n'
+    )
+    apps, auto, voip = config.strips[:3]
+    assert cli.describe_strip(apps, 1) == (
+        "'VoIP' applications mumble, select launches mumble 'mumble://me@example.org/Gaming Night' while it does "
+        "not run (white, rec: recording, solo: off, encoder: media)"
+    )
+    assert "the next application that plays, select launches spotify also while it runs (" in cli.describe_strip(
+        auto, 2
+    )
+    assert cli.describe_strip(voip, 3).endswith(", select launches mumble while it is not there")
+
+
 # -- the Mumble plugin --------------------------------------------------------------------------------------------
 
 

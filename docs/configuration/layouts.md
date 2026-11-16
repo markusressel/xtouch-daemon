@@ -114,10 +114,12 @@ section, they use its defaults: the `bridge` provider, which the Mumble plugin f
 | `talking_color` | `"green"` | The backlight while the participant talks. |
 | `meter` | `true` | Whether the LED meter shows the participant's voice. Without levels from the provider it lights while the participant talks. |
 | `max_volume` | `100` | The volume of a participant with the fader at the top, 1..200 percent. |
+| `launch` | none | A command that Select starts while the voice chat is not there, e.g. `["mumble", "mumble://markus@voice.example.org/Gaming"]`, see [Launching the application](applications.md#launching-the-application). |
 
 The top line shows the name, the bottom line `muted`, the volume while the fader moves, or `talks`. The fader sets
 the participant's volume and Mute mutes them for you, if the provider can. With more participants than strips, the
-Select LED is on and Select shows the next ones (`pg 2/3`).
+Select LED is on and Select shows the next ones (`pg 2/3`). With `launch`, Select starts the voice chat while its
+plugin does not report and its program does not run; the Select LED flashes while it starts.
 
 ## Voice chat
 

@@ -465,3 +465,58 @@ def test_voip_strips_get_the_defaults_of_a_missing_voip_section():
     assert config.voip == VoipConfig()
     # without voip strips, no voice chat
     assert parse_config("").voip is None
+
+
+# -- launch -------------------------------------------------------------------------------------------------------
+
+
+def test_launch_is_a_command_as_a_list_or_one_string():
+    config = parse_config(
+        '[voip]\n[[strip]]\ntype = "apps"\nmatch = ["mumble"]\nlabel = "VoIP"\n'
+        'launch = ["mumble", "mumble://me@example.org/Gaming"]\n'
+        '[[strip]]\ntype = "auto"\nlaunch = "spotify --uri \'spotify:playlist:x y\' ~/$HOME"\n'
+        '[[strip]]\ntype = "voip"\nlaunch = ["mumble"]\n'
+    )
+    apps, auto, voip = config.strips[:3]
+    assert isinstance(apps, AppsStripConfig)
+    assert isinstance(auto, AutoStripConfig)
+    assert isinstance(voip, VoipStripConfig)
+    assert apps.launch == ("mumble", "mumble://me@example.org/Gaming")
+    assert not apps.launch_when_running
+    # split like a shell would, but nothing is expanded
+    assert auto.launch == ("spotify", "--uri", "spotify:playlist:x y", "~/$HOME")
+    assert voip.launch == ("mumble",)
+
+
+@pytest.mark.parametrize(
+    ("launch", "message"),
+    [
+        ("[]", "an empty command"),
+        ('""', "an empty command"),
+        ('["mumble", " "]', "an empty part of the command"),
+        ('"mumble \'x"', "can't split the command: No closing quotation"),
+        ("42", "launch"),
+    ],
+)
+def test_a_launch_that_is_no_command_is_an_error(launch: str, message: str):
+    assert message in errors_of(f'[[strip]]\ntype = "auto"\nlaunch = {launch}\n')
+
+
+@pytest.mark.parametrize(
+    "strip",
+    [
+        'type = "output"',
+        'type = "input"',
+        'type = "homeassistant"',
+        'type = "empty"',
+    ],
+)
+def test_strips_whose_select_is_taken_have_no_launch(strip: str):
+    text = f'[mqtt]\nhost = "broker"\n[[strip]]\n{strip}\nlaunch = ["mumble"]\n'
+    assert "\n  strip[1].launch: " in errors_of(text)
+
+
+def test_launch_when_running_needs_launch_and_is_not_for_voip_strips():
+    assert "launch_when_running: needs launch" in errors_of('[[strip]]\ntype = "auto"\nlaunch_when_running = true\n')
+    text = '[voip]\n[[strip]]\ntype = "voip"\nlaunch = ["mumble"]\nlaunch_when_running = true\n'
+    assert "strip[1].launch_when_running: " in errors_of(text)
