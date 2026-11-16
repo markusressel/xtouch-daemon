@@ -2027,6 +2027,23 @@ def test_run_gui_shows_the_window(path: Path, monkeypatch: pytest.MonkeyPatch, q
     shown[0].deleteLater()
 
 
+def test_launch_is_a_list_of_the_parts_of_the_command(window: MainWindow):
+    window.select(1)
+    launch = row(window, "launch")
+
+    assert launch.chips.input.placeholderText() == (
+        "Add… (none: Select starts nothing; the program, then each argument)"
+    )
+    link = docs.url("configuration/applications/#launching-the-application")
+    assert f'<a href="{link}">Learn more</a>' in launch.help.text()
+    assert "Never through a shell." in launch.help.text()
+    # a part per entry
+    launch.chips.add("mumble")
+    launch.chips.add("mumble://me@example.org/Gaming")
+    assert window.document.get(("strip", 1, "launch")) == ["mumble", "mumble://me@example.org/Gaming"]
+    assert window.document.validate().at("strip", 1) == []
+
+
 def test_a_homeassistant_strip_has_its_id_as_placeholder(window: MainWindow):
     window.document.add_section("mqtt")
     window.document.set_strip_type(1, "homeassistant")

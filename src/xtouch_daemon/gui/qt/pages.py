@@ -672,6 +672,9 @@ class StripForm(QWidget):
             placeholders["device"] = lambda: f"none: the default {strip_type}"
         if strip_type == "homeassistant":
             placeholders["id"] = lambda: f"strip_{page.index + 1}"
+        if strip_type in ("apps", "auto", "voip"):
+            # one entry per part: the program first, then each argument
+            placeholders["launch"] = lambda: "none: Select starts nothing; the program, then each argument"
         for option in strip_options(strip_type):
             option_row = page._row(
                 option,
