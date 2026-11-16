@@ -33,6 +33,7 @@ def test_a_process_has_its_parents():
     assert ancestors(30, parents({})) == [30]
 
 
+@pytest.mark.host
 def test_the_parent_of_a_real_process():
     assert parent_pid(os.getpid()) == os.getppid()
     assert ancestors(os.getpid())[:2] == [os.getpid(), os.getppid()]

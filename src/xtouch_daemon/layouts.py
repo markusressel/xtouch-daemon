@@ -26,13 +26,13 @@ type SwitchHandler = Callable[[str, str], None]
 """Called with the name of the layout that comes, and why (e.g. "manual", or the application of a rule)."""
 
 
-def running_processes(proc: Path = PROC) -> frozenset[str]:
+def running_processes(proc: Path | None = None) -> frozenset[str]:
     """
     The names of the processes that run, in lower case: the name the kernel keeps (`comm`, at most 15 characters)
-    and the file name of the program they were started as.
+    and the file name of the program they were started as. `proc` is PROC by default.
     """
     names: set[str] = set()
-    for entry in proc.iterdir():
+    for entry in (proc or PROC).iterdir():
         if not entry.name.isdigit():
             continue
         try:

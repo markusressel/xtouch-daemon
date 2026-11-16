@@ -69,6 +69,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 qt_api = "pyqt6"
 addopts = "--strict-markers"
+markers = ["host: the test looks at the machine it runs on on purpose (see `no_host` in tests/conftest.py)"]
 filterwarnings = ["error"]
 
 [tool.coverage.run]
