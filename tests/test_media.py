@@ -125,6 +125,10 @@ async def serve(
     return bus, player
 
 
+BUS_TIME = pytest.mark.looptime(False)
+"""For the tests with a real bus: its daemon answers in real time."""
+
+
 async def wait_for(condition: Callable[[], bool]) -> None:
     for _ in range(500):
         if condition():
@@ -133,6 +137,7 @@ async def wait_for(condition: Callable[[], bool]) -> None:
     raise AssertionError("the condition did not come true")
 
 
+@BUS_TIME
 async def test_players_come_and_go_and_take_commands(bus_address: str, players: MprisPlayers) -> None:
     bus, service = await serve(bus_address, "org.mpris.MediaPlayer2.spotify", 120_000_000)
     other, _ = await serve(bus_address, "org.example.NotAPlayer", None)
@@ -154,6 +159,7 @@ async def test_players_come_and_go_and_take_commands(bus_address: str, players: 
         await players.play_pause(player)
 
 
+@BUS_TIME
 async def test_a_track_without_a_length_has_no_progress(bus_address: str, players: MprisPlayers) -> None:
     bus, _ = await serve(bus_address, "org.mpris.MediaPlayer2.radio", None, position=None)
     await wait_for(lambda: bool(players.players))
@@ -186,6 +192,7 @@ async def test_without_a_session_bus_there_are_no_players(
         await players.play_pause(Player("org.mpris.MediaPlayer2.x", None))
 
 
+@BUS_TIME
 async def test_a_player_whose_process_is_unknown(bus_address: str, monkeypatch: pytest.MonkeyPatch) -> None:
     players = MprisPlayers(lambda: MessageBus(bus_address=bus_address).connect())
     players._bus = await MessageBus(bus_address=bus_address).connect()
@@ -416,6 +423,7 @@ async def test_without_a_player_the_encoder_does_nothing(
     strip.close()
 
 
+@BUS_TIME
 async def test_the_session_bus_is_the_one_of_the_environment(bus_address: str, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DBUS_SESSION_BUS_ADDRESS", bus_address)
     bus = await media._session_bus()

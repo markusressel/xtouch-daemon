@@ -10,6 +10,9 @@ import pytest
 from xtouch_daemon import midi
 from xtouch_daemon.midi import RawMidi, find_card
 
+# a real pty: what it reads comes in real time
+pytestmark = pytest.mark.looptime(False)
+
 PROC_ASOUND_CARDS = """\
  0 [XTouchExt      ]: USB-Audio - X-Touch-Ext
                       BEHRINGER X-Touch-Ext at usb-0000:11:00.3-3.3, full speed

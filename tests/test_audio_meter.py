@@ -23,6 +23,9 @@ from xtouch_daemon.protocol import METER_MAX, METER_SIGNAL_MAX
 OUTPUT = CaptureTarget(node=None, monitor=True)
 STREAM = CaptureTarget(node="42", monitor=False)
 
+# real pw-record stand-ins: their output comes in real time
+pytestmark = pytest.mark.looptime(False)
+
 
 def samples(*values: float) -> bytes:
     return array.array("f", values).tobytes()

@@ -13,7 +13,9 @@ import pytest
 from xtouch_daemon import launch as launch_module
 from xtouch_daemon import layouts, midi, protocol, systemd
 from xtouch_daemon import surface as surface_module
+from xtouch_daemon.audio import meter as meter_module
 from xtouch_daemon.audio.backend import AudioCommandError
+from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Device, Direction, Stream
 from xtouch_daemon.config import BehaviorConfig
 from xtouch_daemon.launch import Launcher
@@ -47,6 +49,29 @@ def no_leaks() -> Iterator[None]:
     gc.collect()
     leaked = child_processes() - before
     assert not leaked, f"the test left processes behind: {sorted(leaked)}"
+
+
+def in_real_time(node: pytest.Item) -> bool:
+    """Whether the test runs in real time (`pytest.mark.looptime(False)`), not in the virtual time of looptime."""
+    marker = node.get_closest_marker("looptime")
+    return marker is not None and bool(marker.args) and not marker.args[0]
+
+
+async def capture_nothing(
+    target: CaptureTarget, feed: Callable[[float], None], playing: Callable[[], bool], command: str
+) -> None:
+    await asyncio.Event().wait()
+
+
+@pytest.fixture(autouse=True)
+def no_captures_in_virtual_time(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    In virtual time the meters start no process: it would end in real time, and the virtual time of a timeout that
+    waits for it (e.g. for the shutdown of the daemon) could be over long before.
+    """
+    assert isinstance(request.node, pytest.Item)
+    if not in_real_time(request.node):
+        monkeypatch.setattr(meter_module, "capture", capture_nothing)
 
 
 HOME = Path.home()

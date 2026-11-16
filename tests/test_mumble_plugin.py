@@ -18,7 +18,11 @@ from xtouch_daemon import mumble
 from xtouch_daemon.voip.bridge import BridgeProvider
 from xtouch_daemon.voip.provider import Capability, Participant
 
-pytestmark = pytest.mark.skipif(not mumble.can_build(), reason="needs cmake and a C compiler")
+pytestmark = [
+    pytest.mark.skipif(not mumble.can_build(), reason="needs cmake and a C compiler"),
+    # a real plugin in a real process: it answers in real time
+    pytest.mark.looptime(False),
+]
 
 
 @pytest.fixture(scope="module")

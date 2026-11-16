@@ -154,7 +154,7 @@ class Daemon:
         self._previewer: object | None = None
         """The client of the live view whose configuration runs (see `preview()`), None while the file's does."""
         self._preview_seen = 0.0
-        """When the previewer sent its last request (`time.monotonic()`)."""
+        """When the previewer sent its last request (the time of the event loop)."""
         self._watchdog: asyncio.Task[None] | None = None
         self._file_stamp = self._stamp()
         self.backend = backend
@@ -407,7 +407,7 @@ class Daemon:
                 return self.preview(client, text)
             case KeepPreview():
                 if client is self._previewer:
-                    self._preview_seen = time.monotonic()
+                    self._preview_seen = asyncio.get_running_loop().time()
                 return None
             case EndPreview():
                 if client is self._previewer:
@@ -443,7 +443,7 @@ class Daemon:
         if previous is not None and previous is not client and self.live is not None:
             self.live.tell(previous, Reply("ended", True, "another window previews now"))
         self._previewer = client
-        self._preview_seen = time.monotonic()
+        self._preview_seen = asyncio.get_running_loop().time()
         if previous is None:
             _LOGGER.info("Previewing a configuration of the GUI, the file stays as it is")
             self._watchdog = asyncio.create_task(self._watch_preview(), name="preview watch")
@@ -485,7 +485,7 @@ class Daemon:
                 _LOGGER.info("The configuration file changed during the preview, loading it")
                 self.reload()
                 return
-            if time.monotonic() - self._preview_seen > PREVIEW_TIMEOUT:
+            if asyncio.get_running_loop().time() - self._preview_seen > PREVIEW_TIMEOUT:
                 self._back_to_file(f"no word from the GUI for {PREVIEW_TIMEOUT:.0f} s")
                 return
 
