@@ -178,16 +178,26 @@ async def test_the_bridge_takes_the_participants_of_a_plugin(short_dir: Path, ca
     assert json.loads(await reader.readline()) == {"set_volume": {"id": "1", "volume": 70}}
     assert json.loads(await reader.readline()) == {"set_muted": {"id": "1", "muted": True}}
 
-    # a second plugin replaces the first one
+    # a second plugin is refused while the first one is there, and said so once
+    for _ in range(2):
+        refused_reader, refused_writer = await asyncio.open_unix_connection(path)
+        assert json.loads(await refused_reader.readline()) == {"error": "another plugin is connected"}
+        assert await refused_reader.read() == b""
+        refused_writer.close()
+    assert caplog.text.count("Refusing another voice chat plugin") == 1
+    assert provider.participants == (Participant("1", "A"),)
+
+    # once it is gone, the next one comes in
+    writer.close()
+    await _wait(lambda: not provider.connected)
     reader2, writer2 = await asyncio.open_unix_connection(path)
-    assert await reader.read() == b""
     writer2.write(b'{"participants": [{"id": 2, "name": "B"}]}\n')
     await writer2.drain()
     await _wait(lambda: provider.participants == (Participant("2", "B"),))
-    assert provider.client == "mumble"
+    # it does not say which client it is
+    assert provider.client == "a client"
     # it tells no channel
     assert provider.channel is None
-    writer.close()
 
     writer2.close()
     await _wait(lambda: not provider.connected)
@@ -226,26 +236,6 @@ class FakeWriter:
 
     def close(self) -> None:
         self.closed = True
-
-
-async def test_a_line_from_a_replaced_plugin_is_dropped(tmp_path: Path):
-    provider = BridgeProvider(tmp_path / "voip.sock")
-    old_reader, new_reader = asyncio.StreamReader(), asyncio.StreamReader()
-    old_writer, new_writer = FakeWriter(), FakeWriter()
-    old = asyncio.create_task(provider._serve(old_reader, old_writer))  # type: ignore[arg-type]  # pyright: ignore[reportPrivateUsage, reportArgumentType]
-    await asyncio.sleep(0)
-    new = asyncio.create_task(provider._serve(new_reader, new_writer))  # type: ignore[arg-type]  # pyright: ignore[reportPrivateUsage, reportArgumentType]
-    await asyncio.sleep(0)
-    assert old_writer.closed
-    # what the old one sent before it noticed changes nothing
-    old_reader.feed_data(b'{"participants": [{"id": 1, "name": "Old"}]}\n')
-    old_reader.feed_eof()
-    await old
-    assert provider.participants == ()
-    await provider.set_volume("1", 5)
-    assert new_writer.lines[1:] == [b'{"set_volume":{"id":"1","volume":5}}\n']
-    new_reader.feed_eof()
-    await new
 
 
 async def test_a_socket_that_can_not_be_made_is_logged(tmp_path: Path, caplog: pytest.LogCaptureFixture):

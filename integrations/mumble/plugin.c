@@ -410,6 +410,10 @@ static void *work(void *unused) {
 		if (lost) {
 			close(fd);
 			fd = -1;
+			// not at once: the daemon may have refused this plugin (another one is connected), or be restarting
+			for (long waited = 0; waited < RETRY_MS && atomic_load(&running); waited += TICK_MS) {
+				sleep_ms(TICK_MS);
+			}
 		}
 	}
 	if (fd >= 0) {

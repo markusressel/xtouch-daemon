@@ -22,7 +22,9 @@ talks needs nothing else):
 A new protocol version means lines that an older side would get wrong; new optional keys don't need one, and both
 sides ignore keys they don't know. The daemon ignores the lines of a protocol it does not know (and says so).
 
-One plugin at a time: a new connection replaces the one before. When the plugin goes, so do the participants.
+One plugin at a time: while one is connected, another one gets `{"error": "another plugin is connected"}` and is
+closed (two clients with the plugin enabled would otherwise take the socket from each other). When the plugin
+goes, so do the participants.
 """
 
 import asyncio
@@ -98,6 +100,8 @@ class BridgeProvider(VoipProvider):
         super().__init__()
         self.path = path
         self._writer: asyncio.StreamWriter | None = None
+        self._refused = False
+        """Whether a second plugin was refused while this one is connected: said once, not at every try."""
 
     async def run(self) -> None:
         """Serves until cancelled. A socket that can't be made is logged: the daemon works without it."""
@@ -120,25 +124,31 @@ class BridgeProvider(VoipProvider):
 
     async def _serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         if self._writer is not None:
-            _LOGGER.info("Another voice chat plugin connected, dropping the one before")
-            self._writer.close()
+            # the one that is there stays: two clients with the plugin would take the socket from each other forever
+            if not self._refused:
+                _LOGGER.warning(
+                    "Refusing another voice chat plugin while one is connected: is the plugin enabled in two clients?"
+                )
+                self._refused = True
+            with contextlib.suppress(ConnectionError):
+                writer.write(json.dumps({"error": "another plugin is connected"}).encode() + b"\n")
+            writer.close()
+            return
         self._writer = writer
         self._send({"daemon": "xtouch-daemon", "version": __version__, "protocol": PROTOCOL})
         try:
             with contextlib.suppress(ConnectionError, ValueError):
                 while line := await reader.readline():
-                    if writer is not self._writer:
-                        break
                     self._receive(line)
         finally:
             writer.close()
-            if writer is self._writer:
-                self._writer = None
-                self.client = None
-                self.channel = None
-                self.capabilities = frozenset()
-                self.update((), connected=False)
-                _LOGGER.info("The voice chat plugin is gone")
+            self._writer = None
+            self._refused = False
+            self.client = None
+            self.channel = None
+            self.capabilities = frozenset()
+            self.update((), connected=False)
+            _LOGGER.info("The voice chat plugin is gone")
 
     def _receive(self, line: bytes) -> None:
         if not line.strip():

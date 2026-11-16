@@ -112,3 +112,7 @@ that `xtouch-daemon mumble-plugin` says "In Mumble: ..." with a path. The daemon
 **Nobody on the strips:** the strips show your channel without you; join a channel with other people. The layout with
 the `voip` strips has to be the one shown (`xtouch-daemon layout`).
 
+
+**Two Mumble clients at once** (e.g. a second one with `mumble -m -c <other settings file>` to test with another
+user): enable the plugin in one of them only. The daemon keeps the plugin that connected first and refuses the other
+one; it logs "Refusing another voice chat plugin while one is connected" once.
