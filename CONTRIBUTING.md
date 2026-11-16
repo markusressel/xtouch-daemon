@@ -17,8 +17,8 @@ just check       # runs everything CI runs
 | Recipe | What it does |
 |---|---|
 | `just sync` | Installs the project and the dev tools. |
-| `just test [ARGS]` | Runs pytest, e.g. `just test -k fader`. |
-| `just coverage` | Runs the tests with coverage; fails below 90 % (lines and branches). |
+| `just test [ARGS]` | Runs pytest in parallel (`-n auto`), e.g. `just test -k fader`. `uv run pytest -k fader` runs them in one process, quicker for a few tests and for a debugger. |
+| `just coverage` | Runs the tests in parallel with coverage; fails below 90 % (lines and branches). |
 | `just lint` | `ruff check`, `ruff format --check` and `codespell` (false positives go to `ignore-words-list` in `pyproject.toml`). |
 | `just fmt` | Fixes what ruff can fix and formats the code. |
 | `just typecheck` | `pyright`. |
@@ -39,7 +39,10 @@ In PyCharm, use `.venv` as the interpreter. `.run/` holds run configurations for
 ## Rules
 
 - Every behaviour change comes with tests, and with matching changes to `docs/` (the documentation site, see `zensical.toml`).
-- The unit tests need neither the device nor a sound server: use the fakes in `tests/conftest.py`.
+- The unit tests need neither the device nor a sound server: use the fakes in `tests/conftest.py`. They see nothing
+  of the machine they run on, and fail if they leave a process behind (see `no_host` and `no_leaks` there).
+- Asyncio tests run in virtual time ([looptime](https://github.com/nolar/looptime)): `asyncio.sleep(10)` takes no
+  time. Tests with real processes or devices are marked `@pytest.mark.looptime(False)`.
 - Coverage stays at 90 % or above.
 - Type hints everywhere; `pyright` and `ruff` must pass.
 - Add a line to `CHANGELOG.md` under the topmost version for anything a user notices.

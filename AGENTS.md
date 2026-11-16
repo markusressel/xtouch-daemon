@@ -30,8 +30,8 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 
 ```shell
 uv sync
-just test            # uv run pytest
-just coverage        # fails below 90 %
+just test            # uv run pytest -n auto (in parallel); one test: uv run pytest tests/test_x.py -k name
+just coverage        # in parallel too, fails below 90 %
 just lint            # ruff check + ruff format --check + codespell
 just typecheck       # pyright
 just check           # all of the above, like CI
@@ -48,5 +48,14 @@ just docs            # builds the documentation site (strict: broken links fail)
   tests are skipped without cmake and a C compiler. Never test against a real Mumble in the tests.
 - No hardware and no PipeWire/PulseAudio in unit tests: use a fake `AudioBackend`, a fake pulsectl connection, a
   recording surface, a FIFO or pty for MIDI, a fake `pw-record` script.
+- Tests run in parallel (pytest-xdist) and must not depend on each other or on the order they run in.
+- Asyncio tests run in virtual time (looptime, `--looptime` in `addopts`): sleeps and timeouts take no real time, and
+  `loop.time()` moves only with them. Measure time in async code with `loop.time()` or an injected clock, never with
+  `time.monotonic()`, and assert durations exactly instead of polling. Tests with real processes, devices or buses
+  (their answers come in real time) are marked `pytest.mark.looptime(False)`.
+- A test leaves nothing behind: `conftest.no_leaks` fails it for a process it did not wait for (cancel and await the
+  tasks that own processes, kill and wait for the processes). Tests see nothing of the machine they run on:
+  `conftest.no_host` fails a test that touches the processes, sound devices, the user's files, the session bus or the
+  runtime directory of the machine; a test that does so on purpose is marked `host`.
 - Type hints everywhere; `ruff` and `pyright` must pass.
 - Git: commit, but never push. The user pushes.
