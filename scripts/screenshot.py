@@ -101,10 +101,10 @@ def shoot(home: Path, out: Path) -> None:
     from xtouch_daemon.gui.domain.document import ConfigDocument
     from xtouch_daemon.gui.qt import theme
     from xtouch_daemon.gui.qt.window import MainWindow
-    from xtouch_daemon.instance import Instance
     from xtouch_daemon.live.codec import encode
     from xtouch_daemon.live.messages import MqttState, Snapshot, StripState, fingerprint
-    from xtouch_daemon.systemd import Service
+    from xtouch_daemon.system.instance import Instance
+    from xtouch_daemon.system.systemd import Service
 
     QCoreApplication.setOrganizationName("xtouch-daemon-screenshot")
     QCoreApplication.setApplicationName("xtouch-daemon-screenshot")

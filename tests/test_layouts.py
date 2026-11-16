@@ -6,7 +6,8 @@ from tests.conftest import stream
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.model import Config
-from xtouch_daemon.layouts import LayoutSwitcher, rule_match, running_processes
+from xtouch_daemon.runtime.layouts import LayoutSwitcher, rule_match
+from xtouch_daemon.system.processes import running_processes
 
 LAYOUTS = """
 [switching]

@@ -37,7 +37,6 @@ from pytestqt.qtbot import QtBot
 from tests.conftest import install_package, output, source, stream
 from tests.test_instance import RecordingInstance
 from tests.test_systemd import FakeSystemctl
-from xtouch_daemon import mumble, systemd
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config.presets import Kind as PresetKind
@@ -54,10 +53,12 @@ from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Switch, Tables
 from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, MumbleInstaller, SectionPage
 from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.instance import Instance
 from xtouch_daemon.live.codec import encode, encode_reply, encode_request
 from xtouch_daemon.live.messages import MqttState, Reply, Snapshot, StripState, SwitchLayout, VoipState, fingerprint
-from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, unit_file, unit_path
+from xtouch_daemon.system import systemd
+from xtouch_daemon.system.instance import Instance
+from xtouch_daemon.system.systemd import UNIT_NAME, Service, ServiceError, unit_file, unit_path
+from xtouch_daemon.voip import mumble
 
 CONFIG = """\
 # my mixer

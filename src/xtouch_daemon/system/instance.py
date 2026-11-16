@@ -93,7 +93,7 @@ def registered(config: Path) -> Iterator[Instance]:
 
 
 def socket_file() -> Path:
-    """Where the running daemon serves the live view of the device (see `live.py`), next to the runtime file."""
+    """Where the running daemon serves the live view of the device (see `live.server`), next to the runtime file."""
     return runtime_file().with_name(SOCKET_NAME)
 
 

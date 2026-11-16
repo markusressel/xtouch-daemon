@@ -9,16 +9,16 @@ from typing import TYPE_CHECKING, assert_never
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
+from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import EncoderMode, Indicator
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import Strip
-from xtouch_daemon.launch import Launcher
-from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips.knobs import BalanceKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
+from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.voip.provider import VoipProvider
 
 if TYPE_CHECKING:
@@ -48,7 +48,7 @@ class StripEnv:
     launcher: Launcher = field(default_factory=Launcher)
     """Starts the applications of strips with `launch`."""
     processes: Callable[[], frozenset[str]] = frozenset
-    """The names of the processes that run (see `layouts.running_processes()`), as the mixer saw them last."""
+    """The names of the processes that run (see `processes.running_processes()`), as the mixer saw them last."""
 
 
 class StripController:

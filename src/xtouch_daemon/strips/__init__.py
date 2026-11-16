@@ -9,12 +9,12 @@ from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConf
 from xtouch_daemon.config.values import Indicator, color_of, default_encoder
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.hardware.strip import Strip
-from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv, VolumeStrip
 from xtouch_daemon.strips.device import ChoiceStrip, DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
 from xtouch_daemon.strips.voip import VoipSeat, VoipStrip
+from xtouch_daemon.system.launch import LaunchButton
 
 
 class EmptyStrip(StripController):

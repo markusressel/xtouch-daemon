@@ -8,8 +8,8 @@ from pathlib import Path
 
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.instance import Instance
 from xtouch_daemon.live.messages import Snapshot, fingerprint
+from xtouch_daemon.system.instance import Instance
 
 FEATURE = "preview"
 """The feature of the daemon (`Snapshot.features`) that the live preview needs."""

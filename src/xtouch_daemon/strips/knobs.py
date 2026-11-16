@@ -13,7 +13,7 @@ from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.hardware.protocol import RING_MAX, RingMode
 
 if TYPE_CHECKING:
-    from xtouch_daemon.media import MediaPlayers, Player
+    from xtouch_daemon.audio.media import MediaPlayers, Player
     from xtouch_daemon.strips.apps import AppStrip, AutoStrip
     from xtouch_daemon.strips.base import VolumeStrip
 
@@ -213,7 +213,7 @@ class MediaKnob(Knob):
         players = self.apps.env.players
         if players is None:
             return None
-        from xtouch_daemon.media import player_of
+        from xtouch_daemon.audio.media import player_of
 
         return player_of(players.players, self.apps.streams.values())
 

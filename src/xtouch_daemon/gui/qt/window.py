@@ -43,7 +43,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from xtouch_daemon import installed_version, instance
+from xtouch_daemon import installed_version
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config.files import Problem
@@ -81,9 +81,10 @@ from xtouch_daemon.gui.qt.pages import (
 from xtouch_daemon.gui.qt.preview import Preview
 from xtouch_daemon.gui.qt.strip_list import StripList
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.instance import Instance
 from xtouch_daemon.live.messages import Reply, Snapshot, SwitchLayout
-from xtouch_daemon.systemd import (
+from xtouch_daemon.system import instance
+from xtouch_daemon.system.instance import Instance
+from xtouch_daemon.system.systemd import (
     UNIT_NAME,
     Service,
     ServiceError,

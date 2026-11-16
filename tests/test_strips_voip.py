@@ -9,10 +9,10 @@ from xtouch_daemon.audio.model import DISCONNECTED
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
-from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.strips import voip as voip_module
 from xtouch_daemon.strips.base import StripEnv
 from xtouch_daemon.strips.voip import VoipSeat, VoipSeats, VoipStrip
+from xtouch_daemon.system.launch import LaunchButton
 from xtouch_daemon.voip import Capability, Participant, VoipProvider
 
 CONFIG = VoipStripConfig(type="voip", color="cyan", talking_color="green", max_volume=200)

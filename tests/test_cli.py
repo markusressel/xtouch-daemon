@@ -10,15 +10,17 @@ import pytest
 from click.testing import CliRunner, Result
 
 from tests.conftest import install_package, output, source, stream
-from xtouch_daemon import __version__, cli, instance, mumble, systemd
+from xtouch_daemon import __version__, cli
 from xtouch_daemon.audio import pulse
+from xtouch_daemon.audio.media import MprisPlayers
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.layout_strips import InheritStripConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.live.codec import decode_request, encode, encode_reply
 from xtouch_daemon.live.messages import FEATURES, Reply, Request, Snapshot, SwitchLayout
-from xtouch_daemon.media import MprisPlayers
+from xtouch_daemon.system import instance, systemd
+from xtouch_daemon.voip import mumble
 
 CONFIG = """
 [aliases]

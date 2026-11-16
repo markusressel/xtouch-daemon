@@ -20,8 +20,9 @@ from typing import Any, Protocol, assert_never
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 
-from xtouch_daemon import __version__, instance, systemd
+from xtouch_daemon import __version__
 from xtouch_daemon.audio.backend import AudioBackend
+from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path, load_config, parse_config
@@ -29,7 +30,6 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.values import DEFAULT_LAYOUT
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.surface import Surface
-from xtouch_daemon.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout, running_processes
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
@@ -44,10 +44,12 @@ from xtouch_daemon.live.messages import (
     fingerprint,
 )
 from xtouch_daemon.live.server import LiveServer, strip_states
-from xtouch_daemon.media import MediaPlayers
-from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
+from xtouch_daemon.runtime.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout
+from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.strips.homeassistant import entity_ids
+from xtouch_daemon.system import instance, systemd
+from xtouch_daemon.system.processes import running_processes
 from xtouch_daemon.voip import VoipProvider, build_provider
 
 _LOGGER = logging.getLogger(__name__)
@@ -143,7 +145,7 @@ class Daemon:
     ):
         """
         `bridge` is by default the one of the [mqtt] section, if there is one. `live_socket` is where the live view
-        for the GUI is served (see `live.py`), None for none. `players` are the media players of the session, for
+        for the GUI is served (see `live.server`), None for none. `players` are the media players of the session, for
         `encoder = "media"`. `voip_socket` is where the `bridge` VoIP provider waits for its plugin (by default
         `instance.voip_socket_file()`), `processes` tells the processes that run, for the rules of the layouts.
         `layout_file` is where the daemon keeps the layout it shows for the next start, unless a rule put it there

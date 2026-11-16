@@ -7,14 +7,14 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import FakeBackend, FakeLauncher, RecordingSurface, finish_tasks, output, settle, stream
-from xtouch_daemon import mixer as mixer_module
 from xtouch_daemon.audio.meter import CHUNK_BYTES, CaptureTarget
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Direction
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Led, RingMode
-from xtouch_daemon.mixer import Mixer
+from xtouch_daemon.runtime import mixer as mixer_module
+from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.strips import EmptyStrip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
 from xtouch_daemon.strips.device import DeviceStrip

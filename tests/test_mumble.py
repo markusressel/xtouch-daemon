@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from xtouch_daemon import mumble
+from xtouch_daemon.voip import mumble
 
 
 @pytest.fixture(autouse=True)

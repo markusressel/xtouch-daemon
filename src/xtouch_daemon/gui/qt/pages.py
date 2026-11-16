@@ -27,7 +27,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from xtouch_daemon import mumble
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.layout import LayoutConfig
 from xtouch_daemon.config.model import Config
@@ -60,6 +59,7 @@ from xtouch_daemon.gui.qt.fields import (
 )
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Snapshot
+from xtouch_daemon.voip import mumble
 
 type Audio = Callable[[], AudioState]
 

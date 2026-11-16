@@ -11,10 +11,10 @@ from dbus_fast.constants import PropertyAccess
 from dbus_fast.service import ServiceInterface, dbus_property, method
 
 from tests.conftest import FakeBackend, RecordingSurface, settle, stream
-from xtouch_daemon import media
+from xtouch_daemon.audio import media
+from xtouch_daemon.audio.media import MediaCommandError, MprisPlayers, Player, ancestors, parent_pid, player_of
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.hardware.protocol import Color, RingMode
-from xtouch_daemon.media import MediaCommandError, MprisPlayers, Player, ancestors, parent_pid, player_of
 from xtouch_daemon.strips import knobs
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
 from xtouch_daemon.strips.base import StripEnv

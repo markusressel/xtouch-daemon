@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import install_package
-from xtouch_daemon import systemd
-from xtouch_daemon.systemd import (
+from xtouch_daemon.system import systemd
+from xtouch_daemon.system.systemd import (
     JournalFormatter,
     notify,
     reloading,

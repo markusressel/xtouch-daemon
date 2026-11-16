@@ -13,13 +13,12 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle, stream
 from tests.fake_mqtt import FakeBroker
 from xtouch_daemon import __version__
-from xtouch_daemon import daemon as daemon_module
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.backend import AudioBackend
+from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.model import Config
-from xtouch_daemon.daemon import Daemon
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
@@ -35,9 +34,10 @@ from xtouch_daemon.live.messages import (
     VoipState,
     fingerprint,
 )
-from xtouch_daemon.media import MediaPlayers
-from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
+from xtouch_daemon.runtime import daemon as daemon_module
+from xtouch_daemon.runtime.daemon import Daemon
+from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.voip import VoipProvider
 
 SPEAKER = '[[strip]]\ntype = "output"\ndevice = "speaker"\nlabel = "Speaker"\ncolor = "cyan"\n'

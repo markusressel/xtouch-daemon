@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import FakeLauncher
-from xtouch_daemon import launch as launch_module
 from xtouch_daemon.hardware.protocol import Led
-from xtouch_daemon.launch import LAUNCH_DEBOUNCE, LAUNCH_TIMEOUT, LaunchButton, Launcher, program_name, unit_name
+from xtouch_daemon.system import launch as launch_module
+from xtouch_daemon.system.launch import LAUNCH_DEBOUNCE, LAUNCH_TIMEOUT, LaunchButton, Launcher, program_name, unit_name
 
 REAL_SPAWN = launch_module.spawn_detached
 """For tests of it with harmless programs of their own; `conftest.no_launches` replaces it in the module."""

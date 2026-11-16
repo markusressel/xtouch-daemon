@@ -10,8 +10,6 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon import launch as launch_module
-from xtouch_daemon import layouts, systemd
 from xtouch_daemon.audio import meter as meter_module
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
@@ -21,8 +19,10 @@ from xtouch_daemon.hardware import midi, protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.surface import Surface
-from xtouch_daemon.launch import Launcher
 from xtouch_daemon.strips.base import StripEnv
+from xtouch_daemon.system import launch as launch_module
+from xtouch_daemon.system import processes, systemd
+from xtouch_daemon.system.launch import Launcher
 
 # windows of the GUI tests are never shown on the display of the machine
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -149,7 +149,7 @@ def no_host(request: pytest.FixtureRequest, tmp_path: Path, monkeypatch: pytest.
         monkeypatch.delenv(variable, raising=False)
     # no processes run
     (tmp_path / "proc").mkdir()
-    monkeypatch.setattr(layouts, "PROC", tmp_path / "proc")
+    monkeypatch.setattr(processes, "PROC", tmp_path / "proc")
     monkeypatch.setattr(midi, "PROC_ASOUND_CARDS", tmp_path / "proc" / "asound" / "cards")
     monkeypatch.setattr(midi, "DEV_SND", tmp_path / "dev" / "snd")
     if request.node.get_closest_marker("host") is not None:

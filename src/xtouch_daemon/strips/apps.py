@@ -11,10 +11,10 @@ from xtouch_daemon.audio.model import AudioState, Stream
 from xtouch_daemon.config.values import EncoderMode, Indicator
 from xtouch_daemon.hardware.protocol import Button, Color
 from xtouch_daemon.hardware.strip import Strip
-from xtouch_daemon.launch import LaunchButton
-from xtouch_daemon.layouts import process_matching
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.strips.knobs import Knob, MediaKnob, PickKnob
+from xtouch_daemon.system.launch import LaunchButton
+from xtouch_daemon.system.processes import process_matching
 
 if TYPE_CHECKING:
     from xtouch_daemon.strips.homeassistant import HomeAssistantControls

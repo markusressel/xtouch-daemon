@@ -4,8 +4,8 @@ from pathlib import Path
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
 from xtouch_daemon.gui.domain.status import Tone
-from xtouch_daemon.instance import Instance
 from xtouch_daemon.live.messages import FEATURES, Snapshot, fingerprint
+from xtouch_daemon.system.instance import Instance
 
 CONFIG = parse_config('[[strip]]\ntype = "output"\n')
 PATH = Path("/home/me/config.toml")

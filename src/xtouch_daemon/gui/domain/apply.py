@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from xtouch_daemon.instance import Instance
+from xtouch_daemon.system.instance import Instance
 
 
 @dataclass(frozen=True)

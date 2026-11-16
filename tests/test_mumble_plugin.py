@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon import mumble
+from xtouch_daemon.voip import mumble
 from xtouch_daemon.voip.bridge import BridgeProvider
 from xtouch_daemon.voip.provider import Capability, Participant
 

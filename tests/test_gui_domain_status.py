@@ -3,12 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon import systemd
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
-from xtouch_daemon.instance import Instance
 from xtouch_daemon.live.messages import Snapshot, fingerprint
-from xtouch_daemon.systemd import ServiceState
+from xtouch_daemon.system import systemd
+from xtouch_daemon.system.instance import Instance
+from xtouch_daemon.system.systemd import ServiceState
 
 CONFIG = parse_config('[[strip]]\ntype = "output"\n')
 OTHER = parse_config('[[strip]]\ntype = "input"\n')

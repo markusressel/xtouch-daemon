@@ -20,7 +20,7 @@ from pathlib import Path
 BUNDLE_NAME = "xtouch-daemon.mumble_plugin"
 LIBRARY_NAME = "libxtouch-daemon.so"
 FLATPAK_ID = "info.mumble.Mumble"
-SOURCE_DIR = Path(__file__).resolve().parents[2] / "integrations" / "mumble"
+SOURCE_DIR = Path(__file__).resolve().parents[3] / "integrations" / "mumble"
 """The sources of the plugin, in a checkout of the repository (not in a release)."""
 SHARE_DIRS = (Path("/usr/share/xtouch-daemon"), Path("/usr/local/share/xtouch-daemon"))
 """Where a release installs the bundle."""

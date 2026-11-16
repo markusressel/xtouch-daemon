@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon import instance
-from xtouch_daemon.instance import AlreadyRunning, Instance, registered, running, runtime_file
+from xtouch_daemon.system import instance
+from xtouch_daemon.system.instance import AlreadyRunning, Instance, registered, running, runtime_file
 
 
 @dataclass(frozen=True)

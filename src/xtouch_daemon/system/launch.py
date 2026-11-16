@@ -31,7 +31,7 @@ type Spawn = Callable[[list[str]], None]
 
 
 def program_name(command: Sequence[str]) -> str:
-    """The file name of the program of a command, in lower case, as `layouts.running_processes()` names processes."""
+    """The file name of the program of a command, in lower case, as `processes.running_processes()` names processes."""
     return Path(command[0]).name.lower()
 
 

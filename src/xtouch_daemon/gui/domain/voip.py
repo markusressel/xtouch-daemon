@@ -1,12 +1,12 @@
 """
 The voice chat on the page of `[voip]`: whether the daemon has the participants, and setting up the Mumble plugin
-(see `xtouch_daemon.mumble`).
+(see `xtouch_daemon.voip.mumble`).
 """
 
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.live.messages import Snapshot
-from xtouch_daemon.mumble import Setup
+from xtouch_daemon.voip.mumble import Setup
 
 
 def voip_status(snapshot: Snapshot | None) -> Status:

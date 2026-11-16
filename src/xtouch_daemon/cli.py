@@ -11,7 +11,8 @@ from typing import Any, BinaryIO, assert_never
 
 import click
 
-from xtouch_daemon import __version__, instance, mumble, systemd
+from xtouch_daemon import __version__
+from xtouch_daemon.audio.media import MprisPlayers
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.audio.pulse import PulseBackend, SoundServerError, read_state
 from xtouch_daemon.config import presets
@@ -23,12 +24,13 @@ from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConf
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import DEFAULT_LAYOUT, MeterPoint, default_encoder
-from xtouch_daemon.daemon import Daemon
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.selftest import run_selftest
 from xtouch_daemon.live.codec import decode_message, encode_request
 from xtouch_daemon.live.messages import Reply, Snapshot, SwitchLayout
-from xtouch_daemon.media import MprisPlayers
+from xtouch_daemon.runtime.daemon import Daemon
+from xtouch_daemon.system import instance, systemd
+from xtouch_daemon.voip import mumble
 
 CONFIG_OPTION = click.option(
     "-c",
