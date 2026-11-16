@@ -46,6 +46,9 @@ ignore = ["speech-dispatcher"]   # applications "auto" strips never take
 # rec    = "recording"   what the Rec LED shows: recording (an application records the device, or the
 # solo   = "off"         applications record), playing, default, muted, off; the same for the Solo LED
 # select = false    (output/input with a device) the select button does not make the device the default
+# launch = ["mumble", "mumble://me@voice.example.org/Gaming"]
+#                   (apps, auto, voip) Select starts this command while the application does not run; no shell
+# launch_when_running = true   (apps, auto) Select starts it also while it runs (Mumble: connect to the server)
 #
 # Examples:
 #
@@ -60,6 +63,7 @@ ignore = ["speech-dispatcher"]   # applications "auto" strips never take
 # match = ["discord", "teamspeak", "mumble"]
 # label = "VoIP"
 # color = "green"
+# launch = ["mumble", "mumble://me@voice.example.org/Gaming"]   # Select starts Mumble and joins the channel
 
 [[strip]]
 type = "auto"

@@ -11,6 +11,7 @@ from collections.abc import Callable
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import VoipStripConfig, color_of
+from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.protocol import Button, Color, Led
 from xtouch_daemon.strips.base import NOTICE_TIME, StripController, StripEnv
 from xtouch_daemon.surface import Strip
@@ -20,12 +21,39 @@ from xtouch_daemon.voip.provider import Capability, Participant, VoipProvider
 class VoipGroup:
     """The places of one `voip` strip, and which page of the participants they show."""
 
-    def __init__(self, provider: VoipProvider, size: int, refresh: Callable[[], None] = lambda: None):
+    def __init__(
+        self,
+        provider: VoipProvider,
+        size: int,
+        refresh: Callable[[], None] = lambda: None,
+        launch: LaunchButton | None = None,
+        processes: Callable[[], frozenset[str]] = frozenset,
+    ):
+        """`processes` are the names of the processes that run, for `launch`."""
         self.provider = provider
         self.size = size
         self.page = 0
         self.refresh = refresh
         """Shows the strips again, after the page changed."""
+        self.launch = launch
+        """What Select starts while the voice chat is not there (`launch`), for all places of the group."""
+        self._processes = processes
+
+    @property
+    def runs(self) -> bool:
+        """Whether the voice chat is there: its plugin reports it (also while nobody talks), or its program runs."""
+        return self.provider.connected or (self.launch is not None and self.launch.program_runs(self._processes()))
+
+    def select(self) -> str | None:
+        """
+        Select on one of the places: launches the voice chat while it is not there (with `launch`), and shows the
+        next page otherwise. What to show for a moment, e.g. "pg 2/3"; None after a launch.
+        """
+        if self.launch is not None and not self.runs:
+            if self.launch.press(False):
+                self.refresh()
+            return None
+        return self.next_page()
 
     @property
     def pages(self) -> int:
@@ -72,10 +100,16 @@ class VoipStrip(StripController):
     def update(self, state: AudioState) -> None:
         self.show()
 
+    @property
+    def launches(self) -> bool:
+        return self.group.launch is not None
+
     def show(self) -> None:
         person = self.participant
         paging = self.group.pages > 1
-        self.strip.set_led(Button.SELECT, Led.ON if paging else Led.OFF)
+        launch = self.group.launch
+        launching = launch is not None and launch.launching(self.group.runs)
+        self.strip.set_led(Button.SELECT, Led.FLASH if launching else Led.ON if paging else Led.OFF)
         self.strip.set_led(Button.REC, Led.OFF)
         self.strip.set_led(Button.SOLO, Led.OFF)
         self.strip.set_ring(0)
@@ -138,7 +172,9 @@ class VoipStrip(StripController):
             return
         match button:
             case Button.SELECT:
-                self.notify(self.group.next_page())
+                notice = self.group.select()
+                if notice is not None:
+                    self.notify(notice)
             case Button.MUTE:
                 person = self.participant
                 if person is not None and self.can(Capability.MUTE):

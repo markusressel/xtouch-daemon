@@ -37,6 +37,7 @@ nav = [
   { "Hardware" = "hardware.md" },
   { "Architecture" = "architecture.md" },
   { "Design: layouts" = "design/layouts.md" },
+  { "Design: launching applications" = "design/launch.md" },
   { "Changelog" = "https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" },
 ]
 

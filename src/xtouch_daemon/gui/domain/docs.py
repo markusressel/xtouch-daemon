@@ -47,6 +47,8 @@ STRIP_OPTIONS: dict[str, str] = {
     "device": "configuration/devices/#several-devices",
     "profiles": "configuration/devices/#profiles",
     "match": "configuration/applications/#apps-strips",
+    "launch": "configuration/applications/#launching-the-application",
+    "launch_when_running": "configuration/applications/#launching-the-application",
 }
 """The options of the strips; `STRIP_TYPE_OPTIONS` overrides them for one type."""
 

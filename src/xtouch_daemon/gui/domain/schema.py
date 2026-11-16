@@ -218,6 +218,8 @@ STRIP_OPTION_ORDER = (
     "solo",
     "mute",
     "select",
+    "launch",
+    "launch_when_running",
     "fader",
     "min_volume",
     "max_volume",

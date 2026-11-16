@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import shlex
 import socket
 import sys
 from collections.abc import Iterator
@@ -117,7 +118,8 @@ def describe_strip(config: StripConfig, number: int) -> str:
         case InheritStripConfig():
             return "the strip of the default layout"
         case VoipStripConfig():
-            return f"a participant of the voice chat ({config.color}, talking: {config.talking_color})"
+            launch = f", select launches {shlex.join(config.launch)} while it is not there" if config.launch else ""
+            return f"a participant of the voice chat ({config.color}, talking: {config.talking_color}){launch}"
         case _ as unreachable:
             assert_never(unreachable)
     label = f"{config.label!r} " if isinstance(config, DeviceStripConfig | AppsStripConfig) and config.label else ""
@@ -131,6 +133,9 @@ def describe_strip(config: StripConfig, number: int) -> str:
     details.append(f"encoder: {config.encoder or default_encoder(config.type, config.fader)}")
     if config.fader != "volume":
         details.append(f"fader: {config.fader}")
+    if not isinstance(config, DeviceStripConfig) and config.launch is not None:
+        when = "also while it runs" if config.launch_when_running else "while it does not run"
+        what += f", select launches {shlex.join(config.launch)} {when}"
     return f"{label}{what} ({', '.join(details)})"
 
 

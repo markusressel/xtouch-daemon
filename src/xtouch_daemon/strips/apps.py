@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Stream
 from xtouch_daemon.config import EncoderMode, Indicator
+from xtouch_daemon.launch import LaunchButton
+from xtouch_daemon.layouts import process_matching
 from xtouch_daemon.protocol import Button, Color
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.strips.knobs import Knob, MediaKnob, PickKnob
@@ -50,9 +52,37 @@ class AppStrip(VolumeStrip):
         self.streams: dict[int, Stream] = {}
         self.group_volume: int | None = None
         """The volume of the strip: set on the strip, or the loudest stream; None before the first stream."""
+        self.launch: LaunchButton | None = None
+        """What Select starts while the applications do not run (`launch`)."""
+        self.state: AudioState | None = None
+        """The state shown last."""
 
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
         raise NotImplementedError
+
+    def runs(self, state: AudioState) -> bool:
+        """Whether one of the applications runs, for `launch`: by default when the program of `launch` runs."""
+        return self.launch is not None and self.launch.program_runs(self.env.processes())
+
+    @property
+    def launches(self) -> bool:
+        return self.launch is not None
+
+    def update(self, state: AudioState) -> None:
+        self.state = state
+        super().update(state)
+        if self.launch is not None:
+            self._show_launch(self.launch, state)
+
+    def _show_launch(self, launch: LaunchButton, state: AudioState) -> None:
+        self.strip.set_led(Button.SELECT, launch.led(self.runs(state)))
+
+    def on_button(self, button: Button, pressed: bool) -> None:
+        if pressed and button == Button.SELECT and self.launch is not None and self.state is not None:
+            if self.launch.press(self.runs(self.state)):
+                self._show_launch(self.launch, self.state)
+            return
+        super().on_button(button, pressed)
 
     def inactive_text(self) -> str:
         return "idle"
@@ -141,6 +171,17 @@ class AppGroupStrip(AppStrip):
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
         return state.streams_matching(self.patterns)
 
+    def runs(self, state: AudioState) -> bool:
+        """
+        An application of the group has a stream, or a process whose name contains one of the patterns runs (like the
+        `processes` rule of a layout), or the program of `launch`: a silent voice chat runs too.
+        """
+        return (
+            bool(self.streams_in(state))
+            or process_matching(self.patterns, self.env.processes()) is not None
+            or super().runs(state)
+        )
+
     def recording(self, state: AudioState) -> bool:
         return state.records_matching(self.patterns)
 
@@ -185,6 +226,10 @@ class AutoStrip(AppStrip):
 
     def streams_in(self, state: AudioState) -> tuple[Stream, ...]:
         return state.streams_of_app(self.app) if self.app is not None else ()
+
+    def runs(self, state: AudioState) -> bool:
+        """The strip has an application (it plays, was picked, or its hold time is not over), or `launch`'s runs."""
+        return self.app is not None or super().runs(state)
 
     def recording(self, state: AudioState) -> bool:
         return self.app is not None and state.records_app(self.app)

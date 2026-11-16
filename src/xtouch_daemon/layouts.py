@@ -71,17 +71,22 @@ def remember_layout(path: Path, name: str) -> None:
         _LOGGER.warning(f"Can't keep the layout for the next start in {path}: {e}")
 
 
+def process_matching(patterns: Collection[str], processes: Collection[str]) -> str | None:
+    """A process whose name contains one of the patterns (tried in order, ignoring case); None for none."""
+    for pattern in patterns:
+        process = next((name for name in sorted(processes) if pattern.lower() in name), None)
+        if process is not None:
+            return process
+    return None
+
+
 def rule_match(layout: LayoutConfig, state: AudioState, processes: Collection[str]) -> str | None:
     """What makes the rules of the layout match (an application, a process), None while nothing does."""
     if layout.apps:
         stream = next(iter(state.streams_matching(layout.apps)), None)
         if stream is not None:
             return stream.app or stream.binary
-    for pattern in layout.processes:
-        process = next((name for name in sorted(processes) if pattern.lower() in name), None)
-        if process is not None:
-            return process
-    return None
+    return process_matching(layout.processes, processes)
 
 
 class LayoutSwitcher:

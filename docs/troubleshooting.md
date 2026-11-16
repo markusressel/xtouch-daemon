@@ -49,6 +49,13 @@ comes back by itself. `xtouch-daemon list-devices` shows the devices that are th
 **An `apps` strip shows `idle`.** No stream of its applications is there. `xtouch-daemon list-apps` shows the names
 and binaries of the applications that play, and which strip takes each one.
 
+**Select does not start the application of `launch`.** The daemon's log says why: a program that is not in `PATH`
+(`can't launch ...`), or one that did not show up in 15 s. Nothing happens either while the strip counts it as
+running: on `apps` strips also a process whose name contains a `match` entry (`ps -eo comm` shows them). The
+application's own output is in `journalctl --user -u 'xtouch-launch-*'`. A graphical application that finds no
+display there needs the desktop's variables in the systemd user manager (`systemctl --user show-environment`
+should list `WAYLAND_DISPLAY` or `DISPLAY`); most desktops import them at login.
+
 **An application lands on the wrong strip.** `xtouch-daemon list-apps` names the strip that takes it. An `apps` strip
 takes every application whose name or binary contains one of its `match` entries, so a short entry can match more than
 intended.

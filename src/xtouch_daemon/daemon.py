@@ -77,6 +77,7 @@ class MixerFactory(Protocol):
         shared_entities: dict[MQTTEntity, str | None],
         keep: frozenset[str],
         preview: bool = False,
+        processes: Callable[[], frozenset[str]] = ...,
     ) -> Mixer: ...
 
 
@@ -206,6 +207,7 @@ class Daemon:
             shared_entities=shared,
             keep=keep,
             preview=self.previewing,
+            processes=self._processes,
         )
 
     def _remembered_layout(self, config: Config) -> str:

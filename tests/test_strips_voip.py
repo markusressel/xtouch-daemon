@@ -3,10 +3,11 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from tests.conftest import RecordingSurface, finish_tasks, settle
+from tests.conftest import FakeLauncher, RecordingSurface, finish_tasks, settle
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import DISCONNECTED
 from xtouch_daemon.config import VoipStripConfig
+from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.protocol import Button, Color, Led
 from xtouch_daemon.strips import voip as voip_module
 from xtouch_daemon.strips.base import StripEnv
@@ -181,3 +182,70 @@ async def test_select_shows_the_next_page(
     bob.on_button(Button.SELECT, True)
     bob.close()
     ann.close()
+
+
+# -- launch -------------------------------------------------------------------------------------------------------
+
+MUMBLE = ("mumble", "mumble://markus@voice.example.org/Gaming")
+
+
+def launching(
+    surface: RecordingSurface, env: StripEnv, provider: VoipProvider, *processes: str
+) -> tuple[FakeLauncher, list[VoipStrip]]:
+    launcher = FakeLauncher()
+    config = CONFIG.model_copy(update={"launch": MUMBLE})
+    button = LaunchButton(MUMBLE, launcher, "Strip 1")
+    strips: list[VoipStrip] = []
+
+    def refresh() -> None:
+        for strip in strips:
+            strip.show()
+
+    group = VoipGroup(provider, config.count, refresh, button, lambda: frozenset(processes))
+    strips += [VoipStrip(surface.strips[slot], env, group, slot, config) for slot in range(config.count)]
+    return launcher, strips
+
+
+async def test_select_launches_the_voice_chat_while_it_is_not_there(surface: RecordingSurface, env: StripEnv):
+    launcher, (first, second) = launching(surface, env, FakeProvider())
+    assert first.launches
+    first.update(DISCONNECTED)
+    assert surface.strips[0].leds[Button.SELECT] == Led.OFF
+
+    first.on_button(Button.SELECT, True)
+    # the places launch together: once
+    second.on_button(Button.SELECT, True)
+
+    assert len(launcher.spawned) == 1
+    assert launcher.spawned[0][-2:] == list(MUMBLE)
+    assert surface.strips[0].leds[Button.SELECT] == Led.FLASH
+    assert surface.strips[1].leds[Button.SELECT] == Led.FLASH
+    # no page notice
+    assert surface.strips[0].text[1] == ""
+
+
+async def test_a_voice_chat_that_is_there_pages_on_select(
+    surface: RecordingSurface, env: StripEnv, provider: FakeProvider
+):
+    # the plugin reports it
+    launcher, (first, _) = launching(surface, env, provider)
+    first.on_button(Button.SELECT, True)
+    assert launcher.spawned == []
+    assert first.notice == "pg 2/2"
+    assert surface.strips[0].leds[Button.SELECT] == Led.ON
+
+
+async def test_the_program_of_launch_counts_as_the_voice_chat(surface: RecordingSurface, env: StripEnv):
+    # Mumble runs without the plugin
+    launcher, (first, _) = launching(surface, env, FakeProvider(), "mumble")
+    first.on_button(Button.SELECT, True)
+    assert launcher.spawned == []
+    assert first.notice == "pg 1/1"
+
+
+async def test_a_launch_that_fails_shows_nothing(surface: RecordingSurface, env: StripEnv):
+    launcher, (first, _) = launching(surface, env, FakeProvider())
+    launcher.missing.add("mumble")
+    first.on_button(Button.SELECT, True)
+    assert surface.strips[0].leds[Button.SELECT] == Led.OFF
+    assert first.notice is None

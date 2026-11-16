@@ -69,6 +69,7 @@ def quiet_mixer(
     shared_entities: dict[MQTTEntity, str | None] | None = None,
     keep: frozenset[str] = frozenset(),
     preview: bool = False,
+    processes: Callable[[], frozenset[str]] = frozenset,
 ) -> Mixer:
     # meters that capture nothing: the tests don't touch the audio of the machine they run on
     return Mixer(
@@ -83,6 +84,7 @@ def quiet_mixer(
         shared_entities=shared_entities,
         keep=keep,
         preview=preview,
+        processes=processes,
     )
 
 

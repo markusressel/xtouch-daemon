@@ -60,6 +60,10 @@ type = "inherit"
 More than five people: Select pages through them. See [Layouts](../configuration/layouts.md) for the rules and the
 other ways to switch.
 
+To start Mumble from the device, give a strip of the default layout `launch` with a `mumble://` URL: Select starts
+Mumble, which connects to the server and joins the channel, and the layout above comes once Mumble runs. See
+[Launching the application](../configuration/applications.md#launching-the-application).
+
 ## What it does, and what not
 
 - **Volume and mute are the plugin's own.** The plugin scales the voice of each person before Mumble mixes it, and

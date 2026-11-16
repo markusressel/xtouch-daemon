@@ -2,8 +2,8 @@
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Mapping
-from dataclasses import dataclass, replace
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, assert_never
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
@@ -12,6 +12,7 @@ from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import BehaviorConfig, EncoderMode, Indicator
+from xtouch_daemon.launch import Launcher
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
@@ -43,6 +44,10 @@ class StripEnv:
     """The media players of the session, for `encoder = "media"`."""
     voip: VoipProvider | None = None
     """The participants of the voice chat, with a [voip] section."""
+    launcher: Launcher = field(default_factory=Launcher)
+    """Starts the applications of strips with `launch`."""
+    processes: Callable[[], frozenset[str]] = frozenset
+    """The names of the processes that run (see `layouts.running_processes()`), as the mixer saw them last."""
 
 
 class StripController:
@@ -60,6 +65,11 @@ class StripController:
 
     def update(self, state: AudioState) -> None:
         """Shows the state on the strip."""
+
+    @property
+    def launches(self) -> bool:
+        """Whether Select launches an application (`launch`), which needs the processes that run."""
+        return False
 
     def meter_targets(self, state: AudioState) -> set[CaptureTarget]:
         """What the meter of the strip shows the level of."""
