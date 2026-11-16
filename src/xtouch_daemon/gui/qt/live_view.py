@@ -22,8 +22,10 @@ class LiveView(QObject):
     changed = pyqtSignal(object, arguments=["snapshot"])
     replied = pyqtSignal(object, arguments=["reply"])
 
-    def __init__(self, path: Path):
-        super().__init__()
+    def __init__(self, path: Path, parent: QObject | None = None):
+        """`parent` is the window it belongs to: it ends with it, so the socket tells nothing to a closed window."""
+        # PyQt6's stub types the parent of a QObject as `Self`, the class itself
+        super().__init__(parent)  # pyright: ignore[reportArgumentType]
         self.path = path
         self.snapshot: Snapshot | None = None
         self.owned = False

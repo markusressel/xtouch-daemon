@@ -127,7 +127,7 @@ class MainWindow(QMainWindow):
         self.applying.setSingleShot(True)
         self.applying.setInterval(APPLY_GRACE_MS)
         self.applying.timeout.connect(self.refresh_preview)
-        self.live = LiveView(live_socket or instance.socket_file())
+        self.live = LiveView(live_socket or instance.socket_file(), self)
         self.live.changed.connect(lambda _: self.refresh_preview())
         self.live.replied.connect(self._replied)
         self.live_preview = LivePreview(self.live, document)
