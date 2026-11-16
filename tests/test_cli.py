@@ -13,7 +13,7 @@ from tests.conftest import install_package, output, source, stream
 from xtouch_daemon import __version__, cli, instance, live, mumble, systemd
 from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.model import AudioState, Card, Profile
-from xtouch_daemon.config import Config, parse_config
+from xtouch_daemon.config import Config, InheritStripConfig, parse_config
 from xtouch_daemon.media import MprisPlayers
 
 CONFIG = """
@@ -563,12 +563,28 @@ def test_check_config_shows_the_layouts(tmp_path: Path) -> None:
     lines = invoke("check-config", "-c", str(path)).output.splitlines()
     gaming = lines.index("Layout gaming (Gaming), while steam has a stream or mumble or ts3 runs, priority 2:")
     assert lines[gaming + 1].startswith("  1. the default output")
+    assert lines[gaming + 1].endswith("), from the default layout, strip 1")
     assert lines[gaming + 2] == "  2. a participant of the voice chat (white, talking: green)"
     assert lines[gaming + 3] == lines[gaming + 2].replace("2.", "3.")
     assert "Layout plain:" in lines
     assert "Layout music, while spotify has a stream:" in lines
     config = parse_config('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\n')
-    assert cli.describe_strip(config.layouts[0].strips[0], 1) == "the strip of the default layout"
+    assert cli.describe_strip(config.layouts[0].strips[0], 1) == "the strip of the default layout at this place"
+    other = InheritStripConfig(type="inherit", layout="voice", strip="music")
+    assert cli.describe_strip(other, 1) == "strip music of layout voice"
+
+
+def test_check_config_tells_where_inherited_strips_come_from(tmp_path: Path) -> None:
+    path = tmp_path / "inherit.toml"
+    path.write_text(
+        '[[strip]]\ntype = "output"\n[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "empty"\n'
+        '[[layout.strip]]\ntype = "inherit"\n[[layout]]\nname = "b"\n[[layout.strip]]\ntype = "inherit"\n'
+        'layout = "a"\nstrip = 1\n'
+    )
+    lines = invoke("check-config", "-c", str(path)).output.splitlines()
+    a = lines.index("Layout a:")
+    assert lines[a + 2].endswith("encoder: pick), from the default layout, an auto strip")
+    assert lines[lines.index("Layout b:") + 1] == "  1. empty, from layout a, strip 1"
 
 
 class FakeLive:

@@ -225,6 +225,32 @@ layout's strips. If that is complex, a switch may simply reset the hold timers.
 
 ---
 
+## C. `inherit` from any layout and strip
+
+Added later, at the user's request. Today an `inherit` strip takes the strip of the default layout at its place.
+It can name another layout and another strip:
+
+```toml
+[[layout.strip]]
+type = "inherit"
+layout = "voice"   # optional, by default the default layout (as today)
+strip = 3          # optional: a 1-based position in that layout's list, or a strip `id` string; by default the same place
+```
+
+- **Validation:** an unknown layout or strip is an error, and so is a strip `id` that more than one strip of that
+  layout has. Chains (an `inherit` of an `inherit`) resolve, up to a limit; a loop is an error that names the
+  cycle.
+- **`voip` with `count` > 1:** decide and document.
+- **Resolution before the flow (B):** a referenced strip that collapses collapses here too. It carries all its
+  options along, also `launch`.
+- **State:** the state of a strip that several layouts share (the held application of an `auto` strip, a pending
+  switch) is shared: the same entry is the same controller, so a layout switch does not lose it. If that is hard
+  given how layouts build controllers, decide and document.
+- **Home Assistant:** a referenced `homeassistant` strip keeps the entity ids of its source (its `id` or its
+  position there), and its entities are not registered twice.
+- `check-config`, the GUI (pickers for layout and strip on `inherit` strips; the preview shows the referenced strip),
+  docs (`layouts.md`), CHANGELOG, tests.
+
 ## Implementation notes
 
 - **Config:** `config.py`. Choices are a `ChoiceConfig` model. `collapse` goes on `_StripConfig` (with validators
@@ -296,3 +322,24 @@ What the implementation decided where this document was open, wrong, or contradi
   application may go to a waiting `auto` strip when all on the device are taken.
 - **`voip` places** collapse one by one (each place is a strip of its own), so with `collapse` an empty call takes
   no faders and the trailing places of a small one give theirs up.
+- **C, `voip` with `count` > 1:** `strip = N` (or an id) names an entry of the list, so a `voip` strip comes with
+  all its places, the same object, and stays one group. An `inherit` without `strip` takes its own place of the
+  other layout, as before: on a `voip` strip that is one of its places.
+- **C, the same place:** "the same place" is the place in the row (after `voip` strips with several), as the
+  existing `inherit` had it, also for another `layout`. Places after the strips of that layout are `auto` strips up
+  to 8; beyond that it is an error.
+- **C, state is not shared across layouts:** a layout switch builds a new mixer with new controllers (as reloads
+  do); keeping some controllers alive across mixers would mean moving them between `VirtualStrip`s, flows and the
+  auto assigner, and inherited strips never kept their state before either. So an `auto` strip takes the
+  application that plays at the switch (usually the same one), and a pending choice switch is cancelled with the
+  old strip (`StripController.close()`), maybe after the profile switched; the new strip shows the default device
+  as it is then. Documented in `layouts.md`.
+- **C, Home Assistant ids:** a strip without `id` that lands on another place than its own gets the id of its own
+  place (`strip_<n>`), so a referenced `homeassistant` strip, fader or choices select keeps its entities. The ids of
+  all layouts are one set, so they are registered once. The same strip twice in one layout is the existing
+  duplicate-id error.
+- **C, top-level `inherit`:** allowed when it names a `layout` or `strip` (a bare one would refer to itself).
+- **C, errors are of the whole file:** like the other layout checks they are model errors, so the GUI lists them in
+  the problems, not next to the strip; the preview shows such a strip as "?".
+- **C, GUI preview by position:** the GUI resolves `inherit` by list position (the daemon by place); they differ
+  only after a `voip` strip with `count` > 1.

@@ -1027,6 +1027,16 @@ def test_the_entities_of_every_layout() -> None:
     assert "ns_b_encoder" not in ids
 
 
+def test_a_strip_inherited_from_another_place_keeps_its_entities() -> None:
+    config = parse_config(
+        '[mqtt]\nhost = "b"\n[[strip]]\ntype = "auto"\n[[strip]]\ntype = "homeassistant"\n'
+        '[[layout]]\nname = "x"\n[[layout.strip]]\ntype = "inherit"\nstrip = 2\n'
+    )
+    # the entities of its place in the default layout, once
+    assert {unique_id for unique_id in daemon_module.layout_entity_ids(config, "ns") if "strip_1" in unique_id} == set()
+    assert config.entity_strips("x")[0][1] == config.entity_strips()[0][1] == "strip_2"
+
+
 async def test_home_assistant_chooses_the_layout(
     config_path: Path, surface: RecordingSurface, backend: FakeBackend, broker: FakeBroker
 ) -> None:

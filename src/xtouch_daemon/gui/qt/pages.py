@@ -29,8 +29,16 @@ from PyQt6.QtWidgets import (
 
 from xtouch_daemon import mumble, protocol
 from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, LayoutConfig, MqttConfig, default_encoder
-from xtouch_daemon.gui.domain import docs, sources
+from xtouch_daemon.config import (
+    DEFAULT_LAYOUT,
+    STRIP_TYPES,
+    BehaviorConfig,
+    Config,
+    LayoutConfig,
+    MqttConfig,
+    default_encoder,
+)
+from xtouch_daemon.gui.domain import docs, inherit, sources
 from xtouch_daemon.gui.domain.broker import live_status, try_broker
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, StripDraft, Validation
@@ -685,6 +693,11 @@ class StripForm(QWidget):
             placeholders["device"] = lambda: f"none: the default {strip_type}"
         if strip_type == "homeassistant":
             placeholders["id"] = lambda: f"strip_{page.index + 1}"
+        if strip_type == "inherit":
+            suggest["layout"] = lambda: inherit.layouts(page.document)
+            suggest["strip"] = lambda: inherit.strips(page.document, page._value(("strip", page.index, "layout")))
+            placeholders["layout"] = lambda: DEFAULT_LAYOUT
+            placeholders["strip"] = lambda: "the strip at this place"
         if strip_type in ("apps", "auto", "voip"):
             # one entry per part: the program first, then each argument
             placeholders["launch"] = lambda: "none: Select starts nothing; the program, then each argument"

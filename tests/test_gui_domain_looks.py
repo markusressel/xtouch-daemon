@@ -179,11 +179,16 @@ def test_an_inherit_strip_looks_like_the_one_of_the_default_layout(tmp_path: Pat
     result = looks(doc, doc.validate(), STATE)
 
     assert result[0] == StripLook(
-        "output", "Output", "like the default layout: the default output: speaker description", "white", True, 0
+        "output",
+        "Output",
+        "like the default layout, strip 1: the default output: speaker description",
+        "white",
+        True,
+        0,
     )
     # the default layout has an auto strip there
     assert (result[1].kind, result[1].configured) == ("auto", True)
-    assert result[1].detail.startswith("like the default layout: the next application that plays")
+    assert result[1].detail.startswith("like the default layout, strip 2: the next application that plays")
     assert (result[2].kind, result[2].color) == ("voip", "cyan")
     assert not result[3].configured
 
@@ -215,3 +220,11 @@ def test_a_strip_with_choices_looks_like_the_choice_of_the_default_device():
     # the first one while none of them is the default, and one choice alone
     buds = dataclasses.replace(STATE, default_output="mic")
     assert look({"type": "output", "choices": choices[1:]}, buds, {})[1:3] == ("Buds", "Buds, Select switches")
+
+
+def test_an_inherit_strip_that_refers_to_none_says_so(tmp_path: Path):
+    text = '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\nlayout = "nope"\n'
+    doc = ConfigDocument(tmp_path / "c.toml", text, exists=True)
+    doc.edit_layout(0)
+    result = looks(doc, doc.validate(), STATE)[0]
+    assert (result.kind, result.detail) == ("?", "a strip that is not there")

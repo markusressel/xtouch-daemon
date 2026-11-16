@@ -381,7 +381,7 @@ STRIP_TYPE_MEANINGS = Meanings(
         "entities there, and automations decide what they do. Needs `[mqtt]`.",
         "empty": "A dark strip that does nothing; its fader stays at the bottom.",
         "inherit": "In a `[[layout]]`: the strip of the default layout (the top-level `[[strip]]` list) at this "
-        "place, e.g. the same output in every layout.",
+        "place, e.g. the same output in every layout; or, with `layout` and `strip`, any strip of any layout.",
         "voip": "The participants of the voice chat, one per strip: the fader sets the participant's volume, Mute "
         "mutes them for you, the meter shows their voice. Takes `count` places; Select shows the next ones. Needs "
         "`[voip]`.",
@@ -583,9 +583,136 @@ class HomeAssistantStripConfig(_Model):
 
 
 class InheritStripConfig(_Model):
-    """In a layout: the strip of the default layout at this place."""
+    """
+    A strip of another layout (or of its own), with all its options: by default the strip of the default layout at
+    this place.
+    """
 
     type: Annotated[Literal["inherit"], STRIP_TYPE_MEANINGS]
+    layout: Slug | None = None
+    """The `name` of the layout of the strip; by default the default layout (the top-level `[[strip]]` list)."""
+    strip: Annotated[int, Field(ge=1, le=MAX_STRIPS)] | Slug | None = None
+    """
+    The strip in that layout: its position in the layout's list (from 1), or its `id`; by default the strip at this
+    place. A `voip` strip comes with all its places then.
+    """
+
+
+INHERIT_LIMIT = 8
+"""How many `inherit` strips may refer to one another in a row."""
+
+type _Entry = tuple[int, int]
+"""A strip in the list of a layout: the index of the layout in `Config.layout_list()` and the position, from 0."""
+
+
+class _Inheritance:
+    """Resolves `inherit` strips into the strips they refer to; ValueError for a reference that can't be resolved."""
+
+    def __init__(self, layouts: tuple[LayoutConfig, ...]):
+        self.layouts = layouts
+        self.names = [layout.name for layout in layouts]
+
+    def where(self, entry: _Entry) -> str:
+        layout, position = entry
+        return (f"layout[{layout}].strip" if layout else "strip") + f"[{position + 1}]"
+
+    def _strip(self, entry: _Entry) -> StripConfig:
+        return self.layouts[entry[0]].strips[entry[1]]
+
+    def _enter(self, entry: _Entry, chain: tuple[_Entry, ...]) -> tuple[_Entry, ...]:
+        if entry in chain:
+            cycle = [*chain[chain.index(entry) :], entry]
+            raise ValueError(f"inherit strips that refer to each other: {' -> '.join(map(self.where, cycle))}")
+        if len(chain) >= INHERIT_LIMIT:
+            raise ValueError(f"{self.where(chain[0])}: more than {INHERIT_LIMIT} inherit strips refer to one another")
+        return (*chain, entry)
+
+    def size(self, entry: _Entry, chain: tuple[_Entry, ...] = ()) -> int:
+        """The places the strip takes: `count` of a `voip` strip, one for others."""
+        strip = self._strip(entry)
+        if isinstance(strip, VoipStripConfig):
+            return strip.count
+        if not isinstance(strip, InheritStripConfig) or strip.strip is None:
+            return 1
+        chain = self._enter(entry, chain)
+        target, _ = self._target(entry, chain)
+        assert target is not None, "a strip of a layout's list"
+        return self.size(target, chain)
+
+    def place(self, entry: _Entry, chain: tuple[_Entry, ...] = ()) -> int:
+        """The place (from 0) of the strip in its layout."""
+        layout, position = entry
+        return sum(self.size((layout, before), chain) for before in range(position))
+
+    def _target(self, entry: _Entry, chain: tuple[_Entry, ...]) -> tuple[_Entry | None, int]:
+        """
+        The strip an `inherit` strip refers to, and the place in it it takes (0 for all of them with `strip`). None:
+        an `auto` strip after the configured strips of a layout.
+        """
+        strip = self._strip(entry)
+        assert isinstance(strip, InheritStripConfig)
+        where = self.where(entry)
+        if strip.layout is not None and strip.layout not in self.names:
+            raise ValueError(f"{where}: inherit from the layout {strip.layout}, which is not there")
+        layout = self.names.index(strip.layout) if strip.layout is not None else 0
+        name = f"the layout {strip.layout}" if layout else "the default layout"
+        strips = self.layouts[layout].strips
+        if strip.strip is None:
+            place = self.place(entry, chain)
+            start = 0
+            for position in range(len(strips)):
+                size = self.size((layout, position), chain)
+                if place < start + size:
+                    return (layout, position), place - start
+                start += size
+            if place < protocol.STRIPS:
+                return None, 0
+            raise ValueError(f"{where}: inherit, but {name} has only {max(start, protocol.STRIPS)} places")
+        if isinstance(strip.strip, int):
+            if strip.strip > len(strips):
+                raise ValueError(f"{where}: inherit strip {strip.strip}, but {name} has {len(strips)} strips")
+            return (layout, strip.strip - 1), 0
+        found = [position for position, other in enumerate(strips) if getattr(other, "id", None) == strip.strip]
+        if not found:
+            raise ValueError(f"{where}: inherit strip {strip.strip}, but {name} has no strip with that id")
+        if len(found) > 1:
+            raise ValueError(f"{where}: inherit strip {strip.strip}, but {name} has {len(found)} strips with that id")
+        return (layout, found[0]), 0
+
+    def origin(self, entry: _Entry) -> _Entry | None:
+        """The strip an `inherit` strip is in the end (itself for another one), None for an `auto` strip of none."""
+        chain: tuple[_Entry, ...] = ()
+        current: _Entry | None = entry
+        while current is not None and isinstance(self._strip(current), InheritStripConfig):
+            chain = self._enter(current, chain)
+            current, _ = self._target(current, chain)
+        return current
+
+    def resolve(
+        self, entry: _Entry, chain: tuple[_Entry, ...] = (), lands: int | None = None
+    ) -> tuple[StripConfig, ...]:
+        """
+        The strips of the places the strip takes (a `voip` strip: the same object on each). `lands`: the place the
+        strip an `inherit` strip refers to lands on.
+        """
+        strip = self._strip(entry)
+        if not isinstance(strip, InheritStripConfig):
+            if isinstance(strip, _StripConfig | HomeAssistantStripConfig) and strip.id is None:
+                home = self.place(entry)
+                if lands is not None and lands != home:
+                    # on another place: its entities in Home Assistant are still those of its own place
+                    strip = strip.model_copy(update={"id": f"strip_{home + 1}"})
+            return (strip,) * (strip.count if isinstance(strip, VoipStripConfig) else 1)
+        if lands is None:
+            lands = self.place(entry)
+        chain = self._enter(entry, chain)
+        target, offset = self._target(entry, chain)
+        if target is None:
+            return (AutoStripConfig(type="auto"),)
+        if strip.strip is not None:
+            return self.resolve(target, chain, lands)
+        # one place of it: the same place, so the same entities
+        return (self.resolve(target, chain, lands - offset)[offset],)
 
 
 class VoipStripConfig(_Model):
@@ -805,17 +932,18 @@ class Config(_Model):
         if duplicates:
             raise ValueError(f"layouts with the same name: {', '.join(duplicates)}")
         for number, strip in enumerate(self.strips, start=1):
-            if isinstance(strip, InheritStripConfig):
-                raise ValueError(f"strip[{number}]: inherit is only for the strips of a [[layout]]")
-        default = len(self.all_strips())
+            if isinstance(strip, InheritStripConfig) and strip.layout is None and strip.strip is None:
+                raise ValueError(
+                    f"strip[{number}]: inherit of the default layout is only for the strips of a [[layout]] (or "
+                    "name a strip or a layout)"
+                )
+        inheritance = _Inheritance(self.layout_list())
         for index, layout in enumerate(self.layout_list()):
             where = f"layout[{index}]" if index else "strip"
             strips = f"layout[{index}].strip" if index else "strip"
-            places = 0
-            for number, strip in enumerate(layout.strips, start=1):
-                if isinstance(strip, InheritStripConfig) and places >= default:
-                    raise ValueError(f"{strips}[{number}]: inherit, but the default layout has only {default} places")
-                places += strip.count if isinstance(strip, VoipStripConfig) else 1
+            for position in range(len(layout.strips)):
+                inheritance.resolve((index, position))
+            places = sum(inheritance.size((index, position)) for position in range(len(layout.strips)))
             if places > MAX_STRIPS:
                 raise ValueError(f"{where}: the strips take {places} places, at most {MAX_STRIPS}")
             never = self.unreachable(layout.name)
@@ -877,30 +1005,45 @@ class Config(_Model):
 
     def all_strips(self, layout: str = DEFAULT_LAYOUT) -> tuple[StripConfig, ...]:
         """
-        The configuration of every strip of the device in a layout: `inherit` ones are those of the default layout, a
+        The configuration of every strip of the device in a layout: `inherit` ones are the strips they refer to, a
         `voip` strip is there once for each of its places (the same object), and the ones that are not configured are
         `auto`.
         """
-        default = self._places(self.strips, ())
-        return self._places(self.layout(layout).strips, default)
-
-    @staticmethod
-    def _places(strips: tuple[StripConfig, ...], default: tuple[StripConfig, ...]) -> tuple[StripConfig, ...]:
-        result: list[StripConfig] = []
-        for strip in strips:
-            if isinstance(strip, InheritStripConfig):
-                result.append(default[len(result)])
-            elif isinstance(strip, VoipStripConfig):
-                result.extend([strip] * strip.count)
-            else:
-                result.append(strip)
+        index = self.layout_names.index(self.layout(layout).name)
+        inheritance = _Inheritance(self.layout_list())
+        result = [
+            strip
+            for position in range(len(self.layout(layout).strips))
+            for strip in inheritance.resolve((index, position))
+        ]
         return (*result, *(AutoStripConfig(type="auto") for _ in range(protocol.STRIPS - len(result))))
+
+    def inherited(self, layout: str = DEFAULT_LAYOUT) -> tuple[str | None, ...]:
+        """
+        For each place of `all_strips()`, where its strip comes from if an `inherit` strip took it (e.g.
+        "layout voice, strip 2"), None for the others.
+        """
+        index = self.layout_names.index(self.layout(layout).name)
+        inheritance = _Inheritance(self.layout_list())
+        result: list[str | None] = []
+        for position, strip in enumerate(self.layout(layout).strips):
+            where: str | None = None
+            if isinstance(strip, InheritStripConfig):
+                origin = inheritance.origin((index, position))
+                name = self.layout_names[origin[0]] if origin is not None else strip.layout or DEFAULT_LAYOUT
+                where = ("the default layout" if name == DEFAULT_LAYOUT else f"layout {name}") + (
+                    f", strip {origin[1] + 1}" if origin is not None else ", an auto strip"
+                )
+            result.extend([where] * inheritance.size((index, position)))
+        return (*result, *[None] * (len(self.all_strips(layout)) - len(result)))
 
     def places(self, layout: str = DEFAULT_LAYOUT) -> tuple[int, ...]:
         """For each place of `all_strips()`, the number of its strip in the list of the layout (from 1, 0: padding)."""
+        index = self.layout_names.index(self.layout(layout).name)
+        inheritance = _Inheritance(self.layout_list())
         numbers: list[int] = []
-        for number, strip in enumerate(self.layout(layout).strips, start=1):
-            numbers.extend([number] * (strip.count if isinstance(strip, VoipStripConfig) else 1))
+        for position in range(len(self.layout(layout).strips)):
+            numbers.extend([position + 1] * inheritance.size((index, position)))
         return (*numbers, *[0] * (len(self.all_strips(layout)) - len(numbers)))
 
     def unreachable(self, layout: str = DEFAULT_LAYOUT) -> list[int]:

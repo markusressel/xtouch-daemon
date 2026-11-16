@@ -11,6 +11,7 @@ from xtouch_daemon.audio.model import AudioState, Device, Direction
 from xtouch_daemon.config import STRIP_TYPES
 from xtouch_daemon.gui.domain.document import ConfigDocument, Validation
 from xtouch_daemon.gui.domain.flow import FlowRow
+from xtouch_daemon.gui.domain.inherit import referenced
 from xtouch_daemon.gui.domain.schema import Kind, strip_options
 from xtouch_daemon.live import Snapshot, StripState
 from xtouch_daemon.protocol import RingMode
@@ -145,18 +146,21 @@ def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> 
 def looks(document: ConfigDocument, validation: Validation, state: AudioState) -> tuple[StripLook, ...]:
     """
     How every strip looks, the configured ones and the `auto` strips after them up to the 8 of the device. An
-    `inherit` strip of a layout looks like the strip of the default layout at its place.
+    `inherit` strip looks like the strip it refers to (see `inherit.referenced()`).
     """
     aliases = dict(document.aliases)
-    default = document.default_strips
     result: list[StripLook] = []
     for index in range(max(protocol.STRIPS, len(document.strips))):
         configured = index < len(document.strips)
         values = document.strips[index].values if configured else {"type": "auto"}
         if values.get("type") == "inherit":
-            inherited = default[index].values if index < len(default) else {"type": "auto"}
-            kind, label, detail, color = look(inherited, state, aliases)
-            detail = f"like the default layout: {detail}"
+            found = referenced(document, index)
+            if found is None:
+                kind, label, detail, color = "?", "", "a strip that is not there", "off"
+            else:
+                inherited, where = found
+                kind, label, detail, color = look(inherited, state, aliases)
+                detail = f"like {where}: {detail}"
         else:
             kind, label, detail, color = look(values, state, aliases)
         problems = len(validation.at("strip", index)) if configured else 0

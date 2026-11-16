@@ -2825,3 +2825,33 @@ def test_the_strip_list_reaches_the_strips_beyond_the_device(qtbot: QtBot, make_
     assert len(strip_list.buttons) == 9
     assert window.selected == 8
     assert window.strip_page.title.text() == "Strip 9"
+
+
+def test_an_inherit_strip_picks_its_layout_and_strip(qtbot: QtBot, layouts: MainWindow):
+    window = layouts
+    window.layout_tabs.setCurrentIndex(1)
+    window.select(0)
+    layout, strip = row(window, "layout"), row(window, "strip")
+    assert layout.line.placeholderText() == "default"
+
+    def menu_of(option_row: OptionRow) -> list[str]:
+        menu_button = next(button for button in option_row.findChildren(QToolButton) if button.menu())
+        menu = menu_button.menu()
+        assert menu is not None
+        menu.aboutToShow.emit()
+        return [action.text() for action in menu.actions()]
+
+    assert menu_of(layout)[:2] == ["default    the top-level strips", "gaming"]
+    assert menu_of(strip) == ["1    output Speaker", "2    apps Browser"]
+    type_into(qtbot, strip.line, "2")
+    # a number, the position in the list
+    assert window.document.get(("strip", 0, "strip")) == 2
+    assert window.preview.strips[0].face.look.label == "Browser"
+    type_into(qtbot, layout.line, "gaming")
+    assert menu_of(strip)[1] == "2    voip"
+    # a name: an id
+    type_into(qtbot, strip.line, "lamp")
+    assert window.document.get(("strip", 0, "strip")) == "lamp"
+    window.document.set(("strip", 0, "strip"), 2)
+    strip.load()
+    assert strip.line.text() == "2"

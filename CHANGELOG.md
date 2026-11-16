@@ -19,6 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   once. A configuration (or layout) may list up to 32 places; the device shows the first 8 that take one. Strips
   move with everything they show, never while a fader is touched or a button held, and each move is logged.
   `check-config` reports strips that could never get a fader. The live view tells the placement.
+- `inherit` strips take any strip of any layout: `layout` names the layout, `strip` the strip in its list (from 1)
+  or its `id`. Chains resolve (up to 8), loops and unknown layouts, strips and ids are errors. The strip carries all
+  its options (`collapse`, `launch`), a `voip` strip all its places, and a Home Assistant strip keeps the entities of
+  its own place. `check-config` tells where each inherited strip comes from; the GUI picks the layout and the strip
+  and previews the strip referred to.
 - GUI: `choices` with the devices, cards and profiles to pick from per line; a strip list that reaches the strips
   beyond the 8 of the device, tells where each one is (on the device, collapsed, waiting) and adds strips while they
   could get a place. The preview follows the strips that moved.

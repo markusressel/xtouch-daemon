@@ -119,8 +119,9 @@ def describe_strip(config: StripConfig, number: int) -> str:
             return f"{label}Home Assistant, entities *.*_{config.id or f'strip_{number}'}_* ({config.color})"
         case EmptyStripConfig():
             return "empty"
-        case InheritStripConfig():
-            return "the strip of the default layout"
+        case InheritStripConfig(layout=layout, strip=strip):
+            where = f"layout {layout}" if layout is not None else "the default layout"
+            return f"strip {strip} of {where}" if strip is not None else f"the strip of {where} at this place"
         case VoipStripConfig():
             launch = f", select launches {shlex.join(config.launch)} while it is not there" if config.launch else ""
             collapse = ", collapses" if config.collapse else ""
@@ -155,15 +156,15 @@ def check_config(config_path: Path | None) -> None:
     config = _load(config_path)
     source = str(path) if path.exists() else "No configuration file, the defaults"
     click.echo(f"{source}: valid")
-    _describe_strips(config.all_strips())
+    _describe_strips(config.all_strips(), config.inherited())
     for layout in config.layouts:
         click.echo(f"Layout {layout.name}{f' ({layout.label})' if layout.label else ''}{describe_rules(layout)}:")
-        _describe_strips(config.all_strips(layout.name))
+        _describe_strips(config.all_strips(layout.name), config.inherited(layout.name))
 
 
-def _describe_strips(strips: tuple[StripConfig, ...]) -> None:
-    for number, strip in enumerate(strips, start=1):
-        click.echo(f"  {number}. {describe_strip(strip, number)}")
+def _describe_strips(strips: tuple[StripConfig, ...], inherited: tuple[str | None, ...]) -> None:
+    for number, (strip, where) in enumerate(zip(strips, inherited, strict=True), start=1):
+        click.echo(f"  {number}. {describe_strip(strip, number)}{f', from {where}' if where else ''}")
     if len(strips) > protocol.STRIPS:
         click.echo(f"  The device shows the first {protocol.STRIPS} of them that don't collapse.")
 

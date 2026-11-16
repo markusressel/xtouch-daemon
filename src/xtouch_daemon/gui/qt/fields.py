@@ -588,7 +588,7 @@ class OptionRow(QWidget):
     def _field(self, option: Option, suggest: Suggest | TableSuggest | None) -> QWidget:
         match option.kind:
             case Kind.TEXT | Kind.SECRET | Kind.PATH:
-                return self._text_field(option)
+                return self._text_field(option, None if isinstance(suggest, Mapping) else suggest)
             case Kind.INTEGER:
                 self.spin: QSpinBox | QDoubleSpinBox = QSpinBox(self)
                 minimum = int(option.minimum or 0)
@@ -652,17 +652,20 @@ class OptionRow(QWidget):
         layout.addStretch()
         return container
 
-    def _text_field(self, option: Option) -> QWidget:
+    def _text_field(self, option: Option, suggest: Suggest | None) -> QWidget:
         edit = QLineEdit(self)
         self.line = self.input = edit
         if option.max_length is not None:
             edit.setMaxLength(option.max_length)
-        edit.textEdited.connect(self._edit)
+        edit.textEdited.connect(self._edit_text)
         container = QWidget(self)
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(theme.Space.XS)
         layout.addWidget(edit, 1)
+        if suggest is not None:
+            completer(edit, suggest).activated.connect(self._pick)
+            layout.addWidget(suggestion_menu(container, suggest, self._pick, "Nothing to pick from"))
         if option.kind == Kind.SECRET:
             # hidden, also from someone looking over the shoulder; the eye shows it
             edit.setEchoMode(QLineEdit.EchoMode.Password)
@@ -690,7 +693,10 @@ class OptionRow(QWidget):
 
     def _pick(self, value: str) -> None:
         self.line.setText(value)
-        self._edit(value)
+        self._edit_text(value)
+
+    def _edit_text(self, text: str) -> None:
+        self._edit(int(text) if self.option.whole_numbers and text.isdigit() else text)
 
     # -- showing and editing --------------------------------------------------------------------------------------
 
@@ -702,7 +708,8 @@ class OptionRow(QWidget):
         try:
             match self.option.kind:
                 case Kind.TEXT | Kind.SECRET | Kind.PATH:
-                    self.line.setText(value if isinstance(value, str) else "")
+                    whole = self.option.whole_numbers and isinstance(value, int) and not isinstance(value, bool)
+                    self.line.setText(value if isinstance(value, str) else str(value) if whole else "")
                     default = self._placeholder() if self._placeholder else self.option.default
                     self.line.setPlaceholderText("" if default is None else str(default))
                 case Kind.INTEGER | Kind.NUMBER:
