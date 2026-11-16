@@ -630,7 +630,7 @@ def _sync_strip(table: Table, strip: StripDraft) -> None:
         if key is None and any(item is line for line in removed):
             # in place, like tomlkit removes items, so the indices of the options stay right
             body[index] = (None, Null())
-    trailing = [item for item in _trim(table) if not isinstance(item, Null)]
+    trailing = _trim(table)
     for lines in written:
         for line in lines:
             table.add(line)
@@ -715,10 +715,13 @@ def _draft(values: dict[str, Any], origin: int, table: Table) -> StripDraft:
 
 
 def _trim(table: Container | Table) -> list[Any]:
-    """Takes the comments and blank lines at the end of the table out of it, and returns them."""
+    """
+    Takes the comments and blank lines at the end of the table out of it, and returns them. The places of removed
+    options (`Null`, tomlkit removes in place) there go away: they can't be added again.
+    """
     body = table.body if isinstance(table, Container) else table.value.body
     trailing: list[Any] = []
     # keyless items at the end are in no index of the table, taking them out leaves it intact
     while body and body[-1][0] is None:
         trailing.insert(0, body.pop()[1])
-    return trailing
+    return [item for item in trailing if not isinstance(item, Null)]

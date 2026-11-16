@@ -102,6 +102,14 @@ def test_a_new_option_goes_after_the_last_option_of_its_table():
     assert 'label = "Browser"\ncolor = "yellow"\n# the end of the browsers\n' in text
 
 
+def test_an_option_can_take_the_place_of_the_last_one():
+    doc = document('[[strip]]\ntype = "auto"\ncolor = "red"\n\n[[strip]]\ntype = "auto"\n')
+    doc.unset(("strip", 0, "color"))
+    doc.set(("strip", 0, "label"), "Games")
+
+    assert doc.render() == '[[strip]]\ntype = "auto"\nlabel = "Games"\n\n[[strip]]\ntype = "auto"\n'
+
+
 def test_a_new_section_goes_before_the_ones_after_it():
     doc = document('# just strips\n\n[[strip]]\ntype = "auto"\n')
     doc.set(("device", "name"), "X-Touch-Ext 2")
