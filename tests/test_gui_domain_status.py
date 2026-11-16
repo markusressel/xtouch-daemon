@@ -1,3 +1,4 @@
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -78,6 +79,24 @@ def test_whether_the_device_runs_the_saved_file(
 
 def test_a_saved_file_with_errors_is_not_what_the_device_runs():
     assert sync_status(DAEMON, snapshot(), PATH, None, 0, False, False).tone == Tone.WARN
+
+
+def test_a_live_preview_is_not_the_saved_file():
+    preview = dataclasses.replace(snapshot(config=fingerprint(OTHER)), preview=True)
+
+    # of this window, with the document as it is
+    ours = sync_status(DAEMON, preview, PATH, CONFIG, 1, True, False, previewed=True)
+    assert (ours.text, ours.tone) == (
+        "The device runs the unsaved changes (live preview). Save to keep them.",
+        Tone.WARN,
+    )
+    assert "brings back the saved file" in ours.tip
+    # of another window, or of a version of the document before
+    other = sync_status(DAEMON, preview, PATH, CONFIG, 1, True, False)
+    assert other.text == (
+        "The device runs a live preview, not the saved file. 1 strip with unsaved changes show how they will look."
+    )
+    assert other.tone == Tone.WARN
 
 
 def test_the_unit_in_effect_is_the_packaged_one_or_where_it_comes_from():

@@ -681,7 +681,9 @@ class StripView(QWidget):
         if not look.configured:
             lines.append("Not configured, so an auto strip: double-click to configure it.")
         lines.append(look.detail)
-        if face.edited:
+        if face.edited and face.live:
+            lines.append("Unsaved changes, live on the device (live preview).")
+        elif face.edited:
             lines.append("Unsaved changes: it shows how it will look once saved.")
         elif face.live:
             lines.append("Live: what the device shows right now.")

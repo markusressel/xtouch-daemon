@@ -1,27 +1,37 @@
 """The live view of the running daemon (see `xtouch_daemon.live`), read with a QLocalSocket in the event loop."""
 
+import os
+import socket
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtNetwork import QLocalSocket
 
 from xtouch_daemon import live
-from xtouch_daemon.live import Snapshot
+from xtouch_daemon.live import Reply, Request, Snapshot
 
 
 class LiveView(QObject):
     """
     The latest state of the daemon at `path`. `changed` tells every new one, and None when the connection ended (or
-    could not be made). Without a thread: Qt reads the socket when there is something to read.
+    could not be made); `replied` every `Reply` of the daemon. Without a thread: Qt reads the socket when there is
+    something to read.
     """
 
     changed = pyqtSignal(object, arguments=["snapshot"])
+    replied = pyqtSignal(object, arguments=["reply"])
 
     def __init__(self, path: Path):
         super().__init__()
         self.path = path
         self.snapshot: Snapshot | None = None
+        self.owned = False
+        """
+        Whether the daemon at the other end runs as this user, so requests (which carry the configuration with its
+        secrets) may go to it.
+        """
         self.socket = QLocalSocket(self)
+        self.socket.connected.connect(self._connected)
         self.socket.readyRead.connect(self._read)
         self.socket.disconnected.connect(self._lost)
         self.socket.errorOccurred.connect(self._lost)
@@ -35,18 +45,34 @@ class LiveView(QObject):
         self.socket.abort()
         self._lost()
 
+    def send(self, request: Request) -> bool:
+        """Sends a request to the daemon; False while not connected to a daemon of this user."""
+        if not self.owned or self.socket.state() != QLocalSocket.LocalSocketState.ConnectedState:
+            return False
+        self.socket.write(live.encode_request(request))
+        self.socket.flush()
+        return True
+
+    def _connected(self) -> None:
+        # a copy of the descriptor: closing it leaves the one of Qt open
+        with socket.socket(fileno=os.dup(int(self.socket.socketDescriptor()))) as sock:
+            self.owned = live.peer_uid(sock) == os.getuid()
+
     def _read(self) -> None:
-        # only the latest complete line counts: each is the whole state
+        # only the latest complete snapshot counts, each is the whole state; every reply counts
         latest: Snapshot | None = None
         while self.socket.canReadLine():
-            snapshot = live.decode(bytes(self.socket.readLine().data()))
-            if snapshot is not None:
-                latest = snapshot
+            message = live.decode_message(bytes(self.socket.readLine().data()))
+            if isinstance(message, Reply):
+                self.replied.emit(message)
+            elif message is not None:
+                latest = message
         if latest is not None:
             self.snapshot = latest
             self.changed.emit(latest)
 
     def _lost(self) -> None:
+        self.owned = False
         if self.snapshot is None:
             return
         self.snapshot = None

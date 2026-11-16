@@ -118,6 +118,10 @@ def test_the_preview_is_live_except_for_edited_strips(tmp_path: Path):
     result = faces(strip_looks, snapshot_of(live), edited)
     assert [(face.live, face.edited) for face in result[:2]] == [(False, True), (True, False)]
     assert result[1].state is live[1]
+    # the device runs the document (the live preview): all of them live, the edited one still marked
+    previewed = faces(strip_looks, snapshot_of(live), edited, previewed=True)
+    assert [(face.live, face.edited) for face in previewed[:2]] == [(True, True), (True, False)]
+    assert previewed[0].state is live[0]
     # without the daemon, from the file; strips that wait for an application are dimmed
     offline = faces(strip_looks, None, (False,) * 8)
     assert not any(face.live for face in offline)

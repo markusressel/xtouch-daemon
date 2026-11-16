@@ -113,11 +113,16 @@ class Dialogs:
 
 @pytest.fixture(autouse=True)
 def isolated(qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Dialogs:
-    """QSettings, the configuration and the unit in the temporary directory, and no dialog that waits for a user."""
+    """
+    QSettings, the configuration, the unit and the runtime directory in the temporary directory (a window never
+    reaches the daemon of the machine, e.g. to preview a configuration on its device), and no dialog that waits for a
+    user.
+    """
     QCoreApplication.setOrganizationName("xtouch-daemon-test")
     QCoreApplication.setApplicationName("xtouch-daemon-test")
     QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(tmp_path / "settings"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "runtime"))
     dialogs = Dialogs()
     monkeypatch.setattr(QMessageBox, "question", dialogs.question)
     monkeypatch.setattr(QMessageBox, "warning", dialogs.message)

@@ -157,15 +157,18 @@ def file_state(look: StripLook) -> StripState:
     )
 
 
-def faces(looks: tuple[StripLook, ...], snapshot: Snapshot | None, edited: tuple[bool, ...]) -> tuple[StripFace, ...]:
+def faces(
+    looks: tuple[StripLook, ...], snapshot: Snapshot | None, edited: tuple[bool, ...], previewed: bool = False
+) -> tuple[StripFace, ...]:
     """
     The strips for the preview: live while the daemon tells what the device shows (`snapshot`), except the ones with
     unsaved changes, which show how they will look; without the daemon all of them as the configuration has them.
+    `previewed`: the device runs the document as it is (the live preview), so the edited ones are live too.
     """
     result: list[StripFace] = []
     for index, (strip_look, changed) in enumerate(zip(looks, edited, strict=True)):
-        if snapshot is not None and not changed:
-            result.append(StripFace(strip_look, snapshot.strips[index], live=True, edited=False, dimmed=False))
+        if snapshot is not None and (previewed or not changed):
+            result.append(StripFace(strip_look, snapshot.strips[index], live=True, edited=changed, dimmed=False))
         else:
             dimmed = not strip_look.configured or strip_look.kind == "auto"
             result.append(StripFace(strip_look, file_state(strip_look), live=False, edited=changed, dimmed=dimmed))

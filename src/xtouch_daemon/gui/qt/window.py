@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QEvent, QObject, QRect, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, QRect, QRectF, QSignalBlocker, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
     QAction,
     QCloseEvent,
@@ -51,10 +51,12 @@ from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument
 from xtouch_daemon.gui.domain.history import History
+from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
 from xtouch_daemon.gui.domain.looks import faces, looks
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
 from xtouch_daemon.gui.qt import theme
-from xtouch_daemon.gui.qt.fields import flat_button, label, show_status
+from xtouch_daemon.gui.qt.fields import Switch, flat_button, label, show_status
+from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.gui.qt.pages import (
     GLOBAL_PAGES,
@@ -69,6 +71,7 @@ from xtouch_daemon.gui.qt.pages import (
 )
 from xtouch_daemon.gui.qt.preview import Preview
 from xtouch_daemon.instance import Instance
+from xtouch_daemon.live import Snapshot
 from xtouch_daemon.systemd import (
     UNIT_NAME,
     Service,
@@ -134,6 +137,8 @@ class Session:
     audio: AudioState
     preview_share: float | None
     """The share of the height the preview has, None while it has not been dragged."""
+    live_preview: bool = False
+    """Whether the live preview was on: it goes on in the next window (a new start has it off)."""
 
 
 EDITOR_MIN_HEIGHT = 160
@@ -255,6 +260,10 @@ class MainWindow(QMainWindow):
         self.applying.timeout.connect(self.refresh_preview)
         self.live = LiveView(live_socket or instance.socket_file())
         self.live.changed.connect(lambda _: self.refresh_preview())
+        self.live_preview = LivePreview(self.live, document)
+        self.live_preview.changed.connect(self.refresh_preview)
+        self.resume_live_preview = session is not None and session.live_preview
+        """Turns the live preview on once it can be: it was on in the window before the zoom."""
 
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -265,6 +274,11 @@ class MainWindow(QMainWindow):
         body.setContentsMargins(theme.Space.XL, theme.Space.L, theme.Space.XL, 0)
         body.setSpacing(theme.Space.S)
         body.addLayout(self._preview_status())
+        self.preview_message = label("", "error", wrap=True)
+        """What the daemon said about the live preview: why it did not take the latest change, or why it ended."""
+        self.preview_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.preview_message.hide()
+        body.addWidget(self.preview_message)
         self.splitter = PreviewSplitter()
         self.splitter.addWidget(self._preview())
         tabs = self._tabs()
@@ -359,6 +373,7 @@ class MainWindow(QMainWindow):
         titles.addWidget(self.path_label)
         layout.addLayout(titles)
         layout.addStretch()
+        self._live_preview_switch(layout)
         layout.addWidget(label("Service", "hint"))
         self.pill = label("…", "pill")
         layout.addWidget(self.pill, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -401,11 +416,27 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.theme_button)
         return header
 
+    def _live_preview_switch(self, layout: QHBoxLayout) -> None:
+        """The switch of the live preview: the device runs the document instead of the file while it is on."""
+        self.preview_switch = Switch()
+        # like the service controls: a key typed into the window right after it opened must not turn it on
+        self.preview_switch.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.preview_switch.setAccessibleName("Live preview")
+        self.preview_switch.toggled.connect(self.live_preview.set_on)
+        self.preview_label = label("Live preview", "hint")
+        self.preview_label.setBuddy(self.preview_switch)
+        layout.addWidget(self.preview_label)
+        layout.addWidget(self.preview_switch)
+        layout.addSpacing(theme.Space.L)
+
     def _preview_status(self) -> QHBoxLayout:
         """What the preview shows (live or the file), the connection to Home Assistant, and the sound server."""
         top = QHBoxLayout()
         self.mode_pill = label("", "pill")
         top.addWidget(self.mode_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.preview_pill = label("", "pill")
+        """Whether the device runs the unsaved changes (the live preview)."""
+        top.addWidget(self.preview_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self.mqtt_pill = label("", "pill")
         self.mqtt_pill.setCursor(Qt.CursorShape.PointingHandCursor)
         self.mqtt_pill.mousePressEvent = lambda event: self.show_page("mqtt")  # type: ignore[method-assign]
@@ -568,15 +599,18 @@ class MainWindow(QMainWindow):
         self.revert_button.setEnabled(modified)
         self.undo_button.setEnabled(self.history.can_undo)
         self.redo_button.setEnabled(self.history.can_redo)
+        self.live_preview.document_changed()
         self.refresh_preview()
 
     def refresh_preview(self) -> None:
         """Shows the strips (live while the daemon tells what the device shows) and whether it runs the file."""
         snapshot = self.live.snapshot
+        self._show_live_preview(snapshot)
         edited = tuple(self.document.strip_changed(index) for index in range(protocol.STRIPS))
         strip_looks = looks(self.document, self.validation, self.audio)
         selected = self.selected if self.tabs.currentIndex() == STRIP_TAB else None
-        self.preview.show_faces(faces(strip_looks, snapshot, edited), selected)
+        shows_document = previewed(snapshot, self.validation.config, self.live_preview.running)
+        self.preview.show_faces(faces(strip_looks, snapshot, edited, shows_document), selected)
         look = strip_looks[self.selected]
         self.tabs.setTabText(STRIP_TAB, f"Strip {self.selected + 1}" + (f" · {look.label}" if look.label else ""))
         saved = self.document.saved_config
@@ -595,9 +629,36 @@ class MainWindow(QMainWindow):
             sum(edited),
             self.document.modified,
             self.applying.isActive(),
+            shows_document and self.document.modified,
         )
         self.sync_label.setText(sync.text)
         self.sync_label.setToolTip(sync.tip)
+
+    def _show_live_preview(self, snapshot: Snapshot | None) -> None:
+        """The switch of the live preview (off while it can't be on), its pill, and what the daemon said."""
+        preview = self.live_preview
+        reason = unavailable(self.daemon, snapshot, self.document.path, self.live.owned)
+        if reason is not None:
+            preview.set_on(False)
+        elif self.resume_live_preview:
+            self.resume_live_preview = False
+            preview.set_on(True)
+        self.preview_switch.setEnabled(reason is None)
+        with QSignalBlocker(self.preview_switch):
+            self.preview_switch.setChecked(preview.on)
+        tip = reason or (
+            "The device runs the changes in the editor while they are not saved, and the file again once this is "
+            "off or the window closes"
+        )
+        for widget in (self.preview_switch, self.preview_label):
+            widget.setToolTip(tip)
+        pill = preview_pill(preview.on, preview.running, self.document.modified, self.validation.config is None)
+        self.preview_pill.setVisible(pill is not None)
+        if pill is not None:
+            _pill(self.preview_pill, pill)
+        message = f"The device keeps the version before: {preview.error}" if preview.error else preview.notice
+        self.preview_message.setVisible(message is not None)
+        self.preview_message.setText(message or "")
 
     def _show_problems(self, problems: list[Problem]) -> None:
         self.problems_button.setVisible(bool(problems))
@@ -875,6 +936,8 @@ class MainWindow(QMainWindow):
         except OSError as e:
             QMessageBox.critical(self, "Saving failed", str(e))
             return False
+        # the daemon loads the file (also one it is not told to reload: it watches the file during a preview)
+        self.live_preview.saved()
         try:
             applied = apply(self.daemon, self.document.path, restart_sections)
         except OSError as e:
@@ -932,22 +995,29 @@ class MainWindow(QMainWindow):
             maximized=self.isMaximized(),
             audio=self.audio,
             preview_share=self.preview_share,
+            live_preview=self.live_preview.on,
         )
 
     def closeEvent(self, event: QCloseEvent | None) -> None:
         assert event is not None
         if self.document.modified and self.rezoom is None:
             buttons = QMessageBox.StandardButton
+            question = "Save the changes before closing?"
+            if self.live_preview.running:
+                question += " The device runs them now (live preview): without saving, it goes back to the file."
             answer = QMessageBox.question(
                 self,
                 "Unsaved changes",
-                "Save the changes before closing?",
+                question,
                 buttons.Save | buttons.Discard | buttons.Cancel,
                 buttons.Save,
             )
             if answer == buttons.Cancel or (answer == buttons.Save and not self.save()):
                 event.ignore()
                 return
+        # back to the file (the daemon would notice the closed connection too); after a new zoom the next window
+        # previews again (see `Session`)
+        self.live_preview.set_on(False)
         app = QApplication.instance()
         assert app is not None
         app.removeEventFilter(self)
