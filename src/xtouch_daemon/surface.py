@@ -123,6 +123,23 @@ class Strip:
         """Moved without a touch, waiting for one (see TOUCH_GRACE): the motor keeps still like for a touch."""
         self.meter: tuple[int, float] = (0, 0.0)
         """The level the meter was set to last, and when (`time.monotonic()`), for the live view of the GUI."""
+        self.overlay: tuple[str, str] | None = None
+        """What the LCD shows instead of `text` for a moment (see `Surface.banner()`), None for nothing."""
+
+    @property
+    def shown_text(self) -> tuple[str, str]:
+        """The two lines the LCD shows: the overlay while there is one, else the text."""
+        return self.overlay if self.overlay is not None else (self.text[0], self.text[1])
+
+    def set_overlay(self, lines: tuple[str, str] | None) -> None:
+        """Shows the lines on the LCD instead of the text (None: the text again)."""
+        before = self.shown_text
+        self.overlay = (
+            None if lines is None else (lines[0][: protocol.LCD_CELL_WIDTH], lines[1][: protocol.LCD_CELL_WIDTH])
+        )
+        for line, text in enumerate(self.shown_text):
+            if text != before[line]:
+                self._send(protocol.lcd_text(self.index, line, text))
 
     def reset(self) -> None:
         """Dark and empty, the fader at the bottom (e.g. before another strip configuration takes over)."""
@@ -175,7 +192,8 @@ class Strip:
         if self.text[line] == text:
             return
         self.text[line] = text
-        self._send(protocol.lcd_text(self.index, line, text))
+        if self.overlay is None:
+            self._send(protocol.lcd_text(self.index, line, text))
 
     def set_ring(self, position: int, mode: RingMode = RingMode.DOT) -> None:
         if self.ring == (position, mode):
@@ -267,7 +285,7 @@ class Strip:
         self._velocity = 0.0
         return [
             *(protocol.led(self.index, button, state) for button, state in self.leds.items()),
-            *(protocol.lcd_text(self.index, line, text) for line, text in enumerate(self.text)),
+            *(protocol.lcd_text(self.index, line, text) for line, text in enumerate(self.shown_text)),
             protocol.ring(self.index, *self.ring),
         ]
 
@@ -337,6 +355,28 @@ class Surface:
         self._revealer: asyncio.Task[None] | None = None
         self._lit: set[int] = set()
         """The strips the wave of light of `show` lights white at the moment."""
+        self._banner: asyncio.TimerHandle | None = None
+
+    def banner(self, top: str, bottom: str, seconds: float) -> None:
+        """
+        Shows two lines of text across the LCDs of all strips for `seconds` (centered, 7 characters per strip), e.g.
+        the name of a layout that comes. The strips keep showing what they show underneath, and again after it.
+        """
+        if self._banner is not None:
+            self._banner.cancel()
+        width = protocol.LCD_CELL_WIDTH
+        lines = [text[: width * protocol.STRIPS].center(width * protocol.STRIPS) for text in (top, bottom)]
+        for strip in self.strips:
+            start = strip.index * width
+            strip.set_overlay((lines[0][start : start + width], lines[1][start : start + width]))
+        self._banner = asyncio.get_running_loop().call_later(seconds, self.end_banner)
+
+    def end_banner(self) -> None:
+        if self._banner is not None:
+            self._banner.cancel()
+            self._banner = None
+        for strip in self.strips:
+            strip.set_overlay(None)
 
     @property
     def connected(self) -> bool:
@@ -386,6 +426,7 @@ class Surface:
 
     async def put_away(self) -> None:
         """The shutdown sequence (see `shutdown`): the strips go dark and put their faders away."""
+        self.end_banner()
         async with asyncio.TaskGroup() as group:
             for number, step in enumerate(steps(self.shutdown, startup=False)):
                 if number:

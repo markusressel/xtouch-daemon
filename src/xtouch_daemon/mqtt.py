@@ -113,10 +113,13 @@ class MqttBridge:
     def unwatch(self, entity: MQTTEntity) -> None:
         self._watchers.pop(entity.unique_id, None)
 
-    async def set_entities(self, entities: Mapping[MQTTEntity, str | None], preview: bool = False) -> None:
+    async def set_entities(
+        self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str] = frozenset(), preview: bool = False
+    ) -> None:
         """
         The entities of the configuration, with the state each gets while it has none (None: no default). Entities
-        that are not there anymore are removed from Home Assistant.
+        that are not there anymore are removed from Home Assistant, except those whose unique id is in `keep` (the
+        entities of the layouts the device does not show).
 
         A `preview` (the GUI's live preview, see `Daemon.preview()`) removes nothing: the entities it does not have
         stay in Home Assistant with their state, only nothing drives them, so going back to the file restores them
@@ -131,14 +134,14 @@ class MqttBridge:
             entity.bind_manager(self)
         committed = self._committed
         if not preview:
-            self._committed = set(self._entities)
+            self._committed = set(self._entities) | keep
         if self._client is None:
             return
         for entity, _ in previous.values():
             await self._unsubscribe(self._client, entity)
         if not preview:
             for unique_id, entity in list(self._announced.items()):
-                if unique_id not in self._entities:
+                if unique_id not in self._entities and unique_id not in keep:
                     await self._remove(self._client, entity, leftover=unique_id not in committed)
         await self._announce(self._client)
 

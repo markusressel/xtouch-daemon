@@ -23,6 +23,7 @@ from xtouch_daemon.live import (
     Snapshot,
     StartPreview,
     StripState,
+    SwitchLayout,
     decode,
     decode_message,
     decode_request,
@@ -244,7 +245,7 @@ async def test_without_a_socket_the_daemon_runs_on(
 
 
 def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
-    for request in (StartPreview('[[strip]]\ntype = "empty"\n'), KeepPreview(), EndPreview()):
+    for request in (StartPreview('[[strip]]\ntype = "empty"\n'), KeepPreview(), EndPreview(), SwitchLayout("+1")):
         line = encode_request(request)
         assert line.count(b"\n") == 1
         assert decode_request(line) == request
@@ -254,6 +255,8 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
         decode_request(b'{"request": "reboot"}')
     with pytest.raises(ValueError, match="unknown"):
         decode_request(b'{"request": "preview", "config": 1}')
+    with pytest.raises(ValueError, match="unknown"):
+        decode_request(b'{"request": "layout"}')
 
     reply = Reply("preview", False, "strip[1].type: wrong")
     assert decode_message(encode_reply(reply)) == reply

@@ -8,6 +8,7 @@
 | [`xtouch-daemon list-devices`](#list-devices) | Lists outputs, inputs and the profiles of the sound cards. |
 | [`xtouch-daemon list-apps`](#list-apps) | Lists the applications that play, and which strip takes each one. |
 | [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the device. |
+| [`xtouch-daemon layout`](#layout) | Shows the running daemon's layout, or switches to another one. |
 | [`xtouch-daemon install-service`](#install-service) | Sets the daemon up as a systemd user service. |
 | [`xtouch-daemon gui`](#gui) | Edits the configuration in a window. |
 
@@ -103,6 +104,26 @@ and the messages from the device the daemon doesn't use, until Ctrl+C. `--no-eve
 
 It takes the name of the device from `[device]` of the configuration. Stop the daemon first
 (`systemctl --user stop xtouch-daemon`): only one program can use the device.
+
+## `layout`
+
+```shell
+xtouch-daemon layout [NAME | --next | --previous]
+```
+
+Without arguments it prints the [layouts](configuration/layouts.md) of the running daemon and marks the one the
+device shows:
+
+```
+  default
+* gaming
+  music
+```
+
+`layout gaming` switches to the layout `gaming`, `--next` and `--previous` to the one after or before it, in the
+order of the file (after the last one comes `default`). The choice stays until a [rule](configuration/layouts.md#rules)
+starts or stops matching. It talks to the daemon over its live view socket, so it needs a running daemon; the command
+fails when there is none, or no layout of that name.
 
 ## `install-service`
 

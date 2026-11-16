@@ -48,7 +48,13 @@ def test_unchanged_it_writes_the_file_as_it_was():
 def test_reads_the_options_as_data():
     doc = document()
 
-    assert doc.sections == {"device": {}, "behavior": {"max_volume": 120, "meters": False}, "mqtt": None}
+    assert doc.sections == {
+        "device": {},
+        "behavior": {"max_volume": 120, "meters": False},
+        "mqtt": None,
+        "switching": {},
+        "voip": None,
+    }
     assert doc.aliases == [("WEBRTC VoiceEngine", "Discord")]
     assert [strip.type for strip in doc.strips] == ["output", "apps", "empty"]
     assert doc.get(("strip", 1, "match")) == ["brave"]
@@ -280,6 +286,28 @@ def test_kept_options_survive_saving_and_reopening(tmp_path: Path):
     assert reopened.render() == PROFILES
 
 
+def test_the_strips_of_a_layout_keep_options_too(tmp_path: Path):
+    path = tmp_path / "config.toml"
+    path.write_text('[[layout]]\nname = "gaming"\n\n[[layout.strip]]\ntype = "output"\nlabel = "Phones"\n')
+    doc = ConfigDocument.open(path)
+    doc.edit_layout(0)
+    doc.set_strip_type(0, "empty")
+    # a copy of the layout takes them along
+    doc.add_layout(copy_strips=True)
+    assert doc.strips[0].kept == {"output": {"label": "Phones"}}
+    doc.remove_layout(1)
+
+    doc.save()
+
+    text = path.read_text()
+    assert '[[layout.strip]]\ntype = "empty"\n# kept from type = "output"' in text
+    reopened = ConfigDocument.open(path)
+    reopened.edit_layout(0)
+    assert reopened.strips[0].kept == {"output": {"label": "Phones"}}
+    reopened.set_strip_type(0, "output")
+    assert reopened.render() == '[[layout]]\nname = "gaming"\n\n[[layout.strip]]\ntype = "output"\nlabel = "Phones"\n'
+
+
 def test_kept_options_without_a_look_in_the_file_fit_on_comment_lines():
     doc = document("")
     doc.add_strip("output")
@@ -476,6 +504,8 @@ def test_sections_that_take_a_restart_are_noticed():
         ("device = 3", "device is not a table ([device]), fix that in a text editor first"),
         ("strip = 3", "strip is not a list of tables ([[strip]])"),
         ("strip = [1, 2]", "strip is not a list of tables ([[strip]])"),
+        ("layout = 3", "layout is not a list of tables with lists of tables ([[layout]], [[layout.strip]])"),
+        ("[[layout]]\nstrip = 3", "layout is not a list of tables with lists of tables"),
     ],
 )
 def test_a_file_the_editor_can_not_edit_is_an_error(text: str, message: str):
@@ -570,3 +600,190 @@ def test_a_state_can_be_restored():
     doc.remove_strip(0)
     doc.restore(state)
     assert len(doc.strips) == 3
+
+
+LAYOUTS = """\
+[[strip]]
+type = "output"   # the speakers
+label = "Speaker"
+
+[voip]
+provider = "demo"
+
+# the games
+[[layout]]
+name = "gaming"   # for games
+apps = ["steam_app_"]
+
+[[layout.strip]]
+type = "inherit"
+
+[[layout.strip]]
+type = "voip"  # people
+count = 2
+
+# for music
+[[layout]]
+name = "music"
+
+[[layout.strip]]
+type = "apps"
+label = "Player"
+match = ["spotify"]
+"""
+
+
+def test_layouts_are_read_and_written_as_they_were():
+    doc = document(LAYOUTS)
+
+    assert doc.render() == LAYOUTS
+    assert doc.layout_names == ["default", "gaming", "music"]
+    assert (doc.layout, doc.layout_name) == (None, "default")
+    assert [strip.type for strip in doc.strips] == ["output"]
+    assert doc.validate().problems == []
+    # what the daemon reads
+    assert doc.data()["layout"] == tomllib.loads(LAYOUTS)["layout"]
+
+
+def test_the_first_layout_goes_after_the_strips():
+    doc = document(FILE)
+    doc.add_layout()
+    doc.add_strip("voip")
+
+    text = doc.render()
+
+    assert text.startswith(FILE)
+    assert tomllib.loads(text)["layout"] == [{"name": "layout_2", "strip": [{"type": "voip"}]}]
+
+
+def test_the_strips_of_another_layout_are_edited():
+    doc = document(LAYOUTS)
+    doc.edit_layout(0)
+
+    assert doc.layout_name == "gaming"
+    assert [strip.type for strip in doc.strips] == ["inherit", "voip"]
+    doc.set(("layout", "label"), "Gaming")
+    doc.set(("strip", 1, "count"), 3)
+    doc.add_strip("input")
+    assert doc.get(("layout", "apps")) == ["steam_app_"]
+
+    text = doc.render()
+    assert 'name = "gaming"   # for games\napps = ["steam_app_"]\nlabel = "Gaming"\n' in text
+    assert 'type = "voip"  # people\ncount = 3\n' in text
+    assert tomllib.loads(text)["layout"][0]["strip"][2] == {"type": "input"}
+    # the default layout stays as it was
+    assert tomllib.loads(text)["strip"] == [{"type": "output", "label": "Speaker"}]
+    assert [doc.strip_changed(index) for index in range(4)] == [False, True, True, False]
+
+    doc.edit_layout(None)
+    assert [strip.type for strip in doc.strips] == ["output"]
+    with pytest.raises(IndexError):
+        doc.edit_layout(2)
+    # the default layout has no options of its own
+    with pytest.raises(KeyError):
+        doc.get(("layout", "name"))
+
+
+def test_layouts_can_be_added_removed_and_moved():
+    doc = document(LAYOUTS)
+    doc.edit_layout(1)
+
+    assert doc.add_layout(copy_strips=True) == 2
+    assert doc.layout_names == ["default", "gaming", "music", "layout_2"]
+    assert [strip.values for strip in doc.strips] == [{"type": "apps", "label": "Player", "match": ["spotify"]}]
+    # a copy: the strips of music stay
+    doc.set(("strip", 0, "label"), "Tunes")
+    assert doc.layouts[1].strips[0].values["label"] == "Player"
+    assert doc.add_layout() == 3
+    assert doc.layout_name == "layout_3"
+    assert doc.strips == []
+    assert not doc.strip_changed(0)
+
+    data = tomllib.loads(doc.render())
+    assert data["layout"][2:] == [
+        {"name": "layout_2", "strip": [{"type": "apps", "label": "Tunes", "match": ["spotify"]}]},
+        {"name": "layout_3"},
+    ]
+
+    doc.move_layout(1, 0)
+    assert doc.layout == 0
+    assert doc.layout_names == ["default", "music", "gaming", "layout_2", "layout_3"]
+    text = doc.render()
+    # the comments go along
+    assert text.index('name = "music"') < text.index('name = "gaming"   # for games')
+    assert 'type = "voip"  # people' in text
+
+    for _ in range(4):
+        doc.remove_layout(0)
+        assert doc.layout is None
+    assert "layout" not in doc.render()
+    assert doc.render().startswith('[[strip]]\ntype = "output"   # the speakers')
+
+
+def test_problems_of_layouts_have_the_paths_of_the_editor():
+    doc = document(LAYOUTS)
+    doc.set(("strip", 0, "label"), "toolong12")
+    doc.edit_layout(1)
+    doc.set(("strip", 0, "label"), "toolong12")
+    doc.set(("layout", "priority"), "high")
+    doc.edit_layout(0)
+    doc.set(("strip", 1, "count"), 9)
+
+    validation = doc.validate()
+
+    assert sorted(str(problem.path) for problem in validation.problems) == sorted(
+        str(path)
+        for path in (
+            ("layouts", "default", "strip", 0, "label"),
+            ("layouts", "music", "priority"),
+            ("layouts", "music", "strip", 0, "label"),
+            ("strip", 1, "count"),
+        )
+    )
+    assert doc.layout_problems(validation, "gaming") == 1
+    assert doc.layout_problems(validation, "music") == 2
+    assert doc.layout_problems(validation, "default") == 1
+
+
+def test_the_option_problems_of_the_edited_layout_start_with_layout():
+    doc = document(LAYOUTS)
+    doc.edit_layout(1)
+    doc.set(("layout", "name"), "default")
+
+    (problem,) = doc.validate().problems
+
+    assert problem.path == ()
+    assert "default" in problem.message
+    doc.set(("layout", "name"), "Music!")
+    (problem,) = doc.validate().problems
+    assert problem.path == ("layout", "name")
+    assert doc.layout_names[2] == "Music!"
+
+
+def test_a_layout_without_a_name_has_an_empty_one():
+    doc = document("[[layout]]\nname = 3\n")
+    assert doc.layout_names == ["default", ""]
+
+
+def test_the_state_and_the_file_keep_the_layouts(tmp_path: Path):
+    path = tmp_path / "config.toml"
+    path.write_text(LAYOUTS)
+    doc = ConfigDocument.open(path)
+    doc.edit_layout(1)
+    state = doc.state()
+    doc.remove_layout(1)
+    doc.restore(state)
+    assert (doc.layout, doc.layout_names) == (1, ["default", "gaming", "music"])
+
+    doc.set(("layout", "label"), "Music")
+    doc.save()
+    assert doc.layout == 1
+    assert 'label = "Music"' in path.read_text()
+
+    doc.remove_layout(1)
+    doc.revert()
+    assert doc.layout is None
+    assert doc.layout_names == ["default", "gaming", "music"]
+    doc.edit_layout(0)
+    doc.revert()
+    assert doc.layout == 0

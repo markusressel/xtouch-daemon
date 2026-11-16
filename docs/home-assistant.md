@@ -115,6 +115,22 @@ and the LEDs off. While the broker can't be reached, a strip shows its label, `o
 device does nothing on it.
 
 Entities of a strip that was removed from the configuration are removed from Home Assistant on the next reload.
+The entities of the strips of every [layout](configuration/layouts.md) stay while another layout is shown.
+
+## Layouts
+
+With `[mqtt]` and more than one [layout](configuration/layouts.md), the daemon has `select.<ns>_layout`: the layout
+the device shows, one option per layout. Choosing one switches to it, like `xtouch-daemon layout`; the select follows
+every switch, also by a rule or the Solo chord. For example, the gaming layout while the PC runs a game in another
+room's automation:
+
+```yaml
+action: select.select_option
+target:
+  entity_id: select.xtouch_layout
+data:
+  option: gaming
+```
 
 ## Automations
 

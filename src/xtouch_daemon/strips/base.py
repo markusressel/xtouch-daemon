@@ -17,6 +17,7 @@ from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.strips.knobs import BalanceKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
 from xtouch_daemon.surface import Strip
+from xtouch_daemon.voip.provider import VoipProvider
 
 if TYPE_CHECKING:
     from xtouch_daemon.strips.homeassistant import FaderLink, HomeAssistantControls
@@ -40,6 +41,8 @@ class StripEnv:
     """The MQTT broker of Home Assistant, with an [mqtt] section."""
     players: MediaPlayers | None = None
     """The media players of the session, for `encoder = "media"`."""
+    voip: VoipProvider | None = None
+    """The participants of the voice chat, with a [voip] section."""
 
 
 class StripController:

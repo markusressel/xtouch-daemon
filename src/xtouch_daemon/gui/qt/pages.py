@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLayout, QLineEdi
 
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, MqttConfig, default_encoder
+from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, LayoutConfig, MqttConfig, default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.broker import live_status, try_broker
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, StripDraft, Validation
@@ -37,11 +37,13 @@ from xtouch_daemon.live import Snapshot
 
 type Audio = Callable[[], AudioState]
 
-TYPE_TITLES = {"homeassistant": "Home Assistant"}
-PAGE_TITLES = {"mqtt": "Home Assistant"}
+TYPE_TITLES = {"homeassistant": "Home Assistant", "voip": "VoIP"}
+PAGE_TITLES = {"mqtt": "Home Assistant", "switching": "Layouts", "voip": "Voice chat"}
 """The names of the global settings for people: the MQTT broker is how Home Assistant is reached."""
-GLOBAL_PAGES = ("behavior", "aliases", "mqtt", "device")
+GLOBAL_PAGES = ("behavior", "aliases", "mqtt", "switching", "voip", "device")
 """The global settings, the ones changed most often first: `[device]` is set once, if ever."""
+LAYOUT_TYPES = ("inherit",)
+"""The strip types only the strips of a `[[layout]]` have."""
 
 
 def page_title(name: str) -> str:
@@ -388,6 +390,8 @@ class StripPage(Page):
         types.setSpacing(0)
         self.types = QButtonGroup(self)
         for name in STRIP_TYPES:
+            if name in LAYOUT_TYPES and self.document.layout is None and name != strip.type:
+                continue
             button = QPushButton(type_title(name))
             theme.set_role(button, "segment", "variant")
             button.setCheckable(True)
@@ -446,7 +450,8 @@ class StripPage(Page):
         )
         self._rows(layout, rows)
         if not rows:
-            layout.addWidget(label("An empty strip has no options.", "hint"))
+            text = "An empty strip has no options." if strip_type == "empty" else "The strip has no options."
+            layout.addWidget(label(text, "hint"))
         self.layout_.addWidget(frame)
 
     @staticmethod
@@ -529,6 +534,103 @@ class StripPage(Page):
         )
         for option_row in self.rows:
             option_row.show_problems(validation.at("strip", self.index, option_row.option.name))
+
+
+class LayoutPage(Page):
+    """
+    The options of the layout being edited (`[[layout]]`: its name, label and rules), or what the default layout is.
+    `on_layouts` is called after the layouts changed (removed, moved), with the one to edit.
+    """
+
+    def __init__(
+        self,
+        document: ConfigDocument,
+        audio: Audio,
+        on_edit: Callable[[], None],
+        on_layouts: Callable[[int | None], None],
+    ):
+        super().__init__(document, audio, on_edit)
+        self.on_layouts = on_layouts
+        self.reload()
+
+    def reload(self) -> None:
+        self._clear()
+        index = self.document.layout
+        header = QHBoxLayout()
+        header.addWidget(label(f"Layout {self.document.layout_name}", "section"))
+        header.addWidget(label("[[layout]]" if index is not None else "[[strip]]", "hint"))
+        header.addStretch()
+        if index is not None:
+            for icon, tip, target in (
+                ("chevron-left", "Move it to the left: earlier in the order of --next", index - 1),
+                ("chevron-right", "Move it to the right: later in the order of --next", index + 1),
+            ):
+                button = flat_button(icon, tip)
+                button.setEnabled(0 <= target < len(self.document.layouts))
+                button.clicked.connect(lambda _=False, target=target: self._move(target))
+                header.addWidget(button)
+            remove = QPushButton(theme.icon("delete-outline", theme.current_colors().error), "Remove layout")
+            theme.set_role(remove, "danger", "variant")
+            remove.clicked.connect(self._remove)
+            header.addWidget(remove)
+        self.layout_.addWidget(row(header))
+        about = " ".join((LayoutConfig.__doc__ or "").split())
+        self.layout_.addWidget(help_label(about, "hint", docs.page_link("layout")))
+        self.layout_.addWidget(self.problem)
+        frame, layout = card()
+        if index is None:
+            layout.addWidget(
+                label(
+                    "The default layout: the strips at the top level of the file. The device shows it unless a rule "
+                    "of another layout matches or another one is chosen. Add layouts with + next to the layouts.",
+                    wrap=True,
+                )
+            )
+        else:
+            suggest: dict[str, Suggest] = {"apps": lambda: sources.patterns(self.audio())}
+            self._rows(
+                layout,
+                [
+                    OptionRow(
+                        option,
+                        lambda name=option.name: self.document.get(("layout", name)),
+                        lambda value, name=option.name: self._put(name, value),
+                        suggest.get(option.name),
+                        link=docs.option_link("layout", option.name),
+                    )
+                    for option in options(LayoutConfig, skip=("strips",))
+                ],
+            )
+        self.layout_.addWidget(frame)
+        self.layout_.addStretch()
+
+    def _put(self, name: str, value: Any) -> None:
+        if value is None:
+            self.document.unset(("layout", name))
+        else:
+            self.document.set(("layout", name), value)
+
+    def _remove(self) -> None:
+        assert self.document.layout is not None
+        self.document.remove_layout(self.document.layout)
+        self.on_layouts(None)
+
+    def _move(self, target: int) -> None:
+        assert self.document.layout is not None
+        self.document.move_layout(self.document.layout, target)
+        self.on_layouts(target)
+
+    def show_problems(self, validation: Validation) -> None:
+        names = {option_row.option.name for option_row in self.rows}
+        self._show_rest(
+            [
+                str(problem)
+                for problem in validation.at("layout")
+                if len(problem.path) == 1 or problem.path[1] not in names
+            ]
+        )
+        for option_row in self.rows:
+            option_row.show_problems(validation.at("layout", option_row.option.name))
 
 
 class AliasesPage(Page):

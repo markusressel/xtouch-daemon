@@ -121,6 +121,9 @@ class LivePreview(QObject):
             self.running = False
             self.set_on(False)
             self.notice = f"The live preview ended: {reply.message}."
-        else:
+        elif reply.kind == "error":
             self.error = reply.message
+        else:
+            # about something else, e.g. a switch of the layout
+            return
         self.changed.emit()

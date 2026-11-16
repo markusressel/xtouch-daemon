@@ -36,6 +36,7 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QSplitterHandle,
     QStackedWidget,
+    QTabBar,
     QTabWidget,
     QToolButton,
     QVBoxLayout,
@@ -63,6 +64,7 @@ from xtouch_daemon.gui.qt.pages import (
     AliasesPage,
     BrokerTest,
     BrokerTester,
+    LayoutPage,
     MqttPage,
     Page,
     SectionPage,
@@ -71,7 +73,7 @@ from xtouch_daemon.gui.qt.pages import (
 )
 from xtouch_daemon.gui.qt.preview import Preview
 from xtouch_daemon.instance import Instance
-from xtouch_daemon.live import Snapshot
+from xtouch_daemon.live import Reply, Snapshot, SwitchLayout
 from xtouch_daemon.systemd import (
     UNIT_NAME,
     Service,
@@ -86,7 +88,9 @@ from xtouch_daemon.systemd import (
 SERVICE_POLL_MS = 3000
 APPLY_GRACE_MS = 2000
 """How long a reload may take before the window says that the daemon did not take the file."""
-STRIP_TAB, GLOBAL_TAB = 0, 1
+STRIP_TAB, GLOBAL_TAB, LAYOUT_TAB = 0, 1, 2
+ACTIVE_MARK = " ●"
+"""Next to the name of the layout the device shows."""
 
 
 class AudioLoader(QObject):
@@ -260,6 +264,7 @@ class MainWindow(QMainWindow):
         self.applying.timeout.connect(self.refresh_preview)
         self.live = LiveView(live_socket or instance.socket_file())
         self.live.changed.connect(lambda _: self.refresh_preview())
+        self.live.replied.connect(self._replied)
         self.live_preview = LivePreview(self.live, document)
         self.live_preview.changed.connect(self.refresh_preview)
         self.resume_live_preview = session is not None and session.live_preview
@@ -279,6 +284,7 @@ class MainWindow(QMainWindow):
         self.preview_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.preview_message.hide()
         body.addWidget(self.preview_message)
+        body.addLayout(self._layout_bar())
         self.splitter = PreviewSplitter()
         self.splitter.addWidget(self._preview())
         tabs = self._tabs()
@@ -450,6 +456,95 @@ class MainWindow(QMainWindow):
         top.addWidget(self.refresh_audio)
         return top
 
+    def _layout_bar(self) -> QHBoxLayout:
+        """The layouts: one tab each, the one the device shows marked; + adds one, and one button shows it there."""
+        bar = QHBoxLayout()
+        bar.addWidget(label("Layout", "hint"))
+        self.layout_tabs = QTabBar()
+        self.layout_tabs.setDrawBase(False)
+        self.layout_tabs.setExpanding(False)
+        self.layout_tabs.setToolTip(f"The layouts of the file; {ACTIVE_MARK.strip()} marks the one the device shows")
+        self.layout_tabs.currentChanged.connect(self._layout_picked)
+        bar.addWidget(self.layout_tabs)
+        self.add_layout_button = QToolButton()
+        self.add_layout_button.setIcon(theme.icon("plus"))
+        self.add_layout_button.setToolTip("Add a layout")
+        self.add_layout_button.setAutoRaise(True)
+        self.add_layout_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(self.add_layout_button)
+        empty = menu.addAction("Empty layout (auto strips)")
+        assert empty is not None
+        empty.triggered.connect(lambda: self.add_layout(copy_strips=False))
+        copied = menu.addAction("Copy of this layout")
+        assert copied is not None
+        copied.triggered.connect(lambda: self.add_layout(copy_strips=True))
+        self.add_layout_button.setMenu(menu)
+        bar.addWidget(self.add_layout_button)
+        bar.addStretch()
+        self.show_layout_button = QPushButton("Show on the device")
+        self.show_layout_button.setToolTip(
+            "Switch the running daemon to this layout (as saved, or as previewed while the live preview runs)"
+        )
+        self.show_layout_button.clicked.connect(self.show_layout_on_device)
+        bar.addWidget(self.show_layout_button)
+        self._fill_layout_tabs()
+        return bar
+
+    def _fill_layout_tabs(self) -> None:
+        """The tabs of the layouts, again: after one was added, removed, renamed or moved, or another one shown."""
+        snapshot = self.live.snapshot
+        active = (snapshot.layout or "default") if snapshot is not None else None
+        names = self.document.layout_names
+        self.layout_tabs.blockSignals(True)
+        while self.layout_tabs.count() > len(names):
+            self.layout_tabs.removeTab(self.layout_tabs.count() - 1)
+        for index, name in enumerate(names):
+            text = (name or "(no name)") + (ACTIVE_MARK if name == active else "")
+            if index < self.layout_tabs.count():
+                self.layout_tabs.setTabText(index, text)
+            else:
+                self.layout_tabs.addTab(text)
+        edited = self.document.layout
+        self.layout_tabs.setCurrentIndex(0 if edited is None else edited + 1)
+        self.layout_tabs.blockSignals(False)
+        showable = snapshot is not None and active != self.document.layout_name
+        self.show_layout_button.setVisible(bool(self.document.layouts))
+        self.show_layout_button.setEnabled(
+            showable and snapshot is not None and self.document.layout_name in snapshot.layouts
+        )
+
+    def _layout_picked(self, index: int) -> None:
+        self.edit_layout(None if index <= 0 else index - 1)
+
+    def edit_layout(self, index: int | None) -> None:
+        """Shows the strips of another layout (an index of the layouts of the document, None for the default one)."""
+        self.document.edit_layout(index)
+        self.selected = min(self.selected, protocol.STRIPS - 1)
+        self.reload_pages()
+        self._fill_layout_tabs()
+
+    def add_layout(self, copy_strips: bool) -> None:
+        self.document.add_layout(copy_strips)
+        self.edited()
+        self.edit_layout(self.document.layout)
+        self.show_page("layout")
+        self.status.setText(f"Added the layout {self.document.layout_name}. Name it on the page Layout.")
+
+    def _layouts_changed(self, index: int | None) -> None:
+        """After the layout page removed or moved a layout."""
+        self.edited()
+        self.edit_layout(index)
+        self.show_page("layout")
+
+    def show_layout_on_device(self) -> None:
+        name = self.document.layout_name
+        if self.live.send(SwitchLayout(name)):
+            self.status.setText(f"Asked the daemon to show the layout {name}.")
+
+    def _replied(self, reply: Reply) -> None:
+        if reply.kind == "layout" and not reply.ok:
+            self.status.setText(reply.message)
+
     def _preview(self) -> Preview:
         self.preview = Preview()
         self.preview.clicked.connect(self.select)
@@ -471,7 +566,8 @@ class MainWindow(QMainWindow):
         self.strip_page = StripPage(
             self.document, audio, self.edited, self._strips_changed, self.show_page, self.remove_strip
         )
-        self.pages: dict[str, Page] = {"strip": self.strip_page}
+        self.layout_page = LayoutPage(self.document, audio, self.edited, self._layouts_changed)
+        self.pages: dict[str, Page] = {"strip": self.strip_page, "layout": self.layout_page}
         for name in GLOBAL_PAGES:
             if name == "aliases":
                 self.pages[name] = AliasesPage(self.document, audio, self.edited)
@@ -515,6 +611,8 @@ class MainWindow(QMainWindow):
         layout.addLayout(pages, 1)
         self.tabs.addTab(settings, theme.icon("cog-outline"), "Global settings")
         self.tabs.setTabToolTip(GLOBAL_TAB, "Behavior, aliases, the Home Assistant connection and the device")
+        self.tabs.addTab(self._scroll(self.layout_page), theme.icon("view-dashboard-variant-outline"), "Layout")
+        self.tabs.setTabToolTip(LAYOUT_TAB, "The layout shown above: its name, and when the device switches to it")
         self.nav_buttons[GLOBAL_PAGES[0]].setChecked(True)
         self.tabs.currentChanged.connect(lambda _: self.refresh_preview())
         return self.tabs
@@ -574,16 +672,18 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def show_page(self, name: str) -> None:
-        """Shows the page of the selected strip ("strip"), or one of the global settings."""
-        if name != "strip":
+        """Shows the page of the selected strip ("strip"), of the layout ("layout"), or one of the global settings."""
+        if name not in ("strip", "layout"):
             self.nav_buttons[name].setChecked(True)
             self.stack.setCurrentIndex(GLOBAL_PAGES.index(name))
-        self.tabs.setCurrentIndex(STRIP_TAB if name == "strip" else GLOBAL_TAB)
+        self.tabs.setCurrentIndex({"strip": STRIP_TAB, "layout": LAYOUT_TAB}.get(name, GLOBAL_TAB))
 
     @property
     def current_page(self) -> str:
         if self.tabs.currentIndex() == STRIP_TAB:
             return "strip"
+        if self.tabs.currentIndex() == LAYOUT_TAB:
+            return "layout"
         return GLOBAL_PAGES[self.stack.currentIndex()]
 
     def refresh(self) -> None:
@@ -610,7 +710,11 @@ class MainWindow(QMainWindow):
         strip_looks = looks(self.document, self.validation, self.audio)
         selected = self.selected if self.tabs.currentIndex() == STRIP_TAB else None
         shows_document = previewed(snapshot, self.validation.config, self.live_preview.running)
-        self.preview.show_faces(faces(strip_looks, snapshot, edited, shows_document), selected)
+        # live only while the device shows the layout being edited
+        live_layout = (snapshot.layout or "default") if snapshot is not None else None
+        shown = snapshot if live_layout == self.document.layout_name else None
+        self.preview.show_faces(faces(strip_looks, shown, edited, shows_document), selected)
+        self._fill_layout_tabs()
         look = strip_looks[self.selected]
         self.tabs.setTabText(STRIP_TAB, f"Strip {self.selected + 1}" + (f" · {look.label}" if look.label else ""))
         saved = self.document.saved_config
@@ -678,6 +782,14 @@ class MainWindow(QMainWindow):
         match problem.path:
             case ("strip", int(index), *_):
                 self.select(index)
+            case ("layouts", str(name), *rest) if name in self.document.layout_names:
+                index = self.document.layout_names.index(name)
+                self.edit_layout(None if index == 0 else index - 1)
+                match rest:
+                    case ["strip", int(strip), *_]:
+                        self.select(strip)
+                    case _:
+                        self.show_page("layout")
             case (str(name), *_) if name in self.pages:
                 self.show_page(name)
             case _:
@@ -714,6 +826,8 @@ class MainWindow(QMainWindow):
         self.revert_button.setIcon(theme.icon("file-undo-outline"))
         self.tabs.setTabIcon(STRIP_TAB, theme.icon("tune-vertical"))
         self.tabs.setTabIcon(GLOBAL_TAB, theme.icon("cog-outline"))
+        self.tabs.setTabIcon(LAYOUT_TAB, theme.icon("view-dashboard-variant-outline"))
+        self.add_layout_button.setIcon(theme.icon("plus"))
         self.reload_pages()
 
     # -- editing --------------------------------------------------------------------------------------------------

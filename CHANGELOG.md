@@ -8,11 +8,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Layouts: `[[layout]]` sections with their own `[[layout.strip]]` lists, e.g. one for games; the top-level strips
+  are the layout `default`, so existing files work as before. The device switches with `xtouch-daemon layout NAME`
+  (`--next`, `--previous`), the Home Assistant entity `select.<ns>_layout`, Solo of strips 1 and 8 held together
+  (`switching.chord`), or rules: `apps` (while an application has a stream) and `processes` (while a process runs),
+  with `priority` and `switching.hold`. The LCDs show the label of the layout that comes (`switching.banner`).
+  `check-config` lists every layout, and the entities of `homeassistant` strips of all layouts stay in Home
+  Assistant.
+- `inherit` strips: in a layout, the strip of the default layout at the same place.
+- `voip` strips: the participants of a voice chat, one per strip (`count` strips), the name on the LCD, lit in
+  `talking_color` while they talk, the fader for their volume and Mute to mute them; Select pages through more
+  participants than strips. `[voip]` picks where they come from: `bridge`, a plugin of the voice chat client on the
+  socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` (the protocol is in the documentation; no plugin yet), or `demo`
+  people who talk in turns.
+- The live view takes a request to switch the layout (`{"request": "layout", "layout": "gaming"}`, answered with a
+  reply), and the state tells the layout shown.
+- The GUI edits layouts: a tab per layout above the strips (● marks the one the device shows), + adds one (empty or a
+  copy), a "Layout" tab for its name, label and rules, the pages "Layouts" and "Voice chat" in the global settings,
+  and "Show on the device". The strips are live only for the layout the device shows.
 - "Live preview" in the GUI: while it is on, the device runs the configuration in the editor before it is saved
   and follows every change. Saving keeps it; turning it off, closing the window, or a window that crashed or hangs
   brings back the file, and so does a change of the file on disk or a reload. Errors of the daemon show inline, and
-  Home Assistant entities of strips the preview does not have stay as they are. It needs a daemon of this version
-  (restart an older one), which takes previews only from its own user.
+  Home Assistant entities of strips the preview does not have stay as they are. It covers the layouts too
+  ("Show on the device" switches to the one being edited). It needs a daemon of this version (restart an older
+  one), which takes previews only from its own user.
 
 - `lit_when_idle` on audio strips: the LCD keeps its backlight while the strip has nothing to control, e.g. an
   `apps` group whose applications don't play.

@@ -251,6 +251,20 @@ async def test_entities_set_while_not_connected_are_announced_on_connect(
     assert "homeassistant/number/xtouch/strip_1_encoder/config" not in broker.retained
 
 
+async def test_entities_of_other_layouts_stay_in_home_assistant(bridge: MqttBridge, broker: FakeBroker) -> None:
+    fader, encoder = number(), number("strip_1_encoder")
+    await bridge.set_entities({fader: "0", encoder: "0"})
+    await start(bridge)
+    await until(lambda: bridge.ready)
+
+    await bridge.set_entities({fader: "0"}, keep=frozenset({encoder.unique_id}))
+    await until(lambda: bridge.ready)
+
+    # announced still, but not followed while its layout is not shown
+    assert "homeassistant/number/xtouch/strip_1_encoder/config" in broker.retained
+    assert "homeassistant/number/xtouch/strip_1_encoder/set" not in broker.connected[0].subscriptions
+
+
 async def test_a_lost_broker_is_reported_once_and_connected_again(
     bridge: MqttBridge, broker: FakeBroker, caplog: pytest.LogCaptureFixture
 ) -> None:

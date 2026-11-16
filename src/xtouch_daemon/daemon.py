@@ -13,14 +13,18 @@ import contextlib
 import logging
 import signal
 import time
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from pathlib import Path
 from typing import Any, Protocol, assert_never
 
-from xtouch_daemon import __version__, protocol, systemd
+from haad_mqtt_autodiscovery.entity import MQTTEntity
+from haad_mqtt_autodiscovery.entity.select import MQTTSelect
+
+from xtouch_daemon import __version__, instance, protocol, systemd
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import Config, ConfigError, default_config_path, load_config, parse_config
+from xtouch_daemon.layouts import MANUAL, LayoutSwitcher, running_processes
 from xtouch_daemon.live import (
     FEATURES,
     EndPreview,
@@ -31,13 +35,16 @@ from xtouch_daemon.live import (
     Request,
     Snapshot,
     StartPreview,
+    SwitchLayout,
     fingerprint,
     strip_states,
 )
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
+from xtouch_daemon.strips.homeassistant import entity_ids
 from xtouch_daemon.surface import Surface
+from xtouch_daemon.voip import VoipProvider, build_provider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +54,12 @@ PREVIEW_TIMEOUT = 10.0
 """How long a preview runs without a request of its GUI (`live.KeepPreview`) before the daemon goes back to the file."""
 PREVIEW_CHECK = 1.0
 """How often a running preview checks for its GUI and whether the configuration file changed."""
+RULES_INTERVAL = 2.0
+"""How often the rules of the layouts are checked for running processes, and for the end of their hold time."""
+HOME_ASSISTANT = "Home Assistant"
+"""The reason of a switch from Home Assistant."""
+CHORD = "buttons"
+"""The reason of a switch by the chord on the device."""
 
 
 class MixerFactory(Protocol):
@@ -58,8 +71,22 @@ class MixerFactory(Protocol):
         *,
         bridge: MqttBridge | None,
         players: MediaPlayers | None,
+        layout: str,
+        voip: VoipProvider | None,
+        shared_entities: dict[MQTTEntity, str | None],
+        keep: frozenset[str],
         preview: bool = False,
     ) -> Mixer: ...
+
+
+def layout_entity_ids(config: Config, namespace: str) -> frozenset[str]:
+    """The unique ids of the entities in Home Assistant of the strips of every layout."""
+    return frozenset(
+        unique_id
+        for name in config.layout_names
+        for strip, strip_id in config.home_assistant_strips(name)
+        for unique_id in entity_ids(namespace, strip, strip_id)
+    )
 
 
 def mqtt_state(bridge: MqttBridge) -> MqttState:
@@ -92,11 +119,14 @@ class Daemon:
         bridge: MqttBridge | None = None,
         live_socket: Path | None = None,
         players: MediaPlayers | None = None,
+        voip_socket: Path | None = None,
+        processes: Callable[[], frozenset[str]] = running_processes,
     ):
         """
         `bridge` is by default the one of the [mqtt] section, if there is one. `live_socket` is where the live view
         for the GUI is served (see `live.py`), None for none. `players` are the media players of the session, for
-        `encoder = "media"`.
+        `encoder = "media"`. `voip_socket` is where the `bridge` VoIP provider waits for its plugin (by default
+        `instance.voip_socket_file()`), `processes` tells the processes that run, for the rules of the layouts.
         """
         self.players = players
         self.config = config
@@ -116,18 +146,70 @@ class Daemon:
         self.bridge = bridge or (MqttBridge(config.mqtt) if config.mqtt is not None else None)
         if self.bridge is not None:
             self.bridge.on_connection = self._on_mqtt_connection
+        self._voip_socket = voip_socket or instance.voip_socket_file()
+        self.voip = build_provider(config.voip, self._voip_socket) if config.voip is not None else None
+        self._voip_task: asyncio.Task[None] | None = None
+        self._processes = processes
+        self.switcher = LayoutSwitcher(config, self._switched)
+        self.layout_select = self._layout_select(config)
+        self._held_solos: set[int] = set()
         self._mixer_factory = mixer_factory
-        self.mixer = mixer_factory(self.surface, backend, config, bridge=self.bridge, players=players)
+        self.mixer = self._new_mixer()
         self._background: set[asyncio.Task[None]] = set()
         self._stop = asyncio.Event()
         self._mixer_task: asyncio.Task[None] | None = None
-        self.surface.on_event = lambda event: self.mixer.on_event(event)
+        self.surface.on_event = self._on_event
         self.surface.on_connection = self._on_connection
         self.live = (
             LiveServer(live_socket, self.snapshot, self.on_request, self.on_client_closed)
             if live_socket is not None
             else None
         )
+
+    @property
+    def layout(self) -> str:
+        """The layout the device shows."""
+        return self.switcher.active
+
+    def _new_mixer(self) -> Mixer:
+        shared: dict[MQTTEntity, str | None] = {}
+        keep: frozenset[str] = frozenset()
+        if self.bridge is not None:
+            keep = layout_entity_ids(self.config, self.bridge.config.namespace)
+            if self.layout_select is not None:
+                shared[self.layout_select] = self.layout
+        return self._mixer_factory(
+            self.surface,
+            self.backend,
+            self.config,
+            bridge=self.bridge,
+            players=self.players,
+            layout=self.layout,
+            voip=self.voip,
+            shared_entities=shared,
+            keep=keep,
+            preview=self.previewing,
+        )
+
+    def _layout_select(self, config: Config) -> MQTTSelect | None:
+        """`select.<ns>_layout` in Home Assistant, with the names of the layouts (with [mqtt] and layouts)."""
+        if self.bridge is None or not config.layouts:
+            return None
+        select = MQTTSelect(
+            self.bridge.config.namespace,
+            "layout",
+            "Layout",
+            options=list(config.layout_names),
+            icon="mdi:view-dashboard-variant",
+            device=self.bridge.device,
+        )
+        self.bridge.watch(select, self._layout_chosen)
+        return select
+
+    def _layout_chosen(self, entity: MQTTEntity) -> None:
+        name = entity.state
+        if name is not None and name in self.switcher.names:
+            self.switcher.switch(name, HOME_ASSISTANT)
 
     def _configure_surface(self, config: Config) -> None:
         """The options of the [device] section that apply without a restart."""
@@ -169,18 +251,40 @@ class Daemon:
         systemd.notify("READY=1", self._status())
         return True
 
-    def _use(self, config: Config, preview: bool = False) -> None:
-        """A new mixer for `config` on the same surface, sound server and broker."""
+    def _use(self, config: Config) -> None:
+        """
+        Runs `config` (the file's, or a preview while one runs): its [device] options, VoIP provider and layouts, and
+        a new mixer on the same surface, sound server and broker. The layout shown stays, if `config` has it.
+        """
         self._configure_surface(config)
+        if config.voip != self.config.voip:
+            self._replace_voip(config)
+        if self.bridge is not None and self.layout_select is not None:
+            self.bridge.unwatch(self.layout_select)
+        self.config = config
+        self.switcher = LayoutSwitcher(config, self._switched, active=self.switcher.active)
+        self.layout_select = self._layout_select(config)
+        self._replace_mixer()
+
+    def _replace_mixer(self) -> None:
+        """A new mixer for the configuration and the layout, on the same surface, sound server and broker."""
         state = self.mixer.state
         self.mixer.close()
-        self.config = config
-        self.mixer = self._mixer_factory(
-            self.surface, self.backend, config, bridge=self.bridge, players=self.players, preview=preview
-        )
+        self.mixer = self._new_mixer()
         # the sound server reports again only once something changes
         self.mixer.on_state(state)
         self._start_mixer()
+
+    def _replace_voip(self, config: Config) -> None:
+        if self._voip_task is not None:
+            self._voip_task.cancel()
+            self._voip_task = None
+        self.voip = build_provider(config.voip, self._voip_socket) if config.voip is not None else None
+        self._start_voip()
+
+    def _start_voip(self) -> None:
+        if self.voip is not None and self._mixer_task is not None:
+            self._voip_task = asyncio.create_task(self.voip.run(), name=f"voip {self.voip.name}")
 
     def _stamp(self) -> tuple[int, int] | None:
         """When the configuration file changed last, and its size; None without a file."""
@@ -190,7 +294,61 @@ class Daemon:
             return None
         return stat.st_mtime_ns, stat.st_size
 
-    # -- the live preview of the GUI ------------------------------------------------------------------------------
+    # -- layouts --------------------------------------------------------------------------------------------------
+
+    def switch_layout(self, name: str, reason: str = MANUAL) -> bool:
+        """Shows another layout (KeyError for one that is not there); False if it is the active one already."""
+        return self.switcher.switch(name, reason)
+
+    def _switched(self, name: str, reason: str) -> None:
+        """Carries out a switch: the strips of the layout, its name on the LCDs, and the select in Home Assistant."""
+        self._replace_mixer()
+        seconds = self.config.switching.banner
+        if seconds > 0:
+            self.surface.banner(self.config.layout(name).title, reason, seconds)
+        if self.layout_select is not None and self.layout_select.target_state != name:
+            self._in_background(self.layout_select.set_state(name), "mqtt layout")
+
+    def request_layout(self, name: str) -> Reply:
+        """
+        A switch asked for by a client of the live view (`live.SwitchLayout`): to the layout `name`, or with "+1"
+        ("-1") to the next (previous) one.
+        """
+        if name in ("+1", "-1"):
+            self.switcher.step(int(name))
+        elif name in self.switcher.names:
+            self.switcher.switch(name)
+        else:
+            return Reply("layout", False, f"There is no layout {name} ({', '.join(self.switcher.names)})")
+        return Reply("layout", True, self.layout)
+
+    def _on_event(self, event: protocol.StripEvent) -> None:
+        self.mixer.on_event(event)
+        if not isinstance(event, protocol.ButtonPressed) or event.button != protocol.Button.SOLO:
+            return
+        chord = {number - 1 for number in self.config.switching.chord}
+        if event.strip not in chord:
+            return
+        if not event.pressed:
+            self._held_solos.discard(event.strip)
+            return
+        self._held_solos.add(event.strip)
+        if self._held_solos == chord:
+            # once per chord: the buttons have to be let go first
+            self._held_solos.clear()
+            self.switcher.step(1, CHORD)
+
+    async def _follow_rules(self) -> None:
+        """Checks the rules of the layouts for processes and for the end of their hold time, while there are any."""
+        while True:
+            await asyncio.sleep(RULES_INTERVAL)
+            if self.switcher.has_rules:
+                self.switcher.evaluate(self.mixer.state, self._running())
+
+    def _running(self) -> frozenset[str]:
+        return self._processes() if self.switcher.watches_processes else frozenset()
+
+    # -- the live view: the preview of the GUI, and layout switches -----------------------------------------------
 
     @property
     def previewing(self) -> bool:
@@ -210,6 +368,8 @@ class Daemon:
                 if client is self._previewer:
                     self._back_to_file("the GUI ended it")
                 return None
+            case SwitchLayout(layout=name):
+                return self.request_layout(name)
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -245,7 +405,7 @@ class Daemon:
         changed = fingerprint(config) != fingerprint(self.config)
         if previous is None or changed:
             _LOGGER.debug("Running the previewed configuration")
-            self._use(config, preview=True)
+            self._use(config)
         if previous is None:
             systemd.notify(self._status())
         if config.device.name != self.file_config.device.name:
@@ -296,13 +456,18 @@ class Daemon:
         if self.bridge is not None:
             parts.append(asyncio.create_task(self.bridge.run(), name="mqtt"))
         self._start_mixer()
+        self._start_voip()
+        self._in_background(self._follow_rules(), "layout rules")
         if self.live is not None:
             # not one of the parts: the daemon works without it
             self._in_background(self.live.run(), "live view")
         if self.players is not None:
             self._in_background(self.players.run(), "media players")
         systemd.notify("READY=1", self._status())
-        _LOGGER.info(f"Running with {len(self.mixer.controllers)} strips, waiting for {self.config.device.name}")
+        layouts = f" ({len(self.config.layout_names)} layouts)" if self.config.layouts else ""
+        _LOGGER.info(
+            f"Running with {len(self.mixer.controllers)} strips{layouts}, waiting for {self.config.device.name}"
+        )
         stopped = asyncio.create_task(self._stop.wait())
         try:
             done, _ = await asyncio.wait([stopped, surface, *parts], return_when=asyncio.FIRST_COMPLETED)
@@ -339,7 +504,7 @@ class Daemon:
             # while it is still connected: Home Assistant sees the entities unavailable right away
             await self.bridge.close()
         assert self._mixer_task is not None, "run() starts the mixer"
-        others = [*parts, self._mixer_task, *self._background]
+        others = [*parts, self._mixer_task, *self._background, *([self._voip_task] if self._voip_task else [])]
         if self._watchdog is not None:
             others.append(self._watchdog)
         for task in others:
@@ -363,6 +528,8 @@ class Daemon:
         self.mixer.on_state(state)
         if state.connected != was_connected:
             systemd.notify(self._status())
+        if self.switcher.has_rules and state.connected:
+            self.switcher.evaluate(state, self._running())
 
     def _on_connection(self, connected: bool) -> None:
         # the surface shows everything again by itself after a connect
@@ -392,6 +559,8 @@ class Daemon:
             daemon_version=__version__,
             preview=self.previewing,
             features=FEATURES,
+            layout=self.layout,
+            layouts=self.switcher.names,
         )
 
     def _status(self) -> str:

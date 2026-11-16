@@ -254,22 +254,28 @@ async def test_the_entities_of_home_assistant_strips_go_to_the_bridge(
     surface: RecordingSurface, backend: FakeBackend
 ) -> None:
     from haad_mqtt_autodiscovery.entity import MQTTEntity
+    from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 
     from xtouch_daemon.mqtt import MqttBridge
     from xtouch_daemon.strips.homeassistant import HomeAssistantStrip
 
     announced: list[dict[MQTTEntity, str | None]] = []
+    kept: list[frozenset[str]] = []
     previews: list[bool] = []
 
     class RecordingBridge(MqttBridge):
-        async def set_entities(self, entities: Mapping[MQTTEntity, str | None], preview: bool = False) -> None:
+        async def set_entities(
+            self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str] = frozenset(), preview: bool = False
+        ) -> None:
             announced.append(dict(entities))
+            kept.append(keep)
             previews.append(preview)
 
     config = parse_config('[[strip]]\ntype = "homeassistant"\n' * 2 + '[mqtt]\nhost = "broker"\n')
     assert config.mqtt is not None
     bridge = RecordingBridge(config.mqtt)
-    mixer = Mixer(surface, backend, config, bridge=bridge)
+    shared = MQTTSelect("xtouch", "layout", "Layout", options=["default"])
+    mixer = Mixer(surface, backend, config, bridge=bridge, shared_entities={shared: "default"}, keep=frozenset({"x"}))
 
     task = asyncio.create_task(mixer.run())
     await settle()
@@ -278,9 +284,10 @@ async def test_the_entities_of_home_assistant_strips_go_to_the_bridge(
 
     strips = [controller for controller in mixer.controllers if isinstance(controller, HomeAssistantStrip)]
     assert len(strips) == 2
-    assert announced == [{**strips[0].entities, **strips[1].entities}]
-    # fader, encoder, meter, two LCD lines, color, four LEDs, buttons
-    assert len(announced[0]) == 2 * 11
+    assert announced == [{**strips[0].entities, **strips[1].entities, shared: "default"}]
+    # fader, encoder, meter, two LCD lines, color, four LEDs, buttons; and the shared one
+    assert len(announced[0]) == 2 * 11 + 1
+    assert kept == [frozenset({"x"})]
     assert previews == [False]
 
     # the mixer of a preview of the GUI says so: the bridge keeps the entities of the file
@@ -290,3 +297,72 @@ async def test_the_entities_of_home_assistant_strips_go_to_the_bridge(
     task.cancel()
     preview.close()
     assert previews == [False, True]
+
+
+LAYOUTS = """
+[voip]
+provider = "demo"
+participants = ["Ann", "Bob", "Carol"]
+
+[[strip]]
+type = "output"
+device = "speaker"
+
+[[layout]]
+name = "gaming"
+
+[[layout.strip]]
+type = "voip"
+count = 2
+
+[[layout.strip]]
+type = "voip"
+
+[[layout.strip]]
+type = "inherit"
+"""
+
+
+async def test_a_mixer_drives_the_strips_of_a_layout(surface: RecordingSurface, backend: FakeBackend):
+    from xtouch_daemon.strips.voip import VoipStrip
+    from xtouch_daemon.voip.demo import DemoProvider
+
+    config = parse_config(LAYOUTS)
+    voip = DemoProvider(("Ann", "Bob", "Carol"))
+    mixer = Mixer(surface, backend, config, capture_command="true", layout="gaming", voip=voip)
+    first, second, third = mixer.controllers[:3]
+    assert isinstance(first, VoipStrip)
+    assert isinstance(second, VoipStrip)
+    assert isinstance(third, VoipStrip)
+    # two groups: one of two places, one of one
+    assert first.group is second.group
+    assert third.group is not first.group
+    assert (first.slot, second.slot, third.slot) == (0, 1, 0)
+    # the place of the default layout is not configured: auto
+    assert isinstance(mixer.controllers[3], AutoStrip)
+    assert mixer.layout == "gaming"
+
+    mixer.on_state(STATE)
+    assert [strip.text[0] for strip in surface.strips[:3]] == ["Ann", "Bob", "Ann"]
+    # the provider tells a change: the strips show it
+    await voip.set_muted("2", True)
+    assert surface.strips[1].text[1] == "muted"
+    mixer.close()
+    await voip.set_muted("2", False)
+    assert surface.strips[1].text[1] == "muted"
+
+
+def test_an_inherited_voip_strip_stays_one_group(surface: RecordingSurface, backend: FakeBackend):
+    from xtouch_daemon.strips.voip import VoipStrip
+    from xtouch_daemon.voip.demo import DemoProvider
+
+    config = parse_config(
+        '[voip]\n[[strip]]\ntype = "voip"\ncount = 2\n'
+        '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\n[[layout.strip]]\ntype = "inherit"\n'
+    )
+    mixer = Mixer(surface, backend, config, capture_command="true", layout="a", voip=DemoProvider(("A",)))
+    first, second = mixer.controllers[:2]
+    assert isinstance(first, VoipStrip)
+    assert isinstance(second, VoipStrip)
+    assert first.group is second.group
+    mixer.close()

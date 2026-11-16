@@ -101,6 +101,11 @@ def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> 
             label = "auto"
             playing = [aliases.get(stream.app, stream.app) for stream in state.streams if stream.playing]
             detail = "the next application that plays" + (f", e.g. {playing[0]}" if playing else "")
+        case "voip":
+            count = values.get("count", 1)
+            label = "voip"  # until a participant is there
+            places = f"{count} strips" if isinstance(count, int) and count > 1 else "a strip"
+            detail = f"participants of the voice chat, {places}, the select button pages"
         case "homeassistant":
             strip_id = _text(values.get("id")) or "strip_<position>"
             detail = f"entities of Home Assistant ({strip_id}), automations decide what it does"
@@ -110,13 +115,22 @@ def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> 
 
 
 def looks(document: ConfigDocument, validation: Validation, state: AudioState) -> tuple[StripLook, ...]:
-    """How every strip of the device looks, the configured ones and the `auto` strips after them."""
+    """
+    How every strip of the device looks, the configured ones and the `auto` strips after them. An `inherit` strip of a
+    layout looks like the strip of the default layout at its place.
+    """
     aliases = dict(document.aliases)
+    default = document.default_strips
     result: list[StripLook] = []
     for index in range(protocol.STRIPS):
         configured = index < len(document.strips)
         values = document.strips[index].values if configured else {"type": "auto"}
-        kind, label, detail, color = look(values, state, aliases)
+        if values.get("type") == "inherit":
+            inherited = default[index].values if index < len(default) else {"type": "auto"}
+            kind, label, detail, color = look(inherited, state, aliases)
+            detail = f"like the default layout: {detail}"
+        else:
+            kind, label, detail, color = look(values, state, aliases)
         problems = len(validation.at("strip", index)) if configured else 0
         result.append(StripLook(kind, label, detail, color, configured, problems))
     return tuple(result)

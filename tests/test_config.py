@@ -14,7 +14,9 @@ from xtouch_daemon.config import (
     DeviceStripConfig,
     EmptyStripConfig,
     HomeAssistantStripConfig,
+    InheritStripConfig,
     Problem,
+    VoipStripConfig,
     color_of,
     default_config_path,
     example_config,
@@ -166,10 +168,16 @@ def test_problems_name_the_place_in_the_toml_data():
 
 
 def test_the_strip_types_are_the_ones_of_the_models():
-    assert (DeviceStripConfig, AppsStripConfig, AutoStripConfig, HomeAssistantStripConfig, EmptyStripConfig) == (
-        STRIP_MODELS
-    )
-    assert STRIP_TYPES == ("output", "input", "apps", "auto", "homeassistant", "empty")
+    assert (
+        DeviceStripConfig,
+        AppsStripConfig,
+        AutoStripConfig,
+        HomeAssistantStripConfig,
+        EmptyStripConfig,
+        InheritStripConfig,
+        VoipStripConfig,
+    ) == STRIP_MODELS
+    assert STRIP_TYPES == ("output", "input", "apps", "auto", "homeassistant", "empty", "inherit", "voip")
 
 
 def test_the_docstrings_of_the_options_are_their_descriptions():
@@ -348,3 +356,105 @@ def test_the_fader_or_the_encoder_of_an_audio_strip_in_home_assistant() -> None:
             + '[[strip]]\ntype = "homeassistant"\nid = "desk"\n'
             + mqtt
         )
+
+
+GAMING = """
+[[strip]]
+type = "output"
+label = "Speaker"
+
+[[strip]]
+type = "apps"
+match = ["firefox"]
+label = "Web"
+
+[voip]
+provider = "demo"
+
+[[layout]]
+name = "gaming"
+label = "Gaming"
+apps = ["steam_app_"]
+processes = ["mumble"]
+priority = 2
+
+[[layout.strip]]
+type = "inherit"
+
+[[layout.strip]]
+type = "voip"
+count = 3
+talking_color = "yellow"
+
+[[layout.strip]]
+type = "inherit"
+"""
+
+
+def test_layouts_have_strips_of_their_own() -> None:
+    config = parse_config(GAMING)
+    assert config.layout_names == ("default", "gaming")
+    default, gaming = config.layout_list()
+    assert (default.name, default.title, default.strips) == ("default", "Default", config.strips)
+    assert (gaming.title, gaming.apps, gaming.processes, gaming.priority) == ("Gaming", ("steam_app_",), ("mumble",), 2)
+    assert gaming.has_rules
+    assert not default.has_rules
+    assert config.layout("gaming") is gaming
+    with pytest.raises(KeyError):
+        config.layout("nope")
+    assert [strip.type for strip in config.all_strips()] == ["output", "apps", *["auto"] * 6]
+    strips = config.all_strips("gaming")
+    # inherit takes the strip of the default layout at its place, after the three places of the voip strip
+    assert [strip.type for strip in strips] == ["output", "voip", "voip", "voip", "auto", "auto", "auto", "auto"]
+    assert strips[0] is config.strips[0]
+    assert strips[1] is strips[2] is strips[3]
+    assert parse_config('[[layout]]\nname = "x"\n').layout("x").title == "x"
+
+
+def test_the_default_switching() -> None:
+    switching = parse_config("").switching
+    assert (switching.hold, switching.chord, switching.banner) == (10.0, (1, 8), 1.5)
+    assert parse_config("[switching]\nchord = []\n").switching.chord == ()
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ('[[layout]]\nname = "default"\n', "layout: default is the name of the top-level strips"),
+        ('[[layout]]\nname = "a"\n[[layout]]\nname = "a"\n', "layouts with the same name: a"),
+        ('[[layout]]\nname = "Gaming"\n', r"layout\[1\].name: String should match pattern"),
+        ('[[strip]]\ntype = "inherit"\n', r"strip\[1\]: inherit is only for the strips of a \[\[layout\]\]"),
+        ('[[strip]]\ntype = "voip"\ncount = 2\n', r"voip strips need a \[voip\] section"),
+        (
+            '[voip]\n[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\ncount = 8\n'
+            '[[layout.strip]]\ntype = "auto"\n',
+            r"layout\[1\]: the strips take 9 places, the device has 8",
+        ),
+        ('[voip]\n[[strip]]\ntype = "voip"\ncount = 8\n[[strip]]\ntype = "auto"\n', "strip: the strips take 9 places"),
+        ("[switching]\nchord = [3, 3]\n", "at least two strips, or none"),
+        ('[[layout]]\nname = "a"\napps = [" "]\n', "an empty pattern would match every application"),
+        (
+            '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "output"\nmin_volume = 90\nmax_volume = 50\n',
+            r"layout\[1\].strip\[1\]: min_volume \(90\) is not below max_volume \(50\)",
+        ),
+        (
+            '[mqtt]\nhost = "b"\n[[layout]]\nname = "a"\n' + '[[layout.strip]]\ntype = "homeassistant"\nid = "x"\n' * 2,
+            r"strips in Home Assistant with the same id \(layout a\): x",
+        ),
+        ('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "homeassistant"\n', r"need an \[mqtt\] section"),
+        ('[[layout]]\nname = "a"\nlabel = "' + "x" * 57 + '"\n', "at most 56 characters"),
+    ],
+)
+def test_errors_of_layouts(text: str, message: str) -> None:
+    with pytest.raises(ConfigError, match=message):
+        parse_config(text)
+
+
+def test_home_assistant_strips_of_a_layout() -> None:
+    config = parse_config(
+        '[mqtt]\nhost = "b"\n[[strip]]\ntype = "homeassistant"\nid = "desk"\n'
+        '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "auto"\n[[layout.strip]]\ntype = "homeassistant"\n'
+        '[[layout.strip]]\ntype = "homeassistant"\nid = "desk"\n'
+    )
+    assert [strip_id for _, strip_id in config.home_assistant_strips()] == ["desk"]
+    assert [strip_id for _, strip_id in config.home_assistant_strips("a")] == ["strip_2", "desk"]

@@ -9,8 +9,9 @@ to be right. A client that does not keep up is dropped instead of being waited f
 the daemon.
 
 A client of the same user may also send requests, a line of JSON each: the live preview of the GUI (`StartPreview`,
-`KeepPreview`, `EndPreview`). The daemon answers with `Reply` lines, which have no `version`: a GUI that does not know
-replies ignores them like lines of another version, and an older daemon ignores the requests.
+`KeepPreview`, `EndPreview`) and the switch to another layout (`SwitchLayout`). The daemon answers with `Reply` lines,
+which have no `version`: a GUI that does not know replies ignores them like lines of another version, and an older
+daemon ignores the requests.
 """
 
 import asyncio
@@ -46,7 +47,7 @@ MAX_REQUEST = 1024 * 1024
 The longest line a client may send; a configuration has a few KB. A longer one ends the connection: the daemon reads
 nothing without a limit.
 """
-FEATURES = ("preview",)
+FEATURES = ("preview", "layout")
 """The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 METER_FALL = 0.15
 """
@@ -116,6 +117,10 @@ class Snapshot:
     """
     features: tuple[str, ...] = ()
     """The requests the daemon takes (`FEATURES`), none for an older daemon."""
+    layout: str | None = None
+    """The name of the layout the device shows (an older daemon does not tell it)."""
+    layouts: tuple[str, ...] = ()
+    """The names of every layout of the configuration, the default one first."""
 
 
 @dataclass(frozen=True)
@@ -139,9 +144,19 @@ class EndPreview:
     """Back to the configuration file."""
 
 
-type Request = StartPreview | KeepPreview | EndPreview
+@dataclass(frozen=True)
+class SwitchLayout:
+    """
+    Show another layout: `layout` is its name, or "+1" ("-1") for the next (previous) one. The daemon answers with a
+    `Reply` of kind "layout".
+    """
 
-type ReplyKind = Literal["preview", "ended", "error"]
+    layout: str
+
+
+type Request = StartPreview | KeepPreview | EndPreview | SwitchLayout
+
+type ReplyKind = Literal["preview", "ended", "layout", "error"]
 
 
 @dataclass(frozen=True)
@@ -149,7 +164,8 @@ class Reply:
     """
     An answer of the daemon, or news for a client. "preview": whether a `StartPreview` runs now (`message` says why
     not, e.g. the errors of the configuration, as `check-config` tells them). "ended": the preview of this client
-    ended, `message` says why. "error": a request could not be read, or is not allowed.
+    ended, `message` says why. "layout": whether a `SwitchLayout` was carried out (`message` is the layout shown
+    then, or why not). "error": a request could not be read, or is not allowed.
     """
 
     kind: ReplyKind
@@ -184,7 +200,7 @@ def strip_states(surface: Surface, now: float) -> tuple[StripState, ...]:
         states.append(
             StripState(
                 color=_color_name(strip.color),
-                text=(strip.text[0], strip.text[1]),
+                text=strip.shown_text,
                 leds={button.name.lower(): _led_name(strip.leds[button]) for button in Button},
                 ring=position,
                 ring_mode=mode.name.lower(),
@@ -244,6 +260,8 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
         data.get("daemon_version"),
         bool(data.get("preview", False)),
         tuple(data.get("features", ())),
+        data.get("layout"),
+        tuple(data.get("layouts", ())),
     )
 
 
@@ -251,13 +269,20 @@ def encode_reply(reply: Reply) -> bytes:
     return json.dumps({"reply": reply.kind, "ok": reply.ok, "message": reply.message}).encode() + b"\n"
 
 
-_REQUEST_NAMES: dict[type, str] = {StartPreview: "preview", KeepPreview: "keep_preview", EndPreview: "end_preview"}
+_REQUEST_NAMES: dict[type, str] = {
+    StartPreview: "preview",
+    KeepPreview: "keep_preview",
+    EndPreview: "end_preview",
+    SwitchLayout: "layout",
+}
 
 
 def encode_request(request: Request) -> bytes:
     data = {"request": _REQUEST_NAMES[type(request)]}
     if isinstance(request, StartPreview):
         data["config"] = request.config
+    elif isinstance(request, SwitchLayout):
+        data["layout"] = request.layout
     return json.dumps(data).encode() + b"\n"
 
 
@@ -274,6 +299,8 @@ def decode_request(line: bytes) -> Request:
             return KeepPreview()
         case {"request": "end_preview"}:
             return EndPreview()
+        case {"request": "layout", "layout": str(layout)}:
+            return SwitchLayout(layout)
         case _:
             raise ValueError("unknown")
 

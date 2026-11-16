@@ -27,6 +27,7 @@ nav = [
     { "Applications" = "configuration/applications.md" },
     { "Encoders" = "configuration/encoders.md" },
     { "LEDs" = "configuration/indicators.md" },
+    { "Layouts" = "configuration/layouts.md" },
   ] },
   { "Home Assistant" = "home-assistant.md" },
   { "GUI" = "gui.md" },
@@ -34,6 +35,7 @@ nav = [
   { "Troubleshooting" = "troubleshooting.md" },
   { "Hardware" = "hardware.md" },
   { "Architecture" = "architecture.md" },
+  { "Design: layouts" = "design/layouts.md" },
   { "Changelog" = "https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" },
 ]
 

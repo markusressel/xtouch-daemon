@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
-from xtouch_daemon.config import BehaviorConfig, DeviceConfig, MqttConfig
+from xtouch_daemon.config import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
 from xtouch_daemon.gui.domain.schema import (
     Kind,
     Option,
@@ -50,7 +50,7 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
 
 
 def test_every_strip_type_has_its_model_and_options():
-    assert list(strip_models()) == ["output", "input", "apps", "auto", "homeassistant", "empty"]
+    assert list(strip_models()) == ["output", "input", "apps", "auto", "homeassistant", "empty", "inherit", "voip"]
     assert [o.name for o in strip_options("output")] == [
         "color",
         "lit_when_idle",
@@ -141,6 +141,8 @@ def test_the_sections_with_options_of_their_own():
         ("device", DeviceConfig, False),
         ("behavior", BehaviorConfig, False),
         ("mqtt", MqttConfig, True),
+        ("switching", SwitchingConfig, False),
+        ("voip", VoipConfig, True),
     ]
     assert sections()[2].help == "The MQTT broker Home Assistant uses, for `homeassistant` strips."
 

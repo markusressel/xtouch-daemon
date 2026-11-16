@@ -415,3 +415,23 @@ async def test_with_the_fader_in_home_assistant_the_encoder_sets_the_volume(
     assert surface.strips[0].fader == protocol.fader_value(0.25)
     strip.close()
     await finish_tasks()
+
+
+@pytest.mark.parametrize(
+    "strip",
+    [
+        '[[strip]]\ntype = "homeassistant"\nid = "desk"\n',
+        '[[strip]]\ntype = "output"\nfader = "homeassistant"\nid = "desk"\n',
+        '[[strip]]\ntype = "auto"\nencoder = "homeassistant"\nid = "desk"\n',
+        '[[strip]]\ntype = "apps"\nmatch = ["x"]\nlabel = "X"\nencoder = "homeassistant"\nid = "desk"\n',
+        '[[strip]]\ntype = "output"\nid = "desk"\n',
+        '[[strip]]\ntype = "empty"\n',
+    ],
+)
+def test_the_ids_of_the_entities_are_those_of_the_strip(surface: RecordingSurface, bridge: MqttBridge, strip: str):
+    config = parse_config(strip + '[mqtt]\nhost = "broker"\n')
+    env = StripEnv(FakeBackend(), BehaviorConfig(), bridge)
+    controller = build_strip(config.strips[0], surface.strips[0], env, {})
+    expected = {entity.unique_id for entity in controller.entities}
+    assert homeassistant_module.entity_ids("xtouch", config.strips[0], "desk") == expected
+    controller.close()
