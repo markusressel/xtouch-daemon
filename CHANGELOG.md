@@ -34,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The GUI edits layouts: a tab per layout above the strips (● marks the one the device shows), + adds one (empty or a
   copy), a "Layout" tab for its name, label and rules, the pages "Layouts" and "Voice chat" in the global settings,
   and "Show on the device". The strips are live only for the layout the device shows.
+- `just screenshot` renders the screenshots of the README and the documentation (docs/images/) offscreen, with a
+  demo configuration and device, so they can be updated with the GUI.
 - "Live preview" in the GUI: while it is on, the device runs the configuration in the editor before it is saved
   and follows every change. Saving keeps it; turning it off, closing the window, or a window that crashed or hangs
   brings back the file, and so does a change of the file on disk or a reload. Errors of the daemon show inline, and

@@ -100,7 +100,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "tests/**" = ["ASYNC240"]
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "tests", "scripts"]
 pythonVersion = "3.14"
 typeCheckingMode = "standard"
 

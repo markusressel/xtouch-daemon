@@ -2,6 +2,8 @@
 
 `xtouch-daemon gui` edits the configuration file in a window and applies it to the running daemon.
 
+![The GUI with the device preview at the top and the options of strip 3 below](images/gui.png)
+
 ## Install and start
 
 On Arch Linux, install the package `xtouch-daemon-gui-bin` (see [Getting started](getting-started.md#arch-linux)).

@@ -4,6 +4,8 @@ The Behringer X-Touch Extender has 8 strips. Each has a 100 mm motorized, touch-
 LEDs (Rec, Solo, Mute, Select), an encoder with a push button and an LED ring, an LED meter, and an LCD with two lines
 of 7 characters and one of 8 backlight colors.
 
+![The eight strips as the GUI draws them, from the top: encoder and LED ring, LCD, meter and buttons, fader](images/device.png)
+
 xtouch-daemon drives it over USB in its Mackie Control mode, so it acts as the "host" a DAW would be. The device needs
 no driver: it is a USB class compliant MIDI device.
 
