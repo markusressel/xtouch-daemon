@@ -106,6 +106,20 @@ number (a fader moved by hand at most every 100 ms), buttons publish events, whi
   `pw-record` runs under `stdbuf -o0` (coreutils): its buffered output comes in blocks of 4096 bytes (64 ms at
   8 kHz), so the meters lagged, and two meters of the same audio differed by up to that much. Unbuffered, it writes
   every cycle of the graph; the daemon takes the peak of every 20 ms.
+- **Meter points from the volume.** Measured with PipeWire 1.6.10 (a tone into a null sink, the volume and Mute of
+  the test stream and sink set with `pw-cli set-param`): a playback stream and an input apply their volume and Mute
+  in their own node, in audioconvert's channel mixer, before their output ports, so every capture of them is after
+  both. audioconvert has monitor ports only on nodes with input ports (outputs, capture streams), not on playback
+  streams or inputs, so there is no tap before the volume to link to; `node.passive` changes only the scheduling.
+  The monitor of an output is before its volume and Mute (`monitorVolumes` and `monitorMute`, both untouched, unless
+  `monitor.channel-volumes` is on). pipewire-pulse turns a PulseAudio volume v into the linear channel volume v³ (50 %
+  is 0.125). So the meters capture what they can and scale it with the volume the sound server tells
+  (`meter.scale_of()`): pre-fader divides the audio of a stream or input by v³, post-fader multiplies the monitor of
+  an output by it (0 while muted). The audio of a muted stream or input is gone, its pre-fader level with it. The
+  volume news is ahead of the captured audio, so after a change the division uses the loudest of the volumes of the
+  last 0.3 s (`GAIN_SETTLE`): a fader pulled down must not light the clip LED. Reference:
+  `spa/plugins/audioconvert/audioconvert.c` (monitor ports in `reconfigure_mode()` only for
+  `SPA_DIRECTION_INPUT`; the monitor volume in `impl_node_process()`).
 - **Stall restart.** WirePlumber links a passive capture only once and gives up when that fails, e.g. while Bluetooth
   headphones disappear and streams move. A capture that gets no audio for 3 s while its device or stream plays is
   started again.

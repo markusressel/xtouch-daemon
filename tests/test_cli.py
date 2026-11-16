@@ -742,6 +742,22 @@ def test_check_config_shows_what_select_launches() -> None:
     assert cli.describe_strip(voip, 3).endswith(", select launches mumble while it is not there")
 
 
+def test_check_config_names_meters_after_the_fader(tmp_path: Path) -> None:
+    path = tmp_path / "meters.toml"
+    path.write_text(
+        '[[strip]]\ntype = "output"\nmeter_point = "post_fader"\n'
+        '[[strip]]\ntype = "input"\nmeter_point = "post_fader"\nmeter = false\n'
+        '[[layout]]\nname = "quiet"\nmeter_point = "post_fader"\n[[layout.strip]]\ntype = "inherit"\nstrip = 2\n'
+    )
+    lines = invoke("check-config", "-c", str(path)).output.splitlines()
+    # before the fader is the default: not worth a word; without a meter neither
+    assert lines[1] == "  1. the default output (white, meter post-fader, rec: recording, solo: off, encoder: balance)"
+    assert lines[2] == "  2. the default input (white, no meter, rec: recording, solo: off, encoder: balance)"
+    assert lines[3] == "  3. the next application that plays (white, rec: recording, solo: off, encoder: pick)"
+    quiet = lines.index("Layout quiet:")
+    assert "(white, meter post-fader, rec" in lines[quiet + 2]
+
+
 # -- the Mumble plugin --------------------------------------------------------------------------------------------
 
 

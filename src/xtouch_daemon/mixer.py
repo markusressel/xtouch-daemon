@@ -15,7 +15,7 @@ from xtouch_daemon import protocol
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
-from xtouch_daemon.config import DEFAULT_LAYOUT, Config, StripConfig, VoipStripConfig, collapses
+from xtouch_daemon.config import DEFAULT_LAYOUT, Config, MeterPoint, StripConfig, VoipStripConfig, collapses
 from xtouch_daemon.launch import LaunchButton, Launcher
 from xtouch_daemon.layouts import running_processes
 from xtouch_daemon.media import MediaPlayers
@@ -100,7 +100,10 @@ class Mixer:
         self.assigner = AutoAssigner(len(self.auto_strips), config.behavior.auto_hold, config.behavior.ignore, clock)
         for index, auto in enumerate(self.auto_strips):
             auto.slot = AutoSlot(self.assigner, index, lambda: self.state, self.claimed, self.refresh)
-        self.meters = [self._meter(controller, capture_command) for controller in self.controllers]
+        self.meters = [
+            self._meter(controller, capture_command, config.meter_point(strip, layout))
+            for controller, strip in zip(self.controllers, strips, strict=True)
+        ]
         self.watches_processes = any(controller.launches for controller in self.controllers)
         if self.watches_processes:
             self.processes = processes()
@@ -145,11 +148,14 @@ class Mixer:
             for controller in self.controllers
         )
 
-    def _meter(self, controller: StripController, command: str) -> Meter:
+    def _meter(self, controller: StripController, command: str, point: MeterPoint) -> Meter:
         def playing(target: CaptureTarget) -> bool:
             return controller.is_playing(target, self.state)
 
-        return Meter(playing, command)
+        def gain(target: CaptureTarget) -> float | None:
+            return controller.target_gain(target, self.state)
+
+        return Meter(playing, command, gain=gain, point=point)
 
     # -- input ----------------------------------------------------------------------------------------------------
 

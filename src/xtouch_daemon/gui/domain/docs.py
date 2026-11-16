@@ -52,6 +52,7 @@ STRIP_OPTIONS: dict[str, str] = {
     "launch": "configuration/applications/#launching-the-application",
     "launch_when_running": "configuration/applications/#launching-the-application",
     "person": "configuration/layouts/#strips-for-one-person",
+    "meter_point": "configuration/strips/#meters",
 }
 """The options of the strips; `STRIP_TYPE_OPTIONS` overrides them for one type."""
 
@@ -75,6 +76,7 @@ SECTION_OPTIONS: dict[str, dict[str, str]] = {
         "auto_hold": "configuration/applications/#auto-strips",
         "ignore": "configuration/applications/#auto-strips",
         "collapse_hold": "configuration/collapsing/#when-a-strip-has-nothing-to-control",
+        "meter_point": "configuration/strips/#meters",
     },
     "mqtt": {
         "namespace": "home-assistant/#entities",
@@ -83,6 +85,7 @@ SECTION_OPTIONS: dict[str, dict[str, str]] = {
         "apps": "configuration/layouts/#rules",
         "processes": "configuration/layouts/#rules",
         "priority": "configuration/layouts/#rules",
+        "meter_point": "configuration/strips/#meters",
     },
     "switching": {
         "chord": "configuration/layouts/#switching",

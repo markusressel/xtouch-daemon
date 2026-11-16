@@ -238,6 +238,7 @@ STRIP_OPTION_ORDER = (
     "talking_color",
     "lit_when_idle",
     "meter",
+    "meter_point",
     "rec",
     "solo",
     "mute",

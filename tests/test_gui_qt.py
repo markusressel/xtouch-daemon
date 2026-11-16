@@ -445,6 +445,7 @@ def test_a_strip_that_is_not_configured_can_be_configured(qtbot: QtBot, window: 
         "color",
         "lit_when_idle",
         "meter",
+        "meter_point",
         "rec",
         "solo",
         "launch",
@@ -2691,6 +2692,7 @@ def test_the_layout_page_names_the_layout(qtbot: QtBot, layouts: MainWindow):
         "apps",
         "processes",
         "priority",
+        "meter_point",
     ]
     type_into(qtbot, row(window, "name", "layout").line, "tunes")
     assert tab_texts(window) == ["default", "gaming", "tunes"]

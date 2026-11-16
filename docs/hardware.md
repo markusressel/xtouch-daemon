@@ -4,6 +4,11 @@ The Behringer X-Touch Extender has 8 strips. Each has a 100 mm motorized, touch-
 LEDs (Rec, Solo, Mute, Select), an encoder with a push button and an LED ring, an LED meter, and an LCD with two lines
 of 7 characters and one of 8 backlight colors.
 
+The meter has 8 LEDs: seven for the level (green, then orange) and a red clip LED at the top. Mackie Control sets it
+in 14 levels, about two per LED (only the 14th lights the clip LED), and the device lets it fall by itself. What the
+levels mean on an audio strip, and whether they are taken before or after the fader, is in
+[Meters](configuration/strips.md#meters).
+
 ![The eight strips as the GUI draws them, from the top: encoder and LED ring, LCD, meter and buttons, fader](images/device.png)
 
 xtouch-daemon drives it over USB in its Mackie Control mode, so it acts as the "host" a DAW would be. The device needs

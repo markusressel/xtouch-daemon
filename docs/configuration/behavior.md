@@ -69,6 +69,7 @@ What it can't do:
 | `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` [encoder](encoders.md) and by the encoders of `homeassistant` strips. |
 | `reset_volume` | `100` | The volume a push on a `volume` encoder sets, 0..200, at most `max_volume`. It stays within the range of the strip. |
 | `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a strip turns off a single one. |
+| `meter_point` | `"pre_fader"` | Where the meters take the level: `"pre_fader"` before the volume and Mute of each strip, `"post_fader"` after them. A [layout](layouts.md) or a strip may have its own, see [Meters](strips.md#meters). |
 | `auto_hold` | `5` | Seconds an `auto` strip keeps an application after it stopped playing. |
 | `ignore` | `["speech-dispatcher"]` | Applications `auto` strips never take: parts of the name or binary, ignoring case, or [presets](presets.md) like `"@games"`. |
 | `collapse_hold` | `3` | Seconds a strip with [`collapse`](collapsing.md) keeps its fader after it has nothing to control anymore, before the strips after it move. It comes back at once. |

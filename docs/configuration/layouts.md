@@ -55,6 +55,7 @@ A file without `[[layout]]` works as before: it has the layout `default` only.
 | `name` | (required) | What Home Assistant and `xtouch-daemon layout` call it: lower case letters, digits and `_`. Not `default`. |
 | `label` | the name | What the LCDs show when the layout comes, across the strips (at most 56 characters). |
 | `apps`, `processes`, `priority` | none | When the daemon switches to it by itself, see [Rules](#rules). |
+| `meter_point` | `behavior.meter_point` | Where the meters of its strips take the level, unless a strip has its own `meter_point`, see [Meters](strips.md#meters). An `inherit` strip brings its own `meter_point` along, else it takes the one of the layout it is shown in. |
 
 Each layout has up to 8 strips, as the top level; missing ones are `auto`. The strips of a layout have the same
 types and options as the top-level ones, plus [`inherit`](#inherit-strips). `homeassistant` strips of all layouts
@@ -170,7 +171,7 @@ strip; for five people, write five.
 | `label` | the first name of `person` | The top line of a strip with `person`. |
 | `color` | `"white"` | The backlight while a participant is there and does not talk. Dark without one. |
 | `talking_color` | `"green"` | The backlight while the participant talks. |
-| `meter` | `true` | Whether the LED meter shows the participant's voice. Without levels from the provider it lights while the participant talks. |
+| `meter` | `true` | Whether the LED meter shows the participant's voice. Without levels from the provider it lights while the participant talks. The level is after the participant's volume: these strips have no `meter_point`, see [Meters](strips.md#meters). |
 | `max_volume` | `behavior.max_volume` | The volume of a participant with the fader at the top, 1..200 percent; 100 % is at the 0 dB mark as on the other strips. Above 100 % the voice is louder than Mumble plays it, and may clip. |
 | `collapse` | `false` | Whether the strip gives its fader to the strips after it while it shows nobody, see [Collapsing strips](collapsing.md). |
 | `launch` | none | A command that Select starts while the voice chat is not there, e.g. `["mumble", "mumble://markus@voice.example.org/Gaming"]`, see [Launching the application](applications.md#launching-the-application). |
