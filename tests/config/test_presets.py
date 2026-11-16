@@ -1,8 +1,8 @@
 import re
-from pathlib import Path
 
 import pytest
 
+from tests.support.paths import DOCS
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.presets import PRESETS, Kind, Preset
 
@@ -12,7 +12,7 @@ STREAMS_ONLY = {
 }
 """Presets for one kind of list each, which the real ones don't have."""
 
-PAGE = Path(__file__).parent.parent / "docs" / "configuration" / "presets.md"
+PAGE = DOCS / "configuration" / "presets.md"
 
 
 def test_a_preset_stands_for_its_names_and_plain_names_stay():

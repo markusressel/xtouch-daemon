@@ -4,12 +4,11 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.paths import DOCS
 from xtouch_daemon.config.layout import LayoutConfig
 from xtouch_daemon.config.strips import STRIP_TYPES
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.schema import options, sections, strip_models, strip_options
-
-DOCS = Path(__file__).parent.parent / "docs"
 
 
 def slug(heading: str) -> str:

@@ -13,9 +13,9 @@ from PyQt6.QtNetwork import QLocalSocket
 from PyQt6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from tests import test_gui_qt
+from tests.gui.qt import test_window as test_gui_qt
+from tests.gui.qt.test_window import Dialogs, FakeLiveDaemon, MakeWindow, click, row, strip_state, type_into
 from tests.support.instance import RecordingInstance
-from tests.test_gui_qt import Dialogs, FakeLiveDaemon, MakeWindow, click, row, strip_state, type_into
 from xtouch_daemon.gui.qt import live_preview as live_preview_module
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.codec import decode_request, encode_reply
