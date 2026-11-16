@@ -14,6 +14,10 @@ from xtouch_daemon import __version__, cli
 from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.media import MprisPlayers
 from xtouch_daemon.audio.model import AudioState, Card, Profile
+from xtouch_daemon.cli import daemon as run_commands
+from xtouch_daemon.cli import layouts as layout_commands
+from xtouch_daemon.cli import sound as sound_commands
+from xtouch_daemon.cli.configuration import describe_strip
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.layout_strips import InheritStripConfig
 from xtouch_daemon.config.model import Config
@@ -97,7 +101,7 @@ def config_file(config_home: Path) -> Path:
 
 @pytest.fixture
 def audio(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cli, "_audio_state", lambda: STATE)
+    monkeypatch.setattr(sound_commands, "_audio_state", lambda: STATE)
 
 
 def invoke(*args: str) -> Result:
@@ -237,7 +241,7 @@ def test_without_auto_strips_an_application_may_get_no_strip(tmp_path: Path) -> 
 
 
 def test_list_apps_without_applications(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cli, "_audio_state", lambda: AudioState())
+    monkeypatch.setattr(sound_commands, "_audio_state", lambda: AudioState())
 
     assert invoke("list-apps").output == "No application plays right now.\n"
 
@@ -270,7 +274,7 @@ def test_test_explains_why_the_device_can_not_be_used(
     async def selftest(*args: object, **kwargs: object) -> None:
         raise error
 
-    monkeypatch.setattr(cli, "run_selftest", selftest)
+    monkeypatch.setattr(run_commands, "run_selftest", selftest)
 
     result = CliRunner().invoke(cli.main, ["test"])
 
@@ -285,7 +289,7 @@ def test_test_runs_the_selftest_and_ends_quietly_on_ctrl_c(monkeypatch: pytest.M
         calls.append((device_name, show_events))
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(cli, "run_selftest", selftest)
+    monkeypatch.setattr(run_commands, "run_selftest", selftest)
 
     assert invoke("test", "--no-events").exit_code == 0
     assert calls == [("X-Touch-Ext", False)]
@@ -320,7 +324,7 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
         async def run(self) -> None:
             pass
 
-    monkeypatch.setattr(cli, "Daemon", FakeDaemon)
+    monkeypatch.setattr(run_commands, "Daemon", FakeDaemon)
     monkeypatch.setattr(systemd, "setup_logging", levels.append)
 
     assert invoke("run", "-c", str(config_file), "--log-level", "debug").exit_code == 0
@@ -350,7 +354,7 @@ def test_run_says_that_it_runs_and_a_second_one_does_not_start(
         async def run(self) -> None:
             seen.append(instance.running())
 
-    monkeypatch.setattr(cli, "Daemon", FakeDaemon)
+    monkeypatch.setattr(run_commands, "Daemon", FakeDaemon)
     monkeypatch.setattr(systemd, "setup_logging", lambda level: None)
     monkeypatch.setattr(instance, "_alive", lambda pid: True)
 
@@ -473,7 +477,7 @@ def test_the_sound_server_is_read_once(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(pulsectl_asyncio, "PulseAsync", FakePulse)
     monkeypatch.setattr(PulseBackend, "snapshot", staticmethod(snapshot))
 
-    assert cli._audio_state() == STATE
+    assert sound_commands._audio_state() == STATE
     assert clients == ["xtouch-daemon-cli"]
 
 
@@ -581,9 +585,9 @@ def test_check_config_shows_the_layouts(tmp_path: Path) -> None:
     assert "Layout plain:" in lines
     assert "Layout music, while spotify has a stream:" in lines
     config = parse_config('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\n')
-    assert cli.describe_strip(config.layouts[0].strips[0], 1) == "the strip of the default layout at this place"
+    assert describe_strip(config.layouts[0].strips[0], 1) == "the strip of the default layout at this place"
     other = InheritStripConfig(type="inherit", layout="voice", strip="music")
-    assert cli.describe_strip(other, 1) == "strip music of layout voice"
+    assert describe_strip(other, 1) == "strip music of layout voice"
 
 
 def test_check_config_tells_where_inherited_strips_come_from(tmp_path: Path) -> None:
@@ -723,7 +727,7 @@ def test_layout_reports_what_goes_wrong(live_socket: Path, monkeypatch: pytest.M
     fake.close()
     live_socket.unlink()
 
-    monkeypatch.setattr(cli, "LAYOUT_TIMEOUT", 0.05)
+    monkeypatch.setattr(layout_commands, "LAYOUT_TIMEOUT", 0.05)
     fake = FakeLive(live_socket, ("default",), answers=False)
     result = CliRunner().invoke(cli.main, ["layout"])
     assert "the daemon did not answer" in result.output
@@ -738,14 +742,12 @@ def test_check_config_shows_what_select_launches() -> None:
         '[[strip]]\ntype = "voip"\nlaunch = ["mumble"]\n'
     )
     apps, auto, voip = config.strips[:3]
-    assert cli.describe_strip(apps, 1) == (
+    assert describe_strip(apps, 1) == (
         "'VoIP' applications mumble, select launches mumble 'mumble://me@example.org/Gaming Night' while it does "
         "not run (white, rec: recording, solo: off, encoder: media)"
     )
-    assert "the next application that plays, select launches spotify also while it runs (" in cli.describe_strip(
-        auto, 2
-    )
-    assert cli.describe_strip(voip, 3).endswith(", select launches mumble while it is not there")
+    assert "the next application that plays, select launches spotify also while it runs (" in describe_strip(auto, 2)
+    assert describe_strip(voip, 3).endswith(", select launches mumble while it is not there")
 
 
 def test_check_config_names_meters_after_the_fader(tmp_path: Path) -> None:
