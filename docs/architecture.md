@@ -64,6 +64,9 @@ number (a fader moved by hand at most every 100 ms), buttons publish events, whi
 - **Reload (SIGHUP):** the configuration is read again. A file with errors is logged and the current configuration
   stays. Otherwise the old mixer is closed, a new one takes over the same surface and backend, and gets the current
   state right away. systemd learns about it through `RELOADING=1` and `READY=1`.
+- **Preview:** a configuration of the GUI (see [Live preview](#live-preview)) takes over like a reload, from memory
+  instead of the file. A reload ends it: the file runs, or the configuration of the file before when the file can't
+  be used.
 - **Stop (SIGTERM, SIGINT):** the daemon tells systemd `STOPPING=1`, closes the mixer, turns every strip dark and
   moves the faders down, waits for the faders (at most 2 s), sends what is still queued and closes the device. A dark
   surface shows that nothing drives it anymore.
@@ -73,8 +76,8 @@ number (a fader moved by hand at most every 100 ms), buttons publish events, whi
 - **MQTT:** the bridge connects (again) on its own, like the backend. On every connect it publishes the discovery
   configurations, subscribes, and waits for the retained states with a ping on its own sync topic: the broker sends
   retained messages before later ones. Entities without a retained state then get their defaults. A reload hands the
-  bridge the entities of the new strips; entities of removed strips are removed from Home Assistant. A changed
-  `[mqtt]` section needs a restart.
+  bridge the entities of the new strips; entities of removed strips are removed from Home Assistant (not by a
+  preview, see [Live preview](#live-preview)). A changed `[mqtt]` section needs a restart.
 - **Status:** `systemctl --user status xtouch-daemon` shows whether the device, the sound server and (with `[mqtt]`)
   the broker are connected.
 
@@ -166,8 +169,10 @@ for as long as it runs:
   device, the sound server and the broker are connected, and the `fingerprint()` of the configuration in use. A line
   is about 2 KB; a state rather than changes means a client that connects late or misses one needs nothing else.
   `version` changes when a line means something else.
-- **Read only.** What a client sends is ignored: the GUI changes the daemon only through the configuration file and
-  a reload.
+- **Requests of the user only.** A client may send requests, a line of JSON each: the [live preview](#live-preview).
+  The daemon takes them only from processes of its own user (`SO_PEERCRED`: root can connect to a socket of mode
+  0600), and a line of at most `MAX_REQUEST` (1 MiB): a longer one ends the connection. Otherwise the GUI changes the
+  daemon through the configuration file and a reload.
 - **Never in the way.** Clients get only non-blocking writes. One that falls behind by more than `MAX_BUFFER` is
   dropped (it can connect again), and a socket that can't be made is logged: the daemon runs on without the live view.
   The server is not one of the parts of the daemon whose end stops it.
@@ -177,6 +182,41 @@ for as long as it runs:
 
 The GUI reads the socket with a `QLocalSocket`, without a thread, and connects again while the daemon runs. Without a
 daemon it shows what the file would show, and says so.
+
+## Live preview
+
+The GUI can make the daemon run the configuration in its editor before it is saved (`gui/qt/live_preview.py`, the
+daemon side in `Daemon.preview()`):
+
+- **The whole text, over the live view.** `StartPreview` carries the TOML text the GUI would save
+  (`ConfigDocument.render()`). The daemon reads it with `parse_config()`, the parser of the file, so the errors are the
+  same as those of `check-config`, and runs it like a reload: a new mixer on the same surface, sound server and
+  broker. The file is never written. A text with errors, or a changed `[mqtt]` (the bridge would need a new
+  connection), is answered with the reason, and what runs keeps running. The GUI sends 300 ms after the last edit,
+  and only a document without problems.
+- **Replies the old GUI ignores, features the new one checks.** The daemon answers with lines without `version`
+  (`{"reply": "preview", "ok": ..., "message": ...}`), which a GUI from before skips like lines of another version.
+  Snapshots tell `preview` (the daemon runs a preview, and `config` is its fingerprint) and `features` (`["preview"]`);
+  a daemon from before tells none and ignores requests, so the GUI keeps the switch off for it.
+- **Always back to the file.** The preview ends with `EndPreview`, when the connection of its client ends (the window
+  closed or crashed), without a request for `PREVIEW_TIMEOUT` (10 s; the GUI sends `KeepPreview` every 3 s, so a
+  window that hangs with its connection open ends it too), and when the file is loaded: on a reload (saving in the GUI
+  sends one), and when the file changes on disk (checked every second during a preview). The client is told why
+  (`{"reply": "ended", ...}`). The configuration of the file is kept in memory (`Daemon.file_config`), so a file that
+  became unusable meanwhile does not keep the preview running.
+- **One preview at a time.** A second client takes it over, and the first one is told: the window someone works in
+  wins over one that was left open.
+- **Visible.** The status line of systemd ends with "previewing unsaved changes of the GUI", the log tells when a
+  preview starts and ends and why, and the GUI shows a pill.
+- **Home Assistant entities survive a preview.** A reload removes the entities of removed strips from Home
+  Assistant (an empty retained discovery message), which also deletes them from its entity registry. A preview
+  doesn't: `MqttBridge.set_entities(..., preview=True)` only stops driving the entities it does not have, which stay
+  in Home Assistant with their retained states, so the file restores them as they were. The next configuration that
+  is no preview removes what it does not have, like a reload; entities that only a preview had also lose the
+  retained state they left on the broker, so a preview leaves nothing behind.
+- **Secrets stay with the user.** The text carries the secrets of the file. The GUI sends it only to a daemon of its
+  own user (`SO_PEERCRED` on its end of the socket), and the runtime directory is the user's own (`$XDG_RUNTIME_DIR`,
+  or a directory of mode 0700 in the temporary directory).
 
 ## Testing
 
@@ -191,7 +231,8 @@ The unit tests run without hardware and without a sound server:
 - the MQTT bridge and the `homeassistant` strips with an in-memory broker (`tests/fake_mqtt.py`): retained messages,
   subscriptions, last wills, lost connections,
 - the live view with a real Unix socket in a short temporary directory: clients that read, that don't read, and that
-  go away,
+  go away, requests of the user, of other users and that are too long, and the live preview through the daemon,
+- the live preview of the GUI against a fake live view (a `QLocalServer`) that answers like the daemon,
 - the GUI domain with configuration files in a temporary directory and a fake `systemctl`, and the GUI widgets with
   pytest-qt on the offscreen platform, with a fake sound server and the dialogs answered by the tests.
 

@@ -36,8 +36,11 @@ class Mixer:
         capture_command: str = PW_RECORD,
         bridge: MqttBridge | None = None,
         players: MediaPlayers | None = None,
+        preview: bool = False,
     ):
+        """`preview`: the configuration is a live preview of the GUI (see `MqttBridge.set_entities()`)."""
         self.bridge = bridge
+        self.preview = preview
         env = StripEnv(backend, config.behavior, bridge, players)
         self.state: AudioState = DISCONNECTED
         self.controllers: list[StripController] = [
@@ -100,7 +103,7 @@ class Mixer:
         applications that stopped long enough.
         """
         if self.bridge is not None:
-            await self.bridge.set_entities(self.entities)
+            await self.bridge.set_entities(self.entities, preview=self.preview)
         ticks_per_auto = round(AUTO_INTERVAL / METER_INTERVAL)
         tick = 0
         while True:

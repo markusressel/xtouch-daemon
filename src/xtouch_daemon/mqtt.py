@@ -65,6 +65,13 @@ class MqttBridge:
         self._client_factory = client_factory
         self._client: MqttClient | None = None
         self._entities: dict[str, tuple[MQTTEntity, str | None]] = {}
+        self._announced: dict[str, MQTTEntity] = {}
+        """
+        The entities whose discovery the broker keeps from this daemon: those of the configuration, and during a preview
+        also those of the file that the preview does not have.
+        """
+        self._committed: set[str] = set()
+        """The unique ids of the entities of the last configuration that was no preview."""
         self._watchers: dict[str, Watcher] = {}
         self._handlers: dict[str, Callable[[str, bool], Any]] = {}
         self._available = False
@@ -106,20 +113,33 @@ class MqttBridge:
     def unwatch(self, entity: MQTTEntity) -> None:
         self._watchers.pop(entity.unique_id, None)
 
-    async def set_entities(self, entities: Mapping[MQTTEntity, str | None]) -> None:
+    async def set_entities(self, entities: Mapping[MQTTEntity, str | None], preview: bool = False) -> None:
         """
         The entities of the configuration, with the state each gets while it has none (None: no default). Entities
         that are not there anymore are removed from Home Assistant.
+
+        A `preview` (the GUI's live preview, see `Daemon.preview()`) removes nothing: the entities it does not have
+        stay in Home Assistant with their state, only nothing drives them, so going back to the file restores them
+        as they were (removing them would delete them from Home Assistant's entity registry and break what uses
+        them meanwhile). The next configuration that is no preview removes what it does not have; entities that
+        only a preview had also lose the state they left on the broker.
         """
         previous = self._entities
         self._entities = {entity.unique_id: (entity, default) for entity, default in entities.items()}
         for entity, _ in self._entities.values():
             entity.discovery_prefix = self.config.discovery_prefix
             entity.bind_manager(self)
+        committed = self._committed
+        if not preview:
+            self._committed = set(self._entities)
         if self._client is None:
             return
-        for unique_id, (entity, _) in previous.items():
-            await self._forget(self._client, entity, removed=unique_id not in self._entities)
+        for entity, _ in previous.values():
+            await self._unsubscribe(self._client, entity)
+        if not preview:
+            for unique_id, entity in list(self._announced.items()):
+                if unique_id not in self._entities:
+                    await self._remove(self._client, entity, leftover=unique_id not in committed)
         await self._announce(self._client)
 
     async def set_state(self, entity: MQTTEntity, state: str) -> None:
@@ -192,8 +212,9 @@ class MqttBridge:
     async def _announce(self, client: MqttClient) -> None:
         """Publishes the discovery of every entity, subscribes to its topics, then waits for the retained states."""
         self._handlers = {}
-        for entity, _ in self._entities.values():
+        for unique_id, (entity, _) in self._entities.items():
             await client.publish(entity.config_topic, json.dumps(self._discovery(entity)), retain=True)
+            self._announced[unique_id] = entity
             command_topic = getattr(entity, "command_topic", None)
             if command_topic is not None:
                 self._handlers[command_topic] = self._command_handler(entity)
@@ -206,15 +227,21 @@ class MqttBridge:
         self._sync_token = uuid.uuid4().hex
         await client.publish(self.sync_topic, self._sync_token)
 
-    async def _forget(self, client: MqttClient, entity: MQTTEntity, removed: bool) -> None:
+    async def _unsubscribe(self, client: MqttClient, entity: MQTTEntity) -> None:
         command_topic = getattr(entity, "command_topic", None)
         if command_topic is not None:
             await client.unsubscribe(command_topic)
         if entity.retain_state:
             await client.unsubscribe(entity.state_topic)
-        if removed:
-            # an empty configuration removes the entity from Home Assistant
-            await client.publish(entity.config_topic, "", retain=True)
+
+    async def _remove(self, client: MqttClient, entity: MQTTEntity, leftover: bool) -> None:
+        """Removes an entity from Home Assistant. `leftover`: only a preview had it, so its state goes too."""
+        del self._announced[entity.unique_id]
+        # an empty configuration removes the entity from Home Assistant
+        await client.publish(entity.config_topic, "", retain=True)
+        if leftover and entity.retain_state:
+            # an empty retained message removes the retained one
+            await client.publish(entity.state_topic, "", retain=True)
 
     def _discovery(self, entity: MQTTEntity) -> dict[str, Any]:
         payload = entity.get_discovery_payload().to_json()

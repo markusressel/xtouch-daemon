@@ -59,11 +59,18 @@ def sync_status(
     edited_strips: int,
     modified: bool,
     applying: bool,
+    previewed: bool = False,
 ) -> Status:
     """
     Whether the device runs the saved file, and what is not on it yet. `applying` is true for a moment after a
-    reload, which takes the daemon a moment.
+    reload, which takes the daemon a moment. `previewed`: the device runs the document as it is (the live preview).
     """
+    if previewed:
+        return Status(
+            "The device runs the unsaved changes (live preview). Save to keep them.",
+            Tone.WARN,
+            "Turning the live preview off, or closing the window, brings back the saved file.",
+        )
     pending = ""
     if modified:
         pending = (
@@ -79,6 +86,12 @@ def sync_status(
         return Status(("The daemon reads this file." + pending).strip(), Tone.NEUTRAL)
     if saved is not None and snapshot.config == fingerprint(saved):
         return Status(("The device runs the saved file." + pending).strip(), Tone.GOOD)
+    if snapshot.preview:
+        return Status(
+            "The device runs a live preview, not the saved file." + pending,
+            Tone.WARN,
+            "A window of the GUI previews unsaved changes on the device. The file runs again once that ends.",
+        )
     if applying:
         return Status("Applying the saved file…", Tone.NEUTRAL)
     return Status(

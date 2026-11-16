@@ -22,7 +22,7 @@ scenes.
   meters, Rec and Solo LEDs as indicators.
 - Sound card profiles on Rec, volume ranges up to 200 %.
 - Home Assistant strips over MQTT discovery, or just the encoder or fader of an audio strip.
-- A Qt GUI with a live view of the device, a systemd user service with reload.
+- A Qt GUI with a live view of the device and a live preview of unsaved changes, a systemd user service with reload.
 
 See the [full feature list](docs/index.md#features).
 

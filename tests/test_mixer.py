@@ -259,10 +259,12 @@ async def test_the_entities_of_home_assistant_strips_go_to_the_bridge(
     from xtouch_daemon.strips.homeassistant import HomeAssistantStrip
 
     announced: list[dict[MQTTEntity, str | None]] = []
+    previews: list[bool] = []
 
     class RecordingBridge(MqttBridge):
-        async def set_entities(self, entities: Mapping[MQTTEntity, str | None]) -> None:
+        async def set_entities(self, entities: Mapping[MQTTEntity, str | None], preview: bool = False) -> None:
             announced.append(dict(entities))
+            previews.append(preview)
 
     config = parse_config('[[strip]]\ntype = "homeassistant"\n' * 2 + '[mqtt]\nhost = "broker"\n')
     assert config.mqtt is not None
@@ -279,3 +281,12 @@ async def test_the_entities_of_home_assistant_strips_go_to_the_bridge(
     assert announced == [{**strips[0].entities, **strips[1].entities}]
     # fader, encoder, meter, two LCD lines, color, four LEDs, buttons
     assert len(announced[0]) == 2 * 11
+    assert previews == [False]
+
+    # the mixer of a preview of the GUI says so: the bridge keeps the entities of the file
+    preview = Mixer(surface, backend, config, bridge=bridge, preview=True)
+    task = asyncio.create_task(preview.run())
+    await settle()
+    task.cancel()
+    preview.close()
+    assert previews == [False, True]

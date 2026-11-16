@@ -37,9 +37,9 @@ Without the extra, `xtouch-daemon gui` says how to install it.
   selected strip.
 - **The footer** shows the file, whether the device runs it, the problems, and the buttons Undo, Redo, Revert and
   "Save and apply".
-- **The header** shows the state of the service with buttons to install, start, restart or stop it, which unit it
-  runs (see [The service](#the-service)), what the sound server has, the zoom, and a switch between the dark and the
-  light theme.
+- **The header** has the switch of the [live preview](#live-preview), shows the state of the service with buttons to
+  install, start, restart or stop it, which unit it runs (see [The service](#the-service)), what the sound server
+  has, the zoom, and a switch between the dark and the light theme.
 
 ## The service
 
@@ -77,6 +77,34 @@ While the daemon runs with an `[mqtt]` section, a second pill tells how its conn
 
 A strip with unsaved changes shows how it will look once saved, marked with a dot; the others stay live. Strips after
 the configured ones are drawn fainter: they are not configured, so they are `auto` strips.
+
+## Live preview
+
+The switch "Live preview" in the header makes the device run the configuration in the editor before it is saved:
+the device follows every change a moment after it (undo and redo too), and the strips show it live. The file is not
+written. The switch is off whenever the window opens.
+
+- **While it is on**, the pill "Previewing unsaved changes" says that the device runs what is in the editor, not the
+  file. Strips with unsaved changes keep their dot, and are live too.
+- **Save and apply** makes it the configuration: the daemon loads the saved file, which is what the device shows
+  already. The switch stays on for the next change.
+- **Back to the file:** turning the switch off, closing the window (it asks about unsaved changes as usual, and says
+  that the device runs them) or "Revert" brings back the saved file. So does a window that crashed: the daemon goes
+  back to the file when the connection of the window ends, or when the window does not answer for 10 seconds. The
+  file also comes back when it changes on disk, or the daemon is reloaded; then the switch goes off and the window
+  says why.
+- **What the daemon does not take** shows in red under the pills, and the device keeps the version before. A preview
+  can't change `[mqtt]` (that takes a save and a restart), and a changed `[device] name` takes effect only with a
+  restart. A configuration with problems is not sent at all: the pill says "Live preview paused" until they are
+  fixed.
+- **One window at a time:** a second window that turns the live preview on takes it over, and the first one's switch
+  goes off.
+- **Home Assistant:** strips the preview does not have keep their entities in Home Assistant (with their state; only
+  nothing drives them), so they are as before once the file runs again. Entities of strips only the preview had are
+  removed again when it ends.
+
+The switch is off, and its tooltip says why, while no daemon runs, while the daemon reads another file, and for a
+daemon from before the live preview (restart it to run the installed version).
 
 ## Selecting and moving strips
 
