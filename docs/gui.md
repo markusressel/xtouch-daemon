@@ -25,8 +25,10 @@ Without the extra, `xtouch-daemon gui` says how to install it.
 ## The window
 
 - **The strips on top** show the device, laid out and labeled like it: the encoder with its ring of 13 LEDs (Mackie
-  Control lights the middle 11), the LCD, the meter next to Rec, Solo, Mute and Select, and the fader with its dB
-  scale: the middle of the cap marks the value, -∞ at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`).
+  Control lights the middle 11), the LCD (the backlight in the strip's color shines around a dark panel and through
+  its characters and the line between its two lines, as on the device), the meter next to Rec, Solo, Mute and
+  Select, and the fader with its dB scale: the middle of the cap marks the value, -∞ at the bottom, 0 dB at 77 % of
+  the travel (`behavior.unity_at`).
   The type of each strip is printed under its LCD.
 - **A handle under the strips** (the short bar) makes them larger or smaller: drag it down for larger strips, up
   for more room below. The strips keep their proportions, and the GUI keeps the size for the next start.

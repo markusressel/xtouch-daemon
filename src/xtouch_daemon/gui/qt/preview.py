@@ -81,8 +81,15 @@ BUTTONS = (("REC", HW.rec), ("SOLO", HW.solo), ("MUTE", HW.mute), ("SELECT", HW.
 STRIP_RADIUS = 8
 PANEL_RADIUS = 14
 DIM = 0.19
-"""How bright a dimmed backlight is: LCD_TEXT_DIM keeps 6:1 on every color."""
-LCD_TEXT_DIM = "#c8ccd2"
+"""How bright a dimmed backlight is."""
+DIM_TEXT = 0.75
+"""How bright the characters of a dimmed LCD are: they keep 4:1 on its panel, for every color."""
+LCD_PANEL = "#050608"
+"""The dark panel of an LCD, over the backlight."""
+LCD_TINT = 0.06
+"""How much of the backlight shines through the dark panel."""
+LCD_GLOW = 0.5
+"""How far the light around the characters reaches."""
 KEY_TINT = 0.08
 """How much of its LED color an unlit button shows: the device has gray buttons, the tint hints at their color."""
 LED_OFF_TINT = 0.18
@@ -939,19 +946,17 @@ class StripView(QWidget):
 
     def _paint_lcd(self, painter: QPainter) -> None:
         """
-        The LCD: a black bezel, the backlit glass, and 2 lines of 7 character cells, written from the left, with the
-        lit line between them.
+        The LCD, a negative display like the one of the device: the backlight shines in a thin rim around a dark
+        panel, and through it where the characters (2 lines of 7 cells, written from the left) and the line between
+        the two lines are. With the backlight off, all of it is dark.
         """
         rect = LCD
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(HW.lcd_bezel))
-        painter.drawRoundedRect(rect, 4, 4)
-        glass = rect.adjusted(3, 3, -3, -3)
         state = self.face.state
         level = self._backlight()
-        backlight = _mix(QColor(theme.LCD_COLORS[state.color]), QColor(theme.LCD_COLORS["off"]), level)
-        lit = level == 1.0
-        if lit:
+        color, off = QColor(theme.LCD_COLORS[state.color]), QColor(theme.LCD_COLORS["off"])
+        backlight = _mix(color, off, level)
+        painter.setPen(Qt.PenStyle.NoPen)
+        if level == 1.0:
             # the light that leaks around the glass
             halo = QColor(backlight)
             halo.setAlpha(60)
@@ -959,30 +964,45 @@ class StripView(QWidget):
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(rect.adjusted(-1, -1, 1, 1), 5, 5)
             painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(HW.lcd_bezel))
+        painter.drawRoundedRect(rect, 4, 4)
+        glass = rect.adjusted(2, 2, -2, -2)
         gradient = QLinearGradient(glass.topLeft(), glass.bottomLeft())
         gradient.setColorAt(0, backlight.lighter(110))
         gradient.setColorAt(1, backlight.darker(106))
         painter.setBrush(gradient)
-        painter.drawRoundedRect(glass, 2, 2)
+        painter.drawRoundedRect(glass, 2.5, 2.5)
+        painter.setBrush(_mix(backlight, QColor(LCD_PANEL), LCD_TINT))
+        painter.drawRoundedRect(glass.adjusted(1.5, 1.5, -1.5, -1.5), 1.5, 1.5)
         cells = LCD_CELLS
         width = cells.width() / protocol.LCD_CELL_WIDTH
         height = (cells.height() - 2) / 2
-        painter.setBrush(QColor(0, 0, 0, 20) if lit else QColor(255, 255, 255, 8))
+        # the cells, a shade lighter than the panel, as the light comes through them a little
+        faint = QColor(backlight)
+        faint.setAlpha(10)
+        painter.setBrush(faint)
         for line in range(2):
             for column in range(protocol.LCD_CELL_WIDTH):
                 cell = QRectF(cells.left() + column * width, cells.top() + line * (height + 2), width, height)
                 painter.drawRect(cell.adjusted(0.5, 0, -0.5, 0))
+        # what lets the light through, dimmed less than the backlight, so that a dimmed LCD can still be read
+        light = _mix(color, off, level if level in (0.0, 1.0) else DIM_TEXT)
+        glow = QColor(light)
+        glow.setAlpha(70)
         painter.setFont(self.lcd_font)
-        painter.setPen(QColor(theme.LCD_TEXT if lit else theme.LCD_TEXT_OFF if level == 0 else LCD_TEXT_DIM))
         for line, text in enumerate(state.text):
             for column, char in enumerate(text[: protocol.LCD_CELL_WIDTH]):
                 cell = QRectF(cells.left() + column * width, cells.top() + line * (height + 2), width, height)
+                # a little light around the characters, as on the device
+                painter.setPen(glow)
+                for dx, dy in ((-LCD_GLOW, 0), (LCD_GLOW, 0), (0, -LCD_GLOW), (0, LCD_GLOW)):
+                    painter.drawText(cell.translated(dx, dy), Qt.AlignmentFlag.AlignCenter, char)
+                painter.setPen(light)
                 painter.drawText(cell, Qt.AlignmentFlag.AlignCenter, char)
-        # the device has a slim line between the two lines, lit even with the backlight off
-        painter.setPen(QPen(QColor(HW.lcd_line), 1))
+        painter.setPen(QPen(light, 1))
         # in the middle of the pixel row between the lines, so that it is sharp
         middle = cells.top() + height + 1.5
-        painter.drawLine(QPointF(glass.left() + 1, middle), QPointF(glass.right() - 1, middle))
+        painter.drawLine(QPointF(glass.left() + 2.5, middle), QPointF(glass.right() - 2.5, middle))
 
     def _paint_print(self, painter: QPainter, rect: QRectF, text: str, error: bool) -> None:
         """A label printed on the panel, in small capitals; a problem in white on red."""

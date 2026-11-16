@@ -894,7 +894,7 @@ def test_rec_solo_and_mute_are_square_and_select_wider_below_them():
     assert rec.bottom() < solo.top() < mute.top() < select.top()
 
 
-def test_the_lcd_fits_7_characters_per_line_and_a_lit_line_between_them(window: MainWindow):
+def test_the_lcd_fits_7_characters_per_line_and_a_line_between_them(window: MainWindow):
     view = window.preview.strips[0]
     metrics = QFontMetricsF(view.lcd_font)
     cells = preview.LCD_CELLS
@@ -903,10 +903,26 @@ def test_the_lcd_fits_7_characters_per_line_and_a_lit_line_between_them(window: 
     face = view.face
     middle = QPointF(cells.center().x() + 0.5, cells.top() + (cells.height() - 2) / 2 + 1)
 
-    for color in ("off", "blue"):
-        image = show_state(view, color=color, text=("Browser", "Phones "))
-        # white, lit even when the backlight is off
-        assert pixel(image, middle).lightness() > 200
+    rim = QPointF(preview.LCD.left() + 2.4, preview.LCD.center().y())
+    panel = QPointF(cells.left() + 1, cells.center().y() - 6)
+
+    # a negative display: the backlight around a dark panel, and through it in the line and the characters
+    image = show_state(view, color="blue", text=("Browser", "Phones "))
+    for point in (rim, middle):
+        assert pixel(image, point).blue() > 200
+    assert pixel(image, panel).lightness() < 30
+    lit = [image.pixelColor(x, y) for x in range(image.width()) for y in range(image.height())]
+    assert any(color.blue() > 200 and color.red() < 120 for color in lit)
+    # the backlight off: all dark
+    image = show_state(view, color="off", text=("Browser", "Phones "))
+    for point in (rim, middle, panel):
+        assert pixel(image, point).lightness() < 50
+    # dimmed: a dim rim, but characters that can still be read
+    view.show_face(dataclasses.replace(face, state=dataclasses.replace(face.state, color="blue"), dimmed=True), False)
+    image = view.grab().toImage()
+    image.setDevicePixelRatio(image.devicePixelRatio() * view.preview.scale)
+    assert pixel(image, rim).blue() < 120
+    assert pixel(image, middle).blue() > 150
     view.show_face(face, False)
 
 
@@ -1188,11 +1204,17 @@ def test_the_colors_are_legible(mode: theme.ThemeMode):
 
 def test_the_device_is_legible():
     hardware = theme.HARDWARE
+    off = theme.LCD_COLORS["off"]
     for name, color in theme.LCD_COLORS.items():
-        text = theme.LCD_TEXT_OFF if name == "off" else theme.LCD_TEXT
-        assert contrast(text, color) >= 4.5
-        dimmed = over(color, theme.LCD_COLORS["off"], round(preview.DIM * 255))
-        assert contrast(preview.LCD_TEXT_DIM, dimmed) >= 4.5
+        # the marks on the swatches of the color picker
+        assert contrast(theme.LCD_TEXT_OFF if name == "off" else theme.LCD_TEXT, color) >= 4.5
+        if name == "off":
+            continue
+        # the characters, the backlight through the dark panel
+        assert contrast(color, over(color, preview.LCD_PANEL, round(preview.LCD_TINT * 255))) >= 4.5
+        dimmed = over(color, off, round(preview.DIM * 255))
+        text = over(color, off, round(preview.DIM_TEXT * 255))
+        assert contrast(text, over(dimmed, preview.LCD_PANEL, round(preview.LCD_TINT * 255))) >= 4
     for strip in (hardware.strip_top, hardware.strip_bottom):
         assert contrast(hardware.print, strip) >= 4.5
         assert contrast(hardware.print_dim, strip) >= 4.5

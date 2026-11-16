@@ -169,9 +169,9 @@ LCD_COLORS = {
 """The backlights of the LCDs, as bright as they look on the device; LCD_TEXT keeps 5.6:1 or more on each."""
 
 LCD_TEXT = "#101215"
-"""The text on a lit LCD: the device shows dark text on the backlight."""
+"""Dark marks on a backlight, e.g. the tick on a light color of the color picker."""
 LCD_TEXT_OFF = "#9aa0a6"
-"""The text on a dark LCD: 6.5:1 on "off"."""
+"""Light marks on the dark "off": 6.5:1."""
 
 
 @dataclass(frozen=True)
@@ -203,8 +203,6 @@ class Hardware:
     key: str = "#5c6168"
     """An unlit button: gray rubber, its LED color shows only as a tint."""
     lcd_bezel: str = "#060708"
-    lcd_line: str = "#f2f4f7"
-    """The lit line between the two lines of an LCD."""
     knob_top: str = "#4b515b"
     knob_bottom: str = "#1d2025"
     collar_inner: str = "#2b2e33"

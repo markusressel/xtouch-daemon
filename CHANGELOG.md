@@ -32,8 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   The strips keep pictures of themselves, so they draw about ten times faster while it is dragged, also while
   the live view moves their meters and faders; they are drawn sharp once it is let go.
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.
-- The strips of the GUI look like the device: the ring has 13 LEDs, the LCD the lit line between its two lines, the
-  meter 8 LEDs next to the buttons (REC, SOLO and MUTE square, SELECT wider), whose names are printed under them,
+- The strips of the GUI look like the device: the ring has 13 LEDs, the LCD is a negative display (the backlight
+  shines around a dark panel and through its characters and the line between its two lines), the meter has 8 LEDs next to the buttons (REC, SOLO and MUTE square, SELECT wider), whose names are printed under them,
   and the faders are longer, with the dB scale of the device: the middle of the cap marks the value, -∞ at the
   bottom, 0 dB at 77 % of the travel and +10 dB at the top.
   The meter lights its LEDs for a level as the device does (7 for the loudest audio, the red CLIP LED when it clips).
