@@ -1,6 +1,6 @@
 # Design: layouts
 
-Status: proposed. See [Phasing](#phasing) for what comes first.
+Status: implemented as in [Phasing](#phasing); how to use it is in [Layouts](../configuration/layouts.md).
 
 The idea: the configuration holds several **layouts**, each a set of up to 8 strips. A "default" layout for the
 desk (outputs, browser, music), a "gaming" layout with the game, the voice chat, the microphone and one strip per
@@ -70,8 +70,8 @@ graph LR
 - `BridgeProvider` (implemented): the daemon serves a Unix socket; a small plugin inside the VoIP client connects and
   sends the participants as JSON lines, and gets the commands back. The protocol is the same for every client, so a
   Mumble plugin and a TeamSpeak plugin both work, and the daemon needs no client libraries. A plugin is a few hundred
-  lines of C (Mumble's API is C) and its own build; it is **not** part of this phase. `xtouch-daemon voip-feed`
-  (a test tool) speaks the protocol from the command line.
+  lines of C (Mumble's API is C) and its own build; it is **not** part of this phase. To try the protocol by hand,
+  `socat - UNIX-CONNECT:$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` and a pasted JSON line will do.
 - `DemoProvider` (implemented): participants from the configuration, with volume and mute kept in memory and a
   talking pattern, to try layouts and the strips without a VoIP client.
 - Later: `TeamSpeakQueryProvider` (participants and talking from ClientQuery, no volume), a Mumble plugin speaking
@@ -188,11 +188,12 @@ layout has anymore.
 
 ## GUI
 
-- A **layout bar** above the strips: one tab per layout (Default first), `+` adds one (a copy of the shown one, or
-  empty), and the context menu renames/removes. The preview and the strip editor show the layout of the selected
-  tab; everything else (paths `strip[3]`, problems, undo) works as before, for that layout.
-- A **Layout** page (global tab) for the selected layout's own options (name, label, rules, priority), from the
-  pydantic model like every other form. `[switching]` and `[voip]` are sections and get forms for free.
+- A **layout bar** above the strips: one tab per layout (default first), `+` adds one (a copy of the shown one, or
+  empty). The preview and the strip editor show the layout of the selected tab; everything else (paths `strip[3]`,
+  problems, undo) works as before, for that layout. Problems of other layouts lead to them.
+- A **Layout** tab next to "Global settings" for the selected layout's own options (name, label, rules, priority),
+  from the pydantic model like every other form, with buttons to move it in the order and to remove it.
+  `[switching]` and `[voip]` are sections and get forms for free.
 - The preview is **live only for the layout the device shows**; another layout is shown from the file, and the bar
   marks the active one. A button "Show on the device" switches the daemon to the shown layout (the command channel).
 - Phase 2 for the GUI: preview of `voip` strips with demo participants.
@@ -205,7 +206,7 @@ Implemented now:
    `[[strip]]`, validation; `check-config` shows every layout.
 2. `LayoutSwitcher`: rules (apps, processes) with priority and hold, manual switching, next.
 3. The daemon: switching, the banner, the chord, the command channel, `xtouch-daemon layout`, the `select` entity.
-4. `VoipProvider`, `DemoProvider`, `BridgeProvider`, the `voip` strip with paging; `xtouch-daemon voip-feed`.
+4. `VoipProvider`, `DemoProvider`, `BridgeProvider`, the `voip` strip with paging.
 5. GUI: layout bar, layout page, live preview only for the active layout, "Show on the device".
 
 Later:
