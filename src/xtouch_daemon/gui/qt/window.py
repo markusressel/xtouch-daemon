@@ -18,6 +18,7 @@ from PyQt6.QtGui import (
     QColor,
     QKeyEvent,
     QKeySequence,
+    QMouseEvent,
     QPainter,
     QPaintEvent,
     QShortcut,
@@ -144,10 +145,37 @@ GRIP = (36, 4)
 class _GripHandle(QSplitterHandle):
     """The handle between the preview and the editor, with a grip in the middle, brighter under the mouse."""
 
-    def __init__(self, orientation: Qt.Orientation, parent: QSplitter):
+    def __init__(self, orientation: Qt.Orientation, parent: PreviewSplitter):
         super().__init__(orientation, parent)
+        self.owner = parent
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
         self.setToolTip("Drag to make the strips larger or smaller")
+        self.move_to: QMouseEvent | None = None
+        """The last move of the mouse that the handle has not followed yet."""
+
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:
+        super().mousePressEvent(event)
+        self.owner.held.emit(True)
+
+    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:
+        """
+        Follows the mouse once for all the moves that came in together: each step lays out the window again, and a
+        fast mouse sends more of them than the screen shows.
+        """
+        assert event is not None
+        if self.move_to is None:
+            QTimer.singleShot(0, self._follow)
+        self.move_to = event.clone()
+
+    def _follow(self) -> None:
+        event, self.move_to = self.move_to, None
+        if event is not None:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
+        self._follow()
+        super().mouseReleaseEvent(event)
+        self.owner.held.emit(False)
 
     def paintEvent(self, event: QPaintEvent | None) -> None:
         painter = QPainter(self)
@@ -162,6 +190,9 @@ class _GripHandle(QSplitterHandle):
 
 class PreviewSplitter(QSplitter):
     """The preview above, the editor below, and a handle with a grip between them."""
+
+    held = pyqtSignal(bool, arguments=["held"])
+    """The handle was pressed (True) or let go (False)."""
 
     def __init__(self):
         super().__init__(Qt.Orientation.Vertical)
@@ -243,6 +274,7 @@ class MainWindow(QMainWindow):
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
         self.splitter.splitterMoved.connect(self._preview_resized)
+        self.splitter.held.connect(self._handle_held)
         body.addWidget(self.splitter, 1)
         layout.addLayout(body, 1)
         layout.addWidget(self._footer())
@@ -284,9 +316,17 @@ class MainWindow(QMainWindow):
             self.splitter.share = self.preview_share
 
     def _preview_resized(self) -> None:
-        """The handle was dragged: the share of the preview is kept for the next start."""
+        """The handle was dragged: the share of the preview is kept for the next start (once it is let go)."""
         self.preview_share = self.splitter.share
-        theme.save_preview_share(self.preview_share)
+
+    def _handle_held(self, held: bool) -> None:
+        """
+        While the handle is held, the strips scale their pictures; once it is let go, they are drawn sharp, and the
+        share of the preview is saved (not on every step of a drag, which would slow it down).
+        """
+        self.preview.hold(held)
+        if not held and self.preview_share is not None:
+            theme.save_preview_share(self.preview_share)
 
     def _resume(self, session: Session) -> None:
         """Goes on where the window before the zoom left off."""

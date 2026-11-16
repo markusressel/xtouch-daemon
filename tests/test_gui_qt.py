@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, QSettings, Qt
-from PyQt6.QtGui import QColor, QContextMenuEvent, QFontMetricsF, QImage, QTextDocument
+from PyQt6.QtGui import QColor, QContextMenuEvent, QFontMetricsF, QImage, QMouseEvent, QTextDocument
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QAbstractButton,
@@ -885,11 +885,24 @@ def test_a_dragged_strip_is_outlined_and_its_place_shown(qtbot: QtBot, window: M
     preview.cancel_drag()
 
 
-def drag_handle(window: MainWindow, share: float) -> None:
+def drag_handle(window: MainWindow, share: float, release: bool = True) -> None:
     """Drags the handle between the preview and the editor to `share` of the height, as a hand does."""
+    handle = window.splitter.handle(1)
+    assert handle is not None
+    grip = QPointF(handle.rect().center())
+    send_mouse(handle, QEvent.Type.MouseButtonPress, grip, Qt.MouseButton.LeftButton)
     top, bottom = window.splitter.sizes()
     window.splitter.moveSplitter(round((top + bottom) * share), 1)
     QApplication.processEvents()
+    if release:
+        send_mouse(handle, QEvent.Type.MouseButtonRelease, grip, Qt.MouseButton.NoButton)
+
+
+def send_mouse(widget: QWidget, kind: QEvent.Type, at: QPointF, buttons: Qt.MouseButton) -> None:
+    """A press, move or release of the left button at `at` in `widget`."""
+    where = QPointF(widget.mapToGlobal(at))
+    event = QMouseEvent(kind, at, where, Qt.MouseButton.LeftButton, buttons, Qt.KeyboardModifier.NoModifier)
+    QApplication.sendEvent(widget, event)
 
 
 def test_the_preview_scales_to_the_space_it_gets(window: MainWindow):
@@ -951,16 +964,37 @@ def test_strips_are_drawn_again_only_when_they_show_something_else(qtbot: QtBot,
     preview = window.preview
     qtbot.waitUntil(lambda: not preview.resizing)
     view = preview.strips[0]
-    view.grab()
-    picture, printed = view.picture, view.printed
+    show_state(view)
+    picture, shown, printed = view.picture, view.shown, view.printed
 
     # painted again (e.g. the blink of another strip): the same picture
     view.grab()
     assert view.picture is picture
-    # a new state: drawn again, on the same picture of its printed parts
-    show_state(view, meter=6)
+    # what moves all the time is put together from small pictures, over the same picture of what it shows
+    show_state(view, meter=6, ring=3, fader=0.5, touched=True)
     assert view.picture is not picture
+    assert view.shown is shown
+    # a new text: drawn again, on the same picture of its printed parts
+    show_state(view, text=("Other", ""))
+    assert view.shown is not shown
     assert view.printed is printed
+
+
+def test_small_pictures_are_dropped_when_there_are_too_many(window: MainWindow):
+    view = window.preview.strips[0]
+    sprites = preview_module._sprites
+    sprites.clear()
+    show_state(view, meter=6)
+    assert sprites
+    some = next(iter(sprites.values()))
+    sprites.update({("odd", index): some for index in range(preview_module.SPRITES_KEPT)})
+
+    image = show_state(view, meter=9)
+
+    # dropped, and the ones that are missing drawn again
+    assert len(sprites) < preview_module.SPRITES_KEPT
+    assert not any(key[0] == "odd" for key in sprites)
+    assert pixel(image, preview_module.meter_led(4).center()) == QColor(preview_module.HW.meter_mid)
 
 
 def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window: MainWindow):
@@ -971,7 +1005,7 @@ def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window:
         view.grab()
     before = [view.picture for view in views]
 
-    drag_handle(window, 0.1)
+    drag_handle(window, 0.1, release=False)
 
     assert preview.resizing
     for view in views:
@@ -979,16 +1013,50 @@ def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window:
     # the pictures of before, scaled: much faster than drawing them
     assert [view.picture for view in views] == before
     # what shows something new is drawn at once, sharp
-    show_state(views[0], meter=6)
+    show_state(views[0], text=("Other", ""))
     picture = views[0].picture
     assert picture is not None
     assert picture.scale == preview.scale
-    # once the size stays, every strip is sharp again
-    qtbot.waitUntil(lambda: not preview.resizing)
+    # also while the hand rests, until it lets go of the handle
+    qtbot.wait(preview_module.SETTLE_MS * 2)
+    assert preview.resizing
+    # nothing is saved before
+    assert theme.load_preview_share() is None
+    handle = window.splitter.handle(1)
+    assert handle is not None
+    send_mouse(handle, QEvent.Type.MouseButtonRelease, QPointF(), Qt.MouseButton.NoButton)
+    assert not preview.resizing
+    assert theme.load_preview_share() == pytest.approx(window.splitter.share)
     for view in views:
         view.grab()
         assert view.picture is not None
         assert view.picture.scale == preview.scale
+
+
+def test_the_handle_follows_many_moves_of_the_mouse_at_once(window: MainWindow):
+    handle = window.splitter.handle(1)
+    assert handle is not None
+    grip = QPointF(handle.rect().center())
+    send_mouse(handle, QEvent.Type.MouseButtonPress, grip, Qt.MouseButton.LeftButton)
+    top = window.splitter.sizes()[0]
+    moves: list[int] = []
+    window.splitter.splitterMoved.connect(lambda position, _: moves.append(position))
+
+    for step in range(1, 6):
+        send_mouse(handle, QEvent.Type.MouseMove, grip - QPointF(0, 10 * step), Qt.MouseButton.LeftButton)
+    assert window.splitter.sizes()[0] == top
+    QApplication.processEvents()
+
+    # once, to where the mouse is now
+    assert len(moves) == 1
+    assert window.splitter.sizes()[0] == top - 50
+    # the last move before it is let go counts too (10 above the grip, which has moved along)
+    send_mouse(handle, QEvent.Type.MouseMove, grip - QPointF(0, 10), Qt.MouseButton.LeftButton)
+    send_mouse(handle, QEvent.Type.MouseButtonRelease, grip, Qt.MouseButton.NoButton)
+    assert window.splitter.sizes()[0] == top - 60
+    assert not window.preview.resizing
+    QApplication.processEvents()
+    assert len(moves) == 2
 
 
 def test_a_new_size_ends_a_drag(window: MainWindow):
