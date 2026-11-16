@@ -46,11 +46,33 @@ from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.schema import Kind, Option, strip_options
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.gui.qt import preview, theme
-from xtouch_daemon.gui.qt import preview as preview_module
+from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt import window as window_module
 from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Switch, Tables
 from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, MumbleInstaller, SectionPage
+from xtouch_daemon.gui.qt.preview.geometry import (
+    CAP_SIZE,
+    CENTER_X,
+    ENCODER,
+    HEIGHT,
+    LCD,
+    LCD_CELLS,
+    MARGIN_X,
+    PANEL,
+    RING_LEDS,
+    RING_RADII,
+    SCALE,
+    STRIP_TAG,
+    WIDTH,
+    button_rect,
+    meter_led,
+    ring_angle,
+    slot_position,
+    travel_y,
+)
+from xtouch_daemon.gui.qt.preview.painting import DIM, DIM_TEXT, HW, LCD_PANEL, LCD_TINT, SPRITES_KEPT, _sprites
+from xtouch_daemon.gui.qt.preview.panel import MIN_SCALE, SETTLE_MS
+from xtouch_daemon.gui.qt.preview.strip_view import StripView
 from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.codec import encode, encode_reply, encode_request
@@ -966,7 +988,7 @@ def test_a_revert_can_be_undone(qtbot: QtBot, window: MainWindow):
 # -- the preview: painting ---------------------------------------------------------------------------------------
 
 
-def show_state(view: preview.StripView, **changes: object) -> QImage:
+def show_state(view: StripView, **changes: object) -> QImage:
     """The strip with its state changed, as painted."""
     face = view.face
     view.show_face(dataclasses.replace(face, state=dataclasses.replace(face.state, **changes)), False)
@@ -983,7 +1005,7 @@ def pixel(image: QImage, point: QPointF) -> QColor:
 
 def test_lit_leds_show_their_colors(window: MainWindow):
     view = window.preview.strips[0]
-    mute, meter = preview.button_rect(2).center(), preview.meter_led(1).center()
+    mute, meter = button_rect(2).center(), meter_led(1).center()
     dark = show_state(view, meter=0)
 
     # what the live view shows: Mute lit, the meter a little up
@@ -998,7 +1020,7 @@ def test_lit_leds_show_their_colors(window: MainWindow):
 
 def test_the_meter_has_7_leds_for_the_level_and_the_clip_led(window: MainWindow):
     view = window.preview.strips[0]
-    clip, top = preview.meter_led(7).center(), preview.meter_led(6).center()
+    clip, top = meter_led(7).center(), meter_led(6).center()
 
     loudest = show_state(view, meter=protocol.METER_SIGNAL_MAX)
 
@@ -1015,22 +1037,22 @@ def test_the_meter_has_7_leds_for_the_level_and_the_clip_led(window: MainWindow)
 
 def ring_led(led: int) -> QPointF:
     """The middle of the LED `led` (0..12) of the ring."""
-    angle = radians(preview.ring_angle(led))
-    radius = sum(preview.RING_RADII) / 2
-    return preview.ENCODER + QPointF(cos(angle), -sin(angle)) * radius
+    angle = radians(ring_angle(led))
+    radius = sum(RING_RADII) / 2
+    return ENCODER + QPointF(cos(angle), -sin(angle)) * radius
 
 
 def test_the_ring_lights_the_middle_11_of_its_13_leds(window: MainWindow):
     view = window.preview.strips[0]
-    assert preview.ring_angle(0) == 240
-    assert preview.ring_angle(preview.RING_LEDS - 1) == -60
+    assert ring_angle(0) == 240
+    assert ring_angle(RING_LEDS - 1) == -60
 
     full = show_state(view, ring=protocol.RING_MAX, ring_mode="wrap")
     centered = show_state(view, ring=6, ring_mode="dot")
 
-    for led in range(1, preview.RING_LEDS - 1):
+    for led in range(1, RING_LEDS - 1):
         assert pixel(full, ring_led(led)).red() > 200
-    for led in (0, preview.RING_LEDS - 1):
+    for led in (0, RING_LEDS - 1):
         assert pixel(full, ring_led(led)).red() < 100
     # the middle position is the LED at the top
     assert pixel(centered, ring_led(6)).red() > 200
@@ -1038,33 +1060,33 @@ def test_the_ring_lights_the_middle_11_of_its_13_leds(window: MainWindow):
 
 
 def test_the_scale_has_0_db_where_100_percent_is():
-    marks = {mark.label: mark.at for mark in preview.SCALE}
+    marks = {mark.label: mark.at for mark in SCALE}
     assert marks["0"] == BehaviorConfig().unity_at / 100
     assert marks["10"] == pytest.approx(1)
     assert marks["-∞"] == 0
-    assert [mark.at for mark in preview.SCALE] == sorted(marks.values(), reverse=True)
+    assert [mark.at for mark in SCALE] == sorted(marks.values(), reverse=True)
 
 
 @pytest.mark.parametrize("label", ["10", "0", "-20", "-∞"])
 def test_the_middle_of_the_cap_shows_the_value(window: MainWindow, label: str):
-    at = next(mark.at for mark in preview.SCALE if mark.label == label)
+    at = next(mark.at for mark in SCALE if mark.label == label)
     view = window.preview.strips[0]
 
     image = show_state(view, fader=at, touched=False)
 
     # the dark line across the middle of the cap is on the mark
-    x = preview.CENTER_X + 10
-    half = int(preview.CAP_SIZE.height() / 2) - 2
-    mark = round(preview.travel_y(at))
+    x = CENTER_X + 10
+    half = int(CAP_SIZE.height() / 2) - 2
+    mark = round(travel_y(at))
     darkest = min(range(mark - half, mark + half), key=lambda y: pixel(image, QPointF(x, y)).lightness())
     assert abs(darkest - mark) <= 1
     # the cap stays clear of the buttons and of the tag at the bottom
-    assert preview.travel_y(1) - preview.CAP_SIZE.height() / 2 > preview.button_rect(3).bottom() + 10
-    assert preview.travel_y(0) + preview.CAP_SIZE.height() / 2 < preview.STRIP_TAG.top()
+    assert travel_y(1) - CAP_SIZE.height() / 2 > button_rect(3).bottom() + 10
+    assert travel_y(0) + CAP_SIZE.height() / 2 < STRIP_TAG.top()
 
 
 def test_rec_solo_and_mute_are_square_and_select_wider_below_them():
-    rec, solo, mute, select = (preview.button_rect(row) for row in range(4))
+    rec, solo, mute, select = (button_rect(row) for row in range(4))
 
     for button in (rec, solo, mute):
         assert button.width() == button.height()
@@ -1076,13 +1098,13 @@ def test_rec_solo_and_mute_are_square_and_select_wider_below_them():
 def test_the_lcd_fits_7_characters_per_line_and_a_line_between_them(window: MainWindow):
     view = window.preview.strips[0]
     metrics = QFontMetricsF(view.lcd_font)
-    cells = preview.LCD_CELLS
+    cells = LCD_CELLS
     assert metrics.horizontalAdvance("W") * protocol.LCD_CELL_WIDTH <= cells.width()
     assert 2 * metrics.capHeight() < cells.height()
     face = view.face
     middle = QPointF(cells.center().x() + 0.5, cells.top() + (cells.height() - 2) / 2 + 1)
 
-    rim = QPointF(preview.LCD.left() + 2.4, preview.LCD.center().y())
+    rim = QPointF(LCD.left() + 2.4, LCD.center().y())
     panel = QPointF(cells.left() + 1, cells.center().y() - 6)
 
     # a negative display: the backlight around a dark panel, and through it in the line and the characters
@@ -1109,14 +1131,12 @@ def test_a_dragged_strip_is_outlined_and_its_place_shown(qtbot: QtBot, window: M
     preview = window.preview
     edge = preview.to_widget(QPointF(3, 150)) - preview.to_widget(QPointF())
     # below the lifted strip, where the place it goes to shows on the panel
-    place = preview.to_widget(
-        QPointF(preview_module.slot_position(0)) + QPointF(preview_module.WIDTH / 2, preview_module.HEIGHT - 6)
-    )
+    place = preview.to_widget(QPointF(slot_position(0)) + QPointF(WIDTH / 2, HEIGHT - 6))
     strip_before = preview.strips[1].grab().toImage().pixelColor(edge)
     place_before = preview.grab().toImage().pixelColor(place)
 
     preview.start_drag(1, 10)
-    preview.drag_to(preview.to_widget(QPointF(preview_module.MARGIN_X + 10, 0)).x())
+    preview.drag_to(preview.to_widget(QPointF(MARGIN_X + 10, 0)).x())
 
     assert preview.drop_target == 0
     # the strip that was there made room
@@ -1149,22 +1169,20 @@ def send_mouse(widget: QWidget, kind: QEvent.Type, at: QPointF, buttons: Qt.Mous
 def test_the_preview_scales_to_the_space_it_gets(window: MainWindow):
     preview = window.preview
     large = preview.scale
-    assert preview.minimumSizeHint().height() == round(preview_module.PANEL.height() * preview_module.MIN_SCALE)
+    assert preview.minimumSizeHint().height() == round(PANEL.height() * MIN_SCALE)
 
     drag_handle(window, 0.1)
 
     # down to its minimum, keeping its proportions, centered
     assert preview.scale < large
     assert preview.height() >= preview.minimumSizeHint().height()
-    assert preview.scale == pytest.approx(
-        min(preview.width() / preview_module.PANEL.width(), preview.height() / preview_module.PANEL.height())
-    )
-    panel = preview_module.PANEL * preview.scale
+    assert preview.scale == pytest.approx(min(preview.width() / PANEL.width(), preview.height() / PANEL.height()))
+    panel = PANEL * preview.scale
     assert preview.origin.x() == pytest.approx((preview.width() - panel.width()) / 2)
     assert preview.origin.y() == pytest.approx((preview.height() - panel.height()) / 2)
     for index, view in enumerate(preview.strips):
         assert view.pos() == preview.slot_point(index)
-        assert view.width() == math.ceil(preview_module.WIDTH * preview.scale)
+        assert view.width() == math.ceil(WIDTH * preview.scale)
     # the editor keeps its room
     assert window.tabs.height() >= window_module.EDITOR_MIN_HEIGHT
     handle = window.splitter.handle(1)
@@ -1179,7 +1197,7 @@ def test_strips_are_picked_and_dragged_at_any_scale(qtbot: QtBot, window: MainWi
     drag_handle(window, 0.1)
     assert preview.scale < 0.8
     # the strip under a point in the middle of its place
-    third = preview.to_widget(QPointF(preview_module.slot_position(2)) + QPointF(preview_module.WIDTH / 2, 250))
+    third = preview.to_widget(QPointF(slot_position(2)) + QPointF(WIDTH / 2, 250))
     view = preview.childAt(third)
     assert view is preview.strips[2]
 
@@ -1223,19 +1241,19 @@ def test_strips_are_drawn_again_only_when_they_show_something_else(qtbot: QtBot,
 
 def test_small_pictures_are_dropped_when_there_are_too_many(window: MainWindow):
     view = window.preview.strips[0]
-    sprites = preview_module._sprites
+    sprites = _sprites
     sprites.clear()
     show_state(view, meter=6)
     assert sprites
     some = next(iter(sprites.values()))
-    sprites.update({("odd", index): some for index in range(preview_module.SPRITES_KEPT)})
+    sprites.update({("odd", index): some for index in range(SPRITES_KEPT)})
 
     image = show_state(view, meter=9)
 
     # dropped, and the ones that are missing drawn again
-    assert len(sprites) < preview_module.SPRITES_KEPT
+    assert len(sprites) < SPRITES_KEPT
     assert not any(key[0] == "odd" for key in sprites)
-    assert pixel(image, preview_module.meter_led(4).center()) == QColor(preview_module.HW.meter_mid)
+    assert pixel(image, meter_led(4).center()) == QColor(HW.meter_mid)
 
 
 def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window: MainWindow):
@@ -1259,7 +1277,7 @@ def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window:
     assert picture is not None
     assert picture.scale == preview.scale
     # also while the hand rests, until it lets go of the handle
-    qtbot.wait(preview_module.SETTLE_MS * 2)
+    qtbot.wait(SETTLE_MS * 2)
     assert preview.resizing
     # nothing is saved before
     assert theme.load_preview_share() is None
@@ -1390,10 +1408,10 @@ def test_the_device_is_legible():
         if name == "off":
             continue
         # the characters, the backlight through the dark panel
-        assert contrast(color, over(color, preview.LCD_PANEL, round(preview.LCD_TINT * 255))) >= 4.5
-        dimmed = over(color, off, round(preview.DIM * 255))
-        text = over(color, off, round(preview.DIM_TEXT * 255))
-        assert contrast(text, over(dimmed, preview.LCD_PANEL, round(preview.LCD_TINT * 255))) >= 4
+        assert contrast(color, over(color, LCD_PANEL, round(LCD_TINT * 255))) >= 4.5
+        dimmed = over(color, off, round(DIM * 255))
+        text = over(color, off, round(DIM_TEXT * 255))
+        assert contrast(text, over(dimmed, LCD_PANEL, round(LCD_TINT * 255))) >= 4
     for strip in (hardware.strip_top, hardware.strip_bottom):
         assert contrast(hardware.print, strip) >= 4.5
         assert contrast(hardware.print_dim, strip) >= 4.5

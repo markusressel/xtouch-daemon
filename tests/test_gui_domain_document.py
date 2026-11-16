@@ -6,7 +6,8 @@ import pytest
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import Problem, example_config, parse_config
-from xtouch_daemon.gui.domain.document import ConfigDocument, StripDraft
+from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.drafts import StripDraft
 
 FILE = """\
 # my mixer

@@ -51,7 +51,8 @@ from xtouch_daemon.gui.domain import broker, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
-from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, Validation
+from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.drafts import SECTIONS, Validation
 from xtouch_daemon.gui.domain.flow import flow_rows
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
@@ -78,7 +79,7 @@ from xtouch_daemon.gui.qt.pages import (
     page_title,
     set_text,
 )
-from xtouch_daemon.gui.qt.preview import Preview
+from xtouch_daemon.gui.qt.preview.panel import Preview
 from xtouch_daemon.gui.qt.strip_list import StripList
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Reply, Snapshot, SwitchLayout

@@ -8,7 +8,8 @@ from typing import Any
 
 from xtouch_daemon.audio.model import AudioState, Device, Direction
 from xtouch_daemon.config.strips import STRIP_TYPES
-from xtouch_daemon.gui.domain.document import ConfigDocument, Validation
+from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.drafts import Validation
 from xtouch_daemon.gui.domain.flow import FlowRow
 from xtouch_daemon.gui.domain.inherit import referenced
 from xtouch_daemon.gui.domain.schema import Kind, strip_options

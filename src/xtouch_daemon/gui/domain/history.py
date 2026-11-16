@@ -5,7 +5,8 @@ editor needs no "are you sure?" questions. Typing into one option is one step, n
 
 from typing import Any
 
-from xtouch_daemon.gui.domain.document import ConfigDocument, DocumentState
+from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.drafts import DocumentState
 
 type Path = tuple[Any, ...]
 

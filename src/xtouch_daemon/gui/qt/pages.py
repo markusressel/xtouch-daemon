@@ -36,7 +36,8 @@ from xtouch_daemon.config.values import DEFAULT_LAYOUT, default_encoder
 from xtouch_daemon.gui.domain import docs, inherit, sources
 from xtouch_daemon.gui.domain.broker import live_status, try_broker
 from xtouch_daemon.gui.domain.changes import Change, Scope
-from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, StripDraft, Validation
+from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.drafts import SECTIONS, StripDraft, Validation
 from xtouch_daemon.gui.domain.looks import look
 from xtouch_daemon.gui.domain.schema import options, strip_models, strip_options, strip_type_help
 from xtouch_daemon.gui.domain.status import Status, Tone
