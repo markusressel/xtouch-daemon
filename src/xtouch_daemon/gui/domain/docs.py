@@ -46,6 +46,8 @@ STRIP_OPTIONS: dict[str, str] = {
     "label": "configuration/strips/#labels",
     "device": "configuration/devices/#several-devices",
     "profiles": "configuration/devices/#profiles",
+    "choices": "configuration/devices/#choices",
+    "collapse": "configuration/collapsing/",
     "match": "configuration/applications/#apps-strips",
     "launch": "configuration/applications/#launching-the-application",
     "launch_when_running": "configuration/applications/#launching-the-application",
@@ -70,6 +72,7 @@ SECTION_OPTIONS: dict[str, dict[str, str]] = {
         "reset_volume": "configuration/encoders/#volume",
         "auto_hold": "configuration/applications/#auto-strips",
         "ignore": "configuration/applications/#auto-strips",
+        "collapse_hold": "configuration/collapsing/#when-a-strip-has-nothing-to-control",
     },
     "mqtt": {
         "namespace": "home-assistant/#entities",

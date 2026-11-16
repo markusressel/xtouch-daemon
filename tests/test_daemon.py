@@ -406,6 +406,8 @@ async def test_without_mqtt_section_there_is_no_bridge(
     daemon = make(config_path, surface, backend)
     assert daemon.bridge is None
     assert daemon.snapshot().mqtt is None
+    # where the strips are
+    assert daemon.snapshot().placement == daemon.mixer.placement
     # the GUI tells whether it runs the installed version
     assert daemon.snapshot().daemon_version == __version__
     config = parse_config(HOME_ASSISTANT)
@@ -1015,11 +1017,24 @@ def test_the_entities_of_every_layout() -> None:
     config = parse_config(
         '[mqtt]\nhost = "b"\n[[strip]]\ntype = "homeassistant"\nid = "a"\n'
         '[[layout]]\nname = "x"\n[[layout.strip]]\ntype = "output"\nfader = "homeassistant"\nid = "b"\n'
+        '[[layout.strip]]\ntype = "output"\nchoices = [{ device = "a" }, { device = "b" }]\n'
     )
     ids = daemon_module.layout_entity_ids(config, "ns")
+    # the select of the choices, by its place
+    assert "ns_strip_2_output" in ids
     assert "ns_a_fader" in ids
     assert "ns_b_fader" in ids
     assert "ns_b_encoder" not in ids
+
+
+def test_a_strip_inherited_from_another_place_keeps_its_entities() -> None:
+    config = parse_config(
+        '[mqtt]\nhost = "b"\n[[strip]]\ntype = "auto"\n[[strip]]\ntype = "homeassistant"\n'
+        '[[layout]]\nname = "x"\n[[layout.strip]]\ntype = "inherit"\nstrip = 2\n'
+    )
+    # the entities of its place in the default layout, once
+    assert {unique_id for unique_id in daemon_module.layout_entity_ids(config, "ns") if "strip_1" in unique_id} == set()
+    assert config.entity_strips("x")[0][1] == config.entity_strips()[0][1] == "strip_2"
 
 
 async def test_home_assistant_chooses_the_layout(

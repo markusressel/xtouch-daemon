@@ -71,6 +71,7 @@ What it can't do:
 | `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a strip turns off a single one. |
 | `auto_hold` | `5` | Seconds an `auto` strip keeps an application after it stopped playing. |
 | `ignore` | `["speech-dispatcher"]` | Applications `auto` strips never take: parts of the name or binary, ignoring case. |
+| `collapse_hold` | `3` | Seconds a strip with [`collapse`](collapsing.md) keeps its fader after it has nothing to control anymore, before the strips after it move. It comes back at once. |
 
 ```toml
 [behavior]

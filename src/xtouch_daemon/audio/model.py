@@ -60,6 +60,15 @@ class Card:
     profile: str
     """The name of the active profile."""
     profiles: tuple[Profile, ...] = ()
+    description: str = ""
+    """E.g. `Family 17h/19h HD Audio Controller`."""
+
+    def matches(self, name: str) -> bool:
+        """By name or description; `*` and `?` are wildcards (like `Device.matches`)."""
+        names = (self.name, self.description) if self.description else (self.name,)
+        if "*" in name or "?" in name:
+            return any(fnmatch.fnmatchcase(value, name) for value in names)
+        return name in names
 
     def profile_named(self, name: str) -> Profile | None:
         """A profile by its name or description."""
@@ -157,6 +166,10 @@ class AudioState:
 
     def card(self, name: str | None) -> Card | None:
         return next((card for card in self.cards if card.name == name), None)
+
+    def card_matching(self, pattern: str) -> Card | None:
+        """The first card of the name or description (see `Card.matches`)."""
+        return next((card for card in self.cards if card.matches(pattern)), None)
 
     def is_default(self, device: Device) -> bool:
         return self.default_name(device.direction) == device.name

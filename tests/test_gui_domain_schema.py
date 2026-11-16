@@ -38,6 +38,7 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
         ("meters", Kind.SWITCH),
         ("auto_hold", Kind.NUMBER),
         ("ignore", Kind.LIST),
+        ("collapse_hold", Kind.NUMBER),
     ]
     unity = options(BehaviorConfig)[1]
     assert (unity.default, unity.minimum, unity.maximum) == (77, 10, 95)
@@ -55,7 +56,9 @@ def test_every_strip_type_has_its_model_and_options():
     # what the strip controls first, then its parts as the device has them, from the top down
     assert [o.name for o in strip_options("output")] == [
         "device",
+        "choices",
         "profiles",
+        "collapse",
         "encoder",
         "label",
         "color",
@@ -69,11 +72,12 @@ def test_every_strip_type_has_its_model_and_options():
         "max_volume",
         "id",
     ]
-    assert [o.name for o in strip_options("apps")][:2] == ["match", "encoder"]
+    assert [o.name for o in strip_options("apps")][:3] == ["match", "collapse", "encoder"]
     # the id of a Home Assistant strip is what it controls
     assert [o.name for o in strip_options("homeassistant")] == ["id", "label", "color"]
     assert [o.name for o in strip_options("voip")] == [
         "count",
+        "collapse",
         "color",
         "talking_color",
         "meter",
@@ -82,7 +86,9 @@ def test_every_strip_type_has_its_model_and_options():
     ]
     assert strip_options("empty") == ()
 
-    device, profiles, encoder, label, color, _, _, rec, _, _, fader, min_volume, _, _ = strip_options("input")
+    device, choices, profiles, collapse, encoder, label, color, _, _, rec, _, _, fader, min_volume, _, _ = (
+        strip_options("input")
+    )
     assert (encoder.kind, encoder.default, encoder.choices) == (
         Kind.CHOICE,
         None,
@@ -98,12 +104,22 @@ def test_every_strip_type_has_its_model_and_options():
     assert (device.kind, device.default, device.required) == (Kind.LIST, (), False)
     assert (label.max_length, label.required) == (7, False)
     # a list of tables, with options of their own
+    assert (collapse.kind, collapse.default) == (Kind.SWITCH, False)
     assert (profiles.kind, profiles.default) == (Kind.TABLES, ())
     assert [(column.name, column.kind, column.max_length) for column in profiles.columns] == [
         ("label", Kind.TEXT, 7),
         ("profile", Kind.TEXT, None),
         ("min_volume", Kind.INTEGER, None),
         ("max_volume", Kind.INTEGER, None),
+    ]
+    assert (choices.kind, choices.default) == (Kind.TABLES, ())
+    assert [(column.name, column.kind, column.required) for column in choices.columns] == [
+        ("label", Kind.TEXT, False),
+        ("device", Kind.TEXT, True),
+        ("card", Kind.TEXT, False),
+        ("profile", Kind.TEXT, False),
+        ("min_volume", Kind.INTEGER, False),
+        ("max_volume", Kind.INTEGER, False),
     ]
 
 

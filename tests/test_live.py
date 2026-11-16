@@ -121,6 +121,9 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     # with its version
     versioned = Snapshot("abc", True, False, None, snapshot.strips, daemon_version="1.2.3")
     assert decode(encode(versioned)) == versioned
+    # with strips that moved
+    placed = Snapshot("abc", True, False, None, snapshot.strips, placement=(0, 2, 3, 4, 5, 6, 7, None))
+    assert decode(encode(placed)) == placed
     # an older daemon does not tell more than whether it is connected, nor its version
     older = line.replace(b',"mqtt_state":null', b"").replace(b',"daemon_version":null', b"")
     assert b"mqtt_state" not in older

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from xtouch_daemon.config import (
     STRIP_TYPES,
     AppsStripConfig,
     AutoStripConfig,
+    ChoiceConfig,
     Config,
     ConfigError,
     DeviceConfig,
@@ -136,7 +138,6 @@ def test_invalid_toml_names_the_file():
         ('[[strip]]\ntype = "apps"\nmatch = ["discord"]', "strip[1].label"),
         ('[[strip]]\ntype = "fader"', "strip[1]"),
         ('[[strip]]\ntype = "empty"\ncolor = "red"', "strip[1].color"),
-        ('[[strip]]\ntype = "auto"\n' * 9, "strip"),
     ],
 )
 def test_errors_name_the_option(text: str, location: str):
@@ -424,13 +425,23 @@ def test_the_default_switching() -> None:
         ('[[layout]]\nname = "default"\n', "layout: default is the name of the top-level strips"),
         ('[[layout]]\nname = "a"\n[[layout]]\nname = "a"\n', "layouts with the same name: a"),
         ('[[layout]]\nname = "Gaming"\n', r"layout\[1\].name: String should match pattern"),
-        ('[[strip]]\ntype = "inherit"\n', r"strip\[1\]: inherit is only for the strips of a \[\[layout\]\]"),
+        ('[[strip]]\ntype = "inherit"\n', r"strip\[1\]: inherit of the default layout is only for"),
         (
             '[voip]\n[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\ncount = 8\n'
             '[[layout.strip]]\ntype = "auto"\n',
-            r"layout\[1\]: the strips take 9 places, the device has 8",
+            r"layout\[1\].strip\[2\] can never show: 8 strips before them don't collapse",
         ),
-        ('[voip]\n[[strip]]\ntype = "voip"\ncount = 8\n[[strip]]\ntype = "auto"\n', "strip: the strips take 9 places"),
+        ('[voip]\n[[strip]]\ntype = "voip"\ncount = 8\n[[strip]]\ntype = "auto"\n', r"strip\[2\] can never show"),
+        (
+            "[voip]\n" + '[[strip]]\ntype = "voip"\ncount = 8\ncollapse = true\n' * 5,
+            "the strips take 40 places, at most 32",
+        ),
+        (
+            '[[strip]]\ntype = "output"\n[[layout]]\nname = "a"\n'
+            + '[[layout.strip]]\ntype = "auto"\ncollapse = true\n' * 8
+            + '[[layout.strip]]\ntype = "inherit"\n',
+            r"layout\[1\].strip\[9\]: inherit, but the default layout has only 8 places",
+        ),
         ("[switching]\nchord = [3, 3]\n", "at least two strips, or none"),
         ('[[layout]]\nname = "a"\napps = [" "]\n', "an empty pattern would match every application"),
         (
@@ -520,3 +531,206 @@ def test_launch_when_running_needs_launch_and_is_not_for_voip_strips():
     assert "launch_when_running: needs launch" in errors_of('[[strip]]\ntype = "auto"\nlaunch_when_running = true\n')
     text = '[voip]\n[[strip]]\ntype = "voip"\nlaunch = ["mumble"]\nlaunch_when_running = true\n'
     assert "strip[1].launch_when_running: " in errors_of(text)
+
+
+CHOICES = (
+    '[[strip]]\ntype = "output"\n'
+    'choices = [{ label = "Phones", device = "alsa_output.*.analog-stereo", card = "alsa_card.*",'
+    ' profile = "output:analog-stereo" }, { label = "Buds", device = "bluez_output.*", max_volume = 150 }]\n'
+)
+
+
+def test_a_strip_switches_between_choices() -> None:
+    config = parse_config(CHOICES)
+    strip = config.strips[0]
+    assert isinstance(strip, DeviceStripConfig)
+    assert strip.switches
+    assert [choice.title for choice in strip.choices] == ["Phones", "Buds"]
+    assert strip.volume_ranges(config.behavior) == [("", 0, 130), ("choices[1]", 0, 130), ("choices[2]", 0, 150)]
+    assert ChoiceConfig(device="speaker").title == "speaker"
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ('[[strip]]\ntype = "output"\nchoices = [{ device = "a" }]\n', r"strip\[1\].choices: at least two"),
+        (CHOICES + 'device = "a"\n', r"strip\[1\]: use either choices or device/profiles"),
+        (
+            CHOICES
+            + '[[strip.profiles]]\nlabel = "A"\nprofile = "a"\n[[strip.profiles]]\nlabel = "B"\nprofile = "b"\n',
+            "use either choices or device/profiles",
+        ),
+        (CHOICES + "select = false\n", "select: with choices, Select is how the strip switches between them"),
+        (
+            '[[strip]]\ntype = "output"\nchoices = [{ device = "a", card = "c" }, { device = "b" }]\n',
+            r"strip\[1\].choices\[1\]: card and profile go together",
+        ),
+        ('[[strip]]\ntype = "output"\nchoices = [{ device = " " }, { device = "b" }]\n', "an empty device name"),
+        (
+            '[[strip]]\ntype = "output"\nchoices = [{ device = "a", min_volume = 140 }, { device = "b" }]\n',
+            r"strip\[1\].choices\[1\]: min_volume \(140\) is not below max_volume \(130\)",
+        ),
+        (
+            '[mqtt]\nhost = "b"\n' + (CHOICES + 'id = "out"\n') * 2,
+            "strips in Home Assistant with the same id: out",
+        ),
+    ],
+)
+def test_choices_are_checked(text: str, message: str) -> None:
+    assert re.search(message, errors_of(text))
+
+
+def test_strips_with_collapse_may_be_more_than_the_device_has() -> None:
+    config = parse_config(
+        '[[strip]]\ntype = "output"\ndevice = "buds"\ncollapse = true\n' + '[[strip]]\ntype = "auto"\n' * 8
+    )
+    assert len(config.all_strips()) == 9
+    assert config.unreachable() == []
+    assert config.places() == tuple(range(1, 10))
+    assert config.behavior.collapse_hold == 3.0
+    # fewer than 8: the rest are auto, which are not in the list
+    assert parse_config('[[strip]]\ntype = "empty"\n').places() == (1, 0, 0, 0, 0, 0, 0, 0)
+
+
+def test_a_strip_that_could_never_show_is_an_error() -> None:
+    message = errors_of('[[strip]]\ntype = "auto"\n' * 8 + '[[strip]]\ntype = "auto"\ncollapse = true\n' * 2)
+    assert "strip[9], strip[10] can never show: 8 strips before them don't collapse" in message
+
+
+@pytest.mark.parametrize(
+    ("strip", "message"),
+    [
+        ('type = "homeassistant"', "a homeassistant strip stays, automations rely on its entities"),
+        ('type = "empty"', "an empty strip is there to keep its place"),
+    ],
+)
+def test_some_strips_never_collapse(strip: str, message: str) -> None:
+    assert message in errors_of(f'[mqtt]\nhost = "b"\n[[strip]]\n{strip}\ncollapse = true\n')
+
+
+# -- inherit from any layout and strip ----------------------------------------------------------------------------
+
+INHERIT = """
+[mqtt]
+host = "broker"
+
+[voip]
+
+[[strip]]
+type = "output"
+label = "Out"
+collapse = true
+
+[[strip]]
+type = "apps"
+match = ["spotify"]
+label = "Music"
+id = "music"
+launch = ["spotify"]
+
+[[strip]]
+type = "homeassistant"
+
+[[layout]]
+name = "voice"
+
+[[layout.strip]]
+type = "voip"
+count = 2
+
+[[layout.strip]]
+type = "inherit"
+strip = "music"
+
+[[layout]]
+name = "games"
+
+[[layout.strip]]
+type = "inherit"
+layout = "voice"
+strip = 1
+
+[[layout.strip]]
+type = "inherit"
+layout = "voice"
+strip = 2
+
+[[layout.strip]]
+type = "inherit"
+strip = 3
+
+[[layout.strip]]
+type = "inherit"
+layout = "voice"
+"""
+
+
+def test_an_inherit_strip_takes_any_strip_of_any_layout() -> None:
+    config = parse_config(INHERIT)
+    voice, games = config.all_strips("voice"), config.all_strips("games")
+    # a voip strip comes with all its places, the same object
+    assert voice[0] is voice[1] is games[0] is games[1]
+    # with all its options: launch, collapse
+    music = config.strips[1]
+    assert voice[2] is games[2] is music
+    assert isinstance(music, AppsStripConfig)
+    assert music.launch == ("spotify",)
+    assert config.places("games") == (1, 1, 2, 3, 4, 0, 0, 0)
+    # the homeassistant strip keeps the entities of its place in the default layout
+    home_assistant = games[3]
+    assert isinstance(home_assistant, HomeAssistantStripConfig)
+    assert home_assistant.id == "strip_3"
+    assert config.home_assistant_strips("games") == [(home_assistant, "strip_3")]
+    # without strip: the same place, which voice has no strip for
+    assert games[4].type == "auto"
+
+
+def test_an_inherit_strip_in_the_default_layout_names_its_strip() -> None:
+    config = parse_config(
+        '[[strip]]\ntype = "inherit"\nlayout = "a"\n[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "output"\n'
+    )
+    assert config.all_strips()[0] is config.layout("a").strips[0]
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        (
+            '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\nlayout = "b"\n',
+            r"layout\[1\].strip\[1\]: inherit from the layout b, which is not there",
+        ),
+        (
+            '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\nstrip = 2\n',
+            "inherit strip 2, but the default layout has 0 strips",
+        ),
+        (
+            '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\nstrip = "x"\n',
+            "inherit strip x, but the default layout has no strip with that id",
+        ),
+        (
+            '[[strip]]\ntype = "auto"\nid = "x"\n[[strip]]\ntype = "auto"\nid = "x"\n'
+            '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\nstrip = "x"\n',
+            "inherit strip x, but the default layout has 2 strips with that id",
+        ),
+        (
+            '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\nlayout = "b"\nstrip = 1\n'
+            '[[layout]]\nname = "b"\n[[layout.strip]]\ntype = "inherit"\nlayout = "a"\nstrip = 1\n',
+            r"inherit strips that refer to each other: layout\[1\].strip\[1\] -> layout\[2\].strip\[1\] -> "
+            r"layout\[1\].strip\[1\]",
+        ),
+        (
+            '[[layout]]\nname = "a"\n'
+            + "".join(f'[[layout.strip]]\ntype = "inherit"\nlayout = "a"\nstrip = {n + 1}\n' for n in range(1, 10))
+            + '[[layout.strip]]\ntype = "auto"\ncollapse = true\n',
+            r"layout\[1\].strip\[1\]: more than 8 inherit strips refer to one another",
+        ),
+        (
+            '[mqtt]\nhost = "b"\n[[strip]]\ntype = "homeassistant"\n'
+            '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "homeassistant"\n'
+            '[[layout.strip]]\ntype = "inherit"\nlayout = "default"\nstrip = 1\n',
+            "strips in Home Assistant with the same id \\(layout a\\): strip_1",
+        ),
+    ],
+)
+def test_errors_of_inherit_strips(text: str, message: str) -> None:
+    assert re.search(message, errors_of(text))

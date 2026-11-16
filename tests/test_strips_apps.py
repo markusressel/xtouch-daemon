@@ -598,3 +598,17 @@ async def test_select_launches_on_an_auto_strip_without_application(surface: Rec
     press_select(strip)
     assert len(launcher.spawned) == 1
     assert surface.strips[0].leds[Button.SELECT] == Led.FLASH
+
+
+def test_a_strip_without_streams_or_application_is_absent(surface: RecordingSurface, env: StripEnv) -> None:
+    browsers = group(surface, env)
+    assert browsers.absent(state())
+    # a paused one counts
+    assert not browsers.absent(state(stream(1, "Brave", corked=True)))
+    assert browsers.title == "Browser"
+    strip = auto(surface, env)
+    assert strip.absent(state())
+    assert strip.title == "auto"
+    strip.assign("WEBRTC VoiceEngine")
+    assert not strip.absent(state())
+    assert strip.title == "Discord"

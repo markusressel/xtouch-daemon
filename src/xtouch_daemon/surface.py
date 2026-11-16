@@ -289,6 +289,72 @@ class Strip:
             protocol.ring(self.index, *self.ring),
         ]
 
+    def show_from(self, other: Strip) -> None:
+        """Shows what `other` shows (see `VirtualStrip`): its LCD, LEDs and ring; the fader glides to its value."""
+        self.set_color(other.color)
+        for line, text in enumerate(other.text):
+            self.set_text(line, text)
+        for button, state in other.leds.items():
+            self.set_led(button, state)
+        self.set_ring(*other.ring)
+        if other.fader is None or other.fader == 0:
+            self.park()
+        else:
+            self.set_fader(protocol.fader_fraction(other.fader))
+
+
+class VirtualStrip(Strip):
+    """
+    What a strip of the configuration shows, wherever it is: the controller of a strip draws on it, and it passes that
+    on to the strip of the device it is on (`target`), if any. With `collapse`, the strips of the configuration move
+    between the strips of the device (see `placement.py`); one that waits or collapsed is on none, and shows
+    everything again when it gets one (`bind()`). Its `index` is its place in the configuration.
+    """
+
+    def __init__(self, surface: Surface, index: int):
+        super().__init__(surface, index)
+        # its own messages never go to the device: those of `target` do
+        self.shown = False
+        self.target: Strip | None = None
+
+    def bind(self, target: Strip | None) -> None:
+        """Puts it on the strip of the device (None: on none), which then shows what it shows."""
+        self.target = target
+        if target is not None:
+            target.show_from(self)
+
+    # what it shows is kept as `Strip` keeps it, but sent to `target` only (its index may be beyond the device's)
+
+    def set_led(self, button: Button, state: Led) -> None:
+        self.leds[button] = state
+        if self.target is not None:
+            self.target.set_led(button, state)
+
+    def set_text(self, line: int, text: str) -> None:
+        self.text[line] = text[: protocol.LCD_CELL_WIDTH]
+        if self.target is not None:
+            self.target.set_text(line, text)
+
+    def set_ring(self, position: int, mode: RingMode = RingMode.DOT) -> None:
+        self.ring = (position, mode)
+        if self.target is not None:
+            self.target.set_ring(position, mode)
+
+    def set_color(self, color: Color) -> None:
+        self.color = color
+        if self.target is not None:
+            self.target.set_color(color)
+
+    def set_fader(self, fraction: float, slow: bool = False) -> None:
+        self.fader = protocol.fader_value(fraction)
+        if self.target is not None:
+            self.target.set_fader(fraction, slow)
+
+    def set_meter(self, level: int) -> None:
+        self.meter = (level, time.monotonic())
+        if self.target is not None:
+            self.target.set_meter(level)
+
 
 def steps(sequence: Sequence, startup: bool) -> list[tuple[int, ...]]:
     """

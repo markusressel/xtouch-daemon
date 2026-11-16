@@ -5,7 +5,7 @@
 | [`xtouch-daemon run`](#run) | Runs the daemon in the foreground. |
 | [`xtouch-daemon check-config`](#check-config) | Validates the configuration and lists what each strip does. |
 | [`xtouch-daemon init-config`](#init-config) | Writes the example configuration. |
-| [`xtouch-daemon list-devices`](#list-devices) | Lists outputs, inputs and the profiles of the sound cards. |
+| [`xtouch-daemon list-devices`](#list-devices) | Lists outputs, inputs, and the sound cards with their profiles. |
 | [`xtouch-daemon list-apps`](#list-apps) | Lists the applications that play, and which strip takes each one. |
 | [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the device. |
 | [`xtouch-daemon layout`](#layout) | Shows the running daemon's layout, or switches to another one. |
@@ -61,6 +61,10 @@ defaults. Example output:
   ...
 ```
 
+A strip with [`choices`](configuration/devices.md#choices) lists them, e.g.
+`output: Phones, Speaker or Buds (Select switches)`, and one with [`collapse`](configuration/collapsing.md) ends
+with `collapses`. More than eight strips end with `The device shows the first 8 of them that don't collapse.`
+
 A file with errors names the place of each one, e.g. `strip[3].label: String should have at most 7 characters`, and
 the command fails.
 
@@ -80,8 +84,17 @@ xtouch-daemon list-devices
 ```
 
 Lists the outputs and inputs with the node names to use as `device`, their descriptions, volumes and states; `*`
-marks the defaults. Then it lists the profiles of each sound card, for [`profiles`](configuration/devices.md#profiles);
-`*` marks the active ones.
+marks the defaults. Then it lists each sound card by its name and description, with its devices and its profiles
+(name and description), for `card` and `profile` of [`choices`](configuration/devices.md#choices) and for
+[`profiles`](configuration/devices.md#profiles); `*` marks the active ones:
+
+```
+Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa_output.pci-0000_11_00.4.analog-stereo):
+  * output:analog-stereo+input:analog-stereo
+      Analog Stereo Output + Analog Stereo Input
+    output:iec958-stereo+input:analog-stereo
+      Digital Stereo (IEC958) Output + Analog Stereo Input
+```
 
 ## `list-apps`
 

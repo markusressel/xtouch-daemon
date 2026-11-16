@@ -79,6 +79,18 @@ class StripController:
         """Whether audio should flow at the target, so a capture without audio is not linked."""
         return False
 
+    def absent(self, state: AudioState) -> bool:
+        """
+        Whether the strip has nothing to control (its devices are not there, no application has a stream), so with
+        `collapse` the strips after it take its place (see `placement.py`).
+        """
+        return False
+
+    @property
+    def title(self) -> str:
+        """What the strip is, for the log: its label, or its type."""
+        return f"strip {self.strip.index + 1}"
+
     def held_meter(self) -> int | None:
         """
         A level the meter holds without audio (0..METER_MAX), e.g. one Home Assistant set; None for none. The device

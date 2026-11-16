@@ -10,6 +10,8 @@ from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState, Device, Direction
 from xtouch_daemon.config import STRIP_TYPES
 from xtouch_daemon.gui.domain.document import ConfigDocument, Validation
+from xtouch_daemon.gui.domain.flow import FlowRow
+from xtouch_daemon.gui.domain.inherit import referenced
 from xtouch_daemon.gui.domain.schema import Kind, strip_options
 from xtouch_daemon.live import Snapshot, StripState
 from xtouch_daemon.protocol import RingMode
@@ -68,6 +70,31 @@ def _profile_label(profiles: Any, state: AudioState, device: Device | None) -> s
     )
 
 
+def _choices(value: Any) -> list[dict[str, Any]]:
+    """The choices of a strip that have a device."""
+    if not isinstance(value, list):
+        return []
+    return [choice for choice in value if isinstance(choice, dict) and _text(choice.get("device")).strip()]
+
+
+def _choice_look(choices: list[dict[str, Any]], state: AudioState, direction: Direction, label: str) -> tuple[str, str]:
+    """
+    The label and detail of a strip with choices: like the daemon, the choice whose device is the default, else the
+    first one (also without a sound server).
+    """
+    shown = choices[0]
+    device: Device | None = None
+    for choice in choices:
+        found = next(iter(state.devices_matching(direction, (_text(choice.get("device")),))), None)
+        if found is not None and state.is_default(found):
+            shown, device = choice, found
+            break
+    titles = [_text(choice.get("label")) or _text(choice.get("device")) for choice in choices]
+    name = _text(shown.get("label")) or label or (device.description if device else _text(shown.get("device")))
+    either = f"{', '.join(titles[:-1])} or {titles[-1]}" if len(titles) > 1 else titles[0]
+    return name, f"{either}, Select switches"
+
+
 def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> tuple[str, str, str, str]:
     """The kind, label, detail and color of a strip with these options."""
     strip_type = values.get("type")
@@ -76,6 +103,8 @@ def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> 
     color = _color(values, strip_type)
     label = _text(values.get("label"))
     match strip_type:
+        case "output" | "input" if _choices(values.get("choices")):
+            label, detail = _choice_look(_choices(values.get("choices")), state, Direction(strip_type), label)
         case "output" | "input":
             names = _names(values.get("device"))
             direction = Direction(strip_type)
@@ -116,19 +145,22 @@ def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> 
 
 def looks(document: ConfigDocument, validation: Validation, state: AudioState) -> tuple[StripLook, ...]:
     """
-    How every strip of the device looks, the configured ones and the `auto` strips after them. An `inherit` strip of a
-    layout looks like the strip of the default layout at its place.
+    How every strip looks, the configured ones and the `auto` strips after them up to the 8 of the device. An
+    `inherit` strip looks like the strip it refers to (see `inherit.referenced()`).
     """
     aliases = dict(document.aliases)
-    default = document.default_strips
     result: list[StripLook] = []
-    for index in range(protocol.STRIPS):
+    for index in range(max(protocol.STRIPS, len(document.strips))):
         configured = index < len(document.strips)
         values = document.strips[index].values if configured else {"type": "auto"}
         if values.get("type") == "inherit":
-            inherited = default[index].values if index < len(default) else {"type": "auto"}
-            kind, label, detail, color = look(inherited, state, aliases)
-            detail = f"like the default layout: {detail}"
+            found = referenced(document, index)
+            if found is None:
+                kind, label, detail, color = "?", "", "a strip that is not there", "off"
+            else:
+                inherited, where = found
+                kind, label, detail, color = look(inherited, state, aliases)
+                detail = f"like {where}: {detail}"
         else:
             kind, label, detail, color = look(values, state, aliases)
         problems = len(validation.at("strip", index)) if configured else 0
@@ -172,17 +204,28 @@ def file_state(look: StripLook) -> StripState:
 
 
 def faces(
-    looks: tuple[StripLook, ...], snapshot: Snapshot | None, edited: tuple[bool, ...], previewed: bool = False
+    looks: tuple[StripLook, ...],
+    snapshot: Snapshot | None,
+    edited: tuple[bool, ...],
+    previewed: bool = False,
+    rows: tuple[FlowRow, ...] | None = None,
 ) -> tuple[StripFace, ...]:
     """
     The strips for the preview: live while the daemon tells what the device shows (`snapshot`), except the ones with
     unsaved changes, which show how they will look; without the daemon all of them as the configuration has them.
-    `previewed`: the device runs the document as it is (the live preview), so the edited ones are live too.
+    `previewed`: the device runs the document as it is (the live preview), so the edited ones are live too. `rows`
+    (see `flow_rows()`) tell which strip of the device shows each of them while strips collapse: one that is not on
+    the device shows its file look, dimmed.
     """
     result: list[StripFace] = []
     for index, (strip_look, changed) in enumerate(zip(looks, edited, strict=True)):
-        if snapshot is not None and (previewed or not changed):
-            result.append(StripFace(strip_look, snapshot.strips[index], live=True, edited=changed, dimmed=False))
+        position = index
+        if rows is not None and snapshot is not None and snapshot.placement is not None:
+            position = rows[index].position
+        if snapshot is not None and (previewed or not changed) and position is not None:
+            result.append(StripFace(strip_look, snapshot.strips[position], live=True, edited=changed, dimmed=False))
+        elif position is None:
+            result.append(StripFace(strip_look, file_state(strip_look), live=False, edited=changed, dimmed=True))
         else:
             dimmed = not strip_look.configured or strip_look.kind == "auto"
             result.append(StripFace(strip_look, file_state(strip_look), live=False, edited=changed, dimmed=dimmed))

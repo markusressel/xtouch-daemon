@@ -57,6 +57,8 @@ class Option:
     """The options of each table of `TABLES`."""
     meanings: tuple[tuple[str, str], ...] = ()
     """What the choices mean (`Meanings` of the option), as pairs of the value and its meaning."""
+    whole_numbers: bool = False
+    """Whether a text of digits alone is a whole number (e.g. `strip = 3`), any other one a name."""
 
     @property
     def title(self) -> str:
@@ -84,11 +86,21 @@ def describe(value: object) -> str:
     return "not set" if value is None else str(value)
 
 
+WHOLE_NUMBERS = object()
+"""The constraint of a text that is a whole number when it has only digits (`Option.whole_numbers`)."""
+
+
 def _unwrap(annotation: Any) -> tuple[Any, list[Any]]:
     """The type of an annotation without `None` and `Annotated`, and the constraints that came with them."""
     constraints: list[Any] = []
     if get_origin(annotation) in (Union, types.UnionType):
-        (annotation,) = (arg for arg in get_args(annotation) if arg is not type(None))
+        members = [arg for arg in get_args(annotation) if arg is not type(None)]
+        if len(members) == 2 and {_unwrap(member)[0] for member in members} == {int, str}:
+            # a number or a name (`strip` of an `inherit` strip): a text, whose digits are a number
+            (annotation,) = (member for member in members if _unwrap(member)[0] is str)
+            constraints.append(WHOLE_NUMBERS)
+        else:
+            (annotation,) = members
     while get_origin(annotation) is Annotated:
         annotation, *metadata = get_args(annotation)
         for item in metadata:
@@ -139,6 +151,8 @@ def option(name: str, field: FieldInfo) -> Option:
     bounds: dict[str, Any] = {}
     for constraint in constraints:
         match constraint:
+            case _ if constraint is WHOLE_NUMBERS:
+                bounds["whole_numbers"] = True
             case Meanings(meanings=meanings):
                 bounds["meanings"] = tuple(meanings.items())
             case annotated_types.Ge(ge=value):
@@ -202,10 +216,15 @@ def strip_type_help(strip_type: str) -> str:
 
 STRIP_OPTION_ORDER = (
     # what the strip controls
+    "layout",
+    "strip",
     "device",
+    "choices",
     "match",
     "profiles",
     "count",
+    # whether it gives its place to the next ones
+    "collapse",
     # then the parts of the strip from the top of the device to the bottom: the encoder with its ring, the LCD, the
     # meter, the buttons, the fader
     "encoder",

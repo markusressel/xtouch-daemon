@@ -1,6 +1,7 @@
 """
 The mixer: the strips of one configuration, fed with every audio state and every event of the device, and their
-meters. A new configuration gets a new mixer on the same surface and sound server connection.
+meters. A new configuration gets a new mixer on the same surface and sound server connection. With `collapse`, the
+strips of the configuration move between the strips of the device (see `placement.py`).
 """
 
 import asyncio
@@ -14,16 +15,18 @@ from xtouch_daemon import protocol
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
-from xtouch_daemon.config import DEFAULT_LAYOUT, Config, StripConfig, VoipStripConfig
+from xtouch_daemon.config import DEFAULT_LAYOUT, Config, StripConfig, VoipStripConfig, collapses
 from xtouch_daemon.launch import Launcher
 from xtouch_daemon.layouts import running_processes
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
+from xtouch_daemon.placement import Flow, Placement
+from xtouch_daemon.protocol import Button
 from xtouch_daemon.strips import build_strip, launch_button
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv
 from xtouch_daemon.strips.voip import VoipGroup
-from xtouch_daemon.surface import Surface
+from xtouch_daemon.surface import Surface, VirtualStrip
 from xtouch_daemon.voip.provider import VoipProvider
 
 METER_INTERVAL = 0.1
@@ -69,11 +72,27 @@ class Mixer:
         self.processes: frozenset[str] = frozenset()
         """The processes that run, while a strip launches an application (`launch`), every PROCESS_INTERVAL."""
         env = StripEnv(backend, config.behavior, bridge, players, voip, launcher or Launcher(), lambda: self.processes)
+        self.surface = surface
         self.state: AudioState = DISCONNECTED
         self.controllers: list[StripController] = []
-        places = self._voip_places(config.all_strips(layout), surface, env)
-        for strip_config, strip, place in zip(config.all_strips(layout), surface.strips, places, strict=True):
+        strips = config.all_strips(layout)
+        self.strips = [VirtualStrip(surface, index) for index in range(len(strips))]
+        """What each strip of the configuration shows, on the strip of the device it is on (see `flow`)."""
+        places = self._voip_places(strips, self.strips, env)
+        for strip_config, strip, place in zip(strips, self.strips, places, strict=True):
             self.controllers.append(build_strip(strip_config, strip, env, config.aliases, place))
+        self.flow = Flow(
+            self.strips,
+            surface.strips,
+            [collapses(strip) for strip in strips],
+            lambda index: self.controllers[index].title,
+            config.behavior.collapse_hold,
+            clock,
+        )
+        self._touched: set[int] = set()
+        """The faders of the device (from 0) a finger is on."""
+        self._held: set[tuple[int, Button | None]] = set()
+        """The buttons of the device held down: the strip (from 0) and the button, None for the encoder."""
         self.auto_strips = [controller for controller in self.controllers if isinstance(controller, AutoStrip)]
         self.claimed = tuple(
             controller.patterns for controller in self.controllers if isinstance(controller, AppGroupStrip)
@@ -93,7 +112,7 @@ class Mixer:
             voip.subscribe(self.refresh)
 
     def _voip_places(
-        self, strips: tuple[StripConfig, ...], surface: Surface, env: StripEnv
+        self, strips: tuple[StripConfig, ...], views: list[VirtualStrip], env: StripEnv
     ) -> list[tuple[VoipGroup, int] | None]:
         """The group and the place in it of every `voip` strip: its places are the same object (`all_strips()`)."""
         places: list[tuple[VoipGroup, int] | None] = []
@@ -105,7 +124,7 @@ class Mixer:
                 previous = (previous[0], previous[1] + 1)
             else:
                 assert self.voip is not None, "the configuration has no voip strips without [voip]"
-                launch = launch_button(strip, surface.strips[index], env)
+                launch = launch_button(strip, views[index], env)
                 previous = (VoipGroup(self.voip, strip.count, self.refresh, launch, env.processes), 0)
             places.append(previous)
         return places
@@ -125,12 +144,52 @@ class Mixer:
     def refresh(self) -> None:
         for strip, app in zip(self.auto_strips, self.assigner.assign(self.state, self.claimed), strict=True):
             strip.assign(app)
-        for controller, meter in zip(self.controllers, self.meters, strict=True):
+        for controller in self.controllers:
             controller.update(self.state)
-            meter.watch(controller.meter_targets(self.state))
+        self._place()
+        self._watch_meters()
+
+    def _watch_meters(self) -> None:
+        """The meters capture for the strips on the device only."""
+        for index, (controller, meter) in enumerate(zip(self.controllers, self.meters, strict=True)):
+            on_device = self.flow.position(index) is not None
+            meter.watch(controller.meter_targets(self.state) if on_device else set())
+
+    def _place(self) -> bool:
+        """Moves the strips if one collapsed or came back (not while a finger is on the device); True if they moved."""
+        absent = [controller.absent(self.state) for controller in self.controllers] if self.state.connected else None
+        busy = bool(self._touched or self._held) or any(strip.held for strip in self.surface.strips)
+        return self.flow.update(absent, busy)
+
+    @property
+    def placement(self) -> Placement:
+        """For each strip of the device, the place of the strip of the configuration it shows."""
+        return self.flow.placement
 
     def on_event(self, event: protocol.StripEvent) -> None:
-        controller = self.controllers[event.strip]
+        self._follow_hands(event)
+        index = self.flow.strip_at(event.strip)
+        released = isinstance(event, protocol.FaderTouched | protocol.ButtonPressed | protocol.EncoderPressed)
+        if index is not None:
+            self._handle(self.controllers[index], event)
+        if released and not (self._touched or self._held) and self._place():
+            # what waited for the hand to let go
+            self._watch_meters()
+
+    def _follow_hands(self, event: protocol.StripEvent) -> None:
+        """Which faders are touched and which buttons held: the strips don't move under a finger."""
+        match event:
+            case protocol.FaderTouched(strip=strip, touched=touched):
+                (self._touched.add if touched else self._touched.discard)(strip)
+            case protocol.ButtonPressed(strip=strip, button=button, pressed=pressed):
+                (self._held.add if pressed else self._held.discard)((strip, button))
+            case protocol.EncoderPressed(strip=strip, pressed=pressed):
+                (self._held.add if pressed else self._held.discard)((strip, None))
+            case _:
+                pass
+
+    @staticmethod
+    def _handle(controller: StripController, event: protocol.StripEvent) -> None:
         match event:
             case protocol.FaderMoved(value=value):
                 controller.on_fader(protocol.fader_fraction(value))
@@ -172,6 +231,9 @@ class Mixer:
                 self.refresh()
             elif self.auto_strips and tick % ticks_per_auto == 0:
                 self.refresh()
+            elif self._place():
+                # a strip collapsed after its hold time
+                self._watch_meters()
 
     def close(self) -> None:
         if self.voip is not None:
@@ -179,3 +241,6 @@ class Mixer:
         for controller, meter in zip(self.controllers, self.meters, strict=True):
             meter.close()
             controller.close()
+        for strip in self.strips:
+            # the next mixer draws on the device
+            strip.target = None

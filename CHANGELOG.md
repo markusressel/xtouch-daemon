@@ -8,6 +8,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `choices` on `output` and `input` strips: one strip for several devices used one at a time, each maybe in a
+  profile of its sound card (`card`, `profile`), with a label and a volume range of its own. Select goes to the next
+  one that is there: it switches the card's profile first if needed, then makes the device the default; the label
+  shows at once, a failed switch goes back, quick presses step through. The strip follows a default changed
+  elsewhere. With `[mqtt]`, `select.<ns>_<id>_output` (`_input`) chooses in Home Assistant. `check-config`
+  describes it ("output: Phones, Speaker or Buds (Select switches)").
+- Collapsing strips: `collapse = true` on `output`, `input`, `apps`, `auto` and `voip` strips gives the strip's fader
+  to the strips after it while it has nothing to control (after `behavior.collapse_hold`, 3 s), and it comes back at
+  once. A configuration (or layout) may list up to 32 places; the device shows the first 8 that take one. Strips
+  move with everything they show, never while a fader is touched or a button held, and each move is logged.
+  `check-config` reports strips that could never get a fader. The live view tells the placement.
+- `inherit` strips take any strip of any layout: `layout` names the layout, `strip` the strip in its list (from 1)
+  or its `id`. Chains resolve (up to 8), loops and unknown layouts, strips and ids are errors. The strip carries all
+  its options (`collapse`, `launch`), a `voip` strip all its places, and a Home Assistant strip keeps the entities of
+  its own place. `check-config` tells where each inherited strip comes from; the GUI picks the layout and the strip
+  and previews the strip referred to.
+- GUI: `choices` with the devices, cards and profiles to pick from per line; a strip list that reaches the strips
+  beyond the 8 of the device, tells where each one is (on the device, collapsed, waiting) and adds strips while they
+  could get a place. The preview follows the strips that moved.
+- `list-devices` shows the description of each sound card next to its name.
 - Layouts: `[[layout]]` sections with their own `[[layout.strip]]` lists, e.g. one for games; the top-level strips
   are the layout `default`, so existing files work as before. The device switches with `xtouch-daemon layout NAME`
   (`--next`, `--previous`), the Home Assistant entity `select.<ns>_layout`, Solo of strips 1 and 8 held together

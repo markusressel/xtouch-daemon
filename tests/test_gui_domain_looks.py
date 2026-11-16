@@ -1,3 +1,4 @@
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from tests.conftest import output, source, stream
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.flow import flow_rows
 from xtouch_daemon.gui.domain.looks import (
     FILE_FADER,
     StripLook,
@@ -177,10 +179,52 @@ def test_an_inherit_strip_looks_like_the_one_of_the_default_layout(tmp_path: Pat
     result = looks(doc, doc.validate(), STATE)
 
     assert result[0] == StripLook(
-        "output", "Output", "like the default layout: the default output: speaker description", "white", True, 0
+        "output",
+        "Output",
+        "like the default layout, strip 1: the default output: speaker description",
+        "white",
+        True,
+        0,
     )
     # the default layout has an auto strip there
     assert (result[1].kind, result[1].configured) == ("auto", True)
-    assert result[1].detail.startswith("like the default layout: the next application that plays")
+    assert result[1].detail.startswith("like the default layout, strip 2: the next application that plays")
     assert (result[2].kind, result[2].color) == ("voip", "cyan")
     assert not result[3].configured
+
+
+def test_a_strip_that_collapsed_shows_its_file_look_and_the_others_move_up(tmp_path: Path):
+    text = '[[strip]]\ntype = "output"\ncollapse = true\n' + '[[strip]]\ntype = "apps"\nmatch = ["a"]\n' * 8
+    doc = ConfigDocument(tmp_path / "c.toml", text, exists=True)
+    strip_looks = looks(doc, doc.validate(), STATE)
+    # every strip of the layout, also the ninth
+    assert len(strip_looks) == 9
+    live = tuple(file_state(strip_look) for strip_look in strip_looks[1:])
+    shown = Snapshot("abc", True, True, None, live, placement=(1, 2, 3, 4, 5, 6, 7, 8))
+    strips = [strip.values for strip in doc.strips]
+
+    result = faces(strip_looks[:8], shown, (False,) * 8, rows=flow_rows(strips, shown))
+    assert (result[0].live, result[0].dimmed) == (False, True)
+    # the second strip is on the first one of the device
+    assert result[1].live
+    assert result[1].state is live[0]
+    # without the placement of the daemon, strip by strip
+    old = Snapshot("abc", True, True, None, live, placement=None)
+    assert faces(strip_looks[:8], old, (False,) * 8, rows=flow_rows(strips, old))[0].state is live[0]
+
+
+def test_a_strip_with_choices_looks_like_the_choice_of_the_default_device():
+    choices = [{"label": "Phones", "device": "speaker"}, {"label": "Buds", "device": "buds"}]
+    kind, label, detail, _ = look({"type": "output", "choices": choices}, STATE, {})
+    assert (kind, label, detail) == ("output", "Phones", "Phones or Buds, Select switches")
+    # the first one while none of them is the default, and one choice alone
+    buds = dataclasses.replace(STATE, default_output="mic")
+    assert look({"type": "output", "choices": choices[1:]}, buds, {})[1:3] == ("Buds", "Buds, Select switches")
+
+
+def test_an_inherit_strip_that_refers_to_none_says_so(tmp_path: Path):
+    text = '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\nlayout = "nope"\n'
+    doc = ConfigDocument(tmp_path / "c.toml", text, exists=True)
+    doc.edit_layout(0)
+    result = looks(doc, doc.validate(), STATE)[0]
+    assert (result.kind, result.detail) == ("?", "a strip that is not there")

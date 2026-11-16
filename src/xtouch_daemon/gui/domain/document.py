@@ -17,8 +17,8 @@ from pydantic import ValidationError
 from tomlkit.container import Container
 from tomlkit.items import Comment, Item, Null, Table, Whitespace
 
-from xtouch_daemon import protocol
 from xtouch_daemon.config import DEFAULT_LAYOUT, Config, ConfigError, Problem, example_config, problems_of
+from xtouch_daemon.gui.domain.flow import why_not_add
 from xtouch_daemon.gui.domain.schema import Section, sections, strip_models
 
 SECTIONS: dict[str, Section] = {section.name: section for section in sections()}
@@ -385,8 +385,13 @@ class ConfigDocument:
         self.sections[name] = None
 
     def add_strip(self, strip_type: str = "auto") -> int:
-        if len(self.strips) >= protocol.STRIPS:
-            raise ValueError(f"there are {protocol.STRIPS} strips already")
+        """
+        Adds a strip at the end. Beyond the 8 of the device only while it could get a place (see `flow.why_not_add()`):
+        ValueError says why not.
+        """
+        reason = why_not_add([strip.values for strip in self.strips])
+        if reason is not None:
+            raise ValueError(reason)
         self.strips.append(StripDraft({"type": strip_type}))
         return len(self.strips) - 1
 

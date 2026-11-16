@@ -35,10 +35,21 @@ class Editor(QObject):
 
     def _show(self, change: Change) -> None:
         self.validation = self.document.validate()
+        # the selected strip beyond the 8 of the device is gone (removed, undone): the last one there is
+        gone = self.selection > self._last
+        if gone:
+            self.selection = self._last
         self.changed.emit(change)
+        if gone:
+            self.selected.emit(self.selection)
+
+    @property
+    def _last(self) -> int:
+        """The last strip that can be selected: one of the device's 8, or one of the layout beyond them."""
+        return max(protocol.STRIPS, len(self.document.strips)) - 1
 
     def select(self, index: int) -> None:
-        index = max(0, min(index, protocol.STRIPS - 1))
+        index = max(0, min(index, self._last))
         if index != self.selection:
             self.selection = index
             self.selected.emit(index)
@@ -51,6 +62,12 @@ class Editor(QObject):
 
     def configure_up_to(self, index: int) -> None:
         self.document.configure_up_to(index)
+        self.edited(Change(Scope.STRIPS))
+        self.select(index)
+
+    def add_strip(self) -> None:
+        """Adds an `auto` strip at the end and selects it (see `ConfigDocument.add_strip()`)."""
+        index = self.document.add_strip()
         self.edited(Change(Scope.STRIPS))
         self.select(index)
 

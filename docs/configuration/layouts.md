@@ -94,7 +94,40 @@ starts or stops matching.
 type = "inherit"
 ```
 
-The strip of the default layout at the same place, with all its options. Only in layouts.
+The strip of the default layout at the same place, with all its options. Without `layout` or `strip`, only in
+layouts.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `layout` | the default layout | The `name` of the layout of the strip. |
+| `strip` | the strip at this place | The strip in that layout: its position in the layout's list (from 1), or its `id`. |
+
+```toml
+[[layout]]
+name = "games"
+
+[[layout.strip]]
+type = "inherit"
+layout = "voice"
+strip = 3          # the third strip of the layout voice
+
+[[layout.strip]]
+type = "inherit"
+strip = "music"    # the strip with id = "music" of the default layout
+```
+
+The strip comes with all its options: `collapse` (it collapses here too), `launch`, its volume range. A `voip` strip
+named by `strip` comes with all its places (`count`); one taken by its place takes that place alone. An `inherit`
+strip may refer to another one (up to 8 in a row); strips that refer to each other in a loop are an error that
+names them. `check-config` tells where each inherited strip comes from.
+
+A `homeassistant` strip (or one with `fader` or `encoder` in Home Assistant) keeps the entities of its own place,
+`strip_<position there>` without an `id`, so the same entities show it in every layout. Two strips with the same
+entities in one layout are an error.
+
+A strip shared by layouts is built again when the layout switches, like every strip: an `auto` strip takes the
+application that plays at the time, and a choice that Select is still switching to is dropped (its card may be in
+the new profile already; Select again finishes it).
 
 ## VoIP strips
 

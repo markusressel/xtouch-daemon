@@ -23,13 +23,14 @@ reset_volume = 100        # the volume a push on an encoder sets
 meters = true             # LED meters show audio levels
 auto_hold = 5             # seconds an "auto" strip keeps an application after it stopped playing
 ignore = ["speech-dispatcher"]   # applications "auto" strips never take
+collapse_hold = 3         # seconds a strip with `collapse` stays after it has nothing to control
 
 [aliases]
 # Names to show on "auto" strips: "name the sound server reports" = "label" (7 characters fit).
 # `xtouch-daemon list-apps` shows the reported names.
 "WEBRTC VoiceEngine" = "Discord"
 
-# ---- Strips, from the left. Up to 8, missing ones are "auto". ------------------------------------------------
+# ---- Strips, from the left. Up to 8 (more with collapse), missing ones are "auto". ------------------------------
 #
 # type = "output"   an output: `device` (a node name from `xtouch-daemon list-devices`), or the default output
 #                   (or several: device = ["bluez_output.*"], Select switches between those connected)
@@ -49,6 +50,10 @@ ignore = ["speech-dispatcher"]   # applications "auto" strips never take
 # launch = ["mumble", "mumble://me@voice.example.org/Gaming"]
 #                   (apps, auto, voip) Select starts this command while the application does not run; no shell
 # launch_when_running = true   (apps, auto) Select starts it also while it runs (Mumble: connect to the server)
+# choices = [...]   (output/input) devices to switch between with Select, each maybe in a card profile (see below)
+# collapse = true   the strip gives its fader to the strips after it while it has nothing to control: its device
+#                   is not there, no application has a stream (all but "homeassistant" and "empty"). The device
+#                   shows the first 8 strips that take a place. Moving strips are bad for muscle memory.
 #
 # Examples:
 #
@@ -64,6 +69,38 @@ ignore = ["speech-dispatcher"]   # applications "auto" strips never take
 # label = "VoIP"
 # color = "green"
 # launch = ["mumble", "mumble://me@voice.example.org/Gaming"]   # Select starts Mumble and joins the channel
+#
+# One strip for three outputs: Select goes Phones -> Speaker -> Buds, switching the sound card's profile first where
+# needed (`xtouch-daemon list-devices` lists the cards and their profiles).
+#
+# [[strip]]
+# type = "output"
+# color = "cyan"
+#
+# [[strip.choices]]
+# label = "Phones"
+# device = "alsa_output.pci-0000_11_00.4.analog-stereo"
+# card = "alsa_card.pci-0000_11_00.4"
+# profile = "output:analog-stereo+input:analog-stereo"
+#
+# [[strip.choices]]
+# label = "Speaker"
+# device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
+# card = "alsa_card.pci-0000_11_00.4"
+# profile = "output:iec958-stereo+input:analog-stereo"
+# max_volume = 200
+#
+# [[strip.choices]]
+# label = "Buds"
+# device = "bluez_output.*"
+#
+# Bluetooth headphones that come and go: while they are off, the strips after them move one place to the left.
+#
+# [[strip]]
+# type = "output"
+# device = "bluez_output.*"
+# label = "Buds"
+# collapse = true
 
 [[strip]]
 type = "auto"

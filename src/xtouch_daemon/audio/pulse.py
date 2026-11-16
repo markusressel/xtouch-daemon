@@ -89,6 +89,7 @@ def _card(info: Any) -> Card:
         name=info.name,
         profile=info.profile_active.name,
         profiles=tuple(Profile(profile.name, profile.description or profile.name) for profile in info.profile_list),
+        description=info.proplist.get("device.description", ""),
     )
 
 

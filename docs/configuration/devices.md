@@ -1,15 +1,18 @@
 # Devices: `output` and `input` strips
 
 A device strip controls an output (a sink) or an input (a source): one device, one of several, or whatever is the
-default.
+default. With [`choices`](#choices), Select switches between several devices, each maybe in a profile of its sound
+card.
 
 | Option | Default | Meaning |
 |---|---|---|
 | `type` | required | `"output"` or `"input"`. |
 | `device` | the default device | The node name (`xtouch-daemon list-devices`) or the description of the device, or a list of them; `*` is a wildcard. Without it, the strip follows whatever device is the default. |
 | `label` | see [Labels](strips.md#labels) | The top line of the LCD. With `profiles`, the label of the active profile comes first. |
-| `select` | `true` | Whether Select makes the device the default. Needs `device`. |
+| `select` | `true` | Whether Select makes the device the default. Needs `device` or `choices`. |
+| `choices` | none | The devices Select switches between, each maybe in a profile of its card, see [below](#choices). Instead of `device` and `profiles`. |
 | `profiles` | none | Profiles of the device's sound card that Rec switches between, see [below](#profiles). |
+| `collapse` | `false` | Whether the strip gives its fader to the strips after it while none of its devices is there, see [Collapsing strips](collapsing.md). |
 | `encoder` | `"balance"` | `balance` or `volume`, see [Encoders](encoders.md). |
 
 They also have the [options of every audio strip](strips.md#options-of-every-audio-strip): `color`, `meter`, `rec`,
@@ -35,9 +38,9 @@ color = "red"
 | Fader | Sets the volume, `min_volume` at the bottom to `max_volume` at the top. Follows changes made elsewhere. |
 | Encoder | See [Encoders](encoders.md): by default the balance. |
 | Mute | Toggles mute. The LED is on while the device is muted. |
-| Rec | With `profiles`: switches the sound card to the next profile. The LED is on for every profile but the first. Without `profiles` the LED is an [indicator](indicators.md). |
+| Rec | With `profiles`: switches the sound card to the next profile. The LED is on for every profile but the first. Without `profiles` (also with `choices`) the LED is an [indicator](indicators.md). |
 | Solo | Its LED is an [indicator](indicators.md). |
-| Select | With `device` and `select`: makes the device the default output/input, or switches to the next of several. The LED is on while it is the default. |
+| Select | With `device` and `select`: makes the device the default output/input, or switches to the next of several. With `choices`: the next choice. The LED is on while it is the default. |
 | LCD | Top: the label. Bottom: the volume, or `muted`. |
 | Ring | What the encoder controls. |
 | Meter | The level: what plays on an output, what an input records. |
@@ -80,11 +83,80 @@ With several devices, the strip shows one of those that are there: the default o
 Select makes it the default. Pressed on the default one, it switches to the next one that is there and makes that the
 default. Without `label`, the LCD shows which one it is.
 
+## Choices
+
+`choices` is one strip for several devices that are used one at a time, e.g. headphones on the analog output of a
+sound card, speakers on its digital output, and Bluetooth headphones. Select goes to the next one, and switches the
+card to the profile it needs first:
+
+```toml
+[[strip]]
+type = "output"
+color = "cyan"
+
+[[strip.choices]]
+label = "Phones"
+device = "alsa_output.pci-0000_11_00.4.analog-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:analog-stereo+input:analog-stereo"
+
+[[strip.choices]]
+label = "Speaker"
+device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:iec958-stereo+input:analog-stereo"
+max_volume = 200
+
+[[strip.choices]]
+label = "Buds"
+device = "bluez_output.*"
+```
+
+A choice on one line is a TOML inline table: `{ label = "Buds", device = "bluez_output.*" }` in
+`choices = [...]`. An inline table can't span several lines, so the `[[strip.choices]]` tables above are easier
+to read for long ones.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `device` | required | The node name or description of the device; `*` and `?` are wildcards (the first device that matches). |
+| `label` | the start of the description | The top line of the LCD while this choice is active (7 characters). |
+| `card` | none | The sound card whose `profile` the choice needs: its name or description, wildcards allowed. Only with `profile`. |
+| `profile` | none | The name or description of the profile of `card` the device is in. Only with `card`. Without both the device is used as it is. |
+| `min_volume` | the strip's | The volume of the fader at the bottom while this choice is active. |
+| `max_volume` | the strip's | The volume of the fader at the top while this choice is active, e.g. 200 for weak speakers. |
+
+`xtouch-daemon list-devices` lists the devices, then each sound card (its name, its description and its devices)
+with its profiles (name and description; `*` marks the active one): that is where `card` and `profile` come from.
+A device of another profile appears only once the card is in that profile, so write its name as the sound server
+will call it (usually `alsa_output.<card>.<profile output>`, e.g. `iec958-stereo`), or use a wildcard.
+
+- **Which one shows:** the choice whose device is the default. If none of them is, the one shown last (if it is still
+  there), or else the first one there is. A choice is there when its device is, or when its card is there and has
+  its profile.
+- **Select** goes to the next choice that is there, after the one shown, and around. A choice in another profile
+  switches the card first, then its device becomes the default. The label shows the choice at once; if a switch
+  fails, the strip goes back. Pressed again while a switch is on its way, Select goes on from where that one goes,
+  so a few quick presses step through the choices. Pressed on a choice that is shown but isn't the default, it
+  makes that one the default first.
+- **The LED** of Select is on while the device of the choice is the default. Rec keeps its
+  [indicator](indicators.md) (`rec`).
+- **Elsewhere:** a default chosen elsewhere (pavucontrol, headphones that connect and become the default) shows on
+  the strip if it is one of the choices.
+- Two choices on the same card in the same profile only switch the default.
+- Fader, Mute and the encoder act on the device of the choice shown; its range is the choice's `min_volume` and
+  `max_volume`, else the strip's.
+- While none of the choices is there, the strip is dark and shows `off`; with [`collapse`](collapsing.md) it gives
+  its fader to the next strips.
+- With [`[mqtt]`](../home-assistant.md#choices), Home Assistant has a select for the choice.
+
+At least two choices, and not together with `device` or `profiles`; `select = false` does not go with them either.
+`profiles` (below) still works, but `choices` does the same with one button.
+
 ## Profiles
 
 A sound card has profiles that decide which devices it has, e.g. analog or digital (S/PDIF, IEC958) output. Each
 profile has a device of its own, so name `device` with a wildcard that matches all of them. With `profiles`, Rec
-switches the card to the next one:
+switches the card to the next one (see [Choices](#choices) for the same with Select):
 
 ```toml
 [[strip]]

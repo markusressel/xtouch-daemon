@@ -49,10 +49,11 @@ def profile(name: str, description: str = "") -> SimpleNamespace:
     return SimpleNamespace(name=name, description=description)
 
 
-def card(index: int, name: str, active: str, *profiles: SimpleNamespace) -> SimpleNamespace:
+def card(index: int, name: str, active: str, *profiles: SimpleNamespace, description: str = "") -> SimpleNamespace:
     return SimpleNamespace(
         index=index,
         name=name,
+        proplist={"device.description": description} if description else {},
         profile_list=list(profiles),
         profile_active=next(p for p in profiles if p.name == active),
     )
@@ -90,7 +91,14 @@ class FakePulse:
             sink(2, "buds", "", values=(0.8, 0.4), mute=1),
         ]
         self.cards = [
-            card(30, "onboard", "analog", profile("analog", "Analog Output"), profile("digital", "Digital Output")),
+            card(
+                30,
+                "onboard",
+                "analog",
+                profile("analog", "Analog Output"),
+                profile("digital", "Digital Output"),
+                description="Onboard Audio",
+            ),
             # without a description it is the name
             card(31, "usb", "off", profile("off")),
         ]
@@ -238,7 +246,12 @@ async def test_a_snapshot_maps_devices_streams_and_defaults():
     assert state.connected
     assert [d.card for d in state.outputs] == ["onboard", None]
     assert state.cards == (
-        Card("onboard", "analog", (Profile("analog", "Analog Output"), Profile("digital", "Digital Output"))),
+        Card(
+            "onboard",
+            "analog",
+            (Profile("analog", "Analog Output"), Profile("digital", "Digital Output")),
+            "Onboard Audio",
+        ),
         Card("usb", "off", (Profile("off", "off"),)),
     )
 

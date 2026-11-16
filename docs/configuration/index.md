@@ -20,16 +20,16 @@ The [GUI](../gui.md) edits the same options in a window and shows the same error
 | Section | What it configures | Page |
 |---|---|---|
 | `[device]` | Which sound card is the extender. | [Behavior](behavior.md#device) |
-| `[behavior]` | Volume limit, encoder step, reset volume, meters, `auto` strips. | [Behavior](behavior.md#behavior) |
+| `[behavior]` | Volume limit, encoder step, reset volume, meters, `auto` strips, collapsing strips. | [Behavior](behavior.md#behavior) |
 | `[aliases]` | Names to show for applications on `auto` strips. | [Behavior](behavior.md#aliases) |
-| `[[strip]]` | Up to eight strips, from the left. | [Strips](strips.md) |
+| `[[strip]]` | Up to eight strips, from the left (more with [`collapse`](collapsing.md)). | [Strips](strips.md) |
 | `[mqtt]` | The MQTT broker of Home Assistant. | [Home Assistant](../home-assistant.md#mqtt) |
 
 The strip types:
 
 | `type` | What the strip controls | Page |
 |---|---|---|
-| `output`, `input` | An output or an input device, several of them, or the default one. | [Devices](devices.md) |
+| `output`, `input` | An output or an input device, several of them, [choices](devices.md#choices) to switch between, or the default one. | [Devices](devices.md) |
 | `apps` | All streams of a group of applications. | [Applications](applications.md#apps-strips) |
 | `auto` | The next application that plays and has no strip of its own. | [Applications](applications.md#auto-strips) |
 | `homeassistant` | Nothing by itself: its parts are entities in Home Assistant. | [Home Assistant](../home-assistant.md) |

@@ -137,6 +137,12 @@ Volume = Annotated[int, Field(ge=0, le=VOLUME_LIMIT)]
 FaderNumber = Annotated[int, Field(ge=1, le=protocol.STRIPS)]
 """A fader of the device, 1 on the left."""
 
+MAX_STRIPS = 32
+"""
+The most places the strips of a layout may take: more than the 8 of the device only with `collapse`, see
+`Config.unreachable()`.
+"""
+
 
 Sequence = Literal["instant", "sweep", "curtain", "show"]
 """How the strips light up after a connect and go dark at the end, see `surface.steps()`."""
@@ -218,6 +224,11 @@ class BehaviorConfig(_Model):
     Applications that `auto` strips never take: parts of the name or binary, ignoring case, e.g. "notification" for
     notification sounds.
     """
+    collapse_hold: Annotated[float, Field(ge=0)] = 3.0
+    """
+    Seconds a strip with `collapse` keeps its fader after it has nothing to control anymore, before the strips after
+    it move up. It comes back at once.
+    """
 
     @model_validator(mode="after")
     def _reset_within_reach(self) -> BehaviorConfig:
@@ -261,8 +272,16 @@ class _StripConfig(_Model):
     """What the fader sets."""
     id: Slug | None = None
     """
-    With `fader` or `encoder` in Home Assistant: part of the entity IDs, e.g. "desk" for `number.xtouch_desk_fader`;
-    by default `strip_<position>`, so set it to keep the entities when moving the strip.
+    With `fader` or `encoder` in Home Assistant (or `choices` and `[mqtt]`): part of the entity IDs, e.g. "desk" for
+    `number.xtouch_desk_fader`; by default `strip_<position>` (its place in the list, not on the device), so set it to
+    keep the entities when moving the strip.
+    """
+    collapse: bool = False
+    """
+    Whether the strip gives its fader to the strips after it while it has nothing to control (see `collapse_hold`):
+    its devices are not there, no application of an `apps` group has a stream, an `auto` strip has no application. The
+    strips after it move one place to the left, and back when it returns. Moving strips are bad for muscle memory, the
+    LCDs say what each strip is.
     """
 
     @property
@@ -304,6 +323,50 @@ class ProfileConfig(_Model):
     """The volume of the fader at the top in this profile (e.g. 200 for weak speakers); by default the strip's."""
 
 
+class ChoiceConfig(_Model):
+    """One of the devices a strip switches between with Select, maybe in a profile of its sound card."""
+
+    label: Label | None = None
+    """The top line of the LCD while this choice is active; by default the start of the device's description."""
+    device: str
+    """
+    The node name (`xtouch-daemon list-devices`) or description of the device; `*` and `?` are wildcards, e.g.
+    `bluez_output.*` for the first Bluetooth headphones there are.
+    """
+    card: str | None = None
+    """
+    The sound card whose `profile` the choice needs, by its name (`alsa_card.pci-0000_11_00.4`) or description
+    (`xtouch-daemon list-devices`); wildcards allowed.
+    """
+    profile: str | None = None
+    """
+    The profile of `card` the device is in, by its name (`output:iec958-stereo+input:analog-stereo`) or
+    description. Select switches the card to it first, then the device of the choice becomes the default.
+    """
+    min_volume: Volume | None = None
+    """The volume of the fader at the bottom while this choice is active; by default the one of the strip."""
+    max_volume: Volume | None = None
+    """The volume of the fader at the top while this choice is active (e.g. 200 for weak speakers)."""
+
+    @field_validator("device")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("an empty device name")
+        return value
+
+    @model_validator(mode="after")
+    def _card_and_profile(self) -> ChoiceConfig:
+        if (self.card is None) != (self.profile is None):
+            raise ValueError("card and profile go together: the profile of which card")
+        return self
+
+    @property
+    def title(self) -> str:
+        """The label, or else the device: for messages and Home Assistant."""
+        return self.label or self.device
+
+
 STRIP_TYPE_MEANINGS = Meanings(
     {
         "output": "An output device (speakers, headphones): the fader sets its volume. One device, one of several, or "
@@ -318,7 +381,7 @@ STRIP_TYPE_MEANINGS = Meanings(
         "entities there, and automations decide what they do. Needs `[mqtt]`.",
         "empty": "A dark strip that does nothing; its fader stays at the bottom.",
         "inherit": "In a `[[layout]]`: the strip of the default layout (the top-level `[[strip]]` list) at this "
-        "place, e.g. the same output in every layout.",
+        "place, e.g. the same output in every layout; or, with `layout` and `strip`, any strip of any layout.",
         "voip": "The participants of the voice chat, one per strip: the fader sets the participant's volume, Mute "
         "mutes them for you, the meter shows their voice. Takes `count` places; Select shows the next ones. Needs "
         "`[voip]`.",
@@ -344,14 +407,20 @@ class DeviceStripConfig(_StripConfig):
     """
     select: bool = True
     """
-    Whether the Select button makes the device the default (needs `device`); with several devices, a press on the
-    default one switches to the next. Its LED is on while the device is the default.
+    Whether the Select button makes the device the default (needs `device` or `choices`); with several devices, a
+    press on the default one switches to the next. Its LED is on while the device is the default.
+    """
+    choices: tuple[ChoiceConfig, ...] = ()
+    """
+    The devices to switch between with Select, each maybe in a profile of its sound card, e.g. headphones on the
+    analog output, speakers on the digital one of the same card, and Bluetooth headphones. Select goes to the next
+    one that is there and makes it the default. Instead of `device` and `profiles`.
     """
     profiles: tuple[ProfileConfig, ...] = ()
     """
     Profiles of the device's sound card to switch between with the Rec button, e.g. analog and digital output. Its
     LED is on for every profile but the first. Name `device` so that it matches the devices of every profile (e.g.
-    `alsa_output.pci-0000_11_00.4.*`): each profile has a device of its own.
+    `alsa_output.pci-0000_11_00.4.*`): each profile has a device of its own. `choices` does the same with Select.
     """
 
     @field_validator("device", mode="before")
@@ -366,9 +435,9 @@ class DeviceStripConfig(_StripConfig):
             raise ValueError("an empty device name")
         return value
 
-    @field_validator("profiles")
+    @field_validator("profiles", "choices")
     @classmethod
-    def _two_profiles(cls, value: tuple[ProfileConfig, ...]) -> tuple[ProfileConfig, ...]:
+    def _two_profiles[T: tuple[ProfileConfig, ...] | tuple[ChoiceConfig, ...]](cls, value: T) -> T:
         if len(value) == 1:
             raise ValueError("at least two to switch between")
         return value
@@ -376,14 +445,15 @@ class DeviceStripConfig(_StripConfig):
     def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
         ranges = super().volume_ranges(behavior)
         _, bottom, top = ranges[0]
-        for number, profile in enumerate(self.profiles, start=1):
-            ranges.append(
-                (
-                    f"profiles[{number}]",
-                    bottom if profile.min_volume is None else profile.min_volume,
-                    top if profile.max_volume is None else profile.max_volume,
+        for name, options in (("profiles", self.profiles), ("choices", self.choices)):
+            for number, option in enumerate(options, start=1):
+                ranges.append(
+                    (
+                        f"{name}[{number}]",
+                        bottom if option.min_volume is None else option.min_volume,
+                        top if option.max_volume is None else option.max_volume,
+                    )
                 )
-            )
         return ranges
 
     @model_validator(mode="after")
@@ -391,6 +461,21 @@ class DeviceStripConfig(_StripConfig):
         if self.profiles and "rec" in self.model_fields_set:
             raise ValueError("rec: with profiles its LED shows the profile")
         return self
+
+    @model_validator(mode="after")
+    def _choices_alone(self) -> DeviceStripConfig:
+        if not self.choices:
+            return self
+        if self.device or self.profiles:
+            raise ValueError("use either choices or device/profiles")
+        if not self.select:
+            raise ValueError("select: with choices, Select is how the strip switches between them")
+        return self
+
+    @property
+    def switches(self) -> bool:
+        """Whether Select switches between `choices`."""
+        return bool(self.choices)
 
 
 def _no_blank(value: tuple[str, ...]) -> tuple[str, ...]:
@@ -460,10 +545,21 @@ class AutoStripConfig(_StripConfig):
     launch_when_running: bool = Field(default=False, description=LAUNCH_WHEN_RUNNING_HELP)
 
 
+def _refuse_collapse(data: object, why: str) -> object:
+    if isinstance(data, Mapping) and "collapse" in data:
+        raise ValueError(f"collapse: {why}")
+    return data
+
+
 class EmptyStripConfig(_Model):
     """A dark strip that does nothing."""
 
     type: Annotated[Literal["empty"], STRIP_TYPE_MEANINGS]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_collapse(cls, data: object) -> object:
+        return _refuse_collapse(data, "an empty strip is there to keep its place")
 
 
 class HomeAssistantStripConfig(_Model):
@@ -480,11 +576,143 @@ class HomeAssistantStripConfig(_Model):
     color: Annotated[ColorName, COLORS] = "white"
     """The LCD backlight until Home Assistant sets one."""
 
+    @model_validator(mode="before")
+    @classmethod
+    def _no_collapse(cls, data: object) -> object:
+        return _refuse_collapse(data, "a homeassistant strip stays, automations rely on its entities")
+
 
 class InheritStripConfig(_Model):
-    """In a layout: the strip of the default layout at this place."""
+    """
+    A strip of another layout (or of its own), with all its options: by default the strip of the default layout at
+    this place.
+    """
 
     type: Annotated[Literal["inherit"], STRIP_TYPE_MEANINGS]
+    layout: Slug | None = None
+    """The `name` of the layout of the strip; by default the default layout (the top-level `[[strip]]` list)."""
+    strip: Annotated[int, Field(ge=1, le=MAX_STRIPS)] | Slug | None = None
+    """
+    The strip in that layout: its position in the layout's list (from 1), or its `id`; by default the strip at this
+    place. A `voip` strip comes with all its places then.
+    """
+
+
+INHERIT_LIMIT = 8
+"""How many `inherit` strips may refer to one another in a row."""
+
+type _Entry = tuple[int, int]
+"""A strip in the list of a layout: the index of the layout in `Config.layout_list()` and the position, from 0."""
+
+
+class _Inheritance:
+    """Resolves `inherit` strips into the strips they refer to; ValueError for a reference that can't be resolved."""
+
+    def __init__(self, layouts: tuple[LayoutConfig, ...]):
+        self.layouts = layouts
+        self.names = [layout.name for layout in layouts]
+
+    def where(self, entry: _Entry) -> str:
+        layout, position = entry
+        return (f"layout[{layout}].strip" if layout else "strip") + f"[{position + 1}]"
+
+    def _strip(self, entry: _Entry) -> StripConfig:
+        return self.layouts[entry[0]].strips[entry[1]]
+
+    def _enter(self, entry: _Entry, chain: tuple[_Entry, ...]) -> tuple[_Entry, ...]:
+        if entry in chain:
+            cycle = [*chain[chain.index(entry) :], entry]
+            raise ValueError(f"inherit strips that refer to each other: {' -> '.join(map(self.where, cycle))}")
+        if len(chain) >= INHERIT_LIMIT:
+            raise ValueError(f"{self.where(chain[0])}: more than {INHERIT_LIMIT} inherit strips refer to one another")
+        return (*chain, entry)
+
+    def size(self, entry: _Entry, chain: tuple[_Entry, ...] = ()) -> int:
+        """The places the strip takes: `count` of a `voip` strip, one for others."""
+        strip = self._strip(entry)
+        if isinstance(strip, VoipStripConfig):
+            return strip.count
+        if not isinstance(strip, InheritStripConfig) or strip.strip is None:
+            return 1
+        chain = self._enter(entry, chain)
+        target, _ = self._target(entry, chain)
+        assert target is not None, "a strip of a layout's list"
+        return self.size(target, chain)
+
+    def place(self, entry: _Entry, chain: tuple[_Entry, ...] = ()) -> int:
+        """The place (from 0) of the strip in its layout."""
+        layout, position = entry
+        return sum(self.size((layout, before), chain) for before in range(position))
+
+    def _target(self, entry: _Entry, chain: tuple[_Entry, ...]) -> tuple[_Entry | None, int]:
+        """
+        The strip an `inherit` strip refers to, and the place in it it takes (0 for all of them with `strip`). None:
+        an `auto` strip after the configured strips of a layout.
+        """
+        strip = self._strip(entry)
+        assert isinstance(strip, InheritStripConfig)
+        where = self.where(entry)
+        if strip.layout is not None and strip.layout not in self.names:
+            raise ValueError(f"{where}: inherit from the layout {strip.layout}, which is not there")
+        layout = self.names.index(strip.layout) if strip.layout is not None else 0
+        name = f"the layout {strip.layout}" if layout else "the default layout"
+        strips = self.layouts[layout].strips
+        if strip.strip is None:
+            place = self.place(entry, chain)
+            start = 0
+            for position in range(len(strips)):
+                size = self.size((layout, position), chain)
+                if place < start + size:
+                    return (layout, position), place - start
+                start += size
+            if place < protocol.STRIPS:
+                return None, 0
+            raise ValueError(f"{where}: inherit, but {name} has only {max(start, protocol.STRIPS)} places")
+        if isinstance(strip.strip, int):
+            if strip.strip > len(strips):
+                raise ValueError(f"{where}: inherit strip {strip.strip}, but {name} has {len(strips)} strips")
+            return (layout, strip.strip - 1), 0
+        found = [position for position, other in enumerate(strips) if getattr(other, "id", None) == strip.strip]
+        if not found:
+            raise ValueError(f"{where}: inherit strip {strip.strip}, but {name} has no strip with that id")
+        if len(found) > 1:
+            raise ValueError(f"{where}: inherit strip {strip.strip}, but {name} has {len(found)} strips with that id")
+        return (layout, found[0]), 0
+
+    def origin(self, entry: _Entry) -> _Entry | None:
+        """The strip an `inherit` strip is in the end (itself for another one), None for an `auto` strip of none."""
+        chain: tuple[_Entry, ...] = ()
+        current: _Entry | None = entry
+        while current is not None and isinstance(self._strip(current), InheritStripConfig):
+            chain = self._enter(current, chain)
+            current, _ = self._target(current, chain)
+        return current
+
+    def resolve(
+        self, entry: _Entry, chain: tuple[_Entry, ...] = (), lands: int | None = None
+    ) -> tuple[StripConfig, ...]:
+        """
+        The strips of the places the strip takes (a `voip` strip: the same object on each). `lands`: the place the
+        strip an `inherit` strip refers to lands on.
+        """
+        strip = self._strip(entry)
+        if not isinstance(strip, InheritStripConfig):
+            if isinstance(strip, _StripConfig | HomeAssistantStripConfig) and strip.id is None:
+                home = self.place(entry)
+                if lands is not None and lands != home:
+                    # on another place: its entities in Home Assistant are still those of its own place
+                    strip = strip.model_copy(update={"id": f"strip_{home + 1}"})
+            return (strip,) * (strip.count if isinstance(strip, VoipStripConfig) else 1)
+        if lands is None:
+            lands = self.place(entry)
+        chain = self._enter(entry, chain)
+        target, offset = self._target(entry, chain)
+        if target is None:
+            return (AutoStripConfig(type="auto"),)
+        if strip.strip is not None:
+            return self.resolve(target, chain, lands)
+        # one place of it: the same place, so the same entities
+        return (self.resolve(target, chain, lands - offset)[offset],)
 
 
 class VoipStripConfig(_Model):
@@ -509,6 +737,11 @@ class VoipStripConfig(_Model):
     A command that Select starts while the voice chat is not there (no plugin reports it, and its program does not
     run), e.g. `["mumble", "mumble://me@voice.example.org/Gaming"]`. Never through a shell. While it is there, Select
     pages as before.
+    """
+    collapse: bool = False
+    """
+    Whether a place without a participant gives its fader to the strips after it (see `behavior.collapse_hold`), so
+    the places of an empty call take none.
     """
 
 
@@ -606,8 +839,8 @@ class LayoutConfig(_Model):
     """
     priority: int = 0
     """Of several layouts whose rules match, the one with the highest priority comes, then the first in the file."""
-    strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=protocol.STRIPS)] = ()
-    """Up to 8 strips from the left, as the top-level ones; missing ones are `auto`."""
+    strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=MAX_STRIPS)] = ()
+    """Up to 8 strips from the left (more with `collapse`), as the top-level ones; missing ones are `auto`."""
 
     @field_validator("apps", "processes")
     @classmethod
@@ -677,8 +910,11 @@ class Config(_Model):
     Names to show on `auto` strips for applications, at most 7 characters: for the name the sound server reports
     (`xtouch-daemon list-apps`), the label, e.g. "Discord" for "WEBRTC VoiceEngine".
     """
-    strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=protocol.STRIPS)] = ()
-    """Up to 8 strips from the left; missing ones are `auto`."""
+    strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=MAX_STRIPS)] = ()
+    """
+    Up to 8 strips from the left; missing ones are `auto`. More with `collapse`: the device shows the first 8 that
+    have something to control.
+    """
     mqtt: MqttConfig | None = None
     """The MQTT broker, needed by `homeassistant` strips."""
     switching: SwitchingConfig = SwitchingConfig()
@@ -696,13 +932,27 @@ class Config(_Model):
         if duplicates:
             raise ValueError(f"layouts with the same name: {', '.join(duplicates)}")
         for number, strip in enumerate(self.strips, start=1):
-            if isinstance(strip, InheritStripConfig):
-                raise ValueError(f"strip[{number}]: inherit is only for the strips of a [[layout]]")
+            if isinstance(strip, InheritStripConfig) and strip.layout is None and strip.strip is None:
+                raise ValueError(
+                    f"strip[{number}]: inherit of the default layout is only for the strips of a [[layout]] (or "
+                    "name a strip or a layout)"
+                )
+        inheritance = _Inheritance(self.layout_list())
         for index, layout in enumerate(self.layout_list()):
-            places = sum(strip.count if isinstance(strip, VoipStripConfig) else 1 for strip in layout.strips)
-            if places > protocol.STRIPS:
-                where = f"layout[{index}]" if index else "strip"
-                raise ValueError(f"{where}: the strips take {places} places, the device has {protocol.STRIPS}")
+            where = f"layout[{index}]" if index else "strip"
+            strips = f"layout[{index}].strip" if index else "strip"
+            for position in range(len(layout.strips)):
+                inheritance.resolve((index, position))
+            places = sum(inheritance.size((index, position)) for position in range(len(layout.strips)))
+            if places > MAX_STRIPS:
+                raise ValueError(f"{where}: the strips take {places} places, at most {MAX_STRIPS}")
+            never = self.unreachable(layout.name)
+            if never:
+                numbers = ", ".join(f"{strips}[{number}]" for number in never)
+                raise ValueError(
+                    f"{numbers} can never show: {protocol.STRIPS} strips before them don't collapse "
+                    "(`collapse = true` on some of them, or fewer strips)"
+                )
         return self
 
     @model_validator(mode="after")
@@ -721,9 +971,9 @@ class Config(_Model):
     @model_validator(mode="after")
     def _home_assistant_strips(self) -> Config:
         for layout in self.layout_list():
-            ids = [strip_id for _, strip_id in self.home_assistant_strips(layout.name)]
-            if ids and self.mqtt is None:
+            if self.home_assistant_strips(layout.name) and self.mqtt is None:
                 raise ValueError("strips in Home Assistant need an [mqtt] section")
+            ids = [strip_id for _, strip_id in self.entity_strips(layout.name)]
             duplicates = sorted({strip_id for strip_id in ids if ids.count(strip_id) > 1})
             if duplicates:
                 where = "" if layout.name == DEFAULT_LAYOUT else f" (layout {layout.name})"
@@ -755,24 +1005,73 @@ class Config(_Model):
 
     def all_strips(self, layout: str = DEFAULT_LAYOUT) -> tuple[StripConfig, ...]:
         """
-        The configuration of every strip of the device in a layout: `inherit` ones are those of the default layout, a
+        The configuration of every strip of the device in a layout: `inherit` ones are the strips they refer to, a
         `voip` strip is there once for each of its places (the same object), and the ones that are not configured are
         `auto`.
         """
-        default = self._places(self.strips, ())
-        return self._places(self.layout(layout).strips, default)
-
-    @staticmethod
-    def _places(strips: tuple[StripConfig, ...], default: tuple[StripConfig, ...]) -> tuple[StripConfig, ...]:
-        result: list[StripConfig] = []
-        for strip in strips:
-            if isinstance(strip, InheritStripConfig):
-                result.append(default[len(result)])
-            elif isinstance(strip, VoipStripConfig):
-                result.extend([strip] * strip.count)
-            else:
-                result.append(strip)
+        index = self.layout_names.index(self.layout(layout).name)
+        inheritance = _Inheritance(self.layout_list())
+        result = [
+            strip
+            for position in range(len(self.layout(layout).strips))
+            for strip in inheritance.resolve((index, position))
+        ]
         return (*result, *(AutoStripConfig(type="auto") for _ in range(protocol.STRIPS - len(result))))
+
+    def inherited(self, layout: str = DEFAULT_LAYOUT) -> tuple[str | None, ...]:
+        """
+        For each place of `all_strips()`, where its strip comes from if an `inherit` strip took it (e.g.
+        "layout voice, strip 2"), None for the others.
+        """
+        index = self.layout_names.index(self.layout(layout).name)
+        inheritance = _Inheritance(self.layout_list())
+        result: list[str | None] = []
+        for position, strip in enumerate(self.layout(layout).strips):
+            where: str | None = None
+            if isinstance(strip, InheritStripConfig):
+                origin = inheritance.origin((index, position))
+                name = self.layout_names[origin[0]] if origin is not None else strip.layout or DEFAULT_LAYOUT
+                where = ("the default layout" if name == DEFAULT_LAYOUT else f"layout {name}") + (
+                    f", strip {origin[1] + 1}" if origin is not None else ", an auto strip"
+                )
+            result.extend([where] * inheritance.size((index, position)))
+        return (*result, *[None] * (len(self.all_strips(layout)) - len(result)))
+
+    def places(self, layout: str = DEFAULT_LAYOUT) -> tuple[int, ...]:
+        """For each place of `all_strips()`, the number of its strip in the list of the layout (from 1, 0: padding)."""
+        index = self.layout_names.index(self.layout(layout).name)
+        inheritance = _Inheritance(self.layout_list())
+        numbers: list[int] = []
+        for position in range(len(self.layout(layout).strips)):
+            numbers.extend([position + 1] * inheritance.size((index, position)))
+        return (*numbers, *[0] * (len(self.all_strips(layout)) - len(numbers)))
+
+    def unreachable(self, layout: str = DEFAULT_LAYOUT) -> list[int]:
+        """
+        The strips of the layout (their numbers in its list, from 1) that can never get a fader: 8 strips without
+        `collapse` come before them.
+        """
+        steady = 0
+        never: list[int] = []
+        for strip, number in zip(self.all_strips(layout), self.places(layout), strict=True):
+            if steady >= protocol.STRIPS and number not in never:
+                never.append(number)
+            if not collapses(strip):
+                steady += 1
+        return never
+
+    def entity_strips(self, layout: str = DEFAULT_LAYOUT) -> list[tuple[StripConfig, str]]:
+        """
+        The strips of a layout with entities in Home Assistant, with their ids: those of `home_assistant_strips()`,
+        and with [mqtt] the ones with `choices` (a select of the choice).
+        """
+        return [
+            (strip, strip.id or f"strip_{number}")
+            for number, strip in enumerate(self.all_strips(layout), start=1)
+            if isinstance(strip, HomeAssistantStripConfig)
+            or (isinstance(strip, _StripConfig) and strip.uses_home_assistant)
+            or (self.mqtt is not None and isinstance(strip, DeviceStripConfig) and strip.switches)
+        ]
 
     def home_assistant_strips(self, layout: str = DEFAULT_LAYOUT) -> list[tuple[StripConfig, str]]:
         """
@@ -785,6 +1084,11 @@ class Config(_Model):
             if isinstance(strip, HomeAssistantStripConfig)
             or (isinstance(strip, _StripConfig) and strip.uses_home_assistant)
         ]
+
+
+def collapses(strip: StripConfig) -> bool:
+    """Whether the strip gives its place to the ones after it while it has nothing to control (`collapse`)."""
+    return isinstance(strip, _StripConfig | VoipStripConfig) and strip.collapse
 
 
 class ConfigError(Exception):

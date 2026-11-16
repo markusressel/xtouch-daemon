@@ -7,6 +7,8 @@ A strip that belongs to Home Assistant: every part of it is an entity there, and
 - `text.<ns>_<id>_top` and `text.<ns>_<id>_bottom`: the two lines of the LCD; `select.<ns>_<id>_color`: its color.
 - `select.<ns>_<id>_mute_led` (and `select_led`, `rec_led`, `solo_led`): the LEDs of the buttons, off, on or flash.
 - `event.<ns>_<id>_buttons`: presses and releases of the buttons and the encoder, touches of the fader.
+- `select.<ns>_<id>_output` (`_input`) of an output (input) strip with `choices`: which choice it shows (see
+  `ChoiceStrip`).
 
 The buttons don't switch their LEDs: an automation that wants a toggle reacts to the event and sets the LED.
 
@@ -73,12 +75,14 @@ def entity_ids(namespace: str, config: StripConfig, strip_id: str) -> frozenset[
             *(f"{button.name.lower()}_led" for button in Button),
             "buttons",
         ]
-    elif isinstance(config, DeviceStripConfig | AppsStripConfig | AutoStripConfig) and config.uses_home_assistant:
+    elif isinstance(config, DeviceStripConfig | AppsStripConfig | AutoStripConfig):
         encoder = (config.encoder or default_encoder(config.type, config.fader)) == "homeassistant"
         suffixes = [
             *(["fader"] if config.fader == "homeassistant" else []),
             *(["encoder"] if encoder else []),
-            "buttons",
+            *(["buttons"] if config.uses_home_assistant else []),
+            # the select of the choices
+            *([config.type] if isinstance(config, DeviceStripConfig) and config.switches else []),
         ]
     else:
         suffixes = []
@@ -324,6 +328,10 @@ class HomeAssistantStrip(StripController):
         return self._entities
 
     # -- showing --------------------------------------------------------------------------------------------------
+
+    @property
+    def title(self) -> str:
+        return self.default_label or super().title
 
     def update(self, state: AudioState) -> None:
         self.show()
