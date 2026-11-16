@@ -292,3 +292,10 @@ async def test_volume_and_mute_last_while_a_person_is_away():
     provider.update((Participant("3", "ALICE", volume=40), Participant("6", "bob", muted=True)))
     await settle()
     assert provider.commands == []
+    # Bob unmuted in the client (Mumble's local mute), Alice muted there: what the strips set does not undo it when
+    # they come back; Alice's mute was never set by a strip, so the client keeps it on its own
+    provider.update((Participant("3", "ALICE", volume=40, muted=True), Participant("6", "bob")))
+    provider.update(())
+    provider.update((Participant("7", "Alice", muted=True), Participant("8", "Bob")))
+    await settle()
+    assert provider.commands == [("volume", "7", 40)]

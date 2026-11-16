@@ -5,7 +5,8 @@ your Mumble channel, one per strip:
 
 - the name on the LCD, the backlight in `talking_color` while they talk, and their voice on the meter;
 - the fader sets their volume for you (0 to 200 %, `max_volume` of the strip at the top);
-- Mute mutes them for you;
+- Mute mutes them for you: it is Mumble's own local mute, so Mumble shows it, and a local mute you set in Mumble lights
+  the button;
 - people who join or leave the channel, and you moving to another channel, show at once.
 
 It needs Mumble 1.4 or later on Linux (x86_64), and a configuration with `voip` strips. Their
@@ -79,24 +80,33 @@ Mumble, which connects to the server and joins the channel, and the layout above
 
 ## What it does, and what not
 
-- **Volume and mute are the plugin's own.** The plugin scales the voice of each person before Mumble mixes it, and
-  silences a muted one. Mumble's own "Local Volume Adjustment" and "Local Mute" (in the menu of a user) are separate,
-  and the faders don't show or change them: Mumble's plugin interface has no call for the volume, and the plugin
-  makes no calls that could wait for Mumble. The two multiply: a person at 50 % in Mumble and 50 % on the fader is
-  at 25 %.
-- **The daemon keeps them for the name.** The plugin forgets the volume and the mute of someone who leaves; the daemon
-  remembers what the strips set for each name while it runs and sends it again when the person comes back. A restart
-  of the daemon starts everyone at 100 %, not muted.
+- **Mute is Mumble's "Local Mute"** (in the menu of a user): Mute on the strip sets it, Mumble shows it in its
+  window, and setting it in Mumble lights the button. Mumble tells plugins of no change of the local mute, so the
+  plugin looks every half second: a mute set in Mumble reaches the button within about 0.5 s (a press of Mute on the
+  strip shows at once). Should Mumble refuse a mute, the button goes back, and Mumble's log says why ("xtouch-daemon:
+  can't mute ..."). A local mute set from the strip lasts while the person stays; Mumble only stores the ones set in
+  its own menu (for registered users).
+- **The volume is the plugin's own.** The plugin scales the voice of each person before Mumble mixes it. Mumble's own
+  "Local Volume Adjustment" is separate, and the faders don't show or change it: Mumble's plugin interface has no call
+  for it. The two multiply: a person at 50 % in Mumble and 50 % on the fader is at 25 %.
+- **The daemon keeps them for the name.** The plugin forgets the volume of someone who leaves; the daemon remembers
+  the volume and the mute the strips set for each name while it runs and sends them again when the person comes back
+  (a mute changed in Mumble meanwhile replaces the one of the strip). A restart of the daemon starts everyone at
+  100 %.
+- **Not their own mute.** Whether other people muted or deafened themselves is not in Mumble's plugin interface: it
+  tells their talking state only, and someone who muted themselves sends nothing, so they just don't talk.
 - **Your channel only**, without you: nobody else's channel, no whispers to other channels.
 - **The level** on the meter is the voice as it arrives (after the fader), before Mumble's own volume and positional
-  audio.
+  audio. A muted person shows no level (Mumble does not fetch their voice), but the backlight still shows when they
+  talk.
 
 ## How it works
 
 The plugin (`integrations/mumble/plugin.c`, plugin API 1.0) connects to the socket of the daemon,
 `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock`, and speaks the [bridge protocol](../configuration/layouts.md#the-bridge-protocol):
 the people of the channel on every change and 20 times a second while someone talks (for the levels), and the
-volume and mute commands back. It connects again every 2 seconds while the daemon is not there, so the order in which
+volume and mute commands back. The plugin's socket thread never calls into Mumble; a second thread makes the calls for
+the mute, which Mumble runs in its main thread (see the comment at the top of `plugin.c`). It connects again every 2 seconds while the daemon is not there, so the order in which
 Mumble and the daemon start does not matter. `$XTOUCH_DAEMON_VOIP_SOCKET` (in Mumble's environment) points it to
 another socket.
 

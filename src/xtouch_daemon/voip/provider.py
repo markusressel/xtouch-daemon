@@ -8,7 +8,8 @@ the client (or a plugin inside it). See docs/design/layouts.md for what the clie
 
 The provider remembers the volume and the mute the strips set for each name (`change_volume()`, `change_muted()`),
 and sets them again when someone of that name comes back: the clients forget them when a participant leaves (the
-Mumble plugin keeps them per session).
+Mumble plugin keeps them per session). A mute changed in the client itself (Mumble's local mute) replaces the one the
+strips set, so it is not undone when the person comes back.
 """
 
 import abc
@@ -92,14 +93,17 @@ class VoipProvider(abc.ABC):
         """A new snapshot; the listeners hear of it if it differs."""
         if participants == self.participants and connected == self.connected:
             return
-        before = {participant.id for participant in self.participants}
+        before = {participant.id: participant for participant in self.participants}
         self.participants = participants
         self.connected = connected
         for listener in list(self._listeners):
             listener()
         for participant in participants:
-            if participant.id not in before:
+            previous = before.get(participant.id)
+            if previous is None:
                 self._restore(participant)
+            elif previous.muted != participant.muted:
+                self._follow_mute(participant)
 
     def _restore(self, participant: Participant) -> None:
         """Sets what the strips set for the name of someone who came (back), if it differs."""
@@ -110,6 +114,12 @@ class VoipProvider(abc.ABC):
             self._in_background(self.set_volume(participant.id, kept.volume))
         if kept.muted is not None and kept.muted != participant.muted:
             self._in_background(self.set_muted(participant.id, kept.muted))
+
+    def _follow_mute(self, participant: Participant) -> None:
+        """Keeps a mute changed in the client (e.g. Mumble's local mute) instead of what the strips set before."""
+        kept = self._kept.get(participant.name.casefold())
+        if kept is not None and kept.muted is not None:
+            kept.muted = participant.muted
 
     def _in_background(self, command: Coroutine[None, None, None]) -> None:
         task = asyncio.get_running_loop().create_task(command)

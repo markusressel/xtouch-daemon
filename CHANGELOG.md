@@ -55,8 +55,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   documentation, versioned), or `demo` people who talk in turns.
 - A `[voip]` section is optional: `voip` strips without one use its defaults (the `bridge` provider).
 - A Mumble plugin (`integrations/mumble`, Mumble 1.4 and later) for `voip` strips: the people of your channel, who
-  talks and how loud, the fader for their volume and Mute to mute them (both the plugin's own, on top of Mumble's
-  local volume). "Install Mumble plugin" on the GUI's page "Voice chat" (or `xtouch-daemon mumble-plugin --install`)
+  talks and how loud, the fader for their volume (the plugin's own, on top of Mumble's local volume) and Mute for
+  Mumble's local mute (shown in Mumble; a local mute set in Mumble lights the button). "Install Mumble plugin" on the GUI's page "Voice chat" (or `xtouch-daemon mumble-plugin --install`)
   hands it to Mumble's installer, building it first in a checkout; the page lists the steps and tells whether Mumble
   is connected. Releases ship the plugin in `/usr/share/xtouch-daemon/`, CI builds it.
 - The live view takes a request to switch the layout (`{"request": "layout", "layout": "gaming"}`, answered with a

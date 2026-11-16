@@ -1,16 +1,31 @@
-// The Mumble plugin of xtouch-daemon: tells the daemon who is in the user's channel and who talks, and takes the
-// volume and mute of each participant from the faders and Mute buttons of `voip` strips.
+// The Mumble plugin of xtouch-daemon: tells the daemon who is in the user's channel, who talks and whom the user
+// muted, and takes the volume and mute of each participant from the faders and Mute buttons of `voip` strips.
 //
 // It connects to the socket of the daemon's `bridge` VoIP provider ($XDG_RUNTIME_DIR/xtouch-daemon-voip.sock, or
 // $XTOUCH_DAEMON_VOIP_SOCKET) and speaks its protocol, one JSON object per line (see docs/integrations/mumble.md and
 // src/xtouch_daemon/voip/bridge.py). It connects again whenever the daemon was not there or went away.
 //
+// The volume is the plugin's own: it scales the voice of the participant before Mumble mixes it (the API can't set
+// Mumble's "Local volume adjustment"). Mute is Mumble's "Local mute" (requestLocalMute, isUserLocallyMuted): Mumble
+// shows it, and a local mute set in Mumble lights the Mute button. Mumble has no event for a change of the local
+// mute, so the plugin reads it every POLL_MS (and whenever the users are refreshed): a mute set in Mumble's window
+// reaches the button within POLL_MS plus a tick.
+//
 // Threads: Mumble calls the event callbacks in its main thread (the server ones in another), the audio callback in
-// its audio thread. The plugin's own thread does the socket. Only the callbacks call the Mumble API: an API call from
-// the plugin's thread would wait for the main thread, which waits for that thread while the plugin shuts down. So
-// the volume and the mute are the plugin's own (it scales the voice of the participant before Mumble mixes it), not
-// Mumble's "Local volume adjustment" and "Local mute", which the API can't set (volume) or which would need such a
-// call (mute).
+// its audio thread. The plugin has two threads of its own:
+// - `work()` does the socket and never calls the Mumble API. It queues the mute commands of the daemon.
+// - `follow_mumble()` makes the API calls of the mute: the queued requests, and reading the local mute every POLL_MS.
+// No callback comes regularly in Mumble's main thread (the talking states come only while someone talks), so the
+// calls come from a thread of the plugin. Mumble allows that: it runs an API function called from another thread in
+// its main thread, and the caller waits (Mumble's docs/dev/plugins/MumbleAPI.md, "Multithreading"). The danger it
+// names is a callback that waits for a thread that waits for such a call: the main thread would wait for itself. The
+// plugin avoids it so:
+// - No thread holds `lock` during an API call, so the callbacks, which take `lock`, never wait for an API call.
+// - Only mumble_shutdown waits for the threads. It drops the requests that have not started, wakes the thread, and
+//   waits for an API call in progress, which can't run while the main thread waits: Mumble gives up on it after
+//   800 ms and returns MUMBLE_EC_API_REQUEST_TIMEOUT (C_WRAPPER in src/mumble/API_v_1_x_x.cpp, in every release with
+//   the plugin API, 1.4.230 and later). The thread makes no call after `running` went false, so shutting down takes
+//   at most those 800 ms, and only if a call was under way at that moment.
 //
 // Copyright the xtouch-daemon authors, AGPL-3.0-or-later. MumblePlugin.h is Mumble's, BSD-3-Clause (see
 // include/LICENSE.mumble).
@@ -20,6 +35,9 @@
 #define MUMBLE_PLUGIN_API_MINOR_MACRO 0
 #define MUMBLE_PLUGIN_API_PATCH_MACRO 0
 #include "MumblePlugin.h"
+
+// MumblePlugin.h defines it `inline` only: this makes the definition, which an unoptimised build calls
+extern const char *mumble_errorMessage(int16_t errorCode);
 
 #include <errno.h>
 #include <math.h>
@@ -50,6 +68,8 @@
 #define TICK_MS 50
 // How often it tries to connect while the daemon is not there.
 #define RETRY_MS 2000
+// How often it reads Mumble's local mute of the participants while the daemon is connected.
+#define POLL_MS 500
 
 static MumbleAPI api;
 static mumble_plugin_id_t own_id;
@@ -58,7 +78,12 @@ struct participant {
 	mumble_userid_t id;
 	char name[MAX_NAME];
 	bool talking;
+	// Mumble's local mute, as last read or set
 	bool muted;
+	// the mute the daemon asked for, until the request is done (`requests` != `done`)
+	bool wanted;
+	unsigned requests;
+	unsigned done;
 	int volume;
 	// the loudest sample since the state was sent last, 0..1
 	float peak;
@@ -70,10 +95,18 @@ static struct participant participants[MAX_PARTICIPANTS];
 static size_t participant_count;
 static char channel[MAX_NAME];
 static bool dirty;
+// the connection the users are of, for the API calls of `follow_mumble()`
+static mumble_connection_t server_connection;
+static bool has_connection;
+// wakes `follow_mumble()`: a request, or the shutdown
+static pthread_cond_t wake;
 
 static pthread_t worker;
+static pthread_t mumble_thread;
 static atomic_bool running;
+static atomic_bool daemon_connected;
 static bool worker_started;
+static bool mumble_thread_started;
 
 // -- the participants ---------------------------------------------------------------------------------------------
 
@@ -91,8 +124,30 @@ static void copy_name(char *target, const char *name) {
 	snprintf(target, MAX_NAME, "%s", name ? name : "");
 }
 
-// The users in the channel of the local user, without them; called in Mumble's main thread. The volume and mute of
-// those who stay are kept.
+// The mute the daemon sees: what it asked for while the request is under way.
+static bool shown_muted(const struct participant *participant) {
+	return participant->requests != participant->done ? participant->wanted : participant->muted;
+}
+
+// Sets Mumble's local mute of a participant as read or set; with `lock` held.
+static void set_muted(struct participant *participant, bool muted) {
+	bool before = shown_muted(participant);
+	participant->muted = muted;
+	dirty = dirty || shown_muted(participant) != before;
+}
+
+// A participant with a request of the daemon that has not been made, or NULL; with `lock` held.
+static struct participant *requested(void) {
+	for (size_t i = 0; i < participant_count; i++) {
+		if (participants[i].requests != participants[i].done) {
+			return &participants[i];
+		}
+	}
+	return NULL;
+}
+
+// The users in the channel of the local user, without them, and their local mute; called in Mumble's main thread.
+// The volume and the requests of those who stay are kept.
 static void refresh(void) {
 	mumble_connection_t connection;
 	bool synchronized = false;
@@ -116,6 +171,8 @@ static void refresh(void) {
 	}
 
 	struct participant *next = calloc(MAX_PARTICIPANTS, sizeof(struct participant));
+	// whether the local mute of next[i] could be read
+	bool read_mute[MAX_PARTICIPANTS] = {false};
 	size_t next_count = 0;
 	for (size_t i = 0; i < user_count && next_count < MAX_PARTICIPANTS && next != NULL; i++) {
 		if (users[i] == local) {
@@ -125,10 +182,13 @@ static void refresh(void) {
 		if (api.getUserName(own_id, connection, users[i], &name) != MUMBLE_STATUS_OK) {
 			continue;
 		}
-		struct participant *entry = &next[next_count++];
+		struct participant *entry = &next[next_count];
 		entry->id = users[i];
 		copy_name(entry->name, name);
 		entry->volume = 100;
+		read_mute[next_count] =
+			api.isUserLocallyMuted(own_id, connection, users[i], &entry->muted) == MUMBLE_STATUS_OK;
+		next_count++;
 		api.freeMemory(own_id, name);
 	}
 	api.freeMemory(own_id, users);
@@ -138,7 +198,12 @@ static void refresh(void) {
 		struct participant *known = find(next[i].id);
 		if (known != NULL) {
 			next[i].talking = known->talking;
-			next[i].muted = known->muted;
+			if (!read_mute[i]) {
+				next[i].muted = known->muted;
+			}
+			next[i].wanted = known->wanted;
+			next[i].requests = known->requests;
+			next[i].done = known->done;
 			next[i].volume = known->volume;
 			next[i].peak = known->peak;
 		}
@@ -148,6 +213,8 @@ static void refresh(void) {
 		participant_count = next_count;
 	}
 	copy_name(channel, channel_name);
+	server_connection = connection;
+	has_connection = true;
 	dirty = true;
 	pthread_mutex_unlock(&lock);
 	free(next);
@@ -160,6 +227,7 @@ static void clear(void) {
 	pthread_mutex_lock(&lock);
 	participant_count = 0;
 	channel[0] = '\0';
+	has_connection = false;
 	dirty = true;
 	pthread_mutex_unlock(&lock);
 }
@@ -245,7 +313,7 @@ static char *state_line(bool *talking) {
 		appendf(&line, "%s{\"id\":\"%u\",\"name\":", i ? "," : "", each->id);
 		append_string(&line, each->name);
 		appendf(&line, ",\"talking\":%s,\"muted\":%s,\"volume\":%d,\"level\":%.3f}", each->talking ? "true" : "false",
-				each->muted ? "true" : "false", each->volume, (double) each->peak);
+				shown_muted(each) ? "true" : "false", each->volume, (double) each->peak);
 		*talking = *talking || each->talking;
 		each->peak = 0.0f;
 	}
@@ -265,7 +333,8 @@ static const char *value_of(const char *line, const char *key) {
 }
 
 // A command of the daemon: {"set_volume":{"id":"12","volume":80}} or {"set_muted":{"id":"12","muted":true}}.
-// Anything else (e.g. its greeting, {"daemon":"xtouch-daemon","protocol":1}) is ignored.
+// Anything else (e.g. its greeting, {"daemon":"xtouch-daemon","protocol":1}) is ignored. A mute is a request for
+// `follow_mumble()`: this thread makes no API calls.
 static void handle(const char *line) {
 	bool volume_command = strstr(line, "\"set_volume\":") != NULL;
 	bool mute_command = strstr(line, "\"set_muted\":") != NULL;
@@ -291,8 +360,10 @@ static void handle(const char *line) {
 		} else {
 			const char *muted = value_of(line, "muted");
 			if (muted != NULL) {
-				target->muted = strncmp(muted, "true", 4) == 0;
+				target->wanted = strncmp(muted, "true", 4) == 0;
+				target->requests++;
 				dirty = true;
+				pthread_cond_signal(&wake);
 			}
 		}
 	}
@@ -370,6 +441,7 @@ static void *work(void *unused) {
 				continue;
 			}
 			received_size = 0;
+			atomic_store(&daemon_connected, true);
 			pthread_mutex_lock(&lock);
 			dirty = true;
 			pthread_mutex_unlock(&lock);
@@ -410,6 +482,7 @@ static void *work(void *unused) {
 		if (lost) {
 			close(fd);
 			fd = -1;
+			atomic_store(&daemon_connected, false);
 			// not at once: the daemon may have refused this plugin (another one is connected), or be restarting
 			for (long waited = 0; waited < RETRY_MS && atomic_load(&running); waited += TICK_MS) {
 				sleep_ms(TICK_MS);
@@ -422,15 +495,141 @@ static void *work(void *unused) {
 	return NULL;
 }
 
+// -- Mumble's local mute --------------------------------------------------------------------------------------------
+
+static struct timespec after_ms(long milliseconds) {
+	struct timespec time;
+	clock_gettime(CLOCK_MONOTONIC, &time);
+	time.tv_sec += milliseconds / 1000;
+	time.tv_nsec += (milliseconds % 1000) * 1000000L;
+	if (time.tv_nsec >= 1000000000L) {
+		time.tv_sec++;
+		time.tv_nsec -= 1000000000L;
+	}
+	return time;
+}
+
+static bool reached(const struct timespec *time) {
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return now.tv_sec > time->tv_sec || (now.tv_sec == time->tv_sec && now.tv_nsec >= time->tv_nsec);
+}
+
+// Makes the request of `target`; with `lock` held, which it lets go during the call. On an error the daemon sees
+// Mumble's mute again (the button goes back), and Mumble's log tells why.
+static void request(struct participant *target) {
+	mumble_userid_t id = target->id;
+	bool wanted = target->wanted;
+	unsigned number = target->requests;
+	char name[MAX_NAME];
+	copy_name(name, target->name);
+	mumble_connection_t connection_id = server_connection;
+	bool usable = has_connection;
+	pthread_mutex_unlock(&lock);
+	mumble_error_t result =
+		usable ? api.requestLocalMute(own_id, connection_id, id, wanted) : MUMBLE_EC_CONNECTION_NOT_FOUND;
+	pthread_mutex_lock(&lock);
+	target = find(id);
+	if (target != NULL) {
+		bool before = shown_muted(target);
+		if (result == MUMBLE_STATUS_OK) {
+			target->muted = wanted;
+		}
+		// a later request, if any, is still to be made
+		target->done = number;
+		dirty = dirty || shown_muted(target) != before;
+	}
+	if (result != MUMBLE_STATUS_OK && atomic_load(&running)) {
+		pthread_mutex_unlock(&lock);
+		char message[MAX_NAME + 160];
+		snprintf(message, sizeof(message), "xtouch-daemon: can't %s %s in Mumble: %s", wanted ? "mute" : "unmute", name,
+				 mumble_errorMessage(result));
+		api.log(own_id, message);
+		pthread_mutex_lock(&lock);
+	}
+}
+
+// Reads the local mute of every participant; with `lock` held, which it lets go during the calls. Stops at a request
+// of the daemon, which comes first.
+static void poll_mute(void) {
+	mumble_userid_t ids[MAX_PARTICIPANTS];
+	size_t count = participant_count;
+	for (size_t i = 0; i < count; i++) {
+		ids[i] = participants[i].id;
+	}
+	mumble_connection_t connection_id = server_connection;
+	for (size_t i = 0; i < count && atomic_load(&running) && has_connection && requested() == NULL; i++) {
+		bool muted = false;
+		pthread_mutex_unlock(&lock);
+		mumble_error_t result = api.isUserLocallyMuted(own_id, connection_id, ids[i], &muted);
+		pthread_mutex_lock(&lock);
+		struct participant *participant = find(ids[i]);
+		// an error: someone who just left, or a connection that just ended, which the callbacks catch up with
+		if (result == MUMBLE_STATUS_OK && participant != NULL) {
+			set_muted(participant, muted);
+		}
+	}
+}
+
+// The thread that makes the API calls of the mute (see the top of the file).
+static void *follow_mumble(void *unused) {
+	(void) unused;
+	struct timespec next_poll = after_ms(0);
+	pthread_mutex_lock(&lock);
+	while (atomic_load(&running)) {
+		struct participant *target = requested();
+		if (target != NULL) {
+			request(target);
+			continue;
+		}
+		bool polling = atomic_load(&daemon_connected) && has_connection && participant_count > 0;
+		if (polling && reached(&next_poll)) {
+			poll_mute();
+			next_poll = after_ms(POLL_MS);
+			continue;
+		}
+		struct timespec until = polling ? next_poll : after_ms(POLL_MS);
+		pthread_cond_timedwait(&wake, &lock, &until);
+	}
+	pthread_mutex_unlock(&lock);
+	return NULL;
+}
+
 // -- the plugin API -----------------------------------------------------------------------------------------------
+
+static void stop(void) {
+	atomic_store(&running, false);
+	pthread_mutex_lock(&lock);
+	pthread_cond_broadcast(&wake);
+	pthread_mutex_unlock(&lock);
+	if (worker_started) {
+		// it never waits for Mumble, so it ends within a tick
+		pthread_join(worker, NULL);
+		worker_started = false;
+	}
+	if (mumble_thread_started) {
+		// at most an API call under way, which Mumble gives up on after 800 ms (see the top of the file)
+		pthread_join(mumble_thread, NULL);
+		mumble_thread_started = false;
+	}
+	pthread_cond_destroy(&wake);
+}
 
 mumble_error_t mumble_init(mumble_plugin_id_t id) {
 	own_id = id;
 	clear();
+	pthread_condattr_t attributes;
+	pthread_condattr_init(&attributes);
+	pthread_condattr_setclock(&attributes, CLOCK_MONOTONIC);
+	pthread_cond_init(&wake, &attributes);
+	pthread_condattr_destroy(&attributes);
+	atomic_store(&daemon_connected, false);
 	atomic_store(&running, true);
 	worker_started = pthread_create(&worker, NULL, work, NULL) == 0;
-	if (!worker_started) {
-		api.log(own_id, "xtouch-daemon: can't start the thread that talks to the daemon");
+	mumble_thread_started = pthread_create(&mumble_thread, NULL, follow_mumble, NULL) == 0;
+	if (!worker_started || !mumble_thread_started) {
+		stop();
+		api.log(own_id, "xtouch-daemon: can't start the threads of the plugin");
 		return MUMBLE_EC_GENERIC_ERROR;
 	}
 	// already connected when the plugin is enabled
@@ -439,12 +638,7 @@ mumble_error_t mumble_init(mumble_plugin_id_t id) {
 }
 
 void mumble_shutdown(void) {
-	atomic_store(&running, false);
-	if (worker_started) {
-		// it never waits for Mumble, so it ends within a tick
-		pthread_join(worker, NULL);
-		worker_started = false;
-	}
+	stop();
 }
 
 struct MumbleStringWrapper mumble_getName(void) {
@@ -460,7 +654,7 @@ struct MumbleStringWrapper mumble_getAuthor(void) {
 struct MumbleStringWrapper mumble_getDescription(void) {
 	static const char *description =
 		"Shows the people in your channel on the voip strips of a Behringer X-Touch Extender (xtouch-daemon): who "
-		"talks, their volume on the fader, Mute to mute them.";
+		"talks, their volume on the fader, Mute for Mumble's local mute.";
 	return (struct MumbleStringWrapper) {description, strlen(description), false};
 }
 
@@ -513,7 +707,9 @@ void mumble_onChannelExited(mumble_connection_t connection, mumble_userid_t user
 void mumble_onUserTalkingStateChanged(mumble_connection_t connection, mumble_userid_t user,
 									  mumble_talking_state_t state) {
 	(void) connection;
-	bool talking = state == MUMBLE_TS_TALKING || state == MUMBLE_TS_WHISPERING || state == MUMBLE_TS_SHOUTING;
+	// TALKING_MUTED: talks, but the user muted them locally (Mumble reports nothing else for other users with it)
+	bool talking = state == MUMBLE_TS_TALKING || state == MUMBLE_TS_WHISPERING || state == MUMBLE_TS_SHOUTING
+				|| state == MUMBLE_TS_TALKING_MUTED;
 	pthread_mutex_lock(&lock);
 	struct participant *speaker = find(user);
 	if (speaker != NULL && speaker->talking != talking) {
@@ -532,7 +728,8 @@ bool mumble_onAudioSourceFetched(float *pcm, uint32_t sample_count, uint16_t cha
 	size_t samples = (size_t) sample_count * channel_count;
 	pthread_mutex_lock(&lock);
 	struct participant *speaker = find(user);
-	float gain = speaker == NULL ? 1.0f : speaker->muted ? 0.0f : (float) speaker->volume / 100.0f;
+	// Mumble fetches no audio of a locally muted user
+	float gain = speaker == NULL ? 1.0f : (float) speaker->volume / 100.0f;
 	float peak = 0.0f;
 	for (size_t i = 0; i < samples; i++) {
 		if (gain != 1.0f) {

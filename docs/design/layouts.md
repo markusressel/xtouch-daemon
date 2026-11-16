@@ -44,7 +44,7 @@ on the fader.
 
 | Client | Participants and talking | Local volume per participant | From outside on Linux |
 |---|---|---|---|
-| **Mumble** (1.5) | Plugin API: `getUsersInChannel`, `getUserName`, `mumble_onUserTalkingStateChanged`, `onUserAdded/Removed` | Not in the API (`requestLocalUserMute` mutes only). But `mumble_onAudioSourceFetched(pcm, …, isSpeech, userID)` gets each participant's audio before the mix, **may change it** (a plugin can apply its own gain) and can measure its peak. The built-in local volume (since 1.3) is not reachable. ([MumblePlugin.h][mumble-plugin]) | D-Bus `net.sourceforge.mumble.mumble`: `getTalkingUsers`, `getCurrentUrl`, self mute/deaf, transmit mode ([DBus.h][mumble-dbus]); `mumble rpc` the same few commands ([RPC docs][mumble-rpc]). No participant list, no per-user volume. Server side (Ice): users and channels, but no talking state and no client-local volume. |
+| **Mumble** (1.5) | Plugin API: `getUsersInChannel`, `getUserName`, `mumble_onUserTalkingStateChanged`, `onUserAdded/Removed` | Not in the API (`requestLocalMute`/`isUserLocallyMuted` mute only). But `mumble_onAudioSourceFetched(pcm, …, isSpeech, userID)` gets each participant's audio before the mix, **may change it** (a plugin can apply its own gain) and can measure its peak. The built-in local volume (since 1.3) is not reachable. ([MumblePlugin.h][mumble-plugin]) | D-Bus `net.sourceforge.mumble.mumble`: `getTalkingUsers`, `getCurrentUrl`, self mute/deaf, transmit mode ([DBus.h][mumble-dbus]); `mumble rpc` the same few commands ([RPC docs][mumble-rpc]). No participant list, no per-user volume. Server side (Ice): users and channels, but no talking state and no client-local volume. |
 | **TeamSpeak 3** | ClientQuery (local TCP 25639, API key): `clientlist`, `notifytalkstatuschange`, `notifycliententerview` ([client query library][ts3-cq]) | Plugin SDK only: `setClientVolumeModifier(connection, client, dB)`, and the client stores it ([forum][ts3-volume]). No ClientQuery command for it was found. | ClientQuery is reachable from another process. TeamSpeak 5/6 has no stable public API (not re-checked). |
 | **Discord** | Local RPC (Unix socket `discord-ipc-N`): `GET_SELECTED_VOICE_CHANNEL`, `SPEAKING_START/STOP` events | `SET_USER_VOICE_SETTINGS` (volume 0..200, mute) ([Userdoccers][discord-rpc]) | The `rpc*` scopes are for "approved partners" only ([Discord OAuth2][discord-oauth]); projects use Discord's own StreamKit client id and token endpoint instead, without refresh tokens, and Discord restores the volumes when the app disconnects ([Noctalia Discord Voice][noctalia]). Fragile and a ToS gray area. |
 
@@ -89,6 +89,43 @@ daemon -> client  {"set_muted": {"id": "12", "muted": true}}
 Every client message is the whole state (like the live view): a client that sends 20 times a second while someone
 talks needs nothing else. `volume` is percent (0..200), `level` the peak since the last message (0..1). One client at
 a time; a new connection replaces the old one. The socket is mode 0600.
+
+### The Mumble plugin: mute and threads
+
+Mute on a `voip` strip is Mumble's own local mute (`requestLocalMute`, `isUserLocallyMuted` of plugin API 1.0), so
+Mumble shows it and a mute set in Mumble lights the button. The first version had its own mute (gain 0 in
+`mumble_onAudioSourceFetched`), because the local mute needs API calls the plugin had no safe place for:
+
+- Mumble calls the event callbacks in its main thread, and runs every API function there: called from another
+  thread, it is queued to the main thread and the caller waits (Mumble's `docs/dev/plugins/MumbleAPI.md`,
+  "Multithreading"). A callback that waits for a thread that waits for an API call would wait for itself, and the
+  plugin's `mumble_shutdown` has to wait for its threads before Mumble unloads the library.
+- No callback comes regularly in the main thread. The talking states come only while someone talks, the users'
+  callbacks only when someone comes or goes; a request of the daemon can wait for neither. The only timers that call
+  plugins are those of positional audio (`mumble_initPositionalData` every second while no positional plugin is
+  linked), which would make the plugin a positional one in Mumble's settings: rejected.
+- Mumble bounds the wait: a call that doesn't get to run within 800 ms is cancelled and fails with
+  `MUMBLE_EC_API_REQUEST_TIMEOUT` (`C_WRAPPER` in `src/mumble/API_v_1_x_x.cpp`, the same in every release with
+  plugin API 1.0: 1.4.230 to 1.6.870).
+
+So the plugin has two threads: the socket thread never calls the API and only queues the mute requests (a counter per
+participant); the "Mumble thread" makes the requests and reads the local mute of the participants every 500 ms while
+the daemon is connected (Mumble has no event for it; the callbacks read it too when they refresh the users). No thread
+holds the plugin's lock during an API call, so a callback never waits for one. Only `mumble_shutdown` does: it drops
+the requests that have not started and waits for a call under way, which can't run then and fails after the 800 ms;
+the thread makes no call after that. Shutting down takes those 800 ms only if a call was under way at that moment.
+
+While a request is under way the plugin reports the requested mute; when Mumble refuses one, it logs why (`api.log`)
+and reports Mumble's mute again, so the button goes back. A locally muted participant who talks has the talking state
+`MUMBLE_TS_TALKING_MUTED`, which counts as talking: the backlight shows it, as with the first version's mute. Their
+level is 0: Mumble does not mix them and fetches none of their audio.
+
+**Others' self-mute and deafen are not in the API.** Plugin API 1.0 has no function for them (`isLocalUserMuted` and
+`isLocalUserDeafened` are the user's own), `getUserComment` is the free text of the user, and the talking state
+`MUMBLE_TS_TALKING_MUTED` of another user means the *local* mute: `AudioOutputSpeech.cpp` sets `MutedTalking` only for
+`bLocalMute` (since 1.6 also for a local volume of 0), while `ClientUser::setSelfMute`/`setSelfDeaf` emit
+`muteDeafStateChanged`, which the plugin manager doesn't forward (it connects `talkingStateChanged` only). Someone
+who muted themselves sends no audio, so they are just passive.
 
 ## Configuration
 
@@ -195,7 +232,8 @@ type = "voip"                        # the group: all voip strips of the layout 
 - **Volume and mute while away.** The Mumble plugin keeps them per session (a user who leaves is forgotten; one who
   comes back gets a new session at 100 %), and the bridge protocol has no notion of names. So the daemon keeps them:
   `VoipProvider` remembers the volume and mute the strips set by the participant's name (ignoring case) and sends
-  them again when a participant of that name appears. This is for every participant, not only those of fixed strips:
+  them again when a participant of that name appears. A mute that changes in the client (Mumble's local mute, set in
+  its window) replaces the kept one, so coming back does not undo it. This is for every participant, not only those of fixed strips:
   it costs nothing, and someone of the group who reconnects keeps their volume too. It lasts while the daemon runs;
   the provider survives layout switches and reloads (not a changed `[voip]`).
 - **The live view** tells the names of the participants (`VoipState.names`) and who each strip of the layout shown

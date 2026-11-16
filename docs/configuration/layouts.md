@@ -175,7 +175,7 @@ strip; for five people, write five.
 The top line shows the name, the bottom line `muted`, the volume while the fader moves, or `talks`. The fader sets
 the participant's volume and Mute mutes them for you, if the provider can. The daemon remembers the volume and the
 mute it set for each name while it runs, and sets them again when that person comes back (the voice chat starts
-them at 100 % otherwise).
+them at 100 % otherwise). A mute changed in the voice chat itself (Mumble's local mute) replaces the one it set.
 
 With `launch`, Select starts the voice chat while its plugin does not report and its program does not run; the
 Select LED flashes while it starts. The `voip` strips of a layout with the same command start it once, whichever of

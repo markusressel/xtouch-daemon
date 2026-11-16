@@ -57,6 +57,18 @@ class FakeMumble:
             output.append(line)
         return output
 
+    async def collect(self, command: str, expected: list[str], seconds: float = 5) -> None:
+        """Runs a command until all it printed together is `expected`."""
+        output: list[str] = []
+        for _ in range(int(seconds / 0.01)):
+            output += await self.do(command)
+            if output == expected:
+                return
+            if command != "record":
+                output = []
+            await asyncio.sleep(0.01)
+        raise AssertionError(f"{command}: {output}")
+
 
 @pytest.fixture
 async def setup(built: Path) -> AsyncIterator[tuple[BridgeProvider, FakeMumble]]:
@@ -78,7 +90,7 @@ async def setup(built: Path) -> AsyncIterator[tuple[BridgeProvider, FakeMumble]]
         yield provider, host
         if process.returncode is None:
             assert await host.do("quit") == []
-            await process.wait()
+            assert await process.wait() == 0
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
 
@@ -124,7 +136,7 @@ async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[
     await until(lambda: Participant("2", "Alice", talking=True, level=0.5) in seen)
     # the level of what came since the line before
     await until(lambda: provider.participant("2") == Participant("2", "Alice", talking=True, level=0.0))
-    await host.do("talk 2 4")
+    await host.do("talk 2 0")
     await until(lambda: provider.participant("2") == Participant("2", "Alice", level=0.0))
 
     # the fader and Mute
@@ -133,9 +145,15 @@ async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[
     assert await host.do("audio 2 0.8") == ["audio 1 0.400"]
     await provider.set_volume("3", 500)
     await until(lambda: getattr(provider.participant("3"), "volume", None) == 200)
+    # Mute is Mumble's local mute: Mumble fetches no audio of Alice then
     await provider.set_muted("2", True)
     await until(lambda: getattr(provider.participant("2"), "muted", False))
-    assert await host.do("audio 2 0.8") == ["audio 1 0.000"]
+    assert await host.do("record") == ["requestLocalMute 2 1 0"]
+    assert await host.do("audio 2 0.8") == ["audio muted"]
+    # she talks, muted
+    await host.do("talk 2 4")
+    await until(lambda: getattr(provider.participant("2"), "talking", False))
+    await host.do("talk 2 0")
     # someone the plugin does not know: nothing changes
     await provider.set_muted("9", True)
     assert await host.do("audio 9 0.8") == ["audio 0 0.800"]
@@ -177,6 +195,82 @@ async def test_the_plugin_connects_again(built: Path):
             await asyncio.gather(task, return_exceptions=True)
         assert await host.do("quit") == []
         assert await process.wait() == 0
+
+
+async def test_a_mute_set_in_mumble_lights_the_button(setup: tuple[BridgeProvider, FakeMumble]):
+    provider, host = setup
+    await host.do("connect 1 5")
+    await host.do("user 2 5 Alice")
+    # Carol comes muted (Mumble remembers the local mute of registered users)
+    await host.do("user 3 6 Carol")
+    await host.do("localmute 3 1")
+    await host.do("user 3 5 Carol")
+    await until(lambda: len(provider.participants) == 2)
+    assert provider.participant("3") == Participant("3", "Carol", muted=True, level=0.0)
+
+    # Mumble has no event for it: the plugin reads it every POLL_MS (500 ms)
+    loop = asyncio.get_running_loop()
+    start = loop.time()
+    await host.do("localmute 2 1")
+    await until(lambda: getattr(provider.participant("2"), "muted", False))
+    assert loop.time() - start < 1.5
+    await host.do("localmute 2 0")
+    await host.do("localmute 3 0")
+    await until(lambda: [each.muted for each in provider.participants] == [False, False])
+    # the plugin only read it
+    assert await host.do("record") == []
+
+
+async def test_a_mute_mumble_refuses_goes_back(setup: tuple[BridgeProvider, FakeMumble]):
+    provider, host = setup
+    await host.do("connect 1 5")
+    await host.do("user 2 5 Alice")
+    await until(lambda: len(provider.participants) == 1)
+    await host.do("refuse 2")
+    await provider.set_muted("2", True)
+
+    await host.collect(
+        "record", ["requestLocalMute 2 1 -1", "log xtouch-daemon: can't mute Alice in Mumble: Generic error"]
+    )
+    await until(lambda: provider.participant("2") == Participant("2", "Alice", level=0.0))
+    assert await host.do("audio 2 0.5") == ["audio 0 0.500"]
+
+
+async def test_the_plugin_shuts_down_with_a_mute_under_way(setup: tuple[BridgeProvider, FakeMumble]):
+    provider, host = setup
+    await host.do("connect 1 5")
+    await host.do("user 2 5 Alice")
+    await until(lambda: len(provider.participants) == 1)
+    # Mumble's main thread is busy: the request waits for it
+    await host.do("pause")
+    await provider.set_muted("2", True)
+    await until(lambda: getattr(provider.participant("2"), "muted", False))
+    await host.collect("queued", ["queued requestLocalMute 2 1"])
+    # mumble_shutdown waits for the call, which can't run while it waits: Mumble gives up on it after 800 ms; the
+    # plugin makes no call after that (the fake would abort)
+    [line] = await host.do("shutdown")
+    assert line.startswith("shutdown ")
+    assert 700 <= int(line.split()[1]) < 1500
+    assert await host.do("record") == ["requestLocalMute 2 1 timeout"]
+    assert await host.do("quit") == []
+    assert await host.process.wait() == 0
+
+
+async def test_a_shutdown_drops_the_requests_that_did_not_start(setup: tuple[BridgeProvider, FakeMumble]):
+    provider, host = setup
+    await host.do("connect 1 5")
+    await host.do("user 2 5 Alice")
+    await host.do("user 3 5 Bob")
+    await until(lambda: len(provider.participants) == 2)
+    await host.do("pause")
+    await provider.set_muted("2", True)
+    await provider.set_muted("3", True)
+    await until(lambda: all(each.muted for each in provider.participants))
+    await host.collect("queued", ["queued requestLocalMute 2 1"])
+    [line] = await host.do("shutdown")
+    assert int(line.split()[1]) < 1500
+    # Bob's request never started
+    assert await host.do("record") == ["requestLocalMute 2 1 timeout"]
 
 
 def test_the_build_of_the_bundle():
