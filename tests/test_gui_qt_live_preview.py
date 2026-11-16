@@ -17,7 +17,7 @@ from tests import test_gui_qt
 from tests.test_gui_qt import Dialogs, FakeLiveDaemon, MakeWindow, click, row, strip_state, type_into
 from tests.test_instance import RecordingInstance
 from xtouch_daemon.gui.qt import live_preview as live_preview_module
-from xtouch_daemon.gui.qt.window import MainWindow
+from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.codec import decode_request, encode_reply
 from xtouch_daemon.live.messages import (
     FEATURES,

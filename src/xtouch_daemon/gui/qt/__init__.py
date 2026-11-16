@@ -14,7 +14,8 @@ from xtouch_daemon.audio.pulse import read_state
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.qt.theme.settings import load_zoom
 from xtouch_daemon.gui.qt.theme.style import apply_theme, load_theme_mode
-from xtouch_daemon.gui.qt.window import MainWindow, Session
+from xtouch_daemon.gui.qt.window.main_window import MainWindow
+from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.system.systemd import Service
 
 SCALE_FACTOR = "QT_SCALE_FACTOR"

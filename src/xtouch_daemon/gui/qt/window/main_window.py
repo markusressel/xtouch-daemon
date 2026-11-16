@@ -4,26 +4,11 @@ strip is picked; then two tabs that keep apart what applies to one strip and wha
 bottom the problems, undo and saving.
 """
 
-import contextlib
-import threading
 from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-from PyQt6.QtCore import QEvent, QObject, QRect, QRectF, QSignalBlocker, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import (
-    QAction,
-    QCloseEvent,
-    QColor,
-    QKeyEvent,
-    QKeySequence,
-    QMouseEvent,
-    QPainter,
-    QPaintEvent,
-    QShortcut,
-    QShowEvent,
-)
+from PyQt6.QtCore import QEvent, QObject, QRect, QSignalBlocker, Qt, QTimer
+from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent, QKeySequence, QShortcut, QShowEvent
 from PyQt6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -33,19 +18,14 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QSplitter,
-    QSplitterHandle,
     QStackedWidget,
-    QTabBar,
     QTabWidget,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from xtouch_daemon import installed_version
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
-from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config.files import Problem
 from xtouch_daemon.gui.domain import broker, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
@@ -57,7 +37,7 @@ from xtouch_daemon.gui.domain.flow import flow_rows
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
 from xtouch_daemon.gui.domain.looks import faces, looks
-from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
+from xtouch_daemon.gui.domain.status import Status, preview_status, sync_status
 from xtouch_daemon.gui.domain.voip import people_on_strips
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import flat_button, label, show_status
@@ -88,160 +68,26 @@ from xtouch_daemon.gui.qt.theme.settings import (
     zoom_step,
     zoom_text,
 )
-from xtouch_daemon.gui.qt.theme.style import apply_theme, current_colors, current_mode, set_role
+from xtouch_daemon.gui.qt.theme.style import apply_theme, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
+from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
+from xtouch_daemon.gui.qt.window.layout_bar import LayoutBar
+from xtouch_daemon.gui.qt.window.service import ServiceControls
+from xtouch_daemon.gui.qt.window.session import Session
+from xtouch_daemon.gui.qt.window.splitter import EDITOR_MIN_HEIGHT, PreviewSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Reply, Snapshot, SwitchLayout
 from xtouch_daemon.system import instance
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import (
-    UNIT_NAME,
     Service,
     ServiceError,
-    ServiceState,
-    executable,
-    overrides_packaged_unit,
-    unit_path,
-    uses_packaged_unit,
 )
 
 SERVICE_POLL_MS = 3000
 APPLY_GRACE_MS = 2000
 """How long a reload may take before the window says that the daemon did not take the file."""
 STRIP_TAB, GLOBAL_TAB, LAYOUT_TAB = 0, 1, 2
-ACTIVE_MARK = " ●"
-"""Next to the name of the layout the device shows."""
-
-
-class AudioLoader(QObject):
-    """Reads the sound server in a thread, so a slow or missing one does not block the window."""
-
-    loaded = pyqtSignal(object, arguments=["state"])
-    failed = pyqtSignal(str, arguments=["message"])
-
-    def __init__(self, read: Callable[[], AudioState]):
-        super().__init__()
-        self._read = read
-
-    def load(self) -> None:
-        threading.Thread(target=self._run, name="sound server", daemon=True).start()
-
-    def _run(self) -> None:
-        try:
-            state = self._read()
-        except SoundServerError as e:
-            self._emit(self.failed, str(e))
-        else:
-            self._emit(self.loaded, state)
-
-    @staticmethod
-    def _emit(signal: Any, value: object) -> None:
-        # the window may be gone meanwhile, e.g. for a new zoom
-        with contextlib.suppress(RuntimeError):
-            signal.emit(value)
-
-
-_pill = show_status
-
-
-@dataclass(frozen=True)
-class Session:
-    """
-    What a window hands to the next one when the zoom changes (see `run_gui`): Qt scales a whole application only when
-    it starts, so a new zoom takes a new window, which goes on where the old one was.
-    """
-
-    history: History
-    """The undo history, and through it the document with its unsaved changes."""
-    selected: int
-    page: str
-    geometry: QRect
-    """Where the window was, in pixels of the screen (the zoom changes the size of a window's own pixels)."""
-    maximized: bool
-    audio: AudioState
-    preview_share: float | None
-    """The share of the height the preview has, None while it has not been dragged."""
-    live_preview: bool = False
-    """Whether the live preview was on: it goes on in the next window (a new start has it off)."""
-
-
-EDITOR_MIN_HEIGHT = 160
-"""The editor below the preview keeps room for a few rows when the preview is dragged large."""
-GRIP = (36, 4)
-"""The grip on the handle between the preview and the editor: a short bar that shows it can be dragged."""
-
-
-class _GripHandle(QSplitterHandle):
-    """The handle between the preview and the editor, with a grip in the middle, brighter under the mouse."""
-
-    def __init__(self, orientation: Qt.Orientation, parent: PreviewSplitter):
-        super().__init__(orientation, parent)
-        self.owner = parent
-        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
-        self.setToolTip("Drag to make the strips larger or smaller")
-        self.move_to: QMouseEvent | None = None
-        """The last move of the mouse that the handle has not followed yet."""
-
-    def mousePressEvent(self, event: QMouseEvent | None) -> None:
-        super().mousePressEvent(event)
-        self.owner.held.emit(True)
-
-    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:
-        """
-        Follows the mouse once for all the moves that came in together: each step lays out the window again, and a
-        fast mouse sends more of them than the screen shows.
-        """
-        assert event is not None
-        if self.move_to is None:
-            QTimer.singleShot(0, self._follow)
-        self.move_to = event.clone()
-
-    def _follow(self) -> None:
-        event, self.move_to = self.move_to, None
-        if event is not None:
-            super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
-        self._follow()
-        super().mouseReleaseEvent(event)
-        self.owner.held.emit(False)
-
-    def paintEvent(self, event: QPaintEvent | None) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        colors = current_colors()
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(colors.text_muted if self.underMouse() else colors.control_border))
-        width, height = GRIP
-        grip = QRectF((self.width() - width) / 2, (self.height() - height) / 2, width, height)
-        painter.drawRoundedRect(grip, height / 2, height / 2)
-
-
-class PreviewSplitter(QSplitter):
-    """The preview above, the editor below, and a handle with a grip between them."""
-
-    held = pyqtSignal(bool, arguments=["held"])
-    """The handle was pressed (True) or let go (False)."""
-
-    def __init__(self):
-        super().__init__(Qt.Orientation.Vertical)
-        self.setChildrenCollapsible(False)
-        self.setHandleWidth(Space.M)
-
-    def createHandle(self) -> QSplitterHandle:
-        return _GripHandle(self.orientation(), self)
-
-    @property
-    def share(self) -> float:
-        """The share of the height the preview has."""
-        top, bottom = self.sizes()
-        return top / (top + bottom)
-
-    @share.setter
-    def share(self, share: float) -> None:
-        total = sum(self.sizes())
-        top = round(total * share)
-        self.setSizes([top, total - top])
 
 
 class MainWindow(QMainWindow):
@@ -272,11 +118,8 @@ class MainWindow(QMainWindow):
         self.find_daemon = find_daemon
         self.daemon: Instance | None = None
         self.audio = DISCONNECTED
-        self._layout_tabs_shown: object = None
-        """What the tabs of the layouts show, so that they are filled again only when that changes."""
         self.preview_share = session.preview_share if session is not None else load_preview_share()
         """The share of the height the preview has, None while it has not been dragged: then it has its own size."""
-        self.service_state: ServiceState | None = None
         self.setWindowTitle("X-Touch Extender")
         self.resize(1000, 960)
         self.applying = QTimer(self)
@@ -306,7 +149,12 @@ class MainWindow(QMainWindow):
         self.preview_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.preview_message.hide()
         body.addWidget(self.preview_message)
-        body.addLayout(self._layout_bar())
+        self.layout_bar = LayoutBar()
+        self.layout_bar.picked.connect(self.edit_layout)
+        self.layout_bar.add.connect(self.add_layout)
+        self.layout_bar.show_on_device.connect(self.show_layout_on_device)
+        self.layout_bar.show_layouts(self.document, self.live.snapshot)
+        body.addWidget(self.layout_bar)
         self.strip_list = StripList()
         self.strip_list.clicked.connect(self.select)
         self.strip_list.add.connect(self.add_strip)
@@ -425,26 +273,11 @@ class MainWindow(QMainWindow):
         layout.addLayout(titles)
         layout.addStretch()
         self._live_preview_switch(layout)
-        layout.addWidget(label("Service", "hint"))
-        self.pill = label("…", "pill")
-        layout.addWidget(self.pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.unit_label = label("", "hint")
-        """Which unit is in effect: the package's, or one in ~/.config and the program it starts."""
-        layout.addWidget(self.unit_label)
-        self.service_button = QPushButton()
-        # a key typed into the window right after it opened must not install or start a service
-        self.service_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.service_button.clicked.connect(self._service_action)
-        layout.addWidget(self.service_button)
-        self.override_button = QPushButton("Use the packaged unit")
-        self.override_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.override_button.clicked.connect(self._remove_override)
-        layout.addWidget(self.override_button)
-        self.stop_button = QPushButton("Stop")
-        self.stop_button.setToolTip("Stop the daemon: the device goes dark until the service starts again")
-        self.stop_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.stop_button.clicked.connect(self._stop)
-        layout.addWidget(self.stop_button)
+        self.service_controls = ServiceControls(self.service)
+        self.service_controls.changed.connect(self.refresh_service)
+        # the status line comes later, with the footer
+        self.service_controls.told.connect(lambda text: self.status.setText(text))
+        layout.addWidget(self.service_controls)
         layout.addSpacing(8)
         self.zoom_button = QToolButton()
         self.zoom_button.setText(zoom_text(self.zoom))
@@ -500,73 +333,6 @@ class MainWindow(QMainWindow):
         self.refresh_audio.clicked.connect(self.load_audio)
         top.addWidget(self.refresh_audio)
         return top
-
-    def _layout_bar(self) -> QHBoxLayout:
-        """The layouts: one tab each, the one the device shows marked; + adds one, and one button shows it there."""
-        bar = QHBoxLayout()
-        bar.addWidget(label("Layout", "hint"))
-        self.layout_tabs = QTabBar()
-        self.layout_tabs.setDrawBase(False)
-        self.layout_tabs.setExpanding(False)
-        self.layout_tabs.setToolTip(f"The layouts of the file; {ACTIVE_MARK.strip()} marks the one the device shows")
-        self.layout_tabs.currentChanged.connect(self._layout_picked)
-        bar.addWidget(self.layout_tabs)
-        self.add_layout_button = QToolButton()
-        set_icon(self.add_layout_button, "plus")
-        self.add_layout_button.setToolTip("Add a layout")
-        self.add_layout_button.setAutoRaise(True)
-        self.add_layout_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        menu = QMenu(self.add_layout_button)
-        empty = menu.addAction("Empty layout (auto strips)")
-        assert empty is not None
-        empty.triggered.connect(lambda: self.add_layout(copy_strips=False))
-        copied = menu.addAction("Copy of this layout")
-        assert copied is not None
-        copied.triggered.connect(lambda: self.add_layout(copy_strips=True))
-        self.add_layout_button.setMenu(menu)
-        bar.addWidget(self.add_layout_button)
-        bar.addStretch()
-        self.show_layout_button = QPushButton("Show on the device")
-        self.show_layout_button.setToolTip(
-            "Switch the running daemon to this layout (as saved, or as previewed while the live preview runs)"
-        )
-        self.show_layout_button.clicked.connect(self.show_layout_on_device)
-        bar.addWidget(self.show_layout_button)
-        self._fill_layout_tabs()
-        return bar
-
-    def _fill_layout_tabs(self) -> None:
-        """
-        The tabs of the layouts, again, when they show something else: after one was added, removed, renamed or
-        moved, another one is edited, or the device shows another one.
-        """
-        snapshot = self.live.snapshot
-        active = (snapshot.layout or "default") if snapshot is not None else None
-        names = self.document.layout_names
-        shown = (tuple(names), self.document.layout, active, snapshot is not None and tuple(snapshot.layouts))
-        if shown == self._layout_tabs_shown:
-            return
-        self._layout_tabs_shown = shown
-        self.layout_tabs.blockSignals(True)
-        while self.layout_tabs.count() > len(names):
-            self.layout_tabs.removeTab(self.layout_tabs.count() - 1)
-        for index, name in enumerate(names):
-            text = (name or "(no name)") + (ACTIVE_MARK if name == active else "")
-            if index < self.layout_tabs.count():
-                self.layout_tabs.setTabText(index, text)
-            else:
-                self.layout_tabs.addTab(text)
-        edited = self.document.layout
-        self.layout_tabs.setCurrentIndex(0 if edited is None else edited + 1)
-        self.layout_tabs.blockSignals(False)
-        showable = snapshot is not None and active != self.document.layout_name
-        self.show_layout_button.setVisible(bool(self.document.layouts))
-        self.show_layout_button.setEnabled(
-            showable and snapshot is not None and self.document.layout_name in snapshot.layouts
-        )
-
-    def _layout_picked(self, index: int) -> None:
-        self.edit_layout(None if index <= 0 else index - 1)
 
     def edit_layout(self, index: int | None) -> None:
         """Shows the strips of another layout (an index of the layouts of the document, None for the default one)."""
@@ -771,7 +537,7 @@ class MainWindow(QMainWindow):
         self.preview.show_faces(preview_faces, selected)
         people = people_on_strips(shown, len(strips))
         self.strip_list.show_strips(strips, rows, strip_looks, self.selected, people)
-        self._fill_layout_tabs()
+        self.layout_bar.show_layouts(self.document, self.live.snapshot)
         look = strip_looks[self.selected]
         title = f"Strip {self.selected + 1}" + (f" · {look.label}" if look.label else "")
         if self.tabs.tabText(STRIP_TAB) != title:
@@ -779,11 +545,11 @@ class MainWindow(QMainWindow):
             self.tabs.setTabText(STRIP_TAB, title)
         saved = self.document.saved_config
         device = saved.device.name if saved is not None else "the device"
-        _pill(self.mode_pill, preview_status(self.daemon, snapshot, device))
+        show_status(self.mode_pill, preview_status(self.daemon, snapshot, device))
         mqtt = header_status(snapshot)
         self.mqtt_pill.setVisible(mqtt is not None)
         if mqtt is not None:
-            _pill(self.mqtt_pill, Status(mqtt.text, mqtt.tone, f"{mqtt.tip} Click for the settings."))
+            show_status(self.mqtt_pill, Status(mqtt.text, mqtt.tone, f"{mqtt.tip} Click for the settings."))
         self.mqtt_page.show_live(snapshot)
         self.voip_page.show_live(snapshot)
         sync = sync_status(
@@ -820,7 +586,7 @@ class MainWindow(QMainWindow):
         pill = preview_pill(preview.on, preview.running, self.document.modified, self.validation.config is None)
         self.preview_pill.setVisible(pill is not None)
         if pill is not None:
-            _pill(self.preview_pill, pill)
+            show_status(self.preview_pill, pill)
         message = f"The device keeps the version before: {preview.error}" if preview.error else preview.notice
         self.preview_message.setVisible(message is not None)
         self.preview_message.setText(message or "")
@@ -946,116 +712,8 @@ class MainWindow(QMainWindow):
             self.live.disconnect_from_daemon()
         else:
             self.live.connect_to_daemon()
-        self._show_service()
+        self.service_controls.show_state(self.daemon, self.live.snapshot)
         self.refresh_preview()
-
-    def _show_service(self) -> None:
-        if self.daemon is not None and not self.daemon.systemd:
-            # started from a terminal or an IDE: the service can't start (the device is taken) or restart it
-            self.service_state = None
-            tip = (
-                f"The daemon runs outside systemd (process {self.daemon.pid}, e.g. from a terminal or an IDE) "
-                f"and reads {self.daemon.config}. Saving reloads it; restart it where it runs."
-            )
-            _pill(self.pill, Status("running elsewhere", Tone.GOOD, tip))
-            self._hide_service_controls()
-            return
-        try:
-            state = self.service.state()
-        except ServiceError as e:
-            self.service_state = None
-            _pill(self.pill, Status("unavailable", Tone.BAD, str(e)))
-            self._hide_service_controls()
-            return
-        self.service_state = state
-        highlight = False
-        if not state.installed:
-            tone, text = Tone.WARN, "Install and start"
-            tip = (
-                "Enable the unit of the package and start it"
-                if uses_packaged_unit()
-                else "Write the systemd user unit, enable and start it"
-            )
-        elif state.running:
-            tone, text, tip = Tone.GOOD, "Restart", "Restart the daemon, e.g. after changing the device name"
-            reason = outdated(state, self.live.snapshot, installed_version(), executable())
-            if reason is not None:
-                highlight, tip = True, reason
-        else:
-            tone = Tone.BAD if state.active == "failed" else Tone.NEUTRAL
-            text, tip = "Start", "Enable the service and start it"
-        _pill(self.pill, Status(state.describe(), tone, f"systemctl --user status {UNIT_NAME}"))
-        self.service_button.setText(text)
-        self.service_button.setToolTip(tip)
-        set_role(self.service_button, "primary" if highlight else "", "variant")
-        self.service_button.show()
-        self.stop_button.setVisible(state.running)
-        overrides = overrides_packaged_unit()
-        unit = unit_status(state, overrides)
-        self.unit_label.setVisible(unit is not None)
-        if unit is not None:
-            self.unit_label.setText(unit.text)
-            self.unit_label.setToolTip(unit.tip)
-        self.override_button.setToolTip(f"Remove {unit_path()}, which overrides the unit of the package")
-        self.override_button.setVisible(overrides)
-
-    def _hide_service_controls(self) -> None:
-        for widget in (self.unit_label, self.service_button, self.override_button, self.stop_button):
-            widget.hide()
-
-    def _service_action(self) -> None:
-        state = self.service_state
-        assert state is not None, "the button shows only with a known state"
-        if not state.running:
-            if state.installed:
-                question = f"Enable {UNIT_NAME} (it starts with the session from now on) and start it?"
-            elif uses_packaged_unit():
-                question = f"Enable {UNIT_NAME} of the package (it starts with the session from now on) and start it?"
-            else:
-                question = f"Write {unit_path()}, then enable and start the service?"
-            answer = QMessageBox.question(self, "Service", question)
-            if answer != QMessageBox.StandardButton.Yes:
-                return
-        try:
-            if not state.installed:
-                path = self.service.install(executable(), start=True)
-                done = "Enabled the unit of the package" if path is None else f"Installed {path}"
-                self.status.setText(f"{done} and started the service.")
-            elif state.running:
-                self.service.restart()
-                self.status.setText("Restarted the service.")
-            else:
-                self.service.start()
-                self.status.setText("Started the service.")
-        except ServiceError as e:
-            QMessageBox.warning(self, "Service", str(e))
-        self.refresh_service()
-
-    def _remove_override(self) -> None:
-        """Removes the unit in ~/.config, so the one of the package is in effect."""
-        question = (
-            f"Remove {unit_path()}? The unit of the package takes over; a running service restarts with the program "
-            "of the package."
-        )
-        if QMessageBox.question(self, "Service", question) != QMessageBox.StandardButton.Yes:
-            return
-        try:
-            path = self.service.remove_override()
-        except ServiceError as e:
-            QMessageBox.warning(self, "Service", str(e))
-        else:
-            self.status.setText(f"Removed {path}: the service uses the unit of the package.")
-        self.refresh_service()
-
-    def _stop(self) -> None:
-        """Stops the service but leaves it enabled: Start (or the next session) brings it back."""
-        try:
-            self.service.stop()
-        except ServiceError as e:
-            QMessageBox.warning(self, "Service", str(e))
-        else:
-            self.status.setText("Stopped the service.")
-        self.refresh_service()
 
     def _restart(self) -> None:
         self.restart_button.hide()

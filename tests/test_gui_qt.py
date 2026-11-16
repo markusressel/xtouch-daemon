@@ -46,7 +46,6 @@ from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.schema import Kind, Option, strip_options
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.gui.qt import window as window_module
 from xtouch_daemon.gui.qt.fields.chips import Chips
 from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
@@ -95,7 +94,10 @@ from xtouch_daemon.gui.qt.theme.tokens import (
     TINT_ALPHA,
     ThemeMode,
 )
-from xtouch_daemon.gui.qt.window import MainWindow, Session
+from xtouch_daemon.gui.qt.window import service as service_module
+from xtouch_daemon.gui.qt.window.main_window import MainWindow
+from xtouch_daemon.gui.qt.window.session import Session
+from xtouch_daemon.gui.qt.window.splitter import EDITOR_MIN_HEIGHT
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.codec import encode, encode_reply, encode_request
 from xtouch_daemon.live.messages import MqttState, Reply, Snapshot, StripState, SwitchLayout, VoipState, fingerprint
@@ -296,8 +298,8 @@ def test_the_window_shows_the_configuration(window: MainWindow, path: Path):
     assert window.path_label.text() == f"{path}  ·  saved"
     assert not window.save_button.isEnabled()
     assert not window.problems_button.isVisible()
-    assert window.pill.text() == "running"
-    assert window.service_button.text() == "Restart"
+    assert window.service_controls.pill.text() == "running"
+    assert window.service_controls.service_button.text() == "Restart"
     assert row(window, "label").line.text() == "Speaker"
     # the preview paints
     assert not window.grab().isNull()
@@ -1206,7 +1208,7 @@ def test_the_preview_scales_to_the_space_it_gets(window: MainWindow):
         assert view.pos() == preview.slot_point(index)
         assert view.width() == math.ceil(WIDTH * preview.scale)
     # the editor keeps its room
-    assert window.tabs.height() >= window_module.EDITOR_MIN_HEIGHT
+    assert window.tabs.height() >= EDITOR_MIN_HEIGHT
     handle = window.splitter.handle(1)
     assert handle is not None
     assert handle.cursor().shape() == Qt.CursorShape.SplitVCursor
@@ -1721,13 +1723,17 @@ def test_the_service_is_shown_and_controlled(
     command: list[str],
     isolated: Dialogs,
 ):
-    monkeypatch.setattr(window_module, "executable", lambda: "/opt/xtouch-daemon")
+    monkeypatch.setattr(service_module, "executable", lambda: "/opt/xtouch-daemon")
     systemctl.properties = properties
     window = make_window()
-    assert (window.pill.text(), window.pill.property("tone"), window.service_button.text()) == (pill, tone, button)
+    assert (
+        window.service_controls.pill.text(),
+        window.service_controls.pill.property("tone"),
+        window.service_controls.service_button.text(),
+    ) == (pill, tone, button)
     isolated.answer = QMessageBox.StandardButton.Yes
 
-    click(qtbot, window.service_button)
+    click(qtbot, window.service_controls.service_button)
 
     assert command in systemctl.commands
     assert window.status.text().endswith("the service.")
@@ -1744,7 +1750,7 @@ def test_a_service_is_installed_or_started_only_when_confirmed(
     shows = len(systemctl.commands)
 
     isolated.answer = QMessageBox.StandardButton.No
-    click(qtbot, window.service_button)
+    click(qtbot, window.service_controls.service_button)
 
     assert systemctl.commands[shows:] == []
     assert not (tmp_path / "systemd").exists()
@@ -1759,13 +1765,13 @@ def test_only_a_running_service_can_be_stopped(
 
     window = make_window()
 
-    assert window.stop_button.isHidden() is not stop
+    assert window.service_controls.stop_button.isHidden() is not stop
 
 
 def test_the_service_is_stopped_and_can_be_started_again(
     qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl, isolated: Dialogs
 ):
-    assert window.stop_button.focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert window.service_controls.stop_button.focusPolicy() == Qt.FocusPolicy.NoFocus
 
     def stop(command: list[str]) -> str:
         if command[2] == "stop":
@@ -1773,15 +1779,15 @@ def test_the_service_is_stopped_and_can_be_started_again(
         return systemctl(command)
 
     window.service._run = stop
-    click(qtbot, window.stop_button)
+    click(qtbot, window.service_controls.stop_button)
 
     assert ["systemctl", "--user", "stop", UNIT_NAME] in systemctl.commands
     # stopped, not disabled: it starts again with the next session
     assert ["systemctl", "--user", "disable", UNIT_NAME] not in systemctl.commands
     assert window.status.text() == "Stopped the service."
     assert isolated.shown == []
-    assert (window.pill.text(), window.service_button.text()) == ("stopped", "Start")
-    assert window.stop_button.isHidden()
+    assert (window.service_controls.pill.text(), window.service_controls.service_button.text()) == ("stopped", "Start")
+    assert window.service_controls.stop_button.isHidden()
 
 
 def test_a_failing_stop_is_reported(qtbot: QtBot, window: MainWindow, isolated: Dialogs):
@@ -1789,17 +1795,17 @@ def test_a_failing_stop_is_reported(qtbot: QtBot, window: MainWindow, isolated: 
         raise ServiceError("systemctl --user stop failed: nope")
 
     window.service._run = fail
-    click(qtbot, window.stop_button)
+    click(qtbot, window.service_controls.stop_button)
 
     assert isolated.shown == ["systemctl --user stop failed: nope"]
     assert window.status.text() == ""
-    assert window.stop_button.isHidden()
+    assert window.service_controls.stop_button.isHidden()
 
 
 def test_a_daemon_elsewhere_can_not_be_stopped_here(make_window: MakeWindow, path: Path):
     window = make_window(find_daemon=lambda: RecordingInstance(4242, path.resolve(), systemd=False))
 
-    assert window.stop_button.isHidden()
+    assert window.service_controls.stop_button.isHidden()
 
 
 CHECKOUT = "/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
@@ -1821,18 +1827,20 @@ def test_the_header_shows_which_unit_runs_the_service(make_window: MakeWindow, s
     )
     window = make_window()
 
-    assert window.unit_label.text() == f"from {CHECKOUT}"
-    assert window.unit_label.toolTip() == "The unit /home/me/.config/systemd/user/xtouch-daemon.service"
+    assert window.service_controls.unit_label.text() == f"from {CHECKOUT}"
+    assert (
+        window.service_controls.unit_label.toolTip() == "The unit /home/me/.config/systemd/user/xtouch-daemon.service"
+    )
     # without a package there is nothing it overrides
-    assert window.override_button.isHidden()
+    assert window.service_controls.override_button.isHidden()
 
     systemctl.properties = unit_properties(RUNNING, systemd.PACKAGED_UNIT, "/usr/bin/xtouch-daemon")
     window.refresh_service()
-    assert window.unit_label.text() == "packaged"
+    assert window.service_controls.unit_label.text() == "packaged"
 
     systemctl.properties = MISSING
     window.refresh_service()
-    assert window.unit_label.isHidden()
+    assert window.service_controls.unit_label.isHidden()
 
 
 @pytest.mark.parametrize("answer", [QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No])
@@ -1847,13 +1855,13 @@ def test_the_unit_that_overrides_the_package_can_be_removed(
     write_user_unit()
     systemctl.properties = unit_properties(RUNNING, unit_path(), CHECKOUT)
     window = make_window()
-    assert not window.override_button.isHidden()
-    assert window.unit_label.property("role") == "hint"
-    assert window.unit_label.toolTip().endswith(", which overrides the one of the package")
-    assert window.override_button.focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert not window.service_controls.override_button.isHidden()
+    assert window.service_controls.unit_label.property("role") == "hint"
+    assert window.service_controls.unit_label.toolTip().endswith(", which overrides the one of the package")
+    assert window.service_controls.override_button.focusPolicy() == Qt.FocusPolicy.NoFocus
     isolated.answer = answer
 
-    click(qtbot, window.override_button)
+    click(qtbot, window.service_controls.override_button)
 
     assert isolated.shown[0].startswith(f"Remove {unit_path()}?")
     if answer == QMessageBox.StandardButton.No:
@@ -1863,7 +1871,7 @@ def test_the_unit_that_overrides_the_package_can_be_removed(
     assert not unit_path().exists()
     assert ["systemctl", "--user", "restart", UNIT_NAME] in systemctl.commands
     assert window.status.text() == f"Removed {unit_path()}: the service uses the unit of the package."
-    assert window.override_button.isHidden()
+    assert window.service_controls.override_button.isHidden()
 
 
 def test_a_failing_removal_of_the_override_is_reported(
@@ -1880,7 +1888,7 @@ def test_a_failing_removal_of_the_override_is_reported(
 
     window.service._run = fail
     isolated.answer = QMessageBox.StandardButton.Yes
-    click(qtbot, window.override_button)
+    click(qtbot, window.service_controls.override_button)
 
     assert isolated.shown[1:] == ["systemctl --user disable failed: nope"]
     assert window.status.text() == ""
@@ -1892,10 +1900,10 @@ def test_the_package_starts_its_own_unit(
     install_package()
     systemctl.properties = MISSING
     window = make_window()
-    assert window.service_button.toolTip() == "Enable the unit of the package and start it"
+    assert window.service_controls.service_button.toolTip() == "Enable the unit of the package and start it"
     isolated.answer = QMessageBox.StandardButton.Yes
 
-    click(qtbot, window.service_button)
+    click(qtbot, window.service_controls.service_button)
 
     assert isolated.shown == [
         f"Enable {UNIT_NAME} of the package (it starts with the session from now on) and start it?"
@@ -1912,8 +1920,8 @@ def test_restart_stands_out_when_the_daemon_runs_an_older_version(
     live_daemon: FakeLiveDaemon,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(window_module, "executable", lambda: "/usr/bin/xtouch-daemon")
-    monkeypatch.setattr(window_module, "installed_version", lambda: "0.2.0")
+    monkeypatch.setattr(service_module, "executable", lambda: "/usr/bin/xtouch-daemon")
+    monkeypatch.setattr(service_module, "installed_version", lambda: "0.2.0")
     systemctl.properties = unit_properties(RUNNING, systemd.PACKAGED_UNIT, "/usr/bin/xtouch-daemon")
     window = make_window(live_socket=live_daemon.path)
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
@@ -1921,17 +1929,17 @@ def test_restart_stands_out_when_the_daemon_runs_an_older_version(
     live_daemon.send(current)
     qtbot.waitUntil(lambda: window.live.snapshot is not None)
     window.refresh_service()
-    assert window.service_button.property("variant") == ""
-    assert window.service_button.toolTip() == "Restart the daemon, e.g. after changing the device name"
+    assert window.service_controls.service_button.property("variant") == ""
+    assert window.service_controls.service_button.toolTip() == "Restart the daemon, e.g. after changing the device name"
 
     # after an upgrade of the package
     live_daemon.send(dataclasses.replace(current, daemon_version="0.1.0"))
     qtbot.waitUntil(lambda: window.live.snapshot is not None and window.live.snapshot.daemon_version == "0.1.0")
     window.refresh_service()
 
-    assert window.service_button.text() == "Restart"
-    assert window.service_button.property("variant") == "primary"
-    assert window.service_button.toolTip() == (
+    assert window.service_controls.service_button.text() == "Restart"
+    assert window.service_controls.service_button.property("variant") == "primary"
+    assert window.service_controls.service_button.toolTip() == (
         "The daemon runs version 0.1.0, 0.2.0 is installed: restart it to run 0.2.0"
     )
 
@@ -1941,7 +1949,7 @@ def test_a_new_window_starts_with_the_keys_on_the_strips(window: MainWindow):
 
 
 def test_keys_typed_into_a_new_window_do_not_press_the_service_button(window: MainWindow):
-    assert window.service_button.focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert window.service_controls.service_button.focusPolicy() == Qt.FocusPolicy.NoFocus
 
 
 def test_a_failing_systemctl_is_reported(qtbot: QtBot, make_window: MakeWindow, systemctl, isolated: Dialogs):
@@ -1951,10 +1959,10 @@ def test_a_failing_systemctl_is_reported(qtbot: QtBot, make_window: MakeWindow, 
         raise ServiceError("systemctl --user restart failed: nope")
 
     window.service._run = fail
-    click(qtbot, window.service_button)
+    click(qtbot, window.service_controls.service_button)
     assert isolated.shown == ["systemctl --user restart failed: nope"]
-    assert window.pill.text() == "unavailable"
-    assert window.service_button.isHidden()
+    assert window.service_controls.pill.text() == "unavailable"
+    assert window.service_controls.service_button.isHidden()
 
 
 def test_a_changed_device_offers_a_restart(qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl):
@@ -2009,11 +2017,14 @@ def test_a_daemon_started_elsewhere_is_shown_and_reloaded(qtbot: QtBot, make_win
     daemon = RecordingInstance(4242, path.resolve(), systemd=False)
     window = make_window(find_daemon=lambda: daemon)
 
-    assert (window.pill.text(), window.pill.property("tone")) == ("running elsewhere", "good")
-    assert "process 4242" in window.pill.toolTip()
-    assert window.service_button.isHidden()
-    assert window.unit_label.isHidden()
-    assert window.override_button.isHidden()
+    assert (window.service_controls.pill.text(), window.service_controls.pill.property("tone")) == (
+        "running elsewhere",
+        "good",
+    )
+    assert "process 4242" in window.service_controls.pill.toolTip()
+    assert window.service_controls.service_button.isHidden()
+    assert window.service_controls.unit_label.isHidden()
+    assert window.service_controls.override_button.isHidden()
 
     window.document.set(("device", "name"), "Other")
     window.editor.edited()
@@ -2715,17 +2726,17 @@ def layouts(make_window: MakeWindow, path: Path) -> MainWindow:
 
 
 def tab_texts(window: MainWindow) -> list[str]:
-    return [window.layout_tabs.tabText(index) for index in range(window.layout_tabs.count())]
+    return [window.layout_bar.tabs.tabText(index) for index in range(window.layout_bar.tabs.count())]
 
 
 def test_the_layouts_are_tabs_above_the_preview(qtbot: QtBot, layouts: MainWindow):
     window = layouts
     assert tab_texts(window) == ["default", "gaming", "music"]
-    assert window.layout_tabs.currentIndex() == 0
+    assert window.layout_bar.tabs.currentIndex() == 0
     # without the daemon there is nothing to show it on
-    assert not window.show_layout_button.isEnabled()
+    assert not window.layout_bar.show_button.isEnabled()
 
-    window.layout_tabs.setCurrentIndex(1)
+    window.layout_bar.tabs.setCurrentIndex(1)
 
     assert window.document.layout_name == "gaming"
     assert window.preview.strips[0].face.look.detail.startswith("like the default layout")
@@ -2733,7 +2744,7 @@ def test_the_layouts_are_tabs_above_the_preview(qtbot: QtBot, layouts: MainWindo
     assert window.tabs.tabText(0).startswith("Strip 1")
     # the inherit type is offered in a layout, but not in the default one
     assert buttons(window.strip_page, QPushButton, lambda button: button.text() == "Inherit")
-    window.layout_tabs.setCurrentIndex(0)
+    window.layout_bar.tabs.setCurrentIndex(0)
     assert window.document.layout is None
     assert not buttons(window.strip_page, QPushButton, lambda button: button.text() == "Inherit")
 
@@ -2745,7 +2756,7 @@ def test_the_layout_page_names_the_layout(qtbot: QtBot, layouts: MainWindow):
     # the default layout has no options
     assert window.layout_page.rows == []
 
-    window.layout_tabs.setCurrentIndex(2)
+    window.layout_bar.tabs.setCurrentIndex(2)
     assert window.current_page == "layout"
     assert [option_row.option.name for option_row in window.layout_page.rows] == [
         "name",
@@ -2771,14 +2782,14 @@ def test_the_layout_page_names_the_layout(qtbot: QtBot, layouts: MainWindow):
 
 def test_layouts_are_added_moved_and_removed(qtbot: QtBot, layouts: MainWindow):
     window = layouts
-    window.layout_tabs.setCurrentIndex(1)
-    menu = window.add_layout_button.menu()
+    window.layout_bar.tabs.setCurrentIndex(1)
+    menu = window.layout_bar.add_button.menu()
     assert menu is not None
     empty, copied = menu.actions()
 
     copied.trigger()
     assert tab_texts(window) == ["default", "gaming", "music", "layout_2"]
-    assert window.layout_tabs.currentIndex() == 3
+    assert window.layout_bar.tabs.currentIndex() == 3
     assert window.current_page == "layout"
     assert [strip.type for strip in window.document.strips] == ["inherit", "voip", "voip"]
     assert "Added the layout layout_2" in window.status.text()
@@ -2791,7 +2802,7 @@ def test_layouts_are_added_moved_and_removed(qtbot: QtBot, layouts: MainWindow):
     assert not right[0].isEnabled()
     click(qtbot, left[0])
     assert tab_texts(window) == ["default", "gaming", "music", "layout_3", "layout_2"]
-    assert window.layout_tabs.currentIndex() == 3
+    assert window.layout_bar.tabs.currentIndex() == 3
 
     (remove,) = buttons(window.layout_page, QPushButton, lambda button: button.text() == "Remove layout")
     click(qtbot, remove)
@@ -2836,13 +2847,13 @@ def test_the_device_shows_one_layout_live(
     assert tab_texts(window) == ["default", "gaming ●", "music"]
     # the default layout is not on the device
     assert not window.preview.strips[0].face.live
-    assert window.show_layout_button.isEnabled()
-    window.layout_tabs.setCurrentIndex(1)
+    assert window.layout_bar.show_button.isEnabled()
+    window.layout_bar.tabs.setCurrentIndex(1)
     assert window.preview.strips[0].face.live
-    assert not window.show_layout_button.isEnabled()
+    assert not window.layout_bar.show_button.isEnabled()
 
-    window.layout_tabs.setCurrentIndex(2)
-    click(qtbot, window.show_layout_button)
+    window.layout_bar.tabs.setCurrentIndex(2)
+    click(qtbot, window.layout_bar.show_button)
     assert window.status.text() == "Asked the daemon to show the layout music."
     (client,) = live_daemon.clients
     qtbot.waitUntil(lambda: client.bytesAvailable() > 0)
@@ -2860,7 +2871,7 @@ def test_the_device_shows_one_layout_live(
 
 def test_nothing_is_sent_without_the_daemon(layouts: MainWindow):
     window = layouts
-    window.layout_tabs.setCurrentIndex(1)
+    window.layout_bar.tabs.setCurrentIndex(1)
     window.show_layout_on_device()
     assert window.status.text() == ""
 
@@ -2936,7 +2947,7 @@ def test_the_strip_list_reaches_the_strips_beyond_the_device(qtbot: QtBot, make_
 
 def test_an_inherit_strip_picks_its_layout_and_strip(qtbot: QtBot, layouts: MainWindow):
     window = layouts
-    window.layout_tabs.setCurrentIndex(1)
+    window.layout_bar.tabs.setCurrentIndex(1)
     window.select(0)
     layout, strip = row(window, "layout"), row(window, "strip")
     assert layout.line.placeholderText() == "default"

@@ -101,7 +101,7 @@ def shoot(home: Path, out: Path) -> None:
     from xtouch_daemon.gui.domain.document import ConfigDocument
     from xtouch_daemon.gui.qt.theme.style import apply_theme
     from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
-    from xtouch_daemon.gui.qt.window import MainWindow
+    from xtouch_daemon.gui.qt.window.main_window import MainWindow
     from xtouch_daemon.live.codec import encode
     from xtouch_daemon.live.messages import MqttState, Snapshot, StripState, fingerprint
     from xtouch_daemon.system.instance import Instance
