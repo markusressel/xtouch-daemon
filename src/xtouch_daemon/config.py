@@ -139,8 +139,7 @@ FaderNumber = Annotated[int, Field(ge=1, le=protocol.STRIPS)]
 
 MAX_STRIPS = 32
 """
-The most places the strips of a layout may take: more than the 8 of the device only with `collapse`, see
-`Config.unreachable()`.
+The most strips a layout may have: more than the 8 of the device only with `collapse`, see `Config.unreachable()`.
 """
 
 
@@ -382,9 +381,9 @@ STRIP_TYPE_MEANINGS = Meanings(
         "empty": "A dark strip that does nothing; its fader stays at the bottom.",
         "inherit": "In a `[[layout]]`: the strip of the default layout (the top-level `[[strip]]` list) at this "
         "place, e.g. the same output in every layout; or, with `layout` and `strip`, any strip of any layout.",
-        "voip": "The participants of the voice chat, one per strip: the fader sets the participant's volume, Mute "
-        "mutes them for you, the meter shows their voice. Takes `count` places; Select shows the next ones. Needs "
-        "`[voip]`.",
+        "voip": "A participant of the voice chat: the fader sets their volume, Mute mutes them for you, the meter "
+        "shows their voice. With `person`, always the same one; the voip strips without it are a group that fills "
+        "with the others, and Select on one of them shows the next ones.",
     }
 )
 """What each strip type is, shown when it is chosen."""
@@ -594,7 +593,7 @@ class InheritStripConfig(_Model):
     strip: Annotated[int, Field(ge=1, le=MAX_STRIPS)] | Slug | None = None
     """
     The strip in that layout: its position in the layout's list (from 1), or its `id`; by default the strip at this
-    place. A `voip` strip comes with all its places then.
+    place.
     """
 
 
@@ -627,29 +626,13 @@ class _Inheritance:
             raise ValueError(f"{self.where(chain[0])}: more than {INHERIT_LIMIT} inherit strips refer to one another")
         return (*chain, entry)
 
-    def size(self, entry: _Entry, chain: tuple[_Entry, ...] = ()) -> int:
-        """The places the strip takes: `count` of a `voip` strip, one for others."""
-        strip = self._strip(entry)
-        if isinstance(strip, VoipStripConfig):
-            return strip.count
-        if not isinstance(strip, InheritStripConfig) or strip.strip is None:
-            return 1
-        chain = self._enter(entry, chain)
-        target, _ = self._target(entry, chain)
-        assert target is not None, "a strip of a layout's list"
-        return self.size(target, chain)
-
-    def place(self, entry: _Entry, chain: tuple[_Entry, ...] = ()) -> int:
-        """The place (from 0) of the strip in its layout."""
-        layout, position = entry
-        return sum(self.size((layout, before), chain) for before in range(position))
-
-    def _target(self, entry: _Entry, chain: tuple[_Entry, ...]) -> tuple[_Entry | None, int]:
+    def _target(self, entry: _Entry) -> _Entry | None:
         """
-        The strip an `inherit` strip refers to, and the place in it it takes (0 for all of them with `strip`). None:
-        an `auto` strip after the configured strips of a layout.
+        The strip an `inherit` strip refers to (without `strip`: the one at its own place). None: an `auto` strip after
+        the configured strips of a layout.
         """
         strip = self._strip(entry)
+        place = entry[1]
         assert isinstance(strip, InheritStripConfig)
         where = self.where(entry)
         if strip.layout is not None and strip.layout not in self.names:
@@ -658,26 +641,21 @@ class _Inheritance:
         name = f"the layout {strip.layout}" if layout else "the default layout"
         strips = self.layouts[layout].strips
         if strip.strip is None:
-            place = self.place(entry, chain)
-            start = 0
-            for position in range(len(strips)):
-                size = self.size((layout, position), chain)
-                if place < start + size:
-                    return (layout, position), place - start
-                start += size
+            if place < len(strips):
+                return layout, place
             if place < protocol.STRIPS:
-                return None, 0
-            raise ValueError(f"{where}: inherit, but {name} has only {max(start, protocol.STRIPS)} places")
+                return None
+            raise ValueError(f"{where}: inherit, but {name} has only {max(len(strips), protocol.STRIPS)} strips")
         if isinstance(strip.strip, int):
             if strip.strip > len(strips):
                 raise ValueError(f"{where}: inherit strip {strip.strip}, but {name} has {len(strips)} strips")
-            return (layout, strip.strip - 1), 0
+            return layout, strip.strip - 1
         found = [position for position, other in enumerate(strips) if getattr(other, "id", None) == strip.strip]
         if not found:
             raise ValueError(f"{where}: inherit strip {strip.strip}, but {name} has no strip with that id")
         if len(found) > 1:
             raise ValueError(f"{where}: inherit strip {strip.strip}, but {name} has {len(found)} strips with that id")
-        return (layout, found[0]), 0
+        return layout, found[0]
 
     def origin(self, entry: _Entry) -> _Entry | None:
         """The strip an `inherit` strip is in the end (itself for another one), None for an `auto` strip of none."""
@@ -685,45 +663,54 @@ class _Inheritance:
         current: _Entry | None = entry
         while current is not None and isinstance(self._strip(current), InheritStripConfig):
             chain = self._enter(current, chain)
-            current, _ = self._target(current, chain)
+            current = self._target(current)
         return current
 
-    def resolve(
-        self, entry: _Entry, chain: tuple[_Entry, ...] = (), lands: int | None = None
-    ) -> tuple[StripConfig, ...]:
-        """
-        The strips of the places the strip takes (a `voip` strip: the same object on each). `lands`: the place the
-        strip an `inherit` strip refers to lands on.
-        """
+    def resolve(self, entry: _Entry, chain: tuple[_Entry, ...] = (), lands: int | None = None) -> StripConfig:
+        """The strip of the entry, with the strips `inherit` ones refer to; `lands` is the place it lands on."""
         strip = self._strip(entry)
-        if not isinstance(strip, InheritStripConfig):
-            if isinstance(strip, _StripConfig | HomeAssistantStripConfig) and strip.id is None:
-                home = self.place(entry)
-                if lands is not None and lands != home:
-                    # on another place: its entities in Home Assistant are still those of its own place
-                    strip = strip.model_copy(update={"id": f"strip_{home + 1}"})
-            return (strip,) * (strip.count if isinstance(strip, VoipStripConfig) else 1)
+        _, position = entry
         if lands is None:
-            lands = self.place(entry)
+            lands = position
+        if not isinstance(strip, InheritStripConfig):
+            if isinstance(strip, _StripConfig | HomeAssistantStripConfig) and strip.id is None and lands != position:
+                # on another place: its entities in Home Assistant are still those of its own place
+                strip = strip.model_copy(update={"id": f"strip_{position + 1}"})
+            return strip
         chain = self._enter(entry, chain)
-        target, offset = self._target(entry, chain)
+        target = self._target(entry)
         if target is None:
-            return (AutoStripConfig(type="auto"),)
-        if strip.strip is not None:
-            return self.resolve(target, chain, lands)
-        # one place of it: the same place, so the same entities
-        return (self.resolve(target, chain, lands - offset)[offset],)
+            return AutoStripConfig(type="auto")
+        return self.resolve(target, chain, lands)
+
+
+def _one_or_more(value: object) -> object:
+    """One name, or a list of them."""
+    return (value,) if isinstance(value, str) else value
+
+
+def _person_names(value: tuple[str, ...]) -> tuple[str, ...]:
+    if any(not name.strip() for name in value):
+        raise ValueError("an empty name")
+    return value
 
 
 class VoipStripConfig(_Model):
-    """The participants of the voice chat, one per strip, from the provider of `[voip]`."""
+    """
+    A participant of the voice chat, from the provider of `[voip]`: with `person` always the same one, else one of
+    the group of the layout's `voip` strips without `person`.
+    """
 
     type: Annotated[Literal["voip"], STRIP_TYPE_MEANINGS]
-    count: FaderNumber = 1
+    person: Annotated[tuple[str, ...], BeforeValidator(_one_or_more), AfterValidator(_person_names)] = ()
     """
-    How many places the participants take, from this one to the right. With more participants, Select on any of
-    them shows the next ones.
+    The participant the strip always shows: their name in the voice chat, or several names of the same person (e.g.
+    "Alice" and "alice-phone"), ignoring case. While they are not there, the strip shows the name dark. Without it,
+    the strip is part of the group: the `voip` strips of the layout without `person`, which show the other
+    participants, and Select on one of them the next ones.
     """
+    label: Label | None = None
+    """The top line of the LCD of a strip with `person`; by default the first name of `person`."""
     color: Annotated[ColorName, COLORS] = "white"
     """The backlight of the LCD while a participant is there and does not talk."""
     talking_color: Annotated[ColorName, COLORS] = "green"
@@ -735,14 +722,32 @@ class VoipStripConfig(_Model):
     launch: Command | None = None
     """
     A command that Select starts while the voice chat is not there (no plugin reports it, and its program does not
-    run), e.g. `["mumble", "mumble://me@voice.example.org/Gaming"]`. Never through a shell. While it is there, Select
-    pages as before.
+    run), e.g. `["mumble", "mumble://me@voice.example.org/Gaming"]`. Never through a shell. The `voip` strips of a
+    layout with the same command start it once.
     """
     collapse: bool = False
     """
-    Whether a place without a participant gives its fader to the strips after it (see `behavior.collapse_hold`), so
-    the places of an empty call take none.
+    Whether the strip gives its fader to the strips after it while it shows nobody (see `behavior.collapse_hold`):
+    a strip with `person` while the person is not there, one of the group while it has no participant.
     """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_count(cls, data: object) -> object:
+        if isinstance(data, Mapping) and "count" in data:
+            raise ValueError("count is gone: write N voip strips; voip strips without `person` form a group")
+        return data
+
+    @model_validator(mode="after")
+    def _label_of_a_person(self) -> VoipStripConfig:
+        if self.label is not None and not self.person:
+            raise ValueError("label: only with person; a strip of the group shows the name of its participant")
+        return self
+
+    @property
+    def title(self) -> str:
+        """The top line of a strip with `person` (its label, else the first name), "" for one of the group."""
+        return self.label or (self.person[0] if self.person else "")
 
 
 StripConfig = Annotated[
@@ -939,13 +944,19 @@ class Config(_Model):
                 )
         inheritance = _Inheritance(self.layout_list())
         for index, layout in enumerate(self.layout_list()):
-            where = f"layout[{index}]" if index else "strip"
             strips = f"layout[{index}].strip" if index else "strip"
             for position in range(len(layout.strips)):
                 inheritance.resolve((index, position))
-            places = sum(inheritance.size((index, position)) for position in range(len(layout.strips)))
-            if places > MAX_STRIPS:
-                raise ValueError(f"{where}: the strips take {places} places, at most {MAX_STRIPS}")
+            people = [
+                name
+                for strip in self.all_strips(layout.name)
+                if isinstance(strip, VoipStripConfig)
+                for name in {name.casefold() for name in strip.person}
+            ]
+            twice = sorted({name for name in people if people.count(name) > 1})
+            if twice:
+                where = "" if index == 0 else f" (layout {layout.name})"
+                raise ValueError(f"voip strips with the same person{where}: {', '.join(twice)}")
             never = self.unreachable(layout.name)
             if never:
                 numbers = ", ".join(f"{strips}[{number}]" for number in never)
@@ -1005,22 +1016,17 @@ class Config(_Model):
 
     def all_strips(self, layout: str = DEFAULT_LAYOUT) -> tuple[StripConfig, ...]:
         """
-        The configuration of every strip of the device in a layout: `inherit` ones are the strips they refer to, a
-        `voip` strip is there once for each of its places (the same object), and the ones that are not configured are
-        `auto`.
+        The configuration of every strip of a layout, at least the 8 of the device: `inherit` ones are the strips
+        they refer to, and the ones that are not configured are `auto`.
         """
         index = self.layout_names.index(self.layout(layout).name)
         inheritance = _Inheritance(self.layout_list())
-        result = [
-            strip
-            for position in range(len(self.layout(layout).strips))
-            for strip in inheritance.resolve((index, position))
-        ]
+        result = [inheritance.resolve((index, position)) for position in range(len(self.layout(layout).strips))]
         return (*result, *(AutoStripConfig(type="auto") for _ in range(protocol.STRIPS - len(result))))
 
     def inherited(self, layout: str = DEFAULT_LAYOUT) -> tuple[str | None, ...]:
         """
-        For each place of `all_strips()`, where its strip comes from if an `inherit` strip took it (e.g.
+        For each strip of `all_strips()`, where it comes from if it is an `inherit` strip (e.g.
         "layout voice, strip 2"), None for the others.
         """
         index = self.layout_names.index(self.layout(layout).name)
@@ -1034,17 +1040,8 @@ class Config(_Model):
                 where = ("the default layout" if name == DEFAULT_LAYOUT else f"layout {name}") + (
                     f", strip {origin[1] + 1}" if origin is not None else ", an auto strip"
                 )
-            result.extend([where] * inheritance.size((index, position)))
+            result.append(where)
         return (*result, *[None] * (len(self.all_strips(layout)) - len(result)))
-
-    def places(self, layout: str = DEFAULT_LAYOUT) -> tuple[int, ...]:
-        """For each place of `all_strips()`, the number of its strip in the list of the layout (from 1, 0: padding)."""
-        index = self.layout_names.index(self.layout(layout).name)
-        inheritance = _Inheritance(self.layout_list())
-        numbers: list[int] = []
-        for position in range(len(self.layout(layout).strips)):
-            numbers.extend([position + 1] * inheritance.size((index, position)))
-        return (*numbers, *[0] * (len(self.all_strips(layout)) - len(numbers)))
 
     def unreachable(self, layout: str = DEFAULT_LAYOUT) -> list[int]:
         """
@@ -1053,8 +1050,8 @@ class Config(_Model):
         """
         steady = 0
         never: list[int] = []
-        for strip, number in zip(self.all_strips(layout), self.places(layout), strict=True):
-            if steady >= protocol.STRIPS and number not in never:
+        for number, strip in enumerate(self.all_strips(layout), start=1):
+            if steady >= protocol.STRIPS:
                 never.append(number)
             if not collapses(strip):
                 steady += 1

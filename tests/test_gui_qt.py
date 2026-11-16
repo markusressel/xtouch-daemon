@@ -2592,7 +2592,9 @@ type = "inherit"
 
 [[layout.strip]]
 type = "voip"
-count = 2
+
+[[layout.strip]]
+type = "voip"
 
 [[layout]]
 name = "music"
@@ -2671,7 +2673,7 @@ def test_layouts_are_added_moved_and_removed(qtbot: QtBot, layouts: MainWindow):
     assert tab_texts(window) == ["default", "gaming", "music", "layout_2"]
     assert window.layout_tabs.currentIndex() == 3
     assert window.current_page == "layout"
-    assert [strip.type for strip in window.document.strips] == ["inherit", "voip"]
+    assert [strip.type for strip in window.document.strips] == ["inherit", "voip", "voip"]
     assert "Added the layout layout_2" in window.status.text()
     empty.trigger()
     assert window.document.layout_name == "layout_3"
@@ -2696,13 +2698,13 @@ def test_layouts_are_added_moved_and_removed(qtbot: QtBot, layouts: MainWindow):
 def test_a_problem_of_another_layout_leads_to_it(layouts: MainWindow):
     window = layouts
     window.document.edit_layout(0)
-    window.document.set(("strip", 1, "count"), 9)
+    window.document.set(("strip", 1, "max_volume"), 999)
     window.document.edit_layout(1)
     window.document.set(("layout", "priority"), "high")
     window.document.edit_layout(None)
     window.editor.edited()
 
-    next(action for action in window.problems_menu.actions() if "count" in action.text()).trigger()
+    next(action for action in window.problems_menu.actions() if "max_volume" in action.text()).trigger()
     assert (window.document.layout_name, window.selected, window.current_page) == ("gaming", 1, "strip")
     next(action for action in window.problems_menu.actions() if "priority" in action.text()).trigger()
     assert (window.document.layout_name, window.current_page) == ("music", "layout")
@@ -2855,3 +2857,66 @@ def test_an_inherit_strip_picks_its_layout_and_strip(qtbot: QtBot, layouts: Main
     window.document.set(("strip", 0, "strip"), 2)
     strip.load()
     assert strip.line.text() == "2"
+
+
+# -- voip strips --------------------------------------------------------------------------------------------------
+
+VOIP = (
+    '[voip]\nprovider = "demo"\n'
+    '[[strip]]\ntype = "voip"\nperson = "Ann"\ncollapse = true\n' + '[[strip]]\ntype = "voip"\ncollapse = true\n' * 8
+)
+
+
+def test_voip_strips_say_who_is_on_them(qtbot: QtBot, make_window: MakeWindow, path: Path, live_daemon: FakeLiveDaemon):
+    path.write_text(VOIP)
+    window = make_window(live_socket=live_daemon.path)
+    # the preview prints whom a strip is for, or that it is one of the group
+    assert [strip.look.printed for strip in window.preview.strips[:2]] == ["Ann", "voip group"]
+    person = row(window, "person")
+    assert person.chips.values == ["Ann"]
+    menu_button = next(button for button in person.findChildren(QToolButton) if button.menu())
+    menu = menu_button.menu()
+    assert menu is not None
+    menu.aboutToShow.emit()
+    assert [action.text() for action in menu.actions()] == [
+        "Nobody is in the voice chat right now, or the daemon does not run"
+    ]
+
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    saved = window.document.saved_config
+    assert saved is not None
+    voip = live.VoipState("demo", True, None, None, 2, ("Ann", "Bob"), ("Ann", "Bob", *[None] * 7))
+    strips = tuple(strip_state(("Live", "")) for _ in range(8))
+    live_daemon.send(
+        Snapshot(
+            live.fingerprint(saved),
+            True,
+            True,
+            None,
+            strips,
+            voip=voip,
+            placement=(0, 1, None, None, None, None, None, None),
+        )
+    )
+    qtbot.waitUntil(lambda: window.live.snapshot is not None)
+    texts = [button.text() for button in window.strip_list.buttons]
+    assert texts[:3] == ["1 Ann · on 1", "2 voip: Bob · on 2", "3 voip · collapsed"]
+
+    # the people of the voice chat are suggested
+    window.select(1)
+    person = row(window, "person")
+    assert person.chips.values == []
+    assert person.chips.input.placeholderText() == "Add… (none: part of the group)"
+    menu_button = next(button for button in person.findChildren(QToolButton) if button.menu())
+    menu = menu_button.menu()
+    assert menu is not None
+    menu.aboutToShow.emit()
+    assert [action.text() for action in menu.actions()] == [
+        "Ann    in the voice chat now",
+        "Bob    in the voice chat now",
+    ]
+    menu.actions()[1].trigger()
+    assert window.document.get(("strip", 1, "person")) == ["Bob"]
+    # the label shown by default follows
+    assert row(window, "label").line.placeholderText() == "Bob"
+    assert window.preview.strips[1].look.printed == "Bob"

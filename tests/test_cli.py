@@ -557,15 +557,21 @@ def test_check_config_shows_the_layouts(tmp_path: Path) -> None:
     path.write_text(
         '[[strip]]\ntype = "output"\n[voip]\n'
         '[[layout]]\nname = "gaming"\nlabel = "Gaming"\napps = ["steam"]\nprocesses = ["mumble", "ts3"]\npriority = 2\n'
-        '[[layout.strip]]\ntype = "inherit"\n[[layout.strip]]\ntype = "voip"\ncount = 2\n'
+        '[[layout.strip]]\ntype = "inherit"\n[[layout.strip]]\ntype = "voip"\n'
+        '[[layout.strip]]\ntype = "voip"\nperson = ["Ann", "ann-phone"]\nlabel = "Mum"\ncollapse = true\n'
+        '[[layout.strip]]\ntype = "voip"\nperson = "Bob"\n'
         '[[layout]]\nname = "plain"\n[[layout]]\nname = "music"\napps = ["spotify"]\n'
     )
     lines = invoke("check-config", "-c", str(path)).output.splitlines()
     gaming = lines.index("Layout gaming (Gaming), while steam has a stream or mumble or ts3 runs, priority 2:")
     assert lines[gaming + 1].startswith("  1. the default output")
     assert lines[gaming + 1].endswith("), from the default layout, strip 1")
-    assert lines[gaming + 2] == "  2. a participant of the voice chat (white, talking: green)"
-    assert lines[gaming + 3] == lines[gaming + 2].replace("2.", "3.")
+    assert lines[gaming + 2] == "  2. a participant of the voice chat, in the group (white, talking: green)"
+    assert (
+        lines[gaming + 3]
+        == "  3. 'Mum' Ann or ann-phone in the voice chat, dark while away (white, talking: green, collapses)"
+    )
+    assert lines[gaming + 4] == "  4. Bob in the voice chat, dark while away (white, talking: green)"
     assert "Layout plain:" in lines
     assert "Layout music, while spotify has a stream:" in lines
     config = parse_config('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\n')
@@ -800,5 +806,5 @@ def test_check_config_describes_choices_and_strips_that_collapse(tmp_path: Path)
     assert "  1. output: Phones, Speaker or bluez_output.* (Select switches) (white, rec: recording" in output
     assert "  2. output bluez_output.*, select makes it the default (white, rec: recording, solo: off, " in output
     assert "encoder: balance, collapses)" in output
-    assert "  9. a participant of the voice chat (white, talking: green, collapses)" in output
+    assert "  9. a participant of the voice chat, in the group (white, talking: green, collapses)" in output
     assert "  The device shows the first 8 of them that don't collapse." in output

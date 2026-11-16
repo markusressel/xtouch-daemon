@@ -126,7 +126,11 @@ def describe_strip(config: StripConfig, number: int) -> str:
             launch = f", select launches {shlex.join(config.launch)} while it is not there" if config.launch else ""
             collapse = ", collapses" if config.collapse else ""
             colors = f"{config.color}, talking: {config.talking_color}"
-            return f"a participant of the voice chat ({colors}{collapse}){launch}"
+            if config.person:
+                who = f"{' or '.join(config.person)} in the voice chat"
+                label = f"{config.label!r} " if config.label else ""
+                return f"{label}{who}, dark while away ({colors}{collapse}){launch}"
+            return f"a participant of the voice chat, in the group ({colors}{collapse}){launch}"
         case _ as unreachable:
             assert_never(unreachable)
     label = f"{config.label!r} " if isinstance(config, DeviceStripConfig | AppsStripConfig) and config.label else ""

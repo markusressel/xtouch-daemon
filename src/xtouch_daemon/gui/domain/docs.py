@@ -51,11 +51,13 @@ STRIP_OPTIONS: dict[str, str] = {
     "match": "configuration/applications/#apps-strips",
     "launch": "configuration/applications/#launching-the-application",
     "launch_when_running": "configuration/applications/#launching-the-application",
+    "person": "configuration/layouts/#strips-for-one-person",
 }
 """The options of the strips; `STRIP_TYPE_OPTIONS` overrides them for one type."""
 
 STRIP_TYPE_OPTIONS: dict[tuple[str, str], str] = {
     ("homeassistant", "id"): "home-assistant/#entities",
+    ("voip", "label"): "configuration/layouts/#strips-for-one-person",
 }
 
 SECTION_OPTIONS: dict[str, dict[str, str]] = {

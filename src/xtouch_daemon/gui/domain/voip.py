@@ -3,6 +3,7 @@ The voice chat on the page of `[voip]`: whether the daemon has the participants,
 (see `xtouch_daemon.mumble`).
 """
 
+from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.live import Snapshot
 from xtouch_daemon.mumble import Setup
@@ -35,6 +36,22 @@ def voip_status(snapshot: Snapshot | None) -> Status:
     channel = f" in {voip.channel}" if voip.channel else ""
     client = (voip.client or "a client").capitalize()
     return Status(f"{client} connected", Tone.GOOD, f"{people}{channel}.")
+
+
+def participants(snapshot: Snapshot | None) -> tuple[Suggestion, ...]:
+    """The people in the voice chat now, for `person` of a `voip` strip."""
+    if snapshot is None or snapshot.voip is None:
+        return ()
+    return tuple(Suggestion(name, "in the voice chat now") for name in snapshot.voip.names)
+
+
+def people_on_strips(snapshot: Snapshot | None, count: int) -> tuple[str | None, ...]:
+    """
+    For each of `count` strips of the layout the snapshot shows, the participant on it: None for nobody, for the
+    strips that are no `voip` strips, and for each of them without a live view.
+    """
+    strips = snapshot.voip.strips if snapshot is not None and snapshot.voip is not None else ()
+    return tuple(strips[index] if index < len(strips) else None for index in range(count))
 
 
 def install_hint(setup: Setup) -> str:

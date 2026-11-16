@@ -240,7 +240,7 @@ strip = 3          # optional: a 1-based position in that layout's list, or a st
 - **Validation:** an unknown layout or strip is an error, and so is a strip `id` that more than one strip of that
   layout has. Chains (an `inherit` of an `inherit`) resolve, up to a limit; a loop is an error that names the
   cycle.
-- **`voip` with `count` > 1:** decide and document.
+- **`voip` with `count` > 1:** decide and document. (Later moot: `count` is gone, see the decisions.)
 - **Resolution before the flow (B):** a referenced strip that collapses collapses here too. It carries all its
   options along, also `launch`.
 - **State:** the state of a strip that several layouts share (the held application of an `auto` strip, a pending
@@ -303,7 +303,8 @@ What the implementation decided where this document was open, wrong, or contradi
 - **Validation of strips that can never show:** the rule "fewer than `count - 8` strips with `collapse`" lets
   e.g. 8 steady strips followed by a collapsing one through, which could never show. The check is per strip: a
   strip with 8 steady strips before it never gets a fader. The message names those strips. The limit is 32 places
-  (`voip` counts `count`). An `inherit` strip beyond the places of the default layout is an error too.
+  (`voip` counted `count` until it was removed). An `inherit` strip beyond the strips of the default layout is an
+  error too.
 - **Collapsed stays collapsed:** a strip that collapsed stays so until it is present again, also when it collapsed
   without a hold (from scratch). Each strip has one typed record (`placement._Absence`).
 - **Deferring under a finger:** layouts don't defer their switches (they switch at once), so there was nothing to
@@ -313,21 +314,23 @@ What the implementation decided where this document was open, wrong, or contradi
 - **Without a sound server** nothing moves (the absences are unknown); the first state places from scratch.
 - **Layout switches and reloads reset the hold timers:** a new mixer places from scratch, as the document allowed.
 - **Snapshot versioning:** the live view never bumps `VERSION` for new fields; later fields are optional with a
-  default (`mqtt_state`, `layout`, ...). `placement` is the same: `None` from an older daemon. It holds places,
-  i.e. indexes of `Config.all_strips(layout)` (a `voip` strip has several), not indexes of the TOML list;
-  `Config.places()` maps them.
+  default (`mqtt_state`, `layout`, ...). `placement` is the same: `None` from an older daemon. It holds indexes of
+  `Config.all_strips(layout)`: the TOML list, with `inherit` resolved and `auto` strips up to 8. (While a `voip`
+  strip had `count` places, these were places, and `Config.places()` mapped them to the list; both went with
+  `count`.)
 - **`absent` of `apps` strips** looks at streams only: a paused media player (MPRIS) without a stream does not keep
   a collapsing strip.
 - **`auto` strips beyond the device** take applications too (the assigner fills slots in config order), so an
   application may go to a waiting `auto` strip when all on the device are taken.
-- **`voip` places** collapse one by one (each place is a strip of its own), so with `collapse` an empty call takes
-  no faders and the trailing places of a small one give theirs up.
-- **C, `voip` with `count` > 1:** `strip = N` (or an id) names an entry of the list, so a `voip` strip comes with
-  all its places, the same object, and stays one group. An `inherit` without `strip` takes its own place of the
-  other layout, as before: on a `voip` strip that is one of its places.
-- **C, the same place:** "the same place" is the place in the row (after `voip` strips with several), as the
-  existing `inherit` had it, also for another `layout`. Places after the strips of that layout are `auto` strips up
-  to 8; beyond that it is an error.
+- **`voip` strips** collapse one by one, so with `collapse` an empty call takes no faders and the strips of the group
+  that a small one leaves over give theirs up. (First each place of a `voip` strip with `count`; since `count` is
+  gone, each `voip` strip, see [Design: layouts](layouts.md#voip-strips-the-group-and-fixed-people).)
+- **C, `voip` strips:** decided first: `strip = N` named an entry of the list, so a `voip` strip with `count` came
+  with all its places, and an `inherit` without `strip` took one of them. Superseded: every `voip` strip is one strip
+  now, so there is nothing special. An inherited `voip` strip is one of the `voip` strips of the layout it lands in:
+  with `person` a fixed strip there, without it a strip of that layout's group.
+- **C, the same place:** "the same place" is the position in the list, also for another `layout`. Positions after
+  the strips of that layout are `auto` strips up to 8; beyond that it is an error.
 - **C, state is not shared across layouts:** a layout switch builds a new mixer with new controllers (as reloads
   do); keeping some controllers alive across mixers would mean moving them between `VirtualStrip`s, flows and the
   auto assigner, and inherited strips never kept their state before either. So an `auto` strip takes the
@@ -341,5 +344,5 @@ What the implementation decided where this document was open, wrong, or contradi
 - **C, top-level `inherit`:** allowed when it names a `layout` or `strip` (a bare one would refer to itself).
 - **C, errors are of the whole file:** like the other layout checks they are model errors, so the GUI lists them in
   the problems, not next to the strip; the preview shows such a strip as "?".
-- **C, GUI preview by position:** the GUI resolves `inherit` by list position (the daemon by place); they differ
-  only after a `voip` strip with `count` > 1.
+- **C, GUI preview by position:** the GUI resolves `inherit` by list position, like the daemon. (While `voip` strips
+  had `count`, the daemon went by places, and the two differed after such a strip.)

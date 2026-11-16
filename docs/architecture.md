@@ -292,22 +292,27 @@ layout at once, from the last `AudioState`; the `Surface` sends only what change
   the last run) is put right once the bridge is ready, instead of switching.
 - **Entities of all layouts.** The MQTT bridge keeps the entities of the `homeassistant` strips of every layout
   (`keep`), so automations don't see them come and go on every switch; the layout select belongs to the daemon.
-- **VoIP strips.** A `voip` strip with `count = N` takes N places. The `Mixer` makes one `VoipGroup` of them, which
-  pages through the participants of the `VoipProvider`; the provider runs in the daemon, not in the mixer, so it stays
-  connected across switches and reloads. No voice chat client gives other programs a stream per participant, so the
+- **VoIP strips.** Every `voip` strip is one strip. The `Mixer` seats the `voip` strips of its layout in one
+  `VoipSeats` (`strips/voip.py`): a strip with `person` shows the first participant with one of its names, the others
+  (the group) a page of the remaining participants of the `VoipProvider`. The assignment is computed once per
+  snapshot of the provider. Strips with the same `launch` share one `LaunchButton`, so it starts once. The provider
+  runs in the daemon, not in the mixer, so it stays connected across switches and reloads, and it keeps the volume
+  and mute the strips set for each name (`change_volume()`, `change_muted()`), which it sends again when a person
+  comes back: the clients start a participant who joins at 100 %. No voice chat client gives other programs a stream per participant, so the
   participants come from a plugin in the client (`BridgeProvider`), not from PipeWire.
 - **The Mumble plugin** (`integrations/mumble/plugin.c`) is that plugin for Mumble. Mumble calls its callbacks in
   its main and audio threads; a thread of its own does the socket and never calls Mumble (Mumble's API calls block
   until its main thread runs them, which would deadlock the shutdown of the plugin). So the volume and the mute are
   applied by the plugin itself, to each voice in `mumble_onAudioSourceFetched`, rather than through Mumble's local
-  volume (which the API can't set). The live view tells the GUI whether a plugin is connected (`Snapshot.voip`).
+  volume (which the API can't set). The live view tells the GUI whether a plugin is connected, the names of the
+  participants and who is on which strip of the layout shown (`Snapshot.voip`).
 
 The design and its research are in [Design: layouts](design/layouts.md).
 
 ## Collapsing strips
 
 With `collapse`, the strips of the configuration are not the strips of the device: a layout may have up to 32
-places, and the device shows the first 8 that take one (see [Collapsing strips](configuration/collapsing.md)).
+strips, and the device shows the first 8 that take a place (see [Collapsing strips](configuration/collapsing.md)).
 
 - **A strip of its own for every controller.** The `Mixer` gives each controller a `VirtualStrip` (`surface.py`)
   instead of a strip of the device. It keeps what the controller shows, like a `Strip` does, and passes it on to the

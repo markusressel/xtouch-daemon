@@ -105,10 +105,11 @@ launch = ["mumble", "mumble://markus@voice.example.org/Gaming"]
     - `voip`: the [voice chat](layouts.md#voice-chat) is not there (its plugin does not report).
     - On all of them, a process named like the program of `launch` (the file name of its first part, exactly) counts
       too.
-- While it runs, Select does nothing (on `voip` strips it pages, as before). With `launch_when_running = true`
-  (`apps` and `auto` strips) Select starts the command also then.
+- While it runs, Select does nothing (on `voip` strips of the group it pages, as before). With
+  `launch_when_running = true` (`apps` and `auto` strips) Select starts the command also then.
 - The Select LED flashes while the application starts (until it runs, at most 15 s), then it is on while it runs. On
-  `voip` strips it is on while there are more participants than strips, as before.
+  `voip` strips of the group it is on while there are more participants than strips, as before. The `voip` strips of
+  a layout with the same command start it once.
 - A second press within 5 s while the application is not up yet does nothing.
 - The application runs on its own: as a transient systemd user service (`systemd-run --user`, named
   `xtouch-launch-<program>-<random>`), so a restart of the daemon does not end it, and its output is in

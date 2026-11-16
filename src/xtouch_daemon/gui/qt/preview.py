@@ -715,9 +715,9 @@ class StripView(QWidget):
     def _lit(self, led: str) -> bool:
         return led == "on" or (led == "flash" and self.preview.blink)
 
-    def _printed_key(self) -> tuple[int, str, bool, bool]:
-        """What the printed parts depend on: the number, the type, whether it is configured, and lifted."""
-        return self.index, self.look.kind, self.look.configured, self.lifted
+    def _printed_key(self) -> tuple[int, str, str, bool, bool]:
+        """What the printed parts depend on: the number, the type and its print, whether it is configured, lifted."""
+        return self.index, self.look.kind, self.look.printed, self.look.configured, self.lifted
 
     def _shown_key(self) -> tuple[object, ...]:
         """
@@ -842,7 +842,7 @@ class StripView(QWidget):
         painter.setPen(QColor(HW.print))
         painter.drawText(NUMBER, Qt.AlignmentFlag.AlignCenter, number)
         self._paint_encoder(painter)
-        kind = KIND_NAMES.get(look.kind, look.kind).upper()
+        kind = (look.printed or KIND_NAMES.get(look.kind, look.kind)).upper()
         self._paint_print(painter, KIND, kind, look.kind == "?")
         self._paint_meter(painter)
         for row, (name, color) in enumerate(BUTTONS):
@@ -1017,6 +1017,8 @@ class StripView(QWidget):
             width = QFontMetricsF(font).horizontalAdvance(text) + 12
             painter.drawRoundedRect(QRectF(rect.center().x() - width / 2, rect.top(), width, rect.height()), 3, 3)
         painter.setPen(QColor(HW.badge_text if error else HW.print))
+        # a long name of a person ends in "…"
+        text = QFontMetricsF(font).elidedText(text, Qt.TextElideMode.ElideRight, rect.width())
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
     def _paint_button(self, painter: QPainter, rect: QRectF, name: str, color: str) -> None:

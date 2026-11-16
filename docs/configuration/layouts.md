@@ -32,8 +32,17 @@ match = ["mumble"]
 type = "inherit"    # the Mic of the default layout
 
 [[layout.strip]]
-type = "voip"       # the people in the voice chat, strips 4 to 8
-count = 5
+type = "voip"       # always Bob
+person = "Bob"
+
+[[layout.strip]]    # strips 5 to 8: the others in the voice chat
+type = "voip"
+[[layout.strip]]
+type = "voip"
+[[layout.strip]]
+type = "voip"
+[[layout.strip]]
+type = "voip"
 
 [voip]
 provider = "demo"
@@ -116,10 +125,10 @@ type = "inherit"
 strip = "music"    # the strip with id = "music" of the default layout
 ```
 
-The strip comes with all its options: `collapse` (it collapses here too), `launch`, its volume range. A `voip` strip
-named by `strip` comes with all its places (`count`); one taken by its place takes that place alone. An `inherit`
-strip may refer to another one (up to 8 in a row); strips that refer to each other in a loop are an error that
-names them. `check-config` tells where each inherited strip comes from.
+The strip comes with all its options: `collapse` (it collapses here too), `launch`, its volume range. An inherited
+`voip` strip is one of the `voip` strips of this layout: with `person` it shows that person here too, without it it
+joins the group of this layout. An `inherit` strip may refer to another one (up to 8 in a row); strips that refer to
+each other in a loop are an error that names them. `check-config` tells where each inherited strip comes from.
 
 A `homeassistant` strip (or one with `fader` or `encoder` in Home Assistant) keeps the entities of its own place,
 `strip_<position there>` without an `id`, so the same entities show it in every layout. Two strips with the same
@@ -134,25 +143,72 @@ the new profile already; Select again finishes it).
 ```toml
 [[layout.strip]]
 type = "voip"
-count = 5
+person = "Alice"    # always Alice
+
+[[layout.strip]]
+type = "voip"       # the group: whoever else is there
+[[layout.strip]]
+type = "voip"
 ```
 
-The people in the voice chat, one per strip, from the provider of [`[voip]`](#voice-chat). Without a `[voip]`
-section, they use its defaults: the `bridge` provider, which the Mumble plugin feeds.
+A `voip` strip is a person in the voice chat, from the provider of [`[voip]`](#voice-chat). Without a `[voip]`
+section, the strips use its defaults: the `bridge` provider, which the Mumble plugin feeds. Each `voip` strip is one
+strip; for five people, write five.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `count` | `1` | How many strips the participants take, from this one to the right. |
+| `person` | none: the group | The person the strip always shows: a name, or a list of names of the same person, see [Strips for one person](#strips-for-one-person). |
+| `label` | the first name of `person` | The top line of a strip with `person`. |
 | `color` | `"white"` | The backlight while a participant is there and does not talk. Dark without one. |
 | `talking_color` | `"green"` | The backlight while the participant talks. |
 | `meter` | `true` | Whether the LED meter shows the participant's voice. Without levels from the provider it lights while the participant talks. |
 | `max_volume` | `100` | The volume of a participant with the fader at the top, 1..200 percent. |
+| `collapse` | `false` | Whether the strip gives its fader to the strips after it while it shows nobody, see [Collapsing strips](collapsing.md). |
 | `launch` | none | A command that Select starts while the voice chat is not there, e.g. `["mumble", "mumble://markus@voice.example.org/Gaming"]`, see [Launching the application](applications.md#launching-the-application). |
 
 The top line shows the name, the bottom line `muted`, the volume while the fader moves, or `talks`. The fader sets
-the participant's volume and Mute mutes them for you, if the provider can. With more participants than strips, the
-Select LED is on and Select shows the next ones (`pg 2/3`). With `launch`, Select starts the voice chat while its
-plugin does not report and its program does not run; the Select LED flashes while it starts.
+the participant's volume and Mute mutes them for you, if the provider can. The daemon remembers the volume and the
+mute it set for each name while it runs, and sets them again when that person comes back (the voice chat starts
+them at 100 % otherwise).
+
+With `launch`, Select starts the voice chat while its plugin does not report and its program does not run; the
+Select LED flashes while it starts. The `voip` strips of a layout with the same command start it once, whichever of
+them is pressed. `launch_when_running` is not for `voip` strips: while the voice chat is there, Select pages.
+
+`count` is gone: a file with `count = 5` gets the error
+``count is gone: write N voip strips; voip strips without `person` form a group``. Write five `voip` strips instead.
+
+### The group
+
+The `voip` strips of a layout without `person` are its group, in the order of the file, also when other strips are
+between them. They show the people in the voice chat who have no strip of their own, in the order the provider tells
+them (for Mumble: who came first).
+
+- More people than strips of the group: the Select LED of the group's strips is on, and Select on any of them shows
+  the next ones (`pg 2/3`), after the last page the first again.
+- Fewer: the strips left over are dark. With `collapse = true` they give their faders to the strips after them.
+
+### Strips for one person
+
+```toml
+[[layout.strip]]
+type = "voip"
+person = ["Alice", "alice-phone"]   # the same person, from the desk or the phone
+label = "Mum"
+collapse = true
+```
+
+With `person`, the strip always shows that person. The names are the names in the voice chat, ignoring case, but
+otherwise exactly (no wildcards, no parts of a name). With several names, the first person of the provider's order
+with one of them is on the strip; someone with another of the names (Alice on two devices) goes to the group.
+
+While the person is not in the channel, the strip shows the name dark, `away` on the second line and its fader at
+the bottom; with `collapse = true` it gives its fader to the strips after it instead. The volume and mute the strip
+set stay with the name while they are away and come back with them.
+
+A name may be on one strip of a layout only: two strips for the same person are an error
+(`voip strips with the same person: alice`). The person's strip takes them out of the group, so the group shows the
+others.
 
 ## Voice chat
 

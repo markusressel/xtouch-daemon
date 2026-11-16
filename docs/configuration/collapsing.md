@@ -28,7 +28,7 @@ collapse = true          # gives its fader to the strips after it while no Bluet
 | `output`, `input` | None of its devices is there (`device`, or the [choices](devices.md#choices) that are there). Without `device` (the default device), never. |
 | `apps` | None of its applications has a stream, playing or paused. |
 | `auto` | It has no application, after [`auto_hold`](behavior.md#behavior). |
-| `voip` | The voice chat has no participant for its place. |
+| `voip` | It shows nobody: a strip with `person` while the person is not there, a strip of the group while it has no participant. |
 | `inherit` | The strip of the default layout it stands for collapses. |
 
 `homeassistant` and `empty` strips never collapse: Home Assistant's entities are always there and automations rely
@@ -60,7 +60,7 @@ Buds on:  Out  Buds            Browser  Games  VoIP  auto  auto  Mic           (
 - Every move is logged, e.g. `Strips: Buds appears at 2, Browser moves to 3, Spotify waits`.
 - Without a connection to the sound server, nothing moves.
 
-There can be at most 32 places (a `voip` strip takes `count`), and every strip must be able to get a fader: a
+There can be at most 32 strips, and every strip must be able to get a fader: a
 strip that has eight strips without `collapse` before it never would, which `check-config` reports, e.g.
 `strip[9] can never show: 8 strips before them don't collapse`.
 

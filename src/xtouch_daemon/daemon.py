@@ -103,14 +103,16 @@ def mqtt_state(bridge: MqttBridge) -> MqttState:
     )
 
 
-def voip_state(provider: VoipProvider) -> VoipState:
-    """The voice chat, for the live view."""
+def voip_state(provider: VoipProvider, strips: tuple[str | None, ...] = ()) -> VoipState:
+    """The voice chat, for the live view; `strips` names who each strip of the layout shows (`Mixer.voip_names`)."""
     return VoipState(
         provider=provider.name,
         connected=provider.connected,
         client=provider.client,
         channel=provider.channel,
         participants=len(provider.participants),
+        names=tuple(participant.name for participant in provider.participants),
+        strips=strips,
     )
 
 
@@ -607,7 +609,7 @@ class Daemon:
             features=FEATURES,
             layout=self.layout,
             layouts=self.switcher.names,
-            voip=None if self.voip is None else voip_state(self.voip),
+            voip=None if self.voip is None else voip_state(self.voip, self.mixer.voip_names),
             placement=self.mixer.placement,
         )
 

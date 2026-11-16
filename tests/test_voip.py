@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import finish_tasks
+from tests.conftest import finish_tasks, settle
 from xtouch_daemon import __version__
 from xtouch_daemon.config import VoipConfig
 from xtouch_daemon.voip import Capability, Participant, VoipProvider, build_provider
@@ -253,3 +253,42 @@ async def test_the_bridge_stops_without_a_plugin(short_dir: Path):
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     assert not path.exists()
+
+
+class RecordingProvider(VoipProvider):
+    """Records the commands; the participants are set by the tests."""
+
+    def __init__(self) -> None:
+        super().__init__(frozenset(Capability))
+        self.commands: list[tuple[str, str, object]] = []
+
+    async def run(self) -> None:
+        await asyncio.Event().wait()
+
+    async def set_volume(self, participant_id: str, volume: int) -> None:
+        self.commands.append(("volume", participant_id, volume))
+
+    async def set_muted(self, participant_id: str, muted: bool) -> None:
+        self.commands.append(("muted", participant_id, muted))
+
+
+async def test_volume_and_mute_last_while_a_person_is_away():
+    provider = RecordingProvider()
+    provider.update((Participant("1", "Alice"), Participant("2", "Bob")))
+    await provider.change_volume("1", 40)
+    await provider.change_muted("2", True)
+    # someone who is not there keeps nothing
+    await provider.change_volume("9", 10)
+    await provider.change_muted("9", True)
+    assert provider.commands == [("volume", "1", 40), ("muted", "2", True), ("volume", "9", 10), ("muted", "9", True)]
+    provider.commands.clear()
+    # they leave, and come back with new ids, as the clients start them: at 100 %, not muted
+    provider.update(())
+    provider.update((Participant("3", "ALICE"), Participant("4", "Bob"), Participant("5", "Carol")))
+    await settle()
+    assert provider.commands == [("volume", "3", 40), ("muted", "4", True)]
+    provider.commands.clear()
+    # what the client tells already, and someone who stays, get nothing again
+    provider.update((Participant("3", "ALICE", volume=40), Participant("6", "bob", muted=True)))
+    await settle()
+    assert provider.commands == []

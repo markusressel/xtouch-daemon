@@ -107,6 +107,13 @@ class VoipState:
     channel: str | None
     """The channel of the user, if the plugin tells it."""
     participants: int
+    names: tuple[str, ...] = ()
+    """The names of the participants, in the order of the provider."""
+    strips: tuple[str | None, ...] = ()
+    """
+    For each strip of the layout shown (an index of `Config.all_strips(layout)`, as `Snapshot.placement`), the name
+    of the participant it shows: None for nobody and for the strips that are no `voip` strips.
+    """
 
 
 @dataclass(frozen=True)
@@ -140,8 +147,8 @@ class Snapshot:
     """The voice chat, None without `[voip]` (or for an older daemon)."""
     placement: tuple[int | None, ...] | None = None
     """
-    For each strip of the device, the place of the strip of the layout it shows (an index of
-    `Config.all_strips(layout)`), None for a dark one; None for an older daemon, whose strips are where they are
+    For each strip of the device, the strip of the layout it shows (an index of `Config.all_strips(layout)`), None
+    for a dark one; None for an older daemon, whose strips are where they are
     configured. It differs from 0..7 with `collapse` (see `placement.py`).
     """
 
@@ -285,8 +292,22 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
         tuple(data.get("features", ())),
         data.get("layout"),
         tuple(data.get("layouts", ())),
-        VoipState(**voip) if (voip := data.get("voip")) is not None else None,
+        _voip(data.get("voip")),
         _placement(data.get("placement")),
+    )
+
+
+def _voip(value: dict[str, Any] | None) -> VoipState | None:
+    if value is None:
+        return None
+    return VoipState(
+        value["provider"],
+        value["connected"],
+        value["client"],
+        value["channel"],
+        value["participants"],
+        tuple(value.get("names", ())),
+        tuple(value.get("strips", ())),
     )
 
 

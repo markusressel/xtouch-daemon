@@ -26,14 +26,14 @@ def test_from_the_file_the_first_eight_places_are_on_the_device() -> None:
 
 
 def test_the_daemon_tells_which_strips_collapsed() -> None:
-    strips = [apps(), apps(collapse=True), {"type": "voip", "count": 2}, apps()]
-    # places: 0, 1, 2 and 3 for the voip strip, 4, then 5..7 the auto strips that fill the row
-    rows = flow_rows(strips, snapshot((0, 3, 4, 5, 6, 7, None, None)))
+    strips = [apps(), apps(collapse=True), {"type": "voip"}, {"type": "voip", "collapse": True}, apps()]
+    # 0..4, then 5..7 the auto strips that fill the row
+    rows = flow_rows(strips, snapshot((0, 2, 4, 5, 6, 7, None, None)))
     assert [(row.where, row.position) for row in rows] == [
         (Where.DEVICE, 0),
         (Where.COLLAPSED, None),
-        # one of its places is on the device
         (Where.DEVICE, 1),
+        (Where.COLLAPSED, None),
         (Where.DEVICE, 2),
         (Where.DEVICE, 3),
         (Where.DEVICE, 4),
@@ -50,8 +50,8 @@ def test_the_daemon_tells_which_strips_collapsed() -> None:
         ([apps(collapse=True), *[apps()] * 7], None),
         ([apps(collapse=True), *[apps()] * 8], "8 strips without collapse come first"),
         ([apps()] * 8, "8 strips without collapse come first"),
-        ([{"type": "voip", "count": 8}], "8 strips without collapse come first"),
-        ([apps(collapse=True)] * MAX_STRIPS, f"at most {MAX_STRIPS} places"),
+        ([{"type": "voip"}] * 8, "8 strips without collapse come first"),
+        ([apps(collapse=True)] * MAX_STRIPS, f"at most {MAX_STRIPS} strips"),
     ],
 )
 def test_a_strip_is_added_only_where_it_can_get_a_place(strips: list[dict[str, Any]], reason: str | None) -> None:

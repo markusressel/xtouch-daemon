@@ -17,6 +17,9 @@ from xtouch_daemon.gui.domain.looks import (
     meter_leds,
     ring_leds,
 )
+from xtouch_daemon.gui.domain.looks import (
+    printed as printed_on,
+)
 from xtouch_daemon.live import Snapshot, StripState
 
 STATE = AudioState(
@@ -154,14 +157,34 @@ def test_a_meter_lights_its_segments():
 
 
 @pytest.mark.parametrize(
-    ("values", "detail"),
+    ("values", "seen", "printed"),
     [
-        ({"type": "voip"}, "participants of the voice chat, a strip, the select button pages"),
-        ({"type": "voip", "count": 3}, "participants of the voice chat, 3 strips, the select button pages"),
+        (
+            {"type": "voip"},
+            (
+                "voip",
+                "voip",
+                "the group: a participant of the voice chat without a strip of their own, the select button pages",
+                "white",
+            ),
+            "voip group",
+        ),
+        (
+            {"type": "voip", "person": ["Annabelle", "ann-phone"]},
+            ("voip", "Annabel", "Annabelle or ann-phone in the voice chat, dark while away", "white"),
+            "Annabelle",
+        ),
+        (
+            {"type": "voip", "person": "Bob", "label": "Dad", "color": "cyan"},
+            ("voip", "Dad", "Bob in the voice chat, dark while away", "cyan"),
+            "Bob",
+        ),
+        ({"type": "empty"}, ("empty", "", "a dark strip", "off"), ""),
     ],
 )
-def test_a_voip_strip_shows_the_voice_chat(values: dict[str, object], detail: str):
-    assert look(values, STATE, {}) == ("voip", "voip", detail, "white")
+def test_a_voip_strip_shows_the_voice_chat(values: dict[str, object], seen: tuple[str, ...], printed: str):
+    assert look(values, STATE, {}) == seen
+    assert printed_on(values) == printed
 
 
 def test_an_inherit_strip_looks_like_the_one_of_the_default_layout(tmp_path: Path):

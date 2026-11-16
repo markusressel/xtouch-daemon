@@ -38,7 +38,8 @@ xtouch-daemon's help: in Mumble, **Settings**, **Plugins**, **Install plugin...*
 
 ## A layout for Mumble
 
-A layout that comes while Mumble runs, with five people on strips 1 to 5 and the rest of the default layout:
+A layout that comes while Mumble runs, with Alice always on strip 1, four more people on strips 2 to 5 and the rest of
+the default layout:
 
 ```toml
 [voip]
@@ -51,14 +52,24 @@ processes = ["mumble"]
 
 [[layout.strip]]
 type = "voip"
-count = 5
+person = "Alice"      # her name in Mumble
+
+[[layout.strip]]      # the group: everybody else
+type = "voip"
+[[layout.strip]]
+type = "voip"
+[[layout.strip]]
+type = "voip"
+[[layout.strip]]
+type = "voip"
 
 [[layout.strip]]
 type = "inherit"
 ```
 
-More than five people: Select pages through them. See [Layouts](../configuration/layouts.md) for the rules and the
-other ways to switch.
+More than four other people: Select on one of the group's strips pages through them. See
+[VoIP strips](../configuration/layouts.md#voip-strips) for the group and the strips for one person, and
+[Layouts](../configuration/layouts.md) for the rules and the other ways to switch.
 
 To start Mumble from the device, give a strip of the default layout `launch` with a `mumble://` URL: Select starts
 Mumble, which connects to the server and joins the channel, and the layout above comes once Mumble runs. See
@@ -71,7 +82,9 @@ Mumble, which connects to the server and joins the channel, and the layout above
   and the faders don't show or change them: Mumble's plugin interface has no call for the volume, and the plugin
   makes no calls that could wait for Mumble. The two multiply: a person at 50 % in Mumble and 50 % on the fader is
   at 25 %.
-- **They last while the person is in the channel.** Someone who leaves and comes back starts at 100 %, not muted.
+- **The daemon keeps them for the name.** The plugin forgets the volume and the mute of someone who leaves; the daemon
+  remembers what the strips set for each name while it runs and sends it again when the person comes back. A restart
+  of the daemon starts everyone at 100 %, not muted.
 - **Your channel only**, without you: nobody else's channel, no whispers to other channels.
 - **The level** on the meter is the voice as it arrives (after the fader), before Mumble's own volume and positional
   audio.

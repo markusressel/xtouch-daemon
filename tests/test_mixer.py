@@ -316,10 +316,15 @@ name = "gaming"
 
 [[layout.strip]]
 type = "voip"
-count = 2
 
 [[layout.strip]]
 type = "voip"
+person = "carol"
+launch = ["mumble"]
+
+[[layout.strip]]
+type = "voip"
+launch = ["mumble"]
 
 [[layout.strip]]
 type = "inherit"
@@ -337,37 +342,42 @@ async def test_a_mixer_drives_the_strips_of_a_layout(surface: RecordingSurface, 
     assert isinstance(first, VoipStrip)
     assert isinstance(second, VoipStrip)
     assert isinstance(third, VoipStrip)
-    # two groups: one of two places, one of one
-    assert first.group is second.group
-    assert third.group is not first.group
-    assert (first.slot, second.slot, third.slot) == (0, 1, 0)
+    # the seats of one layout: the strips without a person are its group, not next to each other
+    assert first.seats is second.seats is third.seats
+    assert (first.seat, second.seat, third.seat) == (0, 1, 2)
+    assert first.seats.group == (0, 2)
+    # strips with the same launch share one button: it starts once
+    assert first.launch is None
+    assert second.launch is third.launch is not None
     # the place of the default layout is not configured: auto
     assert isinstance(mixer.controllers[3], AutoStrip)
     assert mixer.layout == "gaming"
 
     mixer.on_state(STATE)
-    assert [strip.text[0] for strip in surface.strips[:3]] == ["Ann", "Bob", "Ann"]
+    assert [strip.text[0] for strip in surface.strips[:3]] == ["Ann", "carol", "Bob"]
+    assert mixer.voip_names[:4] == ("Ann", "Carol", "Bob", None)
     # the provider tells a change: the strips show it
     await voip.set_muted("2", True)
-    assert surface.strips[1].text[1] == "muted"
+    assert surface.strips[2].text[1] == "muted"
     mixer.close()
     await voip.set_muted("2", False)
-    assert surface.strips[1].text[1] == "muted"
+    assert surface.strips[2].text[1] == "muted"
 
 
-def test_an_inherited_voip_strip_stays_one_group(surface: RecordingSurface, backend: FakeBackend):
+def test_inherited_voip_strips_join_the_group(surface: RecordingSurface, backend: FakeBackend):
     from xtouch_daemon.strips.voip import VoipStrip
     from xtouch_daemon.voip.demo import DemoProvider
 
     config = parse_config(
-        '[voip]\n[[strip]]\ntype = "voip"\ncount = 2\n'
+        '[voip]\n[[strip]]\ntype = "voip"\n[[strip]]\ntype = "voip"\n'
         '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\n[[layout.strip]]\ntype = "inherit"\n'
     )
     mixer = Mixer(surface, backend, config, capture_command="true", layout="a", voip=DemoProvider(("A",)))
     first, second = mixer.controllers[:2]
     assert isinstance(first, VoipStrip)
     assert isinstance(second, VoipStrip)
-    assert first.group is second.group
+    assert first.seats is second.seats
+    assert first.seats.group == (0, 1)
     mixer.close()
 
 
@@ -405,8 +415,8 @@ async def test_strips_with_launch_follow_the_processes(
     assert isinstance(apps, AppGroupStrip)
     assert isinstance(voip, VoipStrip)
     assert apps.launch is not None
-    assert voip.group.launch is not None
-    assert voip.group.launch.what == "Strip 2"
+    assert voip.launch is not None
+    assert voip.launch.what == "Strip 2"
     assert mixer.watches_processes
     assert mixer.processes == {"bash"}
     mixer.on_state(AudioState())

@@ -76,8 +76,9 @@ def test_every_strip_type_has_its_model_and_options():
     # the id of a Home Assistant strip is what it controls
     assert [o.name for o in strip_options("homeassistant")] == ["id", "label", "color"]
     assert [o.name for o in strip_options("voip")] == [
-        "count",
+        "person",
         "collapse",
+        "label",
         "color",
         "talking_color",
         "meter",

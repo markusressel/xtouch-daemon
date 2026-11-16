@@ -385,8 +385,14 @@ type = "inherit"
 
 [[layout.strip]]
 type = "voip"
-count = 3
 talking_color = "yellow"
+
+[[layout.strip]]
+type = "voip"
+person = ["Alice", "alice-phone"]
+
+[[layout.strip]]
+type = "voip"
 
 [[layout.strip]]
 type = "inherit"
@@ -406,10 +412,12 @@ def test_layouts_have_strips_of_their_own() -> None:
         config.layout("nope")
     assert [strip.type for strip in config.all_strips()] == ["output", "apps", *["auto"] * 6]
     strips = config.all_strips("gaming")
-    # inherit takes the strip of the default layout at its place, after the three places of the voip strip
+    # inherit takes the strip of the default layout at its place: an auto strip after its two strips
     assert [strip.type for strip in strips] == ["output", "voip", "voip", "voip", "auto", "auto", "auto", "auto"]
     assert strips[0] is config.strips[0]
-    assert strips[1] is strips[2] is strips[3]
+    alice = strips[2]
+    assert isinstance(alice, VoipStripConfig)
+    assert (alice.person, alice.title) == (("Alice", "alice-phone"), "Alice")
     assert parse_config('[[layout]]\nname = "x"\n').layout("x").title == "x"
 
 
@@ -427,20 +435,31 @@ def test_the_default_switching() -> None:
         ('[[layout]]\nname = "Gaming"\n', r"layout\[1\].name: String should match pattern"),
         ('[[strip]]\ntype = "inherit"\n', r"strip\[1\]: inherit of the default layout is only for"),
         (
-            '[voip]\n[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\ncount = 8\n'
-            '[[layout.strip]]\ntype = "auto"\n',
-            r"layout\[1\].strip\[2\] can never show: 8 strips before them don't collapse",
+            '[voip]\n[[layout]]\nname = "a"\n'
+            + '[[layout.strip]]\ntype = "voip"\n' * 8
+            + '[[layout.strip]]\ntype = "auto"\n',
+            r"layout\[1\].strip\[9\] can never show: 8 strips before them don't collapse",
         ),
-        ('[voip]\n[[strip]]\ntype = "voip"\ncount = 8\n[[strip]]\ntype = "auto"\n', r"strip\[2\] can never show"),
         (
-            "[voip]\n" + '[[strip]]\ntype = "voip"\ncount = 8\ncollapse = true\n' * 5,
-            "the strips take 40 places, at most 32",
+            '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\ncount = 5\n',
+            r"layout\[1\].strip\[1\]: count is gone: write N voip strips; voip strips without `person` form a group",
         ),
+        (
+            '[[strip]]\ntype = "voip"\nperson = "Bob"\n[[strip]]\ntype = "voip"\nperson = ["Carol", "BOB"]\n',
+            "voip strips with the same person: bob",
+        ),
+        (
+            '[[strip]]\ntype = "voip"\nperson = "Bob"\n[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\n'
+            '[[layout.strip]]\ntype = "inherit"\nstrip = 1\n',
+            r"voip strips with the same person \(layout a\): bob",
+        ),
+        ('[[strip]]\ntype = "voip"\nperson = [" "]\n', r"strip\[1\].person: Value error, an empty name|an empty name"),
+        ('[[strip]]\ntype = "voip"\nlabel = "Group"\n', "label: only with person"),
         (
             '[[strip]]\ntype = "output"\n[[layout]]\nname = "a"\n'
             + '[[layout.strip]]\ntype = "auto"\ncollapse = true\n' * 8
             + '[[layout.strip]]\ntype = "inherit"\n',
-            r"layout\[1\].strip\[9\]: inherit, but the default layout has only 8 places",
+            r"layout\[1\].strip\[9\]: inherit, but the default layout has only 8 strips",
         ),
         ("[switching]\nchord = [3, 3]\n", "at least two strips, or none"),
         ('[[layout]]\nname = "a"\napps = [" "]\n', "an empty pattern would match every application"),
@@ -472,7 +491,7 @@ def test_home_assistant_strips_of_a_layout() -> None:
 
 
 def test_voip_strips_get_the_defaults_of_a_missing_voip_section():
-    config = parse_config('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\ncount = 1\n')
+    config = parse_config('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\n')
     assert config.voip == VoipConfig()
     # without voip strips, no voice chat
     assert parse_config("").voip is None
@@ -586,10 +605,11 @@ def test_strips_with_collapse_may_be_more_than_the_device_has() -> None:
     )
     assert len(config.all_strips()) == 9
     assert config.unreachable() == []
-    assert config.places() == tuple(range(1, 10))
     assert config.behavior.collapse_hold == 3.0
-    # fewer than 8: the rest are auto, which are not in the list
-    assert parse_config('[[strip]]\ntype = "empty"\n').places() == (1, 0, 0, 0, 0, 0, 0, 0)
+    # fewer than 8: the rest are auto
+    assert [strip.type for strip in parse_config('[[strip]]\ntype = "empty"\n').all_strips()] == ["empty"] + [
+        "auto"
+    ] * 7
 
 
 def test_a_strip_that_could_never_show_is_an_error() -> None:
@@ -636,7 +656,10 @@ name = "voice"
 
 [[layout.strip]]
 type = "voip"
-count = 2
+
+[[layout.strip]]
+type = "voip"
+person = "Ann"
 
 [[layout.strip]]
 type = "inherit"
@@ -657,6 +680,11 @@ strip = 2
 
 [[layout.strip]]
 type = "inherit"
+layout = "voice"
+strip = 3
+
+[[layout.strip]]
+type = "inherit"
 strip = 3
 
 [[layout.strip]]
@@ -668,14 +696,20 @@ layout = "voice"
 def test_an_inherit_strip_takes_any_strip_of_any_layout() -> None:
     config = parse_config(INHERIT)
     voice, games = config.all_strips("voice"), config.all_strips("games")
-    # a voip strip comes with all its places, the same object
-    assert voice[0] is voice[1] is games[0] is games[1]
-    # with all its options: launch, collapse
+    # the same strips, the same objects
+    assert (voice[0], voice[1]) == (games[0], games[1])
+    assert voice[0] is games[0]
+    assert voice[1] is games[1]
+    # with all their options: launch, collapse
     music = config.strips[1]
     assert voice[2] is games[2] is music
     assert isinstance(music, AppsStripConfig)
     assert music.launch == ("spotify",)
-    assert config.places("games") == (1, 1, 2, 3, 4, 0, 0, 0)
+    assert config.inherited("games")[:3] == (
+        "layout voice, strip 1",
+        "layout voice, strip 2",
+        "the default layout, strip 2",
+    )
     # the homeassistant strip keeps the entities of its place in the default layout
     home_assistant = games[3]
     assert isinstance(home_assistant, HomeAssistantStripConfig)

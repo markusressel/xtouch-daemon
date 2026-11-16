@@ -57,6 +57,7 @@ from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
 from xtouch_daemon.gui.domain.looks import faces, looks
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
+from xtouch_daemon.gui.domain.voip import people_on_strips
 from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields import Switch, flat_button, label, show_status
@@ -591,7 +592,7 @@ class MainWindow(QMainWindow):
             # the pages ask for the current one every time
             return self.audio
 
-        self.strip_page = StripPage(self.editor, audio, self.show_page)
+        self.strip_page = StripPage(self.editor, audio, self.show_page, lambda: self.live.snapshot)
         self.layout_page = LayoutPage(self.editor, audio)
         self.pages: dict[str, Page] = {"strip": self.strip_page, "layout": self.layout_page}
         for name in GLOBAL_PAGES:
@@ -756,7 +757,8 @@ class MainWindow(QMainWindow):
         rows = flow_rows(strips, shown)
         preview_faces = faces(strip_looks[: protocol.STRIPS], shown, edited, shows_document, rows)
         self.preview.show_faces(preview_faces, selected)
-        self.strip_list.show_strips(strips, rows, strip_looks, self.selected)
+        people = people_on_strips(shown, len(strips))
+        self.strip_list.show_strips(strips, rows, strip_looks, self.selected, people)
         self._fill_layout_tabs()
         look = strip_looks[self.selected]
         title = f"Strip {self.selected + 1}" + (f" · {look.label}" if look.label else "")

@@ -36,32 +36,20 @@ class FlowRow:
         return f"on {self.position + 1}" if self.position is not None else self.where.value
 
 
-def _places(strips: list[dict[str, Any]]) -> list[int]:
-    """For each place of the device's row, the strip of the list it belongs to (a `voip` strip takes `count`)."""
-    places: list[int] = []
-    for index, values in enumerate(strips):
-        count = values.get("count", 1) if values.get("type") == "voip" else 1
-        places.extend([index] * (count if isinstance(count, int) and count > 0 else 1))
-    return places
-
-
 def flow_rows(strips: list[dict[str, Any]], snapshot: Snapshot | None) -> tuple[FlowRow, ...]:
     """
-    Where each strip of the list is: as the daemon tells it (`snapshot.placement`, the places of the layout it
-    shows), or else from the file with every strip there: the first 8 places on the device, the rest waiting. Like
-    the daemon, `auto` strips fill the row up to 8 places: they get rows after those of `strips`.
+    Where each strip of the list is: as the daemon tells it (`snapshot.placement`, the strips of the layout it
+    shows), or else from the file with every strip there: the first 8 on the device, the rest waiting. Like the
+    daemon, `auto` strips fill the row up to 8: they get rows after those of `strips`.
     """
-    strips = [*strips, *[{"type": "auto"}] * max(0, protocol.STRIPS - len(_places(strips)))]
-    places = _places(strips)
+    strips = [*strips, *[{"type": "auto"}] * max(0, protocol.STRIPS - len(strips))]
     placement = snapshot.placement if snapshot is not None else None
     if placement is None:
-        placement = tuple(range(min(len(places), protocol.STRIPS)))
+        placement = tuple(range(min(len(strips), protocol.STRIPS)))
     rows: list[FlowRow] = []
     for index, values in enumerate(strips):
-        mine = [place for place, owner in enumerate(places) if owner == index]
-        positions = [position for position, place in enumerate(placement) if place in mine]
-        if positions:
-            rows.append(FlowRow(index, Where.DEVICE, positions[0]))
+        if index in placement:
+            rows.append(FlowRow(index, Where.DEVICE, placement.index(index)))
         elif values.get("collapse") is True and snapshot is not None and snapshot.placement is not None:
             rows.append(FlowRow(index, Where.COLLAPSED, None))
         else:
@@ -71,11 +59,10 @@ def flow_rows(strips: list[dict[str, Any]], snapshot: Snapshot | None) -> tuple[
 
 def why_not_add(strips: list[dict[str, Any]]) -> str | None:
     """Why another (`auto`) strip can't be added at the end, None if it can."""
-    places = _places(strips)
-    if len(places) >= MAX_STRIPS:
-        return f"A layout has at most {MAX_STRIPS} places."
-    steady = sum(1 for owner in places if strips[owner].get("collapse") is not True)
-    if len(places) >= protocol.STRIPS and steady >= protocol.STRIPS:
+    if len(strips) >= MAX_STRIPS:
+        return f"A layout has at most {MAX_STRIPS} strips."
+    steady = sum(1 for values in strips if values.get("collapse") is not True)
+    if len(strips) >= protocol.STRIPS and steady >= protocol.STRIPS:
         return (
             f"{protocol.STRIPS} strips without collapse come first: a strip after them could never show. Turn on "
             "collapse for one of them first."

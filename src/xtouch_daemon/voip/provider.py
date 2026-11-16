@@ -5,11 +5,16 @@ show the snapshot; they don't know which voice chat it comes from.
 
 Voice chat clients mix every participant into one stream, so the sound server can't tell them apart: a provider asks
 the client (or a plugin inside it). See docs/design/layouts.md for what the clients offer.
+
+The provider remembers the volume and the mute the strips set for each name (`change_volume()`, `change_muted()`),
+and sets them again when someone of that name comes back: the clients forget them when a participant leaves (the
+Mumble plugin keeps them per session).
 """
 
 import abc
+import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -47,6 +52,14 @@ class Participant:
 type Listener = Callable[[], None]
 
 
+@dataclass
+class _Kept:
+    """What the strips set for a name: they get it again when they come back."""
+
+    volume: int | None = None
+    muted: bool | None = None
+
+
 class VoipProvider(abc.ABC):
     """The participants of a voice chat, see the module."""
 
@@ -63,6 +76,9 @@ class VoipProvider(abc.ABC):
         self.channel: str | None = None
         """The channel of the user in the voice chat, if the provider knows it."""
         self._listeners: list[Listener] = []
+        self._kept: dict[str, _Kept] = {}
+        """What the strips set, by the name of the participant in lower case (`str.casefold()`)."""
+        self._restoring: set[asyncio.Task[None]] = set()
 
     def subscribe(self, listener: Listener) -> None:
         """Calls `listener` after every change."""
@@ -76,10 +92,49 @@ class VoipProvider(abc.ABC):
         """A new snapshot; the listeners hear of it if it differs."""
         if participants == self.participants and connected == self.connected:
             return
+        before = {participant.id for participant in self.participants}
         self.participants = participants
         self.connected = connected
         for listener in list(self._listeners):
             listener()
+        for participant in participants:
+            if participant.id not in before:
+                self._restore(participant)
+
+    def _restore(self, participant: Participant) -> None:
+        """Sets what the strips set for the name of someone who came (back), if it differs."""
+        kept = self._kept.get(participant.name.casefold())
+        if kept is None:
+            return
+        if kept.volume is not None and kept.volume != participant.volume:
+            self._in_background(self.set_volume(participant.id, kept.volume))
+        if kept.muted is not None and kept.muted != participant.muted:
+            self._in_background(self.set_muted(participant.id, kept.muted))
+
+    def _in_background(self, command: Coroutine[None, None, None]) -> None:
+        task = asyncio.get_running_loop().create_task(command)
+        self._restoring.add(task)
+        task.add_done_callback(self._restoring.discard)
+
+    def _keep(self, participant_id: str) -> _Kept | None:
+        participant = self.participant(participant_id)
+        if participant is None:
+            return None
+        return self._kept.setdefault(participant.name.casefold(), _Kept())
+
+    async def change_volume(self, participant_id: str, volume: int) -> None:
+        """Sets the volume of a participant (`set_volume()`) and keeps it for their name."""
+        kept = self._keep(participant_id)
+        if kept is not None:
+            kept.volume = volume
+        await self.set_volume(participant_id, volume)
+
+    async def change_muted(self, participant_id: str, muted: bool) -> None:
+        """Mutes a participant (`set_muted()`) and keeps it for their name."""
+        kept = self._keep(participant_id)
+        if kept is not None:
+            kept.muted = muted
+        await self.set_muted(participant_id, muted)
 
     def participant(self, participant_id: str) -> Participant | None:
         return next((each for each in self.participants if each.id == participant_id), None)

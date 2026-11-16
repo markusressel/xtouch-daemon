@@ -15,7 +15,10 @@ from xtouch_daemon.surface import Strip, VirtualStrip
 _LOGGER = logging.getLogger(__name__)
 
 type Placement = tuple[int | None, ...]
-"""For each strip of the device, the place of the strip of the configuration it shows (from 0), None for none."""
+"""
+For each strip of the device, the strip of the configuration it shows (its index in `Config.all_strips()`), None for
+none.
+"""
 
 
 def place(collapse: Sequence[bool], absent: Sequence[bool], count: int = protocol.STRIPS) -> Placement:
@@ -55,7 +58,7 @@ class Flow:
         hold: float,
         clock: Callable[[], float] = time.monotonic,
     ):
-        """`titles` names the strip of a place for the log."""
+        """`titles` names a strip of the configuration for the log."""
         self.strips = list(strips)
         self.device = list(device)
         self.collapse = tuple(collapse)
@@ -75,11 +78,11 @@ class Flow:
         """Whether the next update places from scratch: the strips that are absent collapse without `hold`."""
 
     def position(self, index: int) -> int | None:
-        """The strip of the device (from 0) the strip of the place `index` is on, None for none."""
+        """The strip of the device (from 0) the strip `index` of the configuration is on, None for none."""
         return self.placement.index(index) if index in self.placement else None
 
     def strip_at(self, device_index: int) -> int | None:
-        """The place of the strip of the configuration the strip of the device shows, None for none."""
+        """The strip of the configuration (its index) the strip of the device shows, None for none."""
         return self.placement[device_index]
 
     def update(self, absent: Sequence[bool] | None, busy: bool = False) -> bool:

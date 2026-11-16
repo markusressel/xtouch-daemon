@@ -30,6 +30,8 @@ class StripLook:
     configured: bool
     """False for the strips after the configured ones, which are `auto`."""
     problems: int
+    printed: str = ""
+    """What is printed under the strip instead of its type, "" for the type (see `printed()`)."""
 
 
 def _color(values: dict[str, Any], strip_type: str) -> str:
@@ -130,17 +132,30 @@ def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> 
             label = "auto"
             playing = [aliases.get(stream.app, stream.app) for stream in state.streams if stream.playing]
             detail = "the next application that plays" + (f", e.g. {playing[0]}" if playing else "")
+        case "voip" if _names(values.get("person")):
+            names = _names(values.get("person"))
+            label = label or names[0]
+            detail = f"{' or '.join(names)} in the voice chat, dark while away"
         case "voip":
-            count = values.get("count", 1)
             label = "voip"  # until a participant is there
-            places = f"{count} strips" if isinstance(count, int) and count > 1 else "a strip"
-            detail = f"participants of the voice chat, {places}, the select button pages"
+            detail = "the group: a participant of the voice chat without a strip of their own, the select button pages"
         case "homeassistant":
             strip_id = _text(values.get("id")) or "strip_<position>"
             detail = f"entities of Home Assistant ({strip_id}), automations decide what it does"
         case _:
             detail = "a dark strip"
     return strip_type, label[: protocol.LCD_CELL_WIDTH], detail, color
+
+
+def printed(values: dict[str, Any]) -> str:
+    """
+    What the preview prints under a strip instead of its type, "" for the type: a `voip` strip is "voip group" or the
+    person it shows.
+    """
+    if values.get("type") != "voip":
+        return ""
+    names = _names(values.get("person"))
+    return names[0] if names else "voip group"
 
 
 def looks(document: ConfigDocument, validation: Validation, state: AudioState) -> tuple[StripLook, ...]:
@@ -158,13 +173,13 @@ def looks(document: ConfigDocument, validation: Validation, state: AudioState) -
             if found is None:
                 kind, label, detail, color = "?", "", "a strip that is not there", "off"
             else:
-                inherited, where = found
-                kind, label, detail, color = look(inherited, state, aliases)
+                values, where = found
+                kind, label, detail, color = look(values, state, aliases)
                 detail = f"like {where}: {detail}"
         else:
             kind, label, detail, color = look(values, state, aliases)
         problems = len(validation.at("strip", index)) if configured else 0
-        result.append(StripLook(kind, label, detail, color, configured, problems))
+        result.append(StripLook(kind, label, detail, color, configured, problems, printed(values)))
     return tuple(result)
 
 

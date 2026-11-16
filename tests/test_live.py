@@ -414,9 +414,16 @@ def test_the_live_view_shows_a_banner(surface: RecordingSurface):
 
 
 def test_the_voice_chat_goes_through_a_line(surface: RecordingSurface):
-    voip = live.VoipState("bridge", True, "mumble", "Lobby", 3)
+    voip = live.VoipState("bridge", True, "mumble", "Lobby", 3, ("Ann", "Bob", "Carol"), ("Bob", None, "Ann"))
     snapshot = dataclasses.replace(snapshot_of(surface), voip=voip)
     assert decode(encode(snapshot)) == snapshot
+    # without who is where
+    plain = dataclasses.replace(voip, names=(), strips=())
+    line = encode(dataclasses.replace(snapshot, voip=plain)).replace(b',"names":[],"strips":[]', b"")
+    assert b"names" not in line
+    decoded = decode(line)
+    assert decoded is not None
+    assert decoded.voip == plain
     # without [voip], and from an older daemon
     assert decode(encode(snapshot_of(surface))) == snapshot_of(surface)
     older = encode(snapshot_of(surface)).replace(b',"voip":null', b"")

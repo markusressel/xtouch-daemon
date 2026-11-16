@@ -140,7 +140,12 @@ The strips on top are the first 8 of the layout. While it has 8 strips or more, 
 strip of the device ("on 3"), collapsed, or waiting for a place. A click selects it, also a strip beyond the 8.
 "Add strip" adds an `auto` strip at the end; it is off, and its tooltip says why, while a new strip could never show (8
 strips without `collapse` before it). While the daemon runs the layout, a strip that collapsed is drawn fainter with
-its look from the file, and the others show what their strips of the device show.
+its look from the file, and the others show what their strips of the device show. The buttons of
+[`voip` strips](configuration/layouts.md#voip-strips) say who is on them ("4 voip: Bob · on 4").
+
+The preview prints the type of each strip under its LCD. A `voip` strip says which kind it is: "VOIP GROUP" for a
+strip of the [group](configuration/layouts.md#the-group), the first name of its `person` for a
+[strip for one person](configuration/layouts.md#strips-for-one-person).
 
 ## Editing options
 
@@ -197,9 +202,12 @@ The GUI reads the sound server and suggests what it has:
 | `profiles` | The profiles of the sound cards of those devices; the active one is marked. |
 | `match`, `behavior.ignore` | The names and binaries of the applications that play. |
 | `[aliases]` | The names of the applications that play. |
+| `person` of a `voip` strip | The people in the voice chat now, as the running daemon tells them. |
 
 The refresh button in the header reads the sound server again, e.g. after you started an application. Without a
-sound server, type the names by hand.
+sound server, type the names by hand. The people of the voice chat come from the daemon's live view: without a
+running daemon (or nobody in the channel), type the names by hand. A `voip` strip without `person` is one of the
+group.
 
 ## Undo
 

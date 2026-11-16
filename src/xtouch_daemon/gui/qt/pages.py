@@ -45,7 +45,7 @@ from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, StripDra
 from xtouch_daemon.gui.domain.looks import look
 from xtouch_daemon.gui.domain.schema import options, strip_models, strip_options, strip_type_help
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
+from xtouch_daemon.gui.domain.voip import install_hint, install_steps, participants, voip_status
 from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields import (
@@ -504,10 +504,18 @@ class StripPage(Page):
     of its type (`show_strip`).
     """
 
-    def __init__(self, editor: Editor, audio: Audio, show_page: Callable[[str], None]):
+    def __init__(
+        self,
+        editor: Editor,
+        audio: Audio,
+        show_page: Callable[[str], None],
+        snapshot: Callable[[], Snapshot | None] = lambda: None,
+    ):
         super().__init__(editor, audio)
         self.show_page = show_page
         """Shows one of the global settings, e.g. the Home Assistant connection a `homeassistant` strip uses."""
+        self.snapshot = snapshot
+        """The live view of the daemon now, e.g. for the people in the voice chat."""
         self.index = editor.selection
         header = QHBoxLayout()
         self.title = label("", "section")
@@ -698,6 +706,9 @@ class StripForm(QWidget):
             suggest["strip"] = lambda: inherit.strips(page.document, page._value(("strip", page.index, "layout")))
             placeholders["layout"] = lambda: DEFAULT_LAYOUT
             placeholders["strip"] = lambda: "the strip at this place"
+        if strip_type == "voip":
+            suggest["person"] = lambda: participants(page.snapshot())
+            placeholders["person"] = lambda: "none: part of the group"
         if strip_type in ("apps", "auto", "voip"):
             # one entry per part: the program first, then each argument
             placeholders["launch"] = lambda: "none: Select starts nothing; the program, then each argument"
@@ -710,8 +721,8 @@ class StripForm(QWidget):
                 docs.option_link("strip", option.name, strip_type),
                 self.rows,
             )
-            if option.name == "device":
-                # the label shown by default follows the device
+            if option.name in ("device", "person"):
+                # the label shown by default follows the device, or the person
                 option_row.edited.connect(self._device_edited)
             if option.name in EXCLUSIVE:
                 option_row.edited.connect(self._show_exclusive)

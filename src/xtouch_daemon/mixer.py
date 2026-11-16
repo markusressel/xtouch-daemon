@@ -16,7 +16,7 @@ from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config import DEFAULT_LAYOUT, Config, StripConfig, VoipStripConfig, collapses
-from xtouch_daemon.launch import Launcher
+from xtouch_daemon.launch import LaunchButton, Launcher
 from xtouch_daemon.layouts import running_processes
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
@@ -25,7 +25,7 @@ from xtouch_daemon.protocol import Button
 from xtouch_daemon.strips import build_strip, launch_button
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv
-from xtouch_daemon.strips.voip import VoipGroup
+from xtouch_daemon.strips.voip import VoipSeat, VoipSeats, VoipStrip
 from xtouch_daemon.surface import Surface, VirtualStrip
 from xtouch_daemon.voip.provider import VoipProvider
 
@@ -78,9 +78,9 @@ class Mixer:
         strips = config.all_strips(layout)
         self.strips = [VirtualStrip(surface, index) for index in range(len(strips))]
         """What each strip of the configuration shows, on the strip of the device it is on (see `flow`)."""
-        places = self._voip_places(strips, self.strips, env)
-        for strip_config, strip, place in zip(strips, self.strips, places, strict=True):
-            self.controllers.append(build_strip(strip_config, strip, env, config.aliases, place))
+        seats = self._voip_seats(strips, self.strips, env)
+        for strip_config, strip, seat in zip(strips, self.strips, seats, strict=True):
+            self.controllers.append(build_strip(strip_config, strip, env, config.aliases, seat))
         self.flow = Flow(
             self.strips,
             surface.strips,
@@ -111,23 +111,39 @@ class Mixer:
         if voip is not None:
             voip.subscribe(self.refresh)
 
-    def _voip_places(
+    def _voip_seats(
         self, strips: tuple[StripConfig, ...], views: list[VirtualStrip], env: StripEnv
-    ) -> list[tuple[VoipGroup, int] | None]:
-        """The group and the place in it of every `voip` strip: its places are the same object (`all_strips()`)."""
-        places: list[tuple[VoipGroup, int] | None] = []
-        previous: tuple[VoipGroup, int] | None = None
-        for index, strip in enumerate(strips):
+    ) -> list[VoipSeat | None]:
+        """
+        Where each `voip` strip sits among those of the layout (None for the other strips). The strips with the same
+        `launch` share one button, so Select on any of them starts it once.
+        """
+        voip = [strip for strip in strips if isinstance(strip, VoipStripConfig)]
+        if not voip:
+            return [None] * len(strips)
+        assert self.voip is not None, "the configuration has no voip strips without [voip]"
+        seats = VoipSeats(self.voip, [strip.person for strip in voip], self.refresh)
+        buttons: dict[tuple[str, ...], LaunchButton | None] = {}
+        result: list[VoipSeat | None] = []
+        for strip, view in zip(strips, views, strict=True):
             if not isinstance(strip, VoipStripConfig):
-                previous = None
-            elif previous is not None and strips[index - 1] is strip and previous[1] + 1 < strip.count:
-                previous = (previous[0], previous[1] + 1)
-            else:
-                assert self.voip is not None, "the configuration has no voip strips without [voip]"
-                launch = launch_button(strip, views[index], env)
-                previous = (VoipGroup(self.voip, strip.count, self.refresh, launch, env.processes), 0)
-            places.append(previous)
-        return places
+                result.append(None)
+                continue
+            if strip.launch is not None and strip.launch not in buttons:
+                buttons[strip.launch] = launch_button(strip, view, env)
+            launch = buttons[strip.launch] if strip.launch is not None else None
+            result.append(VoipSeat(seats, sum(seat is not None for seat in result), launch))
+        return result
+
+    @property
+    def voip_names(self) -> tuple[str | None, ...]:
+        """For each strip of the layout, the name of the participant it shows: None for nobody, or no `voip` strip."""
+        return tuple(
+            person.name
+            if isinstance(controller, VoipStrip) and (person := controller.participant) is not None
+            else None
+            for controller in self.controllers
+        )
 
     def _meter(self, controller: StripController, command: str) -> Meter:
         def playing(target: CaptureTarget) -> bool:

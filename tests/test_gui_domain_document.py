@@ -623,7 +623,7 @@ type = "inherit"
 
 [[layout.strip]]
 type = "voip"  # people
-count = 2
+person = "Ann"
 
 # for music
 [[layout]]
@@ -666,13 +666,13 @@ def test_the_strips_of_another_layout_are_edited():
     assert doc.layout_name == "gaming"
     assert [strip.type for strip in doc.strips] == ["inherit", "voip"]
     doc.set(("layout", "label"), "Gaming")
-    doc.set(("strip", 1, "count"), 3)
+    doc.set(("strip", 1, "person"), ["Ann", "ann-phone"])
     doc.add_strip("input")
     assert doc.get(("layout", "apps")) == ["steam_app_"]
 
     text = doc.render()
     assert 'name = "gaming"   # for games\napps = ["steam_app_"]\nlabel = "Gaming"\n' in text
-    assert 'type = "voip"  # people\ncount = 3\n' in text
+    assert 'type = "voip"  # people\nperson = ["Ann", "ann-phone"]\n' in text
     assert tomllib.loads(text)["layout"][0]["strip"][2] == {"type": "input"}
     # the default layout stays as it was
     assert tomllib.loads(text)["strip"] == [{"type": "output", "label": "Speaker"}]
@@ -730,7 +730,7 @@ def test_problems_of_layouts_have_the_paths_of_the_editor():
     doc.set(("strip", 0, "label"), "toolong12")
     doc.set(("layout", "priority"), "high")
     doc.edit_layout(0)
-    doc.set(("strip", 1, "count"), 9)
+    doc.set(("strip", 1, "max_volume"), 999)
 
     validation = doc.validate()
 
@@ -740,7 +740,7 @@ def test_problems_of_layouts_have_the_paths_of_the_editor():
             ("layouts", "default", "strip", 0, "label"),
             ("layouts", "music", "priority"),
             ("layouts", "music", "strip", 0, "label"),
-            ("strip", 1, "count"),
+            ("strip", 1, "max_volume"),
         )
     )
     assert doc.layout_problems(validation, "gaming") == 1

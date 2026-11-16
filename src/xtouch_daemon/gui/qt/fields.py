@@ -44,6 +44,13 @@ type ColumnSuggest = Callable[[dict[str, str | int]], tuple[Suggestion, ...]]
 type TableSuggest = Mapping[str, ColumnSuggest]
 """The suggestions for the columns of a table that have some, by name."""
 
+NO_SUGGESTIONS = "The sound server has none right now"
+"""What the menu of suggestions says without any, for most options: they come from the sound server."""
+NO_SUGGESTIONS_OF: dict[str, str] = {
+    "person": "Nobody is in the voice chat right now, or the daemon does not run",
+}
+"""What it says for the options whose suggestions come from somewhere else, by name."""
+
 CHIP_HEIGHT = 2 * theme.Radius.PILL
 
 LABEL_WIDTH = 144
@@ -353,8 +360,10 @@ class Chips(QWidget):
 
     changed = pyqtSignal(list, arguments=["values"])
 
-    def __init__(self, suggest: Suggest | None, placeholder: Callable[[], str] | None = None):
-        """`placeholder` says what no value at all means."""
+    def __init__(
+        self, suggest: Suggest | None, placeholder: Callable[[], str] | None = None, nothing: str = NO_SUGGESTIONS
+    ):
+        """`placeholder` says what no value at all means, `nothing` what the suggestions say without any."""
         super().__init__()
         self._placeholder = placeholder
         theme.set_role(self, "chips")
@@ -372,7 +381,7 @@ class Chips(QWidget):
         self.flow.addWidget(self.input)
         if suggest is not None:
             completer(self.input, suggest).activated.connect(self.add)
-            self.flow.addWidget(suggestion_menu(self, suggest, self.add, "The sound server has none right now"))
+            self.flow.addWidget(suggestion_menu(self, suggest, self.add, nothing))
 
     def show_values(self, values: list[str]) -> None:
         if values != self.values:
@@ -625,7 +634,11 @@ class OptionRow(QWidget):
                 self.input = self.colors
                 return self.colors
             case Kind.LIST:
-                self.chips = Chips(None if isinstance(suggest, Mapping) else suggest, self._placeholder)
+                self.chips = Chips(
+                    None if isinstance(suggest, Mapping) else suggest,
+                    self._placeholder,
+                    NO_SUGGESTIONS_OF.get(option.name, NO_SUGGESTIONS),
+                )
                 self.chips.changed.connect(self._edit)
                 self.input = self.chips
                 return self.chips

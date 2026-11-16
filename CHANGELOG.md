@@ -16,12 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   describes it ("output: Phones, Speaker or Buds (Select switches)").
 - Collapsing strips: `collapse = true` on `output`, `input`, `apps`, `auto` and `voip` strips gives the strip's fader
   to the strips after it while it has nothing to control (after `behavior.collapse_hold`, 3 s), and it comes back at
-  once. A configuration (or layout) may list up to 32 places; the device shows the first 8 that take one. Strips
+  once. A configuration (or layout) may list up to 32 strips; the device shows the first 8 that take a place. Strips
   move with everything they show, never while a fader is touched or a button held, and each move is logged.
   `check-config` reports strips that could never get a fader. The live view tells the placement.
 - `inherit` strips take any strip of any layout: `layout` names the layout, `strip` the strip in its list (from 1)
   or its `id`. Chains resolve (up to 8), loops and unknown layouts, strips and ids are errors. The strip carries all
-  its options (`collapse`, `launch`), a `voip` strip all its places, and a Home Assistant strip keeps the entities of
+  its options (`collapse`, `launch`, a `voip` strip its `person`), and a Home Assistant strip keeps the entities of
   its own place. `check-config` tells where each inherited strip comes from; the GUI picks the layout and the strip
   and previews the strip referred to.
 - GUI: `choices` with the devices, cards and profiles to pick from per line; a strip list that reaches the strips
@@ -44,11 +44,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   while it runs. It starts as a transient systemd user service, so a restart of the daemon does not end it.
   `launch_when_running` starts it always (`apps`, `auto`). `check-config` shows it, the GUI edits it.
 - `inherit` strips: in a layout, the strip of the default layout at the same place.
-- `voip` strips: the participants of a voice chat, one per strip (`count` strips), the name on the LCD, lit in
-  `talking_color` while they talk, the fader for their volume and Mute to mute them; Select pages through more
-  participants than strips. `[voip]` picks where they come from: `bridge`, a plugin of the voice chat client on the
-  socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` (the protocol is in the documentation, versioned), or `demo`
-  people who talk in turns.
+- `voip` strips: the participants of a voice chat, one per strip, the name on the LCD, lit in `talking_color` while
+  they talk, the fader for their volume and Mute to mute them. `person` (a name, or several names of one person,
+  ignoring case) keeps a person on a strip, shown dark with `away` while they are not there (`label` names it). The
+  other `voip` strips of a layout are its group, wherever they are: they fill with the participants without a strip
+  of their own, and Select on any of them pages through more participants than strips. A name on two strips of a
+  layout is an error. The daemon keeps the volume and mute set for each name and sets them again when the person
+  comes back. `voip` strips with the same `launch` start it once. `[voip]` picks where they come from: `bridge`, a
+  plugin of the voice chat client on the socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` (the protocol is in the
+  documentation, versioned), or `demo` people who talk in turns.
 - A `[voip]` section is optional: `voip` strips without one use its defaults (the `bridge` provider).
 - A Mumble plugin (`integrations/mumble`, Mumble 1.4 and later) for `voip` strips: the people of your channel, who
   talks and how loud, the fader for their volume and Mute to mute them (both the plugin's own, on top of Mumble's
@@ -59,7 +63,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   reply), and the state tells the layout shown.
 - The GUI edits layouts: a tab per layout above the strips (● marks the one the device shows), + adds one (empty or a
   copy), a "Layout" tab for its name, label and rules, the pages "Layouts" and "Voice chat" in the global settings,
-  and "Show on the device". The strips are live only for the layout the device shows.
+  and "Show on the device". The strips are live only for the layout the device shows. `person` of a `voip` strip
+  suggests the people in the voice chat now; the preview prints "voip group" or the person under a `voip` strip, and
+  the strip list says who is on which strip.
+- The live view tells the names of the voice chat's participants and who is on which strip.
 - `just screenshot` renders the screenshots of the README and the documentation (docs/images/) offscreen, with a
   demo configuration and device, so they can be updated with the GUI.
 - "Live preview" in the GUI: while it is on, the device runs the configuration in the editor before it is saved

@@ -177,5 +177,14 @@ color = "white"
 # type = "inherit"                    # strip 3 of the default layout
 #
 # [[layout.strip]]
-# type = "voip"                       # the people in the voice chat, strips 4 to 8
-# count = 5
+# type = "voip"                       # always Bob (his name in the voice chat), dark while he is away
+# person = "Bob"
+#
+# [[layout.strip]]                    # strips 5 to 8: the group, everybody else in the voice chat;
+# type = "voip"                       # Select on one of them shows the next ones
+# [[layout.strip]]
+# type = "voip"
+# [[layout.strip]]
+# type = "voip"
+# [[layout.strip]]
+# type = "voip"

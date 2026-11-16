@@ -52,9 +52,17 @@ class StripList(QWidget):
         self.buttons: list[QPushButton] = []
 
     def show_strips(
-        self, strips: list[dict[str, object]], rows: tuple[FlowRow, ...], looks: tuple[StripLook, ...], selected: int
+        self,
+        strips: list[dict[str, object]],
+        rows: tuple[FlowRow, ...],
+        looks: tuple[StripLook, ...],
+        selected: int,
+        people: tuple[str | None, ...] = (),
     ) -> None:
-        """`rows` and `looks` for (at least) each of `strips`; `selected`, the strip whose options are shown."""
+        """
+        `rows` and `looks` for (at least) each of `strips`; `selected`, the strip whose options are shown; `people`,
+        the participant of the voice chat on each strip, if any (see `people_on_strips()`).
+        """
         self.setVisible(wanted(strips))
         while len(self.buttons) < len(strips):
             button = QPushButton()
@@ -72,6 +80,9 @@ class StripList(QWidget):
         for index, button in enumerate(self.buttons):
             row, look = rows[index], looks[index]
             name = f"{index + 1} {look.label or look.kind}"
+            person = people[index] if index < len(people) else None
+            if person is not None and person != look.label:
+                name += f": {person}"
             set_text(button, f"{name} · {row.text}")
             button.setToolTip(TIPS[row.where].format(name=name))
             if button.isChecked() != (index == selected):

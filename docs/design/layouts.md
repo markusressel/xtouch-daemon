@@ -133,8 +133,13 @@ match = ["mumble"]
 type = "input"
 
 [[layout.strip]]
-type = "voip"             # one strip per participant ...
-count = 4                 # ... taking 4 places; Select pages through more
+type = "voip"             # always this person
+person = ["Alice", "alice-phone"]
+
+[[layout.strip]]
+type = "voip"             # the group: the voip strips without person show the others,
+[[layout.strip]]          # Select pages through more
+type = "voip"
 
 [voip]
 provider = "bridge"       # or "demo"
@@ -146,13 +151,56 @@ provider = "bridge"       # or "demo"
   layout (`inherit = "music"`) is possible later; one level keeps it obvious.
 - **Rules are part of the layout** (`apps`, `processes`) rather than a separate rule list: a layout says when it
   applies. `priority` resolves overlaps.
-- **Dynamic strips**: `type = "voip"` with `count = N` takes N places (validation counts them against the 8). The
-  strips of one group show a page of the participants in a stable order (who joined first); Select on any of them
-  shows the next page (wrapping), and the LCD tells the page for 2 s (`pg 2/3`), as the Mackie banks do. Fader:
-  the local volume of the participant, Mute: local mute, meter: the level, the backlight turns `talking_color` while
-  the participant talks. A place without a participant is dark.
+- **Dynamic strips**: every `voip` strip is one strip. With `person` it always shows that person; the others form
+  the group of the layout, see [VoIP strips: the group and fixed people](#voip-strips-the-group-and-fixed-people).
+  Fader: the local volume of the participant, Mute: local mute, meter: the level, the backlight turns
+  `talking_color` while the participant talks.
 - Validation: names unique and not `default`; `homeassistant` ids unique per layout (a strip id used in several
   layouts is the *same* entities: one desk lamp, two layouts); `voip` strips need `[voip]`.
+
+### VoIP strips: the group and fixed people
+
+The first version had `count = N` on a `voip` strip, which took N places. That made a strip of the file several
+strips of the device, which `inherit`, the placement of collapsing strips and the GUI all had to know about, and it
+gave no way to keep a person on a fader. Layouts were not released yet, so `count` went without a compatibility path.
+
+```toml
+[[layout.strip]]
+type = "voip"
+person = ["Alice", "alice-phone"]   # a fixed strip
+label = "Mum"                        # by default the first name
+
+[[layout.strip]]
+type = "voip"                        # the group: all voip strips of the layout without person
+```
+
+- **One strip, one place.** A `voip` strip is one strip of the layout like any other. A file with `count` gets the
+  error "count is gone: write N voip strips; voip strips without `person` form a group".
+- **Fixed strips.** `person` is a name or a list of names of the same person, matched against the participant's
+  name ignoring case and otherwise exactly. Wildcards were left out: names in a voice chat are chosen by people, and a
+  pattern would sooner or later catch somebody else; aliases cover a second device. Of several participants with
+  one of the names, the first in the provider's order is on the strip; the others go to the group, so nobody is
+  hidden. While the person is away the strip shows its label dark with `away` and its fader parked, like a device
+  that is not there; Select and Mute do nothing then. Select on a fixed strip does not page.
+- **The group** is every `voip` strip of the layout without `person`, in the order of the file, not necessarily
+  next to each other. It shows the participants without a fixed strip, in the provider's order, a page at a time;
+  Select on any of its strips shows the next page (wrapping), the LCD tells the page for 2 s (`pg 2/3`), and their
+  Select LED is on while there is more than one page, as the Mackie banks do. Strips left over are dark.
+- **Collapse**: a strip of the group is absent while it has no participant, a fixed strip while its person is away.
+- **Validation**: a name on two fixed strips of one layout (after `inherit`) is an error; `label` is only for fixed
+  strips, since a strip of the group shows the participant's name.
+- **`launch`** starts the command once per layout: the `voip` strips with the same command share one button
+  (`LaunchButton`), so its debounce and its flashing LED are shared. `launch_when_running` stays off for `voip`
+  strips: while the voice chat is there, Select pages.
+- **Volume and mute while away.** The Mumble plugin keeps them per session (a user who leaves is forgotten; one who
+  comes back gets a new session at 100 %), and the bridge protocol has no notion of names. So the daemon keeps them:
+  `VoipProvider` remembers the volume and mute the strips set by the participant's name (ignoring case) and sends
+  them again when a participant of that name appears. This is for every participant, not only those of fixed strips:
+  it costs nothing, and someone of the group who reconnects keeps their volume too. It lasts while the daemon runs;
+  the provider survives layout switches and reloads (not a changed `[voip]`).
+- **The live view** tells the names of the participants (`VoipState.names`) and who each strip of the layout shown
+  shows (`VoipState.strips`). The GUI suggests the names for `person`, its strip list says who is on which strip,
+  and the preview prints "VOIP GROUP" or the person's name under a `voip` strip.
 
 ## Switching
 
@@ -229,6 +277,7 @@ Later:
 - Rules on time of day or on Home Assistant states (an automation can already set the select).
 - Inheriting from other layouts than the default; per-layout `[behavior]`.
 - A GUI preview of `voip` strips with participants.
+- Remembering the volumes of the voice chat across restarts of the daemon.
 
 ## Open questions
 

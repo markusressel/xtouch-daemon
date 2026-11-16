@@ -222,7 +222,7 @@ STRIP_OPTION_ORDER = (
     "choices",
     "match",
     "profiles",
-    "count",
+    "person",
     # whether it gives its place to the next ones
     "collapse",
     # then the parts of the strip from the top of the device to the bottom: the encoder with its ring, the LCD, the

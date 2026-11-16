@@ -35,7 +35,7 @@ def referenced(document: ConfigDocument, position: int) -> tuple[dict[str, Any],
     """
     The strip the strip at `position` of the layout being edited is, through its `inherit` strips, and where it is
     (e.g. "layout voice, strip 3"), or None if it is no `inherit` strip or refers to none. Without `strip`, the strip
-    at the same position (the daemon goes by places, which differ after a `voip` strip with more than one).
+    at the same position.
     """
     layout = document.layout_name
     strips = [strip.values for strip in document.strips]
