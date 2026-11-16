@@ -48,8 +48,12 @@ from xtouch_daemon.gui.domain.schema import Kind, Option, strip_options
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt import window as window_module
-from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Switch, Tables
-from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, MumbleInstaller, SectionPage
+from xtouch_daemon.gui.qt.fields.chips import Chips
+from xtouch_daemon.gui.qt.fields.controls import Switch
+from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.tables import Tables
+from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
+from xtouch_daemon.gui.qt.pages.sections import BrokerTest, MumbleInstaller, SectionPage
 from xtouch_daemon.gui.qt.preview.geometry import (
     CAP_SIZE,
     CENTER_X,

@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QScrollArea,
 from xtouch_daemon.gui.domain.flow import FlowRow, Where, why_not_add
 from xtouch_daemon.gui.domain.looks import StripLook
 from xtouch_daemon.gui.qt import theme
-from xtouch_daemon.gui.qt.fields import label
-from xtouch_daemon.gui.qt.pages import set_text
+from xtouch_daemon.gui.qt.fields.basics import label
+from xtouch_daemon.gui.qt.pages.base import set_text
 from xtouch_daemon.hardware import protocol
 
 

@@ -61,24 +61,22 @@ from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_stat
 from xtouch_daemon.gui.domain.voip import people_on_strips
 from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields import Switch, flat_button, label, show_status
+from xtouch_daemon.gui.qt.fields.basics import flat_button, label, show_status
+from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
-from xtouch_daemon.gui.qt.pages import (
-    GLOBAL_PAGES,
-    AliasesPage,
+from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
+from xtouch_daemon.gui.qt.pages.base import GLOBAL_PAGES, Page, page_title, set_text
+from xtouch_daemon.gui.qt.pages.layout import LayoutPage
+from xtouch_daemon.gui.qt.pages.sections import (
     BrokerTest,
     BrokerTester,
-    LayoutPage,
     MqttPage,
     MumbleInstaller,
-    Page,
     SectionPage,
-    StripPage,
     VoipPage,
-    page_title,
-    set_text,
 )
+from xtouch_daemon.gui.qt.pages.strip import StripPage
 from xtouch_daemon.gui.qt.preview.panel import Preview
 from xtouch_daemon.gui.qt.strip_list import StripList
 from xtouch_daemon.hardware import protocol
