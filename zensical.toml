@@ -28,6 +28,7 @@ nav = [
     { "Encoders" = "configuration/encoders.md" },
     { "LEDs" = "configuration/indicators.md" },
     { "Layouts" = "configuration/layouts.md" },
+    { "Collapsing strips" = "configuration/collapsing.md" },
   ] },
   { "Home Assistant" = "home-assistant.md" },
   { "Mumble" = "integrations/mumble.md" },
@@ -38,6 +39,7 @@ nav = [
   { "Architecture" = "architecture.md" },
   { "Design: layouts" = "design/layouts.md" },
   { "Design: launching applications" = "design/launch.md" },
+  { "Design: choices and collapsing strips" = "design/dynamic-strips.md" },
   { "Changelog" = "https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" },
 ]
 

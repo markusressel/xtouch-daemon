@@ -439,6 +439,7 @@ def test_a_strip_that_is_not_configured_can_be_configured(qtbot: QtBot, window: 
     assert window.preview.strips[4].look.configured
     # as the device has the parts of a strip, from the top down
     assert [row.option.name for row in window.strip_page.rows] == [
+        "collapse",
         "encoder",
         "color",
         "lit_when_idle",

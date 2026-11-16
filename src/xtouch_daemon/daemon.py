@@ -86,7 +86,7 @@ def layout_entity_ids(config: Config, namespace: str) -> frozenset[str]:
     return frozenset(
         unique_id
         for name in config.layout_names
-        for strip, strip_id in config.home_assistant_strips(name)
+        for strip, strip_id in config.entity_strips(name)
         for unique_id in entity_ids(namespace, strip, strip_id)
     )
 
@@ -607,6 +607,7 @@ class Daemon:
             layout=self.layout,
             layouts=self.switcher.names,
             voip=None if self.voip is None else voip_state(self.voip),
+            placement=self.mixer.placement,
         )
 
     def _status(self) -> str:

@@ -138,6 +138,12 @@ class Snapshot:
     """The names of every layout of the configuration, the default one first."""
     voip: VoipState | None = None
     """The voice chat, None without `[voip]` (or for an older daemon)."""
+    placement: tuple[int | None, ...] | None = None
+    """
+    For each strip of the device, the place of the strip of the layout it shows (an index of
+    `Config.all_strips(layout)`), None for a dark one; None for an older daemon, whose strips are where they are
+    configured. It differs from 0..7 with `collapse` (see `placement.py`).
+    """
 
 
 @dataclass(frozen=True)
@@ -280,7 +286,12 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
         data.get("layout"),
         tuple(data.get("layouts", ())),
         VoipState(**voip) if (voip := data.get("voip")) is not None else None,
+        _placement(data.get("placement")),
     )
+
+
+def _placement(value: list[int | None] | None) -> tuple[int | None, ...] | None:
+    return None if value is None else tuple(value)
 
 
 def encode_reply(reply: Reply) -> bytes:

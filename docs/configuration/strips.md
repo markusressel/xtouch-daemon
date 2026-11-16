@@ -1,7 +1,7 @@
 # Strips
 
-Each `[[strip]]` section configures one strip of the device, from the left. Up to eight. Strips that are not
-configured are `auto` strips.
+Each `[[strip]]` section configures one strip of the device, from the left. Up to eight, or more with
+[`collapse`](collapsing.md). Strips that are not configured are `auto` strips.
 
 ```toml
 [[strip]]
@@ -35,7 +35,8 @@ These options apply to `output`, `input`, `apps` and `auto` strips. `homeassista
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
 | `encoder` | depends on the type | What the encoder does, see [Encoders](encoders.md). |
 | `fader` | `"volume"` | `"homeassistant"` hands the fader to Home Assistant, see [Encoders](encoders.md#fader-homeassistant). |
-| `id` | `"strip_<position>"` | With `fader` or `encoder` in Home Assistant: part of the entity IDs, see [Home Assistant](../home-assistant.md#audio-strips-with-home-assistant-controls). |
+| `id` | `"strip_<position>"` | With `fader` or `encoder` in Home Assistant (or `choices`): part of the entity IDs, see [Home Assistant](../home-assistant.md#audio-strips-with-home-assistant-controls). The position is the one in the list, not on the device. |
+| `collapse` | `false` | Whether the strip gives its fader to the strips after it while it has nothing to control, see [Collapsing strips](collapsing.md). |
 
 Device and application strips also have a `label`, see their pages.
 
@@ -117,4 +118,5 @@ slowly to the bottom. When it is back, the fader goes up to its volume again.
 type = "empty"
 ```
 
-A dark strip that does nothing. Its fader stays at the bottom. It has no options besides `type`.
+A dark strip that does nothing. Its fader stays at the bottom. It has no options besides `type`; it never
+[collapses](collapsing.md), since it is there to keep its place.

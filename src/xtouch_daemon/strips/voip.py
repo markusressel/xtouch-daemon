@@ -104,6 +104,15 @@ class VoipStrip(StripController):
     def launches(self) -> bool:
         return self.group.launch is not None
 
+    def absent(self, state: AudioState) -> bool:
+        """The provider has no participant for its place."""
+        return self.participant is None
+
+    @property
+    def title(self) -> str:
+        person = self.participant
+        return person.name if person is not None else "voip"
+
     def show(self) -> None:
         person = self.participant
         paging = self.group.pages > 1

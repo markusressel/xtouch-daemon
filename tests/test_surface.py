@@ -12,7 +12,7 @@ from tests.conftest import RecordingSurface
 from xtouch_daemon import protocol
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.surface import FADER_SMOOTH_TIME, FADER_TICK, Strip, Surface, smooth_damp, steps
+from xtouch_daemon.surface import FADER_SMOOTH_TIME, FADER_TICK, Strip, Surface, VirtualStrip, smooth_damp, steps
 
 CARDS = """\
  0 [XTouchExt      ]: USB-Audio - X-Touch-Ext
@@ -871,3 +871,34 @@ async def test_the_shutdown_ends_a_banner(surface: RecordingSurface):
     surface.banner("Gaming", "", 10)
     await surface.put_away()
     assert all(strip.overlay is None for strip in surface.strips)
+
+
+async def test_a_virtual_strip_shows_on_the_strip_it_is_on(surface: RecordingSurface) -> None:
+    strip = VirtualStrip(surface, 12)
+    strip.set_text(0, "Spotify long")
+    strip.set_led(Button.REC, Led.FLASH)
+    strip.set_ring(3, RingMode.WRAP)
+    strip.set_color(Color.GREEN)
+    strip.set_meter(5)
+    # on none: nothing goes to the device
+    assert surface.sent == []
+    assert strip.text[0] == "Spotify"
+
+    target = surface.strips[2]
+    strip.bind(target)
+    assert (target.text[0], target.leds[Button.REC], target.ring, target.color) == (
+        "Spotify",
+        Led.FLASH,
+        (3, RingMode.WRAP),
+        Color.GREEN,
+    )
+    # a fader it never set goes down
+    assert target.fader == 0
+    strip.set_meter(7)
+    assert surface.meters(2) == [7]
+    strip.set_fader(0.5)
+    assert target.fader == protocol.fader_value(0.5)
+
+    strip.bind(None)
+    strip.set_text(1, "50%")
+    assert target.text[1] == ""

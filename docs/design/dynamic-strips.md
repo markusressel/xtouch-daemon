@@ -1,6 +1,6 @@
 # Design: output choices and strips that move
 
-Status: specified, to be implemented on `feature/dynamic-strips`.
+Status: implemented on `feature/dynamic-strips`; see [Decisions and deviations](#decisions-and-deviations) at the end.
 
 Two features:
 
@@ -33,14 +33,27 @@ A new option `choices` on `output` and `input` strips: a list of tables.
 [[strip]]
 type = "output"
 color = "cyan"
-choices = [
-  { label = "Phones",  device = "alsa_output.pci-0000_11_00.4.analog-stereo",
-    card = "alsa_card.pci-0000_11_00.4", profile = "output:analog-stereo+input:analog-stereo" },
-  { label = "Speaker", device = "alsa_output.pci-0000_11_00.4.iec958-stereo",
-    card = "alsa_card.pci-0000_11_00.4", profile = "output:iec958-stereo+input:analog-stereo", max_volume = 200 },
-  { label = "Buds",    device = "bluez_output.*" },
-]
+
+[[strip.choices]]
+label = "Phones"
+device = "alsa_output.pci-0000_11_00.4.analog-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:analog-stereo+input:analog-stereo"
+
+[[strip.choices]]
+label = "Speaker"
+device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:iec958-stereo+input:analog-stereo"
+max_volume = 200
+
+[[strip.choices]]
+label = "Buds"
+device = "bluez_output.*"
 ```
+
+(The first draft wrote the choices as inline tables over several lines; TOML 1.0, which `tomllib` reads, does not
+allow line breaks in an inline table. See below.)
 
 The keys of a choice:
 
@@ -239,3 +252,47 @@ layout's strips. If that is complex, a switch may simply reset the hold timers.
 
 - `pin = true`: a strip that keeps its physical position while others flow around it.
 - A layout rule on device presence (`devices = ["bluez_output.*"]`), as an alternative to collapsing.
+
+---
+
+## Decisions and deviations
+
+What the implementation decided where this document was open, wrong, or contradicted the code.
+
+- **TOML:** inline tables can't span lines in TOML 1.0 (`tomllib`), so the example of the first draft did not parse.
+  The docs use `[[strip.choices]]` tables; a one-line inline table per choice works as well.
+- **Select on a choice that is shown but not the default** makes it the default first instead of skipping to the
+  next one, like Select on a `device` strip. Otherwise the LED would be off and the first press would leave the
+  choice shown.
+- **A finished default switch** ends the pending switch when the command returns, not only when the state shows the
+  new default: a default that the sound server never reports (another program changes it right back) must not pin
+  the strip to the choice.
+- **`card` takes a description too:** the `Card` model got its description (`device.description` of the card), which
+  `list-devices` now shows next to the name. The profiles were already listed with name and description.
+- **Home Assistant select:** its options are the titles of the choices (`label`, else `device`); a second choice of
+  the same title gets a number (`Out 2`), since the options of a select must differ. The entity is created with
+  `[mqtt]` only and its id is `<id>_output` or `<id>_input` after the strip type. It joins the duplicate-id check
+  (`Config.entity_strips()`), not `home_assistant_strips()`, so a strip with choices does not need `[mqtt]`.
+- **Duplicate labels** are allowed and get no warning: the GUI has no warning level yet (only errors).
+- **Validation of strips that can never show:** the rule "fewer than `count - 8` strips with `collapse`" lets
+  e.g. 8 steady strips followed by a collapsing one through, which could never show. The check is per strip: a
+  strip with 8 steady strips before it never gets a fader. The message names those strips. The limit is 32 places
+  (`voip` counts `count`). An `inherit` strip beyond the places of the default layout is an error too.
+- **Collapsed stays collapsed:** a strip that collapsed stays so until it is present again, also when it collapsed
+  without a hold (from scratch). Each strip has one typed record (`placement._Absence`).
+- **Deferring under a finger:** layouts don't defer their switches (they switch at once), so there was nothing to
+  reuse. The mixer follows the touches, held buttons and encoder pushes from the device's events and the surface's
+  `held` faders, and `Flow` waits while any is there; the release places what waited. The meter tick (every 0.1 s)
+  places a hold time that ended without a new state.
+- **Without a sound server** nothing moves (the absences are unknown); the first state places from scratch.
+- **Layout switches and reloads reset the hold timers:** a new mixer places from scratch, as the document allowed.
+- **Snapshot versioning:** the live view never bumps `VERSION` for new fields; later fields are optional with a
+  default (`mqtt_state`, `layout`, ...). `placement` is the same: `None` from an older daemon. It holds places,
+  i.e. indexes of `Config.all_strips(layout)` (a `voip` strip has several), not indexes of the TOML list;
+  `Config.places()` maps them.
+- **`absent` of `apps` strips** looks at streams only: a paused media player (MPRIS) without a stream does not keep
+  a collapsing strip.
+- **`auto` strips beyond the device** take applications too (the assigner fills slots in config order), so an
+  application may go to a waiting `auto` strip when all on the device are taken.
+- **`voip` places** collapse one by one (each place is a strip of its own), so with `collapse` an empty call takes
+  no faders and the trailing places of a small one give theirs up.

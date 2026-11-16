@@ -33,9 +33,10 @@ graph LR
 | `audio/backend.py` | `AudioBackend`: the interface the strips use (snapshots, volume, mute, default). |
 | `audio/pulse.py` | `PulseBackend`: one connection to the sound server that follows it by events and carries out the commands. |
 | `audio/meter.py` | `Meter`: audio levels from passive `pw-record` captures. |
-| `strips/` | The strip controllers: `DeviceStrip`, `AppGroupStrip`, `AutoStrip` (with `AutoAssigner`), `HomeAssistantStrip`, `EmptyStrip`, and the shared `VolumeStrip` base. |
+| `strips/` | The strip controllers: `DeviceStrip` (and `ChoiceStrip` for `choices`), `AppGroupStrip`, `AutoStrip` (with `AutoAssigner`), `HomeAssistantStrip`, `EmptyStrip`, and the shared `VolumeStrip` base. |
 | `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` strips. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
 | `mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state and every event, and the meter ticker. |
+| `placement.py` | `place()` and `Flow`: which strip of the configuration each strip of the device shows, for strips that collapse. See [Collapsing strips](#collapsing-strips). |
 | `layouts.py` | `LayoutSwitcher`: which layout the device shows, chosen by hand or by the rules (`apps`, `processes`, `hold`); the running processes from `/proc`. |
 | `launch.py` | `Launcher`: starts the command of a strip's `launch` detached from the daemon (a transient systemd user service); `LaunchButton`: when Select launches, and its LED. See [Design: launching applications](design/launch.md). |
 | `voip/` | `VoipProvider`: the participants of a voice chat for `voip` strips, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). |
@@ -213,6 +214,8 @@ for as long as it runs:
   fader is and whether it is touched, the meter level (falling like on the device, see `METER_FALL`), whether the
   device, the sound server and the broker are connected, and the `fingerprint()` of the configuration in use. A line
   is about 2 KB; a state rather than changes means a client that connects late or misses one needs nothing else.
+  `placement` tells which strip of the layout each strip of the device shows (see
+  [Collapsing strips](#collapsing-strips)).
   `version` changes when a line means something else.
 - **Requests of the user only.** A client may send requests, a line of JSON each: the [live preview](#live-preview)
   and `{"request": "layout", "layout": "gaming"}` (or `"+1"`, `"-1"`) to switch the layout, which
@@ -295,6 +298,38 @@ layout at once, from the last `AudioState`; the `Surface` sends only what change
   volume (which the API can't set). The live view tells the GUI whether a plugin is connected (`Snapshot.voip`).
 
 The design and its research are in [Design: layouts](design/layouts.md).
+
+## Collapsing strips
+
+With `collapse`, the strips of the configuration are not the strips of the device: a layout may have up to 32
+places, and the device shows the first 8 that take one (see [Collapsing strips](configuration/collapsing.md)).
+
+- **A strip of its own for every controller.** The `Mixer` gives each controller a `VirtualStrip` (`surface.py`)
+  instead of a strip of the device. It keeps what the controller shows, like a `Strip` does, and passes it on to the
+  strip of the device it is on (`target`), if any. Moving a controller is `bind()`: the new strip of the device shows
+  everything the virtual one keeps, and only what changed is sent; the motor glides to the new value. So nothing of
+  a controller (its auto application, a pending volume or switch) knows where it is, and its `index` (and with it
+  the default `id` in Home Assistant) is its place in the configuration.
+- **A pure placement.** `place(collapse, absent)` takes the first 8 strips that don't collapse. `Flow` keeps the
+  state around it in one typed record per strip (`_Absence`: since when absent, collapsed or not), so the hold time
+  (`behavior.collapse_hold`) and coming back at once are one rule. The mixer asks it after every state (one placement
+  per state) and every meter tick, for hold times that end without a new state.
+- **Not under a finger.** The mixer follows touches, held buttons and encoder pushes from the events of the device,
+  and a fader moved without a touch (`Strip.held`); while any of them is there, `Flow.update()` is told it is busy and
+  nothing moves. The release places what waited. Events of a dark strip of the device go nowhere.
+- **From scratch.** A new mixer (a reload, a layout switch, the start) places from scratch with its first state: a
+  strip that has nothing to control collapses at once. Hold times are not carried from one mixer to the next.
+- **Meters follow.** Only controllers on the device get captures, so a strip that waits or collapsed runs no
+  `pw-record`.
+- **The live view** tells the placement (`Snapshot.placement`, an optional field: an older GUI ignores it, an older
+  daemon does not send it and its strips are where they are configured).
+
+`ChoiceStrip` (`strips/device.py`) switches between `choices` with Select. A press is a `_Choosing` (the choice, the
+profile still to switch to, whether the default was asked for): the label shows at once, the card switches first,
+and once its device is there it becomes the default. A failure goes back to the choice shown before, and a press
+during a switch goes on from its target. With `[mqtt]` it has a select in Home Assistant.
+
+The design is in [Design: choices and collapsing strips](design/dynamic-strips.md).
 
 ## Testing
 

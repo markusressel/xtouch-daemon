@@ -1,4 +1,4 @@
-from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Capture, Device, Direction, Stream
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Capture, Card, Device, Direction, Stream
 
 
 def output(name: str, description: str = "", running: bool = False) -> Device:
@@ -94,3 +94,15 @@ def test_applications_record_while_they_have_a_running_capture() -> None:
     assert state.records_app("Discord")
     assert not state.records_app("OBS")
     assert not state.records_app("Disc")
+
+
+def test_a_card_by_its_name_or_description() -> None:
+    card = Card("alsa_card.pci-0000_11_00.4", "off", description="Family 17h/19h HD Audio Controller")
+    state = AudioState(cards=(Card("usb", "off"), card))
+    assert state.card_matching("alsa_card.pci-0000_11_00.4") is card
+    assert state.card_matching("Family 17h*") is card
+    assert state.card_matching("alsa_card.*") is card
+    assert state.card_matching("Family") is None
+    # without a description only by its name
+    assert Card("usb", "off").matches("us?")
+    assert not Card("usb", "off").matches("")

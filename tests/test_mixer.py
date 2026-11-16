@@ -10,7 +10,7 @@ from tests.conftest import FakeBackend, FakeLauncher, RecordingSurface, finish_t
 from xtouch_daemon import mixer as mixer_module
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.meter import CHUNK_BYTES, CaptureTarget
-from xtouch_daemon.audio.model import AudioState, Direction
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Direction
 from xtouch_daemon.config import Config, parse_config
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.protocol import Button, Led, RingMode
@@ -434,3 +434,214 @@ async def test_without_launch_the_processes_are_not_read(surface: RecordingSurfa
     mixer = Mixer(surface, backend, parse_config(CONFIG), capture_command="true", processes=processes)
     assert not mixer.watches_processes
     mixer.close()
+
+
+# -- strips that collapse --------------------------------------------------------------------------------------------
+
+FLOW = """
+[behavior]
+collapse_hold = 3
+max_volume = 100
+
+[[strip]]
+type = "output"
+device = "speaker"
+label = "Out"
+
+[[strip]]
+type = "output"
+device = "bluez_output.*"
+label = "Buds"
+collapse = true
+
+[[strip]]
+type = "apps"
+label = "Browser"
+match = ["brave"]
+
+[[strip]]
+type = "apps"
+label = "Games"
+match = [".exe"]
+
+[[strip]]
+type = "apps"
+label = "VoIP"
+match = ["discord"]
+
+[[strip]]
+type = "auto"
+
+[[strip]]
+type = "auto"
+
+[[strip]]
+type = "input"
+device = "mic"
+label = "Mic"
+
+[[strip]]
+type = "apps"
+label = "Spotify"
+match = ["spotify"]
+collapse = true
+"""
+
+QUIET = AudioState(
+    outputs=(output("speaker", 50),),
+    streams=(stream(1, "Brave", volume=40), stream(2, "Spotify", "spotify", volume=70)),
+    default_output="speaker",
+)
+BUDS_ON = AudioState(
+    outputs=(*QUIET.outputs, output("bluez_output.buds", 30)),
+    streams=QUIET.streams,
+    default_output="speaker",
+)
+
+
+@pytest.fixture
+async def flow_mixer(surface: RecordingSurface, backend: FakeBackend, clock: Clock, capture_script: str):
+    mixer = Mixer(surface, backend, parse_config(FLOW), clock=clock, capture_command=capture_script)
+    yield mixer
+    mixer.close()
+    await finish_tasks()
+
+
+def labels(surface: RecordingSurface) -> list[str]:
+    return [strip.text[0] for strip in surface.strips]
+
+
+async def test_a_strip_with_nothing_to_control_gives_its_place_to_the_next(
+    flow_mixer: Mixer, surface: RecordingSurface
+) -> None:
+    flow_mixer.on_state(QUIET)
+    # from scratch: no hold time at the start
+    assert labels(surface) == ["Out", "Browser", "Games", "VoIP", "", "", "Mic", "Spotify"]
+    assert flow_mixer.placement == (0, 2, 3, 4, 5, 6, 7, 8)
+    # its id is its place in the configuration, not on the device
+    assert flow_mixer.controllers[8].strip.index == 8
+
+
+async def test_a_device_that_appears_takes_its_place_and_the_others_move(
+    flow_mixer: Mixer, surface: RecordingSurface, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level("INFO")
+    flow_mixer.on_state(QUIET)
+    await surface.settled()
+    assert surface.strips[1].fader == protocol.fader_value(0.4)
+
+    flow_mixer.on_state(BUDS_ON)
+    assert labels(surface) == ["Out", "Buds", "Browser", "Games", "VoIP", "", "", "Mic"]
+    assert "Strips: Buds appears at 2, Browser moves to 3, Games moves to 4" in caplog.text
+    assert "Spotify waits" in caplog.text
+    await surface.settled()
+    # the faders glide to the volumes of the strips they show now
+    assert surface.strips[1].position == protocol.fader_value(0.3)
+    assert surface.strips[2].position == protocol.fader_value(0.4)
+    # the meters capture for the strips on the device only
+    assert flow_mixer.meters[1].targets == {CaptureTarget("bluez_output.buds", monitor=True)}
+    assert flow_mixer.meters[8].targets == set()
+
+
+async def test_a_device_that_goes_away_gives_its_place_up_after_the_hold_time(
+    flow_mixer: Mixer, surface: RecordingSurface, clock: Clock
+) -> None:
+    flow_mixer.on_state(BUDS_ON)
+    flow_mixer.on_state(QUIET)
+    assert labels(surface)[:3] == ["Out", "Buds", "Browser"]
+    assert surface.strips[1].text[1] == "off"
+    clock.now = 2.0
+    flow_mixer.on_state(QUIET)
+    assert labels(surface)[1] == "Buds"
+    clock.now = 3.0
+    flow_mixer.on_state(QUIET)
+    assert labels(surface)[:3] == ["Out", "Browser", "Games"]
+
+
+async def test_the_hold_time_ends_without_a_new_state(
+    flow_mixer: Mixer, surface: RecordingSurface, clock: Clock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
+    flow_mixer.on_state(BUDS_ON)
+    flow_mixer.on_state(QUIET)
+    task = asyncio.create_task(flow_mixer.run())
+    await asyncio.sleep(0.01)
+    assert labels(surface)[1] == "Buds"
+    clock.now = 5.0
+    for _ in range(100):
+        await asyncio.sleep(0.001)
+        if labels(surface)[1] == "Browser":
+            break
+    assert labels(surface)[1] == "Browser"
+    assert flow_mixer.meters[8].targets == {CaptureTarget("2", monitor=False)}
+    task.cancel()
+
+
+@pytest.mark.parametrize(
+    ("press", "release"),
+    [
+        (protocol.FaderTouched(2, True), protocol.FaderTouched(2, False)),
+        (protocol.ButtonPressed(5, Button.SELECT, True), protocol.ButtonPressed(5, Button.SELECT, False)),
+        (protocol.EncoderPressed(6, True), protocol.EncoderPressed(6, False)),
+    ],
+)
+async def test_nothing_moves_under_a_finger(
+    flow_mixer: Mixer, surface: RecordingSurface, press: protocol.StripEvent, release: protocol.StripEvent
+) -> None:
+    flow_mixer.on_state(QUIET)
+    flow_mixer.on_event(press)
+    flow_mixer.on_state(BUDS_ON)
+    assert labels(surface)[1] == "Browser"
+    flow_mixer.on_event(release)
+    assert labels(surface)[1] == "Buds"
+    assert flow_mixer.meters[1].targets == {CaptureTarget("bluez_output.buds", monitor=True)}
+
+
+async def test_a_fader_moved_without_a_touch_holds_the_strips_too(flow_mixer: Mixer, surface: RecordingSurface) -> None:
+    flow_mixer.on_state(QUIET)
+    surface.strips[4].held = True
+    flow_mixer.on_state(BUDS_ON)
+    assert labels(surface)[1] == "Browser"
+    surface.strips[4].held = False
+    flow_mixer.on_state(BUDS_ON)
+    assert labels(surface)[1] == "Buds"
+
+
+async def test_events_go_to_the_strip_the_device_shows_there(
+    flow_mixer: Mixer, surface: RecordingSurface, backend: FakeBackend
+) -> None:
+    flow_mixer.on_state(BUDS_ON)
+    flow_mixer.on_event(protocol.FaderTouched(2, True))
+    flow_mixer.on_event(protocol.FaderMoved(2, protocol.fader_value(0.25)))
+    await settle()
+    # the browser, which is the third strip of the device now
+    assert backend.calls[-1] == ("set_stream_volume", 1, 25)
+
+
+async def test_a_dark_strip_of_the_device_ignores_the_hand(
+    surface: RecordingSurface, backend: FakeBackend, clock: Clock, capture_script: str
+) -> None:
+    config = parse_config(
+        '[[strip]]\ntype = "output"\ndevice = "buds"\ncollapse = true\n' + '[[strip]]\ntype = "empty"\n' * 7
+    )
+    mixer = Mixer(surface, backend, config, clock=clock, capture_command=capture_script)
+    mixer.on_state(QUIET)
+    assert mixer.placement == (1, 2, 3, 4, 5, 6, 7, None)
+    mixer.on_event(protocol.ButtonPressed(7, Button.MUTE, True))
+    mixer.on_event(protocol.ButtonPressed(7, Button.MUTE, False))
+    await settle()
+    assert backend.calls == []
+    mixer.close()
+    # the strips of a closed mixer draw on the device no more
+    mixer.strips[1].set_text(0, "gone")
+    assert surface.strips[0].text[0] == ""
+    await finish_tasks()
+
+
+async def test_without_a_sound_server_the_strips_stay_where_they_are(
+    flow_mixer: Mixer, surface: RecordingSurface, clock: Clock
+) -> None:
+    flow_mixer.on_state(BUDS_ON)
+    clock.now = 10
+    flow_mixer.on_state(DISCONNECTED)
+    assert labels(surface)[1] == "Buds"

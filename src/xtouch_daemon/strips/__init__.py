@@ -20,7 +20,7 @@ from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.protocol import Button
 from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv, VolumeStrip
-from xtouch_daemon.strips.device import DeviceStrip
+from xtouch_daemon.strips.device import ChoiceStrip, DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
 from xtouch_daemon.strips.voip import VoipGroup, VoipStrip
 from xtouch_daemon.surface import Strip
@@ -77,8 +77,24 @@ def build_strip(
             encoder=encoder == "homeassistant",
         )
     match config:
+        case DeviceStripConfig(choices=choices) if choices:
+            controller: VolumeStrip = ChoiceStrip(
+                strip,
+                env,
+                Direction(config.type),
+                choices,
+                label=config.label,
+                color=color_of(config.color),
+                meter=config.meter,
+                indicators=indicators,
+                min_volume=config.min_volume,
+                max_volume=config.max_volume,
+                encoder=encoder,
+                controls=controls,
+                strip_id=config.id or f"strip_{strip.index + 1}",
+            )
         case DeviceStripConfig():
-            controller: VolumeStrip = DeviceStrip(
+            controller = DeviceStrip(
                 strip,
                 env,
                 Direction(config.type),

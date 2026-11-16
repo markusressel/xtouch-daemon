@@ -82,7 +82,8 @@ volume on the other control and gets these entities of the [list below](#entitie
 | `fader = "homeassistant"` | `number.<ns>_<id>_fader`, and `event.<ns>_<id>_buttons` with `fader_touched`, `fader_released`. |
 
 The LCD, the LEDs and the buttons stay with PipeWire. `id` names the entities as for `homeassistant` strips
-(`strip_<position>` by default), and the strip's `label` starts their names. See
+(`strip_<position>` by default: the position in the list of the file, not on the device, which differs with
+[collapsing strips](configuration/collapsing.md#home-assistant)), and the strip's `label` starts their names. See
 [Encoders](configuration/encoders.md#homeassistant) for the details.
 
 ```toml
@@ -116,6 +117,22 @@ device does nothing on it.
 
 Entities of a strip that was removed from the configuration are removed from Home Assistant on the next reload.
 The entities of the strips of every [layout](configuration/layouts.md) stay while another layout is shown.
+
+## Choices
+
+With `[mqtt]`, an `output` or `input` strip with [`choices`](configuration/devices.md#choices) has
+`select.<ns>_<id>_output` (`select.<ns>_<id>_input`): the choice the strip shows, one option per choice, named by its
+`label` (or its `device`; a second choice of the same name gets a number, e.g. `Out 2`). Choosing one switches to it
+like Select on the device, profile first; one that isn't there is refused and the select goes back. The select
+follows the strip, also when the default changes elsewhere.
+
+```yaml
+action: select.select_option
+target:
+  entity_id: select.xtouch_strip_1_output
+data:
+  option: Speaker
+```
 
 ## Layouts
 

@@ -8,7 +8,7 @@ from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, 
 from tests.fake_mqtt import FakeBroker
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon import protocol
-from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import BehaviorConfig, MqttConfig, parse_config
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
@@ -269,6 +269,7 @@ async def test_a_strip_without_label_is_named_by_its_position(surface: Recording
     strip = HomeAssistantStrip(surface.strips[2], env, bridge, "strip_3")
 
     assert strip.fader.name == "Strip 3 fader"
+    assert strip.title == "strip 3"
     assert strip.fader.entity_id == "number.xtouch_strip_3_fader"
     assert strip.entities[strip.top] == ""
     assert strip.entities[strip.lcd_color] == "white"
@@ -426,6 +427,9 @@ async def test_with_the_fader_in_home_assistant_the_encoder_sets_the_volume(
         '[[strip]]\ntype = "apps"\nmatch = ["x"]\nlabel = "X"\nencoder = "homeassistant"\nid = "desk"\n',
         '[[strip]]\ntype = "output"\nid = "desk"\n',
         '[[strip]]\ntype = "empty"\n',
+        '[[strip]]\ntype = "input"\nid = "desk"\nchoices = [{ device = "a" }, { device = "b" }]\n',
+        '[[strip]]\ntype = "output"\nid = "desk"\nfader = "homeassistant"\n'
+        'choices = [{ device = "a" }, { device = "b" }]\n',
     ],
 )
 def test_the_ids_of_the_entities_are_those_of_the_strip(surface: RecordingSurface, bridge: MqttBridge, strip: str):
@@ -435,3 +439,57 @@ def test_the_ids_of_the_entities_are_those_of_the_strip(surface: RecordingSurfac
     expected = {entity.unique_id for entity in controller.entities}
     assert homeassistant_module.entity_ids("xtouch", config.strips[0], "desk") == expected
     controller.close()
+
+
+CHOICES_CONFIG = """
+[mqtt]
+host = "broker"
+
+[[strip]]
+type = "output"
+id = "out"
+choices = [{ label = "Phones", device = "phones" }, { label = "Speaker", device = "speaker" }, { device = "buds" }]
+"""
+
+
+async def test_the_choice_of_a_strip_is_a_select_in_home_assistant(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    config = parse_config(CHOICES_CONFIG)
+    backend = FakeBackend()
+    controller = build_strip(config.strips[0], surface.strips[0], StripEnv(backend, BehaviorConfig(), bridge), {})
+    state = AudioState(outputs=(output("phones"), output("speaker")), default_output="phones")
+    controller.update(state)
+    await bridge.set_entities(controller.entities)
+    task = asyncio.create_task(bridge.run())
+    select = "homeassistant/select/xtouch/out_output"
+    await until(lambda: bridge.ready)
+    discovery = json.loads(broker.retained[f"{select}/config"])
+    assert discovery["options"] == ["Phones", "Speaker", "buds"]
+    assert discovery["name"] == "Strip 1 output"
+    await until(lambda: broker.retained.get(f"{select}/state") == "Phones")
+
+    # chosen in Home Assistant: like Select
+    broker.publish(f"{select}/set", "Speaker")
+    await until(lambda: ("set_default", Direction.OUTPUT, "speaker") in backend.calls)
+    assert surface.strips[0].text[0] == "Speaker"
+
+    controller.update(AudioState(outputs=state.outputs, default_output="speaker"))
+    # one that is not there: back to the one shown
+    broker.publish(f"{select}/set", "buds")
+    await until(lambda: "buds" in published(broker, f"{select}/state"))
+    await until(lambda: broker.last(f"{select}/state") == "Speaker")
+    # the one shown, and one the strip does not have
+    broker.publish(f"{select}/set", "Speaker")
+    broker.publish(f"{select}/set", "Radio")
+    await settle()
+    controller.update(AudioState(outputs=state.outputs, default_output="speaker"))
+    await until(lambda: broker.last(f"{select}/state") == "Speaker")
+    assert len(backend.calls) == 1
+
+    # elsewhere: Home Assistant follows
+    controller.update(AudioState(outputs=state.outputs, default_output="phones"))
+    await until(lambda: broker.last(f"{select}/state") == "Phones")
+    controller.close()
+    task.cancel()
+    await finish_tasks()

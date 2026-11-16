@@ -69,6 +69,7 @@ STATE = AudioState(
             "alsa_card.pci",
             "output:analog-stereo",
             (Profile("output:analog-stereo", "Analog Stereo Output"), Profile("off", "Off")),
+            "Family 17h/19h HD Audio Controller",
         ),
         Card("bluez_card.buds", "a2dp-sink", (Profile("a2dp-sink", "High Fidelity Playback"),)),
     ),
@@ -196,7 +197,7 @@ def test_list_devices_marks_the_defaults() -> None:
         "Inputs:",
         "  * mic",
         "      mic description, 80%",
-        "Profiles of alsa_card.pci (speaker):",
+        "Profiles of alsa_card.pci, Family 17h/19h HD Audio Controller (speaker):",
         "  * output:analog-stereo",
         "      Analog Stereo Output",
         "    off",
@@ -768,3 +769,20 @@ def test_mumble_plugin_builds_and_installs(monkeypatch: pytest.MonkeyPatch) -> N
     result = CliRunner().invoke(cli.main, ["mumble-plugin", "--install"])
     assert result.exit_code == 1
     assert "Error: Mumble is not installed" in result.output
+
+
+def test_check_config_describes_choices_and_strips_that_collapse(tmp_path: Path) -> None:
+    path = tmp_path / "flow.toml"
+    path.write_text(
+        '[[strip]]\ntype = "output"\nchoices = [{ label = "Phones", device = "a" },'
+        ' { label = "Speaker", device = "b" }, { device = "bluez_output.*" }]\n'
+        '[[strip]]\ntype = "output"\ndevice = "bluez_output.*"\ncollapse = true\n'
+        + '[[strip]]\ntype = "auto"\n' * 6
+        + '[voip]\nprovider = "demo"\n[[strip]]\ntype = "voip"\ncollapse = true\n'
+    )
+    output = invoke("check-config", "-c", str(path)).output
+    assert "  1. output: Phones, Speaker or bluez_output.* (Select switches) (white, rec: recording" in output
+    assert "  2. output bluez_output.*, select makes it the default (white, rec: recording, solo: off, " in output
+    assert "encoder: balance, collapses)" in output
+    assert "  9. a participant of the voice chat (white, talking: green, collapses)" in output
+    assert "  The device shows the first 8 of them that don't collapse." in output

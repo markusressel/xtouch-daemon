@@ -11,7 +11,7 @@ from typing import Any, BinaryIO, assert_never
 
 import click
 
-from xtouch_daemon import __version__, instance, live, mumble, systemd
+from xtouch_daemon import __version__, instance, live, mumble, protocol, systemd
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.audio.pulse import PulseBackend, SoundServerError, read_state
 from xtouch_daemon.config import (
@@ -100,6 +100,9 @@ def run(config_path: Path | None, log_level: str) -> None:
 
 def describe_strip(config: StripConfig, number: int) -> str:
     match config:
+        case DeviceStripConfig(choices=choices) if choices:
+            titles = [choice.title for choice in choices]
+            what = f"{config.type}: {', '.join(titles[:-1])} or {titles[-1]} (Select switches)"
         case DeviceStripConfig(device=()):
             what = f"the default {config.type}"
         case DeviceStripConfig():
@@ -119,7 +122,9 @@ def describe_strip(config: StripConfig, number: int) -> str:
             return "the strip of the default layout"
         case VoipStripConfig():
             launch = f", select launches {shlex.join(config.launch)} while it is not there" if config.launch else ""
-            return f"a participant of the voice chat ({config.color}, talking: {config.talking_color}){launch}"
+            collapse = ", collapses" if config.collapse else ""
+            colors = f"{config.color}, talking: {config.talking_color}"
+            return f"a participant of the voice chat ({colors}{collapse}){launch}"
         case _ as unreachable:
             assert_never(unreachable)
     label = f"{config.label!r} " if isinstance(config, DeviceStripConfig | AppsStripConfig) and config.label else ""
@@ -136,6 +141,8 @@ def describe_strip(config: StripConfig, number: int) -> str:
     if not isinstance(config, DeviceStripConfig) and config.launch is not None:
         when = "also while it runs" if config.launch_when_running else "while it does not run"
         what += f", select launches {shlex.join(config.launch)} {when}"
+    if config.collapse:
+        details.append("collapses")
     return f"{label}{what} ({', '.join(details)})"
 
 
@@ -147,12 +154,17 @@ def check_config(config_path: Path | None) -> None:
     config = _load(config_path)
     source = str(path) if path.exists() else "No configuration file, the defaults"
     click.echo(f"{source}: valid")
-    for number, strip in enumerate(config.all_strips(), start=1):
-        click.echo(f"  {number}. {describe_strip(strip, number)}")
+    _describe_strips(config.all_strips())
     for layout in config.layouts:
         click.echo(f"Layout {layout.name}{f' ({layout.label})' if layout.label else ''}{describe_rules(layout)}:")
-        for number, strip in enumerate(config.all_strips(layout.name), start=1):
-            click.echo(f"  {number}. {describe_strip(strip, number)}")
+        _describe_strips(config.all_strips(layout.name))
+
+
+def _describe_strips(strips: tuple[StripConfig, ...]) -> None:
+    for number, strip in enumerate(strips, start=1):
+        click.echo(f"  {number}. {describe_strip(strip, number)}")
+    if len(strips) > protocol.STRIPS:
+        click.echo(f"  The device shows the first {protocol.STRIPS} of them that don't collapse.")
 
 
 def describe_rules(layout: LayoutConfig) -> str:
@@ -266,8 +278,8 @@ def init_config(path: Path | None, force: bool) -> None:
 @main.command("list-devices")
 def list_devices() -> None:
     """
-    List the outputs and inputs, with the names to use as `device` (* marks the defaults), and the profiles of the sound
-    cards (* marks the active ones).
+    List the outputs and inputs, with the names to use as `device` (* marks the defaults), and the sound cards with
+    their profiles (* marks the active ones), for `card` and `profile` of `choices`.
     """
     state = _audio_state()
     for direction, title in ((Direction.OUTPUT, "Outputs"), (Direction.INPUT, "Inputs")):
@@ -279,7 +291,8 @@ def list_devices() -> None:
             click.echo(f"      {device.description}, {device.volume}%{', ' + flags if flags else ''}")
     for card in state.cards:
         devices = [device.name for device in (*state.outputs, *state.inputs) if device.card == card.name]
-        click.echo(f"Profiles of {card.name}{' (' + ', '.join(devices) + ')' if devices else ''}:")
+        description = f", {card.description}" if card.description else ""
+        click.echo(f"Profiles of {card.name}{description}{' (' + ', '.join(devices) + ')' if devices else ''}:")
         for profile in card.profiles:
             marker = "*" if profile.name == card.profile else " "
             click.echo(f"  {marker} {profile.name}")

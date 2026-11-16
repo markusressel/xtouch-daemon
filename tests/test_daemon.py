@@ -406,6 +406,8 @@ async def test_without_mqtt_section_there_is_no_bridge(
     daemon = make(config_path, surface, backend)
     assert daemon.bridge is None
     assert daemon.snapshot().mqtt is None
+    # where the strips are
+    assert daemon.snapshot().placement == daemon.mixer.placement
     # the GUI tells whether it runs the installed version
     assert daemon.snapshot().daemon_version == __version__
     config = parse_config(HOME_ASSISTANT)
@@ -1015,8 +1017,11 @@ def test_the_entities_of_every_layout() -> None:
     config = parse_config(
         '[mqtt]\nhost = "b"\n[[strip]]\ntype = "homeassistant"\nid = "a"\n'
         '[[layout]]\nname = "x"\n[[layout.strip]]\ntype = "output"\nfader = "homeassistant"\nid = "b"\n'
+        '[[layout.strip]]\ntype = "output"\nchoices = [{ device = "a" }, { device = "b" }]\n'
     )
     ids = daemon_module.layout_entity_ids(config, "ns")
+    # the select of the choices, by its place
+    assert "ns_strip_2_output" in ids
     assert "ns_a_fader" in ids
     assert "ns_b_fader" in ids
     assert "ns_b_encoder" not in ids

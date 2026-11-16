@@ -249,3 +249,10 @@ async def test_a_launch_that_fails_shows_nothing(surface: RecordingSurface, env:
     first.on_button(Button.SELECT, True)
     assert surface.strips[0].leds[Button.SELECT] == Led.OFF
     assert first.notice is None
+
+
+def test_a_place_without_a_participant_is_absent(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
+    group, strips, _ = make(surface, env, provider)
+    group.next_page()
+    assert [strip.absent(DISCONNECTED) for strip in strips] == [False, True]
+    assert [strip.title for strip in strips] == ["Carol", "voip"]
