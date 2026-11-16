@@ -1,0 +1,241 @@
+# Design: output choices and strips that move
+
+Status: specified, to be implemented on `feature/dynamic-strips`.
+
+Two features:
+
+1. **Choices (A):** one strip switches between several outputs (or inputs), each optionally in its own sound card
+   profile. For example Phones (analog), Speaker (digital) and Buds (Bluetooth), cycled with Select.
+2. **Collapsing strips (B):** a strip that has nothing to control gives up its fader, and the strips after it move
+   left to fill the gap. A configuration can list more than 8 strips; the first 8 that are present get the faders.
+
+They are independent, but they compose: a strip with choices is absent when none of its choices is there.
+
+## Motivation
+
+The author's setup has three outputs: analog headphones and a digital speaker on one sound card (two profiles), and
+Bluetooth headphones that come and go. Only one is used at a time. Today this takes two or three strips, or one
+strip where Select switches the device and Rec switches the card profile. That second way is two buttons, and Rec
+does nothing while the Bluetooth device is shown.
+
+When the Bluetooth headphones are off, their strip is dead: a fader for nothing. The strips after it (Browser, ...)
+should move up and use it.
+
+---
+
+## A. Choices
+
+### Configuration
+
+A new option `choices` on `output` and `input` strips: a list of tables.
+
+```toml
+[[strip]]
+type = "output"
+color = "cyan"
+choices = [
+  { label = "Phones",  device = "alsa_output.pci-0000_11_00.4.analog-stereo",
+    card = "alsa_card.pci-0000_11_00.4", profile = "output:analog-stereo+input:analog-stereo" },
+  { label = "Speaker", device = "alsa_output.pci-0000_11_00.4.iec958-stereo",
+    card = "alsa_card.pci-0000_11_00.4", profile = "output:iec958-stereo+input:analog-stereo", max_volume = 200 },
+  { label = "Buds",    device = "bluez_output.*" },
+]
+```
+
+The keys of a choice:
+
+| Key | Required | Meaning |
+|---|---|---|
+| `device` | yes | The node name or description, `*`/`?` wildcards allowed (like `device` today). With a wildcard, the first matching device. |
+| `label` | no | The top line of the LCD while this choice is active. By default, the start of the device's description, as today. |
+| `card` | with `profile` | The sound card (name or description, wildcards allowed) whose profile has to be set for this choice. |
+| `profile` | no | The card profile (name or description) the choice needs. Without it, the choice uses the device as it is. |
+| `min_volume`, `max_volume` | no | The volume range while this choice is active, like on profiles today. |
+
+Validation (pydantic, with clear messages, as `check-config` shows them):
+- `choices` needs at least 2 entries.
+- `choices` excludes `device` and `profiles` on the same strip ("use either `choices` or `device`/`profiles`").
+- `profile` needs `card`, and `card` needs `profile`.
+- `select = false` with `choices` is an error: Select is how one switches.
+- Labels are optional; duplicates are allowed but get a warning-level problem in the GUI, if the GUI has warnings (check).
+
+Keep `device` and `profiles` working unchanged. `choices` is the new way for the switching case, and docs point to it.
+No migration of existing files.
+
+### Behavior
+
+- **Available:** a choice is available when its device exists. A choice with `card`/`profile` is also available when
+  the card exists and has that profile (its device appears only after the switch).
+- **Active:** the strip shows the active choice: the one whose device is the default (for `output`, the default
+  output; for `input`, the default input). If none is the default, it shows the one shown last, if it is still
+  available, else the first available one.
+- **Select press:** goes to the next available choice after the active one, wrapping around. It:
+  1. switches the card to the choice's `profile` first, if the choice has one and the card is not in it. Reuse the
+     `_Switch` mechanism of `strips/device.py`: the label shows at once, the device is awaited, and on failure the
+     strip goes back.
+  2. then makes the choice's device the default.
+  A press while a switch is still pending goes on from the pending target, so fast presses step through the choices.
+- **Select LED:** on while the active choice's device is the default (same meaning as today).
+- **Rec:** keeps its normal `rec` indicator meaning (`recording` etc.). It is no longer used for profiles on this strip.
+- **Label:** the choice's `label`, else the description start (as today).
+- **Volume range:** the choice's `min_volume`/`max_volume`, else the strip's, else `[behavior]`.
+- **Fader/mute/encoder:** act on the active choice's device, as they do on a device strip today.
+- **Nothing available:** the strip behaves like a device strip whose device is missing (as today). With B, it is
+  *absent* (see below).
+- **Moved elsewhere:** if the default changes elsewhere (pavucontrol, a Bluetooth connect where WirePlumber makes
+  the headphones the default), the strip follows it when the new default is one of its choices.
+- **Two choices on the same card in the same profile:** both are available, and switching between them only changes
+  the default.
+
+### Home Assistant
+
+The existing entities of output strips keep working. Add a `select` entity for a strip with choices
+(`select.<ns>_<id>_output`), with the labels as options: choosing one in Home Assistant switches like Select does.
+Follow how the layouts branch registers its `select.<ns>_layout` entity.
+
+### CLI
+
+- `xtouch-daemon list-devices` must show cards and their profiles (name and description), so `card` and `profile`
+  can be filled in. Check what it shows today, and add what's missing.
+- `check-config` describes a choices strip ("output: Phones, Speaker or Buds (Select switches)").
+
+### GUI
+
+- A table editor for `choices` on output/input strips. Columns: label, device, card, profile, min/max volume. Use
+  the existing `Tables` field of `fields.py`.
+- Pickers come from the sound server state the GUI already reads: devices for `device`, cards for `card`, the
+  profiles of the chosen card for `profile`.
+- `device`/`profiles` and `choices` exclude each other. The GUI shows the one in use; switching between them keeps
+  the other's values, like the kept-options feature does for strip types.
+- Explanations and doc links, like the other options (`gui/domain/docs.py`, the meanings in `config.py`).
+- The device preview shows the active choice's label. Offline (no live view), it shows the first choice.
+
+---
+
+## B. Collapsing strips
+
+### Configuration
+
+A new option on every strip type except `empty` and `homeassistant`:
+
+```toml
+[[strip]]
+type = "output"
+device = "bluez_output.*"
+label = "Buds"
+collapse = true          # gives its fader to the strips after it while no Bluetooth headphones are there
+```
+
+And in `[behavior]`:
+
+```toml
+[behavior]
+collapse_hold = 3        # seconds a strip stays after it became absent, before the strips after it move
+```
+
+- `collapse` (bool, default `false`).
+- `collapse_hold` (seconds, default 3, ≥ 0).
+- **More than 8 strips:** allowed, up to a sane maximum (32). Validation fails if there are more than 8 strips and
+  fewer than `count - 8` of them have `collapse = true`, since some strips could then never get a fader. The message
+  says which strips can never show.
+- **`homeassistant` strips** can't collapse: their entities are always there, and automations rely on them.
+- **`empty`** can't collapse either: it exists to reserve a place.
+
+### When a strip is absent
+
+| Type | Absent while |
+|---|---|
+| `output`, `input` | none of its devices (`device` patterns, or the available `choices`) exists. With `device` unset (the default device), never. |
+| `apps` | none of its applications has a stream (playing or paused). |
+| `auto` | it has no application assigned (after `auto_hold`). |
+| `voip` (layouts) | the provider reports no participant for it. |
+| `inherit` (layouts) | its resolved strip is absent. |
+
+A strip becomes absent only after it has been absent for `collapse_hold` seconds. It becomes present again at once.
+Both changes are debounced per update: one placement per audio state update.
+
+### Placement
+
+The strips are a **flow**, in config order (after layout resolution, see below). The physical strips 1..8 show the
+first 8 strips that are present or don't collapse. Remaining physical strips (fewer than 8 present) show nothing:
+dark, faders down, like an `empty` strip. Strips beyond those 8 wait off the device.
+
+Example (the author's case):
+
+```
+config:  Out(choices)  Buds(collapse)  Browser  Games  VoIP  auto  auto  Mic  Spotify(collapse, apps)
+no Buds: Out           Browser         Games    VoIP   auto  auto  Mic   Spotify
+Buds on: Out           Buds            Browser  Games  VoIP  auto  auto  Mic       (Spotify waits)
+```
+
+Rules:
+- **Identity:** a strip's state (controller, held auto app, pending switches, volumes, meters) belongs to its config
+  entry, not to the physical strip. Moving a strip moves its controller to another physical strip: LCD, LEDs,
+  ring and fader (the motor glides to the controller's value) follow.
+- **Don't move under a finger:** while any fader is touched, or any button is held, placement changes wait (up to
+  the release). Check how the layouts branch defers a layout switch, and reuse that.
+- **Home Assistant ids:** the default `strip_<position>` id of a strip is its **config** position (1-based in the
+  layout's list), not the physical one. Today the two are the same, so nothing changes for existing setups. Document
+  this.
+- **The meter capture** follows the controller (the capture targets are a function of the controllers on the device).
+- **Logging:** each placement change at info level: "Strips: Buds appears at 2, Browser moves to 3, Spotify waits".
+
+### Interaction with layouts
+
+Each layout is a strip list, a flow. `inherit` resolves first. Then the flow places the resolved list. A layout
+switch places from scratch (no hold). Per-layout placement is independent: collapsed state is computed from
+the current audio state, so no state is carried between layouts beyond the per-entry hold timers of the default
+layout's strips. If that is complex, a switch may simply reset the hold timers.
+
+### Live protocol and GUI
+
+- **Snapshot:** add the assignment, e.g. `placement: tuple[int | None, ...]`. For each physical strip, the index of
+  the config strip it shows, or None. It is optional and versioned, like the other later fields, so an older GUI and
+  an older daemon keep working.
+- **Device preview in the GUI:** shows the live placement while the daemon tells it. Clicking a physical strip
+  selects the config strip it shows. Offline: the static placement with every strip present.
+- **Editor:** every config strip has to be reachable, including those beyond 8 and the collapsed ones. Add a compact
+  strip list or overflow row (the implementer picks; follow docs/architecture.md's GUI section once the GUI
+  architecture rework has landed). It shows which strips are on the device now, which are collapsed, and which wait.
+- **Option order:** `collapse` goes with the strip-level options (the GUI agent is making the order follow the
+  device; put it near the top, after the type-specific "what it controls" fields).
+- "Add strip" works beyond 8 only when that stays valid (see validation), otherwise it explains why not.
+
+### Docs
+
+- A page `docs/configuration/collapsing.md` (or a section in strips.md), with the example above.
+- A clear note: **moving strips are bad for muscle memory.** The fader under your finger may control something else
+  than a minute ago. The feature is opt-in for that reason. The LCD labels say what each strip is.
+- Devices docs: `choices`, with the Phones/Speaker/Buds example, and how to find `card` and `profile`
+  (`list-devices`).
+- `check-config` output, the GUI page, CHANGELOG, `config.example.toml` (commented examples).
+
+---
+
+## Implementation notes
+
+- **Config:** `config.py`. Choices are a `ChoiceConfig` model. `collapse` goes on `_StripConfig` (with validators
+  that refuse it on `homeassistant`/`empty`). Raise the strip count limit with the collapse validation. Keep
+  `config.py`'s field order for the TOML/comment output sensible; the GUI's order is its own (explicit order in the
+  GUI schema).
+- **Strips:** `strips/device.py` gets the choices logic (maybe a `ChoicesController` next to `DeviceController`,
+  sharing the profile-switch code). Each controller type gets `absent(state) -> bool`.
+- **Placement:** a pure function `place(strips, present, held) -> tuple[int | None, ...]`, fully unit-tested. A small
+  owner (in the mixer, or wherever layouts switch strips) applies changes: rebinds controllers to surface strips and
+  defers during touches. Hardware interactions timed or racing must be in a strictly typed state, not loose dicts.
+- **Tests:** fake backend scenarios.
+  - A Bluetooth device appears: Buds shows at 2, Browser moves to 3, the faders glide.
+  - It disappears: after `collapse_hold` the strips move back, not before.
+  - A touched fader defers the move, which happens on release.
+  - Choices cycle through all three, the profile switch then the default, and a failed switch reverts.
+  - A pending switch plus a second press goes to the next one.
+  - HA select switches the choice.
+  - Snapshot placement round trip; the GUI preview shows the placement.
+  - Validation messages.
+  - Coverage stays at 100 % (AGENTS.md).
+- **Docs build** strict. `just lint`, pyright 0 errors.
+
+## Later
+
+- `pin = true`: a strip that keeps its physical position while others flow around it.
+- A layout rule on device presence (`devices = ["bluez_output.*"]`), as an alternative to collapsing.
