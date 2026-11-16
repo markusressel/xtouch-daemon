@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import os
+import time
 import tty
 from collections.abc import Iterator
 from pathlib import Path
@@ -43,6 +44,14 @@ class Pty:
             return os.read(self.master, 4096)
         except BlockingIOError:
             return b""
+
+    def read_at_least(self, count: int, timeout: float = 5.0) -> bytes:
+        """What the device got, read until there are `count` bytes: what was written in parts may come in parts."""
+        data = b""
+        deadline = time.monotonic() + timeout
+        while len(data) < count and time.monotonic() < deadline:
+            data += self.read()
+        return data
 
     def close(self) -> None:
         for fd in (self.master, self.slave):
@@ -114,7 +123,7 @@ async def test_writes_that_do_not_fit_wait_until_the_device_takes_them(device: P
     # queued behind the bytes that are still waiting
     raw.write(b"\x04")
     await raw.drain()
-    assert device.read() == b"\x01\x02\x03\x04"
+    assert device.read_at_least(4) == b"\x01\x02\x03\x04"
     assert calls >= 3
     raw.close()
 
