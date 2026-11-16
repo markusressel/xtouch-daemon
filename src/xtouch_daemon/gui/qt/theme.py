@@ -303,7 +303,10 @@ def apply_theme(mode: ThemeMode) -> None:
     app = QApplication.instance()
     assert isinstance(app, QApplication)
     app.setPalette(_palette(app.palette(), colors))
-    app.setStyleSheet(_stylesheet(colors, app.font().pointSizeF(), _arrows(colors)))
+    stylesheet = _stylesheet(colors, app.font().pointSizeF(), _arrows(colors))
+    # a style sheet polishes every widget again, which takes a while: not for the same one
+    if stylesheet != app.styleSheet():
+        app.setStyleSheet(stylesheet)
 
 
 def _palette(palette: QPalette, colors: ThemeColors) -> QPalette:
