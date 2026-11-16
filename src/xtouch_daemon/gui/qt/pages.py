@@ -17,7 +17,7 @@ from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, MqttConfig, default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.broker import live_status, try_broker
-from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, Validation
+from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, StripDraft, Validation
 from xtouch_daemon.gui.domain.looks import look
 from xtouch_daemon.gui.domain.schema import Kind, options, strip_models, strip_options, strip_type_help
 from xtouch_daemon.gui.domain.status import Status, Tone
@@ -403,6 +403,8 @@ class StripPage(Page):
             self.layout_.addWidget(
                 help_label(strip_type_help(strip_type), "hint", docs.strip_type_link(strip_type)),
             )
+        for note in self._kept(strip):
+            self.layout_.addWidget(help_label(note, "help"))
         self.layout_.addWidget(self.problem)
         if strip_type is None or strip_type not in models:
             return
@@ -446,6 +448,22 @@ class StripPage(Page):
         if not rows:
             layout.addWidget(label("An empty strip has no options.", "hint"))
         self.layout_.addWidget(frame)
+
+    @staticmethod
+    def _kept(strip: StripDraft) -> list[str]:
+        """What the strip keeps of the types it had before (see `StripDraft.kept`), and how to get it back."""
+        lines = [
+            f"Kept from {type_title(kind)}: {', '.join(f'`{name}`' for name in values)}. Switching back to "
+            f"{type_title(kind)} restores them."
+            for kind, values in strip.kept.items()
+            if values
+        ]
+        lines += [
+            f"The options kept from {type_title(kind)} are no longer readable (the comment in the file was changed "
+            "by hand). They stay in the file as they are."
+            for kind in strip.unreadable
+        ]
+        return lines
 
     def _connection(self) -> QFrame:
         """Where the connection to Home Assistant is: a global setting, shared by every `homeassistant` strip."""

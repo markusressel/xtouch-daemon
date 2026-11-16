@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `lit_when_idle` on audio strips: the LCD keeps its backlight while the strip has nothing to control, e.g. an
   `apps` group whose applications don't play.
+- Changing the type of a strip in the GUI loses no options: the ones the new type does not have are kept in the
+  file as a comment in the strip's table, which the daemon ignores, and switching back restores them, also after
+  saving and closing the GUI.
 - The GUI explains every option without the documentation: the help names the default, a choice says what the
   chosen value does (e.g. `recording` for the Rec LED, each value also as a tooltip in the list), a strip type what
   it controls, and "Learn more" links open the matching section of the documentation.

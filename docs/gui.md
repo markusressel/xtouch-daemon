@@ -107,6 +107,27 @@ The forms come from the options of the configuration, so every option has a fiel
 doing (or that the daemon runs without the section, which it reads only when it starts), and "Test connection"
 connects once with the settings as they are in the editor, saved or not, and says what is wrong if that fails.
 
+## Changing the type of a strip
+
+The buttons above the options of a strip change its type. Options the new type has too stay as they are, e.g. `label`
+and `color`. The others are not lost: the editor keeps them in the strip's table in the file, as a comment the daemon
+ignores, and switching back to the type restores them. That also works after saving and closing the GUI:
+
+```toml
+[[strip]]
+type = "empty"
+# kept from type = "output" (the GUI restores these when the strip is switched back):
+# device = "bluez_output.*"
+# profiles = [
+#   { label = "Phones", profile = "output:analog-stereo+input:analog-stereo" },
+#   { label = "Speaker", profile = "output:iec958-stereo+input:analog-stereo" },
+# ]
+```
+
+The page of the strip names the options it keeps, and for which type. Restored options look as they did in the file,
+comments included. A comment edited by hand into something that is no TOML any more stays in the file as it is; the
+page says so. Ctrl+Z undoes a change of the type with what it kept and restored.
+
 ## Suggestions from the sound server
 
 The GUI reads the sound server and suggests what it has:

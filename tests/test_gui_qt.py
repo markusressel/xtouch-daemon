@@ -333,6 +333,51 @@ def test_the_type_of_a_strip_changes(qtbot: QtBot, window: MainWindow):
     assert row(window, "match").chips.values == []
 
 
+def kept_notes(window: MainWindow) -> list[str]:
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    return [label.text() for label in window.strip_page.findChildren(QLabel) if "kept from" in label.text().lower()]
+
+
+def test_a_strip_keeps_the_options_of_its_type_for_switching_back(qtbot: QtBot, window: MainWindow, path: Path):
+    def type_button(title: str) -> QPushButton:
+        (button,) = [button for button in window.strip_page.types.buttons() if button.text() == title]
+        return button  # pyright: ignore[reportReturnType]: the types are push buttons
+
+    assert kept_notes(window) == []
+    click(qtbot, type_button("Empty"))
+
+    assert window.document.strips[0].values == {"type": "empty"}
+    assert kept_notes(window) == [
+        "Kept from Output: <code>device</code>, <code>label</code>, <code>color</code>. Switching back to Output "
+        "restores them."
+    ]
+    window.save()
+    assert '# device = "speaker"' in path.read_text()
+
+    click(qtbot, type_button("Output"))
+    assert window.document.strips[0].values == {
+        "type": "output",
+        "device": "speaker",
+        "label": "Speaker",
+        "color": "cyan",
+    }
+    assert kept_notes(window) == []
+    # back and forth again: one step each
+    window.undo()
+    assert window.document.strips[0].values == {"type": "empty"}
+    assert kept_notes(window)
+    window.redo()
+    assert window.document.strips[0].values["device"] == "speaker"
+
+
+def test_kept_options_that_can_not_be_read_are_left_alone(make_window: MakeWindow, path: Path):
+    path.write_text('[[strip]]\ntype = "empty"\n# kept from type = "output" (the GUI restores ...):\n# device = "x\n')
+    window = make_window()
+
+    (note,) = kept_notes(window)
+    assert note.startswith("The options kept from Output are no longer readable")
+
+
 def test_strips_move_and_go(qtbot: QtBot, window: MainWindow):
     def header(tip: str) -> QAbstractButton:
         (button,) = buttons(window.strip_page, QAbstractButton, lambda button: button.toolTip().startswith(tip))

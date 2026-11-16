@@ -135,6 +135,8 @@ itself does not import it.
   test checks each against the headings of `docs/`.
 - **The comments stay.** Saving edits the TOML document with tomlkit: unchanged values keep their place and their
   comments, and moved strips take theirs along. The file is written in place, so a symlinked configuration stays one.
+  Options that a strip's new type does not have go into a comment of its table (`StripDraft.kept`), so nothing typed
+  is lost and switching back restores them, also in a later session.
 - **The daemon is found, not guessed.** `xtouch-daemon run` writes `$XDG_RUNTIME_DIR/xtouch-daemon.json` (its process
   id, its configuration file, whether systemd started it) while it runs (`instance.py`), so the GUI finds it wherever
   it was started, and a second daemon names the one that has the device. A saved file is reloaded (SIGHUP) only when

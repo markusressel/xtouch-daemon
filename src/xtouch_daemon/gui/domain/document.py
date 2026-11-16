@@ -5,6 +5,7 @@ where they can.
 """
 
 import copy
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,7 +15,7 @@ import tomlkit
 import tomlkit.exceptions
 from pydantic import ValidationError
 from tomlkit.container import Container
-from tomlkit.items import Table, Whitespace
+from tomlkit.items import Comment, Item, Null, Table, Whitespace
 
 from xtouch_daemon import protocol
 from xtouch_daemon.config import Config, ConfigError, Problem, example_config, problems_of
@@ -39,6 +40,15 @@ type OptionPath = tuple[int | str, ...]
 """Where an option is in the TOML data, like `Problem.path`, e.g. `("strip", 2, "label")`."""
 
 
+KEPT_HEADER = '# kept from type = "{type}" (the GUI restores these when the strip is switched back):'
+"""
+The first line of the comment that keeps the options of a type the strip had before (see `StripDraft.kept`), followed
+by the options as TOML, each line commented out.
+"""
+
+_KEPT = re.compile(r'#\s*kept from type = "([^"\\]*)"')
+
+
 @dataclass
 class StripDraft:
     """A strip being edited: its options as in the file."""
@@ -46,6 +56,13 @@ class StripDraft:
     values: dict[str, Any]
     origin: int | None = None
     """Its position in the file when it was read, which keeps its comments and formatting when it moves."""
+    kept: dict[str, dict[str, Any]] = field(default_factory=dict)
+    """
+    The options of the types the strip had before that its type does not have, by type, so switching back restores
+    them. They are in the file as comments in the strip's table (`KEPT_HEADER`), which the daemon ignores.
+    """
+    unreadable: tuple[str, ...] = ()
+    """The types whose kept options in the file are no TOML (e.g. edited by hand): they stay there as they are."""
 
     @property
     def type(self) -> str | None:
@@ -114,13 +131,16 @@ class ConfigDocument:
                 f"{self.path}: strip is not a list of tables ([[strip]]), fix that in a text editor first"
             )
         self._text = text
+        tables: Any = toml.get("strip", [])
         self.sections: dict[str, dict[str, Any] | None] = {
             name: data.pop(name, None if section.optional else {}) for name, section in SECTIONS.items()
         }
         """The options of each section; None for an optional section that is not there."""
         self.aliases: list[tuple[str, str]] = list(data.pop("aliases", {}).items())
         """The aliases in the order of the file; a list, so an alias being typed can have the name of another one."""
-        self.strips = [StripDraft(strip, origin) for origin, strip in enumerate(strips)]
+        self.strips = [
+            _draft(strip, origin, table) for origin, (strip, table) in enumerate(zip(strips, tables, strict=True))
+        ]
         self.extra: dict[str, Any] = data
         """Top-level keys that are no section of the configuration: errors, which the user can only remove."""
         self._saved = self.data()
@@ -247,12 +267,29 @@ class ConfigDocument:
         self.strips.insert(to, self.strips.pop(index))
 
     def set_strip_type(self, index: int, strip_type: str) -> None:
-        """Changes the type of a strip; the options the new type has too are kept."""
+        """
+        Changes the type of a strip. The options the new type has too stay, the others are kept for the old type
+        (`StripDraft.kept`), and the ones kept for the new type come back. Options the new type has that are kept for
+        another type come along as well (and stay kept for it), e.g. the label of an `output` strip that went through
+        `apps` and `empty`.
+        """
         known = strip_models()[strip_type].model_fields
         strip = self.strips[index]
-        strip.values = {"type": strip_type} | {
-            name: value for name, value in strip.values.items() if name in known and name != "type"
+        old = strip.type if isinstance(strip.type, str) else "unknown"
+        options = {name: value for name, value in strip.values.items() if name != "type"}
+        left = {name: value for name, value in options.items() if name not in known}
+        if left:
+            strip.kept[old] = strip.kept.get(old, {}) | left
+        others = {
+            name: value
+            for kind, values in strip.kept.items()
+            if kind != strip_type
+            for name, value in values.items()
+            if name in known
         }
+        # what is set now wins over what was kept, e.g. a color set on the way
+        shared = {name: value for name, value in options.items() if name in known}
+        strip.values = {"type": strip_type} | others | strip.kept.pop(strip_type, {}) | shared
 
     def state(self) -> DocumentState:
         """A copy of what the editor changes, to go back to with `restore()`."""
@@ -302,8 +339,11 @@ class ConfigDocument:
             self._load(example_config())
 
 
-def _sync_items(table: Container | Table, values: dict[str, Any]) -> None:
-    """Makes the options of the table the values, leaving the ones that did not change (and their comments) alone."""
+def _sync_items(table: Container | Table, values: dict[str, Any], looks: dict[str, Item] | None = None) -> None:
+    """
+    Makes the options of the table the values, leaving the ones that did not change (and their comments) alone. An
+    added option takes its look from `looks` (e.g. a value on several lines) if it has the same value there.
+    """
     for name in [name for name in table if name not in values]:
         del table[name]
     current = table.unwrap()
@@ -315,7 +355,8 @@ def _sync_items(table: Container | Table, values: dict[str, Any]) -> None:
         # after the last option, not after the comments and blank lines that end the table
         trailing = _trim(table)
         for name, value in added.items():
-            table[name] = value
+            look = (looks or {}).get(name)
+            table[name] = copy.deepcopy(look) if look is not None and look.unwrap() == value else value
         for item in trailing:
             table.add(item)
 
@@ -348,12 +389,12 @@ def _sync_strips(toml: tomlkit.TOMLDocument, strips: list[StripDraft]) -> None:
     tables: Any = toml.get("strip", [])
     if [strip.origin for strip in strips] == list(range(len(tables))):
         for strip, table in zip(strips, tables, strict=True):
-            _sync_items(table, strip.values)
+            _sync_strip(table, strip)
         return
     aot = tomlkit.aot()
     for strip in strips:
         table = copy.deepcopy(tables[strip.origin]) if strip.origin is not None else tomlkit.table()
-        _sync_items(table, strip.values)
+        _sync_strip(table, strip)
         # the blank lines after it were for its old place, the array of tables puts one between its tables
         for item in _trim(table):
             if not isinstance(item, Whitespace):
@@ -365,6 +406,107 @@ def _sync_strips(toml: tomlkit.TOMLDocument, strips: list[StripDraft]) -> None:
         toml["strip"] = aot
     else:
         toml.append("strip", aot)
+
+
+def _sync_strip(table: Table, strip: StripDraft) -> None:
+    """The options of the strip, and the comments with the options kept for other types."""
+    blocks = _kept_blocks(table)
+    # an option keeps the look it had in the file (e.g. profiles on several lines), going into a comment and back
+    bodies = [block.options.body for block in blocks if block.options is not None] + [table.value.body]
+    looks = {key.key: item for body in bodies for key, item in body if key is not None}
+    unchanged = {
+        block.kind: block.lines for block in blocks if block.readable and strip.kept.get(block.kind) == block.values
+    }
+    written = [unchanged.get(kind) or _kept_lines(kind, values, looks) for kind, values in strip.kept.items() if values]
+    _sync_items(table, strip.values, looks)
+    removed = [line for block in blocks if block.readable for line in block.lines]
+    body = table.value.body
+    for index, (key, item) in enumerate(body):
+        if key is None and any(item is line for line in removed):
+            # in place, like tomlkit removes items, so the indices of the options stay right
+            body[index] = (None, Null())
+    trailing = [item for item in _trim(table) if not isinstance(item, Null)]
+    for lines in written:
+        for line in lines:
+            table.add(line)
+    for item in trailing:
+        table.add(item)
+
+
+@dataclass
+class _KeptBlock:
+    """A comment with the options kept for a type (see `KEPT_HEADER`)."""
+
+    kind: str
+    lines: list[Comment]
+    options: tomlkit.TOMLDocument | None
+    """The options, None when the comment is no TOML."""
+
+    @property
+    def readable(self) -> bool:
+        return self.options is not None
+
+    @property
+    def values(self) -> dict[str, Any]:
+        return {} if self.options is None else self.options.unwrap()
+
+
+def _kept_blocks(table: Table) -> list[_KeptBlock]:
+    """The comments with kept options in the table: a header line, and the lines that follow it."""
+    blocks: list[_KeptBlock] = []
+    lines: list[Comment] = []
+    for key, item in [*table.value.body, (None, Null())]:
+        comment = item if key is None and isinstance(item, Comment) else None
+        text = None if comment is None else comment.as_string().strip()
+        if lines and (text is None or _KEPT.match(text)):
+            kind = _KEPT.match(lines[0].as_string().strip())[1]  # pyright: ignore[reportOptionalSubscript]: a header
+            source = "\n".join(re.sub(r"^# ?", "", line.as_string().strip()) for line in lines[1:]) + "\n"
+            try:
+                options: tomlkit.TOMLDocument | None = tomlkit.parse(source)
+            except tomlkit.exceptions.ParseError:
+                options = None
+            blocks.append(_KeptBlock(kind, lines, options))
+            lines = []
+        if comment is not None and text is not None and (lines or _KEPT.match(text)):
+            lines.append(comment)
+    return blocks
+
+
+def _kept_lines(kind: str, values: dict[str, Any], looks: dict[str, Item]) -> list[Comment]:
+    """The comment lines that keep the options of a type."""
+    document = tomlkit.document()
+    for name, value in values.items():
+        look = looks.get(name)
+        document.add(name, copy.deepcopy(look) if look is not None and look.unwrap() == value else _inline(value))
+    text = tomlkit.dumps(document)
+    return [tomlkit.comment(line) for line in (KEPT_HEADER.format(type=kind)[2:], *text.splitlines())]
+
+
+def _inline(value: Any) -> Item:
+    """A value that fits on the lines of a comment: tables inline, a list of tables on a line each."""
+    if isinstance(value, dict):
+        table = tomlkit.inline_table()
+        for name, item in value.items():
+            table[name] = _inline(item)
+        return table
+    if isinstance(value, list | tuple):
+        array = tomlkit.array()
+        for item in value:
+            array.append(_inline(item))
+        return array.multiline(any(isinstance(item, dict) for item in value))
+    return tomlkit.item(value)
+
+
+def _draft(values: dict[str, Any], origin: int, table: Table) -> StripDraft:
+    """A strip as it is in the file, with the options it keeps for other types."""
+    kept: dict[str, dict[str, Any]] = {}
+    unreadable: list[str] = []
+    for block in _kept_blocks(table):
+        if block.readable:
+            kept[block.kind] = kept.get(block.kind, {}) | block.values
+        else:
+            unreadable.append(block.kind)
+    return StripDraft(values, origin, kept, tuple(unreadable))
 
 
 def _trim(table: Container | Table) -> list[Any]:

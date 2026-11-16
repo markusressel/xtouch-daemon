@@ -67,3 +67,26 @@ def test_typing_an_alias_is_one_step():
     history.undo()
 
     assert doc.aliases == [("WEBRTC VoiceEngine", "Discord")]
+
+
+def test_a_new_type_and_the_options_it_keeps_are_one_step():
+    doc = document()
+    history = History(doc)
+
+    doc.set_strip_type(0, "empty")
+    history.record()
+    doc.set_strip_type(0, "output")
+    history.record()
+    assert doc.strips[0].values == {"type": "output", "label": "Speaker"}
+
+    history.undo()
+    assert doc.strips[0].values == {"type": "empty"}
+    assert doc.strips[0].kept == {"output": {"label": "Speaker"}}
+    history.undo()
+    assert doc.strips[0].values == {"type": "output", "label": "Speaker"}
+    assert doc.strips[0].kept == {}
+    history.redo()
+    assert doc.strips[0].kept == {"output": {"label": "Speaker"}}
+    history.redo()
+    assert (doc.strips[0].values, doc.strips[0].kept) == ({"type": "output", "label": "Speaker"}, {})
+    assert doc.render() == FILE

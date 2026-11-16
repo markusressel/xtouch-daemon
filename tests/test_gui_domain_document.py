@@ -169,9 +169,192 @@ def test_a_new_type_keeps_the_options_it_has_too():
     doc = document()
     doc.set_strip_type(0, "apps")
     assert doc.strips[0].values == {"type": "apps", "label": "Speaker", "color": "cyan"}
+    # the others are kept for the type they belong to
+    assert doc.strips[0].kept == {"output": {"device": "alsa_output.analog"}}
 
     doc.set_strip_type(0, "empty")
     assert doc.strips[0].values == {"type": "empty"}
+    assert doc.strips[0].kept == {
+        "output": {"device": "alsa_output.analog"},
+        "apps": {"label": "Speaker", "color": "cyan"},
+    }
+
+
+def test_switching_back_restores_the_options():
+    doc = document()
+    doc.set_strip_type(0, "empty")
+    assert '# kept from type = "output"' in doc.render()
+
+    doc.set_strip_type(0, "output")
+
+    assert doc.strips[0].values == {
+        "type": "output",
+        "device": "alsa_output.analog",
+        "label": "Speaker",
+        "color": "cyan",
+    }
+    assert doc.strips[0].kept == {}
+    assert doc.render() == FILE
+    assert not doc.modified
+
+
+def test_options_set_on_the_way_win_over_kept_ones():
+    doc = document()
+    doc.set_strip_type(0, "apps")
+    doc.set(("strip", 0, "color"), "red")
+    doc.set(("strip", 0, "match"), ["vlc"])
+
+    doc.set_strip_type(0, "output")
+
+    assert doc.strips[0].values == {
+        "type": "output",
+        "device": "alsa_output.analog",
+        "label": "Speaker",
+        "color": "red",
+    }
+    assert doc.strips[0].kept == {"apps": {"match": ["vlc"]}}
+
+
+def test_options_kept_for_another_type_come_along():
+    # the label and the color went into the block of apps on the way to empty
+    doc = document()
+    doc.set_strip_type(0, "apps")
+    doc.set_strip_type(0, "empty")
+
+    doc.set_strip_type(0, "output")
+
+    assert doc.strips[0].values == {
+        "type": "output",
+        "label": "Speaker",
+        "color": "cyan",
+        "device": "alsa_output.analog",
+    }
+    # and stay kept for apps
+    assert doc.strips[0].kept == {"apps": {"label": "Speaker", "color": "cyan"}}
+
+
+PROFILES = """\
+# my mixer
+[[strip]]
+type = "output"   # the card
+device = "alsa_output.pci-0000_11_00.4.*"   # both outputs
+label = "Phones"
+profiles = [
+  { label = "Phones", profile = "output:analog-stereo+input:analog-stereo" },
+  # the speakers are weak
+  { label = "Speaker", profile = "output:iec958-stereo+input:analog-stereo", max_volume = 200 },
+]
+
+[[strip]]
+type = "auto"
+"""
+
+
+def test_kept_options_survive_saving_and_reopening(tmp_path: Path):
+    path = tmp_path / "config.toml"
+    path.write_text(PROFILES)
+    doc = ConfigDocument.open(path)
+    doc.set_strip_type(0, "empty")
+
+    config = doc.save()
+
+    # the daemon reads comments as nothing
+    text = path.read_text()
+    assert parse_config(text) == config
+    assert config.strips[0].type == "empty"
+    assert (
+        "[[strip]]\n"
+        'type = "empty"   # the card\n'
+        '# kept from type = "output" (the GUI restores these when the strip is switched back):\n'
+        '# device = "alsa_output.pci-0000_11_00.4.*"   # both outputs\n'
+        '# label = "Phones"\n'
+        "# profiles = [\n"
+        '#   { label = "Phones", profile = "output:analog-stereo+input:analog-stereo" },\n'
+        "#   # the speakers are weak\n"
+    ) in text
+
+    reopened = ConfigDocument.open(path)
+    assert reopened.strips[0].kept["output"]["profiles"][1]["max_volume"] == 200
+    reopened.set_strip_type(0, "output")
+    # the options are back as they were written, on several lines and with their comments
+    assert reopened.render() == PROFILES
+
+
+def test_kept_options_without_a_look_in_the_file_fit_on_comment_lines():
+    doc = document("")
+    doc.add_strip("output")
+    doc.set(("strip", 0, "profiles"), [{"label": "A", "profile": "a"}, {"label": "B", "profile": "b"}])
+    doc.set(("strip", 0, "device"), ["x.*"])
+    doc.set_strip_type(0, "auto")
+
+    text = doc.render()
+
+    parse_config(text)
+    assert text == (
+        "[[strip]]\n"
+        'type = "auto"\n'
+        '# kept from type = "output" (the GUI restores these when the strip is switched back):\n'
+        "# profiles = [\n"
+        '#     {label = "A", profile = "a"},\n'
+        '#     {label = "B", profile = "b"},\n'
+        "# ]\n"
+        '# device = ["x.*"]\n'
+    )
+    reopened = document(text)
+    reopened.set_strip_type(0, "output")
+    assert reopened.strips[0].values == doc.strips[0].values | {"type": "output"} | doc.strips[0].kept["output"]
+
+
+def test_a_moved_strip_takes_its_kept_options_along():
+    doc = document()
+    doc.set_strip_type(0, "empty")
+    text = doc.render()
+    moved = document(text)
+
+    moved.move_strip(0, 2)
+
+    rendered = moved.render()
+    assert rendered.index('type = "empty"') > rendered.index('type = "apps"')
+    assert document(rendered).strips[2].kept == {
+        "output": {"device": "alsa_output.analog", "label": "Speaker", "color": "cyan"}
+    }
+
+
+UNREADABLE = """\
+[[strip]]
+type = "empty"
+# kept from type = "output" (the GUI restores these when the strip is switched back):
+# device = "alsa_output.analog
+# my own note
+"""
+
+
+def test_kept_options_changed_into_no_toml_stay_as_they_are():
+    doc = document(UNREADABLE)
+    assert doc.strips[0].unreadable == ("output",)
+    assert doc.strips[0].kept == {}
+    parse_config(UNREADABLE)
+
+    doc.set_strip_type(0, "apps")
+    doc.set(("strip", 0, "match"), ["vlc"])
+    doc.set_strip_type(0, "output")
+
+    assert doc.strips[0].values == {"type": "output"}
+    text = doc.render()
+    # the new comment goes before the comments that end the table
+    assert text == (
+        "[[strip]]\n"
+        'type = "output"\n'
+        '# kept from type = "apps" (the GUI restores these when the strip is switched back):\n'
+        '# match = ["vlc"]\n' + UNREADABLE.split("\n", 2)[2]
+    )
+    assert document(text).strips[0].unreadable == ("output",)
+
+
+def test_a_strip_without_a_type_keeps_its_options_too():
+    doc = document('[[strip]]\nlabel = "Mic"\nmatch = ["x"]\n')
+    doc.set_strip_type(0, "auto")
+    assert doc.strips[0].kept == {"unknown": {"label": "Mic", "match": ["x"]}}
 
 
 def test_validation_uses_the_models():
