@@ -5,8 +5,12 @@ so the GUI can show the strips as they are instead of what a file would make of 
 The daemon serves a Unix socket next to its runtime file (see `instance.socket_file()`). Every client gets the whole
 state as one line of JSON when it connects, and again whenever something changed, at most every `INTERVAL`. Whole
 states rather than changes: a line is about 2 KB, and a client that missed one (or connects late) needs nothing else
-to be right. Clients only read; what they send is ignored. A client that does not keep up is dropped instead of being
-waited for, so a stuck GUI never slows down the daemon.
+to be right. A client that does not keep up is dropped instead of being waited for, so a stuck GUI never slows down
+the daemon.
+
+A client of the same user may also send requests, a line of JSON each: the live preview of the GUI (`StartPreview`,
+`KeepPreview`, `EndPreview`). The daemon answers with `Reply` lines, which have no `version`: a GUI that does not know
+replies ignores them like lines of another version, and an older daemon ignores the requests.
 """
 
 import asyncio
@@ -14,10 +18,13 @@ import contextlib
 import hashlib
 import json
 import logging
+import os
+import socket
+import struct
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import SecretStr
 
@@ -34,6 +41,13 @@ INTERVAL = 0.05
 """How often the state is checked for changes: 20 times a second, enough for a fader that glides."""
 MAX_BUFFER = 256 * 1024
 """Bytes a client may lag behind (about 100 states) before it is dropped."""
+MAX_REQUEST = 1024 * 1024
+"""
+The longest line a client may send; a configuration has a few KB. A longer one ends the connection: the daemon reads
+nothing without a limit.
+"""
+FEATURES = ("preview",)
+"""The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 METER_FALL = 0.15
 """
 Seconds per level in which a meter falls when it is not sent again, about as fast as on the device (which lets it fall
@@ -95,6 +109,52 @@ class Snapshot:
     """More on the connection of `mqtt` (an older daemon does not tell it)."""
     daemon_version: str | None = None
     """The version of the daemon that runs (an older daemon does not tell it)."""
+    preview: bool = False
+    """
+    Whether the daemon runs a configuration that a GUI previews (`StartPreview`) instead of its file; `config` is the
+    fingerprint of that one then.
+    """
+    features: tuple[str, ...] = ()
+    """The requests the daemon takes (`FEATURES`), none for an older daemon."""
+
+
+@dataclass(frozen=True)
+class StartPreview:
+    """
+    Run this configuration (the whole TOML text) instead of the file, without writing the file. The daemon answers
+    with a `Reply` of kind "preview"; sent again, the device follows. The preview ends with `EndPreview`, with the
+    connection, without a request for `daemon.PREVIEW_TIMEOUT` (see `KeepPreview`), and when the file is loaded again.
+    """
+
+    config: str
+
+
+@dataclass(frozen=True)
+class KeepPreview:
+    """The heartbeat of a preview: the client is still there (a hung GUI keeps its connection open, but sends none)."""
+
+
+@dataclass(frozen=True)
+class EndPreview:
+    """Back to the configuration file."""
+
+
+type Request = StartPreview | KeepPreview | EndPreview
+
+type ReplyKind = Literal["preview", "ended", "error"]
+
+
+@dataclass(frozen=True)
+class Reply:
+    """
+    An answer of the daemon, or news for a client. "preview": whether a `StartPreview` runs now (`message` says why
+    not, e.g. the errors of the configuration, as `check-config` tells them). "ended": the preview of this client
+    ended, `message` says why. "error": a request could not be read, or is not allowed.
+    """
+
+    kind: ReplyKind
+    ok: bool
+    message: str = ""
 
 
 def fingerprint(config: Config) -> str:
@@ -145,8 +205,19 @@ def encode(snapshot: Snapshot) -> bytes:
 
 
 def decode(line: bytes) -> Snapshot | None:
-    """A line of the daemon, None for one of another version. Raises ValueError (or KeyError) for one that is not."""
+    """
+    A snapshot of the daemon, None for a line of another version or a reply. Raises ValueError (or KeyError) for a
+    line that is neither.
+    """
+    message = decode_message(line)
+    return message if isinstance(message, Snapshot) else None
+
+
+def decode_message(line: bytes) -> Snapshot | Reply | None:
+    """A line of the daemon: a snapshot or a reply, None for a snapshot of another version."""
     data = json.loads(line)
+    if "reply" in data:
+        return Reply(data["reply"], bool(data["ok"]), str(data.get("message", "")))
     if data.get("version") != VERSION:
         return None
     strips = tuple(
@@ -171,25 +242,82 @@ def decode(line: bytes) -> Snapshot | None:
         strips,
         MqttState(**mqtt_state) if mqtt_state is not None else None,
         data.get("daemon_version"),
+        bool(data.get("preview", False)),
+        tuple(data.get("features", ())),
     )
 
 
-class LiveServer:
-    """Serves the snapshots of `snapshot` on the Unix socket at `path`, for as long as `run()` runs."""
+def encode_reply(reply: Reply) -> bytes:
+    return json.dumps({"reply": reply.kind, "ok": reply.ok, "message": reply.message}).encode() + b"\n"
 
-    def __init__(self, path: Path, snapshot: Callable[[], Snapshot]):
+
+_REQUEST_NAMES: dict[type, str] = {StartPreview: "preview", KeepPreview: "keep_preview", EndPreview: "end_preview"}
+
+
+def encode_request(request: Request) -> bytes:
+    data = {"request": _REQUEST_NAMES[type(request)]}
+    if isinstance(request, StartPreview):
+        data["config"] = request.config
+    return json.dumps(data).encode() + b"\n"
+
+
+def decode_request(line: bytes) -> Request:
+    """A request of a client. Raises ValueError for a line that is none."""
+    try:
+        data = json.loads(line)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"not JSON ({e})") from e
+    match data:
+        case {"request": "preview", "config": str(config)}:
+            return StartPreview(config)
+        case {"request": "keep_preview"}:
+            return KeepPreview()
+        case {"request": "end_preview"}:
+            return EndPreview()
+        case _:
+            raise ValueError("unknown")
+
+
+def peer_uid(sock: socket.socket) -> int:
+    """The user of the process at the other end of a Unix socket, as the kernel tells it (SO_PEERCRED)."""
+    credentials = sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+    _pid, uid, _gid = struct.unpack("3i", credentials)
+    return uid
+
+
+type RequestHandler = Callable[[object, Request], Reply | None]
+"""Handles a request of a client (the object stands for it, see `LiveServer.tell()`), returns the answer if any."""
+
+
+class LiveServer:
+    """
+    Serves the snapshots of `snapshot` on the Unix socket at `path`, for as long as `run()` runs. `on_request` handles
+    the requests of clients of the user the daemon runs as (without it, requests are refused), `on_close` learns of
+    every client whose connection ended.
+    """
+
+    def __init__(
+        self,
+        path: Path,
+        snapshot: Callable[[], Snapshot],
+        on_request: RequestHandler | None = None,
+        on_close: Callable[[object], None] = lambda client: None,
+    ):
         self.path = path
         self._snapshot = snapshot
+        self._on_request = on_request
+        self._on_close = on_close
         self.clients: set[asyncio.StreamWriter] = set()
         self._last = b""
 
     async def run(self) -> None:
         """Serves until cancelled. A socket that can't be made is logged: the daemon works without the live view."""
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
+            # the user's own: $XDG_RUNTIME_DIR is, and so is the fallback directory (see `instance.runtime_file()`)
+            self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             # left behind by a daemon that was killed; registering the instance made sure that none runs
             self.path.unlink(missing_ok=True)
-            server = await asyncio.start_unix_server(self._serve, self.path)
+            server = await asyncio.start_unix_server(self._serve, self.path, limit=MAX_REQUEST)
             self.path.chmod(0o600)
         except OSError as e:
             _LOGGER.error(f"No live view for the GUI, can't serve {self.path}: {e}")
@@ -205,6 +333,12 @@ class LiveServer:
                 client.close()
             self.clients.clear()
             self.path.unlink(missing_ok=True)
+
+    def tell(self, client: object, reply: Reply) -> None:
+        """Sends a reply the client did not ask for, e.g. that its preview ended. Nothing for one that is gone."""
+        if client in self.clients:
+            assert isinstance(client, asyncio.StreamWriter)
+            self._send(client, encode_reply(reply))
 
     def _publish(self, line: bytes) -> None:
         if line == self._last:
@@ -226,13 +360,33 @@ class LiveServer:
         self.clients.add(writer)
         # the whole state right away, not only once something changes
         self._send(writer, encode(self._snapshot()))
+        # the socket is 0600, but root can connect anyway
+        trusted = peer_uid(writer.get_extra_info("socket")) == os.getuid()
         try:
-            # until it closes the connection; what it sends means nothing
+            # until it closes the connection
             with contextlib.suppress(ConnectionError):
-                while await reader.read(4096):
-                    pass
+                while line := await reader.readline():
+                    self._request(writer, line, trusted)
+        except ValueError:
+            # longer than MAX_REQUEST: where the next request starts is lost
+            _LOGGER.warning(f"Dropping a live view client that sent more than {MAX_REQUEST} bytes in one line")
+            self._send(writer, encode_reply(Reply("error", False, f"A request has at most {MAX_REQUEST} bytes")))
         finally:
             self.clients.discard(writer)
+            self._on_close(writer)
             writer.close()
             with contextlib.suppress(ConnectionError):
                 await writer.wait_closed()
+
+    def _request(self, client: asyncio.StreamWriter, line: bytes, trusted: bool) -> None:
+        if not trusted or self._on_request is None:
+            reply: Reply | None = Reply("error", False, "The daemon takes requests only from the user it runs as")
+        else:
+            try:
+                request = decode_request(line)
+            except ValueError as e:
+                reply = Reply("error", False, f"Can't read the request: {e}")
+            else:
+                reply = self._on_request(client, request)
+        if reply is not None:
+            self._send(client, encode_reply(reply))

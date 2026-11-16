@@ -184,6 +184,71 @@ async def test_new_entities_replace_the_old_ones_and_removed_ones_leave_home_ass
     assert "homeassistant/number/xtouch/strip_1_encoder/config" not in broker.retained
     assert "homeassistant/event/xtouch/strip_1_buttons/config" not in broker.retained
     assert "homeassistant/number/xtouch/strip_1_encoder/set" not in broker.connected[0].subscriptions
+    # the state stays on the broker, for when the strip comes back
+    assert broker.retained["homeassistant/number/xtouch/strip_1_encoder/state"] == "0"
+
+
+async def test_a_preview_removes_nothing_and_going_back_to_the_file_restores_the_entities(
+    bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    fader, encoder = number(), number("strip_1_encoder")
+    await bridge.set_entities({fader: "0", encoder: "0"})
+    await start(bridge)
+    broker.publish("homeassistant/number/xtouch/strip_1_fader/set", "30")
+    await until(lambda: fader.state == "30")
+
+    # the preview has another strip: the entities of the file stay in Home Assistant, but nothing drives them
+    desk = number("desk_fader")
+    await bridge.set_entities({desk: "0"}, preview=True)
+    await until(lambda: bridge.ready and desk.state == "0")
+    assert "homeassistant/number/xtouch/strip_1_fader/config" in broker.retained
+    assert "homeassistant/number/xtouch/strip_1_encoder/config" in broker.retained
+    assert broker.retained["homeassistant/number/xtouch/strip_1_fader/state"] == "30"
+    assert "homeassistant/number/xtouch/strip_1_fader/set" not in broker.connected[0].subscriptions
+    assert bridge.entity_count == 1
+    # a second step of the preview without the desk does not remove it either
+    await bridge.set_entities({}, preview=True)
+    assert "homeassistant/number/xtouch/desk_fader/config" in broker.retained
+
+    # back to the file (new entities, as a new mixer makes them): as they were
+    fader, encoder = number(), number("strip_1_encoder")
+    await bridge.set_entities({fader: "0", encoder: "0"})
+    await until(lambda: bridge.ready and fader.state == "30")
+    assert encoder.state == "0"
+    # the entity only the preview had is gone, with the state it left on the broker
+    assert "homeassistant/number/xtouch/desk_fader/config" not in broker.retained
+    assert "homeassistant/number/xtouch/desk_fader/state" not in broker.retained
+    assert "homeassistant/number/xtouch/strip_1_fader/config" in broker.retained
+
+
+async def test_entities_of_the_file_that_a_preview_dropped_go_when_the_next_file_drops_them(
+    bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    fader, encoder = number(), number("strip_1_encoder")
+    await bridge.set_entities({fader: "0", encoder: "0"})
+    await start(bridge)
+    await bridge.set_entities({number(): "0"}, preview=True)
+    await until(lambda: bridge.ready)
+
+    # the saved file has no encoder: it leaves Home Assistant, its state stays (as with any reload)
+    fader = number()
+    await bridge.set_entities({fader: "0"})
+    await until(lambda: bridge.ready)
+
+    assert "homeassistant/number/xtouch/strip_1_encoder/config" not in broker.retained
+    assert broker.retained["homeassistant/number/xtouch/strip_1_encoder/state"] == "0"
+    assert "homeassistant/number/xtouch/strip_1_fader/config" in broker.retained
+
+
+async def test_entities_set_while_not_connected_are_announced_on_connect(
+    bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    await bridge.set_entities({number("strip_1_encoder"): "0"}, preview=True)
+    await bridge.set_entities({number(): "0"})
+    await start(bridge)
+
+    assert "homeassistant/number/xtouch/strip_1_fader/config" in broker.retained
+    assert "homeassistant/number/xtouch/strip_1_encoder/config" not in broker.retained
 
 
 async def test_a_lost_broker_is_reported_once_and_connected_again(

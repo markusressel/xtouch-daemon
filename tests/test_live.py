@@ -1,5 +1,8 @@
 import asyncio
+import dataclasses
 import logging
+import os
+import socket
 import tempfile
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
@@ -11,13 +14,23 @@ from xtouch_daemon import live
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.config import parse_config
 from xtouch_daemon.live import (
+    EndPreview,
+    KeepPreview,
     LiveServer,
     MqttState,
+    Reply,
+    Request,
     Snapshot,
+    StartPreview,
     StripState,
     decode,
+    decode_message,
+    decode_request,
     encode,
+    encode_reply,
+    encode_request,
     fingerprint,
+    peer_uid,
     strip_states,
 )
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
@@ -225,3 +238,152 @@ async def test_without_a_socket_the_daemon_runs_on(
     await server.run()
 
     assert "No live view for the GUI, can't serve" in caplog.text
+
+
+# -- requests -------------------------------------------------------------------------------------------------------
+
+
+def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
+    for request in (StartPreview('[[strip]]\ntype = "empty"\n'), KeepPreview(), EndPreview()):
+        line = encode_request(request)
+        assert line.count(b"\n") == 1
+        assert decode_request(line) == request
+    with pytest.raises(ValueError, match="not JSON"):
+        decode_request(b"garbage")
+    with pytest.raises(ValueError, match="unknown"):
+        decode_request(b'{"request": "reboot"}')
+    with pytest.raises(ValueError, match="unknown"):
+        decode_request(b'{"request": "preview", "config": 1}')
+
+    reply = Reply("preview", False, "strip[1].type: wrong")
+    assert decode_message(encode_reply(reply)) == reply
+    # a GUI that knows no replies ignores them like lines of another version
+    assert decode(encode_reply(reply)) is None
+    assert b'"version"' not in encode_reply(reply)
+    # the snapshot of a daemon that previews, and of one that does not know previews
+    snapshot = dataclasses.replace(snapshot_of(surface), preview=True, features=live.FEATURES)
+    assert decode_message(encode(snapshot)) == snapshot
+    older = encode(snapshot_of(surface)).replace(b',"preview":false,"features":[]', b"")
+    assert b"features" not in older
+    decoded = decode(older)
+    assert decoded is not None
+    assert (decoded.preview, decoded.features) == (False, ())
+
+
+class Requests:
+    """What the daemon would do with the requests: recorded, and answered."""
+
+    def __init__(self) -> None:
+        self.received: list[tuple[object, Request]] = []
+        self.closed: list[object] = []
+
+    def handle(self, client: object, request: Request) -> Reply | None:
+        self.received.append((client, request))
+        return Reply("preview", True) if isinstance(request, StartPreview) else None
+
+
+async def replies(reader: asyncio.StreamReader, count: int = 1) -> list[Reply]:
+    """The next `count` replies, past the snapshots."""
+    result: list[Reply] = []
+    while len(result) < count:
+        message = decode_message(await asyncio.wait_for(reader.readline(), 1))
+        if isinstance(message, Reply):
+            result.append(message)
+    return result
+
+
+async def until(condition: object) -> None:
+    for _ in range(200):
+        if callable(condition) and condition():
+            return
+        await asyncio.sleep(0.005)
+    raise AssertionError("the condition never became true")
+
+
+async def test_requests_of_the_user_are_handled_and_answered(surface: RecordingSurface, socket_dir: Path):
+    requests = Requests()
+    server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface), requests.handle, requests.closed.append)
+    task = await serve(server)
+    reader, writer = await asyncio.open_unix_connection(server.path)
+
+    writer.write(encode_request(StartPreview("text")) + encode_request(KeepPreview()) + b"nonsense\n")
+    assert await replies(reader, 2) == [
+        Reply("preview", True),
+        Reply("error", False, "Can't read the request: not JSON (Expecting value: line 1 column 1 (char 0))"),
+    ]
+    (client,) = server.clients
+    assert requests.received == [(client, StartPreview("text")), (client, KeepPreview())]
+
+    # news it did not ask for
+    server.tell(client, Reply("ended", True, "the GUI ended it"))
+    assert await replies(reader) == [Reply("ended", True, "the GUI ended it")]
+
+    writer.close()
+    await writer.wait_closed()
+    await until(lambda: requests.closed)
+    assert requests.closed == [client]
+    # it is gone: nothing to tell
+    server.tell(client, Reply("ended", True, "late"))
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_requests_of_other_users_are_refused(
+    surface: RecordingSurface, socket_dir: Path, monkeypatch: pytest.MonkeyPatch
+):
+    requests = Requests()
+    server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface), requests.handle)
+    task = await serve(server)
+    # e.g. root, who can connect to a socket of mode 0600
+    monkeypatch.setattr(live, "peer_uid", lambda sock: os.getuid() + 1)
+    reader, writer = await asyncio.open_unix_connection(server.path)
+    # it still sees what the device shows
+    assert decode(await reader.readline()) is not None
+
+    writer.write(encode_request(StartPreview("text")))
+
+    assert await replies(reader) == [Reply("error", False, "The daemon takes requests only from the user it runs as")]
+    assert requests.received == []
+    writer.close()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_without_a_handler_requests_are_refused(surface: RecordingSurface, socket_dir: Path):
+    server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    task = await serve(server)
+    reader, writer = await asyncio.open_unix_connection(server.path)
+
+    writer.write(encode_request(EndPreview()))
+
+    assert (await replies(reader))[0].kind == "error"
+    writer.close()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_a_request_that_is_too_long_ends_the_connection(
+    surface: RecordingSurface, socket_dir: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setattr(live, "MAX_REQUEST", 1000)
+    requests = Requests()
+    server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface), requests.handle, requests.closed.append)
+    task = await serve(server)
+    reader, writer = await asyncio.open_unix_connection(server.path)
+
+    writer.write(encode_request(StartPreview("x" * 2000)))
+
+    assert await replies(reader) == [Reply("error", False, "A request has at most 1000 bytes")]
+    assert await asyncio.wait_for(reader.read(), 1) == b""
+    assert requests.received == []
+    await until(lambda: requests.closed)
+    assert "sent more than 1000 bytes in one line" in caplog.text
+    writer.close()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+
+def test_the_peer_is_the_user_itself():
+    first, second = socket.socketpair(socket.AF_UNIX)
+    with first, second:
+        assert peer_uid(first) == os.getuid()

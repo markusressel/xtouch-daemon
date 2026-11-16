@@ -72,7 +72,8 @@ def registered(config: Path) -> Iterator[Instance]:
     # systemd sets INVOCATION_ID for the processes of its units
     instance = Instance(pid=os.getpid(), config=config.expanduser().resolve(), systemd="INVOCATION_ID" in os.environ)
     path = runtime_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
+    # the user's own (the fallback in /tmp): the live view next to it takes requests
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(
         json.dumps({"pid": instance.pid, "config": str(instance.config), "systemd": instance.systemd}),
