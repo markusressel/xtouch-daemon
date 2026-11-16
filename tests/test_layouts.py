@@ -67,7 +67,9 @@ def test_running_processes_are_the_names_and_programs_of_proc(tmp_path: Path):
     for pid, comm, cmdline in (
         ("12", "mumble\n", b"/usr/bin/mumble\0--multiple\0"),
         ("13", "Web Content\n", b"/usr/lib/firefox/firefox\0-contentproc\0"),
-        ("14", "kworker/0:1\n", b""),
+        # kernel threads have no command line: "oom_reaper" must not match a rule for Steam's "reaper"
+        ("14", "oom_reaper\n", b""),
+        ("17", "reaper\n", b"/home/me/.local/share/Steam/ubuntu12_32/reaper\0SteamLaunch\0"),
     ):
         (tmp_path / pid).mkdir()
         (tmp_path / pid / "comm").write_text(comm)
@@ -78,7 +80,7 @@ def test_running_processes_are_the_names_and_programs_of_proc(tmp_path: Path):
     (tmp_path / "16").mkdir()
     (tmp_path / "16" / "comm").write_text("\n")
     (tmp_path / "16" / "cmdline").write_bytes(b"")
-    assert running_processes(tmp_path) == {"mumble", "web content", "firefox", "kworker/0:1"}
+    assert running_processes(tmp_path) == {"mumble", "web content", "firefox", "reaper"}
 
 
 @pytest.mark.host

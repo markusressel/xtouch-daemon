@@ -88,7 +88,13 @@ When a layout comes, the strips change at once, like after a reload, and the LCD
 - `apps`: while one of these applications has a stream (playing or paused). Parts of the names or binaries, ignoring
   case, like `match` of [`apps` strips](applications.md).
 - `processes`: while a process of one of these names runs (parts of the name, ignoring case), e.g. `"mumble"` for
-  the voice chat even while nobody talks.
+  the voice chat even while nobody talks. Kernel threads don't count.
+
+For games from Steam, `processes = ["reaper"]` matches while any game runs, native or with Proton: Steam starts
+every game through its `reaper` process. Proton games play as `<Game>.exe` (e.g. "Planet Crafter.exe"), which
+`apps = [".exe"]` catches once they make a sound. Don't use `steam` (the client runs all the time) or `.exe` in
+`processes` (Wine's helpers, like `explorer.exe`, run for other Windows programs too). `ps -eo comm,args` while a
+game runs shows the names to use for others, e.g. from Lutris or Heroic.
 
 If several layouts match, the one with the highest `priority` comes, then the first one in the file. When none
 matches any more, the `default` layout comes back, after `hold` seconds.
