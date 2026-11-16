@@ -16,6 +16,7 @@ from xtouch_daemon.config import (
     HomeAssistantStripConfig,
     InheritStripConfig,
     Problem,
+    VoipConfig,
     VoipStripConfig,
     color_of,
     default_config_path,
@@ -424,7 +425,6 @@ def test_the_default_switching() -> None:
         ('[[layout]]\nname = "a"\n[[layout]]\nname = "a"\n', "layouts with the same name: a"),
         ('[[layout]]\nname = "Gaming"\n', r"layout\[1\].name: String should match pattern"),
         ('[[strip]]\ntype = "inherit"\n', r"strip\[1\]: inherit is only for the strips of a \[\[layout\]\]"),
-        ('[[strip]]\ntype = "voip"\ncount = 2\n', r"voip strips need a \[voip\] section"),
         (
             '[voip]\n[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\ncount = 8\n'
             '[[layout.strip]]\ntype = "auto"\n',
@@ -458,3 +458,10 @@ def test_home_assistant_strips_of_a_layout() -> None:
     )
     assert [strip_id for _, strip_id in config.home_assistant_strips()] == ["desk"]
     assert [strip_id for _, strip_id in config.home_assistant_strips("a")] == ["strip_2", "desk"]
+
+
+def test_voip_strips_get_the_defaults_of_a_missing_voip_section():
+    config = parse_config('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\ncount = 1\n')
+    assert config.voip == VoipConfig()
+    # without voip strips, no voice chat
+    assert parse_config("").voip is None

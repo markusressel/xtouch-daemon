@@ -8,8 +8,8 @@ your Mumble channel, one per strip:
 - Mute mutes them for you;
 - people who join or leave the channel, and you moving to another channel, show at once.
 
-It needs Mumble 1.4 or later on Linux (x86_64), and the daemon with a [`[voip]`](../configuration/layouts.md#voice-chat)
-section with `provider = "bridge"` (the default).
+It needs Mumble 1.4 or later on Linux (x86_64), and a configuration with `voip` strips. Their
+[`[voip]`](../configuration/layouts.md#voice-chat) section can be left out: its `provider = "bridge"` is the default.
 
 ## Setup in the GUI
 
@@ -23,7 +23,7 @@ The page "Voice chat" of the global settings (the `[voip]` section) has a box "M
 4. Join a channel. The pill of the box says **Mumble connected** and how many people are in the channel.
 
 The pill shows what the running daemon sees: "waiting for Mumble" while the plugin is not connected (Mumble is not
-running, or the plugin is not enabled), "not in use" for a daemon without `[voip]`.
+running, or the plugin is not enabled), "not in use" for a daemon without `voip` strips or a `[voip]` section.
 
 ## Setup on the command line
 

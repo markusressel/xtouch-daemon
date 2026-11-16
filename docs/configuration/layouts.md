@@ -104,8 +104,8 @@ type = "voip"
 count = 5
 ```
 
-The people in the voice chat, one per strip, from the provider of [`[voip]`](#voice-chat). Needs a `[voip]`
-section.
+The people in the voice chat, one per strip, from the provider of [`[voip]`](#voice-chat). Without a `[voip]`
+section, they use its defaults: the `bridge` provider, which the Mumble plugin feeds.
 
 | Option | Default | Meaning |
 |---|---|---|

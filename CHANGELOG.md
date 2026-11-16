@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   participants than strips. `[voip]` picks where they come from: `bridge`, a plugin of the voice chat client on the
   socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` (the protocol is in the documentation, versioned), or `demo`
   people who talk in turns.
+- A `[voip]` section is optional: `voip` strips without one use its defaults (the `bridge` provider).
 - A Mumble plugin (`integrations/mumble`, Mumble 1.4 and later) for `voip` strips: the people of your channel, who
   talks and how loud, the fader for their volume and Mute to mute them (both the plugin's own, on top of Mumble's
   local volume). "Install Mumble plugin" on the GUI's page "Voice chat" (or `xtouch-daemon mumble-plugin --install`)

@@ -627,7 +627,7 @@ class Config(_Model):
     """The MQTT broker, needed by `homeassistant` strips."""
     switching: SwitchingConfig = SwitchingConfig()
     voip: VoipConfig | None = None
-    """The participants of the voice chat, needed by `voip` strips."""
+    """The participants of the voice chat, for `voip` strips: without the section, they use its defaults (`bridge`)."""
     layouts: Annotated[tuple[LayoutConfig, ...], Field(alias="layout")] = ()
     """More sets of strips to switch to; the top-level strips are the layout `default`."""
 
@@ -678,7 +678,8 @@ class Config(_Model):
     def _voip_strips(self) -> Config:
         strips = (strip for layout in self.layout_list() for strip in layout.strips)
         if self.voip is None and any(isinstance(strip, VoipStripConfig) for strip in strips):
-            raise ValueError("voip strips need a [voip] section")
+            # the section has defaults for everything: voip strips don't need it written out
+            return self.model_copy(update={"voip": VoipConfig()})
         return self
 
     def layout_list(self) -> tuple[LayoutConfig, ...]:

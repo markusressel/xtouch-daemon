@@ -21,7 +21,7 @@ def voip_status(snapshot: Snapshot | None) -> Status:
         return Status(
             "not in use",
             Tone.WARN,
-            "The daemon runs without a [voip] section: add one and save, the daemon reloads.",
+            "The daemon runs without voip strips or a [voip] section: add one and save, the daemon reloads.",
         )
     if voip.provider == "demo":
         return Status("demo", Tone.NEUTRAL, 'The participants are made up (provider = "demo"), Mumble is not asked.')
