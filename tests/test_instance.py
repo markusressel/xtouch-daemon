@@ -44,6 +44,14 @@ def test_the_file_is_in_the_runtime_directory(runtime_dir: Path, monkeypatch: py
     assert runtime_file().parent.name == f"xtouch-daemon-{os.getuid()}"
 
 
+def test_the_state_is_in_the_state_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    assert instance.layout_file() == tmp_path / "xtouch-daemon" / "layout"
+    monkeypatch.delenv("XDG_STATE_HOME")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert instance.layout_file() == tmp_path / ".local" / "state" / "xtouch-daemon" / "layout"
+
+
 def test_a_daemon_says_that_it_runs_while_it_runs(alive: set[int], tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("INVOCATION_ID", raising=False)
     assert running() is None

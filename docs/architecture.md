@@ -238,6 +238,10 @@ layout at once, from the last `AudioState`; the `Surface` sends only what change
 - **Who switches.** `LayoutSwitcher` holds the layout shown. Manual choices (CLI, GUI, Home Assistant's select, the
   Solo chord) switch at once. The rules are checked after every new `AudioState` and every 2 s (for `processes`). They
   are edge triggered: they switch only when the layout they want changes, so a manual choice stays until then.
+- **Remembered.** The daemon keeps the layout shown in its state directory (`instance.layout_file()`), unless a rule
+  put it there (`LayoutSwitcher.by_rule`), and starts with it. Rules that match at the start still switch, since they
+  start from "wanting" `default`. Home Assistant's select only takes commands: a retained state (maybe of a rule of
+  the last run) is put right once the bridge is ready, instead of switching.
 - **Entities of all layouts.** The MQTT bridge keeps the entities of the `homeassistant` strips of every layout
   (`keep`), so automations don't see them come and go on every switch; the layout select belongs to the daemon.
 - **VoIP strips.** A `voip` strip with `count = N` takes N places. The `Mixer` makes one `VoipGroup` of them, which

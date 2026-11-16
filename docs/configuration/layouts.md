@@ -53,7 +53,10 @@ keep their entities in Home Assistant, so automations don't lose them while anot
 
 ## Switching
 
-The daemon starts with the layout `default`. Another one comes:
+The daemon starts with the layout it showed when it stopped, unless a rule had put it there: then with the one
+shown before (by hand, or `default` once no rule matched). It keeps that in `~/.local/state/xtouch-daemon/layout`
+(`$XDG_STATE_HOME`, if set). A layout that is not in the configuration anymore gives `default`, and the rules still
+win: if one matches right after the start (a game that still runs), its layout comes as usual. Another one comes:
 
 - by hand: `xtouch-daemon layout gaming`, `xtouch-daemon layout --next` (see [Commands](../commands.md#layout)),
   or "Show on the device" in the [GUI](../gui.md);

@@ -106,9 +106,14 @@ class RecordingSurface(Surface):
 
 @pytest.fixture(autouse=True)
 def runtime_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Where `xtouch-daemon run` says that it runs: not the real one, which a daemon on this machine may use."""
+    """
+    Where `xtouch-daemon run` says that it runs: not the real one, which a daemon on this machine may use. Its state
+    directory is not the real one either.
+    """
     path = tmp_path / "runtime"
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(path))
+    # nor what it remembers
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     return path
 
 

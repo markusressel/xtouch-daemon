@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with `priority` and `switching.hold`. The LCDs show the label of the layout that comes (`switching.banner`).
   `check-config` lists every layout, and the entities of `homeassistant` strips of all layouts stay in Home
   Assistant.
+- The daemon remembers the layout across restarts (in `~/.local/state/xtouch-daemon/layout`), unless a rule put it
+  there; a rule that matches at the start still wins. Home Assistant's select follows the daemon, a retained state of
+  the last run no longer switches the layout.
 - `inherit` strips: in a layout, the strip of the default layout at the same place.
 - `voip` strips: the participants of a voice chat, one per strip (`count` strips), the name on the LCD, lit in
   `talking_color` while they talk, the fader for their volume and Mute to mute them; Select pages through more

@@ -162,12 +162,17 @@ provider = "bridge"       # or "demo"
   the matching layout with the highest priority, else `default`. When the wanted layout **changes**, the switcher
   switches to it. A layout whose rule stops matching stays for `hold` seconds (a game between two levels, a voice
   client that restarts). So the automatic switching wins when something happens, and a manual choice stays until
-  then, like Stream Deck and Loupedeck. There is no "lock" mode in phase 1 (see [Open questions](#open-questions)).
+  then, like Stream Deck and Loupedeck. There is no "lock" mode yet (decided: later, see [Phasing](#phasing)).
 - **Manual**: `xtouch-daemon layout gaming` (or `--next`, or without argument: list them), the GUI, the chord on the
   device, and Home Assistant (`select.<ns>_layout`). All are the same `switch(name, reason)`.
 - **Home Assistant**: a `select` entity with the names of the layouts. The daemon publishes the active layout; a
-  choice in Home Assistant switches. Its retained state is restored on connect, which switches to the layout Home
-  Assistant shows (so the last manual choice survives a restart of the daemon).
+  command from Home Assistant switches. Its retained state does not switch (it may be the layout of a rule of the
+  last run): the daemon puts it right once the retained states are in.
+- **Remembered across restarts** (decided): the daemon keeps the layout it shows in
+  `$XDG_STATE_HOME/xtouch-daemon/layout` (`~/.local/state/xtouch-daemon/layout`), unless a rule put it there. A switch
+  by hand and the return of the rules to `default` write it, a switch by a rule does not. At the start the daemon
+  shows it (if the configuration still has it), and the rules still win: one that matches once the sound server
+  and the processes are known switches to its layout as usual.
 - **The device**: holding Solo of the `chord` strips together switches to the next layout. Solo does nothing on audio
   strips by default; on `homeassistant` strips the presses are still sent as events.
 - **The command channel**: the requests of the live view socket (those of the live preview) get one more,
@@ -210,8 +215,14 @@ Implemented now:
 4. `VoipProvider`, `DemoProvider`, `BridgeProvider`, the `voip` strip with paging.
 5. GUI: layout bar, layout page, live preview only for the active layout, "Show on the device".
 
+Decided after phase 1: the Solo chord (strips 1 and 8) stays on by default, the daemon remembers the layout itself
+(see [Switching](#switching)), and Mumble is the first voice chat client with a plugin.
+
 Later:
 
+- A lock mode: a manual choice that stops the rules until it is unlocked (`xtouch-daemon layout --lock`, a second
+  option of the Home Assistant select or a switch next to it, a mark in the GUI's layout tabs). Deferred: the
+  edge-triggered rules already leave a manual choice alone until something happens.
 - A Mumble plugin for the bridge (C, in its own repository or `contrib/`), then TeamSpeak (plugin SDK, or ClientQuery
   without volume).
 - Window focus as a rule (`focused = [...]`) through compositor-specific providers (KWin script, Sway/Hyprland IPC).
@@ -221,12 +232,7 @@ Later:
 
 ## Open questions
 
-- Should a manual choice be able to *lock* (no automatic switch until unlocked), e.g. a second option of the
-  Home Assistant select or `layout --lock`?
-- Is Solo of strips 1 and 8 a good default chord, or should it be off by default?
-- Should the daemon remember the last layout itself (it does through Home Assistant's retained state only)?
-- Which VoIP client to target first with a plugin: Mumble (full control through `onAudioSourceFetched`, open source)
-  or TeamSpeak (`setClientVolumeModifier`, closed)?
+- Answered: a lock mode comes later; the chord is on by default; the daemon remembers the layout; Mumble first.
 
 [elgato]: https://www.elgato.com/us/en/explorer/products/stream-deck/smart-profiles-stream-deck/
 [sd-bug]: https://github.com/Miracle4142/streamdeck-bug-report-switch-to-profile-event

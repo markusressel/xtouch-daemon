@@ -47,6 +47,30 @@ def running_processes(proc: Path = PROC) -> frozenset[str]:
     return frozenset(names)
 
 
+def remembered_layout(path: Path) -> str | None:
+    """The layout kept by `remember_layout()`, None if there is none (or it can't be read)."""
+    try:
+        name = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return None
+    except OSError as e:
+        _LOGGER.warning(f"Can't read the layout of the last run from {path}: {e}")
+        return None
+    return name or None
+
+
+def remember_layout(path: Path, name: str) -> None:
+    """Keeps the name of a layout for the next start, in a file of its own. A file that can't be written is logged."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # whole or not at all: a daemon that is killed while it writes leaves the old one
+        temporary = path.with_name(f".{path.name}.tmp")
+        temporary.write_text(f"{name}\n", encoding="utf-8")
+        temporary.replace(path)
+    except OSError as e:
+        _LOGGER.warning(f"Can't keep the layout for the next start in {path}: {e}")
+
+
 def rule_match(layout: LayoutConfig, state: AudioState, processes: Collection[str]) -> str | None:
     """What makes the rules of the layout match (an application, a process), None while nothing does."""
     if layout.apps:
@@ -82,6 +106,11 @@ class LayoutSwitcher:
         """The layout the rules want, the last time they were evaluated."""
         self._matched: dict[str, tuple[float, str]] = {}
         """When the rules of each layout matched last, and what matched."""
+        self.by_rule = False
+        """
+        Whether a rule put the active layout there: not a choice by hand, nor the default layout the rules went back
+        to when none matched anymore.
+        """
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -95,14 +124,18 @@ class LayoutSwitcher:
     def watches_processes(self) -> bool:
         return any(layout.processes for layout in self.config.layouts)
 
-    def switch(self, name: str, reason: str = MANUAL) -> bool:
-        """Switches to the layout (KeyError for one that is not there); False if it is the active one already."""
+    def switch(self, name: str, reason: str = MANUAL, by_rule: bool = False) -> bool:
+        """
+        Switches to the layout (KeyError for one that is not there); False if it is the active one already. `by_rule`:
+        a rule matched for it (see `by_rule`).
+        """
         if name not in self.names:
             raise KeyError(name)
         if name == self.active:
             return False
-        _LOGGER.info(f"Layout {name} ({reason})")
+        _LOGGER.info(f"Layout {name} ({reason})" if reason else f"Layout {name}")
         self.active = name
+        self.by_rule = by_rule
         self.on_switch(name, reason)
         return True
 
@@ -128,4 +161,6 @@ class LayoutSwitcher:
         if wanted == self.wanted:
             return
         self.wanted = wanted
-        self.switch(wanted, self._matched[wanted][1] if wanted in self._matched else "")
+        self.switch(
+            wanted, self._matched[wanted][1] if wanted in self._matched else "", by_rule=wanted in self._matched
+        )

@@ -1054,9 +1054,9 @@ async def test_home_assistant_chooses_the_layout(
 
     # a reload brings a new select (with the layouts of the new file)
     assert daemon.reload()
-    assert daemon.layout_select is not None
-    daemon._layout_chosen(daemon.layout_select)  # pyright: ignore[reportPrivateUsage]
     assert daemon.layout == "gaming"
+    broker.publish(f"{select}/set", "voice")
+    await until(lambda: daemon.layout == "voice")
 
     daemon.stop()
     await task
@@ -1108,3 +1108,90 @@ async def test_a_preview_has_layouts_too(
 
     daemon.stop()
     await task
+
+
+async def test_the_layout_chosen_last_comes_back_after_a_restart(
+    config_path: Path, surface: RecordingSurface, broker: FakeBroker, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+    remembered = tmp_path / "state" / "layout"
+    text = LAYOUTS + '\n[mqtt]\nhost = "broker"\n'
+    config_path.write_text(text)
+    config = parse_config(text)
+    assert config.mqtt is not None
+
+    def start(state: AudioState, processes: frozenset[str] = frozenset()) -> Daemon:
+        assert config.mqtt is not None
+        return Daemon(
+            config,
+            FakeBackend((state,)),
+            surface,
+            config_path,
+            mixer_factory=quiet_mixer,
+            bridge=MqttBridge(config.mqtt, client_factory=broker.client),
+            processes=lambda: processes,
+            layout_file=remembered,
+        )
+
+    daemon = start(STATE)
+    assert daemon.layout == "default"
+    task = asyncio.create_task(daemon.run())
+    select = "homeassistant/select/xtouch/layout"
+    await until(lambda: broker.retained.get(f"{select}/state") == "default")
+    # by hand: kept
+    daemon.switch_layout("voice")
+    assert remembered.read_text() == "voice\n"
+    # by a rule: not kept, the choice by hand is
+    daemon._on_state(GAME)  # pyright: ignore[reportPrivateUsage]
+    assert daemon.layout == "gaming"
+    await until(lambda: broker.retained.get(f"{select}/state") == "gaming")
+    assert remembered.read_text() == "voice\n"
+    daemon.stop()
+    await task
+
+    # the next start shows it, and Home Assistant (which still has the one of the rule) learns it
+    daemon = start(STATE)
+    assert daemon.layout == "voice"
+    assert "Showing the layout voice of the last run" in caplog.text
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: broker.retained.get(f"{select}/state") == "voice")
+    assert daemon.layout == "voice"
+    # the rules ended (the game is over): the default layout, which is kept too
+    daemon._on_state(GAME)  # pyright: ignore[reportPrivateUsage]
+    daemon._on_state(STATE)  # pyright: ignore[reportPrivateUsage]
+    assert daemon.layout == "default"
+    assert remembered.read_text() == "default\n"
+    daemon.switch_layout("voice")
+    daemon.stop()
+    await task
+
+    # a rule that matches at the start wins
+    daemon = start(GAME)
+    assert daemon.layout == "voice"
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: daemon.layout == "gaming")
+    daemon.stop()
+    await task
+    assert remembered.read_text() == "voice\n"
+
+    # a layout that is not there anymore
+    remembered.write_text("music\n")
+    assert start(STATE).layout == "default"
+    assert "The layout music of the last run is not in the configuration anymore" in caplog.text
+    remembered.write_text("")
+    assert start(STATE).layout == "default"
+
+
+async def test_the_layout_is_kept_only_where_it_can_be(
+    config_path: Path, surface: RecordingSurface, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # a directory where the file should be: neither read nor written
+    remembered = tmp_path / "layout"
+    remembered.mkdir()
+    daemon = make_layouts(config_path, surface, FakeBackend((STATE,)), layout_file=remembered)
+    assert daemon.layout == "default"
+    assert "Can't read the layout of the last run" in caplog.text
+    daemon.switch_layout("gaming")
+    assert "Can't keep the layout for the next start" in caplog.text
+    daemon.mixer.close()
+    await settle()

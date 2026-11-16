@@ -23,8 +23,8 @@ from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from xtouch_daemon import __version__, instance, protocol, systemd
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import Config, ConfigError, default_config_path, load_config, parse_config
-from xtouch_daemon.layouts import MANUAL, LayoutSwitcher, running_processes
+from xtouch_daemon.config import DEFAULT_LAYOUT, Config, ConfigError, default_config_path, load_config, parse_config
+from xtouch_daemon.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout, running_processes
 from xtouch_daemon.live import (
     FEATURES,
     EndPreview,
@@ -121,12 +121,16 @@ class Daemon:
         players: MediaPlayers | None = None,
         voip_socket: Path | None = None,
         processes: Callable[[], frozenset[str]] = running_processes,
+        layout_file: Path | None = None,
     ):
         """
         `bridge` is by default the one of the [mqtt] section, if there is one. `live_socket` is where the live view
         for the GUI is served (see `live.py`), None for none. `players` are the media players of the session, for
         `encoder = "media"`. `voip_socket` is where the `bridge` VoIP provider waits for its plugin (by default
         `instance.voip_socket_file()`), `processes` tells the processes that run, for the rules of the layouts.
+        `layout_file` is where the daemon keeps the layout it shows for the next start, unless a rule put it there
+        (see `instance.layout_file()`), None for nowhere: it starts with that layout, and a rule that matches still
+        switches to its own.
         """
         self.players = players
         self.config = config
@@ -150,7 +154,8 @@ class Daemon:
         self.voip = build_provider(config.voip, self._voip_socket) if config.voip is not None else None
         self._voip_task: asyncio.Task[None] | None = None
         self._processes = processes
-        self.switcher = LayoutSwitcher(config, self._switched)
+        self._layout_file = layout_file
+        self.switcher = LayoutSwitcher(config, self._switched, active=self._remembered_layout(config))
         self.layout_select = self._layout_select(config)
         self._held_solos: set[int] = set()
         self._mixer_factory = mixer_factory
@@ -191,6 +196,19 @@ class Daemon:
             preview=self.previewing,
         )
 
+    def _remembered_layout(self, config: Config) -> str:
+        """The layout of the last run, if it is still there (the default one otherwise)."""
+        name = remembered_layout(self._layout_file) if self._layout_file is not None else None
+        if name is None or name == DEFAULT_LAYOUT:
+            return DEFAULT_LAYOUT
+        if name not in config.layout_names:
+            _LOGGER.info(
+                f"The layout {name} of the last run is not in the configuration anymore, showing the default one"
+            )
+            return DEFAULT_LAYOUT
+        _LOGGER.info(f"Showing the layout {name} of the last run")
+        return name
+
     def _layout_select(self, config: Config) -> MQTTSelect | None:
         """`select.<ns>_layout` in Home Assistant, with the names of the layouts (with [mqtt] and layouts)."""
         if self.bridge is None or not config.layouts:
@@ -203,13 +221,24 @@ class Daemon:
             icon="mdi:view-dashboard-variant",
             device=self.bridge.device,
         )
-        self.bridge.watch(select, self._layout_chosen)
+        self.bridge.watch(select, self._layout_state)
+        self.bridge.watch_commands(select, self._layout_chosen)
         return select
 
-    def _layout_chosen(self, entity: MQTTEntity) -> None:
-        name = entity.state
-        if name is not None and name in self.switcher.names:
+    def _layout_chosen(self, name: str) -> None:
+        """A choice in Home Assistant."""
+        if name in self.switcher.names:
             self.switcher.switch(name, HOME_ASSISTANT)
+
+    def _layout_state(self, entity: MQTTEntity) -> None:
+        """
+        Home Assistant shows the layout of the device: a state that says otherwise, e.g. the one retained from the last
+        run (the daemon starts with the layout it remembers, or the one of a rule), is put right.
+        """
+        select = self.layout_select
+        assert self.bridge is not None, "only with a bridge"
+        if self.bridge.ready and select is not None and select.target_state != self.layout:
+            self._in_background(select.set_state(self.layout), "mqtt layout")
 
     def _configure_surface(self, config: Config) -> None:
         """The options of the [device] section that apply without a restart."""
@@ -308,6 +337,8 @@ class Daemon:
             self.surface.banner(self.config.layout(name).title, reason, seconds)
         if self.layout_select is not None and self.layout_select.target_state != name:
             self._in_background(self.layout_select.set_state(name), "mqtt layout")
+        if self._layout_file is not None and not self.switcher.by_rule:
+            remember_layout(self._layout_file, name)
 
     def request_layout(self, name: str) -> Reply:
         """

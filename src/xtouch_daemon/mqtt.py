@@ -29,6 +29,7 @@ ONLINE = "online"
 OFFLINE = "offline"
 
 type Watcher = Callable[[MQTTEntity], None]
+type CommandWatcher = Callable[[str], None]
 
 
 class MqttClient(Protocol):
@@ -73,6 +74,7 @@ class MqttBridge:
         self._committed: set[str] = set()
         """The unique ids of the entities of the last configuration that was no preview."""
         self._watchers: dict[str, Watcher] = {}
+        self._command_watchers: dict[str, CommandWatcher] = {}
         self._handlers: dict[str, Callable[[str, bool], Any]] = {}
         self._available = False
         self._sync_token: str | None = None
@@ -110,8 +112,16 @@ class MqttBridge:
     def watch(self, entity: MQTTEntity, watcher: Watcher) -> None:
         self._watchers[entity.unique_id] = watcher
 
+    def watch_commands(self, entity: MQTTEntity, watcher: CommandWatcher) -> None:
+        """
+        Calls back with every command Home Assistant sends to the entity (not with retained ones, which are old), before
+        the entity handles it.
+        """
+        self._command_watchers[entity.unique_id] = watcher
+
     def unwatch(self, entity: MQTTEntity) -> None:
         self._watchers.pop(entity.unique_id, None)
+        self._command_watchers.pop(entity.unique_id, None)
 
     async def set_entities(
         self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str] = frozenset(), preview: bool = False
@@ -254,6 +264,9 @@ class MqttBridge:
 
     def _command_handler(self, entity: MQTTEntity) -> Callable[[str, bool], Any]:
         async def handle(payload: str, retain: bool) -> None:
+            watcher = self._command_watchers.get(entity.unique_id)
+            if watcher is not None and not retain:
+                watcher(payload)
             await entity.handle_command(payload)  # pyright: ignore[reportAttributeAccessIssue]
 
         return handle

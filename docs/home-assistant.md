@@ -121,7 +121,8 @@ The entities of the strips of every [layout](configuration/layouts.md) stay whil
 
 With `[mqtt]` and more than one [layout](configuration/layouts.md), the daemon has `select.<ns>_layout`: the layout
 the device shows, one option per layout. Choosing one switches to it, like `xtouch-daemon layout`; the select follows
-every switch, also by a rule or the Solo chord. For example, the gaming layout while the PC runs a game in another
+every switch, also by a rule or the Solo chord, and after a restart of the daemon it shows the layout the daemon
+started with (see [Switching](configuration/layouts.md#switching)), not the one Home Assistant had last. For example, the gaming layout while the PC runs a game in another
 room's automation:
 
 ```yaml

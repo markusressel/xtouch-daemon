@@ -85,6 +85,7 @@ def run(config_path: Path | None, log_level: str) -> None:
             config_path=config_path,
             live_socket=instance.socket_file(),
             players=MprisPlayers(),
+            layout_file=instance.layout_file(),
         )
     except ConfigError as e:
         # e.g. the file with the MQTT password is missing

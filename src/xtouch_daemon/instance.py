@@ -16,6 +16,8 @@ from pathlib import Path
 FILE_NAME = "xtouch-daemon.json"
 SOCKET_NAME = "xtouch-daemon.sock"
 VOIP_SOCKET_NAME = "xtouch-daemon-voip.sock"
+STATE_DIR_NAME = "xtouch-daemon"
+LAYOUT_FILE_NAME = "layout"
 
 
 class AlreadyRunning(Exception):
@@ -98,3 +100,17 @@ def socket_file() -> Path:
 def voip_socket_file() -> Path:
     """Where the `bridge` VoIP provider waits for the plugin of a voice chat client (see `voip/bridge.py`)."""
     return runtime_file().with_name(VOIP_SOCKET_NAME)
+
+
+def state_dir() -> Path:
+    """
+    Where the daemon keeps what it remembers across restarts: `$XDG_STATE_HOME/xtouch-daemon`, by default
+    `~/.local/state/xtouch-daemon`.
+    """
+    state_home = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
+    return Path(state_home) / STATE_DIR_NAME
+
+
+def layout_file() -> Path:
+    """Where the daemon keeps the layout it shows, unless a rule put it there (see `layouts.remember_layout()`)."""
+    return state_dir() / LAYOUT_FILE_NAME
