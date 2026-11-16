@@ -408,3 +408,16 @@ def test_the_live_view_shows_a_banner(surface: RecordingSurface):
     surface.strips[0].set_text(0, "Speaker")
     surface.strips[0].set_overlay(("Gaming", ""))
     assert strip_states(surface, 0.0)[0].text == ("Gaming", "")
+
+
+def test_the_voice_chat_goes_through_a_line(surface: RecordingSurface):
+    voip = live.VoipState("bridge", True, "mumble", "Lobby", 3)
+    snapshot = dataclasses.replace(snapshot_of(surface), voip=voip)
+    assert decode(encode(snapshot)) == snapshot
+    # without [voip], and from an older daemon
+    assert decode(encode(snapshot_of(surface))) == snapshot_of(surface)
+    older = encode(snapshot_of(surface)).replace(b',"voip":null', b"")
+    assert b"voip" not in older
+    decoded = decode(older)
+    assert decoded is not None
+    assert decoded.voip is None

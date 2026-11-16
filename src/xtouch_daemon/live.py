@@ -95,6 +95,21 @@ class MqttState:
 
 
 @dataclass(frozen=True)
+class VoipState:
+    """Where the participants of `voip` strips come from (`[voip]`)."""
+
+    provider: str
+    """`bridge` or `demo`."""
+    connected: bool
+    """Whether the provider knows the voice chat now; for `bridge`: a plugin is connected."""
+    client: str | None
+    """What the plugin calls its voice chat client, e.g. "mumble"."""
+    channel: str | None
+    """The channel of the user, if the plugin tells it."""
+    participants: int
+
+
+@dataclass(frozen=True)
 class Snapshot:
     """The state of the daemon and of everything the device shows."""
 
@@ -121,6 +136,8 @@ class Snapshot:
     """The name of the layout the device shows (an older daemon does not tell it)."""
     layouts: tuple[str, ...] = ()
     """The names of every layout of the configuration, the default one first."""
+    voip: VoipState | None = None
+    """The voice chat, None without `[voip]` (or for an older daemon)."""
 
 
 @dataclass(frozen=True)
@@ -262,6 +279,7 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
         tuple(data.get("features", ())),
         data.get("layout"),
         tuple(data.get("layouts", ())),
+        VoipState(**voip) if (voip := data.get("voip")) is not None else None,
     )
 
 

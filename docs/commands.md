@@ -9,6 +9,7 @@
 | [`xtouch-daemon list-apps`](#list-apps) | Lists the applications that play, and which strip takes each one. |
 | [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the device. |
 | [`xtouch-daemon layout`](#layout) | Shows the running daemon's layout, or switches to another one. |
+| [`xtouch-daemon mumble-plugin`](#mumble-plugin) | Shows, builds or installs the Mumble plugin of `voip` strips. |
 | [`xtouch-daemon install-service`](#install-service) | Sets the daemon up as a systemd user service. |
 | [`xtouch-daemon gui`](#gui) | Edits the configuration in a window. |
 
@@ -122,8 +123,31 @@ device shows:
 
 `layout gaming` switches to the layout `gaming`, `--next` and `--previous` to the one after or before it, in the
 order of the file (after the last one comes `default`). The choice stays until a [rule](configuration/layouts.md#rules)
-starts or stops matching. It talks to the daemon over its live view socket, so it needs a running daemon; the command
-fails when there is none, or no layout of that name.
+starts or stops matching. A layout chosen by hand also comes back after a restart of the daemon (see
+[Switching](configuration/layouts.md#switching)). It talks to the daemon over its live view socket, so it needs a
+running daemon; the command fails when there is none, or no layout of that name.
+
+## `mumble-plugin`
+
+```shell
+xtouch-daemon mumble-plugin [--build] [--install]
+```
+
+The [Mumble plugin](integrations/mumble.md) that gives `voip` strips the people of your Mumble channel. Without
+options it tells where the plugin is, whether Mumble is installed, and whether Mumble has the plugin:
+
+```
+Plugin: /usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin
+Mumble: installed
+In Mumble: /home/me/.local/share/Mumble/Mumble/Plugins/libxtouch-daemon.so
+```
+
+| Option | Meaning |
+|---|---|
+| `--install` | Opens the plugin with Mumble, which asks whether to install it (`mumble -m <plugin>`). Without a plugin it builds one first. |
+| `--build` | Builds the plugin from the sources of a checkout (`integrations/mumble`, needs `cmake` and a C compiler) into `integrations/mumble/build/`. With `--install`: builds it again first. |
+
+A release has the plugin in `/usr/share/xtouch-daemon/`; a checkout builds it.
 
 ## `install-service`
 

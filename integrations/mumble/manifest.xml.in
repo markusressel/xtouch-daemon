@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bundle version="1.0.0">
+  <assets>
+    <plugin os="linux" arch="@XTD_ARCH@">libxtouch-daemon.so</plugin>
+  </assets>
+  <name>xtouch-daemon</name>
+  <version>@PROJECT_VERSION@</version>
+</bundle>

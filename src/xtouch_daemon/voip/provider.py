@@ -58,6 +58,10 @@ class VoipProvider(abc.ABC):
         self.connected = False
         """Whether the provider knows the voice chat right now (e.g. a client is connected)."""
         self.capabilities = capabilities
+        self.client: str | None = None
+        """The voice chat client, e.g. "mumble", if the provider knows it."""
+        self.channel: str | None = None
+        """The channel of the user in the voice chat, if the provider knows it."""
         self._listeners: list[Listener] = []
 
     def subscribe(self, listener: Listener) -> None:

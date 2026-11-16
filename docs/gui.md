@@ -34,12 +34,14 @@ Without the extra, `xtouch-daemon gui` says how to install it.
   for more room below. The strips keep their proportions, and the GUI keeps the size for the next start.
 - **Above them, the layouts** of the file, one tab each (see [Layouts](configuration/layouts.md)): the strips and
   the "Strip N" tab show the layout picked there. ● marks the one the device shows. + adds a layout, empty or a copy
-  of the one shown, and "Show on the device" switches the running daemon to the layout (as saved, or as in the editor during the
-  [live preview](#live-preview)).
+  of the one shown, and "Show on the device" switches the running daemon to the layout (as saved, or as in the
+  editor during the [live preview](#live-preview)).
 - **Below them, three tabs:** "Strip N" holds the options of the selected strip. "Global settings" holds `[behavior]`,
   `[aliases]`, `[mqtt]` (as "Home Assistant"), `[switching]` (as "Layouts"), `[voip]` (as "Voice chat") and
   `[device]`. "Layout" holds the name, label and rules of the layout shown, with buttons to move it in the order
-  and to remove it. A global setting never looks like an option of the selected strip.
+  and to remove it. A global setting never looks like an option of the selected strip. "Voice chat" also tells
+  whether Mumble is connected, lists the steps of its setup, and installs the [Mumble plugin](integrations/mumble.md)
+  with "Install Mumble plugin".
 - **The footer** shows the file, whether the device runs it, the problems, and the buttons Undo, Redo, Revert and
   "Save and apply".
 - **The header** has the switch of the [live preview](#live-preview), shows the state of the service with buttons to

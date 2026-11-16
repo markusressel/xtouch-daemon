@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import finish_tasks
+from xtouch_daemon import __version__
 from xtouch_daemon.config import VoipConfig
 from xtouch_daemon.voip import Capability, Participant, VoipProvider, build_provider
 from xtouch_daemon.voip import demo as demo_module
@@ -127,6 +128,7 @@ def test_the_lines_of_the_plugin():
         (b'{"participants": [{"id": 1, "name": "Ann", "volume": "loud"}]}', "the volume or level of Ann"),
         (b'{"participants": [{"id": 1, "name": "Ann", "volume": 1e999}]}', "the volume or level of Ann"),
         (b'{"participants": [{"id": 1, "name": "Ann", "level": []}]}', "the volume or level of Ann"),
+        (b'{"protocol": 2, "participants": []}', "protocol 2, this daemon speaks 1: update the plugin or the daemon"),
     ],
 )
 def test_lines_that_are_not_the_protocol(line: bytes, message: str):
@@ -155,14 +157,18 @@ async def test_the_bridge_takes_the_participants_of_a_plugin(short_dir: Path, ca
     await provider.set_volume("1", 50)
 
     reader, writer = await asyncio.open_unix_connection(path)
+    # the daemon says who it is first
+    assert json.loads(await reader.readline()) == {"daemon": "xtouch-daemon", "version": __version__, "protocol": 1}
     writer.write(
-        b'{"client": "mumble", "capabilities": ["volume", "mute"], "participants": [{"id": 1, "name": "A"}]}\n'
+        b'{"protocol": 1, "client": "mumble", "channel": "Lobby", "capabilities": ["volume", "mute"], '
+        b'"participants": [{"id": 1, "name": "A"}]}\n'
     )
     writer.write(b"\n")
     writer.write(b"rubbish\n")
     await writer.drain()
     await _wait(lambda: provider.connected)
     assert provider.client == "mumble"
+    assert provider.channel == "Lobby"
     assert provider.capabilities == {Capability.VOLUME, Capability.MUTE}
     assert provider.participants == (Participant("1", "A"),)
     assert "Ignoring a line of the voice chat plugin: no JSON" in caplog.text
@@ -179,6 +185,8 @@ async def test_the_bridge_takes_the_participants_of_a_plugin(short_dir: Path, ca
     await writer2.drain()
     await _wait(lambda: provider.participants == (Participant("2", "B"),))
     assert provider.client == "mumble"
+    # it tells no channel
+    assert provider.channel is None
     writer.close()
 
     writer2.close()
@@ -201,6 +209,8 @@ async def test_the_bridge_takes_the_participants_of_a_plugin(short_dir: Path, ca
         each.close()
         with contextlib.suppress(ConnectionError):
             await each.wait_closed()
+    # its greeting, then nothing
+    assert json.loads(await reader2.readline())["daemon"] == "xtouch-daemon"
     assert await reader2.read() == b""
 
 
@@ -233,7 +243,7 @@ async def test_a_line_from_a_replaced_plugin_is_dropped(tmp_path: Path):
     await old
     assert provider.participants == ()
     await provider.set_volume("1", 5)
-    assert new_writer.lines == [b'{"set_volume":{"id":"1","volume":5}}\n']
+    assert new_writer.lines[1:] == [b'{"set_volume":{"id":"1","volume":5}}\n']
     new_reader.feed_eof()
     await new
 

@@ -13,7 +13,8 @@ url="https://github.com/markusressel/xtouch-daemon"
 license=('AGPL-3.0-or-later' 'PSF-2.0')
 depends=('glibc' 'libpulse' 'pipewire')
 optdepends=('pipewire-pulse: the PulseAudio server of PipeWire, which the daemon controls (or PulseAudio)'
-            'xtouch-daemon-gui-bin: the GUI')
+            'xtouch-daemon-gui-bin: the GUI'
+            'mumble: voip strips with the people of a Mumble channel (the plugin is in /usr/share/xtouch-daemon)')
 provides=("${_pkgname}=${pkgver}")
 conflicts=("${_pkgname}")
 # the bundled Python comes ready to run: stripping breaks its binaries

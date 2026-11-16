@@ -223,8 +223,8 @@ Later:
 - A lock mode: a manual choice that stops the rules until it is unlocked (`xtouch-daemon layout --lock`, a second
   option of the Home Assistant select or a switch next to it, a mark in the GUI's layout tabs). Deferred: the
   edge-triggered rules already leave a manual choice alone until something happens.
-- A Mumble plugin for the bridge (C, in its own repository or `contrib/`), then TeamSpeak (plugin SDK, or ClientQuery
-  without volume).
+- TeamSpeak (plugin SDK, or ClientQuery without volume). The Mumble plugin is done: `integrations/mumble`, see
+  [Mumble](../integrations/mumble.md).
 - Window focus as a rule (`focused = [...]`) through compositor-specific providers (KWin script, Sway/Hyprland IPC).
 - Rules on time of day or on Home Assistant states (an automation can already set the select).
 - Inheriting from other layouts than the default; per-layout `[behavior]`.

@@ -18,6 +18,8 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 | `src/xtouch_daemon/instance.py`, `live.py` | The running daemon for the GUI: its runtime file, and the live view of the device over a Unix socket. |
 | `src/xtouch_daemon/config.py`, `config.example.toml` | pydantic configuration and the example file. |
 | `src/xtouch_daemon/cli.py`, `selftest.py`, `systemd.py` | CLI, device self-test, systemd integration (incl. controlling the user service). |
+| `src/xtouch_daemon/voip/`, `layouts.py` | VoIP providers (`bridge` socket for plugins, `demo`), layout switching and rules. |
+| `src/xtouch_daemon/mumble.py`, `integrations/mumble/` | The Mumble plugin (C, CMake, vendored `MumblePlugin.h`) and finding, building and installing its bundle. `test/fake_mumble.c` is the host `tests/test_mumble_plugin.py` loads it into. |
 | `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested, `qt/` the widgets. Forms come from the pydantic models, so new options need no GUI code. |
 | `tests/` | One test module per source module; fakes in `tests/conftest.py`, an in-memory MQTT broker in `tests/fake_mqtt.py`. |
 | `docs/`, `zensical.toml` | The documentation site (Zensical, published to GitHub Pages by `.github/workflows/docs.yml`): `index.md`, `getting-started.md`, `configuration/*.md` (one page per topic), `home-assistant.md`, `gui.md`, `commands.md`, `troubleshooting.md`, `hardware.md`, `architecture.md`. Build it with `just docs`. |
@@ -41,6 +43,8 @@ just docs            # builds the documentation site (strict: broken links fail)
   documented command and option against `cli.py` and `config.py`. Links between pages are relative (they work on
   GitHub and on the site); links to files outside `docs/` are absolute GitHub URLs. `just docs` must pass.
 - Every behaviour change needs tests. Coverage stays ≥ 90 % (lines and branches).
+- The C plugin is tested end to end (built with CMake, loaded into `fake_mumble`, against `BridgeProvider`); those
+  tests are skipped without cmake and a C compiler. Never test against a real Mumble in the tests.
 - No hardware and no PipeWire/PulseAudio in unit tests: use a fake `AudioBackend`, a fake pulsectl connection, a
   recording surface, a FIFO or pty for MIDI, a fake `pw-record` script.
 - Type hints everywhere; `ruff` and `pyright` must pass.

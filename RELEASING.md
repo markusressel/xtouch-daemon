@@ -7,7 +7,7 @@ GitHub release of the tag, and two AUR packages built from them:
 
 | Tarball | AUR package | Contents |
 |---|---|---|
-| `xtouch-daemon-<version>-x86_64.tar.gz` | `xtouch-daemon-bin` | A standalone CPython 3.14 ([python-build-standalone](https://github.com/astral-sh/python-build-standalone), installed by uv) with xtouch-daemon and every locked dependency except the GUI's, in `usr/lib/xtouch-daemon`; the command `usr/bin/xtouch-daemon`; the systemd user unit `usr/lib/systemd/user/xtouch-daemon.service` (`ExecStart=/usr/bin/xtouch-daemon run`, otherwise what `install-service` writes); `usr/share/xtouch-daemon/config.example.toml`; `LICENSE`. |
+| `xtouch-daemon-<version>-x86_64.tar.gz` | `xtouch-daemon-bin` | A standalone CPython 3.14 ([python-build-standalone](https://github.com/astral-sh/python-build-standalone), installed by uv) with xtouch-daemon and every locked dependency except the GUI's, in `usr/lib/xtouch-daemon`; the command `usr/bin/xtouch-daemon`; the systemd user unit `usr/lib/systemd/user/xtouch-daemon.service` (`ExecStart=/usr/bin/xtouch-daemon run`, otherwise what `install-service` writes); `usr/share/xtouch-daemon/config.example.toml`; the Mumble plugin `usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin` (built from `integrations/mumble` with CMake); `LICENSE`. |
 | `xtouch-daemon-gui-<version>-any.tar.gz` | `xtouch-daemon-gui-bin` | A virtual environment of the system's `/usr/bin/python3.14` with its site-packages (for Arch's `python-pyqt6`) in `usr/lib/xtouch-daemon-gui`, holding the GUI's other dependencies (qtawesome, qtpy, qt-themes, tomlkit, packaging); the command `usr/bin/xtouch-daemon-gui`; `usr/share/applications/xtouch-daemon-gui.desktop`; `LICENSE`. |
 
 Each tarball holds one directory, `<name>-<version>-<arch>/`, with `LICENSE` and the `usr/` tree.
@@ -48,7 +48,7 @@ commit next to the project.
    just release-build        # packaging/build-release.sh dist
    ```
 
-   It needs git, uv and network access (Python and the wheels are downloaded). Check an unpacked tarball, e.g.:
+   It needs git, uv, cmake, a C compiler and network access (Python and the wheels are downloaded). Check an unpacked tarball, e.g.:
 
    ```shell
    root="$(mktemp -d)"

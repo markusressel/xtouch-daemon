@@ -18,6 +18,11 @@ PAGES: dict[str, str] = {
 }
 """The global settings, by page."""
 
+GUIDES: dict[str, str] = {
+    "mumble": "integrations/mumble/",
+}
+"""The pages on setting up something outside the daemon, e.g. the plugin of a voice chat client."""
+
 STRIP_TYPES: dict[str, str] = {
     "output": "configuration/devices/",
     "input": "configuration/devices/",
@@ -90,6 +95,10 @@ def page_link(page: str) -> str | None:
     return None if path is None else url(path)
 
 
+def guide_link(guide: str) -> str:
+    return url(GUIDES[guide])
+
+
 def strip_type_link(strip_type: str) -> str | None:
     path = STRIP_TYPES.get(strip_type)
     return None if path is None else url(path)
@@ -111,6 +120,7 @@ def all_paths() -> list[str]:
     """Every path linked from the editor."""
     return [
         *PAGES.values(),
+        *GUIDES.values(),
         *STRIP_TYPES.values(),
         *STRIP_OPTIONS.values(),
         *STRIP_TYPE_OPTIONS.values(),

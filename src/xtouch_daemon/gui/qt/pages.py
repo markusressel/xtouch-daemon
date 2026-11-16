@@ -4,6 +4,7 @@ The pages of the editor: the selected strip, and the global settings: a section 
 """
 
 import asyncio
+import html
 import threading
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -12,7 +13,7 @@ from pydantic import ValidationError
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
-from xtouch_daemon import protocol
+from xtouch_daemon import mumble, protocol
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, LayoutConfig, MqttConfig, default_encoder
 from xtouch_daemon.gui.domain import docs, sources
@@ -21,8 +22,10 @@ from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, StripDra
 from xtouch_daemon.gui.domain.looks import look
 from xtouch_daemon.gui.domain.schema import Kind, options, strip_models, strip_options, strip_type_help
 from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
 from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields import (
+    LEARN_MORE,
     OptionRow,
     Suggest,
     completer,
@@ -271,6 +274,109 @@ class MqttPage(SectionPage):
     def _show_test(self) -> None:
         if self.box is not None:
             self.box.show_test(self.tested, self.testing)
+
+
+type MumbleInstall = Callable[[], str]
+
+
+class MumbleInstaller(QObject):
+    """
+    Builds the Mumble plugin if needed and hands it to Mumble (`mumble.install()`) in a thread: a build takes a few
+    seconds. `finished` tells what happens next, or what went wrong.
+    """
+
+    finished = pyqtSignal(object, arguments=["status"])
+
+    def __init__(self, install: MumbleInstall = mumble.install, setup: Callable[[], mumble.Setup] = mumble.setup):
+        super().__init__()
+        self._install = install
+        self.setup = setup
+
+    def start(self) -> None:
+        threading.Thread(target=self._run, name="mumble plugin", daemon=True).start()
+
+    def _run(self) -> None:
+        try:
+            status = Status(self._install(), Tone.GOOD)
+        except mumble.MumbleError as e:
+            status = Status(str(e), Tone.BAD)
+        self.finished.emit(status)
+
+
+class VoipPage(SectionPage):
+    """The [voip] section, with whether the daemon has a voice chat and the setup of the Mumble plugin."""
+
+    def __init__(self, document: ConfigDocument, audio: Audio, on_edit: Callable[[], None], installer: MumbleInstaller):
+        self.installer = installer
+        self.snapshot: Snapshot | None = None
+        self.result: Status | None = None
+        self.installing = False
+        self.box: MumbleBox | None = None
+        installer.finished.connect(self._installed)
+        super().__init__("voip", document, audio, on_edit)
+
+    def reload(self) -> None:
+        super().reload()
+        self.box = MumbleBox()
+        self.box.install_button.clicked.connect(self.install)
+        # below the help of the section, above its options
+        self.layout_.insertWidget(3, self.box)
+        self.show_live(self.snapshot)
+
+    def show_live(self, snapshot: Snapshot | None) -> None:
+        self.snapshot = snapshot
+        assert self.box is not None, "reload() makes it"
+        self.box.show_state(voip_status(snapshot), self.installer.setup(), self.result, self.installing)
+
+    def install(self) -> None:
+        self.installing = True
+        self.result = Status("Preparing the plugin…", Tone.NEUTRAL)
+        self.show_live(self.snapshot)
+        self.installer.start()
+
+    def _installed(self, status: Status) -> None:
+        self.installing = False
+        self.result = status
+        self.show_live(self.snapshot)
+
+
+class MumbleBox(QFrame):
+    """The voice chat of the daemon, and the steps to set up the Mumble plugin with its install button."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        theme.set_role(self, "card")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(theme.Space.L, theme.Space.L, theme.Space.L, theme.Space.L)
+        layout.setSpacing(theme.Space.S)
+        line = QHBoxLayout()
+        line.addWidget(label("Mumble", "hint"))
+        self.live_pill = label("", "pill")
+        line.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        line.addStretch()
+        self.install_button = QPushButton(theme.icon("download"), "Install Mumble plugin")
+        line.addWidget(self.install_button)
+        layout.addWidget(row(line))
+        self.live_detail = help_label("", "hint")
+        layout.addWidget(self.live_detail)
+        self.steps = help_label("", "", docs.guide_link("mumble"))
+        layout.addWidget(self.steps)
+        self.result = label("", wrap=True)
+        self.result.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(self.result)
+
+    def show_state(self, live: Status, setup: mumble.Setup, result: Status | None, installing: bool) -> None:
+        show_status(self.live_pill, live)
+        self.live_detail.setText(help_text(live.tip))
+        self.install_button.setEnabled(setup.installable and not installing)
+        self.install_button.setToolTip(install_hint(setup))
+        steps = "".join(f"<li>{html.escape(step)}</li>" for step in install_steps(setup))
+        link = f' <a href="{html.escape(docs.guide_link("mumble"))}">{LEARN_MORE}</a>'
+        self.steps.setText(f"Set up the plugin once:<ol>{steps}</ol>{install_hint(setup)}{link}")
+        self.result.setVisible(result is not None)
+        if result is not None:
+            self.result.setText(result.text)
+            theme.set_role(self.result, "error" if result.tone == Tone.BAD else "")
 
 
 class ConnectionBox(QFrame):

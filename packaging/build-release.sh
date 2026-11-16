@@ -8,7 +8,8 @@
 #   xtouch-daemon-<version>-x86_64.tar.gz      the daemon: its own Python 3.14 (python-build-standalone, installed by
 #                                              uv) with every locked dependency except the GUI's, in
 #                                              usr/lib/xtouch-daemon, the command usr/bin/xtouch-daemon, the systemd user
-#                                              unit and the example configuration
+#                                              unit, the example configuration and the Mumble plugin
+#                                              (usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin)
 #   xtouch-daemon-gui-<version>-any.tar.gz     the GUI: an environment for the system's Python 3.14 and its PyQt6, with
 #                                              the GUI's other dependencies; it uses the daemon's packages
 #   sha256sums.txt                             the checksums of both
@@ -32,7 +33,7 @@ info() {
 
 [ $# -le 1 ] || die "usage: $0 [<output directory>]"
 
-for tool in git tar gzip uv; do
+for tool in git tar gzip uv cmake cc; do
 	command -v "$tool" > /dev/null || die "'$tool' not found"
 done
 
@@ -122,6 +123,11 @@ mkdir -p "$daemon_root/usr/lib/systemd/user" "$daemon_root/usr/share/xtouch-daem
 "$python" -I -c 'from xtouch_daemon.systemd import unit_file; print(unit_file("/usr/bin/xtouch-daemon"), end="")' \
 	> "$daemon_root/usr/lib/systemd/user/xtouch-daemon.service"
 cp "$repo_dir/src/xtouch_daemon/config.example.toml" "$daemon_root/usr/share/xtouch-daemon/"
+
+info "Building the Mumble plugin"
+cmake -S "$repo_dir/integrations/mumble" -B "$work_dir/mumble" -DCMAKE_BUILD_TYPE=Release > /dev/null
+cmake --build "$work_dir/mumble" > /dev/null
+cp "$work_dir/mumble/xtouch-daemon.mumble_plugin" "$daemon_root/usr/share/xtouch-daemon/"
 cp "$repo_dir/LICENSE" "$daemon_root/"
 
 info "Installing the GUI's dependencies: $(tr '\n' ' ' < "$work_dir/gui.txt")"

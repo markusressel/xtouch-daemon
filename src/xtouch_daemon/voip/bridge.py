@@ -4,16 +4,23 @@ The participants from a plugin inside the voice chat client: the daemon serves a
 per line, and gets the commands back the same way. The protocol is the same for every client, so the daemon needs no
 library of any of them.
 
+The daemon greets a plugin that connects with its protocol version (`PROTOCOL`):
+
+    {"daemon": "xtouch-daemon", "version": "0.1.0", "protocol": 1}
+
 From the plugin, the whole state each time (like the live view: a plugin that sends 20 times a second while someone
 talks needs nothing else):
 
-    {"client": "mumble", "capabilities": ["volume", "mute", "levels"],
+    {"protocol": 1, "client": "mumble", "channel": "Lobby", "capabilities": ["volume", "mute", "levels"],
      "participants": [{"id": "12", "name": "Alice", "talking": true, "muted": false, "volume": 100, "level": 0.4}]}
 
-`id` and `name` are needed, the rest is optional. To the plugin:
+`id` and `name` are needed, the rest is optional; `protocol` is 1 without it. To the plugin:
 
     {"set_volume": {"id": "12", "volume": 80}}
     {"set_muted": {"id": "12", "muted": true}}
+
+A new protocol version means lines that an older side would get wrong; new optional keys don't need one, and both
+sides ignore keys they don't know. The daemon ignores the lines of a protocol it does not know (and says so).
 
 One plugin at a time: a new connection replaces the one before. When the plugin goes, so do the participants.
 """
@@ -25,12 +32,15 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from xtouch_daemon import __version__
 from xtouch_daemon.voip.provider import VOLUME_LIMIT, Capability, Participant, VoipProvider
 
 _LOGGER = logging.getLogger(__name__)
 
 LINE_LIMIT = 1024 * 1024
 """The longest line a plugin may send (about 5000 participants)."""
+PROTOCOL = 1
+"""The version of the protocol, see the module."""
 
 
 class ProtocolError(ValueError):
@@ -46,6 +56,9 @@ def parse_state(line: bytes) -> tuple[tuple[Participant, ...], frozenset[Capabil
     if not isinstance(data, dict) or not isinstance(data.get("participants"), list):
         raise ProtocolError("no object with participants")
     state: dict[str, Any] = data  # pyright: ignore[reportUnknownVariableType]: JSON
+    protocol = state.get("protocol", 1)
+    if protocol != PROTOCOL:
+        raise ProtocolError(f"protocol {protocol!r}, this daemon speaks {PROTOCOL}: update the plugin or the daemon")
     try:
         capabilities = frozenset(Capability(name) for name in state.get("capabilities", ()))
     except ValueError as e:
@@ -84,8 +97,6 @@ class BridgeProvider(VoipProvider):
     def __init__(self, path: Path):
         super().__init__()
         self.path = path
-        self.client: str | None = None
-        """What the plugin calls its voice chat client, e.g. "mumble"."""
         self._writer: asyncio.StreamWriter | None = None
 
     async def run(self) -> None:
@@ -112,6 +123,7 @@ class BridgeProvider(VoipProvider):
             _LOGGER.info("Another voice chat plugin connected, dropping the one before")
             self._writer.close()
         self._writer = writer
+        self._send({"daemon": "xtouch-daemon", "version": __version__, "protocol": PROTOCOL})
         try:
             with contextlib.suppress(ConnectionError, ValueError):
                 while line := await reader.readline():
@@ -123,6 +135,7 @@ class BridgeProvider(VoipProvider):
             if writer is self._writer:
                 self._writer = None
                 self.client = None
+                self.channel = None
                 self.capabilities = frozenset()
                 self.update((), connected=False)
                 _LOGGER.info("The voice chat plugin is gone")
@@ -135,9 +148,12 @@ class BridgeProvider(VoipProvider):
         except ProtocolError as e:
             _LOGGER.warning(f"Ignoring a line of the voice chat plugin: {e}")
             return
+        data = json.loads(line)
         if not self.connected:
-            self.client = str(json.loads(line).get("client") or "a client")
+            self.client = str(data.get("client") or "a client")
             _LOGGER.info(f"Voice chat plugin connected ({self.client})")
+        channel = data.get("channel")
+        self.channel = channel if isinstance(channel, str) and channel else None
         self.capabilities = capabilities
         self.update(participants)
 

@@ -34,7 +34,7 @@ from pytestqt.qtbot import QtBot
 from tests.conftest import install_package, output, source, stream
 from tests.test_instance import RecordingInstance
 from tests.test_systemd import FakeSystemctl
-from xtouch_daemon import live, protocol, systemd
+from xtouch_daemon import live, mumble, protocol, systemd
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config import BehaviorConfig, MqttConfig
@@ -47,10 +47,10 @@ from xtouch_daemon.gui.qt import preview, theme
 from xtouch_daemon.gui.qt import preview as preview_module
 from xtouch_daemon.gui.qt import window as window_module
 from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Switch, Tables
-from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, SectionPage
+from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, MumbleInstaller, SectionPage
 from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.instance import Instance
-from xtouch_daemon.live import MqttState, Snapshot, StripState
+from xtouch_daemon.live import MqttState, Snapshot, StripState, VoipState
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, unit_file, unit_path
 
 CONFIG = """\
@@ -154,6 +154,13 @@ def daemon(path: Path) -> RecordingInstance:
 type MakeWindow = Callable[..., MainWindow]
 
 
+NO_MUMBLE = mumble.Setup(bundle=None, buildable=False, installed=None, mumble=False)
+
+
+def no_install() -> str:
+    raise mumble.MumbleError("Mumble is not installed")
+
+
 async def unreachable_broker(config: MqttConfig) -> Status:
     """No test of the MQTT settings reaches out to a real broker."""
     return Status(f"Can't connect to {config.host}:{config.port}: Connection refused.", Tone.BAD, "Is it running?")
@@ -168,10 +175,21 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         live_socket: Path | None = None,
         test_broker: BrokerTest = unreachable_broker,
         session: Session | None = None,
+        mumble_installer: MumbleInstaller | None = None,
     ) -> MainWindow:
         # the window after a new zoom goes on with the document of the one before
         document = session.history.document if session is not None else ConfigDocument.open(file)
-        window = MainWindow(document, Service(systemctl), read_audio, find_daemon, live_socket, test_broker, session)
+        window = MainWindow(
+            document,
+            Service(systemctl),
+            read_audio,
+            find_daemon,
+            live_socket,
+            test_broker,
+            session,
+            # nothing of this machine: no plugin, no Mumble
+            mumble_installer or MumbleInstaller(no_install, lambda: NO_MUMBLE),
+        )
         qtbot.addWidget(window)
         window.show()
         qtbot.waitUntil(lambda: window.audio_label.text() != "Reading the sound server…")
@@ -2188,6 +2206,84 @@ def test_a_failed_test_says_what_to_check(qtbot: QtBot, window: MainWindow):
     window.reload_pages()
     window.mqtt_page.tester.finished.emit(Status("late", Tone.GOOD))
     assert window.mqtt_page.box is None
+
+
+# -- the Mumble plugin ----------------------------------------------------------------------------------------------
+
+
+def test_the_voice_chat_page_tells_whether_mumble_is_connected(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
+):
+    window = make_window(live_socket=live_daemon.path)
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    window.show_page("voip")
+    box = window.voip_page.box
+    assert box is not None
+    assert box.live_pill.text() == "unknown"
+    # neither a plugin nor Mumble on this machine: nothing to install, the steps say what to do
+    assert not box.install_button.isEnabled()
+    assert "Mumble is not installed" in box.install_button.toolTip()
+    assert "Reload plugins" in box.steps.text()
+    assert "integrations/mumble/" in box.steps.text()
+
+    live_daemon.send(snapshot(window, strip_state()))
+    qtbot.waitUntil(lambda: box.live_pill.text() == "not in use")
+    for voip, text, tip in [
+        (VoipState("demo", True, None, None, 5), "demo", "made up"),
+        (VoipState("bridge", False, None, None, 0), "waiting for Mumble", "enable the plugin"),
+        (VoipState("bridge", True, "mumble", "Lobby", 1), "Mumble connected", "1 person in Lobby."),
+        (VoipState("bridge", True, None, None, 3), "A client connected", "3 people."),
+    ]:
+        live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), voip=voip))
+        qtbot.waitUntil(lambda text=text: box.live_pill.text() == text)
+        assert tip in box.live_detail.text()
+
+
+def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: MakeWindow, tmp_path: Path):
+    installs: list[str] = []
+    setups = [mumble.Setup(None, True, None, True)]
+
+    def install() -> str:
+        installs.append("install")
+        if len(installs) > 1:
+            raise mumble.MumbleError("cmake --build failed: boom")
+        setups.append(mumble.Setup(tmp_path / "b.mumble_plugin", True, tmp_path / "libxtouch-daemon.so", True))
+        return "Mumble asks whether to install xtouch-daemon.mumble_plugin: confirm."
+
+    window = make_window(mumble_installer=MumbleInstaller(install, lambda: setups[-1]))
+    window.show_page("voip")
+    box = window.voip_page.box
+    assert box is not None
+    assert box.install_button.isEnabled()
+    assert (
+        box.install_button.toolTip()
+        == "Builds the plugin, then opens it with Mumble, which asks whether to install it."
+    )
+    assert box.result.isHidden()
+
+    click(qtbot, box.install_button)
+    qtbot.waitUntil(lambda: box.result.text().startswith("Mumble asks"))
+    assert installs == ["install"]
+    assert box.install_button.isEnabled()
+    assert box.install_button.toolTip() == "Opens it with Mumble, which asks whether to install it."
+    assert "Mumble has the plugin" in box.steps.text()
+
+    click(qtbot, box.install_button)
+    qtbot.waitUntil(lambda: box.result.text() == "cmake --build failed: boom")
+    assert box.result.property("role") == "error"
+    # the result stays when the page is built again
+    window.reload_pages()
+    assert window.voip_page.box is not None
+    assert window.voip_page.box.result.text() == "cmake --build failed: boom"
+
+
+def test_the_installer_runs_in_a_thread():
+    results: list[Status] = []
+    installer = MumbleInstaller(lambda: "done", lambda: NO_MUMBLE)
+    installer.finished.connect(results.append)
+    installer._run()  # pyright: ignore[reportPrivateUsage]
+    assert results == [Status("done", Tone.GOOD)]
+    assert installer.setup() == NO_MUMBLE
 
 
 # -- zoom -------------------------------------------------------------------------------------------------------

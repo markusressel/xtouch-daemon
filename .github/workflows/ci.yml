@@ -54,3 +54,17 @@ jobs:
         run: uv run pytest --cov --cov-report=term-missing
       - name: Check the packaging scripts
         run: for script in packaging/build-release.sh packaging/aur/publish.sh; do bash -n "$script"; done
+
+  # the bundle Mumble installs (integrations/mumble); tests/test_mumble_plugin.py tests it in the job above
+  mumble-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Mumble plugin
+        run: |
+          cmake -S integrations/mumble -B integrations/mumble/build -DCMAKE_C_FLAGS=-Werror
+          cmake --build integrations/mumble/build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xtouch-daemon.mumble_plugin
+          path: integrations/mumble/build/xtouch-daemon.mumble_plugin

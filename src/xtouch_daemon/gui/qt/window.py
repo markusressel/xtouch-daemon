@@ -66,9 +66,11 @@ from xtouch_daemon.gui.qt.pages import (
     BrokerTester,
     LayoutPage,
     MqttPage,
+    MumbleInstaller,
     Page,
     SectionPage,
     StripPage,
+    VoipPage,
     page_title,
 )
 from xtouch_daemon.gui.qt.preview import Preview
@@ -234,13 +236,15 @@ class MainWindow(QMainWindow):
         live_socket: Path | None = None,
         try_broker: BrokerTest = broker.try_broker,
         session: Session | None = None,
+        mumble_installer: MumbleInstaller | None = None,
     ):
         """
         `live_socket` is where the daemon serves its live view, by default `instance.socket_file()`. `try_broker` tries
-        the settings of the [mqtt] section.
+        the settings of the [mqtt] section, `mumble_installer` sets up the Mumble plugin (page of [voip]).
         """
         super().__init__()
         self.try_broker = try_broker
+        self.mumble_installer = mumble_installer or MumbleInstaller()
         self.zoom = theme.load_zoom()
         self.rezoom: float | None = None
         """The zoom the next window gets: set when this one closes for a new zoom (see `Session`)."""
@@ -574,6 +578,9 @@ class MainWindow(QMainWindow):
             elif name == "mqtt":
                 self.mqtt_page = MqttPage(self.document, audio, self.edited, BrokerTester(self.try_broker))
                 self.pages[name] = self.mqtt_page
+            elif name == "voip":
+                self.voip_page = VoipPage(self.document, audio, self.edited, self.mumble_installer)
+                self.pages[name] = self.voip_page
             else:
                 self.pages[name] = SectionPage(name, self.document, audio, self.edited)
         self.tabs.addTab(self._scroll(self.strip_page), theme.icon("tune-vertical"), "Strip 1")
@@ -725,6 +732,7 @@ class MainWindow(QMainWindow):
         if mqtt is not None:
             _pill(self.mqtt_pill, Status(mqtt.text, mqtt.tone, f"{mqtt.tip} Click for the settings."))
         self.mqtt_page.show_live(snapshot)
+        self.voip_page.show_live(snapshot)
         sync = sync_status(
             self.daemon,
             snapshot,

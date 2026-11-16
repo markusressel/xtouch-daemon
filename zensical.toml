@@ -30,6 +30,7 @@ nav = [
     { "Layouts" = "configuration/layouts.md" },
   ] },
   { "Home Assistant" = "home-assistant.md" },
+  { "Mumble" = "integrations/mumble.md" },
   { "GUI" = "gui.md" },
   { "Commands" = "commands.md" },
   { "Troubleshooting" = "troubleshooting.md" },

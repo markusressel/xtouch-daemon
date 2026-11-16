@@ -36,6 +36,7 @@ from xtouch_daemon.live import (
     Snapshot,
     StartPreview,
     SwitchLayout,
+    VoipState,
     fingerprint,
     strip_states,
 )
@@ -98,6 +99,17 @@ def mqtt_state(bridge: MqttBridge) -> MqttState:
         ready=bridge.ready,
         error=bridge.error,
         entities=bridge.entity_count,
+    )
+
+
+def voip_state(provider: VoipProvider) -> VoipState:
+    """The voice chat, for the live view."""
+    return VoipState(
+        provider=provider.name,
+        connected=provider.connected,
+        client=provider.client,
+        channel=provider.channel,
+        participants=len(provider.participants),
     )
 
 
@@ -592,6 +604,7 @@ class Daemon:
             features=FEATURES,
             layout=self.layout,
             layouts=self.switcher.names,
+            voip=None if self.voip is None else voip_state(self.voip),
         )
 
     def _status(self) -> str:

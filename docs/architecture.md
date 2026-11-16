@@ -38,6 +38,7 @@ graph LR
 | `mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state and every event, and the meter ticker. |
 | `layouts.py` | `LayoutSwitcher`: which layout the device shows, chosen by hand or by the rules (`apps`, `processes`, `hold`); the running processes from `/proc`. |
 | `voip/` | `VoipProvider`: the participants of a voice chat for `voip` strips, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). |
+| `mumble.py`, `integrations/mumble/` | The Mumble plugin (C): its sources, building its bundle with CMake, finding it and handing it to Mumble's installer. See [Mumble](integrations/mumble.md). |
 | `daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications) and switching layouts. |
 | `instance.py` | The running daemon for other processes: its runtime file (process, configuration file) and where its live view is served. |
 | `live.py` | `LiveServer`: what the device shows right now, for the GUI, over a Unix socket. See [Live view](#live-view). |
@@ -248,6 +249,11 @@ layout at once, from the last `AudioState`; the `Surface` sends only what change
   pages through the participants of the `VoipProvider`; the provider runs in the daemon, not in the mixer, so it stays
   connected across switches and reloads. No voice chat client gives other programs a stream per participant, so the
   participants come from a plugin in the client (`BridgeProvider`), not from PipeWire.
+- **The Mumble plugin** (`integrations/mumble/plugin.c`) is that plugin for Mumble. Mumble calls its callbacks in
+  its main and audio threads; a thread of its own does the socket and never calls Mumble (Mumble's API calls block
+  until its main thread runs them, which would deadlock the shutdown of the plugin). So the volume and the mute are
+  applied by the plugin itself, to each voice in `mumble_onAudioSourceFetched`, rather than through Mumble's local
+  volume (which the API can't set). The live view tells the GUI whether a plugin is connected (`Snapshot.voip`).
 
 The design and its research are in [Design: layouts](design/layouts.md).
 
@@ -266,6 +272,8 @@ The unit tests run without hardware and without a sound server:
 - the live view with a real Unix socket in a short temporary directory: clients that read, that don't read, and that
   go away, requests of the user, of other users and that are too long, and the live preview through the daemon,
 - the live preview of the GUI against a fake live view (a `QLocalServer`) that answers like the daemon,
+- the Mumble plugin built with CMake and loaded into a fake Mumble (`integrations/mumble/test/fake_mumble.c`), which
+  calls its callbacks as a script says, against a real `BridgeProvider` (skipped without cmake and a C compiler),
 - the GUI domain with configuration files in a temporary directory and a fake `systemctl`, and the GUI widgets with
   pytest-qt on the offscreen platform, with a fake sound server and the dialogs answered by the tests.
 

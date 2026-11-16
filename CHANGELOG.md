@@ -22,8 +22,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `voip` strips: the participants of a voice chat, one per strip (`count` strips), the name on the LCD, lit in
   `talking_color` while they talk, the fader for their volume and Mute to mute them; Select pages through more
   participants than strips. `[voip]` picks where they come from: `bridge`, a plugin of the voice chat client on the
-  socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` (the protocol is in the documentation; no plugin yet), or `demo`
+  socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` (the protocol is in the documentation, versioned), or `demo`
   people who talk in turns.
+- A Mumble plugin (`integrations/mumble`, Mumble 1.4 and later) for `voip` strips: the people of your channel, who
+  talks and how loud, the fader for their volume and Mute to mute them (both the plugin's own, on top of Mumble's
+  local volume). "Install Mumble plugin" on the GUI's page "Voice chat" (or `xtouch-daemon mumble-plugin --install`)
+  hands it to Mumble's installer, building it first in a checkout; the page lists the steps and tells whether Mumble
+  is connected. Releases ship the plugin in `/usr/share/xtouch-daemon/`, CI builds it.
 - The live view takes a request to switch the layout (`{"request": "layout", "layout": "gaming"}`, answered with a
   reply), and the state tells the layout shown.
 - The GUI edits layouts: a tab per layout above the strips (● marks the one the device shows), + adds one (empty or a

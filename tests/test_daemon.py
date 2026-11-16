@@ -853,6 +853,8 @@ async def test_switching_layouts_by_hand(
     await until(lambda: surface.strips[0].text == ["Speaker", "50%"])
     assert daemon.layout == "default"
     assert daemon.snapshot().layouts == ("default", "gaming", "voice")
+    # the demo people of [voip]
+    assert daemon.snapshot().voip == live.VoipState("demo", True, None, None, 1)
 
     assert daemon.switch_layout("gaming")
     assert not daemon.switch_layout("gaming")
