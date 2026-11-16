@@ -2413,7 +2413,7 @@ def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: 
         if len(installs) > 1:
             raise mumble.MumbleError("cmake --build failed: boom")
         setups.append(mumble.Setup(tmp_path / "b.mumble_plugin", True, tmp_path / "libxtouch-daemon.so", True))
-        return "Mumble asks whether to install xtouch-daemon.mumble_plugin: confirm."
+        return "Installed into the plugin directory."
 
     window = make_window(mumble_installer=MumbleInstaller(install, lambda: setups[-1]))
     window.show_page("voip")
@@ -2421,15 +2421,17 @@ def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: 
     assert box.install_button.isEnabled()
     assert (
         box.install_button.toolTip()
-        == "Builds the plugin, then opens it with Mumble, which asks whether to install it."
+        == 'Builds the plugin, then copies it into Mumble\'s plugin directory; then Mumble needs "Reload plugins".'
     )
     assert box.result.isHidden()
 
     click(qtbot, box.install_button)
-    qtbot.waitUntil(lambda: box.result.text().startswith("Mumble asks"))
+    qtbot.waitUntil(lambda: box.result.text().startswith("Installed into"))
     assert installs == ["install"]
     assert box.install_button.isEnabled()
-    assert box.install_button.toolTip() == "Opens it with Mumble, which asks whether to install it."
+    assert box.install_button.toolTip() == (
+        'Copies it into Mumble\'s plugin directory; then Mumble needs "Reload plugins".'
+    )
     assert "Mumble has the plugin" in box.steps.text()
 
     click(qtbot, box.install_button)

@@ -1,4 +1,5 @@
 import subprocess
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -49,25 +50,14 @@ def test_the_plugin_in_mumble(machine: Path, monkeypatch: pytest.MonkeyPatch):
     assert mumble.installed_plugin() == native
 
 
-def test_how_mumble_opens_the_bundle(machine: Path, monkeypatch: pytest.MonkeyPatch):
-    bundle = Path("/b.mumble_plugin")
-    assert mumble.mumble_command(bundle) is None
-    programs(monkeypatch, "flatpak")
-    # flatpak, but no Mumble in it
-    assert mumble.mumble_command(bundle) is None
+def test_the_plugin_goes_to_the_mumble_that_is_installed(machine: Path, monkeypatch: pytest.MonkeyPatch):
+    assert mumble.target_dir() is None
+    # a Flatpak, for this user
     (machine / "home" / ".local" / "share" / "flatpak" / "app" / mumble.FLATPAK_ID).mkdir(parents=True)
-    assert mumble.mumble_command(bundle) == [
-        "flatpak",
-        "run",
-        "--file-forwarding",
-        mumble.FLATPAK_ID,
-        "-m",
-        "@@",
-        "/b.mumble_plugin",
-        "@@",
-    ]
-    programs(monkeypatch, "flatpak", "mumble")
-    assert mumble.mumble_command(bundle) == ["mumble", "-m", "/b.mumble_plugin"]
+    assert mumble.target_dir() == mumble.plugin_dirs()[1]
+    # a native one comes first
+    programs(monkeypatch, "mumble")
+    assert mumble.target_dir() == mumble.plugin_dirs()[0]
 
 
 def test_what_there_is(machine: Path, monkeypatch: pytest.MonkeyPatch):
@@ -122,29 +112,46 @@ def test_build(machine: Path, monkeypatch: pytest.MonkeyPatch):
         mumble.build()
 
 
+def bundle_at(path: Path, library: bytes | None = b"plugin") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("manifest.xml", "<bundle/>")
+        if library is not None:
+            archive.writestr(mumble.LIBRARY_NAME, library)
+    return path
+
+
 def test_install(machine: Path, monkeypatch: pytest.MonkeyPatch):
-    started: list[list[str]] = []
-
-    def popen(command: list[str], **options: Any) -> None:
-        if command[0] == "broken":
-            raise FileNotFoundError(2, "No such file")
-        started.append(command)
-        assert options["start_new_session"]
-
-    monkeypatch.setattr(mumble.subprocess, "Popen", popen)
-    bundle = touch(machine / "usr" / "share" / "xtouch-daemon" / mumble.BUNDLE_NAME)
+    bundle_at(machine / "usr" / "share" / "xtouch-daemon" / mumble.BUNDLE_NAME, b"v1")
     with pytest.raises(mumble.MumbleError, match="Mumble is not installed"):
         mumble.install()
     programs(monkeypatch, "mumble")
-    assert "Reload plugins" in mumble.install()
-    assert started == [["mumble", "-m", str(bundle)]]
+    message = mumble.install()
+    assert "Reload plugins" in message
+    installed = mumble.plugin_dirs()[0] / mumble.LIBRARY_NAME
+    assert installed.read_bytes() == b"v1"
+    assert installed.stat().st_mode & 0o777 == 0o644
+    # replaced as a whole, nothing left over
+    assert [path.name for path in installed.parent.iterdir()] == [mumble.LIBRARY_NAME]
 
     # without a bundle, or asked to: built first
     built = machine / "src" / "build" / mumble.BUNDLE_NAME
-    monkeypatch.setattr(mumble, "build", lambda: touch(built))
+    monkeypatch.setattr(mumble, "build", lambda: bundle_at(built, b"v2"))
     mumble.install(rebuild=True)
-    assert started[-1] == ["mumble", "-m", str(built)]
+    assert installed.read_bytes() == b"v2"
 
-    monkeypatch.setattr(mumble, "mumble_command", lambda bundle: ["broken"])
-    with pytest.raises(mumble.MumbleError, match="Can't start broken"):
+
+def test_a_plugin_that_can_not_be_installed_says_why(machine: Path, monkeypatch: pytest.MonkeyPatch):
+    programs(monkeypatch, "mumble")
+    bundle = machine / "usr" / "share" / "xtouch-daemon" / mumble.BUNDLE_NAME
+    touch(bundle).write_text("no zip")
+    with pytest.raises(mumble.MumbleError, match="Can't read the plugin"):
+        mumble.install()
+    bundle_at(bundle, library=None)
+    with pytest.raises(mumble.MumbleError, match="Can't read the plugin"):
+        mumble.install()
+    bundle_at(bundle)
+    # the plugin directory is a file
+    touch(mumble.plugin_dirs()[0])
+    with pytest.raises(mumble.MumbleError, match="Can't install the plugin into"):
         mumble.install()

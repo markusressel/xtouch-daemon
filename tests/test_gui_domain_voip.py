@@ -32,7 +32,7 @@ def test_what_install_does():
     assert install_hint(Setup(None, False, None, False)).startswith("Mumble is not installed")
     assert install_hint(Setup(None, False, None, True)).startswith("There is no plugin to install")
     assert install_hint(Setup(None, True, None, True)).startswith("Builds the plugin")
-    assert install_hint(Setup(Path("/b"), False, None, True)).startswith("Opens it")
+    assert install_hint(Setup(Path("/b"), False, None, True)).startswith("Copies it")
 
 
 def test_the_steps_say_whether_mumble_has_the_plugin():

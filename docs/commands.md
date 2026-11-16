@@ -157,7 +157,7 @@ In Mumble: /home/me/.local/share/Mumble/Mumble/Plugins/libxtouch-daemon.so
 
 | Option | Meaning |
 |---|---|
-| `--install` | Opens the plugin with Mumble, which asks whether to install it (`mumble -m <plugin>`). Without a plugin it builds one first. |
+| `--install` | Copies the plugin into Mumble's plugin directory (native, else the Flatpak's), replacing an older one; then Mumble needs "Reload plugins". Without a plugin it builds one first. |
 | `--build` | Builds the plugin from the sources of a checkout (`integrations/mumble`, needs `cmake` and a C compiler) into `integrations/mumble/build/`. With `--install`: builds it again first. |
 
 A release has the plugin in `/usr/share/xtouch-daemon/`; a checkout builds it.

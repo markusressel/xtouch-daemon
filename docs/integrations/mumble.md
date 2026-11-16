@@ -15,8 +15,10 @@ It needs Mumble 1.4 or later on Linux (x86_64), and a configuration with `voip` 
 
 The page "Voice chat" of the global settings (the `[voip]` section) has a box "Mumble":
 
-1. Click **Install Mumble plugin**. Mumble opens a dialog that asks whether to install the plugin: confirm. (Without a
-   plugin to install, e.g. in a checkout, the button builds it first; that needs `cmake` and a C compiler.)
+1. Click **Install Mumble plugin**. It copies the plugin into Mumble's plugin directory
+   (`~/.local/share/Mumble/Mumble/Plugins`, or the one of the Flatpak), replacing an older one. (Without a plugin to
+   install, e.g. in a checkout, the button builds it first; that needs `cmake` and a C compiler.) Mumble's own
+   installer is not used: with a Mumble that runs, it starts a second instance, which crashed (Mumble 1.5.939).
 2. In Mumble: **Settings**, **Plugins**, click **Reload plugins** (or restart Mumble), tick **Enable** of
    "xtouch-daemon", and **Apply**.
 3. In the GUI: keep `provider = "bridge"`, and give a layout `voip` strips (see the example below). Save.

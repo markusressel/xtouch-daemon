@@ -1,15 +1,19 @@
 """
 The Mumble plugin of the `bridge` VoIP provider (integrations/mumble): where its bundle is, whether Mumble has it,
-building it from the sources of a checkout, and handing it to Mumble, which asks the user to install it.
+building it from the sources of a checkout, and installing it.
 
-A bundle (`xtouch-daemon.mumble_plugin`) is a zip of the plugin library and a manifest. `mumble <bundle>` shows
-Mumble's own installer, which copies the library into Mumble's plugin directory; the plugin still has to be enabled in
-Mumble's settings (Plugins) once. See docs/integrations/mumble.md.
+A bundle (`xtouch-daemon.mumble_plugin`) is a zip of the plugin library and a manifest. Installing copies the library
+into Mumble's plugin directory, as Mumble's own installer does; Mumble loads it with "Reload plugins" in its settings
+(Plugins), or when it starts, and it has to be enabled there once. Mumble's installer (`mumble <bundle>`) is not used:
+with a Mumble that runs, it needs a second instance (`--multiple`), which loads the plugin a second time and crashed
+(Mumble 1.5.939). See docs/integrations/mumble.md.
 """
 
+import contextlib
 import os
 import shutil
 import subprocess
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -69,16 +73,13 @@ def flatpak_installed() -> bool:
     return any((root / "app" / FLATPAK_ID).is_dir() for root in (FLATPAK_SYSTEM, _data_home() / "flatpak"))
 
 
-def mumble_command(bundle: Path) -> list[str] | None:
-    """
-    How to open a bundle with Mumble's installer, None without Mumble. `-m`: a Mumble that runs already would take the
-    call over (it only comes to the front) instead of installing.
-    """
+def target_dir() -> Path | None:
+    """The plugin directory of the Mumble that is installed (native first, then the Flatpak), None without Mumble."""
+    native, flatpak = plugin_dirs()
     if shutil.which("mumble"):
-        return ["mumble", "-m", str(bundle)]
-    if shutil.which("flatpak") and flatpak_installed():
-        # the sandbox gets the file
-        return ["flatpak", "run", "--file-forwarding", FLATPAK_ID, "-m", "@@", str(bundle), "@@"]
+        return native
+    if flatpak_installed():
+        return flatpak
     return None
 
 
@@ -135,26 +136,38 @@ def setup() -> Setup:
         bundle=bundle,
         buildable=can_build(),
         installed=installed_plugin(),
-        mumble=mumble_command(bundle or Path(BUNDLE_NAME)) is not None,
+        mumble=target_dir() is not None,
     )
 
 
 def install(rebuild: bool = False) -> str:
     """
-    Opens the bundle with Mumble's installer (built first if there is none, or with `rebuild`), and says what happens
-    next. It does not wait for Mumble.
+    Copies the plugin library of the bundle (built first if there is none, or with `rebuild`) into Mumble's plugin
+    directory, and says what to do in Mumble. The library is replaced as a whole (a new file renamed over the old
+    one), so a Mumble that has the old one loaded keeps it until it reloads its plugins.
     """
     bundle = find_bundle()
     if bundle is None or rebuild:
         bundle = build()
-    command = mumble_command(bundle)
-    if command is None:
+    target = target_dir()
+    if target is None:
         raise MumbleError("Mumble is not installed (no mumble command, no Flatpak info.mumble.Mumble)")
     try:
-        subprocess.Popen(command, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        with zipfile.ZipFile(bundle) as archive:
+            library = archive.read(LIBRARY_NAME)
+    except (OSError, zipfile.BadZipFile, KeyError) as e:
+        raise MumbleError(f"Can't read the plugin from {bundle}: {e}") from e
+    new = target / f".{LIBRARY_NAME}.new"
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        new.write_bytes(library)
+        new.chmod(0o644)
+        new.replace(target / LIBRARY_NAME)
     except OSError as e:
-        raise MumbleError(f"Can't start {command[0]}: {e}") from e
+        with contextlib.suppress(OSError):
+            new.unlink(missing_ok=True)
+        raise MumbleError(f"Can't install the plugin into {target}: {e}") from e
     return (
-        f"Mumble asks whether to install {bundle.name}: confirm. Then, in Mumble's Settings, Plugins, click "
-        '"Reload plugins" (or restart Mumble) and enable "xtouch-daemon".'
+        f'Installed into {target}. In Mumble\'s Settings, Plugins: click "Reload plugins" (or restart Mumble), and '
+        'enable "xtouch-daemon" if it is not yet.'
     )

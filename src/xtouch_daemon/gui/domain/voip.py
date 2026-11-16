@@ -60,8 +60,8 @@ def install_hint(setup: Setup) -> str:
         return "Mumble is not installed: install it first (e.g. the package mumble)."
     if setup.bundle is None and not setup.buildable:
         return "There is no plugin to install: a release has it, a checkout builds it with cmake and a C compiler."
-    action = "Builds the plugin, then opens" if setup.bundle is None else "Opens"
-    return f"{action} it with Mumble, which asks whether to install it."
+    action = "Builds the plugin, then copies" if setup.bundle is None else "Copies"
+    return f'{action} it into Mumble\'s plugin directory; then Mumble needs "Reload plugins".'
 
 
 def install_steps(setup: Setup) -> list[str]:
