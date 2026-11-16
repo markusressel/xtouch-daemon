@@ -26,7 +26,8 @@ These options apply to `output`, `input`, `apps` and `auto` strips. `homeassista
 
 | Option | Default | Meaning |
 |---|---|---|
-| `color` | `"white"` | The LCD backlight: `off` (no backlight), `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`. Dark while the strip has nothing to control. |
+| `color` | `"white"` | The LCD backlight: `off` (no backlight), `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`. Dark while the strip has nothing to control, unless `lit_when_idle` is on. |
+| `lit_when_idle` | `false` | Whether the LCD keeps its backlight while the strip has nothing to control: no application of an `apps` group plays, the device is not there, an `auto` strip has no application. The fader stays down all the same. |
 | `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). |
 | `rec` | `"recording"` | What the LED of the Rec button shows: `recording`, `playing`, `default`, `muted` or `off`, see [LEDs](indicators.md). |
 | `solo` | `"off"` | What the LED of the Solo button shows, the same values, see [LEDs](indicators.md). |

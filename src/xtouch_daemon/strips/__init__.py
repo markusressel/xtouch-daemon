@@ -16,7 +16,7 @@ from xtouch_daemon.config import (
 )
 from xtouch_daemon.protocol import Button
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
-from xtouch_daemon.strips.base import StripController, StripEnv
+from xtouch_daemon.strips.base import StripController, StripEnv, VolumeStrip
 from xtouch_daemon.strips.device import DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
 from xtouch_daemon.surface import Strip
@@ -52,7 +52,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
         )
     match config:
         case DeviceStripConfig():
-            return DeviceStrip(
+            controller: VolumeStrip = DeviceStrip(
                 strip,
                 env,
                 Direction(config.type),
@@ -69,7 +69,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 controls=controls,
             )
         case AppsStripConfig():
-            return AppGroupStrip(
+            controller = AppGroupStrip(
                 strip,
                 env,
                 config.match,
@@ -83,7 +83,7 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
                 controls,
             )
         case AutoStripConfig():
-            return AutoStrip(
+            controller = AutoStrip(
                 strip,
                 env,
                 aliases,
@@ -97,3 +97,5 @@ def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[
             )
         case _ as unreachable:
             assert_never(unreachable)
+    controller.lit_when_idle = config.lit_when_idle
+    return controller

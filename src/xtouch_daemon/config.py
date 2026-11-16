@@ -221,7 +221,13 @@ Slug = Annotated[str, Field(pattern=r"^[a-z0-9_]+$", max_length=64)]
 
 class _StripConfig(_Model):
     color: Annotated[ColorName, COLORS] = "white"
-    """The backlight of the LCD. It is dark while the strip has nothing to control."""
+    """The backlight of the LCD. It is dark while the strip has nothing to control, unless `lit_when_idle` is on."""
+    lit_when_idle: bool = False
+    """
+    Whether the LCD keeps its backlight while the strip has nothing to control: no application of an `apps` group
+    plays, the device of a device strip is not there, an `auto` strip has no application. The label stays readable
+    then; the fader stays down all the same.
+    """
     meter: bool = True
     """Whether this strip's LED meter shows the level (if `behavior.meters` is on)."""
     rec: Annotated[Indicator, INDICATORS] = "recording"

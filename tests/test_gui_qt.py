@@ -364,6 +364,7 @@ def test_a_strip_that_is_not_configured_can_be_configured(qtbot: QtBot, window: 
     assert window.preview.strips[4].look.configured
     assert [row.option.name for row in window.strip_page.rows] == [
         "color",
+        "lit_when_idle",
         "meter",
         "rec",
         "solo",

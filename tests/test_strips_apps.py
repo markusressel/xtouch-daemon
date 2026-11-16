@@ -6,8 +6,9 @@ from tests.conftest import FakeBackend, RecordingSurface, settle, stream
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Capture, Direction
-from xtouch_daemon.config import BehaviorConfig
+from xtouch_daemon.config import AppsStripConfig, BehaviorConfig
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
 from xtouch_daemon.strips.base import StripEnv
 
@@ -33,6 +34,19 @@ async def test_a_group_without_streams_is_idle_and_dark(surface: RecordingSurfac
     s = surface.strips[0]
     assert s.color == Color.BLACK
     assert s.text == ["Browser", "idle"]
+    assert surface.faders(0)[-1] == 0
+
+
+async def test_a_group_lit_when_idle_keeps_its_backlight(surface: RecordingSurface, env: StripEnv) -> None:
+    config = AppsStripConfig(type="apps", match=BROWSERS, label="Browser", color="yellow", lit_when_idle=True)
+    strip = build_strip(config, surface.strips[0], env, {})
+    strip.update(state(stream(1, "Spotify", "spotify")))
+    await surface.settled()
+
+    s = surface.strips[0]
+    assert s.color == Color.YELLOW
+    assert s.text == ["Browser", "idle"]
+    # nothing to control: the fader stays down
     assert surface.faders(0)[-1] == 0
 
 

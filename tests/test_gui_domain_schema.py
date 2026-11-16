@@ -53,6 +53,7 @@ def test_every_strip_type_has_its_model_and_options():
     assert list(strip_models()) == ["output", "input", "apps", "auto", "homeassistant", "empty"]
     assert [o.name for o in strip_options("output")] == [
         "color",
+        "lit_when_idle",
         "meter",
         "rec",
         "solo",
@@ -68,7 +69,7 @@ def test_every_strip_type_has_its_model_and_options():
     ]
     assert strip_options("empty") == ()
 
-    color, _, rec, _, min_volume, _, encoder, fader, _, device, label, _, profiles = strip_options("input")
+    color, _, _, rec, _, min_volume, _, encoder, fader, _, device, label, _, profiles = strip_options("input")
     assert (encoder.kind, encoder.default, encoder.choices) == (
         Kind.CHOICE,
         None,

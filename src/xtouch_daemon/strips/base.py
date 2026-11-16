@@ -188,6 +188,8 @@ class VolumeStrip(StripController):
         self.indicators: dict[Button, Indicator] = dict(indicators or {})
         self.level: Level | None = None
         self.active = False
+        self.lit_when_idle = False
+        """Whether the LCD keeps its backlight while the strip is idle (`lit_when_idle`)."""
         self._wanted: int | None = None
         self._setter: asyncio.Task[None] | None = None
         self.notice: str | None = None
@@ -280,7 +282,7 @@ class VolumeStrip(StripController):
         return self.controls.fader if self.controls is not None else None
 
     def show(self) -> None:
-        self.strip.set_color(self.color if self.active else Color.BLACK)
+        self.strip.set_color(self.color if self.active or self.lit_when_idle else Color.BLACK)
         self.strip.set_text(0, self.label)
         if self.ha_fader is not None and self.controls is not None and self.controls.connected:
             self.ha_fader.show()
