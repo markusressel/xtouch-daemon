@@ -120,7 +120,7 @@ EOF
 chmod 755 "$daemon_root/usr/bin/xtouch-daemon"
 
 mkdir -p "$daemon_root/usr/lib/systemd/user" "$daemon_root/usr/share/xtouch-daemon"
-"$python" -I -c 'from xtouch_daemon.systemd import unit_file; print(unit_file("/usr/bin/xtouch-daemon"), end="")' \
+"$python" -I -c 'from xtouch_daemon.system.systemd import unit_file; print(unit_file("/usr/bin/xtouch-daemon"), end="")' \
 	> "$daemon_root/usr/lib/systemd/user/xtouch-daemon.service"
 cp "$repo_dir/src/xtouch_daemon/config.example.toml" "$daemon_root/usr/share/xtouch-daemon/"
 

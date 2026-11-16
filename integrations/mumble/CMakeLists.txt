@@ -6,7 +6,7 @@
 # builds libxtouch-daemon.so and the bundle xtouch-daemon.mumble_plugin (a zip of the library and manifest.xml),
 # which Mumble installs: `mumble -m integrations/mumble/build/xtouch-daemon.mumble_plugin`
 # (or `xtouch-daemon mumble-plugin --install`). -DXTD_TESTS=ON also builds
-# fake_mumble, the host the tests load the plugin into (tests/test_mumble_plugin.py).
+# fake_mumble, the host the tests load the plugin into (tests/voip/test_mumble_plugin.py).
 cmake_minimum_required(VERSION 3.15)
 
 # the version of xtouch-daemon (pyproject.toml), which Mumble shows for the plugin

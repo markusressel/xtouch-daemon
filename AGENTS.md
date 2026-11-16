@@ -7,23 +7,18 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 
 | Path | Purpose |
 |---|---|
-| `src/xtouch_daemon/protocol.py` | Mackie Control codec (pure functions). |
-| `src/xtouch_daemon/midi.py` | Raw MIDI device (`/dev/snd/midiC*D0`). |
-| `src/xtouch_daemon/surface.py` | `Surface`/`Strip`: device state, reconnects, motor glide. |
-| `src/xtouch_daemon/audio/` | `AudioState` model, `AudioBackend` protocol, `PulseBackend`, `pw-record` meters. |
-| `src/xtouch_daemon/strips/` | Strip controllers (`output`/`input`, `apps`, `auto`, `homeassistant`, `empty`). |
+| `src/xtouch_daemon/hardware/` | The device: Mackie Control codec (`protocol`, pure functions), raw MIDI device (`midi`, `/dev/snd/midiC*D0`), a strip with its motor glide (`strip`), the connection with reconnects and sequences (`surface`), the self-test. |
+| `src/xtouch_daemon/audio/` | `AudioState` model, `AudioBackend` protocol, `PulseBackend`, `pw-record` meters, MPRIS media players. |
+| `src/xtouch_daemon/config/`, `config.example.toml` | pydantic configuration, split by topic (`files`, `model`, `sections`, `layout`, strip types, `inheritance`, `values`, `names`), and the example file. `config/presets.py` has the presets (`@browsers`, ...); `docs/configuration/presets.md` has their table, kept in line by a test. |
+| `src/xtouch_daemon/strips/` | Strip controllers (`output`/`input`, `apps`, `auto`, `homeassistant`, `empty`, `voip`). |
 | `src/xtouch_daemon/mqtt.py` | `MqttBridge`: the MQTT connection for Home Assistant (discovery, retained states, availability). |
-| `src/xtouch_daemon/mixer.py` | Feeds states and events to the controllers. |
-| `src/xtouch_daemon/launch.py` | Starting the application of a strip's `launch` (Select), detached from the daemon. Tests use `FakeLauncher`; `conftest.no_launches` makes a real start fail. |
-| `src/xtouch_daemon/daemon.py` | Lifecycle: signals, reload, shutdown, sd_notify. |
-| `src/xtouch_daemon/instance.py`, `live.py` | The running daemon for the GUI: its runtime file, and the live view of the device over a Unix socket. |
-| `src/xtouch_daemon/config.py`, `config.example.toml` | pydantic configuration and the example file. |
-| `src/xtouch_daemon/presets.py` | The presets (`@browsers`, ...) for lists of application and process names; `docs/configuration/presets.md` has their table, kept in line by a test. |
-| `src/xtouch_daemon/cli.py`, `selftest.py`, `systemd.py` | CLI, device self-test, systemd integration (incl. controlling the user service). |
-| `src/xtouch_daemon/voip/`, `layouts.py` | VoIP providers (`bridge` socket for plugins, `demo`), layout switching and rules. |
-| `src/xtouch_daemon/mumble.py`, `integrations/mumble/` | The Mumble plugin (C, CMake, vendored `MumblePlugin.h`) and finding, building and installing its bundle. `test/fake_mumble.c` is the host `tests/test_mumble_plugin.py` loads it into. |
-| `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested, `qt/` the widgets. Forms come from the pydantic models, so new options need no GUI code. |
-| `tests/` | One test module per source module; fakes in `tests/conftest.py`, an in-memory MQTT broker in `tests/fake_mqtt.py`. |
+| `src/xtouch_daemon/runtime/` | The running daemon: lifecycle (`daemon`: signals, reload, shutdown, sd_notify), `mixer` (feeds states and events to the controllers), `placement` (strips that collapse), `layouts` (switching and rules). |
+| `src/xtouch_daemon/system/` | The system around it: `instance` (runtime file), `systemd` (incl. controlling the user service), `processes` (`/proc`), `launch` (starting a strip's `launch` detached from the daemon; tests use `FakeLauncher`, `conftest.no_launches` makes a real start fail). |
+| `src/xtouch_daemon/live/` | The live view of the device for the GUI over a Unix socket: `messages`, `codec`, `server`. |
+| `src/xtouch_daemon/cli/` | The CLI, one module per topic; `cli/__init__.py` puts the commands together. |
+| `src/xtouch_daemon/voip/`, `integrations/mumble/` | VoIP providers (`bridge` socket for plugins, `demo`); the Mumble plugin (C, CMake, vendored `MumblePlugin.h`) and finding, building and installing its bundle (`voip/mumble.py`). `test/fake_mumble.c` is the host `tests/voip/test_mumble_plugin.py` loads it into. |
+| `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested, `qt/` the widgets (`window/`, `preview/`, `pages/`, `fields/`, `theme/`). Forms come from the pydantic models, so new options need no GUI code. |
+| `tests/` | Mirrors the source: `tests/<package>/test_<module>.py`. Fixtures in the `conftest.py` files (the guards in `tests/conftest.py`), fakes and helpers that tests import in `tests/support/` (e.g. the in-memory MQTT broker in `tests/support/mqtt.py`). |
 | `docs/`, `zensical.toml` | The documentation site (Zensical, published to GitHub Pages by `.github/workflows/docs.yml`): `index.md`, `getting-started.md`, `configuration/*.md` (one page per topic), `home-assistant.md`, `gui.md`, `commands.md`, `troubleshooting.md`, `hardware.md`, `architecture.md`. Build it with `just docs`. |
 | `packaging/` | Release tarballs (`build-release.sh`), the pinned commit of haad-mqtt-autodiscovery, the GUI's `.desktop` file, the AUR packages (`aur/`, `aur/publish.sh`). See [RELEASING.md](RELEASING.md). |
 
@@ -31,7 +26,7 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 
 ```shell
 uv sync
-just test            # uv run pytest -n auto (in parallel); one test: uv run pytest tests/test_x.py -k name
+just test            # uv run pytest -n auto (in parallel); one test: uv run pytest tests/<package>/test_x.py -k name
 just coverage        # in parallel too, fails below 90 %
 just lint            # ruff check + ruff format --check + codespell
 just typecheck       # pyright
@@ -42,7 +37,7 @@ just docs            # builds the documentation site (strict: broken links fail)
 ## Rules
 
 - Update the docs (README, `docs/`, `config.example.toml`, `CHANGELOG.md`) with every behaviour change. Verify every
-  documented command and option against `cli.py` and `config.py`. Links between pages are relative (they work on
+  documented command and option against `cli/` and `config/`. Links between pages are relative (they work on
   GitHub and on the site); links to files outside `docs/` are absolute GitHub URLs. `just docs` must pass.
 - Every behaviour change needs tests. Coverage stays ≥ 90 % (lines and branches).
 - The C plugin is tested end to end (built with CMake, loaded into `fake_mumble`, against `BridgeProvider`); those

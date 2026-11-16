@@ -18,37 +18,43 @@ graph LR
     Surface -- "what the strips show (live.py)" --> Live[LiveServer<br/>$XDG_RUNTIME_DIR/xtouch-daemon.sock]
     Live -- "a JSON line per change" --> GUI[xtouch-daemon gui]
     GUI -- "layout commands" --> Live
-    Daemon -- "rules (layouts.py)" --> Switcher[LayoutSwitcher]
+    Daemon -- "rules (runtime/layouts.py)" --> Switcher[LayoutSwitcher]
     Voip[VoipProvider<br/>voip/] -- "participants" --> Mixer
 ```
 
 ## Modules
 
+The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `tests/<package>/test_<module>.py`.
+
 | Module | Role |
 |---|---|
-| `protocol.py` | The Mackie Control codec: decodes the device's MIDI messages into events, builds the messages that drive it. Pure functions. |
-| `midi.py` | Finds the device's sound card in `/proc/asound/cards` and reads and writes its raw MIDI device without blocking. |
-| `surface.py` | `Surface`: the connection to the device (connects again after it was unplugged), and per `Strip` what it shows. Sends only what changed, shows everything again after a reconnect, glides the motor faders and keeps them still while touched. |
+| `hardware/protocol.py` | The Mackie Control codec: decodes the device's MIDI messages into events, builds the messages that drive it. Pure functions. |
+| `hardware/midi.py` | Finds the device's sound card in `/proc/asound/cards` and reads and writes its raw MIDI device without blocking. |
+| `hardware/strip.py` | `Strip`: what a strip of the device shows, sending only what changed; its motor fader glides to its target and stays still while touched. `VirtualStrip`: a strip that waits off the device. |
+| `hardware/surface.py` | `Surface`: the connection to the device (connects again after it was unplugged), its events, touches, and the startup and shutdown sequences. Shows everything again after a reconnect. |
+| `hardware/selftest.py` | `xtouch-daemon test`: lights up the device and echoes what happens on it. |
 | `audio/model.py` | `AudioState`: an immutable snapshot of the outputs, inputs, application streams and defaults. |
 | `audio/backend.py` | `AudioBackend`: the interface the strips use (snapshots, volume, mute, default). |
 | `audio/pulse.py` | `PulseBackend`: one connection to the sound server that follows it by events and carries out the commands. |
 | `audio/meter.py` | `Meter`: audio levels from passive `pw-record` captures. |
+| `audio/media.py` | The media players of the session (MPRIS), for `encoder = "media"`. |
+| `config/` | The TOML configuration, validated with pydantic: `files` (reading it, its errors), `model` (`Config` and the checks across sections), `sections`, `layout`, the strip types (`strip`, `strips`, `audio_strips`, `layout_strips`), `inheritance`, `values`, `names` (lists with presets) and `presets` (`@browsers`, `@steam-games`, ..., expanded when the configuration is validated, see [Design: presets](design/presets.md)). |
 | `strips/` | The strip controllers: `DeviceStrip` (and `ChoiceStrip` for `choices`), `AppGroupStrip`, `AutoStrip` (with `AutoAssigner`), `HomeAssistantStrip`, `EmptyStrip`, and the shared `VolumeStrip` base. |
 | `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` strips. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
-| `mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state and every event, and the meter ticker. |
-| `placement.py` | `place()` and `Flow`: which strip of the configuration each strip of the device shows, for strips that collapse. See [Collapsing strips](#collapsing-strips). |
-| `layouts.py` | `LayoutSwitcher`: which layout the device shows, chosen by hand or by the rules (`apps`, `processes`, `hold`); the running processes from `/proc`. |
-| `launch.py` | `Launcher`: starts the command of a strip's `launch` detached from the daemon (a transient systemd user service); `LaunchButton`: when Select launches, and its LED. See [Design: launching applications](design/launch.md). |
+| `runtime/daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications) and switching layouts. |
+| `runtime/mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state and every event, and the meter ticker. |
+| `runtime/placement.py` | `place()` and `Flow`: which strip of the configuration each strip of the device shows, for strips that collapse. See [Collapsing strips](#collapsing-strips). |
+| `runtime/layouts.py` | `LayoutSwitcher`: which layout the device shows, chosen by hand or by the rules (`apps`, `processes`, `hold`). |
+| `system/processes.py` | The processes that run, from `/proc`, for the rules of the layouts and `launch_when_running`. |
+| `system/launch.py` | `Launcher`: starts the command of a strip's `launch` detached from the daemon (a transient systemd user service); `LaunchButton`: when Select launches, and its LED. See [Design: launching applications](design/launch.md). |
+| `system/instance.py` | The running daemon for other processes: its runtime file (process, configuration file) and where its live view is served. |
+| `system/systemd.py` | systemd integration: notify, journal log levels, the unit file, controlling the user service. |
+| `live/` | The live view for the GUI over a Unix socket: `messages` (snapshots, requests, replies), `codec` (lines of JSON), `server` (`LiveServer`). See [Live view](#live-view). |
 | `voip/` | `VoipProvider`: the participants of a voice chat for `voip` strips, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). |
-| `mumble.py`, `integrations/mumble/` | The Mumble plugin (C): its sources, building its bundle with CMake, finding it and copying it into Mumble's plugin directory. See [Mumble](integrations/mumble.md). |
-| `daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications) and switching layouts. |
-| `instance.py` | The running daemon for other processes: its runtime file (process, configuration file) and where its live view is served. |
-| `live.py` | `LiveServer`: what the device shows right now, for the GUI, over a Unix socket. See [Live view](#live-view). |
-| `config.py` | The TOML configuration, validated with pydantic. |
-| `presets.py` | The presets (`@browsers`, `@steam-games`, ...): named groups of applications for the lists that match them by name, expanded when the configuration is validated. See [Design: presets](design/presets.md). |
-| `cli.py`, `selftest.py`, `systemd.py` | The command line, the device self-test, systemd integration (notify, journal log levels, the unit file, controlling the user service). |
-| `gui/domain/` | The configuration editor without a toolkit: the editable document, the options of the models, the look of the strips, suggestions from the sound server, applying a saved file. See [GUI](#gui). |
-| `gui/qt/` | The widgets of `xtouch-daemon gui` (the `gui` extra). |
+| `voip/mumble.py`, `integrations/mumble/` | The Mumble plugin (C): its sources, building its bundle with CMake, finding it and copying it into Mumble's plugin directory. See [Mumble](integrations/mumble.md). |
+| `cli/` | The command line: one module per topic (`daemon`, `configuration`, `sound`, `layouts`, `mumble`, `service`, `editor`), put together by `main` in `cli/__init__.py`. |
+| `gui/domain/` | The configuration editor without a toolkit: the editable document (`document`, `drafts`, `toml_sync`), the options of the models, the look of the strips, suggestions from the sound server, applying a saved file. See [GUI](#gui). |
+| `gui/qt/` | The widgets of `xtouch-daemon gui` (the `gui` extra): `window/`, `preview/`, `pages/`, `fields/`, `theme/`. |
 
 ## Data flow
 
@@ -158,9 +164,9 @@ itself does not import it.
 - **Undo instead of questions.** `History` (`gui/domain/history.py`) keeps the states of the document before every
   edit, so removing a strip or reverting the file asks nothing and Ctrl+Z brings it back. Typing into one option is one
   step. Ctrl+Z undoes in the document also while a text field has the focus.
-- **Forms from the models.** `schema.py` reads the options of every section and strip type from the pydantic models:
+- **Forms from the models.** `gui/domain/schema.py` reads the options of every section and strip type from the pydantic models:
   the type picks the widget (switch, number, choice, color swatches, list chips, masked secret, file), the attribute
-  docstrings become the help, `Field` constraints the ranges, and `Meanings` next to a choice (`config.py`, e.g.
+  docstrings become the help, `Field` constraints the ranges, and `Meanings` next to a choice (`config/values.py`, e.g.
   `INDICATORS`) say what each value does; `Presets` on a list of names (`StreamNames`, `ProcessNames`) makes it
   suggest the presets of its kind. A new option or strip type needs no GUI code; a test fails for an option
   without help or a value without a meaning. `gui/domain/docs.py` holds the "Learn more" links into this site, and a
@@ -170,7 +176,7 @@ itself does not import it.
   Options that a strip's new type does not have go into a comment of its table (`StripDraft.kept`), so nothing typed
   is lost and switching back restores them, also in a later session.
 - **The daemon is found, not guessed.** `xtouch-daemon run` writes `$XDG_RUNTIME_DIR/xtouch-daemon.json` (its process
-  id, its configuration file, whether systemd started it) while it runs (`instance.py`), so the GUI finds it wherever
+  id, its configuration file, whether systemd started it) while it runs (`system/instance.py`), so the GUI finds it wherever
   it was started, and a second daemon names the one that has the device. A saved file is reloaded (SIGHUP) only when
   the daemon reads that file; a changed `[device] name` or `[mqtt]` needs a restart, since a reload does not take them. The
   GUI restarts only the service: `systemd.Service` (shared with `install-service`) reads the state of the unit, and
@@ -179,7 +185,7 @@ itself does not import it.
   carry Qt itself, so `uv tool install` needs no system packages (GTK 4 through PyGObject needs the system libraries
   and a compiler), Qt paints the strip preview with `QPainter` and does drag and drop, and pytest-qt runs the widgets
   offscreen.
-- **One visual system.** `qt/theme.py` holds the design tokens: the colors of the dark and the light theme (text at
+- **One visual system.** `qt/theme/` holds the design tokens: the colors of the dark and the light theme (text at
   4.5:1 or more and the outlines of controls at 3:1 or more on every surface, WCAG 2.2 AA, checked by the tests), a
   4 px spacing scale, radii, the height of controls and a type scale relative to the desktop font, and the colors of
   the device for the preview, the same in both themes. Widgets set style roles (`theme.set_role`) and take their sizes
@@ -212,7 +218,7 @@ itself does not import it.
   Icons are kept with their name and color (`theme.set_icon`), so switching the theme draws them again
   (`theme.refresh_icons`) without building a page. The tests count it: selecting a strip changes the geometry of the
   window once, creates no widget and does not resize the window, and a live update that changes nothing lays out
-  nothing (`LayoutPasses` in `tests/test_gui_qt.py`).
+  nothing (`LayoutPasses` in `tests/gui/qt/test_editing.py`).
 - **The options in the order of the device.** A strip form lists its options from top to bottom like the strip:
   1. what it controls (`device`, `match`, `profiles`, the `id` of a Home Assistant strip)
   2. the encoder and its ring
@@ -221,13 +227,13 @@ itself does not import it.
   5. the Rec, Solo, Mute and Select buttons
   6. the fader and the range of the volume
   7. the `id`
-  This is `STRIP_OPTION_ORDER` in `schema.py`, apart from the order of the fields in `config.py`. A test fails for an
+  This is `STRIP_OPTION_ORDER` in `gui/domain/schema.py`, apart from the order of the fields in `config/`. A test fails for an
   option without a place in it.
 
 ## Live view
 
 The GUI shows the strips as the device shows them right now, which only the daemon knows. `xtouch-daemon run` serves
-that on the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon.sock` (mode 0600, next to the runtime file of `instance.py`)
+that on the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon.sock` (mode 0600, next to the runtime file of `system/instance.py`)
 for as long as it runs:
 
 - **Whole states, one JSON line each.** A client gets the whole state when it connects and again whenever something
@@ -330,7 +336,7 @@ The design and its research are in [Design: layouts](design/layouts.md).
 With `collapse`, the strips of the configuration are not the strips of the device: a layout may have up to 32
 strips, and the device shows the first 8 that take a place (see [Collapsing strips](configuration/collapsing.md)).
 
-- **A strip of its own for every controller.** The `Mixer` gives each controller a `VirtualStrip` (`surface.py`)
+- **A strip of its own for every controller.** The `Mixer` gives each controller a `VirtualStrip` (`hardware/strip.py`)
   instead of a strip of the device. It keeps what the controller shows, like a `Strip` does, and passes it on to the
   strip of the device it is on (`target`), if any. Moving a controller is `bind()`: the new strip of the device shows
   everything the virtual one keeps, and only what changed is sent; the motor glides to the new value. So nothing of
@@ -367,7 +373,7 @@ The unit tests run without hardware and without a sound server:
 - the strips, the mixer and the daemon with a fake `AudioBackend`,
 - `PulseBackend` with a fake pulsectl connection,
 - the meters with a fake `pw-record` script,
-- the MQTT bridge and the `homeassistant` strips with an in-memory broker (`tests/fake_mqtt.py`): retained messages,
+- the MQTT bridge and the `homeassistant` strips with an in-memory broker (`tests/support/mqtt.py`): retained messages,
   subscriptions, last wills, lost connections,
 - the live view with a real Unix socket in a short temporary directory: clients that read, that don't read, and that
   go away, requests of the user, of other users and that are too long, and the live preview through the daemon,
@@ -376,5 +382,11 @@ The unit tests run without hardware and without a sound server:
   calls its callbacks as a script says, against a real `BridgeProvider` (skipped without cmake and a C compiler),
 - the GUI domain with configuration files in a temporary directory and a fake `systemctl`, and the GUI widgets with
   pytest-qt on the offscreen platform, with a fake sound server and the dialogs answered by the tests.
+
+The tests mirror the packages of the source (`tests/config/`, `tests/strips/`, `tests/gui/qt/`, ...). Fixtures are in
+the `conftest.py` files: `tests/conftest.py` has the guards every test gets (no processes left behind, nothing of the
+machine touched, no programs started) and the common fakes, the packages have their own (e.g. the window in
+`tests/gui/qt/conftest.py`). What tests import, fakes and helpers, is in `tests/support/`, never in a `conftest.py` or
+another test module.
 
 `just coverage` fails below 90 % line and branch coverage.

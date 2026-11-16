@@ -55,7 +55,7 @@ jobs:
       - name: Check the packaging scripts
         run: for script in packaging/build-release.sh packaging/aur/publish.sh; do bash -n "$script"; done
 
-  # the bundle Mumble installs (integrations/mumble); tests/test_mumble_plugin.py tests it in the job above
+  # the bundle Mumble installs (integrations/mumble); tests/voip/test_mumble_plugin.py tests it in the job above
   mumble-plugin:
     runs-on: ubuntu-latest
     steps:

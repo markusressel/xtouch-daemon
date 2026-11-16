@@ -39,8 +39,12 @@ In PyCharm, use `.venv` as the interpreter. `.run/` holds run configurations for
 ## Rules
 
 - Every behaviour change comes with tests, and with matching changes to `docs/` (the documentation site, see `zensical.toml`).
-- The unit tests need neither the device nor a sound server: use the fakes in `tests/conftest.py`. They see nothing
-  of the machine they run on, and fail if they leave a process behind (see `no_host` and `no_leaks` there).
+- The unit tests need neither the device nor a sound server: use the fakes in `tests/support/`. They see nothing
+  of the machine they run on, and fail if they leave a process behind (see `no_host` and `no_leaks` in
+  `tests/conftest.py`).
+- Tests mirror the source: `src/xtouch_daemon/<package>/<module>.py` is tested in `tests/<package>/test_<module>.py`.
+  Fixtures go into the `conftest.py` of the package that needs them, fakes and helpers that tests import into
+  `tests/support/`.
 - Asyncio tests run in virtual time ([looptime](https://github.com/nolar/looptime)): `asyncio.sleep(10)` takes no
   time. Tests with real processes or devices are marked `@pytest.mark.looptime(False)`.
 - Coverage stays at 90 % or above.
