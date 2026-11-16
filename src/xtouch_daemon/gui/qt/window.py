@@ -595,7 +595,7 @@ class MainWindow(QMainWindow):
                 self.mqtt_page = MqttPage(self.editor, audio, BrokerTester(self.try_broker))
                 self.pages[name] = self.mqtt_page
             elif name == "voip":
-                self.voip_page = VoipPage(self.document, audio, self.edited, self.mumble_installer)
+                self.voip_page = VoipPage(self.editor, audio, self.mumble_installer)
                 self.pages[name] = self.voip_page
             else:
                 self.pages[name] = SectionPage(name, self.editor, audio)

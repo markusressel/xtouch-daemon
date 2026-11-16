@@ -566,6 +566,29 @@ def test_a_strip_of_another_type_shows_the_form_of_its_type(qtbot: QtBot, window
     assert row(window, "match").chips.values == []
 
 
+def test_a_short_form_takes_its_own_height(qtbot: QtBot, window: MainWindow):
+    window.show()
+    page = window.strip_page
+    # the form of an output strip is the tallest, the one of an apps strip shorter
+    window.select(1)
+    qtbot.wait(10)
+    apps = page.form
+    assert apps is not None
+    window.select(0)
+    qtbot.wait(10)
+    output = page.form
+    assert output is not None
+    assert output.height() > apps.height()
+
+    window.select(1)
+    qtbot.wait(10)
+
+    # no gap under it, and its fields are not stretched to fill one
+    assert page.parts.height() == apps.heightForWidth(page.parts.width())
+    match = row(window, "match")
+    assert match.height() == match.heightForWidth(match.width())
+
+
 # -- the preview: moving strips ----------------------------------------------------------------------------------
 
 
@@ -2341,7 +2364,6 @@ def test_the_voice_chat_page_tells_whether_mumble_is_connected(
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     window.show_page("voip")
     box = window.voip_page.box
-    assert box is not None
     assert box.live_pill.text() == "unknown"
     # neither a plugin nor Mumble on this machine: nothing to install, the steps say what to do
     assert not box.install_button.isEnabled()
@@ -2376,7 +2398,6 @@ def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: 
     window = make_window(mumble_installer=MumbleInstaller(install, lambda: setups[-1]))
     window.show_page("voip")
     box = window.voip_page.box
-    assert box is not None
     assert box.install_button.isEnabled()
     assert (
         box.install_button.toolTip()
@@ -2394,9 +2415,8 @@ def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: 
     click(qtbot, box.install_button)
     qtbot.waitUntil(lambda: box.result.text() == "cmake --build failed: boom")
     assert box.result.property("role") == "error"
-    # the result stays when the page is built again
-    window.reload_pages()
-    assert window.voip_page.box is not None
+    # the result stays when the document is shown again
+    window.editor.edited()
     assert window.voip_page.box.result.text() == "cmake --build failed: boom"
 
 

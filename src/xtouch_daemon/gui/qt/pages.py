@@ -23,8 +23,6 @@ from PyQt6.QtWidgets import (
     QLayout,
     QLineEdit,
     QPushButton,
-    QSizePolicy,
-    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -108,25 +106,29 @@ def set_text(widget: QLabel | QPushButton, text: str) -> None:
         widget.setText(text)
 
 
-class Stack(QStackedWidget):
+class Stack(QWidget):
     """
-    Parts of a page of which one shows at a time, e.g. the form of each strip type. It takes the size of the one that
-    shows, not that of the largest, so a short part does not leave a gap under it.
+    Parts of a page of which one shows at a time, e.g. the form of each strip type. Only the one that shows is in its
+    layout, so the page takes its size, not that of the largest part: a short part leaves no gap under it and does not
+    stretch its fields. (A `QStackedWidget` does: its layout answers the height for a width with that of the largest
+    part, whatever their size policies.)
     """
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack = QVBoxLayout(self)
+        self.stack.setContentsMargins(0, 0, 0, 0)
+        self.part: QWidget | None = None
+
     def show_part(self, part: QWidget) -> None:
-        if self.indexOf(part) < 0:
-            self.addWidget(part)
-        elif self.currentWidget() is part:
+        if part is self.part:
             return
-        for index in range(self.count()):
-            widget = self.widget(index)
-            assert widget is not None
-            shown = widget is part
-            policy = QSizePolicy.Policy.Preferred if shown else QSizePolicy.Policy.Ignored
-            widget.setSizePolicy(policy, policy)
-        self.setCurrentWidget(part)
-        self.updateGeometry()
+        if self.part is not None:
+            self.stack.removeWidget(self.part)
+            self.part.hide()
+        self.part = part
+        self.stack.addWidget(part)
+        part.show()
 
 
 class Page(QWidget):
@@ -381,26 +383,23 @@ class MumbleInstaller(QObject):
 class VoipPage(SectionPage):
     """The [voip] section, with whether the daemon has a voice chat and the setup of the Mumble plugin."""
 
-    def __init__(self, document: ConfigDocument, audio: Audio, on_edit: Callable[[], None], installer: MumbleInstaller):
+    def __init__(self, editor: Editor, audio: Audio, installer: MumbleInstaller):
         self.installer = installer
         self.snapshot: Snapshot | None = None
         self.result: Status | None = None
         self.installing = False
-        self.box: MumbleBox | None = None
         installer.finished.connect(self._installed)
-        super().__init__("voip", document, audio, on_edit)
+        super().__init__("voip", editor, audio)
+        self.show_live(None)
 
-    def reload(self) -> None:
-        super().reload()
+    def _above_options(self, layout: QVBoxLayout) -> None:
         self.box = MumbleBox()
+        """The voice chat and the setup of the plugin, below the help of the section, above its options."""
         self.box.install_button.clicked.connect(self.install)
-        # below the help of the section, above its options
-        self.layout_.insertWidget(3, self.box)
-        self.show_live(self.snapshot)
+        layout.addWidget(self.box)
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         self.snapshot = snapshot
-        assert self.box is not None, "reload() makes it"
         self.box.show_state(voip_status(snapshot), self.installer.setup(), self.result, self.installing)
 
     def install(self) -> None:
@@ -429,7 +428,7 @@ class MumbleBox(QFrame):
         self.live_pill = label("", "pill")
         line.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         line.addStretch()
-        self.install_button = QPushButton(theme.icon("download"), "Install Mumble plugin")
+        self.install_button = button("download", "Install Mumble plugin")
         line.addWidget(self.install_button)
         layout.addWidget(row(line))
         self.live_detail = help_label("", "hint")
@@ -442,15 +441,15 @@ class MumbleBox(QFrame):
 
     def show_state(self, live: Status, setup: mumble.Setup, result: Status | None, installing: bool) -> None:
         show_status(self.live_pill, live)
-        self.live_detail.setText(help_text(live.tip))
+        set_text(self.live_detail, help_text(live.tip))
         self.install_button.setEnabled(setup.installable and not installing)
         self.install_button.setToolTip(install_hint(setup))
         steps = "".join(f"<li>{html.escape(step)}</li>" for step in install_steps(setup))
         link = f' <a href="{html.escape(docs.guide_link("mumble"))}">{LEARN_MORE}</a>'
-        self.steps.setText(f"Set up the plugin once:<ol>{steps}</ol>{install_hint(setup)}{link}")
+        set_text(self.steps, f"Set up the plugin once:<ol>{steps}</ol>{install_hint(setup)}{link}")
         self.result.setVisible(result is not None)
         if result is not None:
-            self.result.setText(result.text)
+            set_text(self.result, result.text)
             theme.set_role(self.result, "error" if result.tone == Tone.BAD else "")
 
 
