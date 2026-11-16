@@ -1,6 +1,10 @@
 """
-The pages of the editor: the selected strip, and the global settings: a section of options (`[behavior]`, `[mqtt]`,
-`[device]`) and the aliases.
+The pages of the editor: the selected strip, the layout being edited, and the global settings: a section of options
+(`[behavior]`, `[mqtt]`, `[device]`, ...) and the aliases.
+
+Every page is built once. From then on it shows the document in place: `show_document()` with the `Change` the
+`Editor` reports loads the values into the fields it has, and switches between parts it built before (e.g. the form of
+another strip type), instead of building itself again (see the GUI section of docs/architecture.md).
 """
 
 import asyncio
@@ -11,25 +15,38 @@ from typing import Any
 
 from pydantic import ValidationError
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QButtonGroup,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLayout,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from xtouch_daemon import mumble, protocol
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, LayoutConfig, MqttConfig, default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.broker import live_status, try_broker
+from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, StripDraft, Validation
 from xtouch_daemon.gui.domain.looks import look
-from xtouch_daemon.gui.domain.schema import Kind, options, strip_models, strip_options, strip_type_help
+from xtouch_daemon.gui.domain.schema import options, strip_models, strip_options, strip_type_help
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
 from xtouch_daemon.gui.qt import theme
+from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields import (
     LEARN_MORE,
     OptionRow,
     Suggest,
     completer,
     flat_button,
+    help_html,
     help_label,
     help_text,
     label,
@@ -67,123 +84,186 @@ def card() -> tuple[QFrame, QVBoxLayout]:
 
 
 def row(layout: QLayout) -> QWidget:
-    """A widget around a layout, so the page can remove it like its other widgets."""
+    """A widget around a layout, to add it to a page like its other widgets."""
     layout.setContentsMargins(0, 0, 0, 0)
     holder = QWidget()
     holder.setLayout(layout)
     return holder
 
 
-class Page(QWidget):
-    def __init__(self, document: ConfigDocument, audio: Audio, on_edit: Callable[[], None]):
+def button(icon: str, text: str, color: str | None = None, role: str = "") -> QPushButton:
+    """A push button with an icon that follows the theme (see `theme.set_icon`), in a style role ("primary", ...)."""
+    widget = QPushButton(text)
+    theme.set_icon(widget, icon, color)
+    if role:
+        theme.set_role(widget, role, "variant")
+    return widget
+
+
+def set_text(widget: QLabel | QPushButton, text: str) -> None:
+    """A new text, only if it is one: the same text again would still lay out the window again."""
+    if widget.text() != text:
+        widget.setText(text)
+
+
+class Stack(QWidget):
+    """
+    Parts of a page of which one shows at a time, e.g. the form of each strip type. Only the one that shows is in its
+    layout, so the page takes its size, not that of the largest part: a short part leaves no gap under it and does not
+    stretch its fields. (A `QStackedWidget` does: its layout answers the height for a width with that of the largest
+    part, whatever their size policies.)
+    """
+
+    def __init__(self) -> None:
         super().__init__()
-        self.document = document
+        self.stack = QVBoxLayout(self)
+        self.stack.setContentsMargins(0, 0, 0, 0)
+        self.part: QWidget | None = None
+
+    def show_part(self, part: QWidget) -> None:
+        if part is self.part:
+            return
+        if self.part is not None:
+            self.stack.removeWidget(self.part)
+            self.part.hide()
+        self.part = part
+        self.stack.addWidget(part)
+        part.show()
+
+
+class Page(QWidget):
+    """A page of the editor. `show_document` shows the document again where `change` touches the page."""
+
+    def __init__(self, editor: Editor, audio: Audio):
+        super().__init__()
+        self.editor = editor
         self.audio = audio
-        self.on_edit = on_edit
         self.layout_ = QVBoxLayout(self)
         self.layout_.setContentsMargins(theme.Space.XS, theme.Space.XS, theme.Space.M, theme.Space.M)
         self.layout_.setSpacing(theme.Space.M)
-        self.rows: list[OptionRow] = []
+        self.option_rows: list[OptionRow] = []
         self.problem = label("", "error", wrap=True)
+        """Problems that belong to no row: of the whole section or strip, and unknown options."""
+        self.problem.hide()
 
-    def reload(self) -> None:
-        """Builds the page again from the document."""
+    @property
+    def document(self) -> ConfigDocument:
+        return self.editor.document
+
+    @property
+    def rows(self) -> list[OptionRow]:
+        """The rows of the options the page shows."""
+        return self.option_rows
+
+    def show_document(self, change: Change) -> None:
         raise NotImplementedError
 
     def show_problems(self, validation: Validation) -> None:
         raise NotImplementedError
 
-    def _clear(self) -> None:
-        self.rows = []
-        while self.layout_.count():
-            item = self.layout_.takeAt(0)
-            widget = item.widget() if item is not None else None
-            if widget is not None:
-                widget.deleteLater()
-        self.problem = label("", "error", wrap=True)
-        self.problem.hide()
+    def _row(
+        self,
+        option: Any,
+        path: Callable[[str], tuple[str | int, ...]],
+        suggest: Suggest | None = None,
+        placeholder: Callable[[], str] | None = None,
+        link: str | None = None,
+        rows: list[OptionRow] | None = None,
+    ) -> OptionRow:
+        """
+        A row for an option at `path(name)` (the path may depend on what the page shows, e.g. the strip), kept in
+        `rows` (those of the page by default).
+        """
+        name = option.name
 
-    def _rows(self, layout: QVBoxLayout, rows: list[OptionRow]) -> None:
+        def put(value: Any) -> None:
+            if value is None:
+                self.document.unset(path(name))
+            else:
+                self.document.set(path(name), value)
+
+        option_row = OptionRow(option, lambda: self._value(path(name)), put, suggest, placeholder, link)
+        option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, path(name))))
+        (self.option_rows if rows is None else rows).append(option_row)
+        return option_row
+
+    def _value(self, path: tuple[str | int, ...]) -> Any:
+        return self.document.get(path)
+
+    def _load_rows(self, rows: list[OptionRow]) -> None:
         for option_row in rows:
-            option_row.edited.connect(self.on_edit)
-            layout.addWidget(option_row)
-            self.rows.append(option_row)
+            option_row.load()
 
     def _show_rest(self, rest: list[str]) -> None:
-        """Problems that belong to no row: of the whole section or strip, and unknown options."""
-        self.problem.setText("\n".join(rest))
+        set_text(self.problem, "\n".join(rest))
         self.problem.setVisible(bool(rest))
 
 
 class SectionPage(Page):
     """A section with options of its own, like `[behavior]`; an optional one (`[mqtt]`) can be added and removed."""
 
-    def __init__(self, section: str, document: ConfigDocument, audio: Audio, on_edit: Callable[[], None]):
-        super().__init__(document, audio, on_edit)
+    def __init__(self, section: str, editor: Editor, audio: Audio):
+        super().__init__(editor, audio)
         self.section = SECTIONS[section]
-        self.reload()
-
-    def reload(self) -> None:
-        self._clear()
         name = self.section.name
         header = QHBoxLayout()
         header.addWidget(label(page_title(name), "section"))
         header.addWidget(label(f"[{name}]", "hint"))
         header.addStretch()
-        present = self.document.has_section(name)
-        if self.section.optional and present:
-            remove = QPushButton(theme.icon("delete-outline", theme.current_colors().error), f"Remove [{name}]")
-            theme.set_role(remove, "danger", "variant")
-            remove.clicked.connect(self._remove)
-            header.addWidget(remove)
+        self.remove_button = button("delete-outline", f"Remove [{name}]", "error", "danger")
+        self.remove_button.clicked.connect(lambda: self.editor.remove_section(name))
+        header.addWidget(self.remove_button)
         self.layout_.addWidget(row(header))
         self.layout_.addWidget(help_label(self.section.help, "hint", docs.page_link(name)))
         self.layout_.addWidget(self.problem)
+        self.parts = Stack()
+        self.absent, layout = card()
+        layout.addWidget(label(f"There is no [{name}] section in the file.", wrap=True))
+        add = button("plus", f"Add [{name}]", "white", "primary")
+        add.clicked.connect(lambda: self.editor.add_section(name))
+        buttons = QHBoxLayout()
+        buttons.addWidget(add)
+        buttons.addStretch()
+        layout.addWidget(row(buttons))
+        self.present = QWidget()
+        present = QVBoxLayout(self.present)
+        present.setContentsMargins(0, 0, 0, 0)
+        present.setSpacing(theme.Space.M)
+        self._above_options(present)
         frame, layout = card()
-        if not present:
-            layout.addWidget(label(f"There is no [{name}] section in the file.", wrap=True))
-            add = QPushButton(theme.icon("plus", "white"), f"Add [{name}]")
-            theme.set_role(add, "primary", "variant")
-            add.clicked.connect(self._add)
-            buttons = QHBoxLayout()
-            buttons.addWidget(add)
-            buttons.addStretch()
-            layout.addWidget(row(buttons))
-        else:
-            suggest: dict[str, Suggest] = {"ignore": lambda: sources.patterns(self.audio())}
-            self._rows(
-                layout,
-                [
-                    OptionRow(
-                        option,
-                        lambda option_name=option.name: self.document.get((name, option_name)),
-                        lambda value, option_name=option.name: self._put(option_name, value),
-                        suggest.get(option.name),
-                        link=docs.option_link(name, option.name),
-                    )
-                    for option in options(self.section.model)
-                ],
+        suggest: dict[str, Suggest] = {"ignore": lambda: sources.patterns(self.audio())}
+        for option in options(self.section.model):
+            layout.addWidget(
+                self._row(
+                    option,
+                    lambda option_name: (name, option_name),
+                    suggest.get(option.name),
+                    link=docs.option_link(name, option.name),
+                )
             )
-            if name == "device":
-                layout.addWidget(label("A changed name takes a restart of the service.", "help"))
-        self.layout_.addWidget(frame)
+        if name == "device":
+            layout.addWidget(label("A changed name takes a restart of the service.", "help"))
+        present.addWidget(frame)
+        self.layout_.addWidget(self.parts)
         self.layout_.addStretch()
+        self._show()
 
-    def _put(self, name: str, value: Any) -> None:
-        if value is None:
-            self.document.unset((self.section.name, name))
-        else:
-            self.document.set((self.section.name, name), value)
+    def _above_options(self, layout: QVBoxLayout) -> None:
+        """What a page shows above the options of its section while the file has it: nothing here."""
 
-    def _add(self) -> None:
-        self.document.add_section(self.section.name)
-        self.reload()
-        self.on_edit()
+    def _value(self, path: tuple[str | int, ...]) -> Any:
+        # the rows are there also while the file has no such section
+        return self.document.get(path) if self.document.has_section(self.section.name) else None
 
-    def _remove(self) -> None:
-        self.document.remove_section(self.section.name)
-        self.reload()
-        self.on_edit()
+    def show_document(self, change: Change) -> None:
+        if change.touches(Scope.SECTION):
+            self._show()
+
+    def _show(self) -> None:
+        present = self.document.has_section(self.section.name)
+        self.remove_button.setVisible(self.section.optional and present)
+        self.parts.show_part(self.present if present else self.absent)
+        self._load_rows(self.rows)
 
     def show_problems(self, validation: Validation) -> None:
         names = {option_row.option.name for option_row in self.rows}
@@ -223,35 +303,25 @@ class MqttPage(SectionPage):
     they are in the editor, before they are saved.
     """
 
-    def __init__(self, document: ConfigDocument, audio: Audio, on_edit: Callable[[], None], tester: BrokerTester):
+    def __init__(self, editor: Editor, audio: Audio, tester: BrokerTester):
         self.tester = tester
-        self.snapshot: Snapshot | None = None
         self.tested: Status | None = None
         self.testing = False
-        self.box: ConnectionBox | None = None
-        """The connection and its test; None while there is no [mqtt] section on the page."""
         tester.finished.connect(self._tested)
-        super().__init__("mqtt", document, audio, on_edit)
+        super().__init__("mqtt", editor, audio)
+        self.show_live(None)
 
-    def reload(self) -> None:
-        super().reload()
-        self.box = None
-        if not self.document.has_section("mqtt"):
-            return
+    def _above_options(self, layout: QVBoxLayout) -> None:
         self.box = ConnectionBox()
+        """The connection and its test, below the help of the section, above its options."""
         self.box.test_button.clicked.connect(self.test)
-        # below the help of the section, above its options
-        self.layout_.insertWidget(3, self.box)
-        self.show_live(self.snapshot)
-        self._show_test()
+        layout.addWidget(self.box)
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         """How the daemon's connection is doing now (see `live_status`)."""
-        self.snapshot = snapshot
-        if self.box is not None:
-            status = live_status(snapshot)
-            show_status(self.box.live_pill, status)
-            self.box.live_detail.setText(help_text(status.tip))
+        status = live_status(snapshot)
+        show_status(self.box.live_pill, status)
+        set_text(self.box.live_detail, help_text(status.tip))
 
     def test(self) -> None:
         """Tries the settings in the editor (see `try_broker`)."""
@@ -268,12 +338,19 @@ class MqttPage(SectionPage):
 
     def _tested(self, status: Status) -> None:
         self.testing = False
-        self.tested = status
+        # a result that comes after the section was removed has nowhere to go
+        self.tested = status if self.document.has_section("mqtt") else None
         self._show_test()
 
+    def _show(self) -> None:
+        super()._show()
+        if not self.document.has_section("mqtt"):
+            # a test of settings that are gone says nothing
+            self.tested = None
+            self._show_test()
+
     def _show_test(self) -> None:
-        if self.box is not None:
-            self.box.show_test(self.tested, self.testing)
+        self.box.show_test(self.tested, self.testing)
 
 
 type MumbleInstall = Callable[[], str]
@@ -306,26 +383,23 @@ class MumbleInstaller(QObject):
 class VoipPage(SectionPage):
     """The [voip] section, with whether the daemon has a voice chat and the setup of the Mumble plugin."""
 
-    def __init__(self, document: ConfigDocument, audio: Audio, on_edit: Callable[[], None], installer: MumbleInstaller):
+    def __init__(self, editor: Editor, audio: Audio, installer: MumbleInstaller):
         self.installer = installer
         self.snapshot: Snapshot | None = None
         self.result: Status | None = None
         self.installing = False
-        self.box: MumbleBox | None = None
         installer.finished.connect(self._installed)
-        super().__init__("voip", document, audio, on_edit)
+        super().__init__("voip", editor, audio)
+        self.show_live(None)
 
-    def reload(self) -> None:
-        super().reload()
+    def _above_options(self, layout: QVBoxLayout) -> None:
         self.box = MumbleBox()
+        """The voice chat and the setup of the plugin, below the help of the section, above its options."""
         self.box.install_button.clicked.connect(self.install)
-        # below the help of the section, above its options
-        self.layout_.insertWidget(3, self.box)
-        self.show_live(self.snapshot)
+        layout.addWidget(self.box)
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         self.snapshot = snapshot
-        assert self.box is not None, "reload() makes it"
         self.box.show_state(voip_status(snapshot), self.installer.setup(), self.result, self.installing)
 
     def install(self) -> None:
@@ -354,7 +428,7 @@ class MumbleBox(QFrame):
         self.live_pill = label("", "pill")
         line.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         line.addStretch()
-        self.install_button = QPushButton(theme.icon("download"), "Install Mumble plugin")
+        self.install_button = button("download", "Install Mumble plugin")
         line.addWidget(self.install_button)
         layout.addWidget(row(line))
         self.live_detail = help_label("", "hint")
@@ -367,15 +441,15 @@ class MumbleBox(QFrame):
 
     def show_state(self, live: Status, setup: mumble.Setup, result: Status | None, installing: bool) -> None:
         show_status(self.live_pill, live)
-        self.live_detail.setText(help_text(live.tip))
+        set_text(self.live_detail, help_text(live.tip))
         self.install_button.setEnabled(setup.installable and not installing)
         self.install_button.setToolTip(install_hint(setup))
         steps = "".join(f"<li>{html.escape(step)}</li>" for step in install_steps(setup))
         link = f' <a href="{html.escape(docs.guide_link("mumble"))}">{LEARN_MORE}</a>'
-        self.steps.setText(f"Set up the plugin once:<ol>{steps}</ol>{install_hint(setup)}{link}")
+        set_text(self.steps, f"Set up the plugin once:<ol>{steps}</ol>{install_hint(setup)}{link}")
         self.result.setVisible(result is not None)
         if result is not None:
-            self.result.setText(result.text)
+            set_text(self.result, result.text)
             theme.set_role(self.result, "error" if result.tone == Tone.BAD else "")
 
 
@@ -393,7 +467,7 @@ class ConnectionBox(QFrame):
         self.live_pill = label("", "pill")
         line.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         line.addStretch()
-        self.test_button = QPushButton(theme.icon("lan-connect"), "Test connection")
+        self.test_button = button("lan-connect", "Test connection")
         self.test_button.setToolTip("Connect once with the settings below, also unsaved ones, and disconnect again")
         line.addWidget(self.test_button)
         layout.addWidget(row(line))
@@ -415,150 +489,259 @@ class ConnectionBox(QFrame):
 
 
 class StripPage(Page):
-    """The strip selected in the preview: its type and its options, or how to configure it."""
+    """
+    The strip selected in the preview: its type and its options, or how to configure it. It has a form for each strip
+    type, built the first time a strip of that type is shown; selecting another strip loads its values into the form
+    of its type (`show_strip`).
+    """
 
-    def __init__(
-        self,
-        document: ConfigDocument,
-        audio: Audio,
-        on_edit: Callable[[], None],
-        on_strips: Callable[[int], None],
-        show_page: Callable[[str], None],
-        remove: Callable[[int], None],
-    ):
-        super().__init__(document, audio, on_edit)
-        self.on_strips = on_strips
-        """Called after strips were added, moved or changed type, with the strip to select."""
+    def __init__(self, editor: Editor, audio: Audio, show_page: Callable[[str], None]):
+        super().__init__(editor, audio)
         self.show_page = show_page
         """Shows one of the global settings, e.g. the Home Assistant connection a `homeassistant` strip uses."""
-        self.remove = remove
-        """Removes a strip."""
-        self.index = 0
+        self.index = editor.selection
+        header = QHBoxLayout()
+        self.title = label("", "section")
+        header.addWidget(self.title)
+        header.addStretch()
+        self.moves: list[tuple[QWidget, int]] = []
+        for icon, tip, step in (
+            ("chevron-left", "Move it to the left", -1),
+            ("chevron-right", "Move it to the right", 1),
+        ):
+            move = flat_button(icon, f"{tip} (or drag it in the preview)")
+            move.clicked.connect(lambda _=False, step=step: self.editor.move_strip(self.index, self.index + step))
+            header.addWidget(move)
+            self.moves.append((move, step))
+        self.remove_button = button("delete-outline", "Remove", "error", "danger")
+        self.remove_button.setToolTip("Remove the strip: the strips right of it move left, free places are auto strips")
+        self.remove_button.clicked.connect(lambda: self.editor.remove_strip(self.index))
+        header.addWidget(self.remove_button)
+        self.layout_.addWidget(row(header))
+        self.hint = label("", "hint")
+        self.layout_.addWidget(self.hint)
+        self.parts = Stack()
+        self.unconfigured, layout = card()
+        self.unconfigured_text = label("", wrap=True)
+        layout.addWidget(self.unconfigured_text)
+        self.configure_button = button("plus", "", "white", "primary")
+        self.configure_button.clicked.connect(lambda: self.editor.configure_up_to(self.index))
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.configure_button)
+        buttons.addStretch()
+        layout.addWidget(row(buttons))
+        self.forms: dict[str | None, StripForm] = {}
+        """The form of each strip type shown so far (None: a strip without a known type)."""
+        self.layout_.addWidget(self.parts)
+        self.layout_.addStretch()
+        self._show()
 
     @property
     def configured(self) -> bool:
         return self.index < len(self.document.strips)
 
+    @property
+    def rows(self) -> list[OptionRow]:
+        form = self.form
+        return [] if form is None else form.rows
+
+    @property
+    def types(self) -> QButtonGroup:
+        """The buttons of the strip types in the form shown."""
+        assert self.form is not None
+        return self.form.types
+
+    @property
+    def form(self) -> StripForm | None:
+        """The form of the strip shown, None while it is not configured."""
+        return self.forms.get(self.document.strips[self.index].type) if self.configured else None
+
     def show_strip(self, index: int) -> None:
         self.index = index
-        self.reload()
+        self._show()
+        self.show_problems(self.editor.validation)
 
-    def reload(self) -> None:
-        self._clear()
+    def show_document(self, change: Change) -> None:
+        if change.strips:
+            self._show()
+        elif self.form is not None:
+            # e.g. the connection to Home Assistant, a global setting
+            self.form.show_globals()
+
+    def _show(self) -> None:
         index = self.index
-        header = QHBoxLayout()
-        header.addWidget(label(f"Strip {index + 1}", "section"))
-        header.addStretch()
-        if self.configured:
-            for icon, tip, target in (
-                ("chevron-left", "Move it to the left", index - 1),
-                ("chevron-right", "Move it to the right", index + 1),
-            ):
-                button = flat_button(icon, f"{tip} (or drag it in the preview)")
-                button.setEnabled(0 <= target < len(self.document.strips))
-                button.clicked.connect(lambda _=False, target=target: self._move(target))
-                header.addWidget(button)
-            remove = QPushButton(theme.icon("delete-outline", theme.current_colors().error), "Remove")
-            theme.set_role(remove, "danger", "variant")
-            remove.setToolTip("Remove the strip: the strips right of it move left, free places are auto strips")
-            remove.clicked.connect(lambda: self.remove(self.index))
-            header.addWidget(remove)
-        self.layout_.addWidget(row(header))
-        self.layout_.addWidget(label(f"These options apply to strip {index + 1} alone.", "hint"))
-        if self.configured:
-            self._configured()
-        else:
-            self._not_configured()
-        self.layout_.addStretch()
-
-    def _not_configured(self) -> None:
-        frame, layout = card()
-        layout.addWidget(
-            label(
-                f"Strip {self.index + 1} is not configured, so it is an <b>auto</b> strip: it takes the next "
-                "application that plays and has no strip of its own.",
-                wrap=True,
+        set_text(self.title, f"Strip {index + 1}")
+        set_text(self.hint, f"These options apply to strip {index + 1} alone.")
+        for move, step in self.moves:
+            move.setVisible(self.configured)
+            move.setEnabled(0 <= index + step < len(self.document.strips))
+        self.remove_button.setVisible(self.configured)
+        if not self.configured:
+            set_text(
+                self.unconfigured_text,
+                f"Strip {index + 1} is not configured, so it is an <b>auto</b> strip: it takes the next application "
+                "that plays and has no strip of its own.",
             )
-        )
-        configure = QPushButton(theme.icon("plus", "white"), f"Configure strip {self.index + 1}")
-        theme.set_role(configure, "primary", "variant")
-        configure.clicked.connect(self._configure)
-        buttons = QHBoxLayout()
-        buttons.addWidget(configure)
-        buttons.addStretch()
-        layout.addWidget(row(buttons))
-        self.layout_.addWidget(frame)
+            set_text(self.configure_button, f"Configure strip {index + 1}")
+            self.parts.show_part(self.unconfigured)
+            return
+        strip = self.document.strips[index]
+        form = self.forms.get(strip.type)
+        if form is None:
+            form = self.forms[strip.type] = StripForm(self, strip.type)
+        form.show_strip(strip)
+        self.parts.show_part(form)
 
-    def _configured(self) -> None:
-        strip = self.document.strips[self.index]
-        models = strip_models()
+    def _behavior_max_volume(self) -> object:
+        value = self.document.get(("behavior", "max_volume"))
+        return BehaviorConfig().max_volume if value is None else value
+
+    def _default_label(self) -> str:
+        values = dict(self.document.strips[self.index].values)
+        values.pop("label", None)
+        return look(values, self.audio(), dict(self.document.aliases))[1]
+
+    def show_problems(self, validation: Validation) -> None:
+        form = self.form
+        if form is None:
+            return
+        names = {option_row.option.name for option_row in form.rows}
+        form.show_rest(
+            [
+                problem.message if len(problem.path) == 2 else str(problem)
+                for problem in validation.at("strip", self.index)
+                if len(problem.path) == 2 or problem.path[2] not in names
+            ]
+        )
+        for option_row in form.rows:
+            option_row.show_problems(validation.at("strip", self.index, option_row.option.name))
+
+
+class StripForm(QWidget):
+    """The type of a strip and the options of that type, for whichever strip of the type the page shows."""
+
+    def __init__(self, page: StripPage, strip_type: str | None):
+        super().__init__()
+        self.page = page
+        self.strip_type = strip_type
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(theme.Space.M)
         types = QHBoxLayout()
         types.setSpacing(0)
         self.types = QButtonGroup(self)
+        self.type_buttons: dict[str, QPushButton] = {}
         for name in STRIP_TYPES:
-            if name in LAYOUT_TYPES and self.document.layout is None and name != strip.type:
-                continue
-            button = QPushButton(type_title(name))
-            theme.set_role(button, "segment", "variant")
-            button.setCheckable(True)
-            button.setChecked(name == strip.type)
-            button.setToolTip(help_text(strip_type_help(name)))
-            button.clicked.connect(lambda _=False, name=name: self._set_type(name))
-            self.types.addButton(button)
-            types.addWidget(button)
+            segment = QPushButton(type_title(name))
+            theme.set_role(segment, "segment", "variant")
+            segment.setCheckable(True)
+            segment.setChecked(name == strip_type)
+            segment.setToolTip(help_text(strip_type_help(name)))
+            segment.clicked.connect(lambda _=False, name=name: page.editor.set_strip_type(page.index, name))
+            self.types.addButton(segment)
+            self.type_buttons[name] = segment
+            types.addWidget(segment)
         types.addStretch()
-        self.layout_.addWidget(row(types))
-        strip_type = strip.type
+        layout.addWidget(row(types))
+        models = strip_models()
         if strip_type in models:
-            self.layout_.addWidget(
-                help_label(strip_type_help(strip_type), "hint", docs.strip_type_link(strip_type)),
-            )
-        for note in self._kept(strip):
-            self.layout_.addWidget(help_label(note, "help"))
-        self.layout_.addWidget(self.problem)
+            layout.addWidget(help_label(strip_type_help(strip_type), "hint", docs.strip_type_link(strip_type)))
+        self.kept = help_label("", "help")
+        layout.addWidget(self.kept)
+        self.problem = label("", "error", wrap=True)
+        self.problem.hide()
+        layout.addWidget(self.problem)
+        self.rows: list[OptionRow] = []
+        self.connection: QLabel | None = None
         if strip_type is None or strip_type not in models:
             return
         if strip_type == "homeassistant":
-            self.layout_.addWidget(self._connection())
-        frame, layout = card()
-        suggest: dict[str, Suggest] = {"match": lambda: sources.patterns(self.audio())}
+            layout.addWidget(self._connection())
+        frame, options_layout = card()
+        suggest: dict[str, Suggest] = {"match": lambda: sources.patterns(page.audio())}
         placeholders: dict[str, Callable[[], str]] = {
-            "label": self._default_label,
+            "label": page._default_label,
             "min_volume": lambda: "0",
-            "max_volume": lambda: f"{self._behavior_max_volume()} (behavior)",
+            "max_volume": lambda: f"{page._behavior_max_volume()} (behavior)",
             "encoder": lambda: default_encoder(strip_type),
         }
         if strip_type in ("output", "input"):
             direction = Direction(strip_type)
-            suggest["device"] = lambda: sources.devices(self.audio(), direction)
-            suggest["profiles"] = lambda: sources.profiles(self.audio(), direction)
+            suggest["device"] = lambda: sources.devices(page.audio(), direction)
+            suggest["profiles"] = lambda: sources.profiles(page.audio(), direction)
             placeholders["device"] = lambda: f"none: the default {strip_type}"
         if strip_type == "homeassistant":
-            placeholders["id"] = lambda: f"strip_{self.index + 1}"
-        rows = [
-            OptionRow(
+            placeholders["id"] = lambda: f"strip_{page.index + 1}"
+        for option in strip_options(strip_type):
+            option_row = page._row(
                 option,
-                lambda name=option.name: self.document.get(("strip", self.index, name)),
-                lambda value, name=option.name: self._put(name, value),
+                lambda name: ("strip", page.index, name),
                 suggest.get(option.name),
                 placeholders.get(option.name),
                 docs.option_link("strip", option.name, strip_type),
+                self.rows,
             )
-            for option in strip_options(strip_type)
-        ]
-        # what the strip is about first, how it looks, lights and moves after that
-        # (the id of an audio strip matters only with its fader or encoder in Home Assistant)
-        rows.sort(
-            key=lambda option_row: (
-                option_row.option.kind in (Kind.COLOR, Kind.SWITCH, Kind.CHOICE, Kind.INTEGER)
-                or (option_row.option.name == "id" and strip_type != "homeassistant")
-            )
-        )
-        self._rows(layout, rows)
-        if not rows:
+            if option.name == "device":
+                # the label shown by default follows the device
+                option_row.edited.connect(self._device_edited)
+            options_layout.addWidget(option_row)
+        if not self.rows:
             text = "An empty strip has no options." if strip_type == "empty" else "The strip has no options."
-            layout.addWidget(label(text, "hint"))
-        self.layout_.addWidget(frame)
+            options_layout.addWidget(label(text, "hint"))
+        layout.addWidget(frame)
+
+    def _device_edited(self) -> None:
+        for option_row in self.rows:
+            if option_row.option.name == "label":
+                option_row.load()
+
+    def _connection(self) -> QFrame:
+        """Where the connection to Home Assistant is: a global setting, shared by every `homeassistant` strip."""
+        frame, layout = card()
+        line = QHBoxLayout()
+        self.connection = label("", wrap=True)
+        line.addWidget(self.connection, 1)
+        self.connection_button = button("cog-outline", "")
+        self.connection_button.clicked.connect(lambda: self.page.show_page("mqtt"))
+        line.addWidget(self.connection_button)
+        layout.addWidget(row(line))
+        return frame
+
+    def show_strip(self, strip: StripDraft) -> None:
+        """Shows `strip`, a strip of the type of the form."""
+        layout = self.page.document.layout
+        for name, segment in self.type_buttons.items():
+            # the types only layouts have, for the strips of a layout (or for a strip that has one anyway)
+            segment.setVisible(not (name in LAYOUT_TYPES and layout is None and name != strip.type))
+        if strip.type in self.type_buttons:
+            self.type_buttons[strip.type].setChecked(True)
+        notes = self._kept(strip)
+        set_text(self.kept, "<br>".join(help_html(note) for note in notes))
+        self.kept.setVisible(bool(notes))
+        self.page._load_rows(self.rows)
+        self.show_globals()
+
+    def show_globals(self) -> None:
+        """What the strip takes from the global settings: the connection to Home Assistant."""
+        if self.connection is None:
+            return
+        document = self.page.document
+        if document.has_section("mqtt"):
+            host = document.get(("mqtt", "host"))
+            text = f"Connects to Home Assistant through the MQTT broker {host or '(no host yet)'}, like every "
+            text += "Home Assistant strip."
+            title, icon, color, role = "Connection settings", "cog-outline", None, ""
+        else:
+            text = "Home Assistant strips need the connection to the MQTT broker of Home Assistant, a global setting."
+            title, icon, color, role = "Set up the connection", "plus", "white", "primary"
+        set_text(self.connection, text)
+        set_text(self.connection_button, title)
+        theme.set_icon(self.connection_button, icon, color)
+        theme.set_role(self.connection_button, role, "variant")
+
+    def show_rest(self, rest: list[str]) -> None:
+        set_text(self.problem, "\n".join(rest))
+        self.problem.setVisible(bool(rest))
 
     @staticmethod
     def _kept(strip: StripDraft) -> list[str]:
@@ -576,155 +759,87 @@ class StripPage(Page):
         ]
         return lines
 
-    def _connection(self) -> QFrame:
-        """Where the connection to Home Assistant is: a global setting, shared by every `homeassistant` strip."""
-        frame, layout = card()
-        line = QHBoxLayout()
-        if self.document.has_section("mqtt"):
-            host = self.document.get(("mqtt", "host"))
-            text = f"Connects to Home Assistant through the MQTT broker {host or '(no host yet)'}, like every "
-            text += "Home Assistant strip."
-            button = QPushButton(theme.icon("cog-outline"), "Connection settings")
-        else:
-            text = "Home Assistant strips need the connection to the MQTT broker of Home Assistant, a global setting."
-            button = QPushButton(theme.icon("plus", "white"), "Set up the connection")
-            theme.set_role(button, "primary", "variant")
-        line.addWidget(label(text, wrap=True), 1)
-        button.clicked.connect(lambda: self.show_page("mqtt"))
-        line.addWidget(button)
-        layout.addWidget(row(line))
-        return frame
-
-    def _behavior_max_volume(self) -> object:
-        value = self.document.get(("behavior", "max_volume"))
-        return BehaviorConfig().max_volume if value is None else value
-
-    def _default_label(self) -> str:
-        values = dict(self.document.strips[self.index].values)
-        values.pop("label", None)
-        return look(values, self.audio(), dict(self.document.aliases))[1]
-
-    def _put(self, name: str, value: Any) -> None:
-        if value is None:
-            self.document.unset(("strip", self.index, name))
-        else:
-            self.document.set(("strip", self.index, name), value)
-        if name == "device":
-            # the label shown by default follows the device
-            for option_row in self.rows:
-                if option_row.option.name == "label":
-                    option_row.load()
-
-    def _set_type(self, strip_type: str) -> None:
-        self.document.set_strip_type(self.index, strip_type)
-        self.on_strips(self.index)
-
-    def _configure(self) -> None:
-        self.document.configure_up_to(self.index)
-        self.on_strips(self.index)
-
-    def _move(self, target: int) -> None:
-        self.document.move_strip(self.index, target)
-        self.on_strips(target)
-
-    def show_problems(self, validation: Validation) -> None:
-        if not self.configured:
-            return
-        names = {option_row.option.name for option_row in self.rows}
-        self._show_rest(
-            [
-                problem.message if len(problem.path) == 2 else str(problem)
-                for problem in validation.at("strip", self.index)
-                if len(problem.path) == 2 or problem.path[2] not in names
-            ]
-        )
-        for option_row in self.rows:
-            option_row.show_problems(validation.at("strip", self.index, option_row.option.name))
-
 
 class LayoutPage(Page):
-    """
-    The options of the layout being edited (`[[layout]]`: its name, label and rules), or what the default layout is.
-    `on_layouts` is called after the layouts changed (removed, moved), with the one to edit.
-    """
+    """The options of the layout being edited (`[[layout]]`: its name, label and rules), or what the default one is."""
 
-    def __init__(
-        self,
-        document: ConfigDocument,
-        audio: Audio,
-        on_edit: Callable[[], None],
-        on_layouts: Callable[[int | None], None],
-    ):
-        super().__init__(document, audio, on_edit)
-        self.on_layouts = on_layouts
-        self.reload()
-
-    def reload(self) -> None:
-        self._clear()
-        index = self.document.layout
+    def __init__(self, editor: Editor, audio: Audio):
+        super().__init__(editor, audio)
         header = QHBoxLayout()
-        header.addWidget(label(f"Layout {self.document.layout_name}", "section"))
-        header.addWidget(label("[[layout]]" if index is not None else "[[strip]]", "hint"))
+        self.title = label("", "section")
+        header.addWidget(self.title)
+        self.table = label("", "hint")
+        header.addWidget(self.table)
         header.addStretch()
-        if index is not None:
-            for icon, tip, target in (
-                ("chevron-left", "Move it to the left: earlier in the order of --next", index - 1),
-                ("chevron-right", "Move it to the right: later in the order of --next", index + 1),
-            ):
-                button = flat_button(icon, tip)
-                button.setEnabled(0 <= target < len(self.document.layouts))
-                button.clicked.connect(lambda _=False, target=target: self._move(target))
-                header.addWidget(button)
-            remove = QPushButton(theme.icon("delete-outline", theme.current_colors().error), "Remove layout")
-            theme.set_role(remove, "danger", "variant")
-            remove.clicked.connect(self._remove)
-            header.addWidget(remove)
+        self.moves: list[tuple[QWidget, int]] = []
+        for icon, tip, step in (
+            ("chevron-left", "Move it to the left: earlier in the order of --next", -1),
+            ("chevron-right", "Move it to the right: later in the order of --next", 1),
+        ):
+            move = flat_button(icon, tip)
+            move.clicked.connect(lambda _=False, step=step: self._move(step))
+            header.addWidget(move)
+            self.moves.append((move, step))
+        self.remove_button = button("delete-outline", "Remove layout", "error", "danger")
+        self.remove_button.clicked.connect(self.editor.remove_layout)
+        header.addWidget(self.remove_button)
         self.layout_.addWidget(row(header))
         about = " ".join((LayoutConfig.__doc__ or "").split())
         self.layout_.addWidget(help_label(about, "hint", docs.page_link("layout")))
         self.layout_.addWidget(self.problem)
-        frame, layout = card()
-        if index is None:
+        self.parts = Stack()
+        self.default, layout = card()
+        layout.addWidget(
+            label(
+                "The default layout: the strips at the top level of the file. The device shows it unless a rule "
+                "of another layout matches or another one is chosen. Add layouts with + next to the layouts.",
+                wrap=True,
+            )
+        )
+        self.other, layout = card()
+        suggest: dict[str, Suggest] = {"apps": lambda: sources.patterns(self.audio())}
+        for option in options(LayoutConfig, skip=("strips",)):
             layout.addWidget(
-                label(
-                    "The default layout: the strips at the top level of the file. The device shows it unless a rule "
-                    "of another layout matches or another one is chosen. Add layouts with + next to the layouts.",
-                    wrap=True,
+                self._row(
+                    option,
+                    lambda name: ("layout", name),
+                    suggest.get(option.name),
+                    link=docs.option_link("layout", option.name),
                 )
             )
-        else:
-            suggest: dict[str, Suggest] = {"apps": lambda: sources.patterns(self.audio())}
-            self._rows(
-                layout,
-                [
-                    OptionRow(
-                        option,
-                        lambda name=option.name: self.document.get(("layout", name)),
-                        lambda value, name=option.name: self._put(name, value),
-                        suggest.get(option.name),
-                        link=docs.option_link("layout", option.name),
-                    )
-                    for option in options(LayoutConfig, skip=("strips",))
-                ],
-            )
-        self.layout_.addWidget(frame)
+        self.layout_.addWidget(self.parts)
         self.layout_.addStretch()
+        self._show()
 
-    def _put(self, name: str, value: Any) -> None:
-        if value is None:
-            self.document.unset(("layout", name))
-        else:
-            self.document.set(("layout", name), value)
+    def show_document(self, change: Change) -> None:
+        if change.touches(Scope.LAYOUTS):
+            self._show()
+        elif change.scope is Scope.VALUE and change.path[:2] == ("layout", "name"):
+            set_text(self.title, f"Layout {self.document.layout_name}")
 
-    def _remove(self) -> None:
+    def _show(self) -> None:
+        index = self.document.layout
+        set_text(self.title, f"Layout {self.document.layout_name}")
+        set_text(self.table, "[[layout]]" if index is not None else "[[strip]]")
+        for move, step in self.moves:
+            move.setVisible(index is not None)
+            move.setEnabled(index is not None and 0 <= index + step < len(self.document.layouts))
+        self.remove_button.setVisible(index is not None)
+        self.parts.show_part(self.default if index is None else self.other)
+        self._load_rows(self.rows)
+
+    @property
+    def rows(self) -> list[OptionRow]:
+        # the default layout has no options
+        return [] if self.document.layout is None else self.option_rows
+
+    def _value(self, path: tuple[str | int, ...]) -> Any:
+        # the rows are there also while the default layout, which has no options, is edited
+        return None if self.document.layout is None else self.document.get(path)
+
+    def _move(self, step: int) -> None:
         assert self.document.layout is not None
-        self.document.remove_layout(self.document.layout)
-        self.on_layouts(None)
-
-    def _move(self, target: int) -> None:
-        assert self.document.layout is not None
-        self.document.move_layout(self.document.layout, target)
-        self.on_layouts(target)
+        self.editor.move_layout(self.document.layout + step)
 
     def show_problems(self, validation: Validation) -> None:
         names = {option_row.option.name for option_row in self.rows}
@@ -740,16 +855,12 @@ class LayoutPage(Page):
 
 
 class AliasesPage(Page):
-    """The names `auto` strips show for applications."""
+    """The names `auto` strips show for applications: a row each, added and removed in place."""
 
-    def __init__(self, document: ConfigDocument, audio: Audio, on_edit: Callable[[], None]):
-        super().__init__(document, audio, on_edit)
+    def __init__(self, editor: Editor, audio: Audio):
+        super().__init__(editor, audio)
         self.edits: list[tuple[QLineEdit, QLineEdit]] = []
-        self.reload()
-
-    def reload(self) -> None:
-        self._clear()
-        self.edits = []
+        self.lines: list[QWidget] = []
         header = QHBoxLayout()
         header.addWidget(label(page_title("aliases"), "section"))
         header.addWidget(label("[aliases]", "hint"))
@@ -766,10 +877,8 @@ class AliasesPage(Page):
         self.rows_layout = QVBoxLayout()
         self.rows_layout.setSpacing(4)
         layout.addWidget(row(self.rows_layout))
-        for name, alias in self.document.aliases:
-            self._row(name, alias)
         layout.addWidget(self.problem)
-        add = QPushButton(theme.icon("plus"), "Add alias")
+        add = button("plus", "Add alias")
         add.clicked.connect(self._add)
         buttons = QHBoxLayout()
         buttons.addWidget(add)
@@ -777,12 +886,29 @@ class AliasesPage(Page):
         layout.addWidget(row(buttons))
         self.layout_.addWidget(frame)
         self.layout_.addStretch()
+        self._show()
 
-    def _row(self, name: str, alias: str) -> QLineEdit:
+    def show_document(self, change: Change) -> None:
+        if change.touches(Scope.ALIASES):
+            self._show()
+
+    def _show(self) -> None:
+        """As many rows as aliases, with their texts."""
+        aliases = self.document.aliases
+        while len(self.edits) > len(aliases):
+            self._drop(len(self.edits) - 1)
+        while len(self.edits) < len(aliases):
+            self._line()
+        for (name_edit, alias_edit), (name, alias) in zip(self.edits, aliases, strict=True):
+            for edit, text in ((name_edit, name), (alias_edit, alias)):
+                if edit.text() != text:
+                    edit.setText(text)
+
+    def _line(self) -> QLineEdit:
         line = QHBoxLayout()
-        name_edit = QLineEdit(name)
+        name_edit = QLineEdit()
         name_edit.setPlaceholderText("e.g. WEBRTC VoiceEngine")
-        alias_edit = QLineEdit(alias)
+        alias_edit = QLineEdit()
         alias_edit.setMaxLength(protocol.LCD_CELL_WIDTH)
         alias_edit.setPlaceholderText("e.g. Discord")
         for edit in (name_edit, alias_edit):
@@ -804,21 +930,28 @@ class AliasesPage(Page):
         remove.clicked.connect(lambda: self._remove(pair))
         line.addWidget(remove)
         self.edits.append(pair)
-        self.rows_layout.addWidget(row(line))
+        holder = row(line)
+        self.lines.append(holder)
+        self.rows_layout.addWidget(holder)
         return name_edit
+
+    def _drop(self, index: int) -> None:
+        del self.edits[index]
+        holder = self.lines.pop(index)
+        holder.hide()
+        holder.deleteLater()
 
     def _edited(self) -> None:
         self.document.aliases = [(name.text(), alias.text()) for name, alias in self.edits]
-        self.on_edit()
+        self.editor.edited(Change(Scope.VALUE, ("aliases",)))
 
     def _add(self) -> None:
-        self._row("", "").setFocus()
+        self._line().setFocus()
         self._edited()
 
     def _remove(self, pair: tuple[QLineEdit, QLineEdit]) -> None:
-        del self.document.aliases[self.edits.index(pair)]
-        self.reload()
-        self.on_edit()
+        self._drop(self.edits.index(pair))
+        self._edited()
 
     def show_problems(self, validation: Validation) -> None:
         for name, alias in self.edits:

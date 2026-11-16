@@ -162,6 +162,44 @@ itself does not import it.
   the device for the preview, the same in both themes. Widgets set style roles (`theme.set_role`) and take their sizes
   from the tokens instead of styling themselves. The preview decides what a strip shows (a `Face`: LCD, ring, LEDs,
   meter, fader) apart from drawing it.
+- **One source of truth: the `Editor`.** `qt/editor.py` holds the document, its history, its validation and which
+  strip is selected. Views read from it and change the document only through it, so nothing keeps a copy that could
+  go stale. It has two signals:
+  - `changed(Change)` comes once per edit, after the document was validated once.
+  - `selected(index)` comes only when another strip is selected: nothing in the document changed, so nothing is
+    validated and no page is shown again. Only the strip page and the preview follow the selection.
+- **Changes say what changed.** A `Change` (`gui/domain/changes.py`) has a `Scope` and, for some scopes, a path:
+  - `VALUE`: a value in place; the field that made the change shows it already.
+  - `STRIPS`: strips were added, moved, removed or given another type.
+  - `SECTION`: a section was added or removed.
+  - `ALIASES`, `LAYOUTS`: the list of aliases, or the layouts.
+  - `DOCUMENT`: anything (undo, redo, revert).
+  - `FILE`: the file was written, so the document is the same.
+  Each page's `show_document(change)` updates only what that scope touches.
+- **Built once, updated in place.** The pages build their widgets once, and showing the document loads the values
+  into them (`OptionRow.load()`); no page is cleared and built again. A part that comes and goes (a section that is
+  absent, the strip form of each type) is a page of a `Stack` that is sized to its current part, not a widget that is
+  shown and hidden. The strip page builds a `StripForm` for a strip type the first time it shows one, and keeps it.
+- **No layout for what stays the same.** Showing the document again, or a live update 20 times a second, changes no
+  geometry when nothing differs:
+  - `set_text` and the tab texts are set only when they differ.
+  - `theme.set_role` restyles only for another role.
+  - The list chips stay while their values are the same.
+  - The layout tabs are filled again only when the layouts or the edited one change.
+  Icons are kept with their name and color (`theme.set_icon`), so switching the theme draws them again
+  (`theme.refresh_icons`) without building a page. The tests count it: selecting a strip changes the geometry of the
+  window once, creates no widget and does not resize the window, and a live update that changes nothing lays out
+  nothing (`LayoutPasses` in `tests/test_gui_qt.py`).
+- **The options in the order of the device.** A strip form lists its options from top to bottom like the strip:
+  1. what it controls (`device`, `match`, `profiles`, the `id` of a Home Assistant strip)
+  2. the encoder and its ring
+  3. the LCD
+  4. the meter
+  5. the Rec, Solo, Mute and Select buttons
+  6. the fader and the range of the volume
+  7. the `id`
+  This is `STRIP_OPTION_ORDER` in `schema.py`, apart from the order of the fields in `config.py`. A test fails for an
+  option without a place in it.
 
 ## Live view
 

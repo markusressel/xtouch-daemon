@@ -143,6 +143,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Selecting a strip in the GUI built its whole page again, so the options jumped around several times per click,
+  and the live view laid out the window about 40 times a second. The pages are now built once and only take the
+  new values; the options of a strip are in the order of the device, from the encoder down to the fader.
 - A fader dragged to a new value jumped back to where it was before when it was let go, while the volume stayed at
   the new value (the device moves a released fader to the value it got last).
 - The ring of `encoder = "balance"` flickered while the fader moved: it went dark after every change of the

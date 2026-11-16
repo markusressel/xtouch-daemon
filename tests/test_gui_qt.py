@@ -11,9 +11,11 @@ import tomllib
 from collections.abc import Callable, Iterator
 from math import cos, radians, sin
 from pathlib import Path
+from typing import cast
 
 import pytest
-from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, QSettings, Qt
+from PyQt6 import sip
+from PyQt6.QtCore import QChildEvent, QCoreApplication, QEvent, QObject, QPoint, QPointF, QSettings, Qt
 from PyQt6.QtGui import QColor, QContextMenuEvent, QFontMetricsF, QImage, QMouseEvent, QTextDocument
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
@@ -211,10 +213,14 @@ def row(window: MainWindow, name: str, page: str = "strip") -> OptionRow:
     return next(option_row for option_row in window.pages[page].rows if option_row.option.name == name)
 
 
+def shows(widget: QWidget, parent: QWidget) -> bool:
+    """Whether `widget` shows when `parent` does (the stubs of `isVisibleTo` want a widget of the same class)."""
+    return QWidget.isVisibleTo(widget, parent)
+
+
 def buttons[T: QAbstractButton](parent: QWidget, kind: type[T], match: Callable[[T], bool]) -> list[T]:
-    """The buttons on `parent` that `match`, without the ones of replaced pages that wait for their deletion."""
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    return [button for button in parent.findChildren(kind) if match(button)]
+    """The buttons on `parent` that `match`, of the parts of it that show (not e.g. the forms of other strip types)."""
+    return [button for button in parent.findChildren(kind) if shows(button, parent) and match(button)]
 
 
 def type_into(qtbot: QtBot, edit: QLineEdit, text: str) -> None:
@@ -305,7 +311,7 @@ def test_problems_are_shown_inline_and_block_saving(qtbot: QtBot, window: MainWi
 def test_a_problem_leads_to_its_place(window: MainWindow):
     window.document.unset(("strip", 1, "label"))
     window.document.set(("behavior", "reset_volume"), 140)
-    window.refresh()
+    window.editor.edited()
 
     actions = window.problems_menu.actions()
     assert [action.text() for action in actions] == [
@@ -335,7 +341,7 @@ def test_an_unknown_option_can_be_removed(make_window: MakeWindow, path: Path):
 
 def test_a_whole_configuration_problem_leads_to_the_section(window: MainWindow):
     window.document.set_strip_type(0, "homeassistant")
-    window.refresh()
+    window.editor.edited()
 
     (action,) = window.problems_menu.actions()
     assert action.text() == "strips in Home Assistant need an [mqtt] section"
@@ -357,8 +363,9 @@ def test_the_type_of_a_strip_changes(qtbot: QtBot, window: MainWindow):
 
 
 def kept_notes(window: MainWindow) -> list[str]:
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    return [label.text() for label in window.strip_page.findChildren(QLabel) if "kept from" in label.text().lower()]
+    page = window.strip_page
+    labels = [label for label in page.findChildren(QLabel) if shows(label, page)]
+    return [note for label in labels for note in label.text().split("<br>") if "kept from" in note.lower()]
 
 
 def test_a_strip_keeps_the_options_of_its_type_for_switching_back(qtbot: QtBot, window: MainWindow, path: Path):
@@ -430,23 +437,23 @@ def test_a_strip_that_is_not_configured_can_be_configured(qtbot: QtBot, window: 
 
     assert [strip.type for strip in window.document.strips] == ["output", "apps", "auto", "auto", "auto"]
     assert window.preview.strips[4].look.configured
+    # as the device has the parts of a strip, from the top down
     assert [row.option.name for row in window.strip_page.rows] == [
+        "encoder",
         "color",
         "lit_when_idle",
         "meter",
         "rec",
         "solo",
+        "fader",
         "min_volume",
         "max_volume",
-        "encoder",
-        "fader",
         "id",
     ]
 
 
 def test_an_empty_strip_has_no_options(window: MainWindow):
-    window.document.set_strip_type(0, "empty")
-    window.select(0)
+    window.editor.set_strip_type(0, "empty")
 
     assert window.strip_page.rows == []
 
@@ -456,7 +463,130 @@ def test_a_strip_without_a_valid_type_shows_why(make_window: MakeWindow, path: P
     window = make_window()
 
     assert window.strip_page.rows == []
-    assert window.strip_page.problem.text().startswith("Input tag 'fader' found using 'type'")
+    form = window.strip_page.form
+    assert form is not None
+    assert form.problem.text().startswith("Input tag 'fader' found using 'type'")
+
+
+class LayoutPasses(QObject):
+    """Counts what the window does after a change: how often its widgets were laid out anew, and resized."""
+
+    def __init__(self, window: MainWindow):
+        super().__init__()
+        self.window = window
+        self.resizes = 0
+        self.created = 0
+        app = QApplication.instance()
+        assert app is not None
+        app.installEventFilter(self)
+
+    def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
+        assert event is not None
+        if watched is self.window and event.type() == QEvent.Type.Resize:
+            self.resizes += 1
+        elif event.type() == QEvent.Type.ChildAdded and isinstance(event, QChildEvent):
+            child = event.child()
+            # widgets, not e.g. the text documents of labels
+            if child is not None and child.isWidgetType():
+                self.created += 1
+        return False
+
+    def geometry(self) -> dict[int, tuple[int, int, int, int]]:
+        """Where every widget that shows is."""
+        widgets = self.window.findChildren(QWidget)
+        # by the address of the Qt widget: a Python wrapper may be another one each time
+        return {
+            cast(int, sip.unwrapinstance(widget)): widget.geometry().getRect()
+            for widget in widgets
+            if widget.isVisible()
+        }
+
+    def passes(self, change: Callable[[], None]) -> int:
+        """How many times what shows changed after `change`, until it stays (one: it changed once, and then stayed)."""
+        self.resizes = self.created = 0
+        states = [self.geometry()]
+        change()
+        for _ in range(20):
+            QApplication.processEvents()
+            state = self.geometry()
+            if state != states[-1]:
+                states.append(state)
+        return len(states) - 1
+
+    def end(self) -> None:
+        app = QApplication.instance()
+        assert app is not None
+        app.removeEventFilter(self)
+
+
+def test_selecting_a_strip_changes_the_window_once_in_place(qtbot: QtBot, window: MainWindow):
+    passes = LayoutPasses(window)
+    size = window.size()
+    # every strip once: the forms of their types are built the first time
+    for index in (1, 2, 0):
+        window.select(index)
+
+    for index in (1, 2, 0, 1):
+        # at most one layout of the window, and nothing built, the window keeps its size
+        assert passes.passes(lambda index=index: window.select(index)) <= 1
+        assert (passes.created, passes.resizes) == (0, 0)
+        assert window.size() == size
+    # the same strip again changes nothing
+    assert passes.passes(lambda: window.select(1)) == 0
+    passes.end()
+
+
+def test_the_live_view_lays_out_nothing_that_stays_the_same(qtbot: QtBot, window: MainWindow):
+    passes = LayoutPasses(window)
+    window.refresh_preview()
+    assert passes.passes(window.refresh_preview) == 0
+    assert passes.created == 0
+    passes.end()
+
+
+def test_editing_the_layout_being_edited_changes_nothing(qtbot: QtBot, window: MainWindow):
+    with qtbot.assertNotEmitted(window.editor.changed):
+        window.editor.edit_layout(window.document.layout)
+
+
+def test_a_strip_of_another_type_shows_the_form_of_its_type(qtbot: QtBot, window: MainWindow):
+    page = window.strip_page
+    output = page.form
+    window.select(1)
+    apps = page.form
+    window.select(0)
+
+    # the forms stay, the strips of a type share theirs
+    assert page.form is output
+    assert output is not apps
+    assert window.document.strips[0].type == "output"
+    window.editor.set_strip_type(0, "apps")
+    assert page.form is apps
+    assert row(window, "match").load() is None
+    assert row(window, "match").chips.values == []
+
+
+def test_a_short_form_takes_its_own_height(qtbot: QtBot, window: MainWindow):
+    window.show()
+    page = window.strip_page
+    # the form of an output strip is the tallest, the one of an apps strip shorter
+    window.select(1)
+    qtbot.wait(10)
+    apps = page.form
+    assert apps is not None
+    window.select(0)
+    qtbot.wait(10)
+    output = page.form
+    assert output is not None
+    assert output.height() > apps.height()
+
+    window.select(1)
+    qtbot.wait(10)
+
+    # no gap under it, and its fields are not stretched to fill one
+    assert page.parts.height() == apps.heightForWidth(page.parts.width())
+    match = row(window, "match")
+    assert match.height() == match.heightForWidth(match.width())
 
 
 # -- the preview: moving strips ----------------------------------------------------------------------------------
@@ -798,7 +928,7 @@ def test_undo_works_in_a_text_field_too(qtbot: QtBot, window: MainWindow):
 
 def test_a_revert_can_be_undone(qtbot: QtBot, window: MainWindow):
     window.document.remove_strip(0)
-    window.edited()
+    window.editor.edited()
     click(qtbot, window.revert_button)
     assert len(window.document.strips) == 2
 
@@ -1296,6 +1426,8 @@ def test_colors_are_swatches(qtbot: QtBot, window: MainWindow):
 
     assert window.document.get(("strip", 0, "color")) == "off"
     assert window.preview.strips[0].look.color == "off"
+    # the chosen one has a tick
+    assert not color.colors.swatches["off"].grab().isNull()
     # a value that is no color checks none
     color.colors.show_value("pink")
     assert not any(swatch.isChecked() for swatch in color.colors.swatches.values())
@@ -1413,7 +1545,7 @@ def test_an_optional_section_is_added_and_removed(qtbot: QtBot, window: MainWind
 
 def test_a_file_is_chosen_with_a_dialog(qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch):
     window.document.add_section("mqtt")
-    window.reload_pages()
+    window.editor.edited()
     password_file = row(window, "password_file", "mqtt")
     browse = next(button for button in password_file.findChildren(QToolButton) if button.toolTip() == "Choose the file")
     chosen = [str(Path.home() / ".mqtt-password"), "", "/etc/mqtt-password"]
@@ -1451,6 +1583,12 @@ def test_aliases_are_edited(qtbot: QtBot, window: MainWindow):
     remove = [button for button in page.findChildren(QToolButton) if button.toolTip() == "Remove the alias"]
     click(qtbot, remove[0])
     assert window.document.aliases == [("Brave", "Browser")]
+    # undo and redo show as many lines as there are aliases
+    window.editor.undo()
+    assert len(page.edits) == 2
+    window.editor.redo()
+    assert len(page.edits) == 1
+    assert page.edits[0][1].text() == "Browser"
 
 
 # -- the service and the file -------------------------------------------------------------------------------------
@@ -1714,7 +1852,7 @@ def test_a_failing_systemctl_is_reported(qtbot: QtBot, make_window: MakeWindow, 
 
 def test_a_changed_device_offers_a_restart(qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl):
     window.document.set(("device", "name"), "Other")
-    window.refresh()
+    window.editor.edited()
 
     assert window.save()
     assert not window.restart_button.isHidden()
@@ -1727,7 +1865,7 @@ def test_a_changed_device_offers_a_restart(qtbot: QtBot, window: MainWindow, sys
 def test_a_changed_mqtt_section_offers_a_restart_instead_of_a_reload(window: MainWindow, daemon: RecordingInstance):
     window.document.add_section("mqtt")
     window.document.set(("mqtt", "host"), "broker")
-    window.refresh()
+    window.editor.edited()
 
     assert window.save()
 
@@ -1740,7 +1878,7 @@ def test_a_failing_restart_or_reload_is_reported(
     qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl, isolated: Dialogs
 ):
     window.document.set(("device", "name"), "Other")
-    window.refresh()
+    window.editor.edited()
     window.save()
 
     def fail(command: list[str]) -> str:
@@ -1755,7 +1893,7 @@ def test_a_failing_restart_or_reload_is_reported(
     # it ended a moment ago
     window.daemon = RecordingInstance(1234, window.document.path.resolve(), systemd=True, gone=True)
     window.document.set(("device", "name"), "Third")
-    window.refresh()
+    window.editor.edited()
     assert window.save()
     assert window.status.text() == "Saved, but reloading the service failed: [Errno 3] No such process"
 
@@ -1771,7 +1909,7 @@ def test_a_daemon_started_elsewhere_is_shown_and_reloaded(qtbot: QtBot, make_win
     assert window.override_button.isHidden()
 
     window.document.set(("device", "name"), "Other")
-    window.refresh()
+    window.editor.edited()
     assert window.save()
 
     assert daemon.reloads == [4242]
@@ -1784,7 +1922,7 @@ def test_without_a_daemon_saving_only_saves(make_window: MakeWindow, systemctl: 
     systemctl.properties = STOPPED
     window = make_window(find_daemon=lambda: None)
     window.document.set(("device", "name"), "Other")
-    window.refresh()
+    window.editor.edited()
 
     assert window.save()
 
@@ -1800,7 +1938,7 @@ def test_saving_what_did_not_change_does_nothing(window: MainWindow, path: Path)
 
 def test_a_file_that_can_not_be_written_is_reported(window: MainWindow, path: Path, isolated: Dialogs):
     window.document.set(("behavior", "max_volume"), 110)
-    window.refresh()
+    window.editor.edited()
     path.chmod(0o400)
     try:
         assert not window.save()
@@ -1821,7 +1959,7 @@ def test_a_new_file_can_be_saved_right_away(make_window: MakeWindow, tmp_path: P
 
 def test_revert_drops_the_changes(qtbot: QtBot, window: MainWindow):
     window.document.remove_strip(0)
-    window.refresh()
+    window.editor.edited()
 
     click(qtbot, window.revert_button)
 
@@ -1841,7 +1979,7 @@ def test_closing_asks_about_unsaved_changes(
     window: MainWindow, path: Path, isolated: Dialogs, answer: QMessageBox.StandardButton, closed: bool, saved: bool
 ):
     window.document.set(("behavior", "max_volume"), 110)
-    window.refresh()
+    window.editor.edited()
     isolated.answer = answer
 
     assert window.close() == closed
@@ -1897,7 +2035,7 @@ def test_a_homeassistant_strip_has_its_id_as_placeholder(window: MainWindow):
 
 
 def test_a_homeassistant_strip_leads_to_its_connection(qtbot: QtBot, window: MainWindow):
-    window.document.set_strip_type(1, "homeassistant")
+    window.editor.set_strip_type(1, "homeassistant")
     window.select(1)
     (setup,) = buttons(window.strip_page, QPushButton, lambda button: button.text() == "Set up the connection")
 
@@ -1906,11 +2044,15 @@ def test_a_homeassistant_strip_leads_to_its_connection(qtbot: QtBot, window: Mai
     # no strip is selected while the global settings show
     assert not any(view.selected for view in window.preview.strips)
 
-    window.document.add_section("mqtt")
+    window.editor.add_section("mqtt")
     window.document.set(("mqtt", "host"), "broker")
+    window.editor.edited()
     window.select(1)
     (settings,) = buttons(window.strip_page, QPushButton, lambda button: button.text() == "Connection settings")
-    assert [label for label in window.strip_page.findChildren(QLabel) if "MQTT broker broker" in label.text()]
+    form = window.strip_page.form
+    assert form is not None
+    assert form.connection is not None
+    assert "MQTT broker broker" in form.connection.text()
     click(qtbot, settings)
     assert window.current_page == "mqtt"
 
@@ -1930,7 +2072,7 @@ def test_global_settings_are_apart_from_the_strips(qtbot: QtBot, window: MainWin
     click(qtbot, window.nav_buttons["device"])
     assert window.current_page == "device"
     # the page stays when the pages are built again
-    window.reload_pages()
+    window.editor.edited()
     assert window.current_page == "device"
     window.tabs.setCurrentIndex(0)
     assert window.current_page == "strip"
@@ -1953,7 +2095,7 @@ def test_faders_are_picked_with_buttons(qtbot: QtBot, window: MainWindow):
 
     # a value of another type shows none
     window.document.set(("device", "touchless_faders"), "1")
-    window.reload_pages()
+    window.editor.edited()
     assert row(window, "touchless_faders", "device").numbers.values == []
 
 
@@ -1984,7 +2126,7 @@ def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
     assert "<code>balance</code>: Turn: the balance" in encoder.meaning.text()
     # a value that is no choice means nothing
     window.document.set(("strip", 0, "rec"), "loud")
-    window.reload_pages()
+    window.editor.edited()
     assert row(window, "rec").meaning.isHidden()
     assert row(window, "color").colors.swatches["off"].toolTip() == "off: No backlight."
     assert row(window, "color").colors.swatches["red"].toolTip() == "red"
@@ -2124,7 +2266,7 @@ def test_the_connection_to_home_assistant_shows_while_the_daemon_uses_it(
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     window.document.add_section("mqtt")
     window.document.set(("mqtt", "host"), "broker")
-    window.reload_pages()
+    window.editor.edited()
     window.save()
     window.show_page("mqtt")
     page = window.mqtt_page
@@ -2161,10 +2303,10 @@ def test_the_settings_of_home_assistant_can_be_tried_before_they_are_saved(qtbot
     window = make_window(test_broker=works)
     page = window.mqtt_page
     # nothing to try without the section
-    assert page.box is None
+    assert not shows(page.box, page)
     window.show_page("mqtt")
     window.document.add_section("mqtt")
-    window.reload_pages()
+    window.editor.edited()
     box = page.box
     assert box is not None
     assert box.live_pill.text() == "unknown"
@@ -2184,7 +2326,7 @@ def test_the_settings_of_home_assistant_can_be_tried_before_they_are_saved(qtbot
     assert [config.host for config in tried] == ["broker"]
 
     # the result stays when the page is built again
-    window.reload_pages()
+    window.editor.edited()
     assert page.box is not None
     assert page.box.test_result.text() == "Connected to broker:1883: these settings work."
 
@@ -2193,7 +2335,7 @@ def test_a_failed_test_says_what_to_check(qtbot: QtBot, window: MainWindow):
     window.show_page("mqtt")
     window.document.add_section("mqtt")
     window.document.set(("mqtt", "host"), "broker")
-    window.reload_pages()
+    window.editor.edited()
     box = window.mqtt_page.box
     assert box is not None
     click(qtbot, box.test_button)
@@ -2203,9 +2345,13 @@ def test_a_failed_test_says_what_to_check(qtbot: QtBot, window: MainWindow):
 
     # a result that comes after the section was removed has nowhere to go
     window.document.remove_section("mqtt")
-    window.reload_pages()
+    window.editor.edited()
     window.mqtt_page.tester.finished.emit(Status("late", Tone.GOOD))
-    assert window.mqtt_page.box is None
+    page = window.mqtt_page
+    assert not shows(page.box, page)
+    # nor does it show once the section is back
+    window.editor.add_section("mqtt")
+    assert page.box.test_result.isHidden()
 
 
 # -- the Mumble plugin ----------------------------------------------------------------------------------------------
@@ -2218,7 +2364,6 @@ def test_the_voice_chat_page_tells_whether_mumble_is_connected(
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     window.show_page("voip")
     box = window.voip_page.box
-    assert box is not None
     assert box.live_pill.text() == "unknown"
     # neither a plugin nor Mumble on this machine: nothing to install, the steps say what to do
     assert not box.install_button.isEnabled()
@@ -2253,7 +2398,6 @@ def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: 
     window = make_window(mumble_installer=MumbleInstaller(install, lambda: setups[-1]))
     window.show_page("voip")
     box = window.voip_page.box
-    assert box is not None
     assert box.install_button.isEnabled()
     assert (
         box.install_button.toolTip()
@@ -2271,9 +2415,8 @@ def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: 
     click(qtbot, box.install_button)
     qtbot.waitUntil(lambda: box.result.text() == "cmake --build failed: boom")
     assert box.result.property("role") == "error"
-    # the result stays when the page is built again
-    window.reload_pages()
-    assert window.voip_page.box is not None
+    # the result stays when the document is shown again
+    window.editor.edited()
     assert window.voip_page.box.result.text() == "cmake --build failed: boom"
 
 
@@ -2319,7 +2462,7 @@ def test_a_new_zoom_takes_a_new_window_that_goes_on_where_this_one_was(
     window = make_window()
     assert window.zoom_button.text() == "100 %"
     window.document.set(("behavior", "encoder_step"), 3)
-    window.edited()
+    window.editor.edited()
     window.select(2)
     window.show_page("behavior")
 
@@ -2537,7 +2680,7 @@ def test_a_problem_of_another_layout_leads_to_it(layouts: MainWindow):
     window.document.edit_layout(1)
     window.document.set(("layout", "priority"), "high")
     window.document.edit_layout(None)
-    window.refresh()
+    window.editor.edited()
 
     next(action for action in window.problems_menu.actions() if "count" in action.text()).trigger()
     assert (window.document.layout_name, window.selected, window.current_page) == ("gaming", 1, "strip")

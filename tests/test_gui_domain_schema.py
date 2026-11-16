@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from xtouch_daemon.config import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
 from xtouch_daemon.gui.domain.schema import (
+    STRIP_OPTION_ORDER,
     Kind,
     Option,
     describe,
@@ -51,25 +52,30 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
 
 def test_every_strip_type_has_its_model_and_options():
     assert list(strip_models()) == ["output", "input", "apps", "auto", "homeassistant", "empty", "inherit", "voip"]
+    # what the strip controls first, then its parts as the device has them, from the top down
     assert [o.name for o in strip_options("output")] == [
+        "device",
+        "profiles",
+        "encoder",
+        "label",
         "color",
         "lit_when_idle",
         "meter",
         "rec",
         "solo",
+        "select",
+        "fader",
         "min_volume",
         "max_volume",
-        "encoder",
-        "fader",
         "id",
-        "device",
-        "label",
-        "select",
-        "profiles",
     ]
+    assert [o.name for o in strip_options("apps")][:2] == ["match", "encoder"]
+    # the id of a Home Assistant strip is what it controls
+    assert [o.name for o in strip_options("homeassistant")] == ["id", "label", "color"]
+    assert [o.name for o in strip_options("voip")] == ["count", "color", "talking_color", "meter", "max_volume"]
     assert strip_options("empty") == ()
 
-    color, _, _, rec, _, min_volume, _, encoder, fader, _, device, label, _, profiles = strip_options("input")
+    device, profiles, encoder, label, color, _, _, rec, _, _, fader, min_volume, _, _ = strip_options("input")
     assert (encoder.kind, encoder.default, encoder.choices) == (
         Kind.CHOICE,
         None,
@@ -145,6 +151,13 @@ def test_the_sections_with_options_of_their_own():
         ("voip", VoipConfig, True),
     ]
     assert sections()[2].help == "The MQTT broker Home Assistant uses, for `homeassistant` strips."
+
+
+def test_every_option_of_a_strip_has_its_place_in_the_order():
+    # a new option goes where its part is on the device, see STRIP_OPTION_ORDER
+    for strip_type, model in strip_models().items():
+        for name in model.model_fields:
+            assert name == "type" or name in STRIP_OPTION_ORDER, f"{strip_type}.{name} has no place"
 
 
 def every_option() -> list[tuple[str, Option]]:
