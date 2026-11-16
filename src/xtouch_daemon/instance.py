@@ -15,6 +15,7 @@ from pathlib import Path
 
 FILE_NAME = "xtouch-daemon.json"
 SOCKET_NAME = "xtouch-daemon.sock"
+VOIP_SOCKET_NAME = "xtouch-daemon-voip.sock"
 
 
 class AlreadyRunning(Exception):
@@ -91,3 +92,8 @@ def registered(config: Path) -> Iterator[Instance]:
 def socket_file() -> Path:
     """Where the running daemon serves the live view of the device (see `live.py`), next to the runtime file."""
     return runtime_file().with_name(SOCKET_NAME)
+
+
+def voip_socket_file() -> Path:
+    """Where the `bridge` VoIP provider waits for the plugin of a voice chat client (see `voip/bridge.py`)."""
+    return runtime_file().with_name(VOIP_SOCKET_NAME)

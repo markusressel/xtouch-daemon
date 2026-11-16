@@ -5,20 +5,24 @@ meters. A new configuration gets a new mixer on the same surface and sound serve
 
 import asyncio
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import assert_never
+
+from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
-from xtouch_daemon.config import Config
+from xtouch_daemon.config import DEFAULT_LAYOUT, Config, StripConfig, VoipStripConfig
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv
+from xtouch_daemon.strips.voip import VoipGroup
 from xtouch_daemon.surface import Surface
+from xtouch_daemon.voip.provider import VoipProvider
 
 METER_INTERVAL = 0.1
 """How often the meters show the peak since the last time (the device lets them fall in between)."""
@@ -36,14 +40,27 @@ class Mixer:
         capture_command: str = PW_RECORD,
         bridge: MqttBridge | None = None,
         players: MediaPlayers | None = None,
+        layout: str = DEFAULT_LAYOUT,
+        voip: VoipProvider | None = None,
+        shared_entities: Mapping[MQTTEntity, str | None] | None = None,
+        keep: frozenset[str] = frozenset(),
     ):
+        """
+        `layout` is the layout whose strips the mixer drives, `voip` the provider of the participants for `voip`
+        strips. `shared_entities` are entities in Home Assistant that are not of a strip (e.g. the layout select),
+        `keep` the unique ids of entities of the other layouts, which stay in Home Assistant.
+        """
         self.bridge = bridge
-        env = StripEnv(backend, config.behavior, bridge, players)
+        self.layout = layout
+        self.voip = voip
+        self.shared_entities = dict(shared_entities or {})
+        self.keep = keep
+        env = StripEnv(backend, config.behavior, bridge, players, voip)
         self.state: AudioState = DISCONNECTED
-        self.controllers: list[StripController] = [
-            build_strip(strip_config, strip, env, config.aliases)
-            for strip_config, strip in zip(config.all_strips(), surface.strips, strict=True)
-        ]
+        self.controllers: list[StripController] = []
+        places = self._voip_places(config.all_strips(layout))
+        for strip_config, strip, place in zip(config.all_strips(layout), surface.strips, places, strict=True):
+            self.controllers.append(build_strip(strip_config, strip, env, config.aliases, place))
         self.auto_strips = [controller for controller in self.controllers if isinstance(controller, AutoStrip)]
         self.claimed = tuple(
             controller.patterns for controller in self.controllers if isinstance(controller, AppGroupStrip)
@@ -56,6 +73,23 @@ class Mixer:
             entity: default for controller in self.controllers for entity, default in controller.entities.items()
         }
         """The entities of the strips in Home Assistant, for the MQTT bridge."""
+        if voip is not None:
+            voip.subscribe(self.refresh)
+
+    def _voip_places(self, strips: tuple[StripConfig, ...]) -> list[tuple[VoipGroup, int] | None]:
+        """The group and the place in it of every `voip` strip: its places are the same object (`all_strips()`)."""
+        places: list[tuple[VoipGroup, int] | None] = []
+        previous: tuple[VoipGroup, int] | None = None
+        for index, strip in enumerate(strips):
+            if not isinstance(strip, VoipStripConfig):
+                previous = None
+            elif previous is not None and strips[index - 1] is strip and previous[1] + 1 < strip.count:
+                previous = (previous[0], previous[1] + 1)
+            else:
+                assert self.voip is not None, "the configuration has no voip strips without [voip]"
+                previous = (VoipGroup(self.voip, strip.count, self.refresh), 0)
+            places.append(previous)
+        return places
 
     def _meter(self, controller: StripController, command: str) -> Meter:
         def playing(target: CaptureTarget) -> bool:
@@ -100,7 +134,7 @@ class Mixer:
         applications that stopped long enough.
         """
         if self.bridge is not None:
-            await self.bridge.set_entities(self.entities)
+            await self.bridge.set_entities(self.entities | self.shared_entities, keep=self.keep)
         ticks_per_auto = round(AUTO_INTERVAL / METER_INTERVAL)
         tick = 0
         while True:
@@ -116,6 +150,8 @@ class Mixer:
                 self.refresh()
 
     def close(self) -> None:
+        if self.voip is not None:
+            self.voip.unsubscribe(self.refresh)
         for controller, meter in zip(self.controllers, self.meters, strict=True):
             meter.close()
             controller.close()

@@ -225,3 +225,50 @@ async def test_without_a_socket_the_daemon_runs_on(
     await server.run()
 
     assert "No live view for the GUI, can't serve" in caplog.text
+
+
+async def test_a_client_sends_commands(surface: RecordingSurface, socket_dir: Path, caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.DEBUG)
+    commands: list[live.Command] = []
+    server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface), commands.append)
+    task = await serve(server)
+    reader, writer = await asyncio.open_unix_connection(server.path)
+    await reader.readline()
+    writer.write(live.command(layout="gaming"))
+    writer.write(b"no json\n")
+    writer.write(b"[1, 2]\n")
+    writer.write(live.command(layout="+1"))
+    await writer.drain()
+    for _ in range(100):
+        if len(commands) == 2:
+            break
+        await asyncio.sleep(0.005)
+    assert commands == [{"layout": "gaming"}, {"layout": "+1"}]
+    assert "Ignoring a line of a live view client that is no JSON" in caplog.text
+    assert "Ignoring a line of a live view client that is no object" in caplog.text
+    writer.close()
+    await writer.wait_closed()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+
+def test_a_command_is_a_line_of_json():
+    assert live.command(layout="gaming") == b'{"layout":"gaming"}\n'
+
+
+def test_the_layouts_go_through_a_line(surface: RecordingSurface):
+    snapshot = Snapshot(
+        "abc", True, True, None, strip_states(surface, 0.0), layout="gaming", layouts=("default", "gaming")
+    )
+    assert decode(encode(snapshot)) == snapshot
+    # an older daemon does not tell them
+    older = encode(snapshot).replace(b',"layout":"gaming","layouts":["default","gaming"]', b"")
+    decoded = decode(older)
+    assert decoded is not None
+    assert (decoded.layout, decoded.layouts) == (None, ())
+
+
+def test_the_live_view_shows_a_banner(surface: RecordingSurface):
+    surface.strips[0].set_text(0, "Speaker")
+    surface.strips[0].set_overlay(("Gaming", ""))
+    assert strip_states(surface, 0.0)[0].text == ("Gaming", "")

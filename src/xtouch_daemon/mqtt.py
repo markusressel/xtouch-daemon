@@ -106,10 +106,11 @@ class MqttBridge:
     def unwatch(self, entity: MQTTEntity) -> None:
         self._watchers.pop(entity.unique_id, None)
 
-    async def set_entities(self, entities: Mapping[MQTTEntity, str | None]) -> None:
+    async def set_entities(self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str] = frozenset()) -> None:
         """
         The entities of the configuration, with the state each gets while it has none (None: no default). Entities
-        that are not there anymore are removed from Home Assistant.
+        that are not there anymore are removed from Home Assistant, except those whose unique id is in `keep` (the
+        entities of the layouts the device does not show).
         """
         previous = self._entities
         self._entities = {entity.unique_id: (entity, default) for entity, default in entities.items()}
@@ -119,7 +120,8 @@ class MqttBridge:
         if self._client is None:
             return
         for unique_id, (entity, _) in previous.items():
-            await self._forget(self._client, entity, removed=unique_id not in self._entities)
+            removed = unique_id not in self._entities and unique_id not in keep
+            await self._forget(self._client, entity, removed=removed)
         await self._announce(self._client)
 
     async def set_state(self, entity: MQTTEntity, state: str) -> None:

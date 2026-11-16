@@ -5,8 +5,9 @@ so the GUI can show the strips as they are instead of what a file would make of 
 The daemon serves a Unix socket next to its runtime file (see `instance.socket_file()`). Every client gets the whole
 state as one line of JSON when it connects, and again whenever something changed, at most every `INTERVAL`. Whole
 states rather than changes: a line is about 2 KB, and a client that missed one (or connects late) needs nothing else
-to be right. Clients only read; what they send is ignored. A client that does not keep up is dropped instead of being
-waited for, so a stuck GUI never slows down the daemon.
+to be right. A client may send commands, one JSON object per line (`command()`), e.g. `{"layout": "gaming"}`; the
+daemon ignores anything else. A client that does not keep up is dropped instead of being waited for, so a stuck GUI
+never slows down the daemon.
 """
 
 import asyncio
@@ -95,6 +96,10 @@ class Snapshot:
     """More on the connection of `mqtt` (an older daemon does not tell it)."""
     daemon_version: str | None = None
     """The version of the daemon that runs (an older daemon does not tell it)."""
+    layout: str | None = None
+    """The name of the layout the device shows (an older daemon does not tell it)."""
+    layouts: tuple[str, ...] = ()
+    """The names of every layout of the configuration, the default one first."""
 
 
 def fingerprint(config: Config) -> str:
@@ -124,7 +129,7 @@ def strip_states(surface: Surface, now: float) -> tuple[StripState, ...]:
         states.append(
             StripState(
                 color=_color_name(strip.color),
-                text=(strip.text[0], strip.text[1]),
+                text=strip.shown_text,
                 leds={button.name.lower(): _led_name(strip.leds[button]) for button in Button},
                 ring=position,
                 ring_mode=mode.name.lower(),
@@ -171,15 +176,32 @@ def decode(line: bytes) -> Snapshot | None:
         strips,
         MqttState(**mqtt_state) if mqtt_state is not None else None,
         data.get("daemon_version"),
+        data.get("layout"),
+        tuple(data.get("layouts", ())),
     )
 
 
-class LiveServer:
-    """Serves the snapshots of `snapshot` on the Unix socket at `path`, for as long as `run()` runs."""
+type Command = dict[str, Any]
+"""What a client asks the daemon to do, one JSON object per line, e.g. `{"layout": "gaming"}`."""
 
-    def __init__(self, path: Path, snapshot: Callable[[], Snapshot]):
+
+def command(**values: Any) -> bytes:
+    """A line asking the daemon for something, e.g. `command(layout="gaming")`."""
+    return json.dumps(values, separators=(",", ":")).encode() + b"\n"
+
+
+class LiveServer:
+    """
+    Serves the snapshots of `snapshot` on the Unix socket at `path`, for as long as `run()` runs. The lines a client
+    sends are commands (`Command`) for `on_command`; lines that are no JSON object are ignored.
+    """
+
+    def __init__(
+        self, path: Path, snapshot: Callable[[], Snapshot], on_command: Callable[[Command], None] = lambda _: None
+    ):
         self.path = path
         self._snapshot = snapshot
+        self._on_command = on_command
         self.clients: set[asyncio.StreamWriter] = set()
         self._last = b""
 
@@ -222,15 +244,26 @@ class LiveServer:
             return
         client.write(line)
 
+    def _command(self, line: bytes) -> None:
+        try:
+            data = json.loads(line)
+        except ValueError:
+            _LOGGER.debug(f"Ignoring a line of a live view client that is no JSON: {line[:80]!r}")
+            return
+        if not isinstance(data, dict):
+            _LOGGER.debug(f"Ignoring a line of a live view client that is no object: {line[:80]!r}")
+            return
+        self._on_command(data)  # pyright: ignore[reportUnknownArgumentType]: JSON
+
     async def _serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self.clients.add(writer)
         # the whole state right away, not only once something changes
         self._send(writer, encode(self._snapshot()))
         try:
-            # until it closes the connection; what it sends means nothing
-            with contextlib.suppress(ConnectionError):
-                while await reader.read(4096):
-                    pass
+            # until it closes the connection
+            with contextlib.suppress(ConnectionError, ValueError):
+                while line := await reader.readline():
+                    self._command(line)
         finally:
             self.clients.discard(writer)
             writer.close()

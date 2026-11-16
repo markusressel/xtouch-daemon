@@ -836,3 +836,38 @@ async def test_moves_right_after_a_connect_are_the_device_s_own(
     surface._midi.close()
     await asyncio.sleep(0)
     assert surface._fingers == {}
+
+
+async def test_a_banner_shows_across_the_lcds_and_goes(surface: RecordingSurface):
+    surface.strips[3].set_text(0, "Speaker")
+    surface.sent.clear()
+    surface.banner("Gaming", "steam", 0.02)
+    assert surface.strips[3].shown_text == ("    Gam", "    ste")
+    assert surface.strips[4].shown_text == ("ing    ", "am     ")
+    assert surface.strips[0].shown_text == (" " * 7, " " * 7)
+    assert protocol.lcd_text(3, 0, "    Gam") in surface.sent
+    # what the strips show meanwhile comes after the banner
+    surface.strips[3].set_text(0, "Phones")
+    assert protocol.lcd_text(3, 0, "Phones") not in surface.sent
+    assert surface.strips[3].text == ["Phones", ""]
+    # a connect shows the banner too
+    assert protocol.lcd_text(3, 0, "    Gam") in surface.strips[3].connected()
+    await asyncio.sleep(0.05)
+    assert surface.strips[3].shown_text == ("Phones", "")
+    assert protocol.lcd_text(3, 0, "Phones") in surface.sent
+
+
+async def test_a_new_banner_replaces_the_one_before(surface: RecordingSurface):
+    surface.banner("One", "", 10)
+    surface.banner("Two", "", 0.01)
+    assert surface.strips[3].shown_text[0] == "     Tw"
+    await asyncio.sleep(0.03)
+    assert surface.strips[3].overlay is None
+    # ending it again does nothing
+    surface.end_banner()
+
+
+async def test_the_shutdown_ends_a_banner(surface: RecordingSurface):
+    surface.banner("Gaming", "", 10)
+    await surface.put_away()
+    assert all(strip.overlay is None for strip in surface.strips)

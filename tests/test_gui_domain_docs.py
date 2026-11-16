@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon.config import STRIP_TYPES
+from xtouch_daemon.config import STRIP_TYPES, LayoutConfig
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.schema import options, sections, strip_models, strip_options
 
@@ -63,7 +63,7 @@ def test_every_link_goes_to_a_page_and_heading_of_the_docs(link: str):
 
 
 def test_every_page_and_strip_type_has_its_docs():
-    assert set(docs.PAGES) == {"device", "behavior", "aliases", "mqtt"}
+    assert set(docs.PAGES) == {"device", "behavior", "aliases", "mqtt", "layout", "switching", "voip"}
     assert set(docs.STRIP_TYPES) == set(STRIP_TYPES)
 
 
@@ -72,9 +72,10 @@ def test_the_linked_options_exist():
     assert set(docs.STRIP_OPTIONS) <= strip_option_names
     for strip_type, name in docs.STRIP_TYPE_OPTIONS:
         assert name in {o.name for o in strip_options(strip_type)}
-    models = {section.name: section.model for section in sections()}
+    models = {section.name: section.model for section in sections()} | {"layout": LayoutConfig}
+    skip = {"layout": ("strips",)}
     for section, names in docs.SECTION_OPTIONS.items():
-        assert set(names) <= {o.name for o in options(models[section])}
+        assert set(names) <= {o.name for o in options(models[section], skip=skip.get(section, ()))}
 
 
 def test_links_are_addresses_on_the_site():

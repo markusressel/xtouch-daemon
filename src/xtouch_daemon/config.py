@@ -304,6 +304,11 @@ STRIP_TYPE_MEANINGS = Meanings(
         "homeassistant": "A strip that belongs to Home Assistant: its fader, encoder, LCD, LEDs and buttons are "
         "entities there, and automations decide what they do. Needs `[mqtt]`.",
         "empty": "A dark strip that does nothing; its fader stays at the bottom.",
+        "inherit": "In a `[[layout]]`: the strip of the default layout (the top-level `[[strip]]` list) at this "
+        "place, e.g. the same output in every layout.",
+        "voip": "The participants of the voice chat, one per strip: the fader sets the participant's volume, Mute "
+        "mutes them for you, the meter shows their voice. Takes `count` places; Select shows the next ones. Needs "
+        "`[voip]`.",
     }
 )
 """What each strip type is, shown when it is chosen."""
@@ -375,6 +380,12 @@ class DeviceStripConfig(_StripConfig):
         return self
 
 
+def _no_blank(value: tuple[str, ...]) -> tuple[str, ...]:
+    if any(not pattern.strip() for pattern in value):
+        raise ValueError("an empty pattern would match every application")
+    return value
+
+
 class AppsStripConfig(_StripConfig):
     """All streams of a group of applications, e.g. every browser."""
 
@@ -390,9 +401,7 @@ class AppsStripConfig(_StripConfig):
     @field_validator("match")
     @classmethod
     def _not_blank(cls, value: tuple[str, ...]) -> tuple[str, ...]:
-        if any(not pattern.strip() for pattern in value):
-            raise ValueError("an empty pattern would match every application")
-        return value
+        return _no_blank(value)
 
 
 class AutoStripConfig(_StripConfig):
@@ -422,8 +431,39 @@ class HomeAssistantStripConfig(_Model):
     """The LCD backlight until Home Assistant sets one."""
 
 
+class InheritStripConfig(_Model):
+    """In a layout: the strip of the default layout at this place."""
+
+    type: Annotated[Literal["inherit"], STRIP_TYPE_MEANINGS]
+
+
+class VoipStripConfig(_Model):
+    """The participants of the voice chat, one per strip, from the provider of `[voip]`."""
+
+    type: Annotated[Literal["voip"], STRIP_TYPE_MEANINGS]
+    count: FaderNumber = 1
+    """
+    How many places the participants take, from this one to the right. With more participants, Select on any of
+    them shows the next ones.
+    """
+    color: Annotated[ColorName, COLORS] = "white"
+    """The backlight of the LCD while a participant is there and does not talk."""
+    talking_color: Annotated[ColorName, COLORS] = "green"
+    """The backlight while the participant talks."""
+    meter: bool = True
+    """Whether the LED meter shows the participant's voice (if the provider tells it and `behavior.meters` is on)."""
+    max_volume: Annotated[int, Field(ge=1, le=VOLUME_LIMIT)] = 100
+    """The volume of a participant with the fader at the top, in percent."""
+
+
 StripConfig = Annotated[
-    DeviceStripConfig | AppsStripConfig | AutoStripConfig | HomeAssistantStripConfig | EmptyStripConfig,
+    DeviceStripConfig
+    | AppsStripConfig
+    | AutoStripConfig
+    | HomeAssistantStripConfig
+    | EmptyStripConfig
+    | InheritStripConfig
+    | VoipStripConfig,
     Field(discriminator="type"),
 ]
 STRIP_MODELS: tuple[type[BaseModel], ...] = get_args(get_args(StripConfig)[0])
@@ -481,6 +521,98 @@ class MqttConfig(_Model):
         return None
 
 
+DEFAULT_LAYOUT = "default"
+"""The name of the layout of the top-level `[[strip]]` list."""
+
+LayoutLabel = Annotated[str, Field(max_length=protocol.LCD_CELL_WIDTH * protocol.STRIPS, pattern=r"^[\x20-\x7e]*$")]
+"""What fits on the top lines of all LCDs: 56 characters of ASCII."""
+
+
+class LayoutConfig(_Model):
+    """A set of strips to switch to, e.g. for games: by hand, from Home Assistant, or when an application runs."""
+
+    name: Slug
+    """
+    What Home Assistant and `xtouch-daemon layout` call it: lower case letters, digits and underscores, e.g.
+    "gaming".
+    """
+    label: LayoutLabel = ""
+    """What the LCDs show when the layout comes, across the strips; by default the name."""
+    apps: tuple[str, ...] = ()
+    """
+    Switch to the layout while one of these applications has a stream (playing or paused): parts of the names or
+    binaries, ignoring case, as `match` of `apps` strips, e.g. "steam_app_" and ".exe" for games.
+    """
+    processes: tuple[str, ...] = ()
+    """
+    Switch to the layout while a process of one of these names runs (parts of the name, ignoring case), e.g.
+    "mumble" for the voice chat even while nobody talks.
+    """
+    priority: int = 0
+    """Of several layouts whose rules match, the one with the highest priority comes, then the first in the file."""
+    strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=protocol.STRIPS)] = ()
+    """Up to 8 strips from the left, as the top-level ones; missing ones are `auto`."""
+
+    @field_validator("apps", "processes")
+    @classmethod
+    def _not_blank(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        return _no_blank(value)
+
+    @property
+    def title(self) -> str:
+        """The label, or else the name."""
+        return self.label or self.name
+
+    @property
+    def has_rules(self) -> bool:
+        return bool(self.apps or self.processes)
+
+
+class SwitchingConfig(_Model):
+    """How the daemon switches between layouts (`[[layout]]`)."""
+
+    hold: Annotated[float, Field(ge=0)] = 10.0
+    """
+    Seconds a layout stays after its rule stopped matching (`apps`, `processes`), e.g. while a game loads the next
+    level.
+    """
+    chord: tuple[FaderNumber, ...] = (1, 8)
+    """
+    The strips whose Solo buttons, held together, switch to the next layout, numbered from 1 on the left; none for no
+    chord. Solo does nothing on audio strips, on `homeassistant` strips Home Assistant still gets the presses.
+    """
+    banner: Annotated[float, Field(ge=0, le=10)] = 1.5
+    """Seconds the LCDs show the name of the layout that comes; 0 for none."""
+
+    @field_validator("chord")
+    @classmethod
+    def _two_strips(cls, value: tuple[int, ...]) -> tuple[int, ...]:
+        if len(set(value)) == 1:
+            raise ValueError("at least two strips, or none")
+        return value
+
+
+VoipProviderName = Literal["demo", "bridge"]
+
+VOIP_PROVIDERS = Meanings(
+    {
+        "demo": "Participants that are not there (`participants`), who talk in turns: to try `voip` strips without a "
+        "voice chat.",
+        "bridge": "A plugin in the voice chat client sends its participants to the daemon over a socket "
+        "(`$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock`) and gets the volumes back.",
+    }
+)
+
+
+class VoipConfig(_Model):
+    """Where `voip` strips get the participants of the voice chat."""
+
+    provider: Annotated[VoipProviderName, VOIP_PROVIDERS] = "bridge"
+    """Who tells the participants."""
+    participants: tuple[str, ...] = ("Alice", "Bob", "Carol", "Dave", "Eve")
+    """The names of the participants of the `demo` provider."""
+
+
 class Config(_Model):
     device: DeviceConfig = DeviceConfig()
     behavior: BehaviorConfig = BehaviorConfig()
@@ -493,37 +625,106 @@ class Config(_Model):
     """Up to 8 strips from the left; missing ones are `auto`."""
     mqtt: MqttConfig | None = None
     """The MQTT broker, needed by `homeassistant` strips."""
+    switching: SwitchingConfig = SwitchingConfig()
+    voip: VoipConfig | None = None
+    """The participants of the voice chat, needed by `voip` strips."""
+    layouts: Annotated[tuple[LayoutConfig, ...], Field(alias="layout")] = ()
+    """More sets of strips to switch to; the top-level strips are the layout `default`."""
+
+    @model_validator(mode="after")
+    def _layouts(self) -> Config:
+        names = [layout.name for layout in self.layouts]
+        if DEFAULT_LAYOUT in names:
+            raise ValueError(f"layout: {DEFAULT_LAYOUT} is the name of the top-level strips")
+        duplicates = sorted({name for name in names if names.count(name) > 1})
+        if duplicates:
+            raise ValueError(f"layouts with the same name: {', '.join(duplicates)}")
+        for number, strip in enumerate(self.strips, start=1):
+            if isinstance(strip, InheritStripConfig):
+                raise ValueError(f"strip[{number}]: inherit is only for the strips of a [[layout]]")
+        for index, layout in enumerate(self.layout_list()):
+            places = sum(strip.count if isinstance(strip, VoipStripConfig) else 1 for strip in layout.strips)
+            if places > protocol.STRIPS:
+                where = f"layout[{index}]" if index else "strip"
+                raise ValueError(f"{where}: the strips take {places} places, the device has {protocol.STRIPS}")
+        return self
 
     @model_validator(mode="after")
     def _volume_ranges(self) -> Config:
-        for number, strip in enumerate(self.strips, start=1):
-            if not isinstance(strip, _StripConfig):
-                continue
-            for where, bottom, top in strip.volume_ranges(self.behavior):
-                if bottom >= top:
-                    place = f"strip[{number}]" + (f".{where}" if where else "")
-                    raise ValueError(f"{place}: min_volume ({bottom}) is not below max_volume ({top})")
+        for index, layout in enumerate(self.layout_list()):
+            for number, strip in enumerate(layout.strips, start=1):
+                if not isinstance(strip, _StripConfig):
+                    continue
+                for where, bottom, top in strip.volume_ranges(self.behavior):
+                    if bottom >= top:
+                        place = (f"layout[{index}]." if index else "") + f"strip[{number}]"
+                        place += f".{where}" if where else ""
+                        raise ValueError(f"{place}: min_volume ({bottom}) is not below max_volume ({top})")
         return self
 
     @model_validator(mode="after")
     def _home_assistant_strips(self) -> Config:
-        ids = [strip_id for _, strip_id in self.home_assistant_strips()]
-        if ids and self.mqtt is None:
-            raise ValueError("strips in Home Assistant need an [mqtt] section")
-        duplicates = sorted({strip_id for strip_id in ids if ids.count(strip_id) > 1})
-        if duplicates:
-            raise ValueError(f"strips in Home Assistant with the same id: {', '.join(duplicates)}")
+        for layout in self.layout_list():
+            ids = [strip_id for _, strip_id in self.home_assistant_strips(layout.name)]
+            if ids and self.mqtt is None:
+                raise ValueError("strips in Home Assistant need an [mqtt] section")
+            duplicates = sorted({strip_id for strip_id in ids if ids.count(strip_id) > 1})
+            if duplicates:
+                where = "" if layout.name == DEFAULT_LAYOUT else f" (layout {layout.name})"
+                raise ValueError(f"strips in Home Assistant with the same id{where}: {', '.join(duplicates)}")
         return self
 
-    def all_strips(self) -> tuple[StripConfig, ...]:
-        """The configuration of every strip of the device, the ones that are not configured `auto`."""
-        return self.strips + tuple(AutoStripConfig(type="auto") for _ in range(protocol.STRIPS - len(self.strips)))
+    @model_validator(mode="after")
+    def _voip_strips(self) -> Config:
+        strips = (strip for layout in self.layout_list() for strip in layout.strips)
+        if self.voip is None and any(isinstance(strip, VoipStripConfig) for strip in strips):
+            raise ValueError("voip strips need a [voip] section")
+        return self
 
-    def home_assistant_strips(self) -> list[tuple[StripConfig, str]]:
-        """The strips with entities in Home Assistant (`homeassistant` ones, and a fader or encoder), with their ids."""
+    def layout_list(self) -> tuple[LayoutConfig, ...]:
+        """Every layout, the default one (the top-level strips) first."""
+        return (LayoutConfig.model_construct(name=DEFAULT_LAYOUT, label="Default", strips=self.strips), *self.layouts)
+
+    @property
+    def layout_names(self) -> tuple[str, ...]:
+        return tuple(layout.name for layout in self.layout_list())
+
+    def layout(self, name: str) -> LayoutConfig:
+        """The layout of the name (KeyError for none)."""
+        for layout in self.layout_list():
+            if layout.name == name:
+                return layout
+        raise KeyError(name)
+
+    def all_strips(self, layout: str = DEFAULT_LAYOUT) -> tuple[StripConfig, ...]:
+        """
+        The configuration of every strip of the device in a layout: `inherit` ones are those of the default layout, a
+        `voip` strip is there once for each of its places (the same object), and the ones that are not configured are
+        `auto`.
+        """
+        default = self._places(self.strips, ())
+        return self._places(self.layout(layout).strips, default)
+
+    @staticmethod
+    def _places(strips: tuple[StripConfig, ...], default: tuple[StripConfig, ...]) -> tuple[StripConfig, ...]:
+        result: list[StripConfig] = []
+        for strip in strips:
+            if isinstance(strip, InheritStripConfig):
+                result.append(default[len(result)])
+            elif isinstance(strip, VoipStripConfig):
+                result.extend([strip] * strip.count)
+            else:
+                result.append(strip)
+        return (*result, *(AutoStripConfig(type="auto") for _ in range(protocol.STRIPS - len(result))))
+
+    def home_assistant_strips(self, layout: str = DEFAULT_LAYOUT) -> list[tuple[StripConfig, str]]:
+        """
+        The strips of a layout with entities in Home Assistant (`homeassistant` ones, and a fader or encoder), with
+        their ids.
+        """
         return [
             (strip, strip.id or f"strip_{number}")
-            for number, strip in enumerate(self.strips, start=1)
+            for number, strip in enumerate(self.all_strips(layout), start=1)
             if isinstance(strip, HomeAssistantStripConfig)
             or (isinstance(strip, _StripConfig) and strip.uses_home_assistant)
         ]
@@ -536,7 +737,7 @@ class ConfigError(Exception):
 STRIP_TYPES: tuple[str, ...] = tuple(
     name for model in STRIP_MODELS for name in get_args(model.model_fields["type"].annotation)
 )
-"""The values of `type` of a strip: output, input, apps, auto, empty."""
+"""The values of `type` of a strip: output, input, apps, auto, homeassistant, empty, inherit, voip."""
 
 
 @dataclass(frozen=True)

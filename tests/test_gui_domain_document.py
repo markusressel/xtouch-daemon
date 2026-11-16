@@ -48,7 +48,13 @@ def test_unchanged_it_writes_the_file_as_it_was():
 def test_reads_the_options_as_data():
     doc = document()
 
-    assert doc.sections == {"device": {}, "behavior": {"max_volume": 120, "meters": False}, "mqtt": None}
+    assert doc.sections == {
+        "device": {},
+        "behavior": {"max_volume": 120, "meters": False},
+        "mqtt": None,
+        "switching": {},
+        "voip": None,
+    }
     assert doc.aliases == [("WEBRTC VoiceEngine", "Discord")]
     assert [strip.type for strip in doc.strips] == ["output", "apps", "empty"]
     assert doc.get(("strip", 1, "match")) == ["brave"]

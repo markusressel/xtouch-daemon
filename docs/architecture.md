@@ -17,6 +17,9 @@ graph LR
     Daemon -- "owns, reloads, stops" --> Surface & Backend & Mixer & Bridge
     Surface -- "what the strips show (live.py)" --> Live[LiveServer<br/>$XDG_RUNTIME_DIR/xtouch-daemon.sock]
     Live -- "a JSON line per change" --> GUI[xtouch-daemon gui]
+    GUI -- "layout commands" --> Live
+    Daemon -- "rules (layouts.py)" --> Switcher[LayoutSwitcher]
+    Voip[VoipProvider<br/>voip/] -- "participants" --> Mixer
 ```
 
 ## Modules
@@ -32,8 +35,10 @@ graph LR
 | `audio/meter.py` | `Meter`: audio levels from passive `pw-record` captures. |
 | `strips/` | The strip controllers: `DeviceStrip`, `AppGroupStrip`, `AutoStrip` (with `AutoAssigner`), `HomeAssistantStrip`, `EmptyStrip`, and the shared `VolumeStrip` base. |
 | `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` strips. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
-| `mixer.py` | `Mixer`: the controllers of one configuration, fed with every state and every event, and the meter ticker. |
-| `daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications). |
+| `mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state and every event, and the meter ticker. |
+| `layouts.py` | `LayoutSwitcher`: which layout the device shows, chosen by hand or by the rules (`apps`, `processes`, `hold`); the running processes from `/proc`. |
+| `voip/` | `VoipProvider`: the participants of a voice chat for `voip` strips, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). |
+| `daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications) and switching layouts. |
 | `instance.py` | The running daemon for other processes: its runtime file (process, configuration file) and where its live view is served. |
 | `live.py` | `LiveServer`: what the device shows right now, for the GUI, over a Unix socket. See [Live view](#live-view). |
 | `config.py` | The TOML configuration, validated with pydantic. |
@@ -164,8 +169,9 @@ for as long as it runs:
   device, the sound server and the broker are connected, and the `fingerprint()` of the configuration in use. A line
   is about 2 KB; a state rather than changes means a client that connects late or misses one needs nothing else.
   `version` changes when a line means something else.
-- **Read only.** What a client sends is ignored: the GUI changes the daemon only through the configuration file and
-  a reload.
+- **Commands, one JSON line each.** A client may send `{"layout": "gaming"}` (or `"+1"`, `"-1"`) to switch the
+  layout; `xtouch-daemon layout` and "Show on the device" in the GUI do. Anything else is ignored: the configuration
+  still changes only through the file and a reload. The state tells the `layout` shown and the `layouts` there are.
 - **Never in the way.** Clients get only non-blocking writes. One that falls behind by more than `MAX_BUFFER` is
   dropped (it can connect again), and a socket that can't be made is logged: the daemon runs on without the live view.
   The server is not one of the parts of the daemon whose end stops it.
@@ -175,6 +181,25 @@ for as long as it runs:
 
 The GUI reads the socket with a `QLocalSocket`, without a thread, and connects again while the daemon runs. Without a
 daemon it shows what the file would show, and says so.
+
+## Layouts
+
+A layout is a whole set of strips, so switching one is a reload without reading the file: the daemon closes the
+`Mixer` and makes one for the other layout, on the same `Surface`, backend and MQTT bridge. The strips show the new
+layout at once, from the last `AudioState`; the `Surface` sends only what changed. An overlay of the LCDs
+(`Surface.banner`) shows the label of the layout across the strips for `switching.banner` seconds.
+
+- **Who switches.** `LayoutSwitcher` holds the layout shown. Manual choices (CLI, GUI, Home Assistant's select, the
+  Solo chord) switch at once. The rules are checked after every new `AudioState` and every 2 s (for `processes`). They
+  are edge triggered: they switch only when the layout they want changes, so a manual choice stays until then.
+- **Entities of all layouts.** The MQTT bridge keeps the entities of the `homeassistant` strips of every layout
+  (`keep`), so automations don't see them come and go on every switch; the layout select belongs to the daemon.
+- **VoIP strips.** A `voip` strip with `count = N` takes N places. The `Mixer` makes one `VoipGroup` of them, which
+  pages through the participants of the `VoipProvider`; the provider runs in the daemon, not in the mixer, so it stays
+  connected across switches and reloads. No voice chat client gives other programs a stream per participant, so the
+  participants come from a plugin in the client (`BridgeProvider`), not from PipeWire.
+
+The design and its research are in [Design: layouts](design/layouts.md).
 
 ## Testing
 

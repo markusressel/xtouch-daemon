@@ -1,11 +1,17 @@
+import contextlib
+import json
+import socket
 import sys
+import tempfile
+import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner, Result
 
 from tests.conftest import install_package, output, source, stream
-from xtouch_daemon import __version__, cli, instance, systemd
+from xtouch_daemon import __version__, cli, instance, live, systemd
 from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.config import Config, parse_config
@@ -526,3 +532,123 @@ def test_the_installed_version_is_the_one_on_disk(monkeypatch: pytest.MonkeyPatc
     # after an upgrade
     monkeypatch.setattr(xtouch_daemon, "version", lambda name: "9.9.9")
     assert xtouch_daemon.installed_version() == "9.9.9"
+
+
+# -- layouts ----------------------------------------------------------------------------------------------------------
+
+
+def test_check_config_shows_the_layouts(tmp_path: Path) -> None:
+    path = tmp_path / "layouts.toml"
+    path.write_text(
+        '[[strip]]\ntype = "output"\n[voip]\n'
+        '[[layout]]\nname = "gaming"\nlabel = "Gaming"\napps = ["steam"]\nprocesses = ["mumble", "ts3"]\npriority = 2\n'
+        '[[layout.strip]]\ntype = "inherit"\n[[layout.strip]]\ntype = "voip"\ncount = 2\n'
+        '[[layout]]\nname = "plain"\n[[layout]]\nname = "music"\napps = ["spotify"]\n'
+    )
+    lines = invoke("check-config", "-c", str(path)).output.splitlines()
+    gaming = lines.index("Layout gaming (Gaming), while steam has a stream or mumble or ts3 runs, priority 2:")
+    assert lines[gaming + 1].startswith("  1. the default output")
+    assert lines[gaming + 2] == "  2. a participant of the voice chat (white, talking: green)"
+    assert lines[gaming + 3] == lines[gaming + 2].replace("2.", "3.")
+    assert "Layout plain:" in lines
+    assert "Layout music, while spotify has a stream:" in lines
+    config = parse_config('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\n')
+    assert cli.describe_strip(config.layouts[0].strips[0], 1) == "the strip of the default layout"
+
+
+class FakeLive:
+    """A daemon's live view on a socket in a thread: tells its layouts, and switches on a command (if `obeys`)."""
+
+    def __init__(self, path: Path, layouts: tuple[str, ...], obeys: bool = True, answers: bool = True):
+        self.path = path
+        self.layout = layouts[0] if layouts else None
+        self.layouts = layouts
+        self.obeys = obeys
+        self.answers = answers
+        self.commands: list[dict[str, object]] = []
+        self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.server.bind(str(path))
+        self.server.listen(1)
+        self.thread = threading.Thread(target=self._serve, daemon=True)
+        self.thread.start()
+
+    def _line(self) -> bytes:
+        snapshot = live.Snapshot("abc", True, True, None, (), layout=self.layout, layouts=self.layouts)
+        return live.encode(snapshot)
+
+    def _serve(self) -> None:
+        connection, _ = self.server.accept()
+        with connection, connection.makefile("rb") as lines:
+            if not self.answers:
+                lines.readline()
+                return
+            # an older line first, which the client skips
+            connection.sendall(b'{"version": 0}\n' + self._line())
+            for line in lines:
+                command = json.loads(line)
+                self.commands.append(command)
+                if self.obeys:
+                    self.layout = command["layout"]
+                    with contextlib.suppress(OSError):
+                        connection.sendall(self._line())
+                else:
+                    return
+
+    def close(self) -> None:
+        self.server.close()
+        self.thread.join(2)
+
+
+@pytest.fixture
+def live_socket(monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+    with tempfile.TemporaryDirectory(prefix="xtc-") as directory:
+        path = Path(directory) / "live.sock"
+        monkeypatch.setattr(instance, "socket_file", lambda: path)
+        yield path
+
+
+def test_layout_lists_the_layouts(live_socket: Path) -> None:
+    fake = FakeLive(live_socket, ("default", "gaming"))
+    assert invoke("layout").output.splitlines() == ["* default", "  gaming"]
+    fake.close()
+
+
+def test_layout_of_a_daemon_without_layouts(live_socket: Path) -> None:
+    fake = FakeLive(live_socket, ())
+    assert invoke("layout").output.splitlines() == ["  default"]
+    fake.close()
+
+
+@pytest.mark.parametrize(
+    ("args", "wanted"),
+    [(("gaming",), "gaming"), (("--next",), "gaming"), (("--previous",), "voice"), (("default",), "default")],
+)
+def test_layout_switches_the_daemon(live_socket: Path, args: tuple[str, ...], wanted: str) -> None:
+    fake = FakeLive(live_socket, ("default", "gaming", "voice"))
+    assert invoke("layout", *args).output == f"Layout {wanted}\n"
+    fake.close()
+    assert fake.commands == [{"layout": wanted}]
+
+
+def test_layout_reports_what_goes_wrong(live_socket: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    result = CliRunner().invoke(cli.main, ["layout"])
+    assert result.exit_code == 1
+    assert "the daemon does not run" in result.output
+
+    fake = FakeLive(live_socket, ("default", "gaming"))
+    result = CliRunner().invoke(cli.main, ["layout", "nope"])
+    assert "there is no layout nope (default, gaming)" in result.output
+    fake.close()
+    live_socket.unlink()
+
+    fake = FakeLive(live_socket, ("default", "gaming"), obeys=False)
+    result = CliRunner().invoke(cli.main, ["layout", "gaming"])
+    assert "the daemon did not switch to gaming" in result.output
+    fake.close()
+    live_socket.unlink()
+
+    monkeypatch.setattr(cli, "LAYOUT_TIMEOUT", 0.05)
+    fake = FakeLive(live_socket, ("default",), answers=False)
+    result = CliRunner().invoke(cli.main, ["layout"])
+    assert "the daemon did not answer" in result.output
+    fake.close()

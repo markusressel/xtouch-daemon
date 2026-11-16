@@ -10,7 +10,9 @@ from xtouch_daemon.config import (
     EmptyStripConfig,
     HomeAssistantStripConfig,
     Indicator,
+    InheritStripConfig,
     StripConfig,
+    VoipStripConfig,
     color_of,
     default_encoder,
 )
@@ -19,6 +21,7 @@ from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv, VolumeStrip
 from xtouch_daemon.strips.device import DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
+from xtouch_daemon.strips.voip import VoipGroup, VoipStrip
 from xtouch_daemon.surface import Strip
 
 
@@ -29,9 +32,23 @@ class EmptyStrip(StripController):
         self.strip.reset()
 
 
-def build_strip(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[str, str]) -> StripController:
+def build_strip(
+    config: StripConfig,
+    strip: Strip,
+    env: StripEnv,
+    aliases: dict[str, str],
+    place: tuple[VoipGroup, int] | None = None,
+) -> StripController:
+    """
+    The controller of a strip. `place` is the group and the place in it of a `voip` strip (see `Mixer`); `inherit`
+    strips are resolved by `Config.all_strips()` already.
+    """
     if isinstance(config, EmptyStripConfig):
         return EmptyStrip(strip, env)
+    assert not isinstance(config, InheritStripConfig), "all_strips() resolves inherit strips"
+    if isinstance(config, VoipStripConfig):
+        assert place is not None, "the mixer puts voip strips into groups"
+        return VoipStrip(strip, env, *place, config)
     if isinstance(config, HomeAssistantStripConfig):
         assert env.bridge is not None, "the configuration has no homeassistant strips without [mqtt]"
         strip_id = config.id or f"strip_{strip.index + 1}"

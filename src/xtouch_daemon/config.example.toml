@@ -105,3 +105,36 @@ color = "white"
 # discovery_prefix = "homeassistant"
 # namespace = "xtouch"                # entity IDs start with it: number.xtouch_strip_5_fader
 # device_name = "X-Touch Extender"
+
+# ---- Layouts: other sets of strips, see https://markusressel.github.io/xtouch-daemon/configuration/layouts/ -----
+#
+# The strips above are the layout "default". Switch with `xtouch-daemon layout gaming`, Home Assistant's
+# select.xtouch_layout, Solo of strips 1 and 8 held together, or the rules (apps, processes).
+#
+# [switching]
+# hold = 10                           # seconds a layout stays after its rule stopped matching
+#
+# [voip]
+# provider = "demo"                   # "bridge": a plugin of the voice chat client sends the participants
+#
+# [[layout]]
+# name = "gaming"
+# label = "Gaming"
+# apps = ["steam_app_", ".exe"]       # while a game has a stream
+#
+# [[layout.strip]]
+# type = "apps"
+# label = "Game"
+# match = ["steam_app_", ".exe"]
+#
+# [[layout.strip]]
+# type = "apps"
+# label = "VoIP"
+# match = ["mumble"]
+#
+# [[layout.strip]]
+# type = "inherit"                    # strip 3 of the default layout
+#
+# [[layout.strip]]
+# type = "voip"                       # the people in the voice chat, strips 4 to 8
+# count = 5

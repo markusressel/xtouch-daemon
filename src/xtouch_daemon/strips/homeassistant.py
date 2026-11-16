@@ -27,7 +27,16 @@ from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from haad_mqtt_autodiscovery.entity.text import MQTTText, MQTTTextPayload
 
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import ColorName, color_of
+from xtouch_daemon.config import (
+    AppsStripConfig,
+    AutoStripConfig,
+    ColorName,
+    DeviceStripConfig,
+    HomeAssistantStripConfig,
+    StripConfig,
+    color_of,
+    default_encoder,
+)
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
 from xtouch_daemon.strips.base import StripController, StripEnv
@@ -46,6 +55,34 @@ EVENT_TYPES = [
 ]
 LEDS = {"off": Led.OFF, "on": Led.ON, "flash": Led.FLASH}
 """The states of an LED in Home Assistant."""
+
+
+def entity_ids(namespace: str, config: StripConfig, strip_id: str) -> frozenset[str]:
+    """
+    The unique ids of the entities a strip of the configuration has in Home Assistant (none for most), without making
+    them: for the entities of the layouts the device does not show, which stay in Home Assistant.
+    """
+    if isinstance(config, HomeAssistantStripConfig):
+        suffixes = [
+            "fader",
+            "encoder",
+            "meter",
+            "top",
+            "bottom",
+            "color",
+            *(f"{button.name.lower()}_led" for button in Button),
+            "buttons",
+        ]
+    elif isinstance(config, DeviceStripConfig | AppsStripConfig | AutoStripConfig) and config.uses_home_assistant:
+        encoder = (config.encoder or default_encoder(config.type, config.fader)) == "homeassistant"
+        suffixes = [
+            *(["fader"] if config.fader == "homeassistant" else []),
+            *(["encoder"] if encoder else []),
+            "buttons",
+        ]
+    else:
+        suffixes = []
+    return frozenset(f"{namespace}_{strip_id}_{suffix}" for suffix in suffixes)
 
 
 class LcdText(MQTTText):

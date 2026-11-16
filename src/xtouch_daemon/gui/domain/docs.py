@@ -12,6 +12,9 @@ PAGES: dict[str, str] = {
     "behavior": "configuration/behavior/#behavior",
     "aliases": "configuration/behavior/#aliases",
     "mqtt": "home-assistant/#mqtt",
+    "layout": "configuration/layouts/",
+    "switching": "configuration/layouts/#switching",
+    "voip": "configuration/layouts/#voice-chat",
 }
 """The global settings, by page."""
 
@@ -22,6 +25,8 @@ STRIP_TYPES: dict[str, str] = {
     "auto": "configuration/applications/#auto-strips",
     "homeassistant": "home-assistant/#homeassistant-strips",
     "empty": "configuration/strips/#empty-strips",
+    "inherit": "configuration/layouts/#inherit-strips",
+    "voip": "configuration/layouts/#voip-strips",
 }
 """The strip types."""
 
@@ -61,6 +66,15 @@ SECTION_OPTIONS: dict[str, dict[str, str]] = {
     },
     "mqtt": {
         "namespace": "home-assistant/#entities",
+    },
+    "layout": {
+        "apps": "configuration/layouts/#rules",
+        "processes": "configuration/layouts/#rules",
+        "priority": "configuration/layouts/#rules",
+    },
+    "switching": {
+        "chord": "configuration/layouts/#switching",
+        "hold": "configuration/layouts/#rules",
     },
 }
 """The options of the sections, by section."""
