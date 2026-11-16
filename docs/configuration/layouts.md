@@ -162,7 +162,7 @@ strip; for five people, write five.
 | `color` | `"white"` | The backlight while a participant is there and does not talk. Dark without one. |
 | `talking_color` | `"green"` | The backlight while the participant talks. |
 | `meter` | `true` | Whether the LED meter shows the participant's voice. Without levels from the provider it lights while the participant talks. |
-| `max_volume` | `100` | The volume of a participant with the fader at the top, 1..200 percent. |
+| `max_volume` | `behavior.max_volume` | The volume of a participant with the fader at the top, 1..200 percent; 100 % is at the 0 dB mark as on the other strips. Above 100 % the voice is louder than Mumble plays it, and may clip. |
 | `collapse` | `false` | Whether the strip gives its fader to the strips after it while it shows nobody, see [Collapsing strips](collapsing.md). |
 | `launch` | none | A command that Select starts while the voice chat is not there, e.g. `["mumble", "mumble://markus@voice.example.org/Gaming"]`, see [Launching the application](applications.md#launching-the-application). |
 

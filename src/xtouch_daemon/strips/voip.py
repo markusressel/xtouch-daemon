@@ -15,7 +15,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config import VoipStripConfig, color_of
 from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.protocol import Button, Color, Led
-from xtouch_daemon.strips.base import NOTICE_TIME, StripController, StripEnv
+from xtouch_daemon.strips.base import NOTICE_TIME, StripController, StripEnv, fader_position, fader_volume
 from xtouch_daemon.surface import Strip
 from xtouch_daemon.voip.provider import Capability, Participant, VoipProvider
 
@@ -117,7 +117,7 @@ class VoipStrip(StripController):
         self.name = config.title
         """The top line of a strip with `person`, "" for one of the group."""
         self.talking_color = color_of(config.talking_color)
-        self.max_volume = config.max_volume
+        self.max_volume = env.behavior.max_volume if config.max_volume is None else config.max_volume
         self.notice: str | None = None
         self._notice_timer: asyncio.TimerHandle | None = None
         self._wanted: int | None = None
@@ -185,7 +185,7 @@ class VoipStrip(StripController):
             self._wanted = None
         volume = self._wanted if self._wanted is not None else person.volume
         if self.can(Capability.VOLUME):
-            self.strip.set_fader(min(1.0, volume / self.max_volume))
+            self.strip.set_fader(fader_position(volume, 0, self.max_volume, self.env.behavior.unity_at))
         else:
             self.strip.park()
         if self.notice is not None:
@@ -213,7 +213,7 @@ class VoipStrip(StripController):
         person = self.participant
         if person is None or not self.can(Capability.VOLUME):
             return
-        volume = round(fraction * self.max_volume)
+        volume = round(fader_volume(fraction, 0, self.max_volume, self.env.behavior.unity_at))
         if volume == (self._wanted if self._wanted is not None else person.volume):
             return
         self._wanted = volume

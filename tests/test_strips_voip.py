@@ -140,7 +140,8 @@ async def test_a_strip_shows_its_participant(surface: RecordingSurface, env: Str
     await settle()
     first, second = surface.strips[:2]
     assert (first.color, first.text, first.leds[Button.MUTE]) == (Color.GREEN, ["Annabel", "100%"], Led.OFF)
-    assert first.fader == protocol.fader_value(0.5)
+    # 100 % at the 0 dB mark (`behavior.unity_at`), as on the other strips
+    assert first.fader == protocol.fader_value(0.77)
     # more participants than places: Select pages
     assert first.leds[Button.SELECT] == Led.ON
     assert (second.color, second.text, second.leds[Button.MUTE]) == (Color.CYAN, ["Bob", "muted"], Led.ON)
@@ -194,19 +195,20 @@ async def test_the_fader_sets_the_volume(surface: RecordingSurface, env: StripEn
     # the same volume again sends nothing
     ann.on_fader(0.25)
     await settle()
-    assert provider.commands == [("volume", "1", 50)]
-    assert surface.strips[0].text[1] == "50%"
+    # a quarter of the way to the 0 dB mark at 77 %
+    assert provider.commands == [("volume", "1", 32)]
+    assert surface.strips[0].text[1] == "32%"
     # until the provider tells it, the strip shows what the fader set
     ann.update(DISCONNECTED)
-    assert surface.strips[0].text[1] == "50%"
+    assert surface.strips[0].text[1] == "32%"
     ann.on_touch(False)
-    provider.update((Participant("1", "Annabelle", volume=50), *PEOPLE[1:]))
+    provider.update((Participant("1", "Annabelle", volume=32), *PEOPLE[1:]))
     ann.update(DISCONNECTED)
-    assert surface.strips[0].text[1] == "50%"
+    assert surface.strips[0].text[1] == "32%"
     assert ann._wanted is None  # pyright: ignore[reportPrivateUsage]
     ann.on_fader(0.25)
     await settle()
-    assert provider.commands == [("volume", "1", 50)]
+    assert provider.commands == [("volume", "1", 32)]
 
 
 async def test_mute_toggles_the_participant(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
@@ -340,7 +342,7 @@ async def test_a_strip_of_a_person(surface: RecordingSurface, env: StripEnv, pro
     carol.on_fader(0.25)
     carol.on_button(Button.MUTE, True)
     await settle()
-    assert provider.commands == [("volume", "3", 50), ("muted", "3", True)]
+    assert provider.commands == [("volume", "3", 32), ("muted", "3", True)]
 
 
 async def test_a_person_who_is_away(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
@@ -361,3 +363,12 @@ async def test_a_person_who_is_away(surface: RecordingSurface, env: StripEnv, pr
     dave.update(DISCONNECTED)
     assert strip.text == ["Dave", "100%"]
     assert not dave.absent(DISCONNECTED)
+
+
+def test_the_volume_range_is_the_one_of_the_other_strips_by_default(
+    surface: RecordingSurface, env: StripEnv, provider: FakeProvider
+):
+    config = VoipStripConfig(type="voip")
+    assert config.max_volume is None
+    _, (strip,), _ = make(surface, env, provider, config)
+    assert strip.max_volume == env.behavior.max_volume

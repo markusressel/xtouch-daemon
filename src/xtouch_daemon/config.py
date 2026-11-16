@@ -717,8 +717,11 @@ class VoipStripConfig(_Model):
     """The backlight while the participant talks."""
     meter: bool = True
     """Whether the LED meter shows the participant's voice (if the provider tells it and `behavior.meters` is on)."""
-    max_volume: Annotated[int, Field(ge=1, le=VOLUME_LIMIT)] = 100
-    """The volume of a participant with the fader at the top, in percent."""
+    max_volume: Annotated[int, Field(ge=1, le=VOLUME_LIMIT)] | None = None
+    """
+    The volume of a participant with the fader at the top, in percent; by default `behavior.max_volume`, so 100 % is
+    at the 0 dB mark like on the other strips. Above 100 % the voice is louder than Mumble plays it, and may clip.
+    """
     launch: Command | None = None
     """
     A command that Select starts while the voice chat is not there (no plugin reports it, and its program does not
