@@ -14,7 +14,7 @@ from xtouch_daemon.gui.domain.inherit import referenced
 from xtouch_daemon.gui.domain.schema import Kind, strip_options
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import RingMode
-from xtouch_daemon.live import Snapshot, StripState
+from xtouch_daemon.live.messages import Snapshot, StripState
 
 
 @dataclass(frozen=True)

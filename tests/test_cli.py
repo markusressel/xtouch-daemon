@@ -10,12 +10,14 @@ import pytest
 from click.testing import CliRunner, Result
 
 from tests.conftest import install_package, output, source, stream
-from xtouch_daemon import __version__, cli, instance, live, mumble, systemd
+from xtouch_daemon import __version__, cli, instance, mumble, systemd
 from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.layout_strips import InheritStripConfig
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.live.codec import decode_request, encode, encode_reply
+from xtouch_daemon.live.messages import FEATURES, Reply, Request, Snapshot, SwitchLayout
 from xtouch_daemon.media import MprisPlayers
 
 CONFIG = """
@@ -608,7 +610,7 @@ class FakeLive:
         obeys: bool = True,
         answers: bool = True,
         refuses: str | None = None,
-        features: tuple[str, ...] = live.FEATURES,
+        features: tuple[str, ...] = FEATURES,
     ):
         self.path = path
         self.layout = layouts[0] if layouts else None
@@ -617,7 +619,7 @@ class FakeLive:
         self.answers = answers
         self.refuses = refuses
         self.features = features
-        self.requests: list[live.Request] = []
+        self.requests: list[Request] = []
         self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.server.bind(str(path))
         self.server.listen(1)
@@ -625,10 +627,10 @@ class FakeLive:
         self.thread.start()
 
     def _line(self) -> bytes:
-        snapshot = live.Snapshot(
+        snapshot = Snapshot(
             "abc", True, True, None, (), features=self.features, layout=self.layout, layouts=self.layouts
         )
-        return live.encode(snapshot)
+        return encode(snapshot)
 
     def _serve(self) -> None:
         connection, _ = self.server.accept()
@@ -639,19 +641,19 @@ class FakeLive:
             # an older line first, which the client skips
             connection.sendall(b'{"version": 0}\n' + self._line())
             for line in lines:
-                request = live.decode_request(line)
+                request = decode_request(line)
                 self.requests.append(request)
-                assert isinstance(request, live.SwitchLayout)
+                assert isinstance(request, SwitchLayout)
                 if not self.obeys:
                     return
                 if self.refuses is not None:
-                    reply = live.Reply("layout", False, self.refuses)
+                    reply = Reply("layout", False, self.refuses)
                 else:
                     self.layout = request.layout
-                    reply = live.Reply("layout", True, request.layout)
+                    reply = Reply("layout", True, request.layout)
                 with contextlib.suppress(OSError):
                     # a snapshot may come before the reply
-                    connection.sendall(self._line() + live.encode_reply(reply))
+                    connection.sendall(self._line() + encode_reply(reply))
 
     def close(self) -> None:
         self.server.close()
@@ -686,7 +688,7 @@ def test_layout_switches_the_daemon(live_socket: Path, args: tuple[str, ...], wa
     fake = FakeLive(live_socket, ("default", "gaming", "voice"))
     assert invoke("layout", *args).output == f"Layout {wanted}\n"
     fake.close()
-    assert fake.requests == [live.SwitchLayout(wanted)]
+    assert fake.requests == [SwitchLayout(wanted)]
 
 
 def test_layout_reports_what_goes_wrong(live_socket: Path, monkeypatch: pytest.MonkeyPatch) -> None:

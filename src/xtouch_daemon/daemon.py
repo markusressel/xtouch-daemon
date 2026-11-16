@@ -30,11 +30,10 @@ from xtouch_daemon.config.values import DEFAULT_LAYOUT
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout, running_processes
-from xtouch_daemon.live import (
+from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
     KeepPreview,
-    LiveServer,
     MqttState,
     Reply,
     Request,
@@ -43,8 +42,8 @@ from xtouch_daemon.live import (
     SwitchLayout,
     VoipState,
     fingerprint,
-    strip_states,
 )
+from xtouch_daemon.live.server import LiveServer, strip_states
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge

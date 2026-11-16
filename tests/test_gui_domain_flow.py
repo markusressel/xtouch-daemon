@@ -5,7 +5,7 @@ import pytest
 from xtouch_daemon.config.values import MAX_STRIPS
 from xtouch_daemon.gui.domain.flow import FlowRow, Where, flow_rows, why_not_add
 from xtouch_daemon.gui.domain.looks import StripLook, file_state
-from xtouch_daemon.live import Snapshot
+from xtouch_daemon.live.messages import Snapshot
 
 
 def snapshot(placement: tuple[int | None, ...] | None) -> Snapshot:

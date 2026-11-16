@@ -12,7 +12,7 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle, stream
 from tests.fake_mqtt import FakeBroker
-from xtouch_daemon import __version__, live
+from xtouch_daemon import __version__
 from xtouch_daemon import daemon as daemon_module
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.backend import AudioBackend
@@ -24,7 +24,17 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.surface import Surface
-from xtouch_daemon.live import EndPreview, KeepPreview, Reply, StartPreview, SwitchLayout
+from xtouch_daemon.live.codec import decode, decode_message, encode_request
+from xtouch_daemon.live.messages import (
+    FEATURES,
+    EndPreview,
+    KeepPreview,
+    Reply,
+    StartPreview,
+    SwitchLayout,
+    VoipState,
+    fingerprint,
+)
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
@@ -380,9 +390,9 @@ async def test_the_live_view_shows_what_the_daemon_does(
         await until(socket.exists)
 
         reader, writer = await asyncio.open_unix_connection(socket)
-        snapshot = live.decode(await reader.readline())
+        snapshot = decode(await reader.readline())
         assert snapshot is not None
-        assert snapshot.config == live.fingerprint(config)
+        assert snapshot.config == fingerprint(config)
         assert (snapshot.device, snapshot.sound_server, snapshot.mqtt) == (False, False, True)
         state = snapshot.mqtt_state
         assert state is not None
@@ -567,7 +577,7 @@ async def test_a_preview_runs_the_configuration_of_the_gui_and_never_writes_the_
     caplog.set_level(logging.INFO)
     daemon, told = make_previewing(config_path, surface, backend, monkeypatch)
     gui, other = object(), object()
-    assert daemon.snapshot().features == live.FEATURES
+    assert daemon.snapshot().features == FEATURES
     assert not daemon.snapshot().preview
 
     assert daemon.on_request(gui, StartPreview(BOXES)) == Reply("preview", True)
@@ -578,7 +588,7 @@ async def test_a_preview_runs_the_configuration_of_the_gui_and_never_writes_the_
     assert daemon.mixer.preview
     snapshot = daemon.snapshot()
     assert snapshot.preview
-    assert snapshot.config == live.fingerprint(parse_config(BOXES))
+    assert snapshot.config == fingerprint(parse_config(BOXES))
     assert notifications[-1] == (
         "STATUS=waiting for X-Touch-Ext, sound server connected, previewing unsaved changes of the GUI",
     )
@@ -778,14 +788,14 @@ async def test_the_gui_previews_through_the_live_view_while_the_daemon_runs(
 
         reader, writer = await asyncio.open_unix_connection(socket)
         # a preview without the Home Assistant strip: its entities stay in Home Assistant
-        writer.write(live.encode_request(StartPreview(SPEAKER + '[mqtt]\nhost = "broker"\n')))
-        while not isinstance(reply := live.decode_message(await reader.readline()), Reply):
+        writer.write(encode_request(StartPreview(SPEAKER + '[mqtt]\nhost = "broker"\n')))
+        while not isinstance(reply := decode_message(await reader.readline()), Reply):
             pass
         assert reply == Reply("preview", True)
         await until(lambda: surface.strips[0].text[0] == "Speaker")
         snapshot = None
         while snapshot is None or not snapshot.preview:
-            snapshot = live.decode(await reader.readline())
+            snapshot = decode(await reader.readline())
         await until(lambda: daemon.bridge is not None and daemon.bridge.ready)
         assert lights in broker.retained
         assert daemon.bridge is not None
@@ -799,7 +809,7 @@ async def test_the_gui_previews_through_the_live_view_while_the_daemon_runs(
 
         # stopping during a preview leaves the file as it was
         _, writer = await asyncio.open_unix_connection(socket)
-        writer.write(live.encode_request(StartPreview(HOME_ASSISTANT.replace("Lights", "Desk"))))
+        writer.write(encode_request(StartPreview(HOME_ASSISTANT.replace("Lights", "Desk"))))
         await until(lambda: daemon.previewing)
         daemon.stop()
         await task
@@ -860,7 +870,7 @@ async def test_switching_layouts_by_hand(
     assert daemon.layout == "default"
     assert daemon.snapshot().layouts == ("default", "gaming", "voice")
     # the demo people of [voip], none of them on a strip of the default layout
-    assert daemon.snapshot().voip == live.VoipState("demo", True, None, None, 1, ("Ann",), (None,) * 8)
+    assert daemon.snapshot().voip == VoipState("demo", True, None, None, 1, ("Ann",), (None,) * 8)
 
     assert daemon.switch_layout("gaming")
     assert not daemon.switch_layout("gaming")

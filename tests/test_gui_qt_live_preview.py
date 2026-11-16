@@ -16,10 +16,19 @@ from pytestqt.qtbot import QtBot
 from tests import test_gui_qt
 from tests.test_gui_qt import Dialogs, FakeLiveDaemon, MakeWindow, click, row, strip_state, type_into
 from tests.test_instance import RecordingInstance
-from xtouch_daemon import live
 from xtouch_daemon.gui.qt import live_preview as live_preview_module
 from xtouch_daemon.gui.qt.window import MainWindow
-from xtouch_daemon.live import EndPreview, KeepPreview, Reply, Request, Snapshot, StartPreview
+from xtouch_daemon.live.codec import decode_request, encode_reply
+from xtouch_daemon.live.messages import (
+    FEATURES,
+    EndPreview,
+    KeepPreview,
+    Reply,
+    Request,
+    Snapshot,
+    StartPreview,
+    fingerprint,
+)
 
 # the fixtures of the window
 isolated = test_gui_qt.isolated
@@ -54,15 +63,15 @@ class PreviewingDaemon(FakeLiveDaemon):
 
     def _read(self, client: QLocalSocket) -> None:
         while client.canReadLine():
-            request = live.decode_request(bytes(client.readLine().data()))
+            request = decode_request(bytes(client.readLine().data()))
             self.requests.append(request)
             reply = self.answer(request)
             if reply is not None:
-                client.write(live.encode_reply(reply))
+                client.write(encode_reply(reply))
                 client.flush()
 
     def reply(self, reply: Reply) -> None:
-        self.send_line(live.encode_reply(reply))
+        self.send_line(encode_reply(reply))
 
     @property
     def previews(self) -> list[str]:
@@ -82,12 +91,12 @@ def previewing(qapp: QApplication) -> Iterator[PreviewingDaemon]:
         fake.close()
 
 
-def snapshot(window: MainWindow, preview: bool = False, features: tuple[str, ...] = live.FEATURES) -> Snapshot:
+def snapshot(window: MainWindow, preview: bool = False, features: tuple[str, ...] = FEATURES) -> Snapshot:
     """What the daemon tells: the saved file, or with `preview` the document as it is in the window."""
     config = window.validation.config if preview else window.document.saved_config
     assert config is not None
     strips = tuple(strip_state() for _ in range(8))
-    return Snapshot(live.fingerprint(config), True, True, None, strips, preview=preview, features=features)
+    return Snapshot(fingerprint(config), True, True, None, strips, preview=preview, features=features)
 
 
 def live_window(qtbot: QtBot, make_window: MakeWindow, previewing: PreviewingDaemon, **options: object) -> MainWindow:

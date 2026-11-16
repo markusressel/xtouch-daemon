@@ -37,7 +37,7 @@ from pytestqt.qtbot import QtBot
 from tests.conftest import install_package, output, source, stream
 from tests.test_instance import RecordingInstance
 from tests.test_systemd import FakeSystemctl
-from xtouch_daemon import live, mumble, systemd
+from xtouch_daemon import mumble, systemd
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config.presets import Kind as PresetKind
@@ -55,7 +55,8 @@ from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, MumbleInstaller,
 from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.instance import Instance
-from xtouch_daemon.live import MqttState, Snapshot, StripState, VoipState
+from xtouch_daemon.live.codec import encode, encode_reply, encode_request
+from xtouch_daemon.live.messages import MqttState, Reply, Snapshot, StripState, SwitchLayout, VoipState, fingerprint
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, unit_file, unit_path
 
 CONFIG = """\
@@ -787,7 +788,7 @@ class FakeLiveDaemon:
             client.flush()
 
     def send(self, snapshot: Snapshot) -> None:
-        self.send_line(live.encode(snapshot))
+        self.send_line(encode(snapshot))
 
     def close(self) -> None:
         for client in self.clients:
@@ -823,7 +824,7 @@ def snapshot(window: MainWindow, first: StripState, device: bool = True) -> Snap
     saved = window.document.saved_config
     assert saved is not None
     strips = (first, *(strip_state() for _ in range(7)))
-    return Snapshot(live.fingerprint(saved), device, sound_server=True, mqtt=None, strips=strips)
+    return Snapshot(fingerprint(saved), device, sound_server=True, mqtt=None, strips=strips)
 
 
 def test_the_preview_shows_the_device_live(
@@ -2779,9 +2780,7 @@ def layout_snapshot(window: MainWindow, layout: str | None) -> Snapshot:
     saved = window.document.saved_config
     assert saved is not None
     strips = tuple(strip_state(("Live", "")) for _ in range(8))
-    return Snapshot(
-        live.fingerprint(saved), True, True, None, strips, layout=layout, layouts=("default", "gaming", "music")
-    )
+    return Snapshot(fingerprint(saved), True, True, None, strips, layout=layout, layouts=("default", "gaming", "music"))
 
 
 def test_the_device_shows_one_layout_live(
@@ -2806,12 +2805,12 @@ def test_the_device_shows_one_layout_live(
     assert window.status.text() == "Asked the daemon to show the layout music."
     (client,) = live_daemon.clients
     qtbot.waitUntil(lambda: client.bytesAvailable() > 0)
-    assert bytes(client.readAll().data()) == live.encode_request(live.SwitchLayout("music"))
+    assert bytes(client.readAll().data()) == encode_request(SwitchLayout("music"))
     # the daemon does not have it (e.g. renamed in the file meanwhile)
-    live_daemon.send_line(live.encode_reply(live.Reply("layout", False, "There is no layout music (default, gaming)")))
+    live_daemon.send_line(encode_reply(Reply("layout", False, "There is no layout music (default, gaming)")))
     qtbot.waitUntil(lambda: window.status.text() == "There is no layout music (default, gaming)")
     # a switch that worked is told by the snapshots
-    live_daemon.send_line(live.encode_reply(live.Reply("layout", True, "music")))
+    live_daemon.send_line(encode_reply(Reply("layout", True, "music")))
 
     # a daemon of before layouts shows the default one
     live_daemon.send(layout_snapshot(window, None))
@@ -2950,11 +2949,11 @@ def test_voip_strips_say_who_is_on_them(qtbot: QtBot, make_window: MakeWindow, p
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     saved = window.document.saved_config
     assert saved is not None
-    voip = live.VoipState("demo", True, None, None, 2, ("Ann", "Bob"), ("Ann", "Bob", *[None] * 7))
+    voip = VoipState("demo", True, None, None, 2, ("Ann", "Bob"), ("Ann", "Bob", *[None] * 7))
     strips = tuple(strip_state(("Live", "")) for _ in range(8))
     live_daemon.send(
         Snapshot(
-            live.fingerprint(saved),
+            fingerprint(saved),
             True,
             True,
             None,

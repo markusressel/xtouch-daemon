@@ -2,7 +2,7 @@ from pathlib import Path
 
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, participants, people_on_strips
-from xtouch_daemon.live import Snapshot, VoipState
+from xtouch_daemon.live.messages import Snapshot, VoipState
 from xtouch_daemon.mumble import Setup
 
 

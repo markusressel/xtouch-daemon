@@ -82,7 +82,7 @@ from xtouch_daemon.gui.qt.preview import Preview
 from xtouch_daemon.gui.qt.strip_list import StripList
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.instance import Instance
-from xtouch_daemon.live import Reply, Snapshot, SwitchLayout
+from xtouch_daemon.live.messages import Reply, Snapshot, SwitchLayout
 from xtouch_daemon.systemd import (
     UNIT_NAME,
     Service,

@@ -5,7 +5,7 @@ The voice chat on the page of `[voip]`: whether the daemon has the participants,
 
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.live import Snapshot
+from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.mumble import Setup
 
 

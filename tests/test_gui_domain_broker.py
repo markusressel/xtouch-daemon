@@ -9,7 +9,7 @@ from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain import broker
 from xtouch_daemon.gui.domain.broker import explain, header_status, live_status, try_broker
 from xtouch_daemon.gui.domain.status import Tone
-from xtouch_daemon.live import MqttState, Snapshot
+from xtouch_daemon.live.messages import MqttState, Snapshot
 
 
 def snapshot(mqtt: bool | None, state: MqttState | None = None) -> Snapshot:

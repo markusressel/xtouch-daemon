@@ -10,7 +10,7 @@ from typing import Any
 
 from xtouch_daemon.config.values import MAX_STRIPS
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.live import Snapshot
+from xtouch_daemon.live.messages import Snapshot
 
 
 class Where(StrEnum):

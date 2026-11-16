@@ -59,7 +59,7 @@ from xtouch_daemon.gui.qt.fields import (
     suggestion_menu,
 )
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.live import Snapshot
+from xtouch_daemon.live.messages import Snapshot
 
 type Audio = Callable[[], AudioState]
 

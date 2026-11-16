@@ -20,7 +20,7 @@ from xtouch_daemon.gui.domain.looks import (
 from xtouch_daemon.gui.domain.looks import (
     printed as printed_on,
 )
-from xtouch_daemon.live import Snapshot, StripState
+from xtouch_daemon.live.messages import Snapshot, StripState
 
 STATE = AudioState(
     outputs=(output("speaker", card="onboard"), output("buds")),

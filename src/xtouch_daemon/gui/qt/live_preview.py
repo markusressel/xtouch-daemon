@@ -7,7 +7,7 @@ from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.qt.live_view import LiveView
-from xtouch_daemon.live import EndPreview, KeepPreview, Reply, StartPreview
+from xtouch_daemon.live.messages import EndPreview, KeepPreview, Reply, StartPreview
 
 DEBOUNCE_MS = 300
 """How long the editor rests before the document goes to the daemon: typing a name sends it once, not per letter."""

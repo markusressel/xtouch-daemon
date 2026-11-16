@@ -10,14 +10,15 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import RecordingSurface, finish_tasks
-from xtouch_daemon import live
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.live import (
+from xtouch_daemon.live import server as server_module
+from xtouch_daemon.live.codec import decode, decode_message, decode_request, encode, encode_reply, encode_request
+from xtouch_daemon.live.messages import (
+    FEATURES,
     EndPreview,
     KeepPreview,
-    LiveServer,
     MqttState,
     Reply,
     Request,
@@ -25,16 +26,10 @@ from xtouch_daemon.live import (
     StartPreview,
     StripState,
     SwitchLayout,
-    decode,
-    decode_message,
-    decode_request,
-    encode,
-    encode_reply,
-    encode_request,
+    VoipState,
     fingerprint,
-    peer_uid,
-    strip_states,
 )
+from xtouch_daemon.live.server import INTERVAL, MAX_BUFFER, METER_FALL, LiveServer, peer_uid, strip_states
 
 
 @pytest.fixture
@@ -59,7 +54,7 @@ async def serve(server: LiveServer) -> asyncio.Task[None]:
     for _ in range(100):
         if server.path.exists():
             # a moment without clients
-            await asyncio.sleep(2 * live.INTERVAL)
+            await asyncio.sleep(2 * INTERVAL)
             return task
         await asyncio.sleep(0.005)
     raise AssertionError("the server did not start")
@@ -78,7 +73,7 @@ def test_a_strip_is_described_as_the_device_shows_it(surface: RecordingSurface, 
     strip.set_meter(10)
     monkeypatch.undo()
 
-    states = strip_states(surface, 100.0 + 2 * live.METER_FALL + 0.01)
+    states = strip_states(surface, 100.0 + 2 * METER_FALL + 0.01)
 
     assert states[2] == StripState(
         color="cyan",
@@ -161,7 +156,7 @@ async def test_a_client_gets_the_state_at_once_and_then_every_change(surface: Re
 
     # nothing changed: nothing is sent
     with pytest.raises(TimeoutError):
-        await asyncio.wait_for(reader.readline(), 3 * live.INTERVAL)
+        await asyncio.wait_for(reader.readline(), 3 * INTERVAL)
 
     writer.write(b"ignored\n")
     writer.close()
@@ -189,7 +184,7 @@ async def test_a_client_that_does_not_read_is_dropped(
             break
         await asyncio.sleep(0.005)
     (client,) = server.clients
-    monkeypatch.setattr(client.transport, "get_write_buffer_size", lambda: live.MAX_BUFFER + 1)
+    monkeypatch.setattr(client.transport, "get_write_buffer_size", lambda: MAX_BUFFER + 1)
 
     surface.strips[0].set_text(0, "Mic")
     # the server closes the connection instead of sending more
@@ -267,7 +262,7 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
     assert decode(encode_reply(reply)) is None
     assert b'"version"' not in encode_reply(reply)
     # the snapshot of a daemon that previews, and of one that does not know previews
-    snapshot = dataclasses.replace(snapshot_of(surface), preview=True, features=live.FEATURES)
+    snapshot = dataclasses.replace(snapshot_of(surface), preview=True, features=FEATURES)
     assert decode_message(encode(snapshot)) == snapshot
     older = encode(snapshot_of(surface)).replace(b',"preview":false,"features":[]', b"")
     assert b"features" not in older
@@ -341,7 +336,7 @@ async def test_requests_of_other_users_are_refused(
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface), requests.handle)
     task = await serve(server)
     # e.g. root, who can connect to a socket of mode 0600
-    monkeypatch.setattr(live, "peer_uid", lambda sock: os.getuid() + 1)
+    monkeypatch.setattr(server_module, "peer_uid", lambda sock: os.getuid() + 1)
     reader, writer = await asyncio.open_unix_connection(server.path)
     # it still sees what the device shows
     assert decode(await reader.readline()) is not None
@@ -371,7 +366,7 @@ async def test_without_a_handler_requests_are_refused(surface: RecordingSurface,
 async def test_a_request_that_is_too_long_ends_the_connection(
     surface: RecordingSurface, socket_dir: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    monkeypatch.setattr(live, "MAX_REQUEST", 1000)
+    monkeypatch.setattr(server_module, "MAX_REQUEST", 1000)
     requests = Requests()
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface), requests.handle, requests.closed.append)
     task = await serve(server)
@@ -414,7 +409,7 @@ def test_the_live_view_shows_a_banner(surface: RecordingSurface):
 
 
 def test_the_voice_chat_goes_through_a_line(surface: RecordingSurface):
-    voip = live.VoipState("bridge", True, "mumble", "Lobby", 3, ("Ann", "Bob", "Carol"), ("Bob", None, "Ann"))
+    voip = VoipState("bridge", True, "mumble", "Lobby", 3, ("Ann", "Bob", "Carol"), ("Bob", None, "Ann"))
     snapshot = dataclasses.replace(snapshot_of(surface), voip=voip)
     assert decode(encode(snapshot)) == snapshot
     # without who is where

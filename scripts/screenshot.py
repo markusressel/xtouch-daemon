@@ -97,13 +97,13 @@ def shoot(home: Path, out: Path) -> None:
     from PyQt6.QtNetwork import QLocalServer
     from PyQt6.QtWidgets import QApplication
 
-    from xtouch_daemon import live
     from xtouch_daemon.audio.model import AudioState, Card, Device, Direction, Profile, Stream
     from xtouch_daemon.gui.domain.document import ConfigDocument
     from xtouch_daemon.gui.qt import theme
     from xtouch_daemon.gui.qt.window import MainWindow
     from xtouch_daemon.instance import Instance
-    from xtouch_daemon.live import MqttState, Snapshot, StripState
+    from xtouch_daemon.live.codec import encode
+    from xtouch_daemon.live.messages import MqttState, Snapshot, StripState, fingerprint
     from xtouch_daemon.systemd import Service
 
     QCoreApplication.setOrganizationName("xtouch-daemon-screenshot")
@@ -176,7 +176,7 @@ def shoot(home: Path, out: Path) -> None:
     saved = document.saved_config
     assert saved is not None
     mqtt = MqttState("homeassistant.local:1883", "xtouch", connected=True, ready=True, error=None, entities=6)
-    snapshot = Snapshot(live.fingerprint(saved), True, sound_server=True, mqtt=True, strips=strips, mqtt_state=mqtt)
+    snapshot = Snapshot(fingerprint(saved), True, sound_server=True, mqtt=True, strips=strips, mqtt_state=mqtt)
 
     socket = home / "runtime" / "live.sock"
     server = QLocalServer()
@@ -186,7 +186,7 @@ def shoot(home: Path, out: Path) -> None:
         while server.hasPendingConnections():
             client = server.nextPendingConnection()
             assert client is not None
-            client.write(live.encode(snapshot))
+            client.write(encode(snapshot))
             client.flush()
 
     server.newConnection.connect(connected)

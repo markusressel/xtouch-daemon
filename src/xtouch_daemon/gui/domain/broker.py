@@ -15,7 +15,7 @@ import aiomqtt
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.live import MqttState, Snapshot
+from xtouch_daemon.live.messages import MqttState, Snapshot
 
 TEST_TIMEOUT = 5.0
 """Seconds a test waits for the broker."""

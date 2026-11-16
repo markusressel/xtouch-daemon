@@ -11,7 +11,7 @@ from typing import Any, BinaryIO, assert_never
 
 import click
 
-from xtouch_daemon import __version__, instance, live, mumble, systemd
+from xtouch_daemon import __version__, instance, mumble, systemd
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.audio.pulse import PulseBackend, SoundServerError, read_state
 from xtouch_daemon.config import presets
@@ -26,7 +26,8 @@ from xtouch_daemon.config.values import DEFAULT_LAYOUT, MeterPoint, default_enco
 from xtouch_daemon.daemon import Daemon
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.selftest import run_selftest
-from xtouch_daemon.live import Reply, Snapshot
+from xtouch_daemon.live.codec import decode_message, encode_request
+from xtouch_daemon.live.messages import Reply, Snapshot, SwitchLayout
 from xtouch_daemon.media import MprisPlayers
 
 CONFIG_OPTION = click.option(
@@ -195,7 +196,7 @@ LAYOUT_TIMEOUT = 3.0
 def _live_lines(lines: BinaryIO) -> Iterator[Snapshot | Reply]:
     """The snapshots and replies of the live view, until the daemon closes the connection."""
     for line in lines:
-        message = live.decode_message(line)
+        message = decode_message(line)
         if message is not None:
             yield message
 
@@ -233,7 +234,7 @@ def _switch_layout(sock: socket.socket, name: str | None, step: int | None) -> N
             raise click.ClickException("the daemon is older than this program, restart it")
         active = current.layout or names[0]
         wanted = name if name is not None else names[(names.index(active) + (step or 0)) % len(names)]
-        sock.sendall(live.encode_request(live.SwitchLayout(wanted)))
+        sock.sendall(encode_request(SwitchLayout(wanted)))
         try:
             reply = next(message for message in messages if isinstance(message, Reply))
         except (StopIteration, TimeoutError) as e:
