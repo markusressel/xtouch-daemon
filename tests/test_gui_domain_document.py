@@ -160,15 +160,18 @@ def test_without_strips_there_is_no_strip_left():
     assert "[[strip]]" not in document("").render()
 
 
-def test_at_most_eight_strips():
+def test_more_than_eight_strips_only_while_one_collapses():
     doc = document("")
     doc.configure_up_to(7)
     assert [strip.type for strip in doc.strips] == ["auto"] * 8
     doc.configure_up_to(3)
     assert len(doc.strips) == 8
 
-    with pytest.raises(ValueError, match="there are 8 strips already"):
+    with pytest.raises(ValueError, match="8 strips without collapse come first"):
         doc.add_strip()
+    # one of them collapses: a ninth one can get its place
+    doc.strips[0].values["collapse"] = True
+    assert doc.add_strip() == 8
 
 
 def test_a_new_type_keeps_the_options_it_has_too():

@@ -127,3 +127,10 @@ async def test_a_strip_that_moves_shows_everything_on_its_new_place(surface: Rec
     # what the strip shows from now on goes to its new place only
     strips[1].set_text(1, "50%")
     assert (target.text[1], surface.strips[1].text[1]) == ("50%", "")
+
+
+async def test_fewer_strips_than_the_device_has_leave_the_rest_alone(surface: RecordingSurface) -> None:
+    strips = [VirtualStrip(surface, index) for index in range(2)]
+    flow = Flow(strips, surface.strips[:3], [False, False], lambda index: f"S{index + 1}", 3.0, Clock())
+    assert flow.placement == (0, 1, None)
+    assert strips[1].target is surface.strips[1]

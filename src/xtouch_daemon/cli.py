@@ -102,7 +102,8 @@ def describe_strip(config: StripConfig, number: int) -> str:
     match config:
         case DeviceStripConfig(choices=choices) if choices:
             titles = [choice.title for choice in choices]
-            what = f"{config.type}: {', '.join(titles[:-1])} or {titles[-1]} (Select switches)"
+            either = f"{', '.join(titles[:-1])} or {titles[-1]}" if len(titles) > 1 else titles[0]
+            what = f"{config.type}: {either} (Select switches)"
         case DeviceStripConfig(device=()):
             what = f"the default {config.type}"
         case DeviceStripConfig():

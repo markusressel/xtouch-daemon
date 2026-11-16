@@ -1,6 +1,15 @@
 from tests.conftest import output, source, stream
 from xtouch_daemon.audio.model import AudioState, Card, Direction, Profile
-from xtouch_daemon.gui.domain.sources import Suggestion, applications, devices, patterns, profiles, summary
+from xtouch_daemon.gui.domain.sources import (
+    Suggestion,
+    applications,
+    card_profiles,
+    cards,
+    devices,
+    patterns,
+    profiles,
+    summary,
+)
 
 STATE = AudioState(
     outputs=(output("speaker"), output("buds")),
@@ -60,3 +69,17 @@ def test_profiles_of_the_cards_of_the_devices_with_the_active_one_marked():
         Suggestion("digital", "Digital Output"),
     )
     assert profiles(state, Direction.INPUT) == ()
+
+
+def test_cards_and_their_profiles_for_choices():
+    state = AudioState(
+        outputs=(output("speaker", card="onboard"),),
+        cards=(
+            Card("onboard", "analog", (Profile("analog", "Analog"), Profile("digital", "Digital")), "HD Audio"),
+            Card("hdmi", "off"),
+        ),
+    )
+    assert cards(state) == (Suggestion("onboard", "HD Audio, speaker"), Suggestion("hdmi", ""))
+    # by its description too
+    assert card_profiles(state, "HD*") == (Suggestion("analog", "Analog (active)"), Suggestion("digital", "Digital"))
+    assert card_profiles(state, "") == card_profiles(state, "gone") == ()

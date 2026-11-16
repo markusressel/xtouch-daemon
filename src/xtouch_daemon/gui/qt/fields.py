@@ -4,7 +4,7 @@ help), so an option added to the configuration shows up without changes here.
 """
 
 import html
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, assert_never
 
@@ -39,6 +39,10 @@ from xtouch_daemon.gui.qt import theme
 
 type Suggest = Callable[[], tuple[Suggestion, ...]]
 """What the sound server has now for an option, asked for every time it is needed."""
+type ColumnSuggest = Callable[[dict[str, str | int]], tuple[Suggestion, ...]]
+"""What the sound server has now for a column of a table, given the other values of its line (e.g. its card)."""
+type TableSuggest = Mapping[str, ColumnSuggest]
+"""The suggestions for the columns of a table that have some, by name."""
 
 CHIP_HEIGHT = 2 * theme.Radius.PILL
 
@@ -414,18 +418,22 @@ class Chips(QWidget):
 class Tables(QWidget):
     """
     A list of tables with texts and numbers (e.g. the profiles of a strip): a line of fields for each, a button to add
-    one. The suggestions are for the value: the first text column without a length limit (a label has one).
+    one. A `Suggest` is for the value: the first text column without a length limit (a label has one); a
+    `TableSuggest` names the columns, which get the other values of their line (e.g. the profiles of its card).
     """
 
     changed = pyqtSignal(list, arguments=["values"])
 
-    def __init__(self, columns: tuple[Option, ...], suggest: Suggest | None):
+    def __init__(self, columns: tuple[Option, ...], suggest: Suggest | TableSuggest | None):
         super().__init__()
         self.columns = columns
-        self._suggest = suggest
-        self._suggested = next(
-            i for i, column in enumerate(columns) if column.kind == Kind.TEXT and column.max_length is None
-        )
+        if isinstance(suggest, Mapping):
+            self._suggest: dict[str, ColumnSuggest] = dict(suggest)
+        elif suggest is not None:
+            value = next(column for column in columns if column.kind == Kind.TEXT and column.max_length is None)
+            self._suggest = {value.name: lambda _line, suggest=suggest: suggest()}
+        else:
+            self._suggest = {}
         self.values: list[dict[str, str | int]] = []
         self.lines: list[list[QLineEdit]] = []
         self._row_widgets: list[QWidget] = []
@@ -467,17 +475,23 @@ class Tables(QWidget):
                 edit.setMaxLength(column.max_length)
             edit.textEdited.connect(lambda text, name=column.name: self._edit(index, name, text))
             lines.append(edit)
-        for i, (column, edit) in enumerate(zip(self.columns, lines, strict=True)):
-            if i != self._suggested:
+        for column, edit in zip(self.columns, lines, strict=True):
+            wide = column.kind == Kind.TEXT and column.max_length is None
+            if not wide:
                 # a label, a number: narrow
                 edit.setMaximumWidth(120 if column.kind == Kind.TEXT else 110)
-            layout.addWidget(edit, 1 if i == self._suggested else 0)
-            if i == self._suggested and self._suggest is not None:
+            layout.addWidget(edit, 1 if wide else 0)
+            column_suggest = self._suggest.get(column.name)
+            if column_suggest is not None:
                 name = column.name
-                completer(edit, self._suggest).activated.connect(lambda text, name=name: self._edit(index, name, text))
+
+                def suggest(column_suggest: ColumnSuggest = column_suggest) -> tuple[Suggestion, ...]:
+                    return column_suggest(self.values[index])
+
+                completer(edit, suggest).activated.connect(lambda text, name=name: self._edit(index, name, text))
                 layout.addWidget(
                     suggestion_menu(
-                        row, self._suggest, lambda text: self._pick(index, text), "The sound server has none"
+                        row, suggest, lambda text, name=name: self._pick(index, name, text), "The sound server has none"
                     )
                 )
         remove = flat_button("close", "Remove it", row)
@@ -496,9 +510,10 @@ class Tables(QWidget):
             self.values[index].pop(name, None)
         self.changed.emit([dict(value) for value in self.values])
 
-    def _pick(self, index: int, text: str) -> None:
-        self.lines[index][self._suggested].setText(text)
-        self._edit(index, self.columns[self._suggested].name, text)
+    def _pick(self, index: int, name: str, text: str) -> None:
+        column = next(i for i, column in enumerate(self.columns) if column.name == name)
+        self.lines[index][column].setText(text)
+        self._edit(index, name, text)
 
     def add(self) -> None:
         self.show_values([*self.values, {}])
@@ -524,10 +539,11 @@ class OptionRow(QWidget):
         option: Option,
         get: Callable[[], Any],
         put: Callable[[Any], None],
-        suggest: Suggest | None = None,
+        suggest: Suggest | TableSuggest | None = None,
         placeholder: Callable[[], str] | None = None,
         link: str | None = None,
     ):
+        """`suggest` is a `TableSuggest` only for an option of `Kind.TABLES`."""
         super().__init__()
         self.option = option
         self._get = get
@@ -569,7 +585,7 @@ class OptionRow(QWidget):
 
     # -- the fields of the kinds ----------------------------------------------------------------------------------
 
-    def _field(self, option: Option, suggest: Suggest | None) -> QWidget:
+    def _field(self, option: Option, suggest: Suggest | TableSuggest | None) -> QWidget:
         match option.kind:
             case Kind.TEXT | Kind.SECRET | Kind.PATH:
                 return self._text_field(option)
@@ -609,7 +625,7 @@ class OptionRow(QWidget):
                 self.input = self.colors
                 return self.colors
             case Kind.LIST:
-                self.chips = Chips(suggest, self._placeholder)
+                self.chips = Chips(None if isinstance(suggest, Mapping) else suggest, self._placeholder)
                 self.chips.changed.connect(self._edit)
                 self.input = self.chips
                 return self.chips

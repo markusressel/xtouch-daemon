@@ -61,3 +61,32 @@ def profiles(state: AudioState, direction: Direction) -> tuple[Suggestion, ...]:
         if card.name in cards
         for profile in card.profiles
     )
+
+
+def cards(state: AudioState) -> tuple[Suggestion, ...]:
+    """The sound cards by name, for `card` of `choices`: their descriptions and devices, as `list-devices` has them."""
+    return tuple(
+        Suggestion(
+            card.name,
+            ", ".join(
+                part
+                for part in (
+                    card.description,
+                    *(device.name for device in (*state.outputs, *state.inputs) if device.card == card.name),
+                )
+                if part
+            ),
+        )
+        for card in state.cards
+    )
+
+
+def card_profiles(state: AudioState, card: str | None) -> tuple[Suggestion, ...]:
+    """The profiles of the card of `card` (its name or description, wildcards allowed), for `profile` of `choices`."""
+    found = state.card_matching(card) if card else None
+    if found is None:
+        return ()
+    return tuple(
+        Suggestion(profile.name, profile.description + (" (active)" if profile.name == found.profile else ""))
+        for profile in found.profiles
+    )

@@ -52,6 +52,7 @@ from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, Validation
+from xtouch_daemon.gui.domain.flow import flow_rows
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
 from xtouch_daemon.gui.domain.looks import faces, looks
@@ -77,6 +78,7 @@ from xtouch_daemon.gui.qt.pages import (
     set_text,
 )
 from xtouch_daemon.gui.qt.preview import Preview
+from xtouch_daemon.gui.qt.strip_list import StripList
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import Reply, Snapshot, SwitchLayout
 from xtouch_daemon.systemd import (
@@ -292,6 +294,10 @@ class MainWindow(QMainWindow):
         self.preview_message.hide()
         body.addWidget(self.preview_message)
         body.addLayout(self._layout_bar())
+        self.strip_list = StripList()
+        self.strip_list.clicked.connect(self.select)
+        self.strip_list.add.connect(self.add_strip)
+        body.addWidget(self.strip_list)
         self.splitter = PreviewSplitter()
         self.splitter.addWidget(self._preview())
         tabs = self._tabs()
@@ -746,7 +752,11 @@ class MainWindow(QMainWindow):
         # live only while the device shows the layout being edited
         live_layout = (snapshot.layout or "default") if snapshot is not None else None
         shown = snapshot if live_layout == self.document.layout_name else None
-        self.preview.show_faces(faces(strip_looks, shown, edited, shows_document), selected)
+        strips = [strip.values for strip in self.document.strips]
+        rows = flow_rows(strips, shown)
+        preview_faces = faces(strip_looks[: protocol.STRIPS], shown, edited, shows_document, rows)
+        self.preview.show_faces(preview_faces, selected)
+        self.strip_list.show_strips(strips, rows, strip_looks, self.selected)
         self._fill_layout_tabs()
         look = strip_looks[self.selected]
         title = f"Strip {self.selected + 1}" + (f" · {look.label}" if look.label else "")
@@ -857,6 +867,11 @@ class MainWindow(QMainWindow):
     def _configure(self, index: int) -> None:
         self.editor.configure_up_to(index)
         self.show_page("strip")
+
+    def add_strip(self) -> None:
+        self.editor.add_strip()
+        self.show_page("strip")
+        self.status.setText(f"Added strip {self.selected + 1}, an auto strip.")
 
     def remove_strip(self, index: int) -> None:
         self.editor.remove_strip(index)

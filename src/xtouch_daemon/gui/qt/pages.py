@@ -44,6 +44,7 @@ from xtouch_daemon.gui.qt.fields import (
     LEARN_MORE,
     OptionRow,
     Suggest,
+    TableSuggest,
     completer,
     flat_button,
     help_html,
@@ -165,7 +166,7 @@ class Page(QWidget):
         self,
         option: Any,
         path: Callable[[str], tuple[str | int, ...]],
-        suggest: Suggest | None = None,
+        suggest: Suggest | TableSuggest | None = None,
         placeholder: Callable[[], str] | None = None,
         link: str | None = None,
         rows: list[OptionRow] | None = None,
@@ -617,6 +618,11 @@ class StripPage(Page):
             option_row.show_problems(validation.at("strip", self.index, option_row.option.name))
 
 
+EXCLUSIVE_GROUPS = {"one": ("device", "profiles"), "choices": ("choices",)}
+"""The options of a device strip that exclude each other: one device (or several) with profiles, or choices."""
+EXCLUSIVE = {name: group for group, names in EXCLUSIVE_GROUPS.items() for name in names}
+
+
 class StripForm(QWidget):
     """The type of a strip and the options of that type, for whichever strip of the type the page shows."""
 
@@ -659,6 +665,7 @@ class StripForm(QWidget):
             layout.addWidget(self._connection())
         frame, options_layout = card()
         suggest: dict[str, Suggest] = {"match": lambda: sources.patterns(page.audio())}
+        table_suggest: dict[str, TableSuggest] = {}
         placeholders: dict[str, Callable[[], str]] = {
             "label": page._default_label,
             "min_volume": lambda: "0",
@@ -669,6 +676,12 @@ class StripForm(QWidget):
             direction = Direction(strip_type)
             suggest["device"] = lambda: sources.devices(page.audio(), direction)
             suggest["profiles"] = lambda: sources.profiles(page.audio(), direction)
+            choices: TableSuggest = {
+                "device": lambda _line: sources.devices(page.audio(), direction),
+                "card": lambda _line: sources.cards(page.audio()),
+                "profile": lambda line: sources.card_profiles(page.audio(), str(line.get("card", ""))),
+            }
+            table_suggest["choices"] = choices
             placeholders["device"] = lambda: f"none: the default {strip_type}"
         if strip_type == "homeassistant":
             placeholders["id"] = lambda: f"strip_{page.index + 1}"
@@ -679,7 +692,7 @@ class StripForm(QWidget):
             option_row = page._row(
                 option,
                 lambda name: ("strip", page.index, name),
-                suggest.get(option.name),
+                table_suggest.get(option.name) or suggest.get(option.name),
                 placeholders.get(option.name),
                 docs.option_link("strip", option.name, strip_type),
                 self.rows,
@@ -687,11 +700,27 @@ class StripForm(QWidget):
             if option.name == "device":
                 # the label shown by default follows the device
                 option_row.edited.connect(self._device_edited)
+            if option.name in EXCLUSIVE:
+                option_row.edited.connect(self._show_exclusive)
             options_layout.addWidget(option_row)
         if not self.rows:
             text = "An empty strip has no options." if strip_type == "empty" else "The strip has no options."
             options_layout.addWidget(label(text, "hint"))
         layout.addWidget(frame)
+
+    def _show_exclusive(self) -> None:
+        """
+        `choices` or `device` and `profiles`: the ones in use, both while none is set (or both are, which is a
+        problem). What is hidden keeps its values.
+        """
+        strip = self.page.document.strips[self.page.index] if self.page.configured else None
+        values = strip.values if strip is not None else {}
+        in_use = {group for group, names in EXCLUSIVE_GROUPS.items() if any(values.get(name) for name in names)}
+        for option_row in self.rows:
+            group = EXCLUSIVE.get(option_row.option.name)
+            hidden = group is not None and len(in_use) == 1 and group not in in_use
+            if option_row.isHidden() != hidden:
+                option_row.setHidden(hidden)
 
     def _device_edited(self) -> None:
         for option_row in self.rows:
@@ -722,6 +751,7 @@ class StripForm(QWidget):
         set_text(self.kept, "<br>".join(help_html(note) for note in notes))
         self.kept.setVisible(bool(notes))
         self.page._load_rows(self.rows)
+        self._show_exclusive()
         self.show_globals()
 
     def show_globals(self) -> None:

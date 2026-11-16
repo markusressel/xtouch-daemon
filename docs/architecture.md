@@ -135,6 +135,11 @@ itself does not import it.
   tab holds the options of the selected strip and another the global settings (`[behavior]`, `[aliases]`, `[mqtt]` as
   "Home Assistant", `[device]`), so a global setting never looks like one of the selected strip. A strip with unsaved
   changes shows how it will look (marked with a dot), the others stay live.
+- **Strips beyond the device.** The preview has the 8 strips of the device, the first 8 of the layout.
+  `gui/domain/flow.py` says where every strip of the layout is, from the file or from the placement the daemon sends
+  (see [Collapsing strips](#collapsing-strips)), and whether one more could ever get a place; `faces()` uses it to show
+  each strip with the strip of the device it is on. `qt/strip_list.py` lists them all and selects the ones beyond 8,
+  which the `Editor` allows.
 - **Undo instead of questions.** `History` (`gui/domain/history.py`) keeps the states of the document before every
   edit, so removing a strip or reverting the file asks nothing and Ctrl+Z brings it back. Typing into one option is one
   step. Ctrl+Z undoes in the document also while a text field has the focus.

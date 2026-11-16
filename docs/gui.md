@@ -135,6 +135,13 @@ daemon from before the live preview (restart it to run the installed version).
 Only configured strips move, and only among each other. Removing a strip moves the strips right of it to the left; the
 free places are `auto` strips. The tab of a strip also has buttons to move it left and right.
 
+The strips on top are the first 8 of the layout. While it has 8 strips or more, or one of them collapses (see
+[Collapsing strips](configuration/collapsing.md)), a row of buttons above them lists every strip with where it is: on a
+strip of the device ("on 3"), collapsed, or waiting for a place. A click selects it, also a strip beyond the 8.
+"Add strip" adds an `auto` strip at the end; it is off, and its tooltip says why, while a new strip could never show (8
+strips without `collapse` before it). While the daemon runs the layout, a strip that collapsed is drawn fainter with
+its look from the file, and the others show what their strips of the device show.
+
 ## Editing options
 
 The forms come from the options of the configuration, so every option has a field. The options of a strip are in
@@ -146,6 +153,9 @@ where it is what the strip controls).
   secrets, and file pickers;
 - the help of each option under its field, with its default and, where the documentation explains more, a
   "Learn more" link to that section; a button sets the option back to its default;
+- `choices` as a table, with the devices, the sound cards and the profiles of the card of each line to pick from.
+  While a strip has `choices`, `device` and `profiles` are hidden, and the other way around: a strip has one or the
+  other;
 - for choices, what the chosen value does (e.g. `recording` for the Rec LED), and each value says it as a tooltip in
   the list; the type of a strip says what that type controls;
 - the errors next to the options they belong to, with the same messages as `xtouch-daemon check-config`. The

@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   once. A configuration (or layout) may list up to 32 places; the device shows the first 8 that take one. Strips
   move with everything they show, never while a fader is touched or a button held, and each move is logged.
   `check-config` reports strips that could never get a fader. The live view tells the placement.
+- GUI: `choices` with the devices, cards and profiles to pick from per line; a strip list that reaches the strips
+  beyond the 8 of the device, tells where each one is (on the device, collapsed, waiting) and adds strips while they
+  could get a place. The preview follows the strips that moved.
 - `list-devices` shows the description of each sound card next to its name.
 - Layouts: `[[layout]]` sections with their own `[[layout.strip]]` lists, e.g. one for games; the top-level strips
   are the layout `default`, so existing files work as before. The device switches with `xtouch-daemon layout NAME`
