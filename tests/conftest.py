@@ -1,8 +1,10 @@
 """Fakes with the shape of the real thing: a backend that records commands, and a surface without device."""
 
 import asyncio
+import contextlib
+import gc
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -19,6 +21,31 @@ from xtouch_daemon.surface import Surface
 
 # windows of the GUI tests are never shown on the display of the machine
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
+
+def child_processes() -> set[int]:
+    """The processes this one started that are not waited for yet: running, or ended (zombies)."""
+    children: set[int] = set()
+    for thread in Path("/proc/self/task").iterdir():
+        # a thread may end meanwhile
+        with contextlib.suppress(FileNotFoundError):
+            children.update(int(pid) for pid in (thread / "children").read_text().split())
+    return children
+
+
+@pytest.fixture(autouse=True)
+def no_leaks() -> Iterator[None]:
+    """
+    Fails the test that leaves a process behind, instead of a random later one: the transport of a process that is not
+    waited for warns when it is garbage collected (`filterwarnings = ["error"]`), whichever test runs then. Its teardown
+    runs after the event loop of the test is closed, which cancels the tasks the test left and waits for them.
+    """
+    before = child_processes()
+    yield
+    # the transports of what the test left warn now, in this test
+    gc.collect()
+    leaked = child_processes() - before
+    assert not leaked, f"the test left processes behind: {sorted(leaked)}"
 
 
 @pytest.fixture(autouse=True)

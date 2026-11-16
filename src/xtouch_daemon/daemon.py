@@ -555,6 +555,7 @@ class Daemon:
         for task in others:
             task.cancel()
         await asyncio.gather(*others, return_exceptions=True)
+        await self.mixer.wait_closed()
 
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self.surface.put_away(), SHUTDOWN_TIMEOUT)

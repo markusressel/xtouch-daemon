@@ -244,3 +244,7 @@ class Mixer:
         for strip in self.strips:
             # the next mixer draws on the device
             strip.target = None
+
+    async def wait_closed(self) -> None:
+        """Waits until the meter captures `close()` stopped ended their processes."""
+        await asyncio.gather(*(meter.wait_closed() for meter in self.meters))
