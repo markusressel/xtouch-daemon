@@ -50,12 +50,14 @@ from xtouch_daemon.config import Problem
 from xtouch_daemon.gui.domain import broker, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.broker import header_status
-from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument
+from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
+from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, Validation
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
 from xtouch_daemon.gui.domain.looks import faces, looks
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
 from xtouch_daemon.gui.qt import theme
+from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields import Switch, flat_button, label, show_status
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
@@ -72,6 +74,7 @@ from xtouch_daemon.gui.qt.pages import (
     StripPage,
     VoipPage,
     page_title,
+    set_text,
 )
 from xtouch_daemon.gui.qt.preview import Preview
 from xtouch_daemon.instance import Instance
@@ -248,14 +251,14 @@ class MainWindow(QMainWindow):
         self.zoom = theme.load_zoom()
         self.rezoom: float | None = None
         """The zoom the next window gets: set when this one closes for a new zoom (see `Session`)."""
-        self.document = document
+        self.editor = Editor(document, session.history if session is not None else None)
+        """The document, its history and validation, and the selected strip: what everything shows."""
         self.service = service
         self.find_daemon = find_daemon
         self.daemon: Instance | None = None
         self.audio = DISCONNECTED
-        self.selected = 0
-        self.validation = document.validate()
-        self.history = session.history if session is not None else History(document)
+        self._layout_tabs_shown: object = None
+        """What the tabs of the layouts show, so that they are filled again only when that changes."""
         self.preview_share = session.preview_share if session is not None else theme.load_preview_share()
         """The share of the height the preview has, None while it has not been dragged: then it has its own size."""
         self.service_state: ServiceState | None = None
@@ -325,13 +328,32 @@ class MainWindow(QMainWindow):
         self.loader = AudioLoader(read_audio)
         self.loader.loaded.connect(self._audio_loaded)
         self.loader.failed.connect(self._audio_failed)
+        self.editor.changed.connect(self._document_changed)
+        self.editor.selected.connect(self._selection_changed)
         self.load_audio()
         self.refresh_service()
+        self._document_changed(EVERYTHING)
         self.select(0 if session is None else session.selected)
         if session is not None:
             self._resume(session)
         # the keys start on the strips (the arrows pick one), not on the first button of the header
         self.preview.strips[self.selected].setFocus()
+
+    @property
+    def document(self) -> ConfigDocument:
+        return self.editor.document
+
+    @property
+    def history(self) -> History:
+        return self.editor.history
+
+    @property
+    def validation(self) -> Validation:
+        return self.editor.validation
+
+    @property
+    def selected(self) -> int:
+        return self.editor.selection
 
     def showEvent(self, event: QShowEvent | None) -> None:
         """Gives the preview its share of the height, now that the window has its size."""
@@ -366,7 +388,7 @@ class MainWindow(QMainWindow):
         )
         if session.maximized:
             self.setWindowState(Qt.WindowState.WindowMaximized)
-        self.refresh()
+        self.refresh_preview()
 
     # -- building -------------------------------------------------------------------------------------------------
 
@@ -471,7 +493,7 @@ class MainWindow(QMainWindow):
         self.layout_tabs.currentChanged.connect(self._layout_picked)
         bar.addWidget(self.layout_tabs)
         self.add_layout_button = QToolButton()
-        self.add_layout_button.setIcon(theme.icon("plus"))
+        theme.set_icon(self.add_layout_button, "plus")
         self.add_layout_button.setToolTip("Add a layout")
         self.add_layout_button.setAutoRaise(True)
         self.add_layout_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
@@ -495,10 +517,17 @@ class MainWindow(QMainWindow):
         return bar
 
     def _fill_layout_tabs(self) -> None:
-        """The tabs of the layouts, again: after one was added, removed, renamed or moved, or another one shown."""
+        """
+        The tabs of the layouts, again, when they show something else: after one was added, removed, renamed or
+        moved, another one is edited, or the device shows another one.
+        """
         snapshot = self.live.snapshot
         active = (snapshot.layout or "default") if snapshot is not None else None
         names = self.document.layout_names
+        shown = (tuple(names), self.document.layout, active, snapshot is not None and tuple(snapshot.layouts))
+        if shown == self._layout_tabs_shown:
+            return
+        self._layout_tabs_shown = shown
         self.layout_tabs.blockSignals(True)
         while self.layout_tabs.count() > len(names):
             self.layout_tabs.removeTab(self.layout_tabs.count() - 1)
@@ -522,23 +551,12 @@ class MainWindow(QMainWindow):
 
     def edit_layout(self, index: int | None) -> None:
         """Shows the strips of another layout (an index of the layouts of the document, None for the default one)."""
-        self.document.edit_layout(index)
-        self.selected = min(self.selected, protocol.STRIPS - 1)
-        self.reload_pages()
-        self._fill_layout_tabs()
+        self.editor.edit_layout(index)
 
     def add_layout(self, copy_strips: bool) -> None:
-        self.document.add_layout(copy_strips)
-        self.edited()
-        self.edit_layout(self.document.layout)
+        self.editor.add_layout(copy_strips)
         self.show_page("layout")
         self.status.setText(f"Added the layout {self.document.layout_name}. Name it on the page Layout.")
-
-    def _layouts_changed(self, index: int | None) -> None:
-        """After the layout page removed or moved a layout."""
-        self.edited()
-        self.edit_layout(index)
-        self.show_page("layout")
 
     def show_layout_on_device(self) -> None:
         name = self.document.layout_name
@@ -567,22 +585,20 @@ class MainWindow(QMainWindow):
             # the pages ask for the current one every time
             return self.audio
 
-        self.strip_page = StripPage(
-            self.document, audio, self.edited, self._strips_changed, self.show_page, self.remove_strip
-        )
-        self.layout_page = LayoutPage(self.document, audio, self.edited, self._layouts_changed)
+        self.strip_page = StripPage(self.editor, audio, self.show_page)
+        self.layout_page = LayoutPage(self.editor, audio)
         self.pages: dict[str, Page] = {"strip": self.strip_page, "layout": self.layout_page}
         for name in GLOBAL_PAGES:
             if name == "aliases":
-                self.pages[name] = AliasesPage(self.document, audio, self.edited)
+                self.pages[name] = AliasesPage(self.editor, audio)
             elif name == "mqtt":
-                self.mqtt_page = MqttPage(self.document, audio, self.edited, BrokerTester(self.try_broker))
+                self.mqtt_page = MqttPage(self.editor, audio, BrokerTester(self.try_broker))
                 self.pages[name] = self.mqtt_page
             elif name == "voip":
                 self.voip_page = VoipPage(self.document, audio, self.edited, self.mumble_installer)
                 self.pages[name] = self.voip_page
             else:
-                self.pages[name] = SectionPage(name, self.document, audio, self.edited)
+                self.pages[name] = SectionPage(name, self.editor, audio)
         self.tabs.addTab(self._scroll(self.strip_page), theme.icon("tune-vertical"), "Strip 1")
         self.tabs.setTabToolTip(STRIP_TAB, "The options of the strip selected above: they apply to it alone")
 
@@ -640,7 +656,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(theme.Space.XL, theme.Space.M, theme.Space.XL, theme.Space.M)
         self.problems_button = QToolButton()
         theme.set_role(self.problems_button, "problems")
-        self.problems_button.setIcon(theme.icon("alert-circle", theme.current_colors().error))
+        theme.set_icon(self.problems_button, "alert-circle", "error")
         self.problems_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.problems_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.problems_menu = QMenu(self.problems_button)
@@ -648,7 +664,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.problems_button)
         self.status = label("", "hint", wrap=True)
         layout.addWidget(self.status, 1)
-        self.restart_button = QPushButton(theme.icon("restart"), "Restart the service")
+        self.restart_button = QPushButton("Restart the service")
+        theme.set_icon(self.restart_button, "restart")
         self.restart_button.clicked.connect(self._restart)
         self.restart_button.hide()
         layout.addWidget(self.restart_button)
@@ -658,11 +675,13 @@ class MainWindow(QMainWindow):
         self.redo_button = flat_button("redo", "Redo (Ctrl+Shift+Z)")
         self.redo_button.clicked.connect(self.redo)
         layout.addWidget(self.redo_button)
-        self.revert_button = QPushButton(theme.icon("file-undo-outline"), "Revert")
+        self.revert_button = QPushButton("Revert")
+        theme.set_icon(self.revert_button, "file-undo-outline")
         self.revert_button.setToolTip("Drop the changes and read the file again (Undo brings them back)")
         self.revert_button.clicked.connect(self.revert)
         layout.addWidget(self.revert_button)
-        self.save_button = QPushButton(theme.icon("content-save", "white"), "Save and apply")
+        self.save_button = QPushButton("Save and apply")
+        theme.set_icon(self.save_button, "content-save", "white")
         theme.set_role(self.save_button, "primary", "variant")
         self.save_button.setToolTip("Write the file and reload the daemon (Ctrl+S)")
         self.save_button.clicked.connect(self.save)
@@ -673,10 +692,13 @@ class MainWindow(QMainWindow):
 
     def select(self, index: int) -> None:
         """Shows the options of a strip."""
-        self.selected = index
-        self.strip_page.show_strip(index)
+        self.editor.select(index)
         self.show_page("strip")
-        self.refresh()
+
+    def _selection_changed(self, index: int) -> None:
+        """Another strip is selected: its options, in the form of its type (nothing is built or validated again)."""
+        self.strip_page.show_strip(index)
+        self.refresh_preview()
 
     def show_page(self, name: str) -> None:
         """Shows the page of the selected strip ("strip"), of the layout ("layout"), or one of the global settings."""
@@ -693,10 +715,14 @@ class MainWindow(QMainWindow):
             return "layout"
         return GLOBAL_PAGES[self.stack.currentIndex()]
 
-    def refresh(self) -> None:
-        """Validates the configuration and shows the result everywhere."""
-        self.validation = self.document.validate()
+    def _document_changed(self, change: Change) -> None:
+        """The document changed (see `Change`): every view shows what changed for it, and the problems."""
+        if change.scope is not Scope.FILE:
+            # what the window said was about the document before
+            self.restart_button.hide()
+            self.status.setText("")
         for page in self.pages.values():
+            page.show_document(change)
             page.show_problems(self.validation)
         self._show_problems(self.validation.problems)
         modified = self.document.modified
@@ -723,7 +749,10 @@ class MainWindow(QMainWindow):
         self.preview.show_faces(faces(strip_looks, shown, edited, shows_document), selected)
         self._fill_layout_tabs()
         look = strip_looks[self.selected]
-        self.tabs.setTabText(STRIP_TAB, f"Strip {self.selected + 1}" + (f" · {look.label}" if look.label else ""))
+        title = f"Strip {self.selected + 1}" + (f" · {look.label}" if look.label else "")
+        if self.tabs.tabText(STRIP_TAB) != title:
+            # the same text again would lay out the tabs again
+            self.tabs.setTabText(STRIP_TAB, title)
         saved = self.document.saved_config
         device = saved.device.name if saved is not None else "the device"
         _pill(self.mode_pill, preview_status(self.daemon, snapshot, device))
@@ -743,7 +772,7 @@ class MainWindow(QMainWindow):
             self.applying.isActive(),
             shows_document and self.document.modified,
         )
-        self.sync_label.setText(sync.text)
+        set_text(self.sync_label, sync.text)
         self.sync_label.setToolTip(sync.tip)
 
     def _show_live_preview(self, snapshot: Snapshot | None) -> None:
@@ -807,79 +836,39 @@ class MainWindow(QMainWindow):
                         self.show_page(name)
 
     def _remove_option(self, problem: Problem) -> None:
-        self.document.unset(problem.path)
-        self._changed()
-
-    def reload_pages(self) -> None:
-        """Builds every page again from the document, staying on the page that is shown."""
-        page = self.current_page
-        for each in self.pages.values():
-            each.reload()
-        self.strip_page.show_strip(self.selected)
-        self.show_page(page)
-        self.refresh()
+        self.editor.unset(problem.path)
 
     def toggle_theme(self) -> None:
         dark = theme.current_mode() == theme.ThemeMode.DARK
         theme.apply_theme(theme.ThemeMode.LIGHT if dark else theme.ThemeMode.DARK)
-        # the icons are drawn in the text color of the theme
-        for button, name in (
-            (self.theme_button, "theme-light-dark"),
-            (self.refresh_audio, "refresh"),
-            (self.undo_button, "undo"),
-            (self.redo_button, "redo"),
-        ):
-            button.setIcon(theme.icon(name))
-        self.restart_button.setIcon(theme.icon("restart"))
-        self.revert_button.setIcon(theme.icon("file-undo-outline"))
+        # the icons are drawn in the colors of the theme
+        theme.refresh_icons(self)
         self.tabs.setTabIcon(STRIP_TAB, theme.icon("tune-vertical"))
         self.tabs.setTabIcon(GLOBAL_TAB, theme.icon("cog-outline"))
         self.tabs.setTabIcon(LAYOUT_TAB, theme.icon("view-dashboard-variant-outline"))
-        self.add_layout_button.setIcon(theme.icon("plus"))
-        self.reload_pages()
+        self.preview.update()
 
     # -- editing --------------------------------------------------------------------------------------------------
 
-    def edited(self) -> None:
-        """After every edit: a step to undo, and everything shows it."""
-        self.history.record()
-        self.restart_button.hide()
-        self.status.setText("")
-        self.refresh()
-
-    def _changed(self) -> None:
-        """After an edit the pages did not make themselves: they show the document again."""
-        self.edited()
-        self.reload_pages()
-
-    def _strips_changed(self, selected: int) -> None:
-        self.edited()
-        self.select(selected)
-
     def _moved(self, source: int, target: int) -> None:
-        self.document.move_strip(source, target)
-        self._strips_changed(target)
+        self.editor.move_strip(source, target)
         self.status.setText(f"Moved strip {source + 1} to place {target + 1}.")
 
     def _configure(self, index: int) -> None:
-        self.document.configure_up_to(index)
-        self._strips_changed(index)
+        self.editor.configure_up_to(index)
+        self.show_page("strip")
 
     def remove_strip(self, index: int) -> None:
-        self.document.remove_strip(index)
-        self._strips_changed(index)
+        self.editor.remove_strip(index)
+        self.select(index)
         self.status.setText(f"Removed strip {index + 1}, the strips right of it moved left. Ctrl+Z brings it back.")
 
     def undo(self) -> None:
-        if self.history.can_undo:
-            self.history.undo()
-            self.reload_pages()
+        if self.editor.undo():
             self.status.setText("Undone.")
 
     def redo(self) -> None:
-        if self.history.can_redo:
-            self.history.redo()
-            self.reload_pages()
+        if self.editor.redo():
             self.status.setText("Redone.")
 
     def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
@@ -904,13 +893,18 @@ class MainWindow(QMainWindow):
         self.audio = state
         self.audio_label.setText(f"Sound server: {sources.summary(state)}")
         self.audio_label.setToolTip("")
-        self.refresh()
+        self._audio_changed()
 
     def _audio_failed(self, message: str) -> None:
         self.audio = DISCONNECTED
         self.audio_label.setText("Sound server not reachable: type names by hand")
         self.audio_label.setToolTip(message)
-        self.refresh()
+        self._audio_changed()
+
+    def _audio_changed(self) -> None:
+        """What strips show and suggest depends on the devices and the applications of the sound server."""
+        self.strip_page.show_strip(self.selected)
+        self.refresh_preview()
 
     # -- the service ----------------------------------------------------------------------------------------------
 
@@ -1072,13 +1066,12 @@ class MainWindow(QMainWindow):
                 self.applying.start()
             # the window restarts only the service
             self.restart_button.setVisible(applied.restart_needed and self.daemon is not None and self.daemon.systemd)
-        self.refresh()
+        self.editor.saved()
         self.refresh_service()
         return True
 
     def revert(self) -> None:
-        self.document.revert()
-        self._changed()
+        self.editor.revert()
         self.status.setText("Reverted to the file. Ctrl+Z brings the changes back.")
 
     # -- zoom -----------------------------------------------------------------------------------------------------

@@ -137,7 +137,10 @@ free places are `auto` strips. The tab of a strip also has buttons to move it le
 
 ## Editing options
 
-The forms come from the options of the configuration, so every option has a field:
+The forms come from the options of the configuration, so every option has a field. The options of a strip are in
+the order of the device, from top to bottom: what the strip controls, the encoder, the LCD, the meter, the buttons
+(Rec, Solo, Mute, Select), the fader and its volume range, and the `id` last (first for a `homeassistant` strip,
+where it is what the strip controls).
 
 - switches for on/off options, numbers with their ranges, choices, color swatches, lists as chips, masked fields for
   secrets, and file pickers;

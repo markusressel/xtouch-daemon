@@ -89,7 +89,7 @@ def help_label(text: str, role: str, link: str | None = None) -> QLabel:
 
 def flat_button(icon: str, tip: str, parent: QWidget | None = None) -> QToolButton:
     button = QToolButton(parent)
-    button.setIcon(theme.icon(icon))
+    theme.set_icon(button, icon)
     button.setToolTip(tip)
     button.setAutoRaise(True)
     theme.set_role(button, "flat", "variant")
@@ -371,13 +371,15 @@ class Chips(QWidget):
             self.flow.addWidget(suggestion_menu(self, suggest, self.add, "The sound server has none right now"))
 
     def show_values(self, values: list[str]) -> None:
-        self.values = list(values)
-        for chip in self.chips:
-            self.flow.removeWidget(chip)
-            chip.deleteLater()
-        self.chips = [self._chip(index, value) for index, value in enumerate(self.values)]
-        for index, chip in enumerate(self.chips):
-            self.flow.insertWidget(index, chip)
+        if values != self.values:
+            # the same chips stay, so showing the document again lays out nothing
+            self.values = list(values)
+            for chip in self.chips:
+                self.flow.removeWidget(chip)
+                chip.deleteLater()
+            self.chips = [self._chip(index, value) for index, value in enumerate(self.values)]
+            for index, chip in enumerate(self.chips):
+                self.flow.insertWidget(index, chip)
         empty = self._placeholder() if self._placeholder and not self.values else None
         self.input.setPlaceholderText(f"Add… ({empty})" if empty else "Add…")
         self.updateGeometry()
@@ -433,7 +435,8 @@ class Tables(QWidget):
         self.rows = QVBoxLayout()
         self.rows.setSpacing(theme.Space.XS)
         layout.addLayout(self.rows)
-        self.add_button = QPushButton(theme.icon("plus"), "Add", self)
+        self.add_button = QPushButton("Add", self)
+        theme.set_icon(self.add_button, "plus")
         self.add_button.clicked.connect(self.add)
         add = QHBoxLayout()
         add.addWidget(self.add_button)

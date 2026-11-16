@@ -202,7 +202,7 @@ def test_a_document_with_problems_is_not_previewed(qtbot: QtBot, make_window: Ma
     switch_on(qtbot, window)
 
     window.document.set(("strip", 0, "color"), "pink")
-    window.edited()
+    window.editor.edited()
     qtbot.wait(2 * 300)
 
     assert previewing.previews == []
