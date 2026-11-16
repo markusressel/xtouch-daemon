@@ -1,6 +1,6 @@
 import pytest
 
-from tests.conftest import output, source, stream
+from tests.support.audio import output, source, stream
 from xtouch_daemon.audio.model import AudioState, Card, Direction, Profile
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.presets import PRESETS, Preset

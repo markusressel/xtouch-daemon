@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import RecordingSurface, finish_tasks
+from tests.support.hardware import RecordingSurface
+from tests.support.tasks import finish_tasks
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode

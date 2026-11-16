@@ -10,8 +10,8 @@ from haad_mqtt_autodiscovery.entity.event import MQTTEvent
 from haad_mqtt_autodiscovery.entity.number import MQTTNumber
 from haad_mqtt_autodiscovery.entity.switch import MQTTSwitch
 
-from tests.conftest import finish_tasks
-from tests.fake_mqtt import FakeBroker
+from tests.support.mqtt import FakeBroker
+from tests.support.tasks import finish_tasks
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.sections import MqttConfig

@@ -1,6 +1,6 @@
 import pytest
 
-from tests.conftest import RecordingSurface
+from tests.support.hardware import RecordingSurface
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.strip import VirtualStrip
 from xtouch_daemon.runtime.placement import Flow, place

@@ -9,7 +9,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner, Result
 
-from tests.conftest import install_package, output, source, stream
+from tests.support.audio import output, source, stream
+from tests.support.packaging import install_package
 from xtouch_daemon import __version__, cli
 from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.media import MprisPlayers

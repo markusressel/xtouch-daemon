@@ -10,7 +10,9 @@ from dbus_fast.aio import MessageBus
 from dbus_fast.constants import PropertyAccess
 from dbus_fast.service import ServiceInterface, dbus_property, method
 
-from tests.conftest import FakeBackend, RecordingSurface, settle, stream
+from tests.support.audio import FakeBackend, stream
+from tests.support.hardware import RecordingSurface
+from tests.support.tasks import settle
 from xtouch_daemon.audio import media
 from xtouch_daemon.audio.media import MediaCommandError, MprisPlayers, Player, ancestors, parent_pid, player_of
 from xtouch_daemon.audio.model import AudioState

@@ -4,7 +4,9 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from tests.conftest import FakeLauncher, RecordingSurface, finish_tasks, settle
+from tests.support.hardware import RecordingSurface
+from tests.support.launch import FakeLauncher
+from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon.audio.model import DISCONNECTED
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.hardware import protocol

@@ -10,8 +10,10 @@ from pathlib import Path
 import pytest
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 
-from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle, stream
-from tests.fake_mqtt import FakeBroker
+from tests.support.audio import FakeBackend, output, stream
+from tests.support.hardware import RecordingSurface
+from tests.support.mqtt import FakeBroker
+from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon import __version__
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.backend import AudioBackend

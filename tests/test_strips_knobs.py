@@ -2,7 +2,9 @@ import asyncio
 
 import pytest
 
-from tests.conftest import FakeBackend, RecordingSurface, output, settle, source, stream
+from tests.support.audio import FakeBackend, output, source, stream
+from tests.support.hardware import RecordingSurface
+from tests.support.tasks import settle
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.strips import StripConfig

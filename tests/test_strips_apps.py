@@ -3,7 +3,10 @@ from dataclasses import replace
 
 import pytest
 
-from tests.conftest import FakeBackend, FakeLauncher, RecordingSurface, settle, stream
+from tests.support.audio import FakeBackend, stream
+from tests.support.hardware import RecordingSurface
+from tests.support.launch import FakeLauncher
+from tests.support.tasks import settle
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Capture, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig

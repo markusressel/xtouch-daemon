@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import output, source, stream
+from tests.support.audio import output, source, stream
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.flow import flow_rows

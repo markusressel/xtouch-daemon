@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import stream
+from tests.support.audio import stream
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.model import Config

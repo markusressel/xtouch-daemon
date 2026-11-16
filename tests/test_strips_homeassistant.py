@@ -4,8 +4,10 @@ from collections.abc import AsyncIterator, Callable
 
 import pytest
 
-from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle
-from tests.fake_mqtt import FakeBroker
+from tests.support.audio import FakeBackend, output
+from tests.support.hardware import RecordingSurface
+from tests.support.mqtt import FakeBroker
+from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.files import parse_config

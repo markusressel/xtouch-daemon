@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import child_processes
+from tests.support.processes import child_processes
 from xtouch_daemon.audio import meter as meter_module
 from xtouch_daemon.audio.meter import (
     CHUNK_BYTES,

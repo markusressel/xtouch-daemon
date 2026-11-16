@@ -6,7 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import FakeBackend, FakeLauncher, RecordingSurface, finish_tasks, output, settle, stream
+from tests.support.audio import FakeBackend, output, stream
+from tests.support.hardware import RecordingSurface
+from tests.support.launch import FakeLauncher
+from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon.audio.meter import CHUNK_BYTES, CaptureTarget
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Direction
 from xtouch_daemon.config.files import parse_config

@@ -1,26 +1,12 @@
 import json
 import os
 import signal
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 
 from xtouch_daemon.system import instance
 from xtouch_daemon.system.instance import AlreadyRunning, Instance, registered, running, runtime_file
-
-
-@dataclass(frozen=True)
-class RecordingInstance(Instance):
-    """A daemon that records its reloads instead of getting a signal (or fails like one that ended a moment ago)."""
-
-    reloads: list[int] = field(default_factory=list, compare=False)
-    gone: bool = False
-
-    def reload(self) -> None:
-        if self.gone:
-            raise ProcessLookupError(3, "No such process")
-        self.reloads.append(self.pid)
 
 
 @pytest.fixture

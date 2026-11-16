@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import install_package
+from tests.support.packaging import install_package
+from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.system import systemd
 from xtouch_daemon.system.systemd import (
     JournalFormatter,
@@ -146,18 +147,6 @@ def test_the_unit_runs_the_daemon_as_a_notify_service():
 
 
 # -- controlling the service --------------------------------------------------------------------------------------
-
-
-class FakeSystemctl:
-    """Answers `systemctl --user show` with `properties` and records every command."""
-
-    def __init__(self, properties: str = "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n"):
-        self.properties = properties
-        self.commands: list[list[str]] = []
-
-    def __call__(self, command: list[str]) -> str:
-        self.commands.append(command)
-        return self.properties if command[2] == "show" else ""
 
 
 @pytest.mark.parametrize(

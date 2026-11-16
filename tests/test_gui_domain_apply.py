@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_instance import RecordingInstance
+from tests.support.instance import RecordingInstance
 from xtouch_daemon.gui.domain.apply import Applied, apply
 
 

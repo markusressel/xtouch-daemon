@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import finish_tasks, settle
+from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon import __version__
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.voip import Capability, Participant, VoipProvider, build_provider

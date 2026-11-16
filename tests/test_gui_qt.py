@@ -34,9 +34,10 @@ from PyQt6.QtWidgets import (
 )
 from pytestqt.qtbot import QtBot
 
-from tests.conftest import install_package, output, source, stream
-from tests.test_instance import RecordingInstance
-from tests.test_systemd import FakeSystemctl
+from tests.support.audio import output, source, stream
+from tests.support.instance import RecordingInstance
+from tests.support.packaging import install_package
+from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config.presets import Kind as PresetKind

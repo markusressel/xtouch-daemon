@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import FakeLauncher
+from tests.support.launch import FakeLauncher
 from xtouch_daemon.hardware.protocol import Led
 from xtouch_daemon.system import launch as launch_module
 from xtouch_daemon.system.launch import LAUNCH_DEBOUNCE, LAUNCH_TIMEOUT, LaunchButton, Launcher, program_name, unit_name
