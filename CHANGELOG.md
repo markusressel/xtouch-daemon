@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- "Live preview" in the GUI: while it is on, the device runs the configuration in the editor before it is saved
+  and follows every change. Saving keeps it; turning it off, closing the window, or a window that crashed or hangs
+  brings back the file, and so does a change of the file on disk or a reload. Errors of the daemon show inline, and
+  Home Assistant entities of strips the preview does not have stay as they are. It needs a daemon of this version
+  (restart an older one), which takes previews only from its own user.
+
 - `lit_when_idle` on audio strips: the LCD keeps its backlight while the strip has nothing to control, e.g. an
   `apps` group whose applications don't play.
 - The GUI explains every option without the documentation: the help names the default, a choice says what the
