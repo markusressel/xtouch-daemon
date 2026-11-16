@@ -9,12 +9,12 @@ from collections.abc import Callable
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QScrollArea, QWidget
 
-from xtouch_daemon import protocol
 from xtouch_daemon.gui.domain.flow import FlowRow, Where, why_not_add
 from xtouch_daemon.gui.domain.looks import StripLook
 from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields import label
 from xtouch_daemon.gui.qt.pages import set_text
+from xtouch_daemon.hardware import protocol
 
 
 def wanted(strips: list[dict[str, object]]) -> bool:

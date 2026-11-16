@@ -37,7 +37,7 @@ from pytestqt.qtbot import QtBot
 from tests.conftest import install_package, output, source, stream
 from tests.test_instance import RecordingInstance
 from tests.test_systemd import FakeSystemctl
-from xtouch_daemon import live, mumble, protocol, systemd
+from xtouch_daemon import live, mumble, systemd
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config.presets import Kind as PresetKind
@@ -53,6 +53,7 @@ from xtouch_daemon.gui.qt import window as window_module
 from xtouch_daemon.gui.qt.fields import Chips, OptionRow, Switch, Tables
 from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, MumbleInstaller, SectionPage
 from xtouch_daemon.gui.qt.window import MainWindow, Session
+from xtouch_daemon.hardware import protocol
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import MqttState, Snapshot, StripState, VoipState
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, unit_file, unit_path

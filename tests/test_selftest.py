@@ -3,9 +3,9 @@ import asyncio
 import pytest
 
 from tests.conftest import RecordingSurface
-from xtouch_daemon import protocol
-from xtouch_daemon.protocol import Button, Color
-from xtouch_daemon.selftest import describe, run_selftest
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Button, Color
+from xtouch_daemon.hardware.selftest import describe, run_selftest
 
 
 class TestSurface(RecordingSurface):

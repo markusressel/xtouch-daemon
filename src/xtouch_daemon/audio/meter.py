@@ -26,7 +26,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from xtouch_daemon.config.values import MeterPoint
-from xtouch_daemon.protocol import METER_MAX, METER_SIGNAL_MAX
+from xtouch_daemon.hardware.protocol import METER_MAX, METER_SIGNAL_MAX
 
 _LOGGER = logging.getLogger(__name__)
 

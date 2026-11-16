@@ -13,12 +13,12 @@ from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import EncoderMode, Indicator
+from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.launch import Launcher
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.strips.knobs import BalanceKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
-from xtouch_daemon.surface import Strip
 from xtouch_daemon.voip.provider import VoipProvider
 
 if TYPE_CHECKING:

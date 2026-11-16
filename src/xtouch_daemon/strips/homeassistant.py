@@ -32,10 +32,10 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import ColorName, color_of, default_encoder
+from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
+from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
 from xtouch_daemon.strips.base import StripController, StripEnv
-from xtouch_daemon.surface import Strip
 
 FADER_PUBLISH_INTERVAL = 0.1
 """How often a fader moved by hand publishes its value: Home Assistant and its automations don't need every step."""

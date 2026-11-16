@@ -9,8 +9,8 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from xtouch_daemon import protocol
-from xtouch_daemon.surface import Strip, VirtualStrip
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.strip import Strip, VirtualStrip
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -11,16 +11,18 @@ from pathlib import Path
 import pytest
 
 from xtouch_daemon import launch as launch_module
-from xtouch_daemon import layouts, midi, protocol, systemd
-from xtouch_daemon import surface as surface_module
+from xtouch_daemon import layouts, systemd
 from xtouch_daemon.audio import meter as meter_module
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Device, Direction, Stream
 from xtouch_daemon.config.sections import BehaviorConfig
+from xtouch_daemon.hardware import midi, protocol
+from xtouch_daemon.hardware import strip as strip_module
+from xtouch_daemon.hardware import surface as surface_module
+from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.launch import Launcher
 from xtouch_daemon.strips.base import StripEnv
-from xtouch_daemon.surface import Surface
 
 # windows of the GUI tests are never shown on the display of the machine
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -289,8 +291,8 @@ def quick_faders(monkeypatch: pytest.MonkeyPatch) -> None:
     sequences are not staggered, and a move without a touch is given up on at once: waiting for that adds nothing to
     most tests.
     """
-    monkeypatch.setattr(surface_module, "FADER_CONFIRM_DELAYS", (0.0, 0.0))
-    monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", surface_module.FADER_SMOOTH_TIME)
+    monkeypatch.setattr(strip_module, "FADER_CONFIRM_DELAYS", (0.0, 0.0))
+    monkeypatch.setattr(strip_module, "FADER_SLOW_SMOOTH_TIME", strip_module.FADER_SMOOTH_TIME)
     monkeypatch.setattr(surface_module, "SEQUENCE_STAGGER", 0.0)
     monkeypatch.setattr(surface_module, "SHOW_STAGGER", 0.0)
     monkeypatch.setattr(surface_module, "SHOW_RING_STEP", 0.0)

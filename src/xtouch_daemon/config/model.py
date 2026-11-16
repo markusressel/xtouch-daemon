@@ -6,7 +6,6 @@ from typing import Annotated
 
 from pydantic import Field, model_validator
 
-from xtouch_daemon import protocol
 from xtouch_daemon.config.audio_strips import AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import Model
 from xtouch_daemon.config.inheritance import Inheritance
@@ -16,6 +15,7 @@ from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, MqttConf
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig, collapses
 from xtouch_daemon.config.values import DEFAULT_LAYOUT, MAX_STRIPS, Label, MeterPoint
+from xtouch_daemon.hardware import protocol
 
 
 class Config(Model):

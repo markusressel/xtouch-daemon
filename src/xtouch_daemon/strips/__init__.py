@@ -7,14 +7,14 @@ from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, 
 from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import Indicator, color_of, default_encoder
+from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.launch import LaunchButton
-from xtouch_daemon.protocol import Button
 from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv, VolumeStrip
 from xtouch_daemon.strips.device import ChoiceStrip, DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
 from xtouch_daemon.strips.voip import VoipSeat, VoipStrip
-from xtouch_daemon.surface import Strip
 
 
 class EmptyStrip(StripController):

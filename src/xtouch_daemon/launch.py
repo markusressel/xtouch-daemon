@@ -17,7 +17,7 @@ import time
 from collections.abc import Callable, Collection, Sequence
 from pathlib import Path
 
-from xtouch_daemon.protocol import Led
+from xtouch_daemon.hardware.protocol import Led
 
 _LOGGER = logging.getLogger(__name__)
 

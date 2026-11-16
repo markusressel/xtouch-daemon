@@ -48,9 +48,9 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import QApplication, QMenu, QSizePolicy, QWidget
 
-from xtouch_daemon import protocol
 from xtouch_daemon.gui.domain.looks import StripFace, StripLook, faces, meter_leds, ring_leds
 from xtouch_daemon.gui.qt import theme
+from xtouch_daemon.hardware import protocol
 
 KIND_NAMES = {"homeassistant": "Home Assistant", "?": "no type"}
 WIDTH = 104

@@ -12,21 +12,22 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle, stream
 from tests.fake_mqtt import FakeBroker
-from xtouch_daemon import __version__, live, protocol
+from xtouch_daemon import __version__, live
 from xtouch_daemon import daemon as daemon_module
 from xtouch_daemon import mqtt as mqtt_module
-from xtouch_daemon import surface as surface_module
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.daemon import Daemon
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware import strip as strip_module
+from xtouch_daemon.hardware.protocol import Button, Color, Led
+from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.live import EndPreview, KeepPreview, Reply, StartPreview, SwitchLayout
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.protocol import Button, Color, Led
-from xtouch_daemon.surface import Surface
 from xtouch_daemon.voip import VoipProvider
 
 SPEAKER = '[[strip]]\ntype = "output"\ndevice = "speaker"\nlabel = "Speaker"\ncolor = "cyan"\n'
@@ -152,7 +153,7 @@ async def test_more_signals_while_stopping_do_not_cut_the_shutdown_short(
     await until(lambda: surface.strips[0].text == ["Speaker", "50%"])
     await surface.settled()
     # the faders take a while to go down: signals come in meanwhile
-    monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", 0.3)
+    monkeypatch.setattr(strip_module, "FADER_SLOW_SMOOTH_TIME", 0.3)
 
     os.kill(os.getpid(), signal.SIGINT)
     await until(lambda: "STOPPING=1" in notifications.states())
@@ -289,7 +290,7 @@ async def test_the_status_follows_the_connections(
 async def test_events_of_the_surface_go_to_the_current_mixer(
     config_path: Path, surface: RecordingSurface, backend: FakeBackend, notifications: Notifications
 ) -> None:
-    from xtouch_daemon.protocol import Button, ButtonPressed
+    from xtouch_daemon.hardware.protocol import Button, ButtonPressed
 
     daemon = make(config_path, surface, backend)
     daemon.reload()

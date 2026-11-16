@@ -1,7 +1,7 @@
 import pytest
 
-from xtouch_daemon import protocol
-from xtouch_daemon.protocol import Button, Color, Led, MessageParser, RingMode, decode
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Button, Color, Led, MessageParser, RingMode, decode
 
 
 def test_decodes_what_the_device_sent():

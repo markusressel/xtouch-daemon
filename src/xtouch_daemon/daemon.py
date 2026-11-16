@@ -20,13 +20,15 @@ from typing import Any, Protocol, assert_never
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 
-from xtouch_daemon import __version__, instance, protocol, systemd
+from xtouch_daemon import __version__, instance, systemd
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path, load_config, parse_config
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.values import DEFAULT_LAYOUT
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout, running_processes
 from xtouch_daemon.live import (
     FEATURES,
@@ -47,7 +49,6 @@ from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips.homeassistant import entity_ids
-from xtouch_daemon.surface import Surface
 from xtouch_daemon.voip import VoipProvider, build_provider
 
 _LOGGER = logging.getLogger(__name__)

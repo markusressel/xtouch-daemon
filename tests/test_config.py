@@ -20,7 +20,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, VoipConfig
 from xtouch_daemon.config.strips import STRIP_MODELS, STRIP_TYPES, EmptyStripConfig, HomeAssistantStripConfig
 from xtouch_daemon.config.values import color_of
-from xtouch_daemon.protocol import Color
+from xtouch_daemon.hardware.protocol import Color
 
 FULL = """
 [device]

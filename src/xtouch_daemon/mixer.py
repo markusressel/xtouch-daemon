@@ -11,7 +11,6 @@ from typing import assert_never
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 
-from xtouch_daemon import protocol
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
@@ -19,17 +18,19 @@ from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strips import StripConfig, collapses
 from xtouch_daemon.config.values import DEFAULT_LAYOUT, MeterPoint
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.hardware.strip import VirtualStrip
+from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.launch import LaunchButton, Launcher
 from xtouch_daemon.layouts import running_processes
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.placement import Flow, Placement
-from xtouch_daemon.protocol import Button
 from xtouch_daemon.strips import build_strip, launch_button
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
 from xtouch_daemon.strips.base import StripController, StripEnv
 from xtouch_daemon.strips.voip import VoipSeat, VoipSeats, VoipStrip
-from xtouch_daemon.surface import Surface, VirtualStrip
 from xtouch_daemon.voip.provider import VoipProvider
 
 METER_INTERVAL = 0.1

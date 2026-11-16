@@ -10,14 +10,14 @@ import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.values import color_of
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Button, Color, Led
+from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.launch import LaunchButton
-from xtouch_daemon.protocol import Button, Color, Led
 from xtouch_daemon.strips.base import NOTICE_TIME, StripController, StripEnv, fader_position, fader_volume
-from xtouch_daemon.surface import Strip
 from xtouch_daemon.voip.provider import Capability, Participant, VoipProvider
 
 

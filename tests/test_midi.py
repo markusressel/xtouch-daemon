@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon import midi
-from xtouch_daemon.midi import RawMidi, find_card
+from xtouch_daemon.hardware import midi
+from xtouch_daemon.hardware.midi import RawMidi, find_card
 
 # a real pty: what it reads comes in real time
 pytestmark = pytest.mark.looptime(False)

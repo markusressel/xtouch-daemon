@@ -10,7 +10,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from xtouch_daemon.audio.backend import AudioCommandError
-from xtouch_daemon.protocol import RING_MAX, RingMode
+from xtouch_daemon.hardware.protocol import RING_MAX, RingMode
 
 if TYPE_CHECKING:
     from xtouch_daemon.media import MediaPlayers, Player

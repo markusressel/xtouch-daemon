@@ -20,7 +20,7 @@ from xtouch_daemon.audio.meter import (
     peak_of,
     scale_of,
 )
-from xtouch_daemon.protocol import METER_MAX, METER_SIGNAL_MAX
+from xtouch_daemon.hardware.protocol import METER_MAX, METER_SIGNAL_MAX
 
 OUTPUT = CaptureTarget(node=None, monitor=True)
 STREAM = CaptureTarget(node="42", monitor=False)

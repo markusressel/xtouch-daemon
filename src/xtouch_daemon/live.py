@@ -29,10 +29,10 @@ from typing import Any, Literal
 
 from pydantic import SecretStr
 
-from xtouch_daemon import protocol
 from xtouch_daemon.config.model import Config
-from xtouch_daemon.protocol import Button, Color, Led
-from xtouch_daemon.surface import Surface
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Button, Color, Led
+from xtouch_daemon.hardware.surface import Surface
 
 _LOGGER = logging.getLogger(__name__)
 

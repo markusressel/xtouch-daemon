@@ -6,15 +6,15 @@ LCD), or what the running daemon shows right now (its live view), and which of t
 from dataclasses import dataclass
 from typing import Any
 
-from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState, Device, Direction
 from xtouch_daemon.config.strips import STRIP_TYPES
 from xtouch_daemon.gui.domain.document import ConfigDocument, Validation
 from xtouch_daemon.gui.domain.flow import FlowRow
 from xtouch_daemon.gui.domain.inherit import referenced
 from xtouch_daemon.gui.domain.schema import Kind, strip_options
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import RingMode
 from xtouch_daemon.live import Snapshot, StripState
-from xtouch_daemon.protocol import RingMode
 
 
 @dataclass(frozen=True)

@@ -4,9 +4,9 @@ import asyncio
 from collections.abc import Callable
 from typing import assert_never
 
-from xtouch_daemon import protocol
-from xtouch_daemon.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.surface import Surface
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.hardware.surface import Surface
 
 STEP = 0.08
 

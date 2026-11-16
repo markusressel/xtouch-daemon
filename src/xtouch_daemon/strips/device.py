@@ -13,9 +13,9 @@ from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Card, Device, Direction
 from xtouch_daemon.config.audio_strips import ChoiceConfig, ProfileConfig
 from xtouch_daemon.config.values import EncoderMode, Indicator
-from xtouch_daemon.protocol import LCD_CELL_WIDTH, Button, Color, Led
+from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH, Button, Color, Led
+from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
-from xtouch_daemon.surface import Strip
 
 if TYPE_CHECKING:
     from xtouch_daemon.strips.homeassistant import HomeAssistantControls

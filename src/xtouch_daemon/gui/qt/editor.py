@@ -6,10 +6,10 @@ updates what it shows in place (see the GUI section of docs/architecture.md).
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
-from xtouch_daemon import protocol
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.document import ConfigDocument, Validation
 from xtouch_daemon.gui.domain.history import History
+from xtouch_daemon.hardware import protocol
 
 
 class Editor(QObject):

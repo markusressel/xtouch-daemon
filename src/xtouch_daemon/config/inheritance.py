@@ -2,12 +2,12 @@
 Resolving the `inherit` strips of layouts: which strip of which layout each one stands for.
 """
 
-from xtouch_daemon import protocol
 from xtouch_daemon.config.audio_strips import AutoStripConfig
 from xtouch_daemon.config.layout import LayoutConfig
 from xtouch_daemon.config.layout_strips import InheritStripConfig
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.hardware import protocol
 
 INHERIT_LIMIT = 8
 """How many `inherit` strips may refer to one another in a row."""

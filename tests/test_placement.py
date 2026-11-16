@@ -1,9 +1,9 @@
 import pytest
 
 from tests.conftest import RecordingSurface
+from xtouch_daemon.hardware.protocol import Button, Color, Led
+from xtouch_daemon.hardware.strip import VirtualStrip
 from xtouch_daemon.placement import Flow, place
-from xtouch_daemon.protocol import Button, Color, Led
-from xtouch_daemon.surface import VirtualStrip
 
 
 def test_the_first_strips_that_take_a_place_are_on_the_device() -> None:

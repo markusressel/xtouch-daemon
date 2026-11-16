@@ -6,7 +6,7 @@ from tests.conftest import FakeBackend, RecordingSurface, output, settle, source
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.strips import StripConfig
-from xtouch_daemon.protocol import Color, RingMode
+from xtouch_daemon.hardware.protocol import Color, RingMode
 from xtouch_daemon.strips import base, build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip
 from xtouch_daemon.strips.base import StripEnv

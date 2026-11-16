@@ -7,9 +7,9 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BeforeValidator, Field
 
-from xtouch_daemon import protocol
 from xtouch_daemon.config.base import Meanings
-from xtouch_daemon.protocol import Color
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Color
 
 ColorName = Literal["off", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
 

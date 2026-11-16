@@ -11,8 +11,9 @@ import pytest
 
 from tests.conftest import RecordingSurface, finish_tasks
 from xtouch_daemon import live
-from xtouch_daemon import surface as surface_module
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.hardware import strip as strip_module
+from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.live import (
     EndPreview,
     KeepPreview,
@@ -34,7 +35,6 @@ from xtouch_daemon.live import (
     peer_uid,
     strip_states,
 )
-from xtouch_daemon.protocol import Button, Color, Led, RingMode
 
 
 @pytest.fixture
@@ -74,7 +74,7 @@ def test_a_strip_is_described_as_the_device_shows_it(surface: RecordingSurface, 
     strip.set_led(Button.SELECT, Led.FLASH)
     strip.set_ring(7, RingMode.WRAP)
     strip.fader = 8191
-    monkeypatch.setattr(surface_module.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr(strip_module.time, "monotonic", lambda: 100.0)
     strip.set_meter(10)
     monkeypatch.undo()
 

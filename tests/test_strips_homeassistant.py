@@ -7,12 +7,12 @@ import pytest
 from tests.conftest import FakeBackend, RecordingSurface, finish_tasks, output, settle
 from tests.fake_mqtt import FakeBroker
 from xtouch_daemon import mqtt as mqtt_module
-from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.sections import BehaviorConfig, MqttConfig
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips import homeassistant as homeassistant_module
 from xtouch_daemon.strips.base import StripEnv, VolumeStrip

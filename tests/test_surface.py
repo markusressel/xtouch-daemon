@@ -9,10 +9,12 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import RecordingSurface
-from xtouch_daemon import protocol
-from xtouch_daemon import surface as surface_module
-from xtouch_daemon.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.surface import FADER_SMOOTH_TIME, FADER_TICK, Strip, Surface, VirtualStrip, smooth_damp, steps
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware import strip as strip_module
+from xtouch_daemon.hardware import surface as surface_module
+from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.hardware.strip import FADER_SMOOTH_TIME, FADER_TICK, Strip, VirtualStrip, smooth_damp
+from xtouch_daemon.hardware.surface import Surface, steps
 
 CARDS = """\
  0 [XTouchExt      ]: USB-Audio - X-Touch-Ext
@@ -144,7 +146,7 @@ async def arrival(strip: Strip) -> None:
 async def test_an_arrived_fader_gets_its_target_again_later(
     surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(surface_module, "FADER_CONFIRM_DELAYS", (0.02, 0.05))
+    monkeypatch.setattr(strip_module, "FADER_CONFIRM_DELAYS", (0.02, 0.05))
     strip = surface.strips[0]
     loop = asyncio.get_running_loop()
     strip.set_fader(0.5)
@@ -161,7 +163,7 @@ async def test_an_arrived_fader_gets_its_target_again_later(
 
 
 async def test_a_touched_fader_gets_no_target_again(surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(surface_module, "FADER_CONFIRM_DELAYS", (0.05,))
+    monkeypatch.setattr(strip_module, "FADER_CONFIRM_DELAYS", (0.05,))
     strip = surface.strips[0]
     strip.set_fader(0.5)
     await arrival(strip)
@@ -416,7 +418,7 @@ def test_a_touched_fader_takes_no_step(surface: RecordingSurface) -> None:
 async def test_a_fader_that_is_put_away_goes_down_slowly(
     surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", 0.2)
+    monkeypatch.setattr(strip_module, "FADER_SLOW_SMOOTH_TIME", 0.2)
     # after a fast move the motor stops short of the bottom, a slow one gets there
     for strip in surface.strips[:2]:
         strip.set_fader(1.0)
@@ -468,7 +470,7 @@ async def test_after_a_connect_the_strips_light_up_one_after_the_other(
 async def test_a_fader_waits_for_its_turn_and_then_comes_up_slowly(
     surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", 0.2)
+    monkeypatch.setattr(strip_module, "FADER_SLOW_SMOOTH_TIME", 0.2)
     fast, slow = surface.strips[0], surface.strips[1]
     fast.set_fader(0.0)
     await surface.settled()
@@ -506,7 +508,7 @@ async def test_after_a_reconnect_a_fader_comes_up_from_the_bottom_again(surface:
 async def test_a_slow_move_stays_slow_until_the_fader_arrived(
     surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(surface_module, "FADER_SLOW_SMOOTH_TIME", 0.2)
+    monkeypatch.setattr(strip_module, "FADER_SLOW_SMOOTH_TIME", 0.2)
     for strip in surface.strips[:2]:
         strip.set_fader(1.0)
     await surface.settled()
@@ -656,7 +658,7 @@ async def test_a_device_that_goes_away_ends_the_startup_sequence(
 
 
 def test_unknown_messages_are_logged(surface: RecordingSurface, caplog: pytest.LogCaptureFixture) -> None:
-    caplog.set_level(logging.DEBUG, logger="xtouch_daemon.surface")
+    caplog.set_level(logging.DEBUG, logger="xtouch_daemon.hardware.surface")
 
     surface._on_data(bytes([0x90, 0x70, 0x7F]))
 
