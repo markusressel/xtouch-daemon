@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass
 
-from xtouch_daemon import presets
 from xtouch_daemon.audio.model import AudioState, Direction
+from xtouch_daemon.config import presets
 
 
 @dataclass(frozen=True)

@@ -7,7 +7,7 @@ import pytest
 from tests.conftest import FakeLauncher, RecordingSurface, finish_tasks, settle
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import DISCONNECTED
-from xtouch_daemon.config import VoipStripConfig
+from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.protocol import Button, Color, Led
 from xtouch_daemon.strips import voip as voip_module

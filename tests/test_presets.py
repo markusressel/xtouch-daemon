@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon import presets
-from xtouch_daemon.presets import PRESETS, Kind, Preset
+from xtouch_daemon.config import presets
+from xtouch_daemon.config.presets import PRESETS, Kind, Preset
 
 STREAMS_ONLY = {
     "toys": Preset("toys", "Toys", streams=("rattle",)),

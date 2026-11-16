@@ -46,7 +46,7 @@ from PyQt6.QtWidgets import (
 from xtouch_daemon import installed_version, instance, protocol
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
-from xtouch_daemon.config import Problem
+from xtouch_daemon.config.files import Problem
 from xtouch_daemon.gui.domain import broker, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.broker import header_status

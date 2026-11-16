@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Stream
-from xtouch_daemon.config import EncoderMode, Indicator
+from xtouch_daemon.config.values import EncoderMode, Indicator
 from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.layouts import process_matching
 from xtouch_daemon.protocol import Button, Color

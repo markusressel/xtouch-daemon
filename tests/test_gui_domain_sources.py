@@ -1,8 +1,10 @@
 import pytest
 
 from tests.conftest import output, source, stream
-from xtouch_daemon import presets
 from xtouch_daemon.audio.model import AudioState, Card, Direction, Profile
+from xtouch_daemon.config import presets
+from xtouch_daemon.config.presets import PRESETS, Preset
+from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.sources import (
     Suggestion,
     applications,
@@ -15,8 +17,6 @@ from xtouch_daemon.gui.domain.sources import (
     profiles,
     summary,
 )
-from xtouch_daemon.presets import PRESETS, Preset
-from xtouch_daemon.presets import Kind as PresetKind
 
 STATE = AudioState(
     outputs=(output("speaker"), output("buds")),

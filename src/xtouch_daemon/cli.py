@@ -11,28 +11,18 @@ from typing import Any, BinaryIO, assert_never
 
 import click
 
-from xtouch_daemon import __version__, instance, live, mumble, presets, protocol, systemd
+from xtouch_daemon import __version__, instance, live, mumble, protocol, systemd
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.audio.pulse import PulseBackend, SoundServerError, read_state
-from xtouch_daemon.config import (
-    DEFAULT_LAYOUT,
-    AppsStripConfig,
-    AutoStripConfig,
-    Config,
-    ConfigError,
-    DeviceStripConfig,
-    EmptyStripConfig,
-    HomeAssistantStripConfig,
-    InheritStripConfig,
-    LayoutConfig,
-    MeterPoint,
-    StripConfig,
-    VoipStripConfig,
-    default_config_path,
-    default_encoder,
-    example_config,
-    load_config,
-)
+from xtouch_daemon.config import presets
+from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
+from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.files import default_config_path, example_config, load_config
+from xtouch_daemon.config.layout import LayoutConfig
+from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.values import DEFAULT_LAYOUT, MeterPoint, default_encoder
 from xtouch_daemon.daemon import Daemon
 from xtouch_daemon.live import Reply, Snapshot
 from xtouch_daemon.media import MprisPlayers

@@ -15,7 +15,10 @@ from xtouch_daemon import protocol
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
-from xtouch_daemon.config import DEFAULT_LAYOUT, Config, MeterPoint, StripConfig, VoipStripConfig, collapses
+from xtouch_daemon.config.layout_strips import VoipStripConfig
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.strips import StripConfig, collapses
+from xtouch_daemon.config.values import DEFAULT_LAYOUT, MeterPoint
 from xtouch_daemon.launch import LaunchButton, Launcher
 from xtouch_daemon.layouts import running_processes
 from xtouch_daemon.media import MediaPlayers

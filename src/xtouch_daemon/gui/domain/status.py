@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from xtouch_daemon.config import Config
+from xtouch_daemon.config.model import Config
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import Snapshot, fingerprint
 from xtouch_daemon.systemd import ServiceState

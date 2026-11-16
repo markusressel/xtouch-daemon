@@ -13,7 +13,9 @@ from tests.conftest import install_package, output, source, stream
 from xtouch_daemon import __version__, cli, instance, live, mumble, systemd
 from xtouch_daemon.audio import pulse
 from xtouch_daemon.audio.model import AudioState, Card, Profile
-from xtouch_daemon.config import Config, InheritStripConfig, parse_config
+from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.config.layout_strips import InheritStripConfig
+from xtouch_daemon.config.model import Config
 from xtouch_daemon.media import MprisPlayers
 
 CONFIG = """

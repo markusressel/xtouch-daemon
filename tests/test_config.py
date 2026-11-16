@@ -4,31 +4,22 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from xtouch_daemon import presets
-from xtouch_daemon.config import (
-    STRIP_MODELS,
-    STRIP_TYPES,
-    AppsStripConfig,
-    AutoStripConfig,
-    BehaviorConfig,
-    ChoiceConfig,
-    Config,
-    ConfigError,
-    DeviceConfig,
-    DeviceStripConfig,
-    EmptyStripConfig,
-    HomeAssistantStripConfig,
-    InheritStripConfig,
+from xtouch_daemon.config import presets
+from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, ChoiceConfig, DeviceStripConfig
+from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.files import (
     Problem,
-    VoipConfig,
-    VoipStripConfig,
-    color_of,
     default_config_path,
     example_config,
     load_config,
     parse_config,
     problems_of,
 )
+from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, VoipConfig
+from xtouch_daemon.config.strips import STRIP_MODELS, STRIP_TYPES, EmptyStripConfig, HomeAssistantStripConfig
+from xtouch_daemon.config.values import color_of
 from xtouch_daemon.protocol import Color
 
 FULL = """

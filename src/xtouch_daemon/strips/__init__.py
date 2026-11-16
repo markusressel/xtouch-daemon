@@ -3,19 +3,10 @@
 from typing import assert_never
 
 from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.config import (
-    AppsStripConfig,
-    AutoStripConfig,
-    DeviceStripConfig,
-    EmptyStripConfig,
-    HomeAssistantStripConfig,
-    Indicator,
-    InheritStripConfig,
-    StripConfig,
-    VoipStripConfig,
-    color_of,
-    default_encoder,
-)
+from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
+from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
+from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.values import Indicator, color_of, default_encoder
 from xtouch_daemon.launch import LaunchButton
 from xtouch_daemon.protocol import Button
 from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip

@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from tests.fake_mqtt import FakeBroker
-from xtouch_daemon.config import MqttConfig
+from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain import broker
 from xtouch_daemon.gui.domain.broker import explain, header_status, live_status, try_broker
 from xtouch_daemon.gui.domain.status import Tone

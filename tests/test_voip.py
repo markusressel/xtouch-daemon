@@ -10,7 +10,7 @@ import pytest
 
 from tests.conftest import finish_tasks, settle
 from xtouch_daemon import __version__
-from xtouch_daemon.config import VoipConfig
+from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.voip import Capability, Participant, VoipProvider, build_provider
 from xtouch_daemon.voip import demo as demo_module
 from xtouch_daemon.voip.bridge import BridgeProvider, ProtocolError, parse_state

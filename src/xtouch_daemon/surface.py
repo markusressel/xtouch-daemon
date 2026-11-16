@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from xtouch_daemon import midi, protocol
-from xtouch_daemon.config import Sequence
+from xtouch_daemon.config.values import Sequence
 from xtouch_daemon.midi import RawMidi, find_card
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
 

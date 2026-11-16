@@ -29,16 +29,9 @@ from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from haad_mqtt_autodiscovery.entity.text import MQTTText, MQTTTextPayload
 
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import (
-    AppsStripConfig,
-    AutoStripConfig,
-    ColorName,
-    DeviceStripConfig,
-    HomeAssistantStripConfig,
-    StripConfig,
-    color_of,
-    default_encoder,
-)
+from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
+from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.values import ColorName, color_of, default_encoder
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
 from xtouch_daemon.strips.base import StripController, StripEnv

@@ -7,7 +7,8 @@ from tests.conftest import FakeBackend, FakeLauncher, RecordingSurface, settle, 
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Capture, Direction
-from xtouch_daemon.config import AppsStripConfig, AutoStripConfig, BehaviorConfig
+from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig
+from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip

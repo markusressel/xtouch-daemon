@@ -16,8 +16,12 @@ from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from xtouch_daemon.config import ENCODERS, STRIP_MODELS, ColorName, Config, Meanings, Presets
-from xtouch_daemon.presets import Kind as PresetKind
+from xtouch_daemon.config.base import Meanings
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.names import Presets
+from xtouch_daemon.config.presets import Kind as PresetKind
+from xtouch_daemon.config.strips import STRIP_MODELS
+from xtouch_daemon.config.values import ENCODERS, ColorName
 
 
 class Kind(StrEnum):

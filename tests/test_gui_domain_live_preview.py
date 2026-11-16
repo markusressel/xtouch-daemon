@@ -1,7 +1,7 @@
 import dataclasses
 from pathlib import Path
 
-from xtouch_daemon.config import parse_config
+from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
 from xtouch_daemon.gui.domain.status import Tone
 from xtouch_daemon.instance import Instance

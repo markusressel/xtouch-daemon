@@ -23,7 +23,10 @@ from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from xtouch_daemon import __version__, instance, protocol, systemd
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import DEFAULT_LAYOUT, Config, ConfigError, default_config_path, load_config, parse_config
+from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.files import default_config_path, load_config, parse_config
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.values import DEFAULT_LAYOUT
 from xtouch_daemon.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout, running_processes
 from xtouch_daemon.live import (
     FEATURES,

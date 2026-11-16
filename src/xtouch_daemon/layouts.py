@@ -13,7 +13,9 @@ from collections.abc import Callable, Collection
 from pathlib import Path
 
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import DEFAULT_LAYOUT, Config, LayoutConfig
+from xtouch_daemon.config.layout import LayoutConfig
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.values import DEFAULT_LAYOUT
 
 _LOGGER = logging.getLogger(__name__)
 

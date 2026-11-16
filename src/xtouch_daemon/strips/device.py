@@ -11,7 +11,8 @@ from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Card, Device, Direction
-from xtouch_daemon.config import ChoiceConfig, EncoderMode, Indicator, ProfileConfig
+from xtouch_daemon.config.audio_strips import ChoiceConfig, ProfileConfig
+from xtouch_daemon.config.values import EncoderMode, Indicator
 from xtouch_daemon.protocol import LCD_CELL_WIDTH, Button, Color, Led
 from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
 from xtouch_daemon.surface import Strip

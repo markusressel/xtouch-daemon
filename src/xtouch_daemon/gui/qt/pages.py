@@ -29,15 +29,11 @@ from PyQt6.QtWidgets import (
 
 from xtouch_daemon import mumble, protocol
 from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.config import (
-    DEFAULT_LAYOUT,
-    STRIP_TYPES,
-    BehaviorConfig,
-    Config,
-    LayoutConfig,
-    MqttConfig,
-    default_encoder,
-)
+from xtouch_daemon.config.layout import LayoutConfig
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.sections import BehaviorConfig, MqttConfig
+from xtouch_daemon.config.strips import STRIP_TYPES
+from xtouch_daemon.config.values import DEFAULT_LAYOUT, default_encoder
 from xtouch_daemon.gui.domain import docs, inherit, sources
 from xtouch_daemon.gui.domain.broker import live_status, try_broker
 from xtouch_daemon.gui.domain.changes import Change, Scope

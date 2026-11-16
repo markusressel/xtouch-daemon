@@ -30,7 +30,7 @@ from typing import Any, Literal
 from pydantic import SecretStr
 
 from xtouch_daemon import protocol
-from xtouch_daemon.config import Config
+from xtouch_daemon.config.model import Config
 from xtouch_daemon.protocol import Button, Color, Led
 from xtouch_daemon.surface import Surface
 

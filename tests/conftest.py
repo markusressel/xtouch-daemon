@@ -17,7 +17,7 @@ from xtouch_daemon.audio import meter as meter_module
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Device, Direction, Stream
-from xtouch_daemon.config import BehaviorConfig
+from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.launch import Launcher
 from xtouch_daemon.strips.base import StripEnv
 from xtouch_daemon.surface import Surface

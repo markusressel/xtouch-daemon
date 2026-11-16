@@ -12,7 +12,8 @@ from typing import Any
 
 import aiomqtt
 
-from xtouch_daemon.config import ConfigError, MqttConfig
+from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.live import MqttState, Snapshot
 

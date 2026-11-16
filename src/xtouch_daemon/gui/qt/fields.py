@@ -31,12 +31,12 @@ from PyQt6.QtWidgets import (
     QWidgetItem,
 )
 
-from xtouch_daemon.config import Problem
+from xtouch_daemon.config.files import Problem
+from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
 from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions, preset_tip
 from xtouch_daemon.gui.domain.status import Status
 from xtouch_daemon.gui.qt import theme
-from xtouch_daemon.presets import Kind as PresetKind
 
 type Suggest = Callable[[], tuple[Suggestion, ...]]
 """What the sound server has now for an option, asked for every time it is needed."""

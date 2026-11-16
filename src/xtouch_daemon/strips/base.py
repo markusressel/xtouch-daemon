@@ -11,7 +11,8 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import BehaviorConfig, EncoderMode, Indicator
+from xtouch_daemon.config.sections import BehaviorConfig
+from xtouch_daemon.config.values import EncoderMode, Indicator
 from xtouch_daemon.launch import Launcher
 from xtouch_daemon.media import MediaPlayers
 from xtouch_daemon.mqtt import MqttBridge

@@ -4,7 +4,8 @@ import pytest
 
 from tests.conftest import stream
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import Config, parse_config
+from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.config.model import Config
 from xtouch_daemon.layouts import LayoutSwitcher, rule_match, running_processes
 
 LAYOUTS = """

@@ -3,14 +3,9 @@ from typing import Annotated, Literal
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
-from xtouch_daemon.config import (
-    BehaviorConfig,
-    DeviceConfig,
-    LayoutConfig,
-    MqttConfig,
-    SwitchingConfig,
-    VoipConfig,
-)
+from xtouch_daemon.config.layout import LayoutConfig
+from xtouch_daemon.config.presets import Kind as PresetKind
+from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
 from xtouch_daemon.gui.domain.schema import (
     STRIP_OPTION_ORDER,
     Kind,
@@ -23,7 +18,6 @@ from xtouch_daemon.gui.domain.schema import (
     strip_options,
     strip_type_help,
 )
-from xtouch_daemon.presets import Kind as PresetKind
 
 
 def strip_option(strip_type: str, name: str) -> Option:

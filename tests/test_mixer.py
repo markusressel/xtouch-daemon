@@ -11,7 +11,8 @@ from xtouch_daemon import mixer as mixer_module
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.meter import CHUNK_BYTES, CaptureTarget
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Direction
-from xtouch_daemon.config import Config, parse_config
+from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.config.model import Config
 from xtouch_daemon.mixer import Mixer
 from xtouch_daemon.protocol import Button, Led, RingMode
 from xtouch_daemon.strips import EmptyStrip

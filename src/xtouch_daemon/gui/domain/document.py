@@ -17,7 +17,10 @@ from pydantic import ValidationError
 from tomlkit.container import Container
 from tomlkit.items import Comment, Item, Null, Table, Whitespace
 
-from xtouch_daemon.config import DEFAULT_LAYOUT, Config, ConfigError, Problem, example_config, problems_of
+from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.files import Problem, example_config, problems_of
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.values import DEFAULT_LAYOUT
 from xtouch_daemon.gui.domain.flow import why_not_add
 from xtouch_daemon.gui.domain.schema import Section, sections, strip_models
 

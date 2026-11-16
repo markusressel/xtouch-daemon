@@ -13,7 +13,8 @@ from haad_mqtt_autodiscovery.entity.switch import MQTTSwitch
 from tests.conftest import finish_tasks
 from tests.fake_mqtt import FakeBroker
 from xtouch_daemon import mqtt as mqtt_module
-from xtouch_daemon.config import ConfigError, MqttConfig
+from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.mqtt import MqttBridge
 
 CONFIG = MqttConfig(host="broker", username="xtouch", password="secret")  # type: ignore[arg-type]

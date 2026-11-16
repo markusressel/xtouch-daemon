@@ -40,7 +40,8 @@ from tests.test_systemd import FakeSystemctl
 from xtouch_daemon import live, mumble, protocol, systemd
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
-from xtouch_daemon.config import BehaviorConfig, MqttConfig
+from xtouch_daemon.config.presets import Kind as PresetKind
+from xtouch_daemon.config.sections import BehaviorConfig, MqttConfig
 from xtouch_daemon.gui import qt
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.document import ConfigDocument
@@ -54,7 +55,6 @@ from xtouch_daemon.gui.qt.pages import AliasesPage, BrokerTest, MumbleInstaller,
 from xtouch_daemon.gui.qt.window import MainWindow, Session
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import MqttState, Snapshot, StripState, VoipState
-from xtouch_daemon.presets import Kind as PresetKind
 from xtouch_daemon.systemd import UNIT_NAME, Service, ServiceError, unit_file, unit_path
 
 CONFIG = """\

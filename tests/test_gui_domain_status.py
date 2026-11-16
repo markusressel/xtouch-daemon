@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from xtouch_daemon import systemd
-from xtouch_daemon.config import parse_config
+from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
 from xtouch_daemon.instance import Instance
 from xtouch_daemon.live import Snapshot, fingerprint

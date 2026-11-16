@@ -12,7 +12,7 @@ import pytest
 from tests.conftest import RecordingSurface, finish_tasks
 from xtouch_daemon import live
 from xtouch_daemon import surface as surface_module
-from xtouch_daemon.config import parse_config
+from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.live import (
     EndPreview,
     KeepPreview,

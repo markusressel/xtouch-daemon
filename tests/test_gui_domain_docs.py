@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon.config import STRIP_TYPES, LayoutConfig
+from xtouch_daemon.config.layout import LayoutConfig
+from xtouch_daemon.config.strips import STRIP_TYPES
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.schema import options, sections, strip_models, strip_options
 

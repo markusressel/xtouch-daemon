@@ -18,7 +18,8 @@ from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon import surface as surface_module
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
-from xtouch_daemon.config import Config, parse_config
+from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.config.model import Config
 from xtouch_daemon.daemon import Daemon
 from xtouch_daemon.live import EndPreview, KeepPreview, Reply, StartPreview, SwitchLayout
 from xtouch_daemon.media import MediaPlayers

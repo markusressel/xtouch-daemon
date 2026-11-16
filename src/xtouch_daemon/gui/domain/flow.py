@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any
 
 from xtouch_daemon import protocol
-from xtouch_daemon.config import MAX_STRIPS
+from xtouch_daemon.config.values import MAX_STRIPS
 from xtouch_daemon.live import Snapshot
 
 

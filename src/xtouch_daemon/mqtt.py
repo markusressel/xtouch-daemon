@@ -20,7 +20,7 @@ from haad_mqtt_autodiscovery import MQTTDevice
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from xtouch_daemon import __version__
-from xtouch_daemon.config import MqttConfig
+from xtouch_daemon.config.sections import MqttConfig
 
 _LOGGER = logging.getLogger(__name__)
 
