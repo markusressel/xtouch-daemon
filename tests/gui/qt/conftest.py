@@ -53,6 +53,7 @@ def isolated(qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(QMessageBox, "question", dialogs.question)
     monkeypatch.setattr(QMessageBox, "warning", dialogs.message)
     monkeypatch.setattr(QMessageBox, "critical", dialogs.message)
+    monkeypatch.setattr(QMessageBox, "exec", lambda box: dialogs.execute(box))
     apply_theme(ThemeMode.DARK)
     return dialogs
 

@@ -13,4 +13,4 @@ script, `init-config`), "Save and apply" writes the GUI's old version over those
 - On save: check whether the file changed since it was read (content or mtime); if so, ask instead of overwriting.
 - A reload is one step in the undo history.
 - The live preview: a reload while it runs sends the new document (the daemon ends a preview when the file changes,
-  see `live.py`; check how that interacts).
+  see `live/`; check how that interacts).

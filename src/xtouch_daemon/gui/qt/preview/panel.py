@@ -23,7 +23,17 @@ from PyQt6.QtCore import (
     QTimer,
     pyqtSignal,
 )
-from PyQt6.QtGui import QAction, QColor, QKeyEvent, QLinearGradient, QPainter, QPaintEvent, QPen, QResizeEvent
+from PyQt6.QtGui import (
+    QAction,
+    QColor,
+    QKeyEvent,
+    QKeySequence,
+    QLinearGradient,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QResizeEvent,
+)
 from PyQt6.QtWidgets import QMenu, QSizePolicy, QWidget
 
 from xtouch_daemon.gui.domain.looks import StripFace
@@ -66,6 +76,9 @@ class Preview(QWidget):
     configure = pyqtSignal(int, arguments=["index"])
     """A strip that is not configured should be."""
     remove = pyqtSignal(int, arguments=["index"])
+    copy = pyqtSignal(int, arguments=["index"])
+    paste = pyqtSignal(int, arguments=["index"])
+    """The strip copied last should go to this place."""
 
     def __init__(self):
         super().__init__()
@@ -81,6 +94,8 @@ class Preview(QWidget):
         self.settle.timeout.connect(self._settled)
         self.held = False
         """Whether the handle that sizes the preview is held."""
+        self.can_paste = False
+        """Whether a strip was copied, to paste with Ctrl+V and the menu."""
         self.strips: list[StripView] = [StripView(self, index) for index in range(protocol.STRIPS)]
         self._drag: _Drag | None = None
         self.animations: dict[int, QPropertyAnimation] = {}
@@ -252,9 +267,17 @@ class Preview(QWidget):
     def key(self, index: int, event: QKeyEvent) -> bool:
         """
         A key for the strip that has the focus: the arrows, Home and End select, Ctrl+arrows move it, Delete removes
-        it. False for other keys.
+        it, Ctrl+C copies it and Ctrl+V pastes the copied one in its place. False for other keys.
         """
         key = event.key()
+        if event.matches(QKeySequence.StandardKey.Copy):
+            if self.strips[index].look.configured:
+                self.copy.emit(index)
+            return True
+        if event.matches(QKeySequence.StandardKey.Paste):
+            if self.can_paste:
+                self.paste.emit(index)
+            return True
         if self.dragging and key == Qt.Key.Key_Escape:
             self.cancel_drag()
             return True
@@ -294,6 +317,11 @@ class Preview(QWidget):
                 action.triggered.connect(lambda _=False, target=target: self.moved.emit(index, target))
                 menu.addAction(action)
             menu.addSeparator()
+            copy = QAction(icon("content-copy"), "Copy\tCtrl+C", menu)
+            copy.triggered.connect(lambda: self.copy.emit(index))
+            menu.addAction(copy)
+            menu.addAction(self._paste_action(index, menu))
+            menu.addSeparator()
             remove = QAction(icon("delete-outline", current_colors().error), "Remove\tDel", menu)
             remove.triggered.connect(lambda: self.remove.emit(index))
             menu.addAction(remove)
@@ -301,7 +329,14 @@ class Preview(QWidget):
             configure = QAction(icon("plus"), f"Configure strip {index + 1}", menu)
             configure.triggered.connect(lambda: self.configure.emit(index))
             menu.addAction(configure)
+            menu.addAction(self._paste_action(index, menu))
         return menu
+
+    def _paste_action(self, index: int, menu: QMenu) -> QAction:
+        paste = QAction(icon("content-paste"), "Paste\tCtrl+V", menu)
+        paste.setEnabled(self.can_paste)
+        paste.triggered.connect(lambda: self.paste.emit(index))
+        return paste
 
     # -- painting -------------------------------------------------------------------------------------------------
 

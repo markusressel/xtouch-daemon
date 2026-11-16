@@ -181,7 +181,9 @@ def test_the_keyboard_selects_and_moves_strips(qtbot: QtBot, window: MainWindow)
 
 def test_the_menu_of_a_strip(qtbot: QtBot, window: MainWindow):
     menu = window.preview.menu_for(1)
-    left, right, _, remove = menu.actions()
+    left, right, _, copy, paste, _, remove = menu.actions()
+    assert copy.text() == "Copy\tCtrl+C"
+    assert not paste.isEnabled()
     assert left.text() == "Move left\tCtrl+Left"
     # also to a free place
     assert right.isEnabled()
@@ -194,7 +196,7 @@ def test_the_menu_of_a_strip(qtbot: QtBot, window: MainWindow):
     remove.trigger()
     assert [strip.type for strip in window.document.strips] == ["output"]
 
-    (configure,) = window.preview.menu_for(4).actions()
+    configure, _ = window.preview.menu_for(4).actions()
     configure.trigger()
     assert len(window.document.strips) == 5
     assert window.selected == 4
@@ -216,7 +218,7 @@ def test_the_context_menu_opens_on_the_strip(qtbot: QtBot, window: MainWindow, m
 
     view.contextMenuEvent(QContextMenuEvent(QContextMenuEvent.Reason.Mouse, QPoint(5, 5), view.mapToGlobal(QPoint())))
 
-    assert shown == [["Configure strip 6"]]
+    assert shown == [["Configure strip 6", "Paste\tCtrl+V"]]
     assert window.selected == 5
 
 

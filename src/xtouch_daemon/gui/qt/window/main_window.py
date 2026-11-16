@@ -31,6 +31,7 @@ from xtouch_daemon.gui.domain import broker, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
+from xtouch_daemon.gui.domain.clipboard import Paste
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.drafts import SECTIONS, Validation
 from xtouch_daemon.gui.domain.flow import flow_rows
@@ -72,6 +73,7 @@ from xtouch_daemon.gui.qt.theme.style import apply_theme, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
 from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.layout_bar import LayoutBar
+from xtouch_daemon.gui.qt.window.paste_dialog import ask_paste
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.gui.qt.window.splitter import EDITOR_MIN_HEIGHT, PreviewSplitter
@@ -358,6 +360,8 @@ class MainWindow(QMainWindow):
         self.preview.moved.connect(self._moved)
         self.preview.configure.connect(self._configure)
         self.preview.remove.connect(self.remove_strip)
+        self.preview.copy.connect(self.copy_strip)
+        self.preview.paste.connect(self.paste_strip)
         # it scales itself to the space the handle below it gives it, centered
         return self.preview
 
@@ -659,6 +663,26 @@ class MainWindow(QMainWindow):
         self.select(index)
         where = "" if last else ", its place is an auto strip now"
         self.status.setText(f"Removed strip {index + 1}{where}. Ctrl+Z brings it back.")
+
+    def copy_strip(self, index: int) -> None:
+        copied = self.editor.copy_strip(index)
+        self.preview.can_paste = True
+        self.status.setText(f"Copied {copied}. Ctrl+V pastes it in the place of another strip, also of another layout.")
+
+    def paste_strip(self, index: int) -> None:
+        """Pastes the copied strip at `index`: asks whether to inherit it where an `inherit` strip could refer to it."""
+        copied = self.editor.copied
+        assert copied is not None, "nothing copied"
+        paste = Paste.COPY
+        if copied.can_inherit(self.document.layout_name, index):
+            choice = ask_paste(self, copied, f"strip {index + 1}")
+            if choice is None:
+                return
+            paste = choice
+        self.editor.paste_strip(index, paste)
+        self.show_page("strip")
+        how = "an inherit strip of" if paste is Paste.INHERIT else "a copy of"
+        self.status.setText(f"Strip {index + 1} is {how} {copied} now. Ctrl+Z undoes it.")
 
     def undo(self) -> None:
         if self.editor.undo():

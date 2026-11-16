@@ -82,6 +82,8 @@ class Dialogs:
     def __init__(self) -> None:
         self.answer = QMessageBox.StandardButton.Discard
         self.shown: list[str] = []
+        self.pick: str | None = None
+        """The button a message box of its own (`exec()`) gets clicked by its text; None for its Cancel."""
 
     def question(self, parent: object, title: str, text: str, *args: object) -> QMessageBox.StandardButton:
         self.shown.append(text)
@@ -90,6 +92,16 @@ class Dialogs:
     def message(self, parent: object, title: str, text: str) -> QMessageBox.StandardButton:
         self.shown.append(text)
         return QMessageBox.StandardButton.Ok
+
+    def execute(self, box: QMessageBox) -> int:
+        self.shown.append(box.text())
+        if self.pick is None:
+            button = box.button(QMessageBox.StandardButton.Cancel)
+        else:
+            (button,) = [button for button in box.buttons() if button.text() == self.pick]
+        assert button is not None
+        button.click()
+        return 0
 
 
 type MakeWindow = Callable[..., MainWindow]

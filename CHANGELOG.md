@@ -69,6 +69,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   is connected. Releases ship the plugin in `/usr/share/xtouch-daemon/`, CI builds it.
 - The live view takes a request to switch the layout (`{"request": "layout", "layout": "gaming"}`, answered with a
   reply), and the state tells the layout shown.
+- GUI: copy a strip (Ctrl+C or its context menu) and paste it in the place of another one (Ctrl+V), also of
+  another layout; in a [[layout]] it asks whether to inherit it (an `inherit` strip) or copy all its options.
 - The GUI edits layouts: a tab per layout above the strips (● marks the one the device shows), + adds one (empty or a
   copy), a "Layout" tab for its name, label and rules, the pages "Layouts" and "Voice chat" in the global settings,
   and "Show on the device". The strips are live only for the layout the device shows. `person` of a `voip` strip

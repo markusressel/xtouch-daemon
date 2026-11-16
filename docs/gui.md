@@ -130,6 +130,8 @@ daemon from before the live preview (restart it to run the installed version).
 | Move a strip | Drag it. The others make room where it goes. | Ctrl+Left, Ctrl+Right. |
 | Cancel a drag | | Escape. |
 | Remove a strip | Context menu, or "Remove" on its tab. | Delete. |
+| Copy a strip | Context menu. | Ctrl+C. |
+| Paste the copied strip in the place of another one, also of another layout | Context menu. In a [[layout]] the window asks: "Inherit" makes an `inherit` strip that refers to the copied one, "Copy" takes all its options. | Ctrl+V. |
 | Configure a strip that is not configured | Double-click it, or its context menu. | |
 
 Only configured strips move, to any of the 8 places; the places in between become `auto` strips. Removing a strip

@@ -17,6 +17,7 @@ from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import Problem, example_config, problems_of
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.values import DEFAULT_LAYOUT
+from xtouch_daemon.gui.domain.clipboard import CopiedStrip, Paste
 from xtouch_daemon.gui.domain.drafts import (
     RESTART_SECTIONS,
     SECTIONS,
@@ -326,6 +327,19 @@ class ConfigDocument:
         while len(self.strips) <= to:
             self.strips.append(StripDraft({"type": "auto"}))
         self.strips.insert(to, self.strips.pop(index))
+        self._trim()
+
+    def copy_strip(self, index: int) -> CopiedStrip:
+        """The strip at `index` of the layout being edited, to paste elsewhere (see `paste_strip()`)."""
+        return CopiedStrip.of(self.layout_name, index, self.strips[index])
+
+    def paste_strip(self, index: int, copied: CopiedStrip, paste: Paste) -> None:
+        """
+        Puts a copied strip at `index` instead of the strip there, also after the last strip: the places in between
+        are `auto` strips.
+        """
+        self.configure_up_to(index)
+        self.strips[index] = copied.draft(paste)
         self._trim()
 
     def _trim(self) -> None:

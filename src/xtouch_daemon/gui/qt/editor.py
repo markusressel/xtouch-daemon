@@ -7,6 +7,7 @@ updates what it shows in place (see the GUI section of docs/architecture.md).
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
+from xtouch_daemon.gui.domain.clipboard import CopiedStrip, Paste
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.drafts import Validation
 from xtouch_daemon.gui.domain.history import History
@@ -26,6 +27,8 @@ class Editor(QObject):
         self.validation: Validation = document.validate()
         self.selection = 0
         """The strip whose options the editor shows."""
+        self.copied: CopiedStrip | None = None
+        """The strip copied last, to paste: it stays while another layout is edited."""
 
     # -- what changed ---------------------------------------------------------------------------------------------
 
@@ -76,6 +79,17 @@ class Editor(QObject):
         self.document.move_strip(index, to)
         self.edited(Change(Scope.STRIPS))
         self.select(to)
+
+    def copy_strip(self, index: int) -> CopiedStrip:
+        self.copied = self.document.copy_strip(index)
+        return self.copied
+
+    def paste_strip(self, index: int, paste: Paste) -> None:
+        """Pastes the copied strip at `index` and selects it (see `ConfigDocument.paste_strip()`)."""
+        assert self.copied is not None, "nothing copied"
+        self.document.paste_strip(index, self.copied, paste)
+        self.edited(Change(Scope.STRIPS))
+        self.select(index)
 
     def remove_strip(self, index: int) -> None:
         self.document.remove_strip(index)
