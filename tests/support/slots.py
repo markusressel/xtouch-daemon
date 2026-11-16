@@ -1,0 +1,33 @@
+"""
+Helpers for the tests of channels, states and slots: configurations from TOML, states, what slots show.
+"""
+
+import tomllib
+from collections.abc import Iterable
+
+from tests.support.paths import DOCS
+from xtouch_daemon.slots.model import DEFAULT, Scene
+from xtouch_daemon.slots.resolver import Result
+
+EXAMPLE = DOCS / "design" / "channels-states-slots.toml"
+"""The complete example of the design."""
+
+
+def scene(text: str) -> Scene:
+    return Scene.of(tomllib.loads(text))
+
+
+def example() -> Scene:
+    return Scene.of(tomllib.loads(EXAMPLE.read_text()))
+
+
+def states(scene: Scene, *on: str, mode: str = DEFAULT) -> dict[str, bool]:
+    """Every state off but `on`, and the mode."""
+    values = {name: name in on for name in scene.states}
+    values.update({name: name == mode for name in scene.modes})
+    values[DEFAULT] = mode == DEFAULT
+    return values
+
+
+def shows(result: Result, slots: Iterable[int] = range(1, 9)) -> list[str]:
+    return [str(result.slots[slot]) for slot in slots]

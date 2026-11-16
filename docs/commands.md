@@ -12,6 +12,7 @@
 | [`xtouch-daemon mumble-plugin`](#mumble-plugin) | Shows, builds or installs the Mumble plugin of `voip` strips. |
 | [`xtouch-daemon install-service`](#install-service) | Sets the daemon up as a systemd user service. |
 | [`xtouch-daemon gui`](#gui) | Edits the configuration in a window. |
+| [`xtouch-daemon simulate`](#simulate) | Prototype: what the slots of a configuration in the format of channels, states and slots show. |
 
 Every command takes `-h`/`--help`. `xtouch-daemon -V` (`--version`) shows the version.
 
@@ -195,3 +196,19 @@ xtouch-daemon gui [-c FILE]
 
 Edits the configuration in a window, and applies it. Needs the `gui` extra, or the package `xtouch-daemon-gui-bin`
 (which has the command `xtouch-daemon-gui`). See [GUI](gui.md).
+
+## `simulate`
+
+```shell
+xtouch-daemon simulate FILE [--mode NAME] [--state NAME]... [--absent CHANNEL]... [--playing APP]... [--person NAME]... [--table]
+```
+
+A prototype of [Design: channels, states and slots](design/channels-states-slots.md): what the 8 slots of FILE show
+in the given states, and why not the candidates above. The daemon does not use that format yet.
+
+| Option | Meaning |
+|---|---|
+| `--mode`, `--state` | The mode and the states that are on; the others are off. |
+| `--absent` | A channel that is not present; the others are. |
+| `--playing`, `--person` | The applications that play (in the order they started) and the people in the voice chat, for the pools `auto` and `people`. |
+| `--table` | Every combination of the states and presence the stacks ask about that changes what the slots show. |

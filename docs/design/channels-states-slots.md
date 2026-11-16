@@ -1,9 +1,9 @@
 # Design: channels, states and slots
 
-Status: proposal (prototyping), not implemented. It replaces layouts, `inherit` strips and `collapse` with concepts
-that are each edited in one place. The configuration format may change freely before 0.1.0. Revision 4, after three
-independent reviews, see [Review log](#review-log). Next step: an executable prototype of the resolver and the state
-engine with the scenarios of the reviews as tests, see [Next step](#next-step).
+Status: proposal (prototyping). It replaces layouts, `inherit` strips and `collapse` with concepts that are each
+edited in one place. The configuration format may change freely before 0.1.0. Revision 4, after three independent
+reviews, see [Review log](#review-log). The resolver and the state engine run as a prototype (`xtouch_daemon.slots`,
+`xtouch-daemon simulate`), see [Prototype](#prototype); the daemon doesn't use them yet.
 
 ## Motivation
 
@@ -75,13 +75,23 @@ A channel is today's strip without its place: `type` and the options of that typ
 [channel.out]
 type = "output"
 color = "cyan"
-choices = [
-  { label = "Phones",  device = "alsa_output.pci-0000_11_00.4.analog-stereo",
-    card = "alsa_card.pci-0000_11_00.4", profile = "output:analog-stereo+input:analog-stereo" },
-  { label = "Speaker", device = "alsa_output.pci-0000_11_00.4.iec958-stereo",
-    card = "alsa_card.pci-0000_11_00.4", profile = "output:iec958-stereo+input:analog-stereo", max_volume = 200 },
-  { label = "Buds",    device = "bluez_output.*" },
-]
+
+[[channel.out.choices]]
+label = "Phones"
+device = "alsa_output.pci-0000_11_00.4.analog-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:analog-stereo+input:analog-stereo"
+
+[[channel.out.choices]]
+label = "Speaker"
+device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:iec958-stereo+input:analog-stereo"
+max_volume = 200
+
+[[channel.out.choices]]
+label = "Buds"
+device = "bluez_output.*"
 
 [channel.spotify]
 type = "apps"
@@ -383,17 +393,18 @@ delay_off = 30
 8 = ["mic if call", "auto"]
 ```
 
-What it shows (as `check-config` and the scene grid print it: one row per combination of states and presence the
-stacks ask about that changes something):
+What it shows, as `xtouch-daemon simulate docs/design/channels-states-slots.toml --table` prints it (the example is
+[that file](channels-states-slots.toml); a test keeps this table in line with it): one row per combination of states
+and presence the stacks ask about that changes something.
 
 ```
-when                              1     2       3-6   7     8
-default                           Out   Brws    auto  auto  auto
-call                              Out   Brws    auto  VoIP  Mic
-gaming                            Game  Brws    auto  VoIP  auto
-gaming, people present            Game  people  auto  VoIP  auto
-gaming and call                   Game  Brws    auto  VoIP  Mic
-gaming and call, people present   Game  people  auto  VoIP  Mic
+when                             1     2        3-6   7     8
+default                          out   browser  auto  auto  auto
+call                             out   browser  auto  voip  mic
+gaming                           game  browser  auto  voip  auto
+gaming and call                  game  browser  auto  voip  mic
+gaming, people present           game  people   auto  voip  auto
+gaming and call, people present  game  people   auto  voip  mic
 ```
 
 - With Mumble, people present means `call` after 2 s: joining a channel while gaming changes slot 2 at once and
@@ -530,18 +541,42 @@ traced:
 - composed states, loops, reserved and duplicate names, errors with positions;
 - an absent channel holding versus `if present`, `absent_after`, presence of pools.
 
-## Next step
+## Prototype
 
-Three reviews of prose found three rounds of holes, each in the parts that only exist as prose: the resolver and
-the state engine. The next step is to make them executable before reviewing again:
+Three reviews of prose found three rounds of holes, each in the parts that only existed as prose. So the resolver
+and the state engine are code now, pure (no sound server, no device), in `xtouch_daemon.slots`:
 
-1. `SlotResolver` and `StateEngine` as pure modules (no sound server, no device), with the list above as tests and
-   the example's table generated, not written.
-2. A `simulate` command over a configuration in the new format: states, presence and pools in, the slots and the
-   trace out. It is what the GUI's Simulate and Grid will use.
-3. A fourth review of that code and its scenarios, which can try its own counter-examples instead of tracing by hand.
+| Module | What |
+|---|---|
+| `model` | `Scene.of()`: reads `[channel.*]`, `[pool.*]`, `[state.*]`, `[slots]` with every check above. |
+| `expressions` | The conditions, with errors at their position. |
+| `inputs`, `timing` | An `Observation` (applications, voice chat, processes, devices, Home Assistant), presence, the delays. |
+| `states` | `StateEngine`: sources, delays, overrides, modes, composed states, the baseline. |
+| `resolver` | `resolve()`: fixed slots, channels by rank, pools; the trace. |
+| `simulation` | `Simulation`: all of it over time, with the dwell time and held slots. |
+| `outcomes` | The distinct outcomes: the table above, `simulate --table`, the GUI's grid. |
 
-The configuration format, the GUI and the migration follow once the semantics hold.
+`xtouch-daemon simulate docs/design/channels-states-slots.toml --mode gaming --state call --playing firefox` shows
+the slots and why. The tests (`tests/slots/`) have every scenario the reviews traced, and one keeps the table above in
+line with the example. Not in the prototype: batching (a matter of when the daemon calls it), the touch sensors
+(their result is `held`), Home Assistant and the live view, the GUI, the migration.
+
+What building it showed:
+
+- **An override set while a delay is pending ends with it.** `call` forced off while a join tone's `delay_on` runs:
+  2 s later the sources turn on (an edge), the override ends, and the call comes anyway. That is the rule ("until the
+  sources change"); whether it is what people expect needs trying on the device.
+- **The grid explains rank surprises.** A test configuration with `1 = ["buds if present", "out"]` and
+  `3 = ["out if video", "auto"]`: in video mode without buds, `out` goes to slot 3 (rank 1 there, 2 on slot 1), and
+  slot 1 shows `auto`. Correct, but only the grid (or `check-config`'s list of shared channels) makes it visible.
+- **`present` on `"-"` meant nothing**: now an error.
+- **Channels of a pool without a slot don't wait**: only applications and people do; such channels are just not
+  shown.
+- **A multi-line inline table is no TOML 1.0**: the examples of `choices` use `[[channel.out.choices]]`.
+
+Next: try the semantics against real use (e.g. a log of a day's observations replayed through `Simulation`), then a
+review of the code and its scenarios, then the daemon, the format of the real configuration, the GUI and the
+migration.
 
 ## Review log
 
