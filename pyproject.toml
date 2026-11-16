@@ -57,6 +57,7 @@ dev = [
     "pytest-qt>=4.4",
     "xtouch-daemon[gui]",
     "ruff>=0.11",
+    "pytest-xdist>=3.8.0",
 ]
 docs = [
     "zensical>=0.1.1",
