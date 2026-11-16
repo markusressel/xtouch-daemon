@@ -22,7 +22,7 @@ The Rec and Solo LEDs are indicators; their buttons do nothing (except Rec with 
 | `playing` | Audio flows: the device runs, or a stream of the applications plays. |
 | `default` | The device is the default output/input. Never for applications. |
 | `muted` | The strip is muted (like the Mute LED). |
-| `off` | Never. |
+| `off` | Never: the LED stays dark. |
 
 | Option | Default |
 |---|---|

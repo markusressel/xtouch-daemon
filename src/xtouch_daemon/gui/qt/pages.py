@@ -8,18 +8,18 @@ import threading
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from xtouch_daemon import protocol
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config import STRIP_TYPES, BehaviorConfig, Config, MqttConfig, default_encoder
-from xtouch_daemon.gui.domain import sources
+from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.broker import live_status, try_broker
 from xtouch_daemon.gui.domain.document import SECTIONS, ConfigDocument, Validation
 from xtouch_daemon.gui.domain.looks import look
-from xtouch_daemon.gui.domain.schema import Kind, options, strip_models, strip_options
+from xtouch_daemon.gui.domain.schema import Kind, options, strip_models, strip_options, strip_type_help
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt import theme
 from xtouch_daemon.gui.qt.fields import (
@@ -67,10 +67,6 @@ def row(layout: QLayout) -> QWidget:
     holder = QWidget()
     holder.setLayout(layout)
     return holder
-
-
-def doc(model: type[BaseModel]) -> str:
-    return " ".join((model.__doc__ or "").split())
 
 
 class Page(QWidget):
@@ -136,7 +132,7 @@ class SectionPage(Page):
             remove.clicked.connect(self._remove)
             header.addWidget(remove)
         self.layout_.addWidget(row(header))
-        self.layout_.addWidget(help_label(self.section.help, "hint"))
+        self.layout_.addWidget(help_label(self.section.help, "hint", docs.page_link(name)))
         self.layout_.addWidget(self.problem)
         frame, layout = card()
         if not present:
@@ -158,6 +154,7 @@ class SectionPage(Page):
                         lambda option_name=option.name: self.document.get((name, option_name)),
                         lambda value, option_name=option.name: self._put(option_name, value),
                         suggest.get(option.name),
+                        link=docs.option_link(name, option.name),
                     )
                     for option in options(self.section.model)
                 ],
@@ -395,7 +392,7 @@ class StripPage(Page):
             theme.set_role(button, "segment", "variant")
             button.setCheckable(True)
             button.setChecked(name == strip.type)
-            button.setToolTip(doc(models[name]))
+            button.setToolTip(help_text(strip_type_help(name)))
             button.clicked.connect(lambda _=False, name=name: self._set_type(name))
             self.types.addButton(button)
             types.addWidget(button)
@@ -403,7 +400,9 @@ class StripPage(Page):
         self.layout_.addWidget(row(types))
         strip_type = strip.type
         if strip_type in models:
-            self.layout_.addWidget(help_label(doc(models[strip_type]), "hint"))
+            self.layout_.addWidget(
+                help_label(strip_type_help(strip_type), "hint", docs.strip_type_link(strip_type)),
+            )
         self.layout_.addWidget(self.problem)
         if strip_type is None or strip_type not in models:
             return
@@ -431,6 +430,7 @@ class StripPage(Page):
                 lambda value, name=option.name: self._put(name, value),
                 suggest.get(option.name),
                 placeholders.get(option.name),
+                docs.option_link("strip", option.name, strip_type),
             )
             for option in strip_options(strip_type)
         ]
@@ -530,7 +530,7 @@ class AliasesPage(Page):
         header.addStretch()
         self.layout_.addWidget(row(header))
         description = Config.model_fields["aliases"].description or ""
-        self.layout_.addWidget(help_label(description.split(":")[0] + ".", "hint"))
+        self.layout_.addWidget(help_label(description, "hint", docs.page_link("aliases")))
         frame, layout = card()
         heading = QHBoxLayout()
         heading.addWidget(label("Application, as the sound server reports it", "help"), 3)

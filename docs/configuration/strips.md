@@ -26,10 +26,10 @@ These options apply to `output`, `input`, `apps` and `auto` strips. `homeassista
 
 | Option | Default | Meaning |
 |---|---|---|
-| `color` | `"white"` | The LCD backlight: `off`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`. |
+| `color` | `"white"` | The LCD backlight: `off` (no backlight), `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`. Dark while the strip has nothing to control. |
 | `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). |
-| `rec` | `"recording"` | What the LED of the Rec button shows, see [LEDs](indicators.md). |
-| `solo` | `"off"` | What the LED of the Solo button shows, see [LEDs](indicators.md). |
+| `rec` | `"recording"` | What the LED of the Rec button shows: `recording`, `playing`, `default`, `muted` or `off`, see [LEDs](indicators.md). |
+| `solo` | `"off"` | What the LED of the Solo button shows, the same values, see [LEDs](indicators.md). |
 | `min_volume` | `0` | The volume of the fader at the bottom, 0..200 percent. |
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
 | `encoder` | depends on the type | What the encoder does, see [Encoders](encoders.md). |

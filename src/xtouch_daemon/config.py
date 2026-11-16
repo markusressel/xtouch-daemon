@@ -5,6 +5,7 @@ The configuration: a TOML file, by default `$XDG_CONFIG_HOME/xtouch-daemon/confi
 
 import os
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -33,23 +34,65 @@ class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, use_attribute_docstrings=True)
 
 
+@dataclass(frozen=True, eq=False)
+class Meanings:
+    """
+    What the values of a choice mean, as metadata of its option (`Annotated[Indicator, INDICATORS]`): the GUI shows
+    the meaning of the chosen value. Keep it in line with the tables of the docs.
+    """
+
+    meanings: Mapping[str, str]
+
+
 ColorName = Literal["off", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+
+COLORS = Meanings({"off": "No backlight."})
+"""The colors name themselves; only `off` needs a word."""
 
 
 Indicator = Literal["off", "recording", "playing", "default", "muted"]
-"""
-What a button LED shows: `recording`: an application records the device (an input, or the monitor of an output) or
-records at all (applications); `playing`: audio flows; `default`: the device is the default; `muted`: muted.
-"""
+"""What a button LED shows, see `INDICATORS`."""
+
+INDICATORS = Meanings(
+    {
+        "off": "The LED stays dark.",
+        "recording": "Lit while an application records: from the input, from the monitor of the output (e.g. a "
+        "screen recorder), or on `apps` and `auto` strips, while the application records anything (e.g. Discord "
+        "using a microphone). Level meters don't count.",
+        "playing": "Lit while audio flows: the device runs, or a stream of the applications plays.",
+        "default": "Lit while the device is the default output or input. Never on `apps` and `auto` strips.",
+        "muted": "Lit while the strip is muted, like the Mute LED.",
+    }
+)
 
 
 EncoderMode = Literal["volume", "balance", "pick", "media", "homeassistant"]
-"""
-What the encoder of a strip does: `volume`: fine steps, a push resets it; `balance`: left/right, a push centers it;
-`pick` (`auto` strips): which application the strip has, a push pins it; `media` (applications): seeks in the track
-of their media player, a push plays or pauses; `homeassistant`: a number entity in Home Assistant, e.g. for the
-brightness of a light.
-"""
+"""What the encoder of a strip does, see `ENCODER_MODES`."""
+
+ENCODER_MODES = Meanings(
+    {
+        "volume": "Turn: the volume in fine steps (`behavior.encoder_step`), the fader follows. Push: "
+        "`behavior.reset_volume`.",
+        "balance": "Turn: the balance between left and right, 5 % per step. Push: centers it. Nothing on mono "
+        "devices and streams.",
+        "pick": "Turn: picks the application of the strip among those without a strip of their own. Push: pins it, "
+        "so it stays after it stopped playing.",
+        "media": "Turn: seeks in the track of the applications' media player (MPRIS), 5 s per step. Push: plays or "
+        "pauses.",
+        "homeassistant": "Turn: changes a number entity in Home Assistant (0..100), e.g. for the brightness of a "
+        "light. Push: an event there. Needs `[mqtt]`.",
+    }
+)
+
+FaderMode = Literal["volume", "homeassistant"]
+
+FADER_MODES = Meanings(
+    {
+        "volume": "The fader sets the volume.",
+        "homeassistant": "The fader sets a number entity in Home Assistant (0..100), e.g. for the brightness of a "
+        "light; the encoder sets the volume. Needs `[mqtt]`.",
+    }
+)
 
 ENCODERS: dict[str, tuple[EncoderMode, ...]] = {
     "output": ("balance", "volume", "homeassistant"),
@@ -87,32 +130,46 @@ FaderNumber = Annotated[int, Field(ge=1, le=protocol.STRIPS)]
 Sequence = Literal["instant", "sweep", "curtain", "show"]
 """How the strips light up after a connect and go dark at the end, see `surface.steps()`."""
 
+STARTUP_SEQUENCES = Meanings(
+    {
+        "instant": "All strips light up at once.",
+        "sweep": "One strip after the other from the left, 80 ms apart.",
+        "curtain": "From the middle outwards, pair by pair (4 and 5 first, 1 and 8 last).",
+        "show": "A wave of light runs across from the left: each strip lights up white, its meter jumps up and "
+        "falls, its ring fills up. Behind it the strips show what they are, about 1.2 s after the connect.",
+    }
+)
+
+SHUTDOWN_SEQUENCES = Meanings(
+    {
+        "instant": "All strips go dark at once.",
+        "sweep": "One strip after the other from the right.",
+        "curtain": "From the outside in, pair by pair.",
+        "show": "From the right, each strip flashes white, its meter jumps up and its ring drains; then it goes dark.",
+    }
+)
+
 
 class DeviceConfig(_Model):
     """The device the daemon drives."""
 
     name: str = "X-Touch-Ext"
-    """Part of the name of the sound card of the extender (see /proc/asound/cards)."""
+    """Part of the name of the extender's sound card, as `/proc/asound/cards` lists it."""
     touch_required: bool = True
     """
-    Whether a fader changes a value only while the device reports a touch. Off, every move counts, as on
-    `touchless_faders`: e.g. pushing a fader from below with a fingertip, which the touch sensor does not notice.
+    Whether a fader changes a value only while the device reports a touch, so a fader moved by its motor does not
+    count. Off, every move counts, as on `touchless_faders`: e.g. pushing a fader from below with a fingertip, which
+    the touch sensor does not notice.
     """
     touchless_faders: tuple[FaderNumber, ...] = ()
     """
-    Faders whose touch sensor does not work, numbered from 1 on the left: a move counts as a touch, a short pause in
-    the moves as letting go.
+    Faders whose touch sensor does not work, numbered from 1 on the left: a move counts as a touch, half a second
+    without a move as letting go. Without it such a fader goes back to its value after every move.
     """
-    startup: Sequence = "sweep"
-    """
-    How the strips light up after a connect: `instant` all at once, `sweep` one after the other from the left,
-    `curtain` from the middle outwards, `show` behind a wave of light from the left.
-    """
-    shutdown: Sequence = "sweep"
-    """
-    How the strips go dark when the daemon stops: `instant` all at once, `sweep` one after the other from the right,
-    `curtain` from the outside in, `show` with a flash of light from the right.
-    """
+    startup: Annotated[Sequence, STARTUP_SEQUENCES] = "sweep"
+    """How the strips light up after the device connects."""
+    shutdown: Annotated[Sequence, SHUTDOWN_SEQUENCES] = "sweep"
+    """How the strips go dark when the daemon stops."""
 
 
 class BehaviorConfig(_Model):
@@ -132,15 +189,24 @@ class BehaviorConfig(_Model):
     it) are not affected: their fader is linear from the bottom to the top.
     """
     encoder_step: Annotated[int, Field(ge=1, le=10)] = 1
-    """Percent per step of an encoder."""
+    """
+    Percent per step of an encoder: of the volume with the `volume` encoder, of the number with a `homeassistant`
+    one.
+    """
     reset_volume: Volume = 100
-    """The volume a push on an encoder sets (within the range of the strip)."""
+    """The volume a push on a `volume` encoder sets, at most `max_volume` (and within the range of the strip)."""
     meters: bool = True
-    """Whether the LED meters show audio levels."""
+    """Whether the LED meters show audio levels at all. Off, every meter stays dark; `meter` turns off a single one."""
     auto_hold: Annotated[float, Field(ge=0)] = 5.0
-    """Seconds an `auto` strip keeps an application after it stopped playing (so it does not jump between tracks)."""
+    """
+    Seconds an `auto` strip keeps an application after it stopped playing, so a music player does not jump to
+    another strip between two tracks.
+    """
     ignore: tuple[str, ...] = ("speech-dispatcher",)
-    """Applications that `auto` strips never take (part of the name or binary, ignoring case)."""
+    """
+    Applications that `auto` strips never take: parts of the name or binary, ignoring case, e.g. "notification" for
+    notification sounds.
+    """
 
     @model_validator(mode="after")
     def _reset_within_reach(self) -> BehaviorConfig:
@@ -154,26 +220,32 @@ Slug = Annotated[str, Field(pattern=r"^[a-z0-9_]+$", max_length=64)]
 
 
 class _StripConfig(_Model):
-    color: ColorName = "white"
-    """The backlight of the LCD."""
+    color: Annotated[ColorName, COLORS] = "white"
+    """The backlight of the LCD. It is dark while the strip has nothing to control."""
     meter: bool = True
     """Whether this strip's LED meter shows the level (if `behavior.meters` is on)."""
-    rec: Indicator = "recording"
-    """What the LED of the rec button shows."""
-    solo: Indicator = "off"
-    """What the LED of the solo button shows."""
+    rec: Annotated[Indicator, INDICATORS] = "recording"
+    """What the LED of the Rec button shows. The button itself does nothing (except with `profiles`)."""
+    solo: Annotated[Indicator, INDICATORS] = "off"
+    """What the LED of the Solo button shows. The button itself does nothing."""
     min_volume: Volume | None = None
-    """The volume of the fader at the bottom, in percent; by default 0."""
+    """
+    The volume of the fader at the bottom, in percent; by default 0. E.g. 50 gives the whole travel of the fader to
+    the upper half.
+    """
     max_volume: Volume | None = None
-    """The volume of the fader at the top, in percent; by default `behavior.max_volume`."""
-    encoder: EncoderMode | None = None
-    """What the encoder does; by default `balance` for devices, `media` for `apps`, `pick` for `auto` strips."""
-    fader: Literal["volume", "homeassistant"] = "volume"
-    """What the fader sets: the volume, or a number entity in Home Assistant (then the encoder sets the volume)."""
+    """
+    The volume of the fader at the top, in percent; by default `behavior.max_volume`. Above 100 % the audio is
+    amplified in software, e.g. 200 for weak speakers.
+    """
+    encoder: Annotated[EncoderMode, ENCODER_MODES] | None = None
+    """What the encoder does when it is turned and pushed; its LED ring shows the value."""
+    fader: Annotated[FaderMode, FADER_MODES] = "volume"
+    """What the fader sets."""
     id: Slug | None = None
     """
-    With `fader` or `encoder` in Home Assistant: part of the entity IDs; by default `strip_<position>`, so set it to
-    keep the entities when moving the strip.
+    With `fader` or `encoder` in Home Assistant: part of the entity IDs, e.g. "desk" for `number.xtouch_desk_fader`;
+    by default `strip_<position>`, so set it to keep the entities when moving the strip.
     """
 
     @property
@@ -213,10 +285,28 @@ class ProfileConfig(_Model):
     """The volume of the fader at the top in this profile (e.g. 200 for weak speakers); by default the strip's."""
 
 
+STRIP_TYPE_MEANINGS = Meanings(
+    {
+        "output": "An output device (speakers, headphones): the fader sets its volume. One device, one of several, or "
+        "whatever is the default output.",
+        "input": "An input device (a microphone): the fader sets its volume. One device, one of several, or whatever "
+        "is the default input.",
+        "apps": "All playback streams of a group of applications, e.g. every browser, like the per-application "
+        "sliders of pavucontrol.",
+        "auto": "The next application that plays and has no strip of its own. Strips that are not configured are "
+        "auto strips.",
+        "homeassistant": "A strip that belongs to Home Assistant: its fader, encoder, LCD, LEDs and buttons are "
+        "entities there, and automations decide what they do. Needs `[mqtt]`.",
+        "empty": "A dark strip that does nothing; its fader stays at the bottom.",
+    }
+)
+"""What each strip type is, shown when it is chosen."""
+
+
 class DeviceStripConfig(_StripConfig):
     """An output or an input device, or whatever is the default one."""
 
-    type: Literal["output", "input"]
+    type: Annotated[Literal["output", "input"], STRIP_TYPE_MEANINGS]
     device: tuple[str, ...] = ()
     """
     The node name (`xtouch-daemon list-devices`) or description of the device; without it the default device. Several
@@ -229,10 +319,13 @@ class DeviceStripConfig(_StripConfig):
     the active profile (`profiles`) comes first.
     """
     select: bool = True
-    """Whether the select button makes the device the default (needs `device`)."""
+    """
+    Whether the Select button makes the device the default (needs `device`); with several devices, a press on the
+    default one switches to the next. Its LED is on while the device is the default.
+    """
     profiles: tuple[ProfileConfig, ...] = ()
     """
-    Profiles of the device's sound card to switch between with the rec button, e.g. analog and digital output. Its
+    Profiles of the device's sound card to switch between with the Rec button, e.g. analog and digital output. Its
     LED is on for every profile but the first. Name `device` so that it matches the devices of every profile (e.g.
     `alsa_output.pci-0000_11_00.4.*`): each profile has a device of its own.
     """
@@ -279,11 +372,14 @@ class DeviceStripConfig(_StripConfig):
 class AppsStripConfig(_StripConfig):
     """All streams of a group of applications, e.g. every browser."""
 
-    type: Literal["apps"]
+    type: Annotated[Literal["apps"], STRIP_TYPE_MEANINGS]
     match: Annotated[tuple[str, ...], Field(min_length=1)]
-    """Parts of the names or binaries of the applications (ignoring case), see `xtouch-daemon list-apps`."""
+    """
+    Parts of the names or binaries of the applications (ignoring case), see `xtouch-daemon list-apps`, e.g. "discord"
+    and "webrtc" for voice chats, ".exe" for games under Proton.
+    """
     label: Label
-    """The top line of the LCD."""
+    """The top line of the LCD, e.g. "VoIP"."""
 
     @field_validator("match")
     @classmethod
@@ -296,24 +392,27 @@ class AppsStripConfig(_StripConfig):
 class AutoStripConfig(_StripConfig):
     """The next application that plays and has no strip of its own."""
 
-    type: Literal["auto"]
+    type: Annotated[Literal["auto"], STRIP_TYPE_MEANINGS]
 
 
 class EmptyStripConfig(_Model):
     """A dark strip that does nothing."""
 
-    type: Literal["empty"]
+    type: Annotated[Literal["empty"], STRIP_TYPE_MEANINGS]
 
 
 class HomeAssistantStripConfig(_Model):
     """A strip that belongs to Home Assistant: its parts are entities there, automations decide what they do."""
 
-    type: Literal["homeassistant"]
+    type: Annotated[Literal["homeassistant"], STRIP_TYPE_MEANINGS]
     id: Slug | None = None
-    """Part of the entity IDs; by default `strip_<position>`, so set it to keep the entities when moving the strip."""
+    """
+    Part of the entity IDs, e.g. "living_room" for `number.xtouch_living_room_fader`; by default `strip_<position>`,
+    so set it to keep the entities (and the automations that use them) when moving the strip.
+    """
     label: Label | None = None
     """The top line of the LCD until Home Assistant sets one; also the start of the entity names."""
-    color: ColorName = "white"
+    color: Annotated[ColorName, COLORS] = "white"
     """The LCD backlight until Home Assistant sets one."""
 
 
@@ -329,18 +428,27 @@ class MqttConfig(_Model):
     """The MQTT broker Home Assistant uses, for `homeassistant` strips."""
 
     host: str
+    """The host name or address of the broker, e.g. "homeassistant.local" for the Mosquitto add-on."""
     port: Annotated[int, Field(ge=1, le=65535)] = 1883
+    """The port of the broker; 1883 is the usual one without TLS."""
     username: str | None = None
+    """The user to log in as; without it the daemon connects without logging in."""
     password: SecretStr | None = None
     """The password itself; `password_file` or `password_env` keep it out of the configuration."""
     password_file: Path | None = None
     """A file that holds the password (`~` is the home directory); surrounding whitespace is ignored."""
     password_env: str | None = None
-    """An environment variable that holds the password."""
+    """
+    An environment variable that holds the password, e.g. set with `systemctl --user edit xtouch-daemon`
+    (`Environment=`).
+    """
     discovery_prefix: str = "homeassistant"
-    """The MQTT discovery prefix of Home Assistant."""
+    """The MQTT discovery prefix of Home Assistant; change it only if Home Assistant has another one."""
     namespace: Slug = "xtouch"
-    """Starts the entity IDs (`number.xtouch_strip_1_fader`) and is part of the topics."""
+    """
+    Starts the entity IDs (`number.xtouch_strip_1_fader`) and is part of the topics. Lower case letters, digits,
+    `_`.
+    """
     device_name: str = "X-Touch Extender"
     """The name of the device in Home Assistant."""
 
@@ -371,7 +479,10 @@ class Config(_Model):
     device: DeviceConfig = DeviceConfig()
     behavior: BehaviorConfig = BehaviorConfig()
     aliases: dict[str, Label] = {}
-    """Names to show for applications on `auto` strips: {"name the sound server reports": "label"}."""
+    """
+    Names to show on `auto` strips for applications, at most 7 characters: for the name the sound server reports
+    (`xtouch-daemon list-apps`), the label, e.g. "Discord" for "WEBRTC VoiceEngine".
+    """
     strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=protocol.STRIPS)] = ()
     """Up to 8 strips from the left; missing ones are `auto`."""
     mqtt: MqttConfig | None = None

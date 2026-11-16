@@ -470,6 +470,7 @@ QLabel[role="title"] {{ font-size: {size(TypeScale.TITLE)}; font-weight: bold; }
 QLabel[role="section"] {{ font-size: {size(TypeScale.SECTION)}; font-weight: bold; }}
 QLabel[role="hint"] {{ color: {c.text_muted}; }}
 QLabel[role="help"] {{ color: {c.text_muted}; font-size: {size(TypeScale.CAPTION)}; }}
+QLabel[role="meaning"] {{ font-size: {size(TypeScale.CAPTION)}; }}
 QLabel[role="error"] {{ color: {c.error}; }}
 QLabel[role="pill"] {{ border-radius: {Radius.PILL - 2}px; padding: 3px {Space.M - 2}px; font-weight: 600; }}
 QLabel[role="pill"][tone="good"] {{ background: {tint(c.success)}; color: {c.tone_good}; }}

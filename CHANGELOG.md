@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The GUI explains every option without the documentation: the help names the default, a choice says what the
+  chosen value does (e.g. `recording` for the Rec LED, each value also as a tooltip in the list), a strip type what
+  it controls, and "Learn more" links open the matching section of the documentation.
 - `behavior.max_volume` is 130 by default: 100 % sits at the 0 dB mark of the faders (77 % of the travel), and
   the top 23 % amplify up to 130 %, with one slope over the whole travel. `max_volume = 100` puts 100 % at the top
   again.

@@ -129,7 +129,10 @@ itself does not import it.
   step. Ctrl+Z undoes in the document also while a text field has the focus.
 - **Forms from the models.** `schema.py` reads the options of every section and strip type from the pydantic models:
   the type picks the widget (switch, number, choice, color swatches, list chips, masked secret, file), the attribute
-  docstrings become the help, `Field` constraints the ranges. A new option or strip type needs no GUI code.
+  docstrings become the help, `Field` constraints the ranges, and `Meanings` next to a choice (`config.py`, e.g.
+  `INDICATORS`) say what each value does. A new option or strip type needs no GUI code; a test fails for an option
+  without help or a value without a meaning. `gui/domain/docs.py` holds the "Learn more" links into this site, and a
+  test checks each against the headings of `docs/`.
 - **The comments stay.** Saving edits the TOML document with tomlkit: unchanged values keep their place and their
   comments, and moved strips take theirs along. The file is written in place, so a symlinked configuration stays one.
 - **The daemon is found, not guessed.** `xtouch-daemon run` writes `$XDG_RUNTIME_DIR/xtouch-daemon.json` (its process

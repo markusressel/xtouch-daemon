@@ -39,8 +39,9 @@ from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config import BehaviorConfig, MqttConfig
 from xtouch_daemon.gui import qt
+from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.document import ConfigDocument
-from xtouch_daemon.gui.domain.schema import Option, strip_options
+from xtouch_daemon.gui.domain.schema import Kind, Option, strip_options
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt import preview, theme
 from xtouch_daemon.gui.qt import preview as preview_module
@@ -1159,6 +1160,14 @@ def test_a_list_is_chips(qtbot: QtBot, window: MainWindow):
     assert chips.flow.count() == 3
 
 
+def test_a_list_without_suggestions_has_no_menu(qtbot: QtBot):
+    chips = Chips(None)
+    qtbot.addWidget(chips)
+    # the input alone
+    assert chips.flow.count() == 1
+    assert chips.input.completer() is None
+
+
 def test_suggestions_come_from_the_sound_server(qtbot: QtBot, window: MainWindow):
     device = row(window, "device")
     menu_button = next(button for button in device.findChildren(QToolButton) if button.menu())
@@ -1797,6 +1806,48 @@ def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):
     document.setHtml(help_label.text())
     assert '"Output"' in document.toPlainText()
     assert "&quot;" not in document.toPlainText()
+
+
+def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
+    rec = row(window, "rec")
+    assert not rec.meaning.isHidden()
+    assert "<code>recording</code>: Lit while an application records" in rec.meaning.text()
+    rec.combo.setCurrentText("muted")
+    assert "Lit while the strip is muted" in rec.meaning.text()
+    # each value says it in the list too
+    tip = rec.combo.itemData(rec.combo.findText("recording"), Qt.ItemDataRole.ToolTipRole)
+    assert "screen recorder" in tip
+    # an encoder that is not set: what the default does
+    encoder = row(window, "encoder")
+    assert encoder.combo.currentIndex() == -1
+    assert "<code>balance</code>: Turn: the balance" in encoder.meaning.text()
+    # a value that is no choice means nothing
+    window.document.set(("strip", 0, "rec"), "loud")
+    window.reload_pages()
+    assert row(window, "rec").meaning.isHidden()
+    assert row(window, "color").colors.swatches["off"].toolTip() == "off: No backlight."
+    assert row(window, "color").colors.swatches["red"].toolTip() == "red"
+
+
+def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
+    rec = row(window, "rec")
+    assert "Default: <code>recording</code>." in rec.help.text()
+    assert f'<a href="{docs.url("configuration/indicators/#indicators")}">Learn more</a>' in rec.help.text()
+    assert rec.help.openExternalLinks()
+    # an option without a section in the docs: its help says it all
+    assert "Learn more" not in row(window, "meter").help.text()
+    # the strip type, and the pages of the global settings
+    output = docs.url(docs.STRIP_TYPES["output"])
+    assert [label for label in window.strip_page.findChildren(QLabel) if output in label.text()]
+    tips = {button.text(): button.toolTip() for button in window.strip_page.types.buttons()}
+    assert tips["Empty"] == "A dark strip that does nothing; its fader stays at the bottom."
+    for page in ("device", "behavior", "aliases", "mqtt"):
+        link = docs.page_link(page)
+        assert link is not None
+        assert [label for label in window.pages[page].findChildren(QLabel) if link in label.text()], page
+    # nothing to say: no help at all
+    bare = OptionRow(Option("bare", Kind.TEXT, "", None, False), lambda: None, lambda _: None)
+    assert bare.help.isHidden()
 
 
 def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindow):

@@ -68,7 +68,7 @@ What it can't do:
 | `unity_at` | `77` | Where on the fader 100 % is, 10..95 percent of the travel; the device marks 0 dB at about 77. For strips whose range goes above 100 %, see [100 % at the 0 dB mark](strips.md#100-at-the-0-db-mark). |
 | `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` [encoder](encoders.md) and by the encoders of `homeassistant` strips. |
 | `reset_volume` | `100` | The volume a push on a `volume` encoder sets, 0..200, at most `max_volume`. It stays within the range of the strip. |
-| `meters` | `true` | Whether the LED meters show audio levels at all. |
+| `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a strip turns off a single one. |
 | `auto_hold` | `5` | Seconds an `auto` strip keeps an application after it stopped playing. |
 | `ignore` | `["speech-dispatcher"]` | Applications `auto` strips never take: parts of the name or binary, ignoring case. |
 

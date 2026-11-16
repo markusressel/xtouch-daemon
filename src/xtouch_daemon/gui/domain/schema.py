@@ -1,6 +1,7 @@
 """
-The options of the configuration as the editor sees them, read from the pydantic models: their kind of value, choices,
-bounds, defaults and help. Forms built from these show a new option without changes to the GUI.
+The options of the configuration as the editor sees them, read from the pydantic models: their kind of value, choices
+and what each of them means, bounds, defaults and help. Forms built from these show a new option without changes to
+the GUI.
 """
 
 import dataclasses
@@ -15,7 +16,7 @@ from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from xtouch_daemon.config import ENCODERS, STRIP_MODELS, ColorName, Config
+from xtouch_daemon.config import ENCODERS, STRIP_MODELS, ColorName, Config, Meanings
 
 
 class Kind(StrEnum):
@@ -54,11 +55,33 @@ class Option:
     """The most characters of a text."""
     columns: tuple[Option, ...] = ()
     """The options of each table of `TABLES`."""
+    meanings: tuple[tuple[str, str], ...] = ()
+    """What the choices mean (`Meanings` of the option), as pairs of the value and its meaning."""
 
     @property
     def title(self) -> str:
         """The name for people, e.g. "Max volume" for `max_volume`."""
         return self.name.replace("_", " ").capitalize()
+
+    def meaning(self, value: object) -> str:
+        """What a choice means, "" for a value without a meaning (or that is no choice)."""
+        return next((meaning for choice, meaning in self.meanings if choice == value), "")
+
+    @property
+    def default_text(self) -> str:
+        """The default for people, e.g. "on" or "speech-dispatcher"; "" without one (the help says what happens)."""
+        if self.required or self.default in (None, ()):
+            return ""
+        return describe(self.default)
+
+
+def describe(value: object) -> str:
+    """A value for people: "on"/"off" for switches, lists joined, "not set" for None."""
+    if isinstance(value, bool):
+        return "on" if value else "off"
+    if isinstance(value, tuple | list):
+        return ", ".join(map(str, value)) or "none"
+    return "not set" if value is None else str(value)
 
 
 def _unwrap(annotation: Any) -> tuple[Any, list[Any]]:
@@ -116,6 +139,8 @@ def option(name: str, field: FieldInfo) -> Option:
     bounds: dict[str, Any] = {}
     for constraint in constraints:
         match constraint:
+            case Meanings(meanings=meanings):
+                bounds["meanings"] = tuple(meanings.items())
             case annotated_types.Ge(ge=value):
                 bounds["minimum"] = value
             case annotated_types.Le(le=value):
@@ -168,6 +193,11 @@ def sections() -> tuple[Section, ...]:
 def strip_models() -> dict[str, type[BaseModel]]:
     """The model of every strip type, by the value of `type`."""
     return {name: model for model in STRIP_MODELS for name in get_args(model.model_fields["type"].annotation)}
+
+
+def strip_type_help(strip_type: str) -> str:
+    """What a strip type is (the `Meanings` of `type`)."""
+    return option("type", strip_models()[strip_type].model_fields["type"]).meaning(strip_type)
 
 
 def strip_options(strip_type: str) -> tuple[Option, ...]:

@@ -4,7 +4,17 @@ import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
 from xtouch_daemon.config import BehaviorConfig, DeviceConfig, MqttConfig
-from xtouch_daemon.gui.domain.schema import Kind, Option, option, options, sections, strip_models, strip_options
+from xtouch_daemon.gui.domain.schema import (
+    Kind,
+    Option,
+    describe,
+    option,
+    options,
+    sections,
+    strip_models,
+    strip_options,
+    strip_type_help,
+)
 
 
 def test_options_come_from_the_models_with_bounds_defaults_and_help():
@@ -132,3 +142,55 @@ def test_the_sections_with_options_of_their_own():
         ("mqtt", MqttConfig, True),
     ]
     assert sections()[2].help == "The MQTT broker Home Assistant uses, for `homeassistant` strips."
+
+
+def every_option() -> list[tuple[str, Option]]:
+    """Every option the editor shows, with where it is, the columns of tables too."""
+    result = [(section.name, each) for section in sections() for each in options(section.model)]
+    result += [(strip_type, each) for strip_type in strip_models() for each in strip_options(strip_type)]
+    return result + [(f"{where}.{each.name}", column) for where, each in result for column in each.columns]
+
+
+def test_every_option_explains_itself():
+    for where, each in every_option():
+        assert each.help, f"{where}.{each.name} has no help"
+
+
+def test_every_choice_explains_each_of_its_values():
+    for where, each in every_option():
+        if each.kind == Kind.CHOICE:
+            for choice in each.choices:
+                assert each.meaning(choice), f"{where}.{each.name}: {choice} has no meaning"
+    for strip_type in strip_models():
+        assert strip_type_help(strip_type)
+
+
+def test_a_choice_says_what_its_value_means():
+    rec = next(o for o in strip_options("input") if o.name == "rec")
+    assert rec.meaning("muted") == "Lit while the strip is muted, like the Mute LED."
+    assert rec.meaning("loud") == ""
+    startup, shutdown = (o for o in options(DeviceConfig) if o.name in ("startup", "shutdown"))
+    # the same values, but each says what it does when
+    assert startup.meaning("sweep") != shutdown.meaning("sweep")
+    # only the encoders of the strip type, and what they do
+    encoder = next(o for o in strip_options("apps") if o.name == "encoder")
+    assert encoder.choices == ("media", "volume", "balance", "homeassistant")
+    assert "seeks in the track" in encoder.meaning("media")
+    # the colors name themselves, but off needs a word
+    color = next(o for o in strip_options("auto") if o.name == "color")
+    assert (color.meaning("off"), color.meaning("red")) == ("No backlight.", "")
+    assert strip_type_help("empty") == "A dark strip that does nothing; its fader stays at the bottom."
+
+
+def test_the_default_for_people():
+    by_name = {o.name: o for o in options(BehaviorConfig)}
+    assert by_name["meters"].default_text == "on"
+    assert by_name["ignore"].default_text == "speech-dispatcher"
+    assert by_name["max_volume"].default_text == "130"
+    # none: the help says what happens without it
+    assert next(o for o in strip_options("output") if o.name == "min_volume").default_text == ""
+    assert next(o for o in strip_options("output") if o.name == "device").default_text == ""
+    assert next(o for o in options(MqttConfig) if o.name == "host").default_text == ""
+    assert describe(False) == "off"
+    assert describe(()) == "none"
+    assert describe(None) == "not set"

@@ -95,7 +95,10 @@ The forms come from the options of the configuration, so every option has a fiel
 
 - switches for on/off options, numbers with their ranges, choices, color swatches, lists as chips, masked fields for
   secrets, and file pickers;
-- the help of each option under its name, and a button that sets it back to its default;
+- the help of each option under its field, with its default and, where the documentation explains more, a
+  "Learn more" link to that section; a button sets the option back to its default;
+- for choices, what the chosen value does (e.g. `recording` for the Rec LED), and each value says it as a tooltip in
+  the list; the type of a strip says what that type controls;
 - the errors next to the options they belong to, with the same messages as `xtouch-daemon check-config`. The
   problems button in the footer lists them all; a click opens the page of the problem. An unknown option can be
   removed from there.

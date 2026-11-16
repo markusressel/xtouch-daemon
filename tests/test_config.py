@@ -8,9 +8,9 @@ from xtouch_daemon.config import (
     STRIP_TYPES,
     AppsStripConfig,
     AutoStripConfig,
-    BehaviorConfig,
     Config,
     ConfigError,
+    DeviceConfig,
     DeviceStripConfig,
     EmptyStripConfig,
     HomeAssistantStripConfig,
@@ -173,7 +173,7 @@ def test_the_strip_types_are_the_ones_of_the_models():
 
 
 def test_the_docstrings_of_the_options_are_their_descriptions():
-    assert BehaviorConfig.model_fields["encoder_step"].description == "Percent per step of an encoder."
+    assert DeviceConfig.model_fields["startup"].description == "How the strips light up after the device connects."
 
 
 def test_the_default_path_follows_xdg(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):

@@ -1,12 +1,12 @@
 """
-The form fields: one row per option, built from its `Option` (kind, choices, bounds, default, help), so an option
-added to the configuration shows up without changes here.
+The form fields: one row per option, built from its `Option` (kind, choices and their meanings, bounds, default,
+help), so an option added to the configuration shows up without changes here.
 """
 
 import html
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_never
 
 from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, QSizeF, QStringListModel, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QColor, QPainter, QPaintEvent, QPen, QPolygonF
@@ -32,7 +32,7 @@ from PyQt6.QtWidgets import (
 )
 
 from xtouch_daemon.config import Problem
-from xtouch_daemon.gui.domain.schema import Kind, Option
+from xtouch_daemon.gui.domain.schema import Kind, Option, describe
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.status import Status
 from xtouch_daemon.gui.qt import theme
@@ -67,10 +67,23 @@ def help_text(text: str) -> str:
     return "".join(f"<code>{part}</code>" if i % 2 else part for i, part in enumerate(parts))
 
 
-def help_label(text: str, role: str) -> QLabel:
-    """A label with help from a docstring; always rich text, as Qt would show text without tags as it is."""
-    widget = label(help_text(text), role, wrap=True)
+LEARN_MORE = "Learn more"
+
+
+def help_html(text: str, link: str | None = None) -> str:
+    """Help from a docstring, and a link to where the documentation explains more."""
+    more = f'<a href="{html.escape(link)}">{LEARN_MORE}</a>' if link else ""
+    return " ".join(part for part in (help_text(text), more) if part)
+
+
+def help_label(text: str, role: str, link: str | None = None) -> QLabel:
+    """
+    A label with help from a docstring, and a link to the documentation, opened in the browser; always rich text, as
+    Qt would show text without tags as it is.
+    """
+    widget = label(help_html(text, link), role, wrap=True)
     widget.setTextFormat(Qt.TextFormat.RichText)
+    widget.setOpenExternalLinks(True)
     return widget
 
 
@@ -171,11 +184,11 @@ class Swatch(QAbstractButton):
 
     SIZE = 32
 
-    def __init__(self, name: str, parent: QWidget | None = None):
+    def __init__(self, name: str, parent: QWidget | None = None, meaning: str = ""):
         super().__init__(parent)
         self.name = name
         self.setCheckable(True)
-        self.setToolTip(name)
+        self.setToolTip(f"{name}: {meaning}" if meaning else name)
         self.setAccessibleName(name)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
@@ -215,15 +228,15 @@ class ColorPicker(QWidget):
 
     picked = pyqtSignal(str, arguments=["color"])
 
-    def __init__(self, choices: tuple[str, ...]):
+    def __init__(self, option: Option):
         super().__init__()
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(theme.Space.XS)
         self.group = QButtonGroup(self)
         self.swatches: dict[str, Swatch] = {}
-        for name in choices:
-            swatch = Swatch(name, self)
+        for name in option.choices:
+            swatch = Swatch(name, self, option.meaning(name))
             self.group.addButton(swatch)
             self.swatches[name] = swatch
             layout.addWidget(swatch)
@@ -496,8 +509,9 @@ class Tables(QWidget):
 
 class OptionRow(QWidget):
     """
-    One option: its name, a field for its kind of value, a button back to the default, the help and its problems.
-    `get` returns the value in the file (None: not set), `put` sets it (None: removes it, so the default applies).
+    One option: its name, a field for its kind of value, a button back to the default, the help with the default and
+    a link to the documentation (`link`), what the chosen value means, and its problems. `get` returns the value in
+    the file (None: not set), `put` sets it (None: removes it, so the default applies).
     """
 
     edited = pyqtSignal(arguments=[])
@@ -509,6 +523,7 @@ class OptionRow(QWidget):
         put: Callable[[Any], None],
         suggest: Suggest | None = None,
         placeholder: Callable[[], str] | None = None,
+        link: str | None = None,
     ):
         super().__init__()
         self.option = option
@@ -526,15 +541,21 @@ class OptionRow(QWidget):
         title.setToolTip(option.name + (", required" if option.required else ""))
         top.addWidget(title)
         top.addWidget(self._field(option, suggest), 1)
-        self.reset = flat_button("restore", f"Back to the default ({self._describe(option.default)})", self)
+        self.reset = flat_button("restore", f"Back to the default ({describe(option.default)})", self)
         self.reset.clicked.connect(self._reset)
         top.addWidget(self.reset)
         outer.addLayout(top)
         details = QVBoxLayout()
         details.setContentsMargins(LABEL_WIDTH + theme.Space.S, 0, 0, 0)
         details.setSpacing(2)
-        if option.help:
-            details.addWidget(help_label(option.help, "help"))
+        # what the chosen value means, for choices that say it (shown by `load` and `_edit`), right under the field
+        self.meaning = help_label("", "meaning")
+        self.meaning.hide()
+        details.addWidget(self.meaning)
+        help_parts = [option.help, f"Default: `{option.default_text}`." if option.default_text else ""]
+        self.help = help_label(" ".join(part for part in help_parts if part), "help", link)
+        self.help.setVisible(bool(option.help or option.default_text or link))
+        details.addWidget(self.help)
         if option.kind == Kind.SECRET:
             details.addWidget(label("It is saved as plain text in the configuration file.", "help"))
         self.error = label("", "error", wrap=True)
@@ -542,14 +563,6 @@ class OptionRow(QWidget):
         details.addWidget(self.error)
         outer.addLayout(details)
         self.load()
-
-    @staticmethod
-    def _describe(value: Any) -> str:
-        if isinstance(value, bool):
-            return "on" if value else "off"
-        if isinstance(value, tuple | list):
-            return ", ".join(map(str, value)) or "none"
-        return "not set" if value is None else str(value)
 
     # -- the fields of the kinds ----------------------------------------------------------------------------------
 
@@ -581,11 +594,14 @@ class OptionRow(QWidget):
             case Kind.CHOICE:
                 self.combo = QComboBox(self)
                 self.combo.addItems(list(option.choices))
+                for index, choice in enumerate(option.choices):
+                    # what each one means, while the list is open
+                    self.combo.setItemData(index, help_text(option.meaning(choice)), Qt.ItemDataRole.ToolTipRole)
                 self.combo.setMinimumWidth(160)
                 self.combo.currentTextChanged.connect(self._edit)
                 return self._left(self.combo)
             case Kind.COLOR:
-                self.colors = ColorPicker(option.choices)
+                self.colors = ColorPicker(option)
                 self.colors.picked.connect(self._edit)
                 self.input = self.colors
                 return self.colors
@@ -604,6 +620,8 @@ class OptionRow(QWidget):
                 self.tables.changed.connect(self._edit)
                 self.input = self.tables
                 return self.tables
+            case _ as unreachable:
+                assert_never(unreachable)
 
     def _left(self, widget: QWidget) -> QWidget:
         """The widget at its own size, on the left."""
@@ -685,6 +703,7 @@ class OptionRow(QWidget):
                     if self._placeholder:
                         # shown while none is chosen
                         self.combo.setPlaceholderText(f"default: {self._placeholder()}")
+                    self._show_meaning()
                 case Kind.COLOR:
                     self.colors.show_value(str(shown))
                 case Kind.LIST:
@@ -697,6 +716,8 @@ class OptionRow(QWidget):
                     # a value of another type shows none; its problem says what is wrong
                     tables = shown if isinstance(shown, list | tuple) else ()
                     self.tables.show_values([dict(table) for table in tables if isinstance(table, dict)])
+                case _ as unreachable:
+                    assert_never(unreachable)
         finally:
             self._loading = False
         self.reset.setVisible(value is not None and not self.option.required)
@@ -709,7 +730,18 @@ class OptionRow(QWidget):
             value = None
         self._put(value)
         self.reset.setVisible(value is not None and not self.option.required)
+        if self.option.kind == Kind.CHOICE:
+            self._show_meaning()
         self.edited.emit()
+
+    def _show_meaning(self) -> None:
+        """What the chosen value means; while none is chosen, what the default (the placeholder) means."""
+        value = self.combo.currentText() if self.combo.currentIndex() >= 0 else None
+        if value is None and self._placeholder:
+            value = self._placeholder()
+        meaning = self.option.meaning(value)
+        self.meaning.setText(help_text(f"`{value}`: {meaning}") if meaning else "")
+        self.meaning.setVisible(bool(meaning))
 
     def _edit_number(self, value: float) -> None:
         self._edit(None if self.option.default is None and value == self._unset else value)
