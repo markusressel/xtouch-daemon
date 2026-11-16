@@ -39,6 +39,10 @@ docs:
 docs-serve port="8001":
     uv run --group docs zensical serve --dev-addr localhost:{{port}}
 
+# render the screenshots of the documentation into docs/images/ (offscreen, with a demo configuration)
+screenshot out="docs/images":
+    uv run --extra gui python scripts/screenshot.py {{out}}
+
 # run the daemon in the foreground
 run *ARGS:
     uv run xtouch-daemon run {{ARGS}}

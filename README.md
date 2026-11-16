@@ -4,12 +4,7 @@ Use a Behringer X-Touch Extender as a hardware mixer for PipeWire on Linux: moto
 strips for your devices and applications. Strips can also belong to Home Assistant, for lights, other speakers or
 scenes.
 
-```
- ┌Speaker┐┌ Buds  ┐┌  Mic  ┐┌BudsMic┐┌Browser┐┌ VoIP  ┐┌ Games ┐┌Spotify┐
- │  46%  ││  44%  ││  80%  ││  off  ││  60%  ││ idle  ││ idle  ││  72%  │
- └───────┘└───────┘└───────┘└───────┘└───────┘└───────┘└───────┘└───────┘
-   output   output   input    input    apps     apps     apps     auto
-```
+![The GUI: the eight strips as the device shows them, and the options of the selected one](docs/images/gui.png)
 
 **Documentation: <https://markusressel.github.io/xtouch-daemon/>** (also readable in [docs/](docs/index.md)).
 
