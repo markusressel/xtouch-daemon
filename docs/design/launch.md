@@ -1,7 +1,7 @@
 # Design: launching applications from a strip
 
 Status: implemented as described here; how to use it is in
-[Applications](../configuration/applications.md#launching-the-application) and [VoIP](../configuration/layouts.md#voip-strips).
+[Applications](../configuration/applications.md#launching-the-application) and [VoIP](../configuration/people.md).
 
 The idea: the Select button of a strip whose application is not there starts it. A "VoIP" strip starts Mumble and
 connects it to the server, a "Music" strip starts the music player.

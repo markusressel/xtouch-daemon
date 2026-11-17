@@ -7,20 +7,21 @@ How the daemon works inside, for developers. To set up the project and run the t
 graph LR
     Device[X-Touch Extender<br/>/dev/snd/midiC*D0] <-- "raw MIDI (midi.py, protocol.py)" --> Surface
     Surface -- "events: fader, touch, buttons, encoders" --> Desk
-    Desk -- "to the controller bound to the strip" --> Mixer
+    Desk -- "to the controller bound to the strip" --> Mixer[SlotMixer]
     Mixer -- "set_fader, set_text, set_led ..." --> Surface
     Backend[PulseBackend<br/>one pulsectl-asyncio connection] -- "AudioState snapshot after every change" --> Mixer
     Mixer -- "set volume, mute, default" --> Backend
+    Engine[SlotEngine<br/>slots/] -- "what each slot shows" --> Mixer
     Backend <--> Sound[pipewire-pulse]
     Desk -- "captures (meter.py), set_meter" --> PwRecord[pw-record, passive]
-    Mixer -- "entities of homeassistant strips" --> Bridge[MqttBridge<br/>aiomqtt]
+    Mixer -- "entities of channels, states, slots" --> Bridge[MqttBridge<br/>aiomqtt]
     Bridge <-- "discovery, states, commands, events" --> Broker[MQTT broker / Home Assistant]
     Daemon -- "owns, reloads, stops" --> Surface & Backend & Mixer & Bridge
     Surface -- "what the strips show (live.py)" --> Live[LiveServer<br/>$XDG_RUNTIME_DIR/xtouch-daemon.sock]
     Live -- "a JSON line per change" --> GUI[xtouch-daemon gui]
-    GUI -- "layout commands" --> Live
-    Daemon -- "rules (runtime/layouts.py)" --> Switcher[LayoutSwitcher]
-    Voip[VoipProvider<br/>voip/] -- "participants" --> Mixer
+    GUI -- "mode, override, preview" --> Live
+    Daemon -- "steps (runtime/slots.py)" --> Engine
+    Voip[VoipProvider<br/>voip/] -- "participants" --> Engine & Mixer
 ```
 
 ## Modules
@@ -39,24 +40,21 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `audio/pulse.py` | `PulseBackend`: one connection to the sound server that follows it by events and carries out the commands. |
 | `audio/meter.py` | `Meter`: audio levels from passive `pw-record` captures. |
 | `audio/media.py` | The media players of the session (MPRIS), for `encoder = "media"`. |
-| `config/` | The TOML configuration, validated with pydantic: `files` (reading it, its errors), `model` (`Config` and the checks across sections), `sections`, `layout`, the strip types (`strip`, `strips`, `audio_strips`, `layout_strips`), `inheritance`, `values`, `names` (lists with presets) and `presets` (`@browsers`, `@steam-games`, ..., expanded when the configuration is validated, see [Design: presets](design/presets.md)). |
-| `strips/` | The strip controllers: `DeviceStrip` (and `ChoiceStrip` for `choices`), `AppGroupStrip`, `AutoStrip` (with `AutoAssigner`), `HomeAssistantStrip`, `EmptyStrip`, and the shared `VolumeStrip` base. A controller gets its `Identity` (the ids and names of its entities in Home Assistant, its name in the log) and its `Look` (label, color, meter, LEDs) from outside: `strip_identity()` and `look_of()` make them for a strip of the configuration. |
-| `slots/` | Prototype of [Design: channels, states and slots](design/channels-states-slots.md), not used by the daemon yet: the model (`model`), conditions (`expressions`), presence (`inputs`), the delays (`timing`), the states and modes (`states`), the resolver (`resolver`), the slots over time (`simulation`), the distinct outcomes (`outcomes`), recorded observations (`recording`) and their replay (`replay`). Pure but for the recorder, driven by `simulate` and `observe`. |
-| `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` strips. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
-| `runtime/daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications) and switching layouts. |
-| `runtime/desk.py` | `Desk`: the strips of the device for as long as the daemon runs. Hands each event to the controller (`Presenter`) bound to its strip, a release to whoever got the press, follows the hands on the device and the chord of Solo buttons. Its meters (one per strip of the device) capture what the controllers bound now show, so a capture goes on when a new mixer shows the same. A claim (`claim()`, the `[controls]` of a slot) takes the controls it names: their events go to it, and the `VirtualStrip` of the presenter leaves their fader, ring and LEDs to it (`mask()`). |
+| `config/` | The TOML configuration, validated with pydantic: `files` (reading it, its errors), `model` (`Config`), `sections`, `slots` (the channels, states and slots, with the strip of every candidate), the types of the channels' strips (`strip`, `strips`, `audio_strips`, `layout_strips`), `migrate` (`migrate-config`), `legacy` (the format with strips and layouts, for `migrate` and the GUI until it edits the new one), `values`, `names` (lists with presets) and `presets` (`@browsers`, `@steam-games`, ..., expanded when the configuration is validated, see [Design: presets](design/presets.md)). |
+| `strips/` | The strip controllers: `DeviceStrip` (and `ChoiceStrip` for `choices`), `AppGroupStrip`, `AutoStrip` (the application of an `auto` slot), `VoipStrip` (a person), `HomeAssistantStrip`, `EmptyStrip`, and the shared `VolumeStrip` base. A controller gets its `Identity` (the ids and names of its entities in Home Assistant, its name in the log) and its `Look` (label, color, meter, LEDs) from outside: the binder makes them per channel and candidate (`look_of()`). |
+| `slots/` | [Design: channels, states and slots](design/channels-states-slots.md) without the device: the model (`model`), conditions (`expressions`), presence (`inputs`), the delays (`timing`), the states and modes (`states`), the resolver (`resolver`), the slots over time (`simulation`), the distinct outcomes (`outcomes`), recorded observations (`recording`) and their replay (`replay`). Pure but for the recorder; the daemon drives it through the `SlotEngine`, `simulate` and `observe` too. |
+| `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` channels and controls. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
+| `runtime/daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications), stepping the slots and the requests for modes and overrides. |
+| `runtime/desk.py` | `Desk`: the strips of the device for as long as the daemon runs. Hands each event to the controller (`Presenter`) bound to its strip, a release to whoever got the press, follows the hands on the device and the chord of Solo buttons. Its meters (one per strip of the device) capture what the controllers bound now show, so a capture goes on when another slot shows the same. A claim (`claim()`, the `[controls]` of a slot) takes the controls it names: their events go to it, and the `VirtualStrip` of the presenter leaves their fader, ring and LEDs to it (`mask()`). |
 | `runtime/controls.py` | `Controls`: the `[controls]` of the slots, built once per configuration with their entities in Home Assistant (`number.<ns>_slot_<n>_fader`, ..., or the `id` instead of `slot_<n>`). After each step the first entry of a slot whose `when` holds is its claim on the `Desk` (a slot under a finger keeps its claim until it is let go); it shows what it takes and launches, picks modes (`SlotEngine.choose_mode()`, `cycle_modes()`), toggles states and modes (`toggle()`), or sends events to Home Assistant. |
-| `runtime/homeassistant.py` | `SlotEntities`: with slots and `[mqtt]`, the mode select, a binary sensor, override select and (`homeassistant = true`) input switch per state, whether each channel is shown, and what each slot shows. Published after each step when they changed (all of them again after the broker was away); choices in Home Assistant go to the `SlotEngine`, inputs into its observation. |
-| `runtime/mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state, bound to the strips of the `Desk`. |
-| `runtime/placement.py` | `place()` and `Flow`: which strip of the configuration each strip of the device shows, for strips that collapse. See [Collapsing strips](#collapsing-strips). |
-| `runtime/layouts.py` | `LayoutSwitcher`: which layout the device shows, chosen by hand or by the rules (`apps`, `processes`, `hold`). |
-| `runtime/slots.py`, `config/slots.py` | Prototype: a file of channels, states and slots on the device. `config/slots` builds and checks the strip of every candidate when the file is loaded; the `SlotEngine` steps a `Simulation` 0.1 s after a change (the audio, the voice chat, a finger let go), at the deadlines of its delays and every 2 s for the processes; it takes the requests (a mode, an override, the pick and pin of a slot's `pick` encoder) and hands out the applications of the `auto` strips, keeps overrides, the mode picked (`slots.json`) and the people (`people.json`) across restarts, and carries its state over a reload by id. The `SlotMixer` (`runtime/binder.py`) has a controller per channel for as long as the configuration, one per application of `auto` and per person without a channel while they are members, and an empty one per slot; after each step it binds to the `Desk` only the slots whose result changed (the others keep their controller, texts, fader and LEDs) and gives a controller the look, encoder and volume range of the candidate it is on. Modes take the place of layouts: switching layouts by hand picks a mode. |
-| `system/processes.py` | The processes that run, from `/proc`, for the rules of the layouts and `launch_when_running`. |
-| `system/launch.py` | `Launcher`: starts the command of a strip's `launch` detached from the daemon (a transient systemd user service); `LaunchButton`: when Select launches, and its LED. See [Design: launching applications](design/launch.md). |
+| `runtime/homeassistant.py` | `SlotEntities`: with `[mqtt]`, the mode select, a binary sensor, override select and (`homeassistant = true`) input switch per state, whether each channel is shown, and what each slot shows. Published after each step when they changed (all of them again after the broker was away); choices in Home Assistant go to the `SlotEngine`, inputs into its observation. |
+| `runtime/slots.py`, `runtime/binder.py` | The slots on the device. `config/slots` builds and checks the strip of every candidate when the file is loaded; the `SlotEngine` steps a `Simulation` 0.1 s after a change (the audio, the voice chat, a finger let go), at the deadlines of its delays and every 2 s for the processes; it takes the requests (a mode, an override, the pick and pin of a slot's `pick` encoder) and hands out the applications of the `auto` strips, keeps overrides, the mode picked (`slots.json`) and the people (`people.json`) across restarts, and carries its state over a reload by id. The `SlotMixer` (`runtime/binder.py`) has a controller per channel for as long as the configuration, one per application of `auto` and per person without a channel while they are members, and an empty one per slot; after each step it binds to the `Desk` only the slots whose result changed (the others keep their controller, texts, fader and LEDs) and gives a controller the look, encoder and volume range of the candidate it is on. |
+| `system/processes.py` | The processes that run, from `/proc`, for the `processes` of states and `launch`. |
+| `system/launch.py` | `Launcher`: starts the command of a `launch` (of a channel or a control) detached from the daemon (a transient systemd user service); `LaunchButton`: when Select launches, and its LED. See [Design: launching applications](design/launch.md). |
 | `system/instance.py` | The running daemon for other processes: its runtime file (process, configuration file) and where its live view is served. |
 | `system/systemd.py` | systemd integration: notify, journal log levels, the unit file, controlling the user service. |
 | `live/` | The live view for the GUI over a Unix socket: `messages` (snapshots, requests, replies), `codec` (lines of JSON), `server` (`LiveServer`). See [Live view](#live-view). |
-| `voip/` | `VoipProvider`: the participants of a voice chat for `voip` strips, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). |
+| `voip/` | `VoipProvider`: the people of a voice chat, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). |
 | `voip/mumble.py`, `integrations/mumble/` | The Mumble plugin (C): its sources, building its bundle with CMake, finding it and copying it into Mumble's plugin directory. See [Mumble](integrations/mumble.md). |
 | `cli/` | The command line: one module per topic (`daemon`, `configuration`, `sound`, `layouts`, `mumble`, `service`, `editor`), put together by `main` in `cli/__init__.py`. |
 | `gui/domain/` | The configuration editor without a toolkit: the editable document (`document`, `drafts`, `toml_sync`), the options of the models, the look of the strips, suggestions from the sound server, applying a saved file. See [GUI](#gui). |
@@ -66,14 +64,14 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 
 1. `PulseBackend` subscribes to sink, source, sink input and server events. After a burst of events it takes one
    snapshot (`AudioState`) and hands it to the mixer.
-2. The `Mixer` lets the `AutoAssigner` give the `auto` strips their applications, then calls `update(state)` on every
-   controller. A controller shows the state on its `Strip`: color, LCD lines, LEDs, ring and fader.
+2. The `SlotEngine` resolves the slots (0.1 s after a change); the `SlotMixer` binds the slots whose result changed
+   and calls `update(state)` on every controller. A controller shows the state on its `Strip`: color, LCD lines, LEDs, ring and fader.
 3. The `Surface` sends only what changed. A fader target starts a glide that moves the motor every 10 ms.
 4. An event from the device goes from the `Surface` to the `Desk`, which hands it to the controller bound to its strip. A
    controller turns it into commands to the backend. These run as tasks: nothing blocks the event loop.
 5. The sound server reports the result as a new snapshot, which goes through step 2 again.
 
-A `homeassistant` strip ignores the snapshots. Its entities work as in haad: Home Assistant sends a command, the
+A `homeassistant` channel ignores the snapshots. Its entities work as in haad: Home Assistant sends a command, the
 entity publishes it as its state (retained), and the copy that comes back from the broker changes the entity; the
 bridge then tells the strip, which shows it. The device's events go the other way: a fader or encoder publishes its
 number (a fader moved by hand at most every 100 ms), buttons publish events, which are not retained.
@@ -83,8 +81,8 @@ number (a fader moved by hand at most every 100 ms), buttons publish events, whi
 - **Start:** the daemon starts the surface, the backend and the mixer as tasks and tells systemd `READY=1`. The device
   and the sound server do not need to be there: both are connected (again) when they appear.
 - **Reload (SIGHUP):** the configuration is read again. A file with errors is logged and the current configuration
-  stays. Otherwise the old mixer is closed, a new one takes over the same surface and backend, and gets the current
-  state right away. systemd learns about it through `RELOADING=1` and `READY=1`.
+  stays. Otherwise a new `SlotMixer` takes over the same surface and backend and gets the current state right away; the
+  `SlotEngine` carries its states, picks and people over by id, so slots that show the same keep it. systemd learns about it through `RELOADING=1` and `READY=1`.
 - **Preview:** a configuration of the GUI (see [Live preview](#live-preview)) takes over like a reload, from memory
   instead of the file. A reload ends it: the file runs, or the configuration of the file before when the file can't
   be used.
@@ -97,7 +95,7 @@ number (a fader moved by hand at most every 100 ms), buttons publish events, whi
 - **MQTT:** the bridge connects (again) on its own, like the backend. On every connect it publishes the discovery
   configurations, subscribes, and waits for the retained states with a ping on its own sync topic: the broker sends
   retained messages before later ones. Entities without a retained state then get their defaults. A reload hands the
-  bridge the entities of the new strips; entities of removed strips are removed from Home Assistant (not by a
+  bridge the entities of the new channels; entities of removed channels are removed from Home Assistant (not by a
   preview, see [Live preview](#live-preview)). A changed `[mqtt]` section needs a restart.
 - **Status:** `systemctl --user status xtouch-daemon` shows whether the device, the sound server and (with `[mqtt]`)
   the broker are connected.
@@ -163,8 +161,8 @@ itself does not import it.
   "Home Assistant", `[device]`), so a global setting never looks like one of the selected strip. A strip with unsaved
   changes shows how it will look (marked with a dot), the others stay live.
 - **Strips beyond the device.** The preview has the 8 strips of the device, the first 8 of the layout.
-  `gui/domain/flow.py` says where every strip of the layout is, from the file or from the placement the daemon sends
-  (see [Collapsing strips](#collapsing-strips)), and whether one more could ever get a place; `faces()` uses it to show
+  `gui/domain/flow.py` says where every strip of the layout is, from the file or from the placement the daemon sends,
+  and whether one more could ever get a place; `faces()` uses it to show
   each strip with the strip of the device it is on. `qt/strip_list.py` lists them all and selects the ones beyond 8,
   which the `Editor` allows.
 - **Undo instead of questions.** `History` (`gui/domain/history.py`) keeps the states of the document before every
@@ -247,20 +245,20 @@ for as long as it runs:
   fader is and whether it is touched, the meter level (falling like on the device, see `METER_FALL`), whether the
   device, the sound server and the broker are connected, and the `fingerprint()` of the configuration in use. A line
   is about 2 KB; a state rather than changes means a client that connects late or misses one needs nothing else.
-  `placement` tells which strip of the layout each strip of the device shows (see
-  [Collapsing strips](#collapsing-strips)).
+  `layout`, `layouts` and `placement` are what the GUI of strips and layouts still reads: the mode, the modes, and
+  each slot as itself.
   `version` changes when a line means something else.
 - **Requests of the user only.** A client may send requests, a line of JSON each: the [live preview](#live-preview)
-  and `{"request": "layout", "layout": "gaming"}` (or `"+1"`, `"-1"`) to switch the layout, which
-  `xtouch-daemon layout` and "Show on the device" in the GUI send (the reply tells whether there is such a layout).
+  and `{"request": "layout", "layout": "gaming"}` (or `"+1"`, `"-1"`), which "Show on the device" in the GUI sends
+  and the daemon takes as a mode.
   The daemon takes them only from processes of its own user (`SO_PEERCRED`: root can connect to a socket of mode
   0600), and a line of at most `MAX_REQUEST` (1 MiB): a longer one ends the connection. Otherwise the GUI changes the
-  daemon through the configuration file and a reload. The state tells the `layout` shown and the `layouts` there are.
-- **Channels, states and slots.** With a configuration in that format the state has `slots` (`SlotsState`): the mode
+  daemon through the configuration file and a reload.
+- **Channels, states and slots.** The state has `slots` (`SlotsState`): the mode
   and the one picked by hand, per slot the candidate, channel, pool, member and why, per state its value, `since`,
   `source` and override, and per pool the members that wait. `{"request": "mode", "mode": "gaming"}` (or `auto`,
   `"+1"`) picks a mode, `{"request": "override", "state": "call", "value": "on"}` (`auto`, `on`, `off`) overrides a
-  state; a daemon with layouts refuses both. `features` has `mode` and `override`.
+  state. `features` has `mode` and `override`.
 - **Never in the way.** Clients get only non-blocking writes. One that falls behind by more than `MAX_BUFFER` is
   dropped (it can connect again), and a socket that can't be made is logged: the daemon runs on without the live view.
   The server is not one of the parts of the daemon whose end stops it.
@@ -309,70 +307,22 @@ daemon side in `Daemon.preview()`):
   layout shown if the preview has it, and the layout select in Home Assistant gets the layouts of the preview. "Show
   on the device" switches to a layout of the preview.
 
-## Layouts
+## Channels, states and slots
 
-A layout is a whole set of strips, so switching one is a reload without reading the file: the daemon closes the
-`Mixer` and makes one for the other layout, on the same `Surface`, backend and MQTT bridge. The strips show the new
-layout at once, from the last `AudioState`; the `Surface` sends only what changed. An overlay of the LCDs
-(`Surface.banner`) shows the label of the layout across the strips for `switching.banner` seconds.
+The daemon runs a configuration of channels, states and slots ([design](design/channels-states-slots.md)); a file
+with strips and layouts is refused with a pointer to `migrate-config`, which reads it with `config/legacy`.
 
-- **Who switches.** `LayoutSwitcher` holds the layout shown. Manual choices (CLI, GUI, Home Assistant's select, the
-  Solo chord) switch at once. The rules are checked after every new `AudioState` and every 2 s (for `processes`). They
-  are edge triggered: they switch only when the layout they want changes, so a manual choice stays until then.
-- **Remembered.** The daemon keeps the layout shown in its state directory (`instance.layout_file()`), unless a rule
-  put it there (`LayoutSwitcher.by_rule`), and starts with it. Rules that match at the start still switch, since they
-  start from "wanting" `default`. Home Assistant's select only takes commands: a retained state (maybe of a rule of
-  the last run) is put right once the bridge is ready, instead of switching.
-- **Entities of all layouts.** The MQTT bridge keeps the entities of the `homeassistant` strips of every layout
-  (`keep`), so automations don't see them come and go on every switch; the layout select belongs to the daemon.
-- **VoIP strips.** Every `voip` strip is one strip. The `Mixer` seats the `voip` strips of its layout in one
-  `VoipSeats` (`strips/voip.py`): a strip with `person` shows the first participant with one of its names, the others
-  (the group) a page of the remaining participants of the `VoipProvider`. The assignment is computed once per
-  snapshot of the provider. Strips with the same `launch` share one `LaunchButton`, so it starts once. The provider
-  runs in the daemon, not in the mixer, so it stays connected across switches and reloads, and it keeps the volume
-  and mute the strips set for each name (`change_volume()`, `change_muted()`), which it sends again when a person
-  comes back: the clients start a participant who joins at 100 %. No voice chat client gives other programs a stream per participant, so the
-  participants come from a plugin in the client (`BridgeProvider`), not from PipeWire.
-- **The Mumble plugin** (`integrations/mumble/plugin.c`) is that plugin for Mumble. Mumble calls its callbacks in
-  its main and audio threads; a thread of its own does the socket and never calls Mumble (Mumble's API calls block
-  until its main thread runs them, which would deadlock the shutdown of the plugin). So the volume and the mute are
-  applied by the plugin itself, to each voice in `mumble_onAudioSourceFetched`, rather than through Mumble's local
-  volume (which the API can't set). The live view tells the GUI whether a plugin is connected, the names of the
-  participants and who is on which strip of the layout shown (`Snapshot.voip`).
-
-The design and its research are in [Design: layouts](design/layouts.md).
-
-## Collapsing strips
-
-With `collapse`, the strips of the configuration are not the strips of the device: a layout may have up to 32
-strips, and the device shows the first 8 that take a place (see [Collapsing strips](configuration/collapsing.md)).
-
-- **A strip of its own for every controller.** The `Mixer` gives each controller a `VirtualStrip` (`hardware/strip.py`)
-  instead of a strip of the device. It keeps what the controller shows, like a `Strip` does, and passes it on to the
-  strip of the device it is on (`target`), if any. Moving a controller is `bind()`: the new strip of the device shows
-  everything the virtual one keeps, and only what changed is sent; the motor glides to the new value. So nothing of
-  a controller (its auto application, a pending volume or switch) knows where it is, and its `index` (and with it
-  the default `id` in Home Assistant) is its place in the configuration.
-- **A pure placement.** `place(collapse, absent)` takes the first 8 strips that don't collapse. `Flow` keeps the
-  state around it in one typed record per strip (`_Absence`: since when absent, collapsed or not), so the hold time
-  (`behavior.collapse_hold`) and coming back at once are one rule. The mixer asks it after every state (one placement
-  per state) and every tick (0.1 s), for hold times that end without a new state.
-- **Not under a finger.** The desk follows touches, held buttons and encoder pushes from the events of the device,
-  and a fader moved without a touch (`Strip.held`); while any of them is there, `Flow.update()` is told it is busy and
-  nothing moves. The release places what waited. Events of a dark strip of the device go nowhere.
-- **From scratch.** A new mixer (a reload, a layout switch, the start) places from scratch with its first state: a
-  strip that has nothing to control collapses at once. Hold times are not carried from one mixer to the next.
-- **Meters follow.** The desk has a meter per strip of the device, so only controllers on the device get captures, so a strip that waits or collapsed runs no
-  `pw-record`.
-- **The live view** tells the placement (`Snapshot.placement`, an optional field: an older GUI ignores it, an older
-  daemon does not send it and its strips are where they are configured).
-
-`ChoiceStrip` (`strips/device.py`) switches between `choices` with Select. A press is a `_Choosing` (the choice, the
-profile still to switch to, whether the default was asked for): the label shows at once, the card switches first,
-and once its device is there it becomes the default. A failure goes back to the choice shown before, and a press
-during a switch goes on from its target. With `[mqtt]` it has a select in Home Assistant.
-
-The design is in [Design: choices and collapsing strips](design/dynamic-strips.md).
+- **One controller per channel, as long as the configuration.** The `SlotMixer` (`runtime/binder.py`) builds a
+  controller with its own `VirtualStrip` for every channel, and one for each application of `auto` and each person
+  without a channel while they are members. After each step it binds to the `Desk` only the slots whose result
+  changed: the others keep their controller, texts, fader and LEDs, and their meter capture goes on.
+- **The engine decides, the mixer shows.** The `SlotEngine` (`runtime/slots.py`) is the only one that hands out
+  applications and people; the `pick` encoder and pins are requests to it (`EngineSlot`). It keeps the overrides, the
+  mode picked and the order of people in the state directory (`slots.json`, `people.json`).
+- **Under a finger nothing changes.** Slots held on the `Desk` are fixed inputs of the resolver: a slot keeps what it
+  shows, and its claims, until it is let go.
+- **Feedback.** A slot that shows something else flashes its label and why for `switching.banner` seconds; a new mode
+  shows its banner across the LCDs instead.
 
 ## Testing
 

@@ -1,6 +1,6 @@
 # Design: layouts
 
-Status: implemented as in [Phasing](#phasing); how to use it is in [Layouts](../configuration/layouts.md).
+Status: implemented as in [Phasing](#phasing); how to use it is in [Channels, states and slots](../configuration/slots.md), which replaced layouts.
 
 The idea: the configuration holds several **layouts**, each a set of up to 8 strips. A "default" layout for the
 desk (outputs, browser, music), a "gaming" layout with the game, the voice chat, the microphone and one strip per

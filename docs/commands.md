@@ -49,27 +49,27 @@ Signals:
 xtouch-daemon check-config [-c FILE]
 ```
 
-Validates the configuration and shows what each strip does. Without a file at the default path it checks the
-defaults. Example output:
+Validates the configuration, describes each channel and shows a table of what the slots show in which states.
+Without a file at the default path it checks the defaults. Example output:
 
 ```
 /home/me/.config/xtouch-daemon/config.toml: valid
-  1. 'Speaker' output alsa_output.pci-0000_11_00.4.analog-stereo, select makes it the default (cyan, rec: recording, solo: off)
-  2. 'Mic' the default input (red, rec: recording, solo: off)
-  3. 'Browser' applications brave, firefox (yellow, rec: recording, solo: off)
-  4. 'Living' Home Assistant, entities *.*_living_room_* (yellow)
-  5. empty
-  6. the next application that plays (white, rec: recording, solo: off)
-  ...
+Channels:
+  out: 'Speaker' output alsa_output.pci-0000_11_00.4.analog-stereo, select makes it the default (cyan, rec: recording, solo: off, encoder: balance)
+  mic: the default input (red, rec: recording, solo: off, encoder: balance)
+  browser: 'Browser' applications @browsers (firefox, chromium, ...) (yellow, rec: recording, solo: off, encoder: media)
+  lamp: 'Living' Home Assistant, entities *.*_lamp_* (yellow)
+What the slots show:
+when     1    2        3     4-8
+default  out  browser  auto  auto
+call     out  browser  mic   auto
 ```
 
-A strip with [`choices`](configuration/devices.md#choices) lists them, e.g.
-`output: Phones, Speaker or Buds (Select switches)`, and one with [`collapse`](configuration/collapsing.md) ends
-with `collapses`. A strip whose meter shows the level after its fader (`meter_point = "post_fader"`, from the strip,
-its layout or `[behavior]`, see [Meters](configuration/strips.md#meters)) says `meter post-fader`. More than eight
-strips end with `The device shows the first 8 of them that don't collapse.`
+A channel with [`choices`](configuration/devices.md#choices) lists them, e.g.
+`output: Phones, Speaker or Buds (Select switches)`. A channel whose meter shows the level after its fader
+(`meter_point = "post_fader"`, see [Meters](configuration/strips.md#meters)) says `meter post-fader`.
 
-A file with errors names the place of each one, e.g. `strip[3].label: String should have at most 7 characters`, and
+A file with errors names the place of each one, e.g. `channel.mic.label: String should have at most 7 characters`, and
 the command fails. A file with strips and layouts fails too, with a pointer to [`migrate-config`](#migrate-config): the
 daemon runs only [channels, states and slots](configuration/slots.md). The command lists the channels and shows the
 table of what the slots show in which states.

@@ -67,42 +67,43 @@ DAWs that use it.
 
 ## Write a configuration
 
-Without a configuration file the daemon uses the example configuration: six `auto` strips, the default input and the
+Without a configuration file the daemon uses the example configuration: six `auto` slots, the default input and the
 default output. To change it, write the example to `~/.config/xtouch-daemon/config.toml` and edit it:
 
 ```shell
 xtouch-daemon init-config     # writes ~/.config/xtouch-daemon/config.toml
-xtouch-daemon list-devices    # the names to use for device strips, and the profiles of the sound cards
-xtouch-daemon list-apps       # the applications that play now, and which strip takes them
-xtouch-daemon check-config    # validates the file and shows what each strip does
+xtouch-daemon list-devices    # the names to use for device channels, and the profiles of the sound cards
+xtouch-daemon list-apps       # the applications that play now, and which channel or slot takes them
+xtouch-daemon check-config    # validates the file and shows what each slot shows when
 ```
 
-`init-config` writes the format of [channels, states and slots](configuration/slots.md), which replaces the strips
-and layouts below; `init-config --strips` writes the example with strips, which the GUI edits for now, and
-`migrate-config` turns such a file into the new format.
-
-Up to eight `[[strip]]` sections, from the left. For example:
+A channel is something a strip can control, a slot is a strip of the device, and states (in a call, gaming) decide
+what each slot shows. For example:
 
 ```toml
-[[strip]]
+[channel.buds]
 type = "output"
 device = "bluez_output.4C_D7_3A_EA_02_76.1"
 label = "Buds"
 color = "green"
 
-[[strip]]
+[channel.voip]
 type = "apps"
 match = ["@voip"]   # Discord, Mumble, TeamSpeak and more, see Presets
 label = "VoIP"
-color = "white"
 
-[[strip]]
-type = "auto"
-color = "cyan"
+[state.call]
+voice_chat = true   # in a channel of Mumble (with the plugin)
+
+[slots]
+1 = ["buds if present", "auto"]
+2 = ["voip if call", "auto"]
+# slots 3 to 8 have no entry: "auto", the next application that plays
 ```
 
-Strips that are not configured are `auto` strips. [Configuration](configuration/index.md) describes every option.
-`xtouch-daemon gui` edits the same file in a window, see [GUI](gui.md).
+[Channels, states and slots](configuration/slots.md) explains the format, [Configuration](configuration/index.md)
+every option. A file with strips and layouts (the format before) needs `xtouch-daemon migrate-config` once.
+The GUI (`xtouch-daemon gui`) still edits only the old format, for now; see [GUI](gui.md).
 
 ## Run it as a service
 

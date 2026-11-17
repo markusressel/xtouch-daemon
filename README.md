@@ -47,30 +47,33 @@ The device has to be in **MC** mode on **USB**, see [Getting started](docs/getti
 ```shell
 xtouch-daemon test                    # lights up the device and moves the faders, then echoes what you do on it
 xtouch-daemon init-config             # writes ~/.config/xtouch-daemon/config.toml
-xtouch-daemon list-devices            # the names to use for device strips
-xtouch-daemon list-apps               # the applications that play now, and which strip takes them
-xtouch-daemon check-config            # validates the file and shows what each strip does
+xtouch-daemon list-devices            # the names to use for device channels
+xtouch-daemon list-apps               # the applications that play now, and which channel or slot takes them
+xtouch-daemon check-config            # validates the file and shows what each slot shows when
 xtouch-daemon install-service --now   # runs it as a systemd user service from now on
 ```
 
-A configuration has up to eight strips, from the left:
+Channels are what a strip can control, slots the strips of the device, states decide what each slot shows:
 
 ```toml
-[[strip]]
+[channel.buds]
 type = "output"
 device = "bluez_output.4C_D7_3A_EA_02_76.1"
 label = "Buds"
 color = "green"
 
-[[strip]]
+[channel.voip]
 type = "apps"
-match = ["@voip"]   # every well-known voice chat, see the presets
+match = ["@voip"]   # Discord, Mumble, TeamSpeak and more, see Presets
 label = "VoIP"
-color = "white"
 
-[[strip]]
-type = "auto"
-color = "cyan"
+[state.call]
+voice_chat = true   # in a channel of Mumble (with the plugin)
+
+[slots]
+1 = ["buds if present", "auto"]
+2 = ["voip if call", "auto"]
+# slots 3 to 8 have no entry: "auto", the next application that plays
 ```
 
 ## Documentation

@@ -28,7 +28,7 @@ STRIP_TYPES: dict[str, str] = {
     "input": "configuration/devices/",
     "apps": "configuration/applications/#apps-channels",
     "auto": "configuration/applications/#auto",
-    "homeassistant": "home-assistant/#homeassistant-strips",
+    "homeassistant": "home-assistant/#homeassistant-channels",
     "empty": "configuration/strips/#empty-slots",
     "inherit": "configuration/slots/#migrating",
     "voip": "configuration/people/",

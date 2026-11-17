@@ -27,7 +27,7 @@ with it, the daemon connects anyway and shows the device in Home Assistant.
 | `password_file` | none | A file that holds the password instead, e.g. one only you can read. `~` is the home directory. Surrounding whitespace is ignored. |
 | `password_env` | none | An environment variable that holds the password instead, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`). |
 | `discovery_prefix` | `"homeassistant"` | Home Assistant's MQTT discovery prefix. |
-| `namespace` | `"xtouch"` | Starts every entity ID (`number.xtouch_strip_5_fader`) and is part of the topics. Lower case letters, digits, `_`. |
+| `namespace` | `"xtouch"` | Starts every entity ID (`number.xtouch_lamp_fader`) and is part of the topics. Lower case letters, digits, `_`. |
 | `device_name` | `"X-Touch Extender"` | The name of the device in Home Assistant. |
 
 Set at most one of `password`, `password_file` and `password_env`. A password file that can't be read, or a
@@ -49,13 +49,13 @@ greyed out. A last will covers a crash. The daemon connects to the broker again 
 The [GUI](gui.md#live-view-and-preview) shows whether the daemon is connected, and why not (e.g. a wrong password),
 and its "Test connection" button tries settings before they are saved.
 
-## `homeassistant` strips
+## `homeassistant` channels
 
 | Option | Default | Meaning |
 |---|---|---|
 | `type` | required | `"homeassistant"`. |
-| `id` | `"strip_<position>"` | Part of the entity IDs. Set it to keep the entities (and the automations that use them) when moving the strip. Lower case letters, digits, `_`, at most 64 characters. Unique among the strips. |
-| `label` | none | The top line of the LCD until Home Assistant sets one, and the start of the entity names (`Strip <position>` without it). |
+| `id` | the channel's id | Part of the entity IDs. Lower case letters, digits, `_`, at most 64 characters. |
+| `label` | none | The top line of the LCD until Home Assistant sets one, and the start of the entity names (the id without it). |
 | `color` | `"white"` | The LCD color until Home Assistant sets one. |
 
 ```toml
@@ -64,16 +64,21 @@ host = "homeassistant.local"
 username = "xtouch"
 password_env = "XTOUCH_MQTT_PASSWORD"
 
-[[strip]]
-type = "homeassistant"
-id = "living_room"
+[channel.living_room]
+type = "homeassistant"   # number.xtouch_living_room_fader, ...
 label = "Living"
 color = "yellow"
+
+[slots]
+8 = "living_room"
 ```
+
+The entities belong to the channel, not to a slot: they stay in Home Assistant whichever slot shows the channel, and
+while none does.
 
 ## Audio strips with Home Assistant controls
 
-An `output`, `input`, `apps` or `auto` strip with `encoder = "homeassistant"` or `fader = "homeassistant"` keeps the
+An `output`, `input` or `apps` channel, or an `auto` place, with `encoder = "homeassistant"` or `fader = "homeassistant"` keeps the
 volume on the other control and gets these entities of the [list below](#entities):
 
 | Option | Entities |
@@ -81,23 +86,23 @@ volume on the other control and gets these entities of the [list below](#entitie
 | `encoder = "homeassistant"` | `number.<ns>_<id>_encoder`, and `event.<ns>_<id>_buttons` with `encoder_pressed`, `encoder_released`. |
 | `fader = "homeassistant"` | `number.<ns>_<id>_fader`, and `event.<ns>_<id>_buttons` with `fader_touched`, `fader_released`. |
 
-The LCD, the LEDs and the buttons stay with PipeWire. `id` names the entities as for `homeassistant` strips
-(`strip_<position>` by default: the position in the list of the file, not on the device, which differs with
-[collapsing strips](configuration/collapsing.md#home-assistant)), and the strip's `label` starts their names. See
-[Encoders](configuration/encoders.md#homeassistant) for the details.
+The LCD, the LEDs and the buttons stay with PipeWire. The channel's id names the entities, its `label` starts their
+names. See [Encoders](configuration/encoders.md#homeassistant) for the details.
 
 ```toml
-[[strip]]
+[channel.desk]
 type = "output"
 device = "alsa_output.usb-*"
 label = "Desk"
-id = "desk"
 encoder = "homeassistant"    # the fader sets the volume, the encoder dims the desk lamp
 ```
 
+A control of a slot can belong to Home Assistant whatever the slot shows, with [`[controls]`](configuration/slots.md#controls-and-the-chord):
+`6 = { fader = "homeassistant", id = "desk" }` is `number.xtouch_desk_fader`.
+
 ## Entities
 
-`<ns>` is `mqtt.namespace`, `<id>` the strip's `id`:
+`<ns>` is `mqtt.namespace`, `<id>` the channel's (or control's) `id`:
 
 | Entity | What it is |
 |---|---|
@@ -115,12 +120,11 @@ daemon the strips show it again. New entities start with the configured label an
 and the LEDs off. While the broker can't be reached, a strip shows its label, `offline` and its color, and the
 device does nothing on it.
 
-Entities of a strip that was removed from the configuration are removed from Home Assistant on the next reload.
-The entities of the strips of every [layout](configuration/layouts.md) stay while another layout is shown.
+Entities of a channel that was removed from the configuration are removed from Home Assistant on the next reload.
 
 ## Choices
 
-With `[mqtt]`, an `output` or `input` strip with [`choices`](configuration/devices.md#choices) has
+With `[mqtt]`, an `output` or `input` channel with [`choices`](configuration/devices.md#choices) has
 `select.<ns>_<id>_output` (`select.<ns>_<id>_input`): the choice the strip shows, one option per choice, named by its
 `label` (or its `device`; a second choice of the same name gets a number, e.g. `Out 2`). Choosing one switches to it
 like Select on the device, profile first; one that isn't there is refused and the select goes back. The select
@@ -129,26 +133,35 @@ follows the strip, also when the default changes elsewhere.
 ```yaml
 action: select.select_option
 target:
-  entity_id: select.xtouch_strip_1_output
+  entity_id: select.xtouch_out_output
 data:
   option: Speaker
 ```
 
-## Layouts
+## Modes, states and slots
 
-With `[mqtt]` and more than one [layout](configuration/layouts.md), the daemon has `select.<ns>_layout`: the layout
-the device shows, one option per layout. Choosing one switches to it, like `xtouch-daemon layout`; the select follows
-every switch, also by a rule or the Solo chord, and after a restart of the daemon it shows the layout the daemon
-started with (see [Switching](configuration/layouts.md#switching)), not the one Home Assistant had last. For example, the gaming layout while the PC runs a game in another
-room's automation:
+With `[mqtt]`, Home Assistant sees and sets the [states and modes](configuration/slots.md#states-and-modes):
+
+| Entity | What it is |
+|---|---|
+| `select.<ns>_mode` | The mode picked by hand, or `auto` for the rules. Choosing one picks it, like `xtouch-daemon mode`. |
+| `binary_sensor.<ns>_state_<id>` | Each state and mode, with the attributes `since`, `source` and `override`. |
+| `select.<ns>_state_<id>` | The override of each state that is no mode: `auto`, `on`, `off`. |
+| `switch.<ns>_state_<id>_input` | For states with `homeassistant = true`: what Home Assistant feeds into them. |
+| `binary_sensor.<ns>_<id>_shown` | Whether a channel is on a slot. |
+| `sensor.<ns>_slot_<n>` | What slot n shows (a channel id, `app:<name>`, `person:<name>` or `none`), with `label`, `kind`, `via` and `reason`. |
+
+For example, the mode gaming while the PC runs a game, from another room's automation:
 
 ```yaml
 action: select.select_option
 target:
-  entity_id: select.xtouch_layout
+  entity_id: select.xtouch_mode
 data:
   option: gaming
 ```
+
+`select.<ns>_layout` is gone with the layouts: automations that used it need `select.<ns>_mode`.
 
 ## Automations
 

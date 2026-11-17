@@ -2,6 +2,10 @@
 
 `xtouch-daemon gui` edits the configuration file in a window and applies it to the running daemon.
 
+For now the GUI edits files with strips and layouts, the format before
+[channels, states and slots](configuration/slots.md), which the daemon no longer runs: a file in the new format is
+edited in a text editor until the GUI has it.
+
 ![The GUI with the device preview at the top and the options of strip 3 below](images/gui.png)
 
 ## Install and start
@@ -34,7 +38,7 @@ Without the extra, `xtouch-daemon gui` says how to install it.
   The type of each strip is printed under its LCD.
 - **A handle under the strips** (the short bar) makes them larger or smaller: drag it down for larger strips, up
   for more room below. The strips keep their proportions, and the GUI keeps the size for the next start.
-- **Above them, the layouts** of the file, one tab each (see [Layouts](configuration/layouts.md)): the strips and
+- **Above them, the layouts** of the file, one tab each (see [Layouts](configuration/slots.md#migrating)): the strips and
   the "Strip N" tab show the layout picked there. ● marks the one the device shows. + adds a layout, empty or a copy
   of the one shown, and "Show on the device" switches the running daemon to the layout (as saved, or as in the
   editor during the [live preview](#live-preview)).
@@ -142,16 +146,16 @@ makes its place an `auto` strip, so the other strips stay where they are. The ta
 it left and right.
 
 The strips on top are the first 8 of the layout. While it has 8 strips or more, or one of them collapses (see
-[Collapsing strips](configuration/collapsing.md)), a row of buttons above them lists every strip with where it is: on a
+[Collapsing strips](configuration/slots.md#migrating)), a row of buttons above them lists every strip with where it is: on a
 strip of the device ("on 3"), collapsed, or waiting for a place. A click selects it, also a strip beyond the 8.
 "Add strip" adds an `auto` strip at the end; it is off, and its tooltip says why, while a new strip could never show (8
 strips without `collapse` before it). While the daemon runs the layout, a strip that collapsed is drawn fainter with
 its look from the file, and the others show what their strips of the device show. The buttons of
-[`voip` strips](configuration/layouts.md#voip-strips) say who is on them ("4 voip: Bob · on 4").
+[`voip` strips](configuration/people.md) say who is on them ("4 voip: Bob · on 4").
 
 The preview prints the type of each strip under its LCD. A `voip` strip says which kind it is: "VOIP GROUP" for a
-strip of the [group](configuration/layouts.md#the-group), the first name of its `person` for a
-[strip for one person](configuration/layouts.md#strips-for-one-person).
+strip of the [group](configuration/slots.md#migrating), the first name of its `person` for a
+[strip for one person](configuration/people.md#strips-for-one-person).
 
 ## Editing options
 
