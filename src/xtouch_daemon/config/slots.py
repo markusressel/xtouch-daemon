@@ -74,7 +74,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
     """
     if config.strips or config.layouts:
         raise ConfigError("[slots] replaces [[strip]] and [[layout]]: a file has either")
-    scene = Scene.of(data)
+    scene = Scene.of(data, (config.switching.chord, config.switching.chord_action))
     problems: list[str] = []
     strips: dict[tuple[int, int, str | None], StripConfig] = {}
     channels: Mapping[str, Mapping[str, Any]] = data.get("channel", {})
@@ -148,9 +148,6 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 if "homeassistant" in (entry.fader, entry.encoder, entry.select, entry.rec, entry.solo):
                     where = f"controls.{slot}" + (f"[{index}]" if len(entries) > 1 else "")
                     problems.append(f"{where}: Home Assistant needs an [mqtt] section")
-    for slot in config.switching.chord:
-        if any(controls.solo is not None for controls in scene.controls.get(slot, ())):
-            problems.append(f"controls.{slot}.solo: the Solo buttons of the chord can't be claimed (switching.chord)")
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))
     # people share the slots of auto in every configuration: the section has defaults for everything

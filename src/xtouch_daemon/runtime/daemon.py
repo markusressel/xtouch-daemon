@@ -440,7 +440,13 @@ class Daemon:
 
     def _on_chord(self) -> None:
         if self.slots is not None:
-            self.request_mode("+1", CHORD)
+            action = self.config.switching.chord_action
+            if action == "cycle_modes":
+                self.request_mode("+1", CHORD)
+            elif action.startswith("mode:"):
+                self.request_mode(action.removeprefix("mode:"), CHORD)
+            else:
+                self.slots.toggle(action.removeprefix("toggle:"))
         else:
             self.switcher.step(1, CHORD)
 

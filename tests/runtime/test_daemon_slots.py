@@ -383,3 +383,25 @@ def test_the_encoder_of_an_auto_slot_picks_and_pins_through_the_engine() -> None
     # an empty slot of auto picks from the end backwards
     engine.slot(3).pick(-1)
     assert engine.picks[4] == App("mpv (mpv-bin)")
+
+
+@pytest.mark.parametrize(
+    ("action", "expected"),
+    [("mode:gaming", ("gaming", ({}, "gaming"))), ("toggle:call", ("default", ({"call": Override.ON}, None)))],
+)
+async def test_the_chord_does_its_action(
+    tmp_path: Path, surface: RecordingSurface, notifications: Notifications, action: str, expected: tuple
+) -> None:
+    path = tmp_path / "slots.toml"
+    path.write_text(SLOTS.replace("banner = 0", f'banner = 0\nchord = {{ strips = [1, 8], action = "{action}" }}'))
+    daemon = make(path, surface, Processes())
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: labels(surface, 1) == ["Speaker"])
+    for pressed in (True, False):
+        for strip in (0, 7):
+            surface.on_event(protocol.ButtonPressed(strip, Button.SOLO, pressed))
+    await until(lambda: daemon.slots is not None and daemon.slots.choices == expected[1])
+    assert daemon.slots is not None
+    assert daemon.slots.mode == expected[0] or action.startswith("toggle")
+    daemon.stop()
+    await task

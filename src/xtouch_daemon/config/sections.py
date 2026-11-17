@@ -4,8 +4,9 @@ The sections of the configuration besides the strips and layouts: `[device]`, `[
 """
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     Field,
@@ -170,6 +171,25 @@ class SwitchingConfig(Model):
     """
     banner: Annotated[float, Field(ge=0, le=10)] = 1.5
     """Seconds the LCDs show the name of the layout that comes; 0 for none."""
+
+    chord_action: str = "cycle_modes"
+    """
+    With channels, states and slots: what the chord does, `cycle_modes`, `mode:<id>` or `toggle:<state or mode>`
+    (checked with the slots). In the file: `chord = { strips = [1, 8], action = "toggle:call" }`.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _chord_table(cls, data: Any) -> Any:
+        """`chord = { strips = [...], action = ... }`: the strips and the action."""
+        if isinstance(data, Mapping) and isinstance(chord := data.get("chord"), Mapping):
+            unknown = set(chord) - {"strips", "action"}
+            if unknown:
+                raise ValueError(f"chord: {', '.join(sorted(unknown))}: only strips and action")
+            data = {**data, "chord": chord.get("strips", (1, 8))}
+            if "action" in chord:
+                data["chord_action"] = chord["action"]
+        return data
 
     @field_validator("chord")
     @classmethod

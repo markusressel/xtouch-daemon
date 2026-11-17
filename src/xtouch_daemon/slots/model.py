@@ -219,8 +219,11 @@ class Scene:
     """Their `when`, by slot and index."""
 
     @classmethod
-    def of(cls, data: Mapping[str, Any]) -> Scene:
-        """From the data of a file; ConfigError with every problem it has."""
+    def of(cls, data: Mapping[str, Any], chord: tuple[tuple[int, ...], str] | None = None) -> Scene:
+        """
+        From the data of a file; ConfigError with every problem it has. `chord` is the one of `[switching]`, its
+        strips (from 1) and action, checked against the modes, states and `[controls]`.
+        """
         try:
             file = _File.model_validate(data)
         except ValidationError as e:
@@ -231,6 +234,14 @@ class Scene:
         conditions = _parse_conditions(file.state, problems)
         stacks = _parse_stacks(file.slots, file.channel, pools, problems)
         controls, control_conditions = _parse_controls(file, stacks, problems)
+        if chord is not None:
+            strips, action = chord
+            _check_action("switching.chord.action", action, file, problems, chord=True)
+            for slot in strips:
+                if any(entry.solo is not None for entry in controls.get(slot, ())):
+                    problems.append(
+                        f"controls.{slot}.solo: the Solo buttons of the chord can't be claimed (switching.chord)"
+                    )
         scene = cls(file.channel, pools, file.people, file.state, stacks, conditions, controls, control_conditions)
         scene._check_references(problems)
         if not problems:
@@ -405,6 +416,22 @@ def _control_place(slot: int, index: int, count: int) -> str:
     return f"controls.{slot}" if count == 1 else f"controls.{slot}[{index}]"
 
 
+def _check_action(where: str, action: str, file: _File, problems: list[str], chord: bool = False) -> None:
+    """An action of a button: of `[controls]`, or of the chord (no `homeassistant` there)."""
+    modes = {name for name, state in file.state.items() if state.mode} | {DEFAULT}
+    if not CONTROL_ACTIONS.fullmatch(action) or (chord and action == "homeassistant"):
+        actions = "cycle_modes, mode:<id>, toggle:<state or mode>"
+        problems.append(
+            f"{where}: {action} is no action ({actions})"
+            if chord
+            else f"{where}: {action} is no action (homeassistant, {actions}, or {{ launch = [...] }})"
+        )
+    elif action.startswith("mode:") and action[5:] not in modes:
+        problems.append(f"{where}: {action}: no mode {action[5:]}")
+    elif action.startswith("toggle:") and action[7:] not in file.state:
+        problems.append(f"{where}: {action}: no state or mode {action[7:]}")
+
+
 def _parse_controls(
     file: _File, stacks: Mapping[int, tuple[Candidate, ...]], problems: list[str]
 ) -> tuple[dict[int, tuple[ControlsConfig, ...]], dict[tuple[int, int], Condition]]:
@@ -417,7 +444,6 @@ def _parse_controls(
     conditions: dict[tuple[int, int], Condition] = {}
     seen: dict[str, int] = {}
     taken = {*file.channel, *file.pool, *file.state, *BUILT_IN, DEFAULT}
-    modes = {name for name, state in file.state.items() if state.mode} | {DEFAULT}
     for key, value in file.controls.items():
         if not key.isdigit() or not 1 <= int(key) <= protocol.STRIPS:
             problems.append(f"controls.{key}: a slot is a number from 1 to {protocol.STRIPS}")
@@ -437,15 +463,8 @@ def _parse_controls(
                 problems.append(f"{where}: claims nothing (fader, encoder, select, rec, solo)")
             for name in ("select", "rec", "solo"):
                 action = getattr(config, name)
-                if isinstance(action, str) and not CONTROL_ACTIONS.fullmatch(action):
-                    problems.append(
-                        f"{where}.{name}: {action} is no action (homeassistant, cycle_modes, mode:<id>, "
-                        "toggle:<state or mode>, or { launch = [...] })"
-                    )
-                elif isinstance(action, str) and action.startswith("mode:") and action[5:] not in modes:
-                    problems.append(f"{where}.{name}: {action}: no mode {action[5:]}")
-                elif isinstance(action, str) and action.startswith("toggle:") and action[7:] not in file.state:
-                    problems.append(f"{where}.{name}: {action}: no state or mode {action[7:]}")
+                if isinstance(action, str):
+                    _check_action(f"{where}.{name}", action, file, problems)
             if config.when is not None:
                 condition = _condition(f"{where}.when", config.when, problems)
                 if condition is not None:

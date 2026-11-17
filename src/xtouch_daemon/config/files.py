@@ -80,6 +80,8 @@ def parse_config(text: str, source: str = "config") -> Config:
         problems = "\n".join(f"  {problem}" for problem in problems_of(e))
         raise ConfigError(f"{source} has errors:\n{problems}") from e
     if slots is None:
+        if config.switching.chord_action != "cycle_modes":
+            raise ConfigError(f"{source} has errors:\n  switching.chord.action: only with channels, states and slots")
         return config
     try:
         return setup(config, slots)

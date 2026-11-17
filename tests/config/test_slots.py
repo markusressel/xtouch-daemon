@@ -103,9 +103,34 @@ def test_nothing_ignored_without_apps_channels():
             '[controls]\n8 = { solo = "cycle_modes" }\n',
             "controls.8.solo: the Solo buttons of the chord can't be claimed",
         ),
+        (
+            '[switching]\nchord = { strips = [2, 3], action = "homeassistant" }\n[slots]\n1 = "auto"\n',
+            "switching.chord.action: homeassistant is no action (cycle_modes, mode:<id>, toggle:<state or mode>)",
+        ),
+        (
+            '[switching]\nchord = { action = "mode:x" }\n[slots]\n1 = "auto"\n',
+            "switching.chord.action: mode:x: no mode x",
+        ),
+        ("[switching]\nchord = { strips = [1, 2], what = 1 }\n", "chord: what: only strips and action"),
+        (
+            '[switching]\nchord = { action = "toggle:x" }\n',
+            "switching.chord.action: only with channels, states and slots",
+        ),
     ],
 )
 def test_problems(text: str, problem: str):
     with pytest.raises(ConfigError) as error:
         parse_config(text, "slots.toml")
     assert problem in str(error.value)
+
+
+def test_the_chord_as_a_table():
+    config = parse_config(
+        '[switching]\nchord = { strips = [2, 7], action = "toggle:call" }\n'
+        '[state.call]\nprocesses = ["mumble"]\n[slots]\n1 = "auto"\n'
+    )
+    assert config.switching.chord == (2, 7)
+    assert config.switching.chord_action == "toggle:call"
+    # without an action: the next mode
+    config = parse_config('[switching]\nchord = { strips = [2, 3] }\n[slots]\n1 = "auto"\n')
+    assert (config.switching.chord, config.switching.chord_action) == ((2, 3), "cycle_modes")
