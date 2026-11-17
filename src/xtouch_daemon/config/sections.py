@@ -1,5 +1,5 @@
 """
-The sections of the configuration besides the strips and layouts: `[device]`, `[behavior]`, `[mqtt]`,
+The sections of the configuration besides the channels, states and slots: `[device]`, `[behavior]`, `[mqtt]`,
 `[switching]` and `[voip]`.
 """
 
@@ -84,7 +84,7 @@ class BehaviorConfig(WithPresets):
     """Whether the LED meters show audio levels at all. Off, every meter stays dark; `meter` turns off a single one."""
     meter_point: Annotated[MeterPoint, METER_POINTS] = "pre_fader"
     """
-    Where the meters take the level: before the volume and Mute of the strip, or after them. A `[[layout]]` or a strip
+    Where the meters take the level: before the volume and Mute of the strip, or after them. A channel or a place
     may have its own (`meter_point`).
     """
 
@@ -147,19 +147,23 @@ class MqttConfig(Model):
 
 
 class SwitchingConfig(Model):
-    """How the daemon switches between layouts (`[[layout]]`)."""
+    """The chord, and the banner of a new mode."""
 
     chord: tuple[FaderNumber, ...] = (1, 8)
     """
-    The strips whose Solo buttons, held together, switch to the next layout, numbered from 1 on the left; none for no
-    chord. Solo does nothing on audio strips, on `homeassistant` strips Home Assistant still gets the presses.
+    The strips whose Solo buttons, held together, do `chord_action` (by default: the next mode), numbered from 1 on the
+    left; none for no chord. Solo does nothing on audio strips, on `homeassistant` strips Home Assistant still gets
+    the presses.
     """
     banner: Annotated[float, Field(ge=0, le=10)] = 1.5
-    """Seconds the LCDs show the name of the layout that comes; 0 for none."""
+    """
+    Seconds the LCDs show the label of a new mode, and a slot that shows something else its new label and why; 0 for
+    none.
+    """
 
     chord_action: str = "cycle_modes"
     """
-    With channels, states and slots: what the chord does, `cycle_modes`, `mode:<id>` or `toggle:<state or mode>`
+    What the chord does, `cycle_modes`, `mode:<id>` or `toggle:<state or mode>`
     (checked with the slots). In the file: `chord = { strips = [1, 8], action = "toggle:call" }`.
     """
 

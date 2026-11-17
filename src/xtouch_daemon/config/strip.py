@@ -1,8 +1,7 @@
 """
-The options strips share: what they show (label, color), their buttons and knobs, `collapse`.
+The options strips share: what they show (label, color), their buttons and knobs.
 """
 
-from collections.abc import Mapping
 from typing import Annotated
 
 from pydantic import model_validator
@@ -39,8 +38,8 @@ class BaseStripConfig(Model):
     """Whether this strip's LED meter shows the level (if `behavior.meters` is on)."""
     meter_point: Annotated[MeterPoint, METER_POINTS] | None = None
     """
-    Where the meter takes the level: before the volume and Mute of the strip, or after them; by default the
-    `meter_point` of the layout, else `behavior.meter_point`.
+    Where the meter takes the level: before the volume and Mute of the strip, or after them; by default
+    `behavior.meter_point`.
     """
     rec: Annotated[Indicator, INDICATORS] = "recording"
     """What the LED of the Rec button shows. The button itself does nothing (except with `profiles`)."""
@@ -65,13 +64,6 @@ class BaseStripConfig(Model):
     With `fader` or `encoder` in Home Assistant (or `choices` and `[mqtt]`): part of the entity IDs, e.g. "desk" for
     `number.xtouch_desk_fader`; by default `strip_<position>` (its place in the list, not on the device), so set it to
     keep the entities when moving the strip.
-    """
-    collapse: bool = False
-    """
-    Whether the strip gives its fader to the strips after it while it has nothing to control (see `collapse_hold`):
-    its devices are not there, no application of an `apps` group has a stream, an `auto` strip has no application. The
-    strips after it move one place to the left, and back when it returns. Moving strips are bad for muscle memory, the
-    LCDs say what each strip is.
     """
 
     @property
@@ -106,22 +98,12 @@ STRIP_TYPE_MEANINGS = Meanings(
         "is the default input.",
         "apps": "All playback streams of a group of applications, e.g. every browser, like the per-application "
         "sliders of pavucontrol.",
-        "auto": "The next application that plays and has no strip of its own. Strips that are not configured are "
-        "auto strips.",
+        "auto": "The next application that plays and has no channel of its own, and the people of the voice chat.",
         "homeassistant": "A strip that belongs to Home Assistant: its fader, encoder, LCD, LEDs and buttons are "
         "entities there, and automations decide what they do. Needs `[mqtt]`.",
         "empty": "A dark strip that does nothing; its fader stays at the bottom.",
-        "inherit": "In a `[[layout]]`: the strip of the default layout (the top-level `[[strip]]` list) at this "
-        "place, e.g. the same output in every layout; or, with `layout` and `strip`, any strip of any layout.",
         "voip": "A participant of the voice chat: the fader sets their volume, Mute mutes them for you, the meter "
-        "shows their voice. With `person`, always the same one; the voip strips without it are a group that fills "
-        "with the others, and Select on one of them shows the next ones.",
+        "shows their voice. With `person`, always the same one; else one of the people of `auto`.",
     }
 )
 """What each strip type is, shown when it is chosen."""
-
-
-def refuse_collapse(data: object, why: str) -> object:
-    if isinstance(data, Mapping) and "collapse" in data:
-        raise ValueError(f"collapse: {why}")
-    return data

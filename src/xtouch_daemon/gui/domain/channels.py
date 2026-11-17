@@ -1,7 +1,6 @@
 """
-The channels of a file as the page Channels shows them: their types, the options of each type (those of its strip
-without what belongs to a place or a layout), the options of `[pool.auto]` and `[people]`, and where each channel is
-used.
+The channels of a file as the page Channels shows them: their types, the options of each type (those of its strip),
+the options of `[pool.auto]` and `[people]`, and where each channel is used.
 """
 
 from collections.abc import Mapping
@@ -37,29 +36,26 @@ CHANNEL_TYPES = {
 }
 """The types of channels, in the order the page offers them."""
 
-NOT_ON_CHANNELS = frozenset({"collapse"})
-"""Options of strips that channels don't take: a channel stays on its slot while `present` (see the stacks)."""
-NOT_ON_PEOPLE = frozenset({"launch", "launch_when_running", "person"})
-"""What the strips of people have no use for: a launch is a control of a slot, the person is who it is."""
+NOT_ON_PEOPLE = frozenset({"label", "person"})
+"""What the strips of people have no use for: they show the name of the person, who is who it is."""
 
 
 def channel_options(channel_type: str) -> tuple[Option, ...]:
     """The options of a channel of the type: its strip's, then those about slots (`tags`, `in_auto`, ...)."""
     kind = CHANNEL_TYPES[channel_type]
-    skip = NOT_ON_CHANNELS | (NOT_ON_PEOPLE - {"person"} if channel_type == "person" else frozenset())
     own = tuple(option(name, ChannelConfig.model_fields[name]) for name in sorted(CHANNEL_ONLY))
-    return (*(each for each in strip_options(kind.strip) if each.name not in skip), *own)
+    return (*strip_options(kind.strip), *own)
 
 
 def pool_options() -> tuple[Option, ...]:
     """The options of `[pool.auto]`: which applications it takes, how long, and the look of its strips."""
-    look = tuple(each for each in strip_options("auto") if each.name not in NOT_ON_CHANNELS)
+    look = strip_options("auto")
     return (*options(PoolConfig, skip=("channels",)), *look)
 
 
 def people_options() -> tuple[Option, ...]:
     """The options of `[people]`: their order, and the look of their strips."""
-    look = tuple(each for each in strip_options("voip") if each.name not in NOT_ON_CHANNELS | NOT_ON_PEOPLE)
+    look = tuple(each for each in strip_options("voip") if each.name not in NOT_ON_PEOPLE)
     return (*options(PeopleConfig), *look)
 
 

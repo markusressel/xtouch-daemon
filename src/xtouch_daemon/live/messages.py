@@ -219,8 +219,7 @@ def fingerprint(config: Config) -> str:
     def plain(value: Any) -> Any:
         return value.get_secret_value() if isinstance(value, SecretStr) else str(value)
 
-    # the GUI validates its files with the models of strips and layouts until it edits channels, states and slots:
-    # those have no slots
+    # a configuration not read from a file (`Config()`) has no slots
     slots = config._slots.data if config._slots is not None else None
     data = json.dumps([config.model_dump(), slots], default=plain, sort_keys=True)
     return hashlib.sha256(data.encode()).hexdigest()[:16]

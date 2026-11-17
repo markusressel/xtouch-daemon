@@ -1,5 +1,5 @@
 """
-`mode`, `layout`, and what `check-config` says about strips.
+`mode` and `why`, and what `check-config` says about what Select launches.
 """
 
 import contextlib
@@ -16,13 +16,6 @@ from xtouch_daemon import cli
 from xtouch_daemon.cli.configuration import describe_strip
 from xtouch_daemon.live.codec import decode_request, encode, encode_reply
 from xtouch_daemon.live.messages import Reply, Request, SetMode, SlotsState, SlotView, Snapshot, StateView
-
-
-def test_layout_points_to_mode() -> None:
-    for args in ((), ("gaming",), ("--next",)):
-        result = CliRunner().invoke(cli.main, ["layout", *args])
-        assert result.exit_code == 1
-        assert "layouts are gone: `xtouch-daemon mode` lists and picks the modes" in result.output
 
 
 def test_check_config_shows_what_select_launches() -> None:

@@ -30,9 +30,7 @@ from haad_mqtt_autodiscovery.entity.text import MQTTText, MQTTTextPayload
 
 from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
-from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
-from xtouch_daemon.config.values import ColorName, MeterPoint, color_of, default_encoder
+from xtouch_daemon.config.values import ColorName, MeterPoint, color_of
 from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.mqtt import MqttBridge
@@ -51,36 +49,6 @@ EVENT_TYPES = [
 ]
 LEDS = {"off": Led.OFF, "on": Led.ON, "flash": Led.FLASH}
 """The states of an LED in Home Assistant."""
-
-
-def entity_ids(namespace: str, config: StripConfig, strip_id: str) -> frozenset[str]:
-    """
-    The unique ids of the entities a strip of the configuration has in Home Assistant (none for most), without making
-    them: for the entities of the layouts the device does not show, which stay in Home Assistant.
-    """
-    if isinstance(config, HomeAssistantStripConfig):
-        suffixes = [
-            "fader",
-            "encoder",
-            "meter",
-            "top",
-            "bottom",
-            "color",
-            *(f"{button.name.lower()}_led" for button in Button),
-            "buttons",
-        ]
-    elif isinstance(config, DeviceStripConfig | AppsStripConfig | AutoStripConfig):
-        encoder = (config.encoder or default_encoder(config.type, config.fader)) == "homeassistant"
-        suffixes = [
-            *(["fader"] if config.fader == "homeassistant" else []),
-            *(["encoder"] if encoder else []),
-            *(["buttons"] if config.uses_home_assistant else []),
-            # the select of the choices
-            *([config.type] if isinstance(config, DeviceStripConfig) and config.switches else []),
-        ]
-    else:
-        suffixes = []
-    return frozenset(f"{namespace}_{strip_id}_{suffix}" for suffix in suffixes)
 
 
 class LcdText(MQTTText):

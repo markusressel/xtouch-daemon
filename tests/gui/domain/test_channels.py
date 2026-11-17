@@ -14,15 +14,16 @@ def test_the_options_of_a_channel_are_those_of_its_strip_and_of_slots():
     names = [option.name for option in channel_options("apps")]
     assert names[:2] == ["match", "encoder"]
     assert names[-3:] == ["absent_after", "in_auto", "tags"]
-    assert "collapse" not in names
     person = [option.name for option in channel_options("person")]
     assert person[0] == "person"
     assert "launch" not in person
+    assert "label" in person
     assert list(CHANNEL_TYPES) == ["output", "input", "apps", "person", "homeassistant"]
     assert [option.name for option in pool_options()][:2] == ["exclude", "hold"]
     people = [option.name for option in people_options()]
     assert people[0] == "order"
     assert "person" not in people
+    assert "label" not in people
 
 
 def test_where_a_channel_is_used():

@@ -106,12 +106,6 @@ Volume = Annotated[int, Field(ge=0, le=VOLUME_LIMIT)]
 FaderNumber = Annotated[int, Field(ge=1, le=protocol.STRIPS)]
 """A fader of the device, 1 on the left."""
 
-MAX_STRIPS = 32
-"""
-The most strips a layout may have: more than the 8 of the device only with `collapse`, see `Config.unreachable()`.
-"""
-
-
 Sequence = Literal["instant", "sweep", "curtain", "show"]
 """How the strips light up after a connect and go dark at the end, see `surface.steps()`."""
 
@@ -170,10 +164,3 @@ LAUNCH_WHEN_RUNNING_HELP = (
     "Whether Select starts `launch` also while the application runs, e.g. a `mumble://` URL to connect a running "
     "Mumble to the server. Otherwise Select does nothing then."
 )
-
-
-DEFAULT_LAYOUT = "default"
-"""The name of the layout of the top-level `[[strip]]` list."""
-
-LayoutLabel = Annotated[str, Field(max_length=protocol.LCD_CELL_WIDTH * protocol.STRIPS, pattern=r"^[\x20-\x7e]*$")]
-"""What fits on the top lines of all LCDs: 56 characters of ASCII."""

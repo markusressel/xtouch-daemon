@@ -161,8 +161,6 @@ data:
   option: gaming
 ```
 
-`select.<ns>_layout` is gone with the layouts: automations that used it need `select.<ns>_mode`.
-
 ## Automations
 
 An automation that dims a light with the fader, shows its brightness on the LCD, and toggles it with Mute:

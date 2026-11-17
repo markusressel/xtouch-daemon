@@ -437,29 +437,6 @@ async def test_with_the_fader_in_home_assistant_the_encoder_sets_the_volume(
     await finish_tasks()
 
 
-@pytest.mark.parametrize(
-    "strip",
-    [
-        '[[strip]]\ntype = "homeassistant"\nid = "desk"\n',
-        '[[strip]]\ntype = "output"\nfader = "homeassistant"\nid = "desk"\n',
-        '[[strip]]\ntype = "auto"\nencoder = "homeassistant"\nid = "desk"\n',
-        '[[strip]]\ntype = "apps"\nmatch = ["x"]\nlabel = "X"\nencoder = "homeassistant"\nid = "desk"\n',
-        '[[strip]]\ntype = "output"\nid = "desk"\n',
-        '[[strip]]\ntype = "empty"\n',
-        '[[strip]]\ntype = "input"\nid = "desk"\nchoices = [{ device = "a" }, { device = "b" }]\n',
-        '[[strip]]\ntype = "output"\nid = "desk"\nfader = "homeassistant"\n'
-        'choices = [{ device = "a" }, { device = "b" }]\n',
-    ],
-)
-def test_the_ids_of_the_entities_are_those_of_the_strip(surface: RecordingSurface, bridge: MqttBridge, strip: str):
-    (config,) = strips_of(strip)
-    env = StripEnv(FakeBackend(), BehaviorConfig(), bridge)
-    controller = build(config, surface.strips[0], env, {})
-    expected = {entity.unique_id for entity in controller.entities}
-    assert homeassistant_module.entity_ids("xtouch", config, "desk") == expected
-    controller.close()
-
-
 CHOICES_CONFIG = """
 [mqtt]
 host = "broker"

@@ -125,9 +125,7 @@ async def test_the_channels_announce_their_entities_and_follow_the_processes(
     previews: list[bool] = []
 
     class RecordingBridge(MqttBridge):
-        async def set_entities(
-            self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str] = frozenset(), preview: bool = False
-        ) -> None:
+        async def set_entities(self, entities: Mapping[MQTTEntity, str | None], preview: bool = False) -> None:
             announced.append(dict(entities))
             previews.append(preview)
 

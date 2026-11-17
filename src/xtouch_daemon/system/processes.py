@@ -1,5 +1,5 @@
 """
-The processes that run, by name, for the layout rules (`processes`) and the strips that start an application
+The processes that run, by name, for the `processes` of states and the strips that start an application
 (`launch_when_running`).
 """
 

@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 from pydantic import PrivateAttr
 
 from xtouch_daemon.config.base import Model
-from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import StripConfig
 from xtouch_daemon.config.values import Label, MeterPoint
+from xtouch_daemon.config.voip_strips import VoipStripConfig
 
 if TYPE_CHECKING:
     from xtouch_daemon.config.slots import SlotsSetup

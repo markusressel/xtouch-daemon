@@ -191,11 +191,6 @@ class MainWindow(QMainWindow):
         self.show_page("slots")
         if session is not None:
             self._resume(session)
-        if document.notes:
-            self.status.setText(
-                "The file had strips and layouts: this is it with channels, states and slots, saved on Save. "
-                + " ".join(document.notes)
-            )
 
     def showEvent(self, event: QShowEvent | None) -> None:
         super().showEvent(event)

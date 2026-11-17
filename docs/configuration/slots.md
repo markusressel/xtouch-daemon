@@ -5,8 +5,7 @@ each strip of the device (a **slot**) has a short list of the channels it can sh
 gaming) decide which. A slot changes only when what it shows changes; the others stay as they are. The
 [design](../design/channels-states-slots.md) has every detail.
 
-`xtouch-daemon init-config` writes a small example; `xtouch-daemon migrate-config` writes a file with strips and
-layouts in this format (see [Migrating](#migrating)). `xtouch-daemon check-config` shows a table of what each slot
+`xtouch-daemon init-config` writes a small example. `xtouch-daemon check-config` shows a table of what each slot
 shows in which states.
 
 ## Channels
@@ -57,10 +56,10 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
   `switching.banner` seconds.
 
-`auto` and the people are on the [People](people.md) page as well. `[pool.auto]` has `hold` (seconds a slot keeps an application after it stopped playing, 5 by default) and `exclude`
-(applications it never takes, by default `speech-dispatcher`, the voice of screen readers); `[people]` the look of
-the strips of people (`color`, `talking_color`, ...). They replace `behavior.auto_hold` and `behavior.ignore`; a file
-with those, `behavior.collapse_hold` or `switching.hold` says what took their place.
+`auto` and the people are on the [People](people.md) page as well. `[pool.auto]` has `hold` (seconds a slot keeps an
+application after it stopped playing, 5 by default) and `exclude` (applications it never takes, by default
+`speech-dispatcher`, the voice of screen readers); `[people]` the look of the strips of people (`color`,
+`talking_color`, ...).
 
 ## States and modes
 
@@ -115,34 +114,7 @@ Actions: `homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, 
 
 ## Home Assistant
 
-With `[mqtt]`: `select.xtouch_mode` (instead of `select.xtouch_layout`), a binary sensor per state (with `since`,
+With `[mqtt]`: `select.xtouch_mode`, a binary sensor per state (with `since`,
 `source` and `override`), an override select per state, an input switch per state with `homeassistant = true`,
 `binary_sensor.xtouch_<channel>_shown`, and `sensor.xtouch_slot_<n>` (what the slot shows, with `label`, `kind`, `via`
 and `reason`). See [Home Assistant](../home-assistant.md).
-
-## Migrating
-
-```shell
-xtouch-daemon migrate-config             # writes config.slots.toml next to config.toml
-xtouch-daemon migrate-config --in-place  # replaces config.toml, keeps the old one as config.layouts.toml
-```
-
-Each strip becomes a channel and a candidate on the slot of its place, each layout a mode, and the strips of a layout
-candidates `if <layout>` above those of the default one. `auto` and `empty` strips become `auto` and `-`, `voip`
-strips without `person` the people of `auto` (their look goes to `[people]`), `launch` and Home Assistant on `auto`
-strips `[controls]`. A strip with `collapse` stays on its slot while present (`"<id> if present"`, then `auto`):
-nothing shifts any more. The command lists what needs a look: renamed entities, ids named after entities, resolved
-`inherit` strips, strips without a slot.
-
-The daemon refuses a file with `[[strip]]` or `[[layout]]` and points to the command. What else changed:
-
-| Strips and layouts | Channels, states and slots |
-|---|---|
-| `[[layout]]` with `apps`, `processes`, `priority` | `[state.<name>] mode = true` with the same sources |
-| `inherit` strips | the channel itself, as a candidate of another slot |
-| `collapse`, `behavior.collapse_hold` | `"<id> if present"`, `absent_after` of the channel |
-| `behavior.auto_hold`, `behavior.ignore` | `hold` and `exclude` of `[pool.auto]` |
-| `switching.hold` | `delay_off` of each mode |
-| `voip` strips of the group | the people of `auto` ([People](people.md)) |
-| `launch` on a `voip` strip | `[controls]` of its slot |
-| `select.xtouch_layout`, `xtouch-daemon layout` | `select.xtouch_mode`, `xtouch-daemon mode` |

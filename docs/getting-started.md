@@ -117,8 +117,7 @@ voice_chat = true   # in a channel of Mumble (with the plugin)
 ```
 
 [Channels, states and slots](configuration/slots.md) explains the format, [Configuration](configuration/index.md)
-every option. A file with strips and layouts (the format before) needs `xtouch-daemon migrate-config` once.
-The GUI (`xtouch-daemon gui`) still edits only the old format, for now; see [GUI](gui.md).
+every option. The GUI (`xtouch-daemon gui`) edits it in a window; see [GUI](gui.md).
 
 ## Run it as a service
 

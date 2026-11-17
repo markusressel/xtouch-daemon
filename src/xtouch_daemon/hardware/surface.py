@@ -139,7 +139,7 @@ class Surface:
     def banner(self, top: str, bottom: str, seconds: float) -> None:
         """
         Shows two lines of text across the LCDs of all strips for `seconds` (centered, 7 characters per strip), e.g.
-        the name of a layout that comes. The strips keep showing what they show underneath, and again after it.
+        the label of a mode that comes. The strips keep showing what they show underneath, and again after it.
         """
         if self._banner is not None:
             self._banner.cancel()

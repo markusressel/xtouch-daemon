@@ -86,10 +86,6 @@ def test_auto_never_takes_screen_readers_unless_exclude_says_otherwise():
     ("text", "problem"),
     [
         (
-            '[[strip]]\ntype = "auto"\n[slots]\n1 = "auto"\n',
-            "has strips and layouts, which are gone: `xtouch-daemon migrate-config`",
-        ),
-        (
             CHANNELS.replace('label = "Out"', 'label = "Out"\nvolume = 3') + "[slots]\n",
             "channel.out: volume: Extra inputs are not permitted",
         ),
@@ -102,12 +98,6 @@ def test_auto_never_takes_screen_readers_unless_exclude_says_otherwise():
             '[channel.ann]\ntype = "person"\nperson = "Ann"\nlaunch = ["mumble"]\n',
             "channel.ann: launch: the strips of people have none",
         ),
-        (
-            '[channel.ann]\ntype = "person"\nperson = "Ann"\ncollapse = true\n',
-            'channel.ann: collapse: gone with layouts; "ann if present" in a slot shows it only then',
-        ),
-        ("[behavior]\nauto_hold = 2\n", "behavior.auto_hold: gone with strips and layouts, see hold of [pool.auto]"),
-        ("[switching]\nhold = 2\n", "switching.hold: gone with strips and layouts, see delay_off of each mode"),
         (
             '[slots]\n1 = [{ show = "auto", min_volume = 50, max_volume = 40 }]\n',
             "slots.1[0]: min_volume (50) is not below max_volume (40)",

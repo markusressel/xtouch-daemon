@@ -4,24 +4,19 @@ Every strip type (`StripConfig`), and the strips that control nothing of the sou
 
 from typing import Annotated, Literal, get_args
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import Model
-from xtouch_daemon.config.layout_strips import VoipStripConfig
-from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS, refuse_collapse
+from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
 from xtouch_daemon.config.values import COLORS, ColorName, Label, Slug
+from xtouch_daemon.config.voip_strips import VoipStripConfig
 
 
 class EmptyStripConfig(Model):
     """A dark strip that does nothing."""
 
     type: Annotated[Literal["empty"], STRIP_TYPE_MEANINGS]
-
-    @model_validator(mode="before")
-    @classmethod
-    def _no_collapse(cls, data: object) -> object:
-        return refuse_collapse(data, "an empty strip is there to keep its place")
 
 
 class HomeAssistantStripConfig(Model):
@@ -37,11 +32,6 @@ class HomeAssistantStripConfig(Model):
     """The top line of the LCD until Home Assistant sets one; also the start of the entity names."""
     color: Annotated[ColorName, COLORS] = "white"
     """The LCD backlight until Home Assistant sets one."""
-
-    @model_validator(mode="before")
-    @classmethod
-    def _no_collapse(cls, data: object) -> object:
-        return refuse_collapse(data, "a homeassistant strip stays, automations rely on its entities")
 
 
 StripConfig = Annotated[

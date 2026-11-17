@@ -2,8 +2,7 @@
 A configuration file of channels, states and slots being edited: the whole file as plain data that the editor
 changes by option paths (`("channel", "mic", "label")`, `("slots", "3")`, `("state", "call", "delay_off")`), validated
 with `parse_config()`, and written back into the original TOML text, so comments, the order of the file and the form
-of each value (a stack as a string, a list or tables) stay where they did not change. A file with strips and layouts
-is migrated when it is opened: the document starts modified, with the notes of `migrate-config`.
+of each value (a stack as a string, a list or tables) stay where they did not change.
 """
 
 import copy
@@ -20,7 +19,6 @@ from tomlkit.items import AoT, InlineTable, Table
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import Problem, example_config, parse_config
-from xtouch_daemon.config.migrate import migrate
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.gui.domain.schema import RESTART_SECTIONS, SECTIONS
 
@@ -89,10 +87,6 @@ class SlotsDocument:
         self.path = path
         self.exists = exists
         """Whether the file is there. Without it the document holds the example configuration."""
-        self.notes: list[str] = []
-        """What the migration of a file with strips and layouts did, for the user to look at."""
-        self.migrated = False
-        """Whether the file had strips and layouts: then saving it writes the new format."""
         self._load(text)
 
     @classmethod
@@ -107,20 +101,16 @@ class SlotsDocument:
 
     def _load(self, text: str) -> None:
         try:
-            data = tomllib.loads(text)
+            # the errors of tomllib say where
+            tomllib.loads(text)
         except tomllib.TOMLDecodeError as e:
             raise ConfigError(f"{self.path} is not valid TOML: {e}") from e
-        self.migrated = "strip" in data or "layout" in data
-        if self.migrated:
-            migration = migrate(text, str(self.path))
-            text = migration.text
-            self.notes = list(migration.notes)
         self._toml = tomlkit.parse(text)
         self._text = text
         self.values: dict[str, Any] = self._toml.unwrap()
         """The file as plain data, which the editor changes."""
-        self._saved = copy.deepcopy(self.values) if not self.migrated else None
-        self.saved_config = self._config(text) if self.exists and not self.migrated else None
+        self._saved = copy.deepcopy(self.values)
+        self.saved_config = self._config(text) if self.exists else None
         """The configuration of the file as it is on disk, None while there is none the daemon would take."""
 
     # -- options ----------------------------------------------------------------------------------------------------
@@ -201,8 +191,8 @@ class SlotsDocument:
 
     @property
     def modified(self) -> bool:
-        """Whether the data differs from the file (a migrated file always does until it is saved)."""
-        return self._saved is None or self.values != self._saved
+        """Whether the data differs from the file."""
+        return self.values != self._saved
 
     def validate(self) -> Validation:
         try:
@@ -213,7 +203,7 @@ class SlotsDocument:
     @property
     def restart_sections(self) -> tuple[str, ...]:
         """The sections that changed since the file was read or saved and that the daemon takes only with a restart."""
-        saved = self._saved or {}
+        saved = self._saved
 
         def part(data: dict[str, Any], name: str, option: str | None) -> object:
             section = data.get(name)
@@ -243,7 +233,6 @@ class SlotsDocument:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(text, encoding="utf-8")
         self.exists = True
-        self.migrated = False
         self._saved = copy.deepcopy(self.values)
         self.saved_config = config
         return config

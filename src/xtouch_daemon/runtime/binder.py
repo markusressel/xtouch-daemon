@@ -17,7 +17,7 @@ from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.audio_strips import AutoStripConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strip import BaseStripConfig
-from xtouch_daemon.config.strips import StripConfig
+from xtouch_daemon.config.strips import EmptyStripConfig, StripConfig
 from xtouch_daemon.config.values import EncoderMode, default_encoder
 from xtouch_daemon.hardware.strip import Claimable, VirtualStrip
 from xtouch_daemon.hardware.surface import Surface
@@ -27,7 +27,7 @@ from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.slots import SlotEngine
 from xtouch_daemon.slots.inputs import App, Person
 from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
-from xtouch_daemon.strips import EmptyStrip, build_strip, look_of
+from xtouch_daemon.strips import build_strip, look_of
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
 from xtouch_daemon.system.launch import Launcher
@@ -63,7 +63,7 @@ def place_of(strip: StripConfig) -> Place | None:
 class SlotMixer:
     """
     The controllers of a configuration of channels, states and slots, bound to the strips of the desk as the
-    `SlotEngine` says (`apply()`). It stands in for the `Mixer` of strips and layouts in the daemon.
+    `SlotEngine` says (`apply()`).
     """
 
     def __init__(
@@ -143,7 +143,7 @@ class SlotMixer:
     def _build(self, key: Key, strip: StripConfig | None, identity: Identity) -> StripController:
         view = VirtualStrip(self.surface, next(self._numbers))
         if strip is None:
-            return EmptyStrip(view, self.env, identity, Look(meter=False))
+            strip = EmptyStripConfig(type="empty")
         if (place := place_of(strip)) is not None:
             self.places[key] = place
         return build_strip(strip, view, self.env, self.config.aliases, identity, self._look(strip), self.voip)

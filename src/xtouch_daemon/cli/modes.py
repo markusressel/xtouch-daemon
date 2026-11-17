@@ -1,6 +1,6 @@
 """
 Picking the mode of the running daemon (`mode`) and asking it why a slot or channel shows what it does (`why`), over
-the socket of its live view; `layout` points to `mode`.
+the socket of its live view.
 """
 
 import socket
@@ -24,13 +24,6 @@ def _live_lines(lines: BinaryIO) -> Iterator[Snapshot | Reply]:
         message = decode_message(line)
         if message is not None:
             yield message
-
-
-@click.command(hidden=True, context_settings={"ignore_unknown_options": True})
-@click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def layout(args: tuple[str, ...]) -> None:
-    """Layouts are gone: `mode` lists and picks the modes."""
-    raise click.ClickException("layouts are gone: `xtouch-daemon mode` lists and picks the modes")
 
 
 def _slots(messages: Iterator[Snapshot | Reply]) -> SlotsState:

@@ -2,7 +2,7 @@
 Channels, states and slots in Home Assistant (see "Home Assistant" in docs/design/channels-states-slots.md), for as
 long as the configuration:
 
-- `select.<ns>_mode`: the mode picked by hand, or `auto` for the rules. Replaces `select.<ns>_layout`.
+- `select.<ns>_mode`: the mode picked by hand, or `auto` for the rules.
 - `binary_sensor.<ns>_state_<id>`: each state and mode, with the attributes `since`, `source` and `override`.
 - `select.<ns>_state_<id>`: the override of each state that is no mode: `auto`, `on`, `off`.
 - `switch.<ns>_state_<id>_input`: for states with `homeassistant = true`, what Home Assistant feeds into them.

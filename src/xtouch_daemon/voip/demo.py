@@ -1,6 +1,6 @@
 """
 A voice chat that is not there: the participants of the configuration talk in turns, and their volumes and mutes are
-kept in memory. To try `voip` strips (and layouts with them) without a voice chat.
+kept in memory. To try the people of the voice chat without one.
 """
 
 import asyncio

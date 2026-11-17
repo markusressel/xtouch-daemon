@@ -142,18 +142,6 @@ def test_without_a_file_the_example(tmp_path: Path) -> None:
     assert (tmp_path / "new" / "config.toml").exists()
 
 
-def test_a_file_with_strips_and_layouts_is_migrated(tmp_path: Path) -> None:
-    old = '[[strip]]\ntype = "output"\nlabel = "Speaker"\n'
-    doc = document(tmp_path, old + '[[layout]]\nname = "x"\n[[layout.strip]]\ntype = "inherit"\n')
-    assert doc.migrated
-    assert doc.modified
-    assert doc.get(("slots", "1")) == "speaker"
-    assert any("modes" in note for note in doc.notes)
-    doc.save()
-    assert not doc.migrated
-    assert "[[strip]]" not in doc.path.read_text()
-
-
 def test_unreadable_files(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="is not valid TOML"):
         document(tmp_path, "[nope")

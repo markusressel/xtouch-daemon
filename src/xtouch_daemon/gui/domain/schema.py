@@ -221,15 +221,11 @@ def strip_type_help(strip_type: str) -> str:
 
 STRIP_OPTION_ORDER = (
     # what the strip controls
-    "layout",
-    "strip",
     "device",
     "choices",
     "match",
     "profiles",
     "person",
-    # whether it gives its place to the next ones
-    "collapse",
     # then the parts of the strip from the top of the device to the bottom: the encoder with its ring, the LCD, the
     # meter, the buttons, the fader
     "encoder",

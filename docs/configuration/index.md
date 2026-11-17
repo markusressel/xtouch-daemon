@@ -11,8 +11,7 @@ xtouch-daemon check-config     # validates the file and shows what each slot sho
 ```
 
 Unknown options are errors, so a typo does not go unnoticed. `check-config` names the place of every error, e.g.
-`channel.mic.label: String should have at most 7 characters`. A file with strips and layouts, the format before,
-fails with a pointer to [`migrate-config`](slots.md#migrating).
+`channel.mic.label: String should have at most 7 characters`.
 
 The [GUI](../gui.md) edits the same options in a window and shows the same errors next to them.
 

@@ -16,32 +16,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   [Hardware](docs/hardware.md#the-virtual-device) knows. The live view shows the daemon's mirror of the device (the
   same model), so the GUI draws what reached the device, banners and flashes included, with the motors and meters
   moving as on it. See `docs/design/device-simulator.md`.
-- Prototype of channels, states and slots (`docs/design/channels-states-slots.md`), the planned successor of
-  layouts, `inherit` and `collapse`: `xtouch-daemon simulate` shows what the slots of a configuration in that
-  format show in given states, and why; `xtouch-daemon observe` records what plays and runs, and
-  `simulate --replay` replays such a recording through a configuration. The daemon runs a file in that format too
-  (`[channel.*]`, `[state.*]`, `[slots]` instead of strips and layouts), for trying it on the device: a slot gets
+- Channels, states and slots (see the page Channels, states and slots and `docs/design/channels-states-slots.md`):
+  `[channel.*]` say what a strip can control, `[state.*]` what goes on (a call, a game, a mode), and `[slots]` what
+  each of the 8 strips shows, as candidates with conditions (`"voip if call"`, `"mum if present"`). A slot gets
   another strip when what it shows changes, the others stay as they are (no blank texts), a slot that shows another
   candidate flashes its label and why (`gaming`, `not call`) for `switching.banner` seconds, `[controls]` claim the
-  fader, encoder and buttons of a slot whatever it shows (a launch, a mode, a state toggled by hand, Home Assistant),
-  layout switches by hand pick a mode, the chord can do another action (`chord = { strips = [1, 8], action =
-  "toggle:call" }`: `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`), and `check-config` prints its table.
-  With `[mqtt]`, Home Assistant gets `select.<ns>_mode` (instead of the layout select), a binary sensor per state
-  (`since`, `source`, `override`), an override select per state, an input switch per state with
-  `homeassistant = true`, `binary_sensor.<ns>_<channel>_shown` and `sensor.<ns>_slot_<n>` (what the slot shows,
-  with `label`, `kind`, `via` and `reason`). The live view tells the mode, the states and what each slot shows and
-  why, takes requests to pick a mode and to override a state (no longer the layout, the layouts, the placement, who is
-  on which strip, or a request to switch the layout), and the GUI shows the mode in a pill next to the
-  preview, with the states and slots in its tooltip. `xtouch-daemon migrate-config` writes a file with strips and
-  layouts in that format and lists what needs a look (renamed entities, resolved `inherit` strips, strips without a
-  slot); `check-config` points old files to it. `init-config` writes the new format,
-  `xtouch-daemon mode` lists and picks the modes (`layout` only points to it). See the new page Channels,
-  states and slots. The daemon runs only this format: it refuses a file with strips and layouts and points to
-  `migrate-config`, and a file without `[slots]` shows `auto` on every
-  slot. `behavior.auto_hold`, `behavior.ignore`, `behavior.collapse_hold` and `switching.hold` are errors that name
-  what replaced them; `[pool.auto] exclude` leaves out `speech-dispatcher` by default, as `behavior.ignore` did, and
-  `min_volume` and `max_volume` of channels and `auto` slots are checked. `collapse` on a channel and `launch` on a
-  `person` channel are errors (they did nothing): `"<id> if present"` and `[controls]` do that now.
+  fader, encoder and buttons of a slot whatever it shows (a launch, a mode, a state toggled by hand, Home
+  Assistant), and the chord (Solo of strips 1 and 8 held together) picks the next mode or does another action
+  (`chord = { strips = [1, 8], action = "toggle:call" }`: `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`). A
+  file without `[slots]` shows `auto` on every slot; `[pool.auto] exclude` leaves out `speech-dispatcher` by
+  default, `min_volume` and `max_volume` of channels and `auto` slots are checked, and `launch` on a `person`
+  channel is an error (`[controls]` does that). `check-config` prints the table of the slots, `init-config` writes
+  an example, `xtouch-daemon mode` lists and picks the modes, `xtouch-daemon why <slot or channel>` tells why a slot
+  shows what it does, `xtouch-daemon simulate` what the slots show in given states, `xtouch-daemon observe` records
+  what plays and runs, and `simulate --replay` replays such a recording through a configuration. With `[mqtt]`, Home
+  Assistant gets `select.<ns>_mode`, a binary sensor per state (`since`, `source`, `override`), an override select
+  per state, an input switch per state with `homeassistant = true`, `binary_sensor.<ns>_<channel>_shown` and
+  `sensor.<ns>_slot_<n>` (what the slot shows, with `label`, `kind`, `via` and `reason`). The live view tells the
+  mode, the states and what each slot shows and why, and takes requests to pick a mode and to override a state; the
+  GUI shows the mode in a pill next to the preview, with the states and slots in its tooltip.
   The GUI edits this format: a rail with the pages Device (the device live; below it the states, to override or pick, and a card per slot
   with its candidates, their conditions as chips and ▶ on the one shown, to add, remove, drag or move with
   Ctrl+Up/Down; the inspector edits what a candidate shows, when and the options of its place, says where else its
@@ -50,12 +43,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   slots would show in another mode, with other states on or channels absent, without sending anything (Esc ends it);
   Grid lists every combination that shows something else, a row simulates it, a cell picks its slot), Channels (the channels, `[pool.auto]`
   and `[people]`, with Add, Duplicate and Remove, and where each is used), States (modes first, their sources,
-  delays and where they are used, what the daemon says about each, an override or a mode picked) and Settings; it opens a file with
-  strips and layouts migrated, to save in the new format. Problems lead to their channel, state or setting.
+  delays and where they are used, what the daemon says about each, an override or a mode picked) and Settings. Problems lead to their channel, state or setting.
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.
   `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
-  `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` strips, `apps` and `processes` of layouts
-  and `behavior.ignore`, each with the names of the streams or of the processes of its applications (e.g. Steam's
+  `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` channels, `apps` and `processes` of states
+  and `exclude` of `[pool.auto]`, each with the names of the streams or of the processes of its applications (e.g. Steam's
   `reaper` for `@steam-games` in `processes`). An unknown preset, or one in a list it is not for, is an error that says
   what fits. `check-config` shows what each one stands for, `list-apps` the presets of each application that plays
   (`Brave (@browsers)`), and the GUI suggests the presets that fit a list, with what they stand for as the tooltip.
@@ -66,75 +58,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   shows at once, a failed switch goes back, quick presses step through. The strip follows a default changed
   elsewhere. With `[mqtt]`, `select.<ns>_<id>_output` (`_input`) chooses in Home Assistant. `check-config`
   describes it ("output: Phones, Speaker or Buds (Select switches)").
-- Collapsing strips: `collapse = true` on `output`, `input`, `apps`, `auto` and `voip` strips gives the strip's fader
-  to the strips after it while it has nothing to control (after `behavior.collapse_hold`, 3 s), and it comes back at
-  once. A configuration (or layout) may list up to 32 strips; the device shows the first 8 that take a place. Strips
-  move with everything they show, never while a fader is touched or a button held, and each move is logged.
-  `check-config` reports strips that could never get a fader. The live view tells the placement.
-- `inherit` strips take any strip of any layout: `layout` names the layout, `strip` the strip in its list (from 1)
-  or its `id`. Chains resolve (up to 8), loops and unknown layouts, strips and ids are errors. The strip carries all
-  its options (`collapse`, `launch`, a `voip` strip its `person`), and a Home Assistant strip keeps the entities of
-  its own place. `check-config` tells where each inherited strip comes from; the GUI picks the layout and the strip
-  and previews the strip referred to.
-- GUI: `choices` with the devices, cards and profiles to pick from per line; a strip list that reaches the strips
-  beyond the 8 of the device, tells where each one is (on the device, collapsed, waiting) and adds strips while they
-  could get a place. The preview follows the strips that moved.
+- GUI: `choices` with the devices, cards and profiles to pick from per line.
 - `list-devices` shows the description of each sound card next to its name.
-- Layouts: `[[layout]]` sections with their own `[[layout.strip]]` lists, e.g. one for games; the top-level strips
-  are the layout `default`, so existing files work as before. The device switches with `xtouch-daemon layout NAME`
-  (`--next`, `--previous`), the Home Assistant entity `select.<ns>_layout`, Solo of strips 1 and 8 held together
-  (`switching.chord`), or rules: `apps` (while an application has a stream) and `processes` (while a process runs),
-  with `priority` and `switching.hold`. The LCDs show the label of the layout that comes (`switching.banner`).
-  `check-config` lists every layout, and the entities of `homeassistant` strips of all layouts stay in Home
-  Assistant.
-- The daemon remembers the layout across restarts (in `~/.local/state/xtouch-daemon/layout`), unless a rule put it
-  there; a rule that matches at the start still wins. Home Assistant's select follows the daemon, a retained state of
-  the last run no longer switches the layout.
-- `launch` on `apps`, `auto` and `voip` strips: Select starts the command (a list, or one string split like a shell
+- `launch` on `apps` and `auto` channels: Select starts the command (a list, or one string split like a shell
   would, never through a shell) while the strip's application does not run, e.g. Mumble with a `mumble://` URL that
   joins a channel. "Runs" counts processes too (a silent Mumble), the Select LED flashes while it starts and is on
   while it runs. It starts as a transient systemd user service, so a restart of the daemon does not end it.
   `launch_when_running` starts it always (`apps`, `auto`). `check-config` shows it, the GUI edits it.
-- `inherit` strips: in a layout, the strip of the default layout at the same place.
-- `voip` strips: the participants of a voice chat, one per strip, the name on the LCD, lit in `talking_color` while
-  they talk, the fader for their volume and Mute to mute them. `person` (a name, or several names of one person,
-  ignoring case) keeps a person on a strip, shown dark with `away` while they are not there (`label` names it). The
-  other `voip` strips of a layout are its group, wherever they are: they fill with the participants without a strip
-  of their own, and Select on any of them pages through more participants than strips. A name on two strips of a
-  layout is an error. The daemon keeps the volume and mute set for each name and sets them again when the person
-  comes back. `voip` strips with the same `launch` start it once. `[voip]` picks where they come from: `bridge`, a
+- The people of a voice chat on the strips: one per strip, the name on the LCD, lit in `talking_color` while they
+  talk, the fader for their volume and Mute to mute them. They share the `auto` slots with the applications, from
+  the right (`[people] order`). A `person` channel (a name, or several names of one person, ignoring case) keeps a
+  person on a strip, shown dark with `away` while they are not there (`label` names it). The daemon keeps the
+  volume and mute set for each name and sets them again when the person comes back. `[voip]` picks where they come from: `bridge`, a
   plugin of the voice chat client on the socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` (the protocol is in the
   documentation, versioned), or `demo` people who talk in turns.
-- A `[voip]` section is optional: `voip` strips without one use its defaults (the `bridge` provider).
-- A Mumble plugin (`integrations/mumble`, Mumble 1.4 and later) for `voip` strips: the people of your channel, who
+- A `[voip]` section is optional: without one the people come from its defaults (the `bridge` provider).
+- A Mumble plugin (`integrations/mumble`, Mumble 1.4 and later) for the strips of people: the people of your channel, who
   talks and how loud, the fader for their volume (the plugin's own, on top of Mumble's local volume) and Mute for
   Mumble's local mute (shown in Mumble; a local mute set in Mumble lights the button). "Install Mumble plugin" on the GUI's page "Voice chat" (or `xtouch-daemon mumble-plugin --install`)
   hands it to Mumble's installer, building it first in a checkout; the page lists the steps and tells whether Mumble
   is connected. Releases ship the plugin in `/usr/share/xtouch-daemon/`, CI builds it.
-- The live view takes a request to switch the layout (`{"request": "layout", "layout": "gaming"}`, answered with a
-  reply), and the state tells the layout shown.
-- GUI: copy a strip (Ctrl+C or its context menu) and paste it in the place of another one (Ctrl+V), also of
-  another layout; in a [[layout]] it asks whether to inherit it (an `inherit` strip) or copy all its options.
-- The GUI edits layouts: a tab per layout above the strips (● marks the one the device shows), + adds one (empty or a
-  copy), a "Layout" tab for its name, label and rules, the pages "Layouts" and "Voice chat" in the global settings,
-  and "Show on the device". The strips are live only for the layout the device shows. `person` of a `voip` strip
-  suggests the people in the voice chat now; the preview prints "voip group" or the person under a `voip` strip, and
-  the strip list says who is on which strip.
 - The live view tells the names of the voice chat's participants and who is on which strip.
 - `just screenshot` renders the screenshots of the README and the documentation (docs/images/) offscreen, with a
   demo configuration and device, so they can be updated with the GUI.
 - "Live preview" in the GUI: while it is on, the device runs the configuration in the editor before it is saved
   and follows every change. Saving keeps it; turning it off, closing the window, or a window that crashed or hangs
-  brings back the file, and so does a change of the file on disk or a reload. Errors of the daemon show inline, and
-  Home Assistant entities of strips the preview does not have stay as they are. It covers the layouts too
-  ("Show on the device" switches to the one being edited). It needs a daemon of this version (restart an older
+  brings back the file, and so does a change of the file on disk or a reload. Errors of the daemon show inline. It needs a daemon of this version (restart an older
   one), which takes previews only from its own user.
 
 - `lit_when_idle` on audio strips: the LCD keeps its backlight while the strip has nothing to control, e.g. an
   `apps` group whose applications don't play.
-- Changing the type of a strip in the GUI loses no options: the ones the new type does not have are kept in the
-  file as a comment in the strip's table, which the daemon ignores, and switching back restores them, also after
-  saving and closing the GUI.
 - The GUI explains every option without the documentation: the help names the default, a choice says what the
   chosen value does (e.g. `recording` for the Rec LED, each value also as a tooltip in the list), a strip type what
   it controls, and "Learn more" links open the matching section of the documentation.
@@ -226,13 +179,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   at 100 %.
 - `meter_point`: whether the meters show the level before the volume and Mute of a strip (`"pre_fader"`, the
   default, like the channel meters of a hardware mixer) or after them (`"post_fader"`). Set in `[behavior]`, per
-  `[[layout]]` (the first setting of a layout for its strips) and per strip; the strip wins over the layout, the
-  layout over `[behavior]`. The monitor of an output is before its volume (so its pre-fader meter is what it was
+  channel and per place in a slot; the place wins over the channel, the channel over `[behavior]`. The monitor of an output is before its volume (so its pre-fader meter is what it was
   before, and post-fader multiplies by the volume); streams and inputs apply their volume and Mute in their own
   PipeWire node, so their pre-fader level is the captured one divided by the volume, and a muted stream or input
-  stays dark either way. On `voip` strips the Mumble plugin tells the level before and after the participant's
+  stays dark either way. On the strips of people the Mumble plugin tells the level before and after the participant's
   volume; a muted participant who talks lights the meter before the fader (Mumble doesn't fetch their voice). The
-  GUI shows it next to `meter`, on the layout page and on the behavior page; `check-config` names post-fader meters.
+  GUI shows it next to `meter` and on the behavior page; `check-config` names post-fader meters.
 - A documentation site (Zensical, published to GitHub Pages): getting started, a page per topic of the
   configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 

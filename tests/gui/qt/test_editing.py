@@ -237,15 +237,3 @@ def test_a_revert_can_be_undone(qtbot: QtBot, window: MainWindow):
     window.undo()
     assert "browser" not in window.document.get(("channel",))
     assert window.document.modified
-
-
-def test_a_file_with_strips_and_layouts_opens_migrated(make_window: MakeWindow, path: Path):
-    path.write_text('[[strip]]\ntype = "output"\nlabel = "Speaker"\n\n[[layout]]\nname = "gaming"\n')
-    window = make_window()
-
-    assert window.document.migrated
-    assert window.status.text().startswith("The file had strips and layouts")
-    assert window.path_label.text().endswith("unsaved changes")
-    assert window.save_button.isEnabled()
-    assert window.save()
-    assert "[slots]" in path.read_text()

@@ -41,7 +41,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `audio/pulse.py` | `PulseBackend`: one connection to the sound server that follows it by events and carries out the commands. |
 | `audio/meter.py` | `Meter`: audio levels from passive `pw-record` captures. |
 | `audio/media.py` | The media players of the session (MPRIS), for `encoder = "media"`. |
-| `config/` | The TOML configuration, validated with pydantic: `files` (reading it, its errors), `model` (`Config`), `sections`, `slots` (the channels, states and slots, with the strip of every candidate), the types of the channels' strips (`strip`, `strips`, `audio_strips`, `layout_strips`), `migrate` (`migrate-config`), `legacy` (the format with strips and layouts, for `migrate` and the GUI until it edits the new one), `values`, `names` (lists with presets) and `presets` (`@browsers`, `@steam-games`, ..., expanded when the configuration is validated, see [Design: presets](design/presets.md)). |
+| `config/` | The TOML configuration, validated with pydantic: `files` (reading it, its errors), `model` (`Config`), `sections`, `slots` (the channels, states and slots, with the strip of every candidate), the types of the channels' strips (`strip`, `strips`, `audio_strips`, `voip_strips`), `values`, `names` (lists with presets) and `presets` (`@browsers`, `@steam-games`, ..., expanded when the configuration is validated, see [Design: presets](design/presets.md)). |
 | `strips/` | The strip controllers: `DeviceStrip` (and `ChoiceStrip` for `choices`), `AppGroupStrip`, `AutoStrip` (the application of an `auto` slot), `VoipStrip` (a person), `HomeAssistantStrip`, `EmptyStrip`, and the shared `VolumeStrip` base. A controller gets its `Identity` (the ids and names of its entities in Home Assistant, its name in the log) and its `Look` (label, color, meter, LEDs) from outside: the binder makes them per channel and candidate (`look_of()`). |
 | `slots/` | [Design: channels, states and slots](design/channels-states-slots.md) without the device: the model (`model`), conditions (`expressions`), presence (`inputs`), the delays (`timing`), the states and modes (`states`), the resolver (`resolver`), the slots over time (`simulation`), the distinct outcomes (`outcomes`), recorded observations (`recording`) and their replay (`replay`). Pure but for the recorder; the daemon drives it through the `SlotEngine`, `simulate` and `observe` too. |
 | `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` channels and controls. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
@@ -58,7 +58,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `live/` | The live view for the GUI over a Unix socket: `messages` (snapshots, requests, replies), `codec` (lines of JSON), `server` (`LiveServer`). See [Live view](#live-view). |
 | `voip/` | `VoipProvider`: the people of a voice chat, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). |
 | `voip/mumble.py`, `integrations/mumble/` | The Mumble plugin (C): its sources, building its bundle with CMake, finding it and copying it into Mumble's plugin directory. See [Mumble](integrations/mumble.md). |
-| `cli/` | The command line: one module per topic (`daemon`, `configuration`, `sound`, `layouts`, `mumble`, `service`, `editor`, `simulator`), put together by `main` in `cli/__init__.py`. |
+| `cli/` | The command line: one module per topic (`daemon`, `configuration`, `sound`, `modes`, `slots`, `mumble`, `service`, `editor`, `simulator`), put together by `main` in `cli/__init__.py`. |
 | `gui/domain/` | The configuration editor without a toolkit: the editable document (`document`, `drafts`, `toml_sync`), the options of the models, the look of the strips, suggestions from the sound server, applying a saved file. See [GUI](#gui). |
 | `gui/qt/` | The widgets of `xtouch-daemon gui` (the `gui` extra): `window/`, `preview/`, `pages/`, `fields/`, `theme/`. |
 
@@ -152,35 +152,29 @@ number (a fader moved by hand at most every 100 ms), buttons publish events, whi
 name, like the GUI of [openhasp-config-manager](https://github.com/markusressel/openhasp-config-manager). The daemon
 itself does not import it.
 
-- **Toolkit-free domain, thin widgets.** `gui/domain` decides everything: `ConfigDocument` holds the file as plain
-  values, validates it with the pydantic models (the same messages as `check-config`), and saves it. `looks()` says
-  how each strip appears on the device and `faces()` whether the preview shows it live or from the file, `status`
-  whether the device runs the saved file, `sources` turns sound server snapshots into suggestions, `apply()` decides
-  between reload, restart and "the daemon does not run". `gui/qt` only shows that and passes edits back.
-- **What applies where.** The strips on top show the device (see [Live view](#live-view)) and are how a strip is
-  picked: a click, the arrow keys, dragging (Escape cancels) or Ctrl+arrows to move it, a context menu. Below them one
-  tab holds the options of the selected strip and another the global settings (`[behavior]`, `[aliases]`, `[mqtt]` as
-  "Home Assistant", `[device]`), so a global setting never looks like one of the selected strip. A strip with unsaved
-  changes shows how it will look (marked with a dot), the others stay live.
-- **Strips beyond the device.** The preview has the 8 strips of the device, the first 8 of the layout.
-  `gui/domain/flow.py` says where every strip of the layout is, from the file or from the placement the daemon sends,
-  and whether one more could ever get a place; `faces()` uses it to show
-  each strip with the strip of the device it is on. `qt/strip_list.py` lists them all and selects the ones beyond 8,
-  which the `Editor` allows.
+- **Toolkit-free domain, thin widgets.** `gui/domain` decides everything: `SlotsDocument` holds the file as plain
+  values, validates it with `parse_config()` (the same messages as `check-config`), and saves it. `slot_stacks` turns
+  the stacks of the slots into rows to edit, `simulate` and the `outcomes` of the slots what other modes and states
+  would show, `looks` how the live view draws each strip, `status` whether the device runs the saved file, `sources`
+  turns sound server snapshots into suggestions, `apply()` decides between reload, restart and "the daemon does not
+  run". `gui/qt` only shows that and passes edits back.
+- **Pages by what they edit.** A rail on the left has the pages: Device (the drawing of the device, live, and below
+  it the slots: a card per slot with its stack, an inspector for the candidate picked, why it shows, Simulate and the
+  Grid), Channels, States and Settings (`[device]`, `[behavior]`, `[aliases]`, `[mqtt]` as "Home Assistant",
+  `[voip]`). A click on a strip of the drawing picks its slot.
 - **Undo instead of questions.** `History` (`gui/domain/history.py`) keeps the states of the document before every
-  edit, so removing a strip or reverting the file asks nothing and Ctrl+Z brings it back. Typing into one option is one
+  edit, so removing a channel or reverting the file asks nothing and Ctrl+Z brings it back. Typing into one option is one
   step. Ctrl+Z undoes in the document also while a text field has the focus.
-- **Forms from the models.** `gui/domain/schema.py` reads the options of every section and strip type from the pydantic models:
+- **Forms from the models.** `gui/domain/schema.py` reads the options of every section and channel type from the pydantic models:
   the type picks the widget (switch, number, choice, color swatches, list chips, masked secret, file), the attribute
   docstrings become the help, `Field` constraints the ranges, and `Meanings` next to a choice (`config/values.py`, e.g.
   `INDICATORS`) say what each value does; `Presets` on a list of names (`StreamNames`, `ProcessNames`) makes it
-  suggest the presets of its kind. A new option or strip type needs no GUI code; a test fails for an option
+  suggest the presets of its kind. A new option or channel type needs no GUI code; a test fails for an option
   without help or a value without a meaning. `gui/domain/docs.py` holds the "Learn more" links into this site, and a
   test checks each against the headings of `docs/`.
-- **The comments stay.** Saving edits the TOML document with tomlkit: unchanged values keep their place and their
-  comments, and moved strips take theirs along. The file is written in place, so a symlinked configuration stays one.
-  Options that a strip's new type does not have go into a comment of its table (`StripDraft.kept`), so nothing typed
-  is lost and switching back restores them, also in a later session.
+- **The comments stay.** Saving writes the changes into the TOML document with tomlkit: unchanged values keep their
+  place, their comments and their form (a stack as a string, a list or tables), and a renamed channel keeps its table.
+  The file is written in place, so a symlinked configuration stays one.
 - **The daemon is found, not guessed.** `xtouch-daemon run` writes `$XDG_RUNTIME_DIR/xtouch-daemon.json` (its process
   id, its configuration file, whether systemd started it) while it runs (`system/instance.py`), so the GUI finds it wherever
   it was started, and a second daemon names the one that has the device. A saved file is reloaded (SIGHUP) only when
@@ -194,38 +188,33 @@ itself does not import it.
 - **One visual system.** `qt/theme/` holds the design tokens: the colors of the dark and the light theme (text at
   4.5:1 or more and the outlines of controls at 3:1 or more on every surface, WCAG 2.2 AA, checked by the tests), a
   4 px spacing scale, radii, the height of controls and a type scale relative to the desktop font, and the colors of
-  the device for the preview, the same in both themes. Widgets set style roles (`theme.set_role`) and take their sizes
-  from the tokens instead of styling themselves. The preview decides what a strip shows (a `Face`: LCD, ring, LEDs,
-  meter, fader) apart from drawing it.
-- **One source of truth: the `Editor`.** `qt/editor.py` holds the document, its history, its validation and which
-  strip is selected. Views read from it and change the document only through it, so nothing keeps a copy that could
-  go stale. It has two signals:
-  - `changed(Change)` comes once per edit, after the document was validated once.
-  - `selected(index)` comes only when another strip is selected: nothing in the document changed, so nothing is
-    validated and no page is shown again. Only the strip page and the preview follow the selection.
+  the device for the drawing, the same in both themes. Widgets set style roles (`theme.set_role`) and take their sizes
+  from the tokens instead of styling themselves. The drawing decides what a strip shows (a `StripFace`: LCD, ring,
+  LEDs, meter, fader) apart from painting it.
+- **One source of truth: the `Editor`.** `qt/editor.py` holds the document, its history and its validation. Views
+  read from it and change the document only through it, so nothing keeps a copy that could go stale. Its signal
+  `changed(Change)` comes once per edit, after the document was validated once.
 - **Changes say what changed.** A `Change` (`gui/domain/changes.py`) has a `Scope` and, for some scopes, a path:
   - `VALUE`: a value in place; the field that made the change shows it already.
-  - `STRIPS`: strips were added, moved, removed or given another type.
+  - `CHANNELS`, `STATES`: a channel or state was added, removed, renamed or duplicated.
+  - `SLOTS`: a candidate of a stack was added, removed, moved or changed.
   - `SECTION`: a section was added or removed.
-  - `ALIASES`, `LAYOUTS`: the list of aliases, or the layouts.
+  - `ALIASES`: the list of aliases.
   - `DOCUMENT`: anything (undo, redo, revert).
   - `FILE`: the file was written, so the document is the same.
   Each page's `show_document(change)` updates only what that scope touches.
 - **Built once, updated in place.** The pages build their widgets once, and showing the document loads the values
   into them (`OptionRow.load()`); no page is cleared and built again. A part that comes and goes (a section that is
-  absent, the strip form of each type) is a page of a `Stack` that is sized to its current part, not a widget that is
-  shown and hidden. The strip page builds a `StripForm` for a strip type the first time it shows one, and keeps it.
+  absent, the form of each channel type) is a page of a `Stack` that is sized to its current part, not a widget that is
+  shown and hidden.
 - **No layout for what stays the same.** Showing the document again, or a live update 20 times a second, changes no
   geometry when nothing differs:
   - `set_text` and the tab texts are set only when they differ.
   - `theme.set_role` restyles only for another role.
   - The list chips stay while their values are the same.
-  - The layout tabs are filled again only when the layouts or the edited one change.
   Icons are kept with their name and color (`theme.set_icon`), so switching the theme draws them again
-  (`theme.refresh_icons`) without building a page. The tests count it: selecting a strip changes the geometry of the
-  window once, creates no widget and does not resize the window, and a live update that changes nothing lays out
-  nothing (`LayoutPasses` in `tests/gui/qt/test_editing.py`).
-- **The options in the order of the device.** A strip form lists its options from top to bottom like the strip:
+  (`theme.refresh_icons`) without building a page.
+- **The options in the order of the device.** A channel's form lists its options from top to bottom like its strip:
   1. what it controls (`device`, `match`, `profiles`, the `id` of a Home Assistant strip)
   2. the encoder and its ring
   3. the LCD
@@ -244,16 +233,13 @@ for as long as it runs:
 
 - **Whole states, one JSON line each.** A client gets the whole state when it connects and again whenever something
   changed, checked 20 times a second (`live.INTERVAL`): the LCD lines and backlight, the LEDs, the ring, where the
-  fader is and whether it is touched, the meter level (falling like on the device, see `METER_FALL`), whether the
-  device, the sound server and the broker are connected, and the `fingerprint()` of the configuration in use. A line
-  is about 2 KB; a state rather than changes means a client that connects late or misses one needs nothing else.
-  `layout`, `layouts` and `placement` are what the GUI of strips and layouts still reads: the mode, the modes, and
-  each slot as itself.
-  `version` changes when a line means something else.
-- **Requests of the user only.** A client may send requests, a line of JSON each: the [live preview](#live-preview)
-  and `{"request": "layout", "layout": "gaming"}` (or `"+1"`, `"-1"`), which "Show on the device" in the GUI sends
-  and the daemon takes as a mode.
-  The daemon takes them only from processes of its own user (`SO_PEERCRED`: root can connect to a socket of mode
+  fader is and whether it is touched, the meter level, whether the device, the sound server and the broker are
+  connected, whether the device is the virtual one, and the `fingerprint()` of the configuration in use. The strips
+  are the `Surface`'s mirror of the device (a `SimulatedDevice`, see `hardware/surface.py`): what reached it, with
+  the motors and meters moving as on the device. A line is about 2 KB; a state rather than changes means a client
+  that connects late or misses one needs nothing else. `version` changes when a line means something else.
+- **Requests of the user only.** A client may send requests, a line of JSON each: the [live preview](#live-preview),
+  a mode and an override (see below). The daemon takes them only from processes of its own user (`SO_PEERCRED`: root can connect to a socket of mode
   0600), and a line of at most `MAX_REQUEST` (1 MiB): a longer one ends the connection. Otherwise the GUI changes the
   daemon through the configuration file and a reload.
 - **Channels, states and slots.** The state has `slots` (`SlotsState`): the mode
@@ -277,7 +263,7 @@ The GUI can make the daemon run the configuration in its editor before it is sav
 daemon side in `Daemon.preview()`):
 
 - **The whole text, over the live view.** `StartPreview` carries the TOML text the GUI would save
-  (`ConfigDocument.render()`). The daemon reads it with `parse_config()`, the parser of the file, so the errors are the
+  (`SlotsDocument.render()`). The daemon reads it with `parse_config()`, the parser of the file, so the errors are the
   same as those of `check-config`, and runs it like a reload: a new mixer on the same surface, sound server and
   broker. The file is never written. A text with errors, or a changed `[mqtt]` (the bridge would need a new
   connection), is answered with the reason, and what runs keeps running. The GUI sends 300 ms after the last edit,
@@ -296,7 +282,7 @@ daemon side in `Daemon.preview()`):
   wins over one that was left open.
 - **Visible.** The status line of systemd ends with "previewing unsaved changes of the GUI", the log tells when a
   preview starts and ends and why, and the GUI shows a pill.
-- **Home Assistant entities survive a preview.** A reload removes the entities of removed strips from Home
+- **Home Assistant entities survive a preview.** A reload removes the entities of removed channels from Home
   Assistant (an empty retained discovery message), which also deletes them from its entity registry. A preview
   doesn't: `MqttBridge.set_entities(..., preview=True)` only stops driving the entities it does not have, which stay
   in Home Assistant with their retained states, so the file restores them as they were. The next configuration that
@@ -305,14 +291,13 @@ daemon side in `Daemon.preview()`):
 - **Secrets stay with the user.** The text carries the secrets of the file. The GUI sends it only to a daemon of its
   own user (`SO_PEERCRED` on its end of the socket), and the runtime directory is the user's own (`$XDG_RUNTIME_DIR`,
   or a directory of mode 0700 in the temporary directory).
-- **Layouts too.** A preview is a whole configuration, layouts included: the daemon runs it like a reload, keeps the
-  layout shown if the preview has it, and the layout select in Home Assistant gets the layouts of the preview. "Show
-  on the device" switches to a layout of the preview.
+- **States and modes too.** A preview is a whole configuration: the daemon runs it like a reload, carrying the
+  states, overrides and the mode picked over by id, and the mode select in Home Assistant gets the modes of the
+  preview.
 
 ## Channels, states and slots
 
-The daemon runs a configuration of channels, states and slots ([design](design/channels-states-slots.md)); a file
-with strips and layouts is refused with a pointer to `migrate-config`, which reads it with `config/legacy`.
+The daemon runs a configuration of channels, states and slots ([design](design/channels-states-slots.md)).
 
 - **One controller per channel, as long as the configuration.** The `SlotMixer` (`runtime/binder.py`) builds a
   controller with its own `VirtualStrip` for every channel, and one for each application of `auto` and each person

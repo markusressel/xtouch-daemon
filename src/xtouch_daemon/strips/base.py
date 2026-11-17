@@ -55,7 +55,7 @@ class StripEnv:
 class Identity:
     """
     Who a controller is, whatever strip of the device shows it: `id` is part of the ids of its entities in Home
-    Assistant (`strip_<n>` for a strip of strips and layouts, by its place), `name` of their names and of the log.
+    Assistant (the id of its channel), `name` of their names and of the log.
     """
 
     id: str

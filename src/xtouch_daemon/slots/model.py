@@ -10,7 +10,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.names import Presets
@@ -59,9 +59,19 @@ class _Open(BaseModel):
     model_config = ConfigDict(extra="allow", frozen=True, use_attribute_docstrings=True)
 
 
-Streams = Annotated[tuple[str, ...], Presets(Kind.STREAMS)]
+def _presets_of(kind: Kind) -> AfterValidator:
+    """Checks the presets of a list (unknown ones, or ones for another kind of list, are errors); keeps the list."""
+
+    def check(value: tuple[str, ...]) -> tuple[str, ...]:
+        expand(value, kind)
+        return value
+
+    return AfterValidator(check)
+
+
+Streams = Annotated[tuple[str, ...], Presets(Kind.STREAMS), _presets_of(Kind.STREAMS)]
 """Parts of names of applications, and presets of them (`@browsers`)."""
-Processes = Annotated[tuple[str, ...], Presets(Kind.PROCESSES)]
+Processes = Annotated[tuple[str, ...], Presets(Kind.PROCESSES), _presets_of(Kind.PROCESSES)]
 """Parts of names of processes, and presets of them (`@steam-games`)."""
 
 
@@ -121,9 +131,11 @@ class PeopleConfig(_Open):
 
     @model_validator(mode="before")
     @classmethod
-    def _no_launch(cls, data: Any) -> Any:
+    def _not_for_people(cls, data: Any) -> Any:
         if isinstance(data, Mapping) and ("launch" in data or "launch_when_running" in data):
             raise ValueError("launch: the strips of people have none; a launch is a control of a slot ([controls])")
+        if isinstance(data, Mapping) and "label" in data:
+            raise ValueError("label: only on a person channel; the strips of people show their names")
         return data
 
     order: tuple[str, ...] = ()
@@ -565,4 +577,5 @@ def _did_you_mean(name: str, known: Iterable[str]) -> str:
 
 def _message(error: Any) -> str:
     where = ".".join(str(part) for part in error["loc"])
-    return f"{where}: {error['msg']}"
+    # pydantic puts "Value error, " before the messages of the validators
+    return f"{where}: {error['msg'].removeprefix('Value error, ')}"

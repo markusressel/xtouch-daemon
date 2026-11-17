@@ -4,9 +4,9 @@ from typing import assert_never
 
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
-from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
+from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
@@ -26,7 +26,7 @@ class EmptyStrip(StripController):
 
 
 def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
-    """The look of a strip of strips and layouts; `meter_point` is the one its layout gives it."""
+    """The look of a strip configuration; `meter_point` is where its meter takes the level (`Config.meter_point()`)."""
     match config:
         case EmptyStripConfig():
             return Look(meter=False)
@@ -49,10 +49,9 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
 
 def launch_button(config: StripConfig, identity: Identity, env: StripEnv) -> LaunchButton | None:
     """What Select starts on a strip with `launch`; None for one without."""
-    if not isinstance(config, AppsStripConfig | AutoStripConfig | VoipStripConfig) or config.launch is None:
+    if not isinstance(config, AppsStripConfig | AutoStripConfig) or config.launch is None:
         return None
-    always = not isinstance(config, VoipStripConfig) and config.launch_when_running
-    return LaunchButton(config.launch, env.launcher, identity.name, always=always)
+    return LaunchButton(config.launch, env.launcher, identity.name, always=config.launch_when_running)
 
 
 def build_strip(

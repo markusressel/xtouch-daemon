@@ -181,7 +181,7 @@ class AppGroupStrip(AppStrip):
     def runs(self, state: AudioState) -> bool:
         """
         An application of the group has a stream, or a process whose name contains one of `processes` runs (like the
-        `processes` rule of a layout), or the program of `launch`: a silent voice chat runs too.
+        `processes` of a state), or the program of `launch`: a silent voice chat runs too.
         """
         return (
             bool(self.streams_in(state))

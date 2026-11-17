@@ -2,8 +2,7 @@
 
 `xtouch-daemon gui` edits the configuration file in a window and applies it to the running daemon.
 
-It edits [channels, states and slots](configuration/slots.md). A file with strips and layouts opens migrated (like
-`xtouch-daemon migrate-config`): the window lists what the migration did, and saving writes the new format.
+It edits [channels, states and slots](configuration/slots.md).
 
 ![The GUI: the device at the top, the slots and the inspector of slot 3 below](images/gui.png)
 

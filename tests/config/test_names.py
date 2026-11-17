@@ -4,149 +4,92 @@ Lists of names with presets in the configuration: expanded, and kept as written.
 
 import pytest
 
-from tests.support.config import legacy, legacy_errors_of
+from tests.support.config import errors_of
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig
-from xtouch_daemon.config.legacy.model import LegacyConfig
+from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.sections import BehaviorConfig
 
 PRESETS_CONFIG = """\
-[behavior]
-ignore = ["@music", "notification"]
+[pool.auto]
+exclude = ["@music", "notification"]
 
-[[strip]]
+[channel.web]
 type = "apps"
 match = ["@browsers", "netsurf"]
 label = "Browser"
 
-[[layout]]
-name = "gaming"
+[state.gaming]
+mode = true
 apps = ["@games"]
 processes = ["@steam-games", "lutris"]
 """
 
 
 def test_presets_stand_for_their_names_and_keep_how_they_are_written():
-    config = legacy(PRESETS_CONFIG)
-    (strip, *_) = config.all_strips()
+    config = parse_config(PRESETS_CONFIG)
+    strip = config.slots.channels["web"]
     assert isinstance(strip, AppsStripConfig)
     assert strip.match[0] == "firefox"
     assert strip.match[-1] == "netsurf"
     assert strip.written("match") == ("@browsers", "netsurf")
-    assert "spotify" in config.behavior.ignore
-    assert config.behavior.written("ignore") == ("@music", "notification")
-    (gaming,) = config.layouts
-    assert gaming.apps == ("steam_app_", ".exe", "wine-preloader", "wine64-preloader")
-    assert gaming.processes == ("reaper", "lutris")
-    assert gaming.written("processes") == ("@steam-games", "lutris")
+    # states and pools keep them as written, the slots expand them
+    scene = config.slots.scene
+    assert scene.pools["auto"].exclude == ("@music", "notification")
+    assert scene.states["gaming"].processes == ("@steam-games", "lutris")
 
 
 def test_lists_without_presets_are_written_as_they_are():
-    config = legacy('[[strip]]\ntype = "apps"\nmatch = ["brave"]\nlabel = "B"\n')
-    strip = config.strips[0]
+    strip = parse_config('[channel.b]\ntype = "apps"\nmatch = ["brave"]\nlabel = "B"\n').slots.channels["b"]
     assert isinstance(strip, AppsStripConfig)
     assert strip.written("match") == ("brave",)
-    assert config.behavior.written("ignore") == ("speech-dispatcher",)
     # what the models compare: the same file is the same configuration
-    assert legacy(PRESETS_CONFIG) == legacy(PRESETS_CONFIG)
+    assert parse_config(PRESETS_CONFIG) == parse_config(PRESETS_CONFIG)
 
 
 def test_the_processes_of_an_apps_strip_are_those_of_its_presets():
     strip = AppsStripConfig(type="apps", match=("@steam-games", "mumble"), label="Games")
     assert strip.process_names == ("reaper", "mumble")
-    # an inherited strip is the same strip
-    config = legacy(
-        '[[strip]]\ntype = "apps"\nmatch = ["@voip"]\nlabel = "VoIP"\n'
-        '[[layout]]\nname = "x"\n[[layout.strip]]\ntype = "empty"\n[[layout.strip]]\ntype = "inherit"\nstrip = 1\n'
-    )
-    inherited = config.all_strips("x")[1]
-    assert isinstance(inherited, AppsStripConfig)
-    assert inherited.written("match") == ("@voip",)
 
 
 @pytest.mark.parametrize(
     ("text", "message"),
     [
         (
-            '[[strip]]\ntype = "apps"\nmatch = ["@browser"]\nlabel = "B"',
-            "strip[1].match: @browser is no preset; the presets are @browsers, @voip, @steam-games, @games, @music, "
-            "@video",
+            '[channel.b]\ntype = "apps"\nmatch = ["@browser"]\nlabel = "B"',
+            "channel.b.match: @browser is no preset; the presets are @browsers, @voip, @steam-games, @games, "
+            "@music, @video",
         ),
-        ('[[layout]]\nname = "x"\nprocesses = ["@nope"]', "layout[1].processes: @nope is no preset; "),
-        ('[behavior]\nignore = ["@"]', "behavior.ignore: @ is no preset; "),
+        ('[state.x]\nprocesses = ["@nope"]', "state.x.processes: @nope is no preset; "),
+        ('[pool.auto]\nexclude = ["@"]', "pool.auto.exclude: @ is no preset; "),
     ],
 )
 def test_an_unknown_preset_is_an_error_of_its_option(text: str, message: str):
-    assert f"\n  {message}" in legacy_errors_of(text)
+    assert f"\n  {message}" in errors_of(text)
 
 
 def test_a_preset_in_a_list_it_is_not_for_says_where_it_fits(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(presets, "PRESETS", {"toys": presets.Preset("toys", "Toys", streams=("rattle",))})
-    message = legacy_errors_of('[[layout]]\nname = "x"\nprocesses = ["@toys"]\napps = ["@toys"]')
+    message = errors_of('[state.x]\nprocesses = ["@toys"]\napps = ["@toys"]')
     assert (
-        "layout[1].processes: @toys is not for `processes` of states; use it in `match` of apps channels, `apps` of "
+        "state.x.processes: @toys is not for `processes` of states; use it in `match` of apps channels, `apps` of "
         "states and `exclude` of `[pool.auto]`" in message
     )
-    assert "layout[1].apps" not in message
+    assert "state.x.apps" not in message
 
 
 def test_a_strip_given_as_a_model_keeps_its_presets():
     strip = AppsStripConfig(type="apps", match=("@voip",), label="VoIP")
-    config = LegacyConfig.model_validate({"strip": [strip]})
-    (again,) = config.strips
-    assert isinstance(again, AppsStripConfig)
-    assert again.written("match") == ("@voip",)
     assert AppsStripConfig.model_validate(strip).written("match") == ("@voip",)
 
 
-METER_POINTS = """
-[behavior]
-meter_point = "post_fader"
-
-[[strip]]
-type = "output"
-
-[[strip]]
-type = "input"
-meter_point = "pre_fader"
-
-[[layout]]
-name = "gaming"
-meter_point = "pre_fader"
-
-[[layout.strip]]
-type = "inherit"
-strip = 2
-
-[[layout.strip]]
-type = "inherit"
-strip = 1
-
-[[layout.strip]]
-type = "apps"
-label = "Game"
-match = [".exe"]
-meter_point = "post_fader"
-
-[[layout]]
-name = "plain"
-"""
-
-
-def test_the_meter_point_of_a_strip_wins_over_the_layout_which_wins_over_the_behavior():
-    config = legacy(METER_POINTS)
+def test_the_meter_point_of_a_channel_wins_over_the_behavior():
+    config = parse_config(
+        '[behavior]\nmeter_point = "post_fader"\n'
+        '[channel.out]\ntype = "output"\n'
+        '[channel.mic]\ntype = "input"\nmeter_point = "pre_fader"\n'
+    )
     assert BehaviorConfig().meter_point == "pre_fader"
-
-    def points(layout: str) -> list[str]:
-        return [config.meter_point(strip, layout) for strip in config.all_strips(layout)][:3]
-
-    # the default layout has no option of its own: [behavior] is its
-    assert points("default") == ["post_fader", "pre_fader", "post_fader"]
-    # an inherited strip brings its own along, else it takes the one of the layout it is in
-    assert points("gaming") == ["pre_fader", "pre_fader", "post_fader"]
-    assert points("plain") == ["post_fader"] * 3
-    # the auto strips that fill a layout up too
-    assert config.meter_point(config.all_strips("gaming")[7], "gaming") == "pre_fader"
-    # voip strips have one too
-    voip = legacy('[[strip]]\ntype = "voip"\nmeter_point = "post_fader"\n[[strip]]\ntype = "voip"\n')
-    assert [voip.meter_point(strip) for strip in voip.strips] == ["post_fader", "pre_fader"]
+    channels = config.slots.channels
+    assert config.meter_point(channels["out"]) == "post_fader"
+    assert config.meter_point(channels["mic"]) == "pre_fader"

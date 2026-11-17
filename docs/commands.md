@@ -71,20 +71,8 @@ A channel with [`choices`](configuration/devices.md#choices) lists them, e.g.
 (`meter_point = "post_fader"`, see [Meters](configuration/strips.md#meters)) says `meter post-fader`.
 
 A file with errors names the place of each one, e.g. `channel.mic.label: String should have at most 7 characters`, and
-the command fails. A file with strips and layouts fails too, with a pointer to [`migrate-config`](#migrate-config): the
-daemon runs only [channels, states and slots](configuration/slots.md). The command lists the channels and shows the
+the command fails. The command lists the channels and shows the
 table of what the slots show in which states.
-
-## `migrate-config`
-
-```shell
-xtouch-daemon migrate-config [-c FILE] [-o OUT | --in-place] [-f]
-```
-
-Writes a file with strips and layouts as [channels, states and slots](configuration/slots.md#migrating): to
-`<name>.slots.toml` next to it, to `OUT`, or with `--in-place` over the file, keeping the old one as
-`<name>.layouts.toml`. Sections that stay keep their comments. It lists what needs a look, e.g. entities in Home
-Assistant that got another id. An existing output stays, unless `-f` (`--force`) overwrites it.
 
 ## `init-config`
 
@@ -162,7 +150,7 @@ xtouch-daemon mode [NAME | auto | --next | --previous]
 Without arguments it prints the [modes](configuration/slots.md#states-and-modes) of the running daemon, marks the
 one that is on, and says whether it was picked by hand. `mode gaming` picks the mode `gaming`, `--next` and
 `--previous` the one after or before it, `auto` lets the rules decide again. It talks to the daemon over its live
-view socket, so it needs a running daemon. It replaces `layout`, which now only points to it.
+view socket, so it needs a running daemon.
 
 ## `why`
 

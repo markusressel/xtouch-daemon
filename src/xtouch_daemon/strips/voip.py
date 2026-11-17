@@ -5,8 +5,8 @@ The strip of a person of the voice chat, from the provider of `[voip]`: a `perso
 
 from xtouch_daemon.audio.meter import Lit, Peak, Reading
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.values import MeterPoint, color_of
+from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.strip import Strip

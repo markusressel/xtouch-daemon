@@ -7,7 +7,7 @@ from tests.support.hardware import RecordingSurface
 from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon.audio.meter import CaptureTarget, Lit, Peak
 from xtouch_daemon.audio.model import DISCONNECTED
-from xtouch_daemon.config.layout_strips import VoipStripConfig
+from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.strips import look_of

@@ -135,32 +135,25 @@ class MqttBridge:
             entity.discovery_prefix = self.config.discovery_prefix
             entity.bind_manager(self)
 
-    async def set_entities(
-        self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str] = frozenset(), preview: bool = False
-    ) -> None:
+    async def set_entities(self, entities: Mapping[MQTTEntity, str | None], preview: bool = False) -> None:
         """
         `_set_entities()` one at a time, each to its end: a mixer that is replaced meanwhile (its task cancelled) must
         not cut its unsubscribes short (aiomqtt loses track of their acknowledgements and logs errors), and the next
         one starts from what the broker has.
         """
-        task = asyncio.create_task(self._set_entities_in_turn(entities, keep, preview), name="mqtt entities")
+        task = asyncio.create_task(self._set_entities_in_turn(entities, preview), name="mqtt entities")
         self._updates.add(task)
         task.add_done_callback(self._updates.discard)
         await asyncio.shield(task)
 
-    async def _set_entities_in_turn(
-        self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str], preview: bool
-    ) -> None:
+    async def _set_entities_in_turn(self, entities: Mapping[MQTTEntity, str | None], preview: bool) -> None:
         async with self._entities_lock:
-            await self._set_entities(entities, keep, preview)
+            await self._set_entities(entities, preview)
 
-    async def _set_entities(
-        self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str], preview: bool
-    ) -> None:
+    async def _set_entities(self, entities: Mapping[MQTTEntity, str | None], preview: bool) -> None:
         """
         The entities of the configuration, with the state each gets while it has none (None: no default). Entities
-        that are not there anymore are removed from Home Assistant, except those whose unique id is in `keep` (the
-        entities of the layouts the device does not show).
+        that are not there anymore are removed from Home Assistant.
 
         A `preview` (the GUI's live preview, see `Daemon.preview()`) removes nothing: the entities it does not have
         stay in Home Assistant with their state, only nothing drives them, so going back to the file restores them
@@ -173,14 +166,14 @@ class MqttBridge:
         self.bind(entities)
         committed = self._committed
         if not preview:
-            self._committed = set(self._entities) | keep
+            self._committed = set(self._entities)
         if self._client is None:
             return
         for entity, _ in previous.values():
             await self._unsubscribe(self._client, entity)
         if not preview:
             for unique_id, entity in list(self._announced.items()):
-                if unique_id not in self._entities and unique_id not in keep:
+                if unique_id not in self._entities:
                     await self._remove(self._client, entity, leftover=unique_id not in committed)
         await self._announce(self._client)
 

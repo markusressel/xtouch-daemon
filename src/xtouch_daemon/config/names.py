@@ -33,22 +33,14 @@ def _expand_streams(value: tuple[str, ...]) -> tuple[str, ...]:
     return presets.expand(value, presets.Kind.STREAMS)
 
 
-def _expand_processes(value: tuple[str, ...]) -> tuple[str, ...]:
-    return presets.expand(value, presets.Kind.PROCESSES)
-
-
 StreamNames = Annotated[
     tuple[str, ...], AfterValidator(_no_blank), AfterValidator(_expand_streams), Presets(presets.Kind.STREAMS)
 ]
 """Parts of the names or binaries of applications (ignoring case), and presets of them."""
-ProcessNames = Annotated[
-    tuple[str, ...], AfterValidator(_no_blank), AfterValidator(_expand_processes), Presets(presets.Kind.PROCESSES)
-]
-"""Parts of the names of processes (ignoring case), and presets of them."""
 
 
 class WithPresets(Model):
-    """A model with lists of names (`StreamNames`, `ProcessNames`): they keep the entries as written."""
+    """A model with lists of names (`StreamNames`): they keep the entries as written."""
 
     _written: dict[str, tuple[str, ...]] = PrivateAttr(default_factory=dict)
     """The lists with presets as written, by option; the options hold what the presets stand for."""
