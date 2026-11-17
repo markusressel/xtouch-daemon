@@ -184,3 +184,20 @@ async def test_a_voip_strip_is_on_its_slot(surface: RecordingSurface) -> None:
     assert isinstance(alice.strip, VirtualStrip)
     assert isinstance(alice.strip.target, Strip)
     rig.mixer.close()
+
+
+async def test_a_slot_that_shows_another_candidate_flashes_what_and_why(surface: RecordingSurface) -> None:
+    rig = Rig(surface, parse_config(CONFIG))
+    rig.step(STATE, flash=1.0)
+    # the first step: nothing to flash
+    assert all(strip.overlay is None for strip in surface.strips)
+    rig.step(STATE, frozenset({"mygame"}), flash=1.0)
+    assert surface.strips[0].overlay == ("Speaker", "gaming".center(7))
+    assert surface.strips[1].overlay == ("Game".center(7), "gaming".center(7))
+    # the same application on the other candidate of slot 3 flashes too, the slots that stay don't
+    assert surface.strips[2].overlay is not None
+    assert surface.strips[3].overlay is None
+    rig.step(STATE, flash=1.0)
+    assert surface.strips[0].overlay == ("Mic".center(7), "not gam")
+    assert rig.mixer._why(4, 0, 0) == ""
+    rig.mixer.close()

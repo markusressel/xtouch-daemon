@@ -736,7 +736,9 @@ What building it showed:
 every 0.2 s (that is the batching) on what the sound server, the processes and the voice chat of the daemon show.
 Each channel has its controller for as long as the configuration, each application of `auto` and each person
 without a channel one while they are members (`SlotMixer` in `runtime/binder.py`, step 5b); after each step only the
-slots whose result changed get another controller, so the others keep their texts, fader and LEDs. `[controls]` run
+slots whose result changed get another controller, so the others keep their texts, fader and LEDs; a slot that
+shows another candidate flashes its label and why (the `when` of the new candidate, or `not <when>` of the old one)
+for `switching.banner` seconds, unless the mode changed (its banner says it). `[controls]` run
 (`runtime/controls.py`, step 5c): the first entry of a slot whose `when` holds claims its controls on the `Desk`,
 shows their fader, ring and LEDs, and launches, picks modes, toggles states or puts them into Home Assistant. Apps
 channels never go into `auto` one application at a time, only as a whole. The mode takes the place of the layout:

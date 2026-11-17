@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   format show in given states, and why; `xtouch-daemon observe` records what plays and runs, and
   `simulate --replay` replays such a recording through a configuration. The daemon runs a file in that format too
   (`[channel.*]`, `[state.*]`, `[slots]` instead of strips and layouts), for trying it on the device: a slot gets
-  another strip when what it shows changes, the others stay as they are (no blank texts), `[controls]` claim the
+  another strip when what it shows changes, the others stay as they are (no blank texts), a slot that shows another
+  candidate flashes its label and why (`gaming`, `not call`) for `switching.banner` seconds, `[controls]` claim the
   fader, encoder and buttons of a slot whatever it shows (a launch, a mode, a state toggled by hand, Home Assistant),
   layout switches by hand pick a mode, and `check-config` prints its table.
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.

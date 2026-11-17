@@ -479,15 +479,16 @@ class Daemon:
         held = self.desk.held_slots()
         voip = voip_state(self.voip) if self.voip is not None else None
         result = self.slots.step(self.mixer.state, self._slot_processes[1], voip, held, now)
-        assert isinstance(self.mixer, SlotMixer)
-        self.mixer.apply(result)
-        self.mixer.refresh()
         states = self.slots.simulation.states
         assert states is not None
-        if mode is not None and states.mode != mode:
-            seconds = self.config.switching.banner
-            if seconds > 0:
-                self.surface.banner(self.slots.mode_label(states.mode), states.reasons.get(states.mode, ""), seconds)
+        seconds = self.config.switching.banner
+        new_mode = mode is not None and states.mode != mode
+        assert isinstance(self.mixer, SlotMixer)
+        # a new mode shows its banner instead of a flash per slot
+        self.mixer.apply(result, 0.0 if new_mode else seconds)
+        self.mixer.refresh()
+        if new_mode and seconds > 0:
+            self.surface.banner(self.slots.mode_label(states.mode), states.reasons.get(states.mode, ""), seconds)
 
     def _running(self) -> frozenset[str]:
         return self._processes() if self.switcher.watches_processes else frozenset()

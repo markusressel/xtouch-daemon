@@ -71,12 +71,12 @@ class Rig:
         self.mixer = SlotMixer(surface, FakeBackend(()), config, self.engine, self.desk, self.voip, **kwargs)
         self.now = 0.0
 
-    def step(self, state: AudioState, processes: frozenset[str] = frozenset()) -> None:
+    def step(self, state: AudioState, processes: frozenset[str] = frozenset(), flash: float = 0.0) -> None:
         """One step of the slots, a second after the one before; the slots under a finger are the desk's."""
         self.now += 1
         self.mixer.on_state(state)
         voip = voip_state(self.voip)
-        self.mixer.apply(self.engine.step(state, processes, voip, self.desk.held_slots(), self.now))
+        self.mixer.apply(self.engine.step(state, processes, voip, self.desk.held_slots(), self.now), flash)
 
     def labels(self) -> list[str]:
         return [strip.text[0] for strip in self.surface.strips]

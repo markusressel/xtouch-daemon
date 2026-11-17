@@ -707,3 +707,21 @@ async def test_a_virtual_strip_shows_on_the_strip_it_is_on(surface: RecordingSur
     strip.bind(None)
     strip.set_text(1, "50%")
     assert target.text[1] == ""
+
+
+async def test_a_flash_shows_on_one_strip_for_a_while_and_gives_way_to_a_banner() -> None:
+    surface = RecordingSurface()
+    surface.strips[2].set_text(0, "Mic")
+    surface.flash(2, "Mic", "call", 0.01)
+    assert surface.strips[2].shown_text == ("Mic".center(7), "call".center(7))
+    surface.flash(2, "Voice", "call", 0.01)
+    assert surface.strips[2].shown_text == ("Voice".center(7), "call".center(7))
+    await asyncio.sleep(0.02)
+    assert surface.strips[2].shown_text == ("Mic", "")
+    surface.flash(1, "Game", "gaming", 10)
+    surface.banner("Gaming", "", 10)
+    banner = surface.strips[3].overlay
+    surface.flash(3, "Out", "", 10)
+    assert surface.strips[3].overlay == banner
+    surface.end_banner()
+    assert surface.strips[1].overlay is None

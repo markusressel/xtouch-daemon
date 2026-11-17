@@ -121,6 +121,8 @@ class Surface:
         self._lit: set[int] = set()
         """The strips the wave of light of `show` lights white at the moment."""
         self._banner: asyncio.TimerHandle | None = None
+        self._flashes: dict[int, asyncio.TimerHandle] = {}
+        """The strips (from 0) that flash something (see `flash()`), with the timer that ends it."""
 
     def banner(self, top: str, bottom: str, seconds: float) -> None:
         """
@@ -129,12 +131,32 @@ class Surface:
         """
         if self._banner is not None:
             self._banner.cancel()
+        for timer in self._flashes.values():
+            timer.cancel()
+        self._flashes.clear()
         width = protocol.LCD_CELL_WIDTH
         lines = [text[: width * protocol.STRIPS].center(width * protocol.STRIPS) for text in (top, bottom)]
         for strip in self.strips:
             start = strip.index * width
             strip.set_overlay((lines[0][start : start + width], lines[1][start : start + width]))
         self._banner = asyncio.get_running_loop().call_later(seconds, self.end_banner)
+
+    def flash(self, index: int, top: str, bottom: str, seconds: float) -> None:
+        """
+        Shows two lines on the LCD of one strip (from 0) for `seconds`, e.g. what a slot shows now and why; not while
+        a banner is up, which says more.
+        """
+        if self._banner is not None:
+            return
+        if (timer := self._flashes.pop(index, None)) is not None:
+            timer.cancel()
+        width = protocol.LCD_CELL_WIDTH
+        self.strips[index].set_overlay((top[:width].center(width), bottom[:width].center(width)))
+        self._flashes[index] = asyncio.get_running_loop().call_later(seconds, self._end_flash, index)
+
+    def _end_flash(self, index: int) -> None:
+        del self._flashes[index]
+        self.strips[index].set_overlay(None)
 
     def end_banner(self) -> None:
         if self._banner is not None:

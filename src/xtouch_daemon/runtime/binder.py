@@ -160,11 +160,12 @@ class SlotMixer:
 
     # -- what shows where ------------------------------------------------------------------------------------------
 
-    def apply(self, result: Result) -> None:
+    def apply(self, result: Result, flash: float = 0.0) -> None:
         """
         Puts on each slot the controller of what it shows. Only slots whose result changed are touched: the others
-        keep their controller, so their texts, fader and LEDs stay as they are. The controls of the slots claim what
-        their `when` says (see `runtime.controls`).
+        keep their controller, so their texts, fader and LEDs stay as they are. A slot that shows another candidate
+        flashes its label and why for `flash` seconds (0: not at all). The controls of the slots claim what their
+        `when` says (see `runtime.controls`).
         """
         states = self.engine.simulation.states
         self.controls.apply(states.values if states is not None else {})
@@ -191,6 +192,8 @@ class SlotMixer:
                 self._give(controller, self.controls.taken(slot))
                 view.bind(device)
             self.desk.bind(slot - 1, controller, controller.look.meter_point)
+            if flash > 0 and before is not None and before[1] != shown.candidate:
+                self.surface.flash(slot - 1, view.text[0], self._why(slot, before[1], shown.candidate), flash)
         self._close_gone()
         self._hand_out_claims()
         self.desk.watch(self.state)
@@ -211,6 +214,15 @@ class SlotMixer:
         view = controller.strip
         assert isinstance(view, VirtualStrip)
         view.mask(taken)
+
+    def _why(self, slot: int, before: int | None, now: int | None) -> str:
+        """Why a slot shows another candidate, in a word: the `when` of the new one, or the one that ended."""
+        stack = self.setup.scene.stacks[slot]
+        if now is not None and (when := stack[now].when) is not None:
+            return when.text
+        if before is not None and (when := stack[before].when) is not None:
+            return f"not {when.text}"
+        return ""
 
     def _at(self, slot: int) -> StripController | None:
         presenter = self.desk.presenters[slot - 1]
