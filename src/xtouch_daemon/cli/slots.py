@@ -11,7 +11,7 @@ import click
 
 from xtouch_daemon.audio.pulse import SoundServerError, read_state
 from xtouch_daemon.config.base import ConfigError
-from xtouch_daemon.slots.inputs import Observation
+from xtouch_daemon.slots.inputs import Attendee, Observation
 from xtouch_daemon.slots.model import AUTO, DEFAULT, PEOPLE, Scene
 from xtouch_daemon.slots.outcomes import outcomes, states_for, table
 from xtouch_daemon.slots.recording import (
@@ -86,13 +86,16 @@ def simulate(
         for channel in scene.members_of(scene.pools[name].channels if name in scene.pools else (name,))
     }
     present = frozenset(name for name in scene.channels if name not in gone)
-    result = resolve(scene, Inputs(values, present, Observation(playing=playing, people=people)))
+    result = resolve(
+        scene,
+        Inputs(values, present, Observation(playing=playing, people=tuple(Attendee(name, name) for name in people))),
+    )
     for slot, shown in result.slots.items():
         click.echo(f"{slot}  {shown}")
         for line in result.why[slot][:-1]:
             click.echo(f"     {line}")
     for pool, members in result.waiting.items():
-        click.echo(f"waiting for a slot of {pool}: {', '.join(members)}")
+        click.echo(f"waiting for a slot of {pool}: {', '.join(map(str, members))}")
 
 
 @click.command()

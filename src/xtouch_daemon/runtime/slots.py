@@ -99,7 +99,7 @@ class SlotRunner:
         states = self.simulation.states
         assert states is not None
         self._log_states(before, states)
-        self._keep_people(observation.people)
+        self._keep_people(tuple(person.name for person in observation.people))
         shape = shape_of(result)
         if shape == self.shape:
             return False

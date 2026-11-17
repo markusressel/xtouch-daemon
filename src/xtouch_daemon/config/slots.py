@@ -16,6 +16,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.config.strips import StripConfig
+from xtouch_daemon.slots.inputs import Person
 from xtouch_daemon.slots.model import AUTO, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS, Result
 
@@ -49,7 +50,7 @@ def shape_of(result: Result) -> Shape:
             shown.candidate,
             shown.pool,
             shown.channel,
-            shown.member if shown.pool == PEOPLE and not shown.channel else None,
+            shown.member.name if isinstance(shown.member, Person) and not shown.channel else None,
         )
         for shown in result.slots.values()
     )

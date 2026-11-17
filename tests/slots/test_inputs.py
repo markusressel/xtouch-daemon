@@ -2,7 +2,7 @@
 The delays, and the presence of channels and pools in an observation.
 """
 
-from tests.support.slots import scene
+from tests.support.slots import attendees, scene
 from xtouch_daemon.slots.inputs import Observation, Presence, excluded, owner_of, pool_present, present_now
 from xtouch_daemon.slots.timing import Delayed
 
@@ -68,7 +68,7 @@ def test_channels_are_present_while_they_have_something_to_control():
     read = scene(SCENE)
     nothing = Observation()
     there = Observation(
-        playing=("Firefox",), devices=frozenset({"bluez_output.7C", "usb_mic"}), people=("alice-phone",)
+        playing=("Firefox",), devices=frozenset({"bluez_output.7C", "usb_mic"}), people=attendees("alice-phone")
     )
     assert {name for name, c in read.channels.items() if present_now(c, nothing)} == {"out", "lights"}
     assert {name for name, c in read.channels.items() if present_now(c, there)} == {
@@ -110,9 +110,9 @@ def test_pools_are_present_before_slots_are_assigned():
     assert not pool_present(read, "auto", Observation(playing=("discord", "speech-dispatcher")), frozenset())
     assert pool_present(read, "auto", Observation(playing=("discord", "firefox")), frozenset())
     # people share the slots of auto: anyone in the voice chat (before the slots are assigned)
-    assert pool_present(read, "auto", Observation(people=("Alice",)), frozenset())
+    assert pool_present(read, "auto", Observation(people=attendees("Alice")), frozenset())
     # not someone whose person channel never goes into auto
     hidden = scene('[channel.alice]\ntype = "person"\nperson = "Alice"\nin_auto = false\n')
-    assert not pool_present(hidden, "auto", Observation(people=("Alice",)), frozenset())
+    assert not pool_present(hidden, "auto", Observation(people=attendees("Alice")), frozenset())
     assert not pool_present(read, "media", Observation(), frozenset({"out"}))
     assert pool_present(read, "media", Observation(), frozenset({"browser"}))

@@ -77,6 +77,8 @@ class VoipState:
     For each strip of the layout shown (an index of `Config.all_strips(layout)`, as `Snapshot.placement`), the name
     of the participant it shows: None for nobody and for the strips that are no `voip` strips.
     """
+    ids: tuple[str, ...] = ()
+    """The ids of the participants (what the provider knows them by), as `names`; empty from an older daemon."""
 
 
 @dataclass(frozen=True)

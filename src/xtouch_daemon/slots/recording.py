@@ -13,7 +13,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.presets import PRESETS
 from xtouch_daemon.live.codec import decode_message
 from xtouch_daemon.live.messages import Snapshot, VoipState
-from xtouch_daemon.slots.inputs import Observation, app_matches
+from xtouch_daemon.slots.inputs import Attendee, Observation, app_matches
 
 LIVE_TIMEOUT = 1.0
 """Seconds to wait for a snapshot of the running daemon."""
@@ -42,10 +42,16 @@ class Observer:
             playing=tuple(sorted(set(names), key=lambda name: (self.started[name], name))),
             recording=tuple(sorted({stream_name(c.app, c.binary) for c in audio.captures if c.recording})),
             voice_chat=voip is not None and voip.connected and bool(voip.channel),
-            people=voip.names if voip is not None else (),
+            people=attendees(voip) if voip is not None else (),
             processes=processes,
             devices=frozenset(device for device in devices if device),
         )
+
+
+def attendees(voip: VoipState) -> tuple[Attendee, ...]:
+    """The people in the voice chat; from an older daemon without their ids, by name."""
+    ids = voip.ids or voip.names
+    return tuple(Attendee(id, name) for id, name in zip(ids, voip.names, strict=True))
 
 
 def watched_processes(extra: tuple[str, ...] = ()) -> tuple[str, ...]:
@@ -73,7 +79,7 @@ def to_line(now: float, observation: Observation) -> str:
             "playing": list(observation.playing),
             "recording": list(observation.recording),
             "voice_chat": observation.voice_chat,
-            "people": list(observation.people),
+            "people": [[person.id, person.name] for person in observation.people],
             "processes": sorted(observation.processes),
             "devices": sorted(observation.devices),
             "homeassistant": sorted(observation.homeassistant),
@@ -87,7 +93,10 @@ def from_line(line: str) -> tuple[float, Observation]:
         playing=tuple(data["playing"]),
         recording=tuple(data["recording"]),
         voice_chat=bool(data["voice_chat"]),
-        people=tuple(data["people"]),
+        # a recording made before the ids: a name stands for its id
+        people=tuple(
+            Attendee(*person) if isinstance(person, list) else Attendee(person, person) for person in data["people"]
+        ),
         processes=frozenset(data["processes"]),
         devices=frozenset(data["devices"]),
         homeassistant=frozenset(data["homeassistant"]),

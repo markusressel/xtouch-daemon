@@ -103,6 +103,7 @@ def voip_state(provider: VoipProvider, strips: tuple[str | None, ...] = ()) -> V
         channel=provider.channel,
         participants=len(provider.participants),
         names=tuple(participant.name for participant in provider.participants),
+        ids=tuple(participant.id for participant in provider.participants),
         strips=strips,
     )
 

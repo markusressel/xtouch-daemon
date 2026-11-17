@@ -83,6 +83,7 @@ def _voip(value: dict[str, Any] | None) -> VoipState | None:
         value["participants"],
         tuple(value.get("names", ())),
         tuple(value.get("strips", ())),
+        tuple(value.get("ids", ())),
     )
 
 

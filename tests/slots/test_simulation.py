@@ -4,13 +4,14 @@ The slots over time: presence, states, the dwell time and held slots, as the dae
 
 from dataclasses import replace
 
-from tests.support.slots import OLDER, older, scene, shows
-from xtouch_daemon.slots.inputs import Observation
+from tests.support.slots import OLDER, attendees, older, scene, shows
+from xtouch_daemon.slots.inputs import Attendee, Observation, Person
+from xtouch_daemon.slots.model import PEOPLE
 from xtouch_daemon.slots.simulation import Simulation
 from xtouch_daemon.slots.states import Override
 
 GAMING = Observation(processes=frozenset({"reaper"}))
-JOINED = Observation(processes=frozenset({"reaper"}), people=("Bob",), voice_chat=True)
+JOINED = Observation(processes=frozenset({"reaper"}), people=attendees("Bob"), voice_chat=True)
 
 
 def test_joining_mumble_while_gaming_changes_each_slot_once():
@@ -52,6 +53,12 @@ def test_a_reconnect_in_the_voice_chat_moves_nothing():
     simulation.step(JOINED, 0)
     assert shows(simulation.step(GAMING, 20), [6]) == ["people:Bob"]
     assert shows(simulation.step(JOINED, 20.5), [6]) == ["people:Bob"]
+    # the voice chat gives him a new id when he comes back: he is still the one on slot 6, once
+    again = replace(JOINED, people=(Attendee("new-Bob", "Bob"),))
+    simulation.step(GAMING, 25)
+    result = simulation.step(again, 25.5)
+    assert result.slots[6].member == Person("new-Bob", "Bob")
+    assert PEOPLE not in result.waiting
     # gone for good: after absent_after
     simulation.step(GAMING, 30)
     assert simulation.deadline() == 33
@@ -73,9 +80,9 @@ def test_the_order_of_people_is_configured_then_learned():
     read = scene(OLDER.read_text().replace("[people]\n", '[people]\norder = ["Bob"]\n'))
     simulation = Simulation(read, known={"Old": -1e9, "Carol": 0.0})
     talking = Observation(voice_chat=True)
-    simulation.step(replace(talking, people=("Dave",)), 1)
+    simulation.step(replace(talking, people=attendees("Dave")), 1)
     # Old was not seen for too long; Bob is configured, the others in the order they were seen first
     assert simulation.order == ("Bob", "Carol", "Dave")
     assert list(simulation.known) == ["Carol", "Dave"]
-    result = simulation.step(replace(talking, people=("Dave", "Bob", "Carol")), 2)
+    result = simulation.step(replace(talking, people=attendees("Dave", "Bob", "Carol")), 2)
     assert shows(result, [4, 5, 6]) == ["people:Dave", "people:Carol", "people:Bob"]

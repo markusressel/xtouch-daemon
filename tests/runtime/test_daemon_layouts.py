@@ -82,7 +82,7 @@ async def test_switching_layouts_by_hand(
     assert daemon.layout == "default"
     assert daemon.snapshot().layouts == ("default", "gaming", "voice")
     # the demo people of [voip], none of them on a strip of the default layout
-    assert daemon.snapshot().voip == VoipState("demo", True, None, None, 1, ("Ann",), (None,) * 8)
+    assert daemon.snapshot().voip == VoipState("demo", True, None, None, 1, ("Ann",), (None,) * 8, ("1",))
 
     assert daemon.switch_layout("gaming")
     assert not daemon.switch_layout("gaming")

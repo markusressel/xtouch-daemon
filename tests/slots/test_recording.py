@@ -10,12 +10,12 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import output, stream
-from tests.support.slots import older
+from tests.support.slots import attendees, older
 from xtouch_daemon.audio.model import AudioState, Capture
 from xtouch_daemon.live.codec import encode, encode_reply
 from xtouch_daemon.live.messages import Reply, Snapshot, VoipState
 from xtouch_daemon.slots import replay as replay_module
-from xtouch_daemon.slots.inputs import Observation
+from xtouch_daemon.slots.inputs import Attendee, Observation
 from xtouch_daemon.slots.recording import (
     Observer,
     from_line,
@@ -29,7 +29,7 @@ from xtouch_daemon.slots.recording import (
 )
 from xtouch_daemon.slots.replay import replay
 
-VOIP = VoipState("bridge", True, "mumble", "Lobby", 1, ("Bob",))
+VOIP = VoipState("bridge", True, "mumble", "Lobby", 1, ("Bob",), ids=("id-Bob",))
 
 
 def audio(*apps: str) -> AudioState:
@@ -50,10 +50,15 @@ def test_an_observation_of_the_readings_keeps_the_order_applications_started_in(
         playing=("spotify",),
         recording=("Discord",),
         voice_chat=True,
-        people=("Bob",),
+        people=attendees("Bob"),
         processes=frozenset({"reaper"}),
         devices=frozenset({"speaker", "speaker description"}),
     )
+    # an older daemon tells no ids: the names stand for them
+    older = observer.observe(
+        audio("spotify"), frozenset(), VoipState("bridge", True, "mumble", "Lobby", 1, ("Bob",)), 0
+    )
+    assert older.people == (Attendee("Bob", "Bob"),)
     assert observer.observe(audio("mpv", "spotify"), frozenset(), None, 1).playing == ("spotify", "mpv")
     # one that stopped and starts again is new
     assert observer.observe(audio("mpv"), frozenset(), None, 2).playing == ("mpv",)
@@ -77,8 +82,13 @@ def test_names_of_streams_and_processes():
 
 
 def test_lines_and_logs(tmp_path: Path):
-    observation = Observation(playing=("a",), processes=frozenset({"x"}), homeassistant=frozenset({"night"}))
+    observation = Observation(
+        playing=("a",), people=attendees("Bob"), processes=frozenset({"x"}), homeassistant=frozenset({"night"})
+    )
     assert from_line(to_line(1.5, observation)) == (1.5, observation)
+    # a recording from before the ids: by name
+    old = to_line(1.5, observation).replace('[["id-Bob", "Bob"]]', '["Bob"]')
+    assert from_line(old)[1].people == (Attendee("Bob", "Bob"),)
     log = tmp_path / "log.jsonl"
     log.write_text(to_line(1, observation) + "\n\n" + to_line(2, Observation()) + "\n")
     assert read_log(log) == [(1.0, observation), (2.0, Observation())]
@@ -177,9 +187,9 @@ def test_a_short_excursion_after_a_long_time_is_a_flap():
     report = replay(
         older(),
         [
-            (0.0, Observation(people=("Bob",), processes=frozenset({"reaper"}))),
+            (0.0, Observation(people=attendees("Bob"), processes=frozenset({"reaper"}))),
             (3600.0, Observation(processes=frozenset({"reaper"}))),
-            (3610.0, Observation(people=("Bob",), processes=frozenset({"reaper"}))),
+            (3610.0, Observation(people=attendees("Bob"), processes=frozenset({"reaper"}))),
         ],
     )
     # Bob shares the slots of auto: the rightmost one that has auto first

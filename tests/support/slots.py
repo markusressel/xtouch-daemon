@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from tests.support.paths import DOCS
+from xtouch_daemon.slots.inputs import Attendee
 from xtouch_daemon.slots.model import DEFAULT, Scene
 from xtouch_daemon.slots.resolver import Result
 
@@ -28,6 +29,11 @@ def states(scene: Scene, *on: str, mode: str = DEFAULT) -> dict[str, bool]:
     values.update({name: name == mode for name in scene.modes})
     values[DEFAULT] = mode == DEFAULT
     return values
+
+
+def attendees(*names: str) -> tuple[Attendee, ...]:
+    """People in the voice chat, with ids that are not their names."""
+    return tuple(Attendee(f"id-{name}", name) for name in names)
 
 
 def shows(result: Result, slots: Iterable[int] = range(1, 9)) -> list[str]:

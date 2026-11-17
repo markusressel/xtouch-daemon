@@ -3,8 +3,8 @@ What the slots show: channels by rank, ties to the left, held slots, pools and t
 of the reviews of the design are here by name.
 """
 
-from tests.support.slots import older, scene, shows, states
-from xtouch_daemon.slots.inputs import Observation
+from tests.support.slots import attendees, older, scene, shows, states
+from xtouch_daemon.slots.inputs import App, Channel, Observation, Person
 from xtouch_daemon.slots.model import PEOPLE
 from xtouch_daemon.slots.resolver import Inputs, Result, Shown, resolve
 
@@ -73,7 +73,7 @@ def test_browser_goes_back_to_slot_2_when_gaming_ends():
     """The second review: with stickiness, slot 2 stayed dark after gaming. Now the result has no history."""
     read = older()
     present = frozenset(read.channels)
-    people = Observation(people=("Bob",))
+    people = Observation(people=attendees("Bob"))
     gaming = resolve(read, Inputs(states(read, mode="gaming"), present, people))
     assert shows(gaming, [1, 2, 6]) == ["game", "-", "people:Bob"]
     after = resolve(read, Inputs(states(read), present, people), gaming)
@@ -83,10 +83,10 @@ def test_browser_goes_back_to_slot_2_when_gaming_ends():
 def test_a_hidden_channel_takes_an_auto_slot_as_a_whole():
     """The third review: while slot 2 is dark, Browser plays in an auto slot, not as two owners of a stream."""
     read = older()
-    observation = Observation(playing=("firefox", "discord", "mpv"), people=("Bob",))
+    observation = Observation(playing=("firefox", "discord", "mpv"), people=attendees("Bob"))
     result = resolve(read, Inputs(states(read, mode="gaming"), frozenset(read.channels), observation))
     assert shows(result) == ["game", "-", "auto:browser", "auto:mpv", "auto", "people:Bob", "voip", "auto"]
-    assert result.slots[3] == Shown(0, channel="browser", pool="auto", member="browser")
+    assert result.slots[3] == Shown(0, channel="browser", pool="auto", member=Channel("browser"))
     assert result.slot_of("browser") == 3
     assert result.slot_of("mic") is None
 
@@ -157,7 +157,7 @@ def test_applications_keep_their_slots_and_wait_when_a_call_takes_one():
     assert shows(before, range(3, 9)) == ["auto:a", "auto:b", "auto:c", "auto:d", "auto:e", "auto:f"]
     during = run(text, "call", observation=playing, previous=before)
     assert shows(during, range(3, 9)) == ["auto:a", "auto:b", "auto:c", "auto:d", "voip", "alice"]
-    assert during.waiting == {"auto": ("e", "f")}
+    assert during.waiting == {"auto": (App("e"), App("f"))}
     # the others don't move when one stops: the slot of b takes the next one
     later = run(text, "call", observation=Observation(playing=("a", "c", "d", "e", "f")), previous=during)
     assert shows(later, range(3, 7)) == ["auto:a", "auto:e", "auto:c", "auto:d"]
@@ -173,37 +173,37 @@ def test_what_auto_takes():
 
 
 def test_a_pin_beats_the_order_and_stays_after_its_application_stopped():
-    result = run("", observation=Observation(playing=("a", "b")), pins={2: "c"})
+    result = run("", observation=Observation(playing=("a", "b")), pins={2: App("c")})
     assert shows(result, [1, 2, 3]) == ["auto:a", "auto:c", "auto:b"]
-    playing = run("", observation=Observation(playing=("a", "b")), pins={2: "a"})
+    playing = run("", observation=Observation(playing=("a", "b")), pins={2: App("a")})
     assert shows(playing, [1, 2, 3]) == ["auto:b", "auto:a", "auto"]
-    assert shows(run("", pins={5: "c"}), [5]) == ["auto:c"]
+    assert shows(run("", pins={5: App("c")}), [5]) == ["auto:c"]
     # a pin of a slot that doesn't show auto now waits; one of an application that plays isn't another member
-    assert shows(run('[slots]\n1 = "out"', observation=Observation(playing=("a",)), pins={1: "a"}), [1, 2]) == [
+    assert shows(run('[slots]\n1 = "out"', observation=Observation(playing=("a",)), pins={1: App("a")}), [1, 2]) == [
         "out",
         "auto:a",
     ]
 
 
 def test_people_share_the_slots_of_auto():
-    bob = Observation(people=("Alice", "Bob"))
+    bob = Observation(people=attendees("Alice", "Bob"))
     result = run('[slots]\n1 = "alice"', observation=bob)
     assert shows(result, [1, 7, 8]) == ["alice", "auto", "people:Bob"]
     # a person channel without a slot joins them as itself
     result = run("", observation=bob)
     assert shows(result, [7, 8]) == ["people:Bob", "people:alice"]
-    assert result.slots[8] == Shown(0, channel="alice", pool="people", member="alice")
+    assert result.slots[8] == Shown(0, channel="alice", pool="people", member=Person("id-Alice", "Alice", "alice"))
     # unless it opts out
     read = scene(SCENE.replace('person = "Alice"', 'person = "Alice"\nin_auto = false'))
     assert shows(resolve(read, Inputs(states(read), ALL, bob)), [7, 8]) == ["auto", "people:Bob"]
     waiting = run("[slots]\n" + "".join(f'{slot} = "-"\n' for slot in range(1, 8)), observation=bob)
     assert shows(waiting, [8]) == ["people:alice"]
-    assert waiting.waiting == {"people": ("Bob",)}
+    assert waiting.waiting == {"people": (Person("id-Bob", "Bob"),)}
     # without a slot of auto, everybody waits
     nowhere = run(
         "[slots]\n" + "".join(f'{slot} = "-"\n' for slot in range(1, 9)), observation=Observation(playing=("mpv",))
     )
-    assert nowhere.waiting == {"auto": ("mpv",)}
+    assert nowhere.waiting == {"auto": (App("mpv"),)}
 
 
 def test_a_pool_of_channels_fills_by_its_order():
@@ -223,7 +223,7 @@ def test_pools_by_presence():
     text = '[slots]\n1 = ["auto if present", "out"]\n2 = ["media if present", "browser"]'
     assert shows(run(text, present=ALL - {"spotify", "radio"}), [1, 2]) == ["out", "browser"]
     # people share the slots of auto: auto is present with them
-    assert shows(run(text, observation=Observation(people=("Bob",))), [1, 2, 8]) == [
+    assert shows(run(text, observation=Observation(people=attendees("Bob"))), [1, 2, 8]) == [
         "auto",
         "media:spotify",
         "people:Bob",
@@ -234,7 +234,7 @@ def test_shown_as_text():
     assert str(Shown(None)) == "-"
     assert str(Shown(0, channel="out")) == "out"
     assert str(Shown(0, pool="auto")) == "auto"
-    assert str(Shown(0, pool="auto", member="mpv")) == "auto:mpv"
+    assert str(Shown(0, pool="auto", member=App("mpv"))) == "auto:mpv"
 
 
 # -- the code review -----------------------------------------------------------------------------------------------
@@ -254,7 +254,8 @@ def test_a_held_slot_keeps_a_channel_it_shows_as_a_member_of_auto():
 def test_a_pinned_channel_that_got_a_slot_of_its_own_is_shown_there_only():
     read = older()
     result = resolve(
-        read, Inputs(states(read), frozenset(read.channels), Observation(playing=("firefox",)), pins={3: "browser"})
+        read,
+        Inputs(states(read), frozenset(read.channels), Observation(playing=("firefox",)), pins={3: Channel("browser")}),
     )
     assert shows(result, [2, 3]) == ["browser", "auto"]
     assert result.why[3][0] == "pin browser: on another slot"
@@ -266,10 +267,12 @@ def test_a_pool_of_channels_gets_its_channel_before_auto_takes_it():
 
 
 def test_people_leave_pinned_slots_to_applications():
-    result = run("", observation=Observation(people=("Bob", "Carol")), pins={8: "mpv"})
+    result = run("", observation=Observation(people=attendees("Bob", "Carol")), pins={8: App("mpv")})
     assert shows(result, [6, 7, 8]) == ["people:Carol", "people:Bob", "auto:mpv"]
     # a pin of a channel that has a slot of its own keeps nobody out
-    result = run('[slots]\n1 = "browser"\n', observation=Observation(people=("Bob",)), pins={8: "browser"})
+    result = run(
+        '[slots]\n1 = "browser"\n', observation=Observation(people=attendees("Bob")), pins={8: Channel("browser")}
+    )
     assert shows(result, [1, 8]) == ["browser", "people:Bob"]
 
 
@@ -277,19 +280,19 @@ def test_a_pin_waits_while_a_held_slot_shows_its_member():
     """mpv, pinned to 5, moved to 3 while 5 had a channel; 3 is held: mpv doesn't show on 5 too."""
     text = '[slots]\n5 = ["out if call", "auto"]\n1 = "-"\n2 = "-"\n'
     mpv = Observation(playing=("mpv",))
-    before = run(text, "call", observation=mpv, pins={5: "mpv"})
+    before = run(text, "call", observation=mpv, pins={5: App("mpv")})
     assert shows(before, [3, 5]) == ["auto:mpv", "out"]
-    after = run(text, previous=before, observation=mpv, pins={5: "mpv"}, fixed=frozenset({3}))
+    after = run(text, previous=before, observation=mpv, pins={5: App("mpv")}, fixed=frozenset({3}))
     assert shows(after, [3, 5]) == ["auto:mpv", "auto"]
     assert "pin mpv: on another slot" in after.why[5]
 
 
 def test_people_and_applications_are_told_apart_from_channels():
     """Someone called browser in the voice chat is no channel, nor is an application called out."""
-    result = run('[slots]\n1 = "-"\n', observation=Observation(playing=("out", "firefox"), people=("browser",)))
-    assert result.slots[8] == Shown(0, pool="people", member="browser")
-    assert result.slots[2] == Shown(0, pool="auto", member="out")
-    assert result.slots[3] == Shown(0, channel="browser", pool="auto", member="browser")
+    result = run('[slots]\n1 = "-"\n', observation=Observation(playing=("out", "firefox"), people=attendees("browser")))
+    assert result.slots[8] == Shown(0, pool="people", member=Person("id-browser", "browser"))
+    assert result.slots[2] == Shown(0, pool="auto", member=App("out"))
+    assert result.slots[3] == Shown(0, channel="browser", pool="auto", member=Channel("browser"))
 
 
 def test_people_share_the_auto_slots_as_a_block_from_the_right_in_their_order():
@@ -298,7 +301,7 @@ def test_people_share_the_auto_slots_as_a_block_from_the_right_in_their_order():
     read = scene(SCENE + slots)
 
     def step(previous: Result | None, playing: tuple[str, ...], people: tuple[str, ...], order: tuple[str, ...] = ()):
-        observation = Observation(playing=playing, people=people)
+        observation = Observation(playing=playing, people=attendees(*people))
         return resolve(read, Inputs(states(read), ALL, observation, order=order), previous)
 
     order = ("Bob", "Carol", "Dave")
@@ -323,4 +326,4 @@ def test_people_share_the_auto_slots_as_a_block_from_the_right_in_their_order():
         "people:C",
     ]
     many = step(None, (), tuple("ABCDEFG"))
-    assert many.waiting == {PEOPLE: ("G",)}
+    assert many.waiting == {PEOPLE: (Person("id-G", "G"),)}

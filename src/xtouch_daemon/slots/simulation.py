@@ -5,7 +5,7 @@ the daemon will run, driven by observations at given times instead of the sound 
 
 from collections.abc import Mapping
 
-from xtouch_daemon.slots.inputs import Observation, PoolMembers, Presence
+from xtouch_daemon.slots.inputs import App, Channel, Observation, PoolMembers, Presence
 from xtouch_daemon.slots.model import ABSENT_AFTER, Scene
 from xtouch_daemon.slots.resolver import Inputs, Result, resolve
 from xtouch_daemon.slots.states import Override, StateEngine, States
@@ -45,11 +45,11 @@ class Simulation:
         observation: Observation,
         now: float,
         held: frozenset[int] = frozenset(),
-        pins: Mapping[int, str] | None = None,
+        pins: Mapping[int, App | Channel] | None = None,
     ) -> Result:
         """
         What the slots show at `now`: `held` are the slots under a finger (or a held button, or a touchless fader the
-        user just moved), `pins` the applications pinned with the `pick` encoder.
+        user just moved), `pins` the members pinned with the `pick` encoder.
         """
         present = self.presence.update(observation, now)
         self.states = self.engine.update(observation, present, now)
@@ -57,7 +57,8 @@ class Simulation:
         dwelling = set(self._changed)
         pools = self.members.update(observation, now)
         for person in observation.people:
-            self._known[person] = now
+            # the order goes by name: an id lasts only while they are there
+            self._known[person.name] = now
         self._known = {person: at for person, at in self._known.items() if now - at < KNOWN}
         inputs = Inputs(self.states.values, present, pools, frozenset(held | dwelling), pins or {}, self.order)
         result = resolve(self.scene, inputs, self.result)

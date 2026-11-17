@@ -4,12 +4,68 @@ presence of channels and pools in it.
 """
 
 import fnmatch
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 
 from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.slots.model import AUTO, ChannelConfig, Scene
 from xtouch_daemon.slots.timing import Delayed
+
+
+@dataclass(frozen=True)
+class Attendee:
+    """Someone in the voice chat: `id` is what the provider knows them by while they are there."""
+
+    id: str
+    name: str
+
+
+@dataclass(frozen=True)
+class App:
+    """An application of `auto`, by its name (see `stream_name()`)."""
+
+    name: str
+
+    def __str__(self) -> str:
+        return self.name
+
+
+@dataclass(frozen=True)
+class Channel:
+    """A channel as a member of a pool (or of `auto`, an `apps` channel without a slot as a whole)."""
+
+    id: str
+
+    def __str__(self) -> str:
+        return self.id
+
+
+@dataclass(frozen=True)
+class Person:
+    """
+    Someone who shares the slots of `auto`: who is in the voice chat (`id`, `name`), with the `person` channel they
+    have (`channel`), if any.
+    """
+
+    id: str
+    name: str
+    channel: str | None = None
+
+    def __str__(self) -> str:
+        return self.channel or self.name
+
+
+type Member = App | Channel | Person
+"""What a pool hands out: never told apart by name (someone called `browser` is no channel)."""
+
+
+def channel_of(member: Member | None) -> str | None:
+    """The channel a member is, or has (a person with a `person` channel)."""
+    match member:
+        case Channel(id=channel) | Person(channel=channel):
+            return channel
+        case _:
+            return None
 
 
 @dataclass(frozen=True)
@@ -21,7 +77,7 @@ class Observation:
     """The applications with a capture stream."""
     voice_chat: bool = False
     """Whether the voice chat reports that you are in a channel, also alone (you intend to talk)."""
-    people: tuple[str, ...] = ()
+    people: tuple[Attendee, ...] = ()
     """The people in the voice chat, in the provider's order."""
     processes: frozenset[str] = frozenset()
     devices: frozenset[str] = frozenset()
@@ -72,7 +128,7 @@ def present_now(channel: ChannelConfig, observation: Observation) -> bool:
             )
         case "person":
             names = {name.lower() for name in channel.people}
-            return any(person.lower() in names for person in observation.people)
+            return any(person.name.lower() in names for person in observation.people)
         case _:
             # homeassistant: its entities are always there
             return True
@@ -84,27 +140,25 @@ def person_channel_of(scene: Scene, person: str) -> str | None:
     return next((key for key, channel in scene.channels.items() if name in (p.lower() for p in channel.people)), None)
 
 
-@dataclass(frozen=True)
-class Person:
-    """Someone who shares the slots of `auto`: by name, or a `person` channel (`channel`) by its id."""
-
-    key: str
-    channel: str | None = None
-
-
 def people_of(scene: Scene, observation: Observation, present: frozenset[str], with_slot: set[str]) -> list[Person]:
     """
     The people that share the slots of `auto`, in the order they came: who has no `person` channel, and the
-    `person` channels with `in_auto` that are present and have no slot of their own.
+    `person` channels with `in_auto` that are present and have no slot of their own (once, for the first of its
+    names in the voice chat).
     """
-    members: dict[Person, None] = {}
-    for name in observation.people:
-        channel = person_channel_of(scene, name)
+    members: list[Person] = []
+    for attendee in observation.people:
+        channel = person_channel_of(scene, attendee.name)
         if channel is None:
-            members[Person(name)] = None
-        elif scene.channels[channel].in_auto and channel in present and channel not in with_slot:
-            members[Person(channel, channel)] = None
-    return list(members)
+            members.append(Person(attendee.id, attendee.name))
+        elif (
+            scene.channels[channel].in_auto
+            and channel in present
+            and channel not in with_slot
+            and all(person.channel != channel for person in members)
+        ):
+            members.append(Person(attendee.id, attendee.name, channel))
+    return members
 
 
 def pool_present(scene: Scene, pool: str, observation: Observation, present: frozenset[str]) -> bool:
@@ -114,7 +168,7 @@ def pool_present(scene: Scene, pool: str, observation: Observation, present: fro
     channels while one of them is present.
     """
     if pool == AUTO:
-        people = (person_channel_of(scene, name) for name in observation.people)
+        people = (person_channel_of(scene, attendee.name) for attendee in observation.people)
         return any(channel is None or scene.channels[channel].in_auto for channel in people) or any(
             not excluded(scene, app) for app in observation.playing
         )
@@ -141,19 +195,27 @@ class Presence:
         return min((d for delayed in self._delayed.values() if (d := delayed.deadline()) is not None), default=None)
 
 
-class Lingering:
+class Lingering[T]:
     """
-    Names (applications, people) that stay `after` seconds after they went, in the order they came: a person whose
-    voice chat reconnects, or a notification sound, doesn't move a fader twice.
+    Applications or people that stay `after` seconds after they went, in the order they came: a person whose voice
+    chat reconnects, or a notification sound, doesn't move a fader twice.
     """
 
-    def __init__(self, after: float):
+    def __init__(self, after: float, successor: Callable[[T, T], bool] = lambda gone, new: False):
+        """`successor(gone, new)`: whether `new` takes the place of `gone` (someone who reconnected, by name)."""
         self.after = after
-        self._gone: dict[str, float | None] = {}
+        self.successor = successor
+        self._gone: dict[T, float | None] = {}
         """In the order they came: when each went, None while it is there."""
 
-    def update(self, names: tuple[str, ...], now: float) -> tuple[str, ...]:
+    def update(self, names: tuple[T, ...], now: float) -> tuple[T, ...]:
         for name in names:
+            if name not in self._gone:
+                gone = next(
+                    (g for g, since in self._gone.items() if since is not None and self.successor(g, name)), None
+                )
+                if gone is not None:
+                    self._gone = {name if key == gone else key: since for key, since in self._gone.items()}
             self._gone[name] = None
         for name, since in list(self._gone.items()):
             if name in names:
@@ -174,8 +236,9 @@ class PoolMembers:
     """
 
     def __init__(self, scene: Scene, absent_after: float):
-        self._playing = Lingering(scene.pools[AUTO].hold)
-        self._people = Lingering(absent_after)
+        self._playing = Lingering[str](scene.pools[AUTO].hold)
+        # a reconnect gets a new id: the same name takes the place of who left
+        self._people = Lingering[Attendee](absent_after, lambda gone, new: gone.name == new.name)
 
     def update(self, observation: Observation, now: float) -> Observation:
         return replace(
