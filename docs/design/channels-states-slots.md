@@ -666,6 +666,32 @@ Decided 2026-11-17: step 9 before step 10; the GUI may not edit configurations i
 - **9d, docs**: the pages of strips, layouts and collapsing go into Channels, states and slots; Getting started, Home
   Assistant, Commands, Architecture and the example follow.
 
+### Step 10: the GUI edits the new format
+
+Decided 2026-11-17: the whole of [The GUI](#the-gui), in these commits:
+
+- **10a, the document**: `gui/domain/slots_document.py`, the file as plain data with option paths
+  (`("channel", "mic", "label")`, `("slots", "3")`, `("state", "call", "delay_off")`), written back into the TOML
+  text with its comments and the form of each stack. An old file is migrated when it is opened (unsaved, with the
+  notes of `migrate-config`). `validate()` runs `parse_config()` and gives each problem its path. Undo as today.
+- **10b, the rail, Settings and Channels**: a left rail (Device, Channels, States, Settings); Settings are today's
+  section pages; Channels lists channels, `[pool.auto]` and `[people]` with type, label, tags and where they are
+  used, the inspector is today's strip form, with Add, Duplicate and Remove.
+- **10c, States**: modes first, then the other states: sources or `when`, delays, `persist`, live value since when
+  and from which source, the override, and which stacks use it.
+- **10d, Device**: the live device with the state bar (live, override menus) above slot cards: each stack as rows
+  with their conditions as chips, ▶ on the one shown, add, remove, Ctrl+Up/Down and drag and drop; the inspector
+  edits the candidate (show, condition as chips or text, place options) and its channel, and says where else the
+  channel is used; below it the controls of the slot.
+- **10e, why**: the why line from the resolver's trace for a slot or a channel, and `xtouch-daemon why <slot or
+  channel>`.
+- **10f, Simulate and Grid**: Simulate (a frame around the device, a bar of what-if inputs, the device shows what
+  the resolver would, nothing is sent, Esc ends it) and the Grid of distinct outcomes (a row simulates it, a cell
+  selects its card).
+- **10g, the old GUI goes**: strips and layouts in the GUI, `config/legacy` but for `migrate-config`, the old example
+  and `init-config --strips`, `layout`, `layouts`, `placement` and `SwitchLayout` of the live view; the GUI page and
+  its screenshot follow.
+
 ## Migration
 
 `xtouch-daemon migrate-config` (and the GUI on opening an old file) writes the new format and reports what it did:
