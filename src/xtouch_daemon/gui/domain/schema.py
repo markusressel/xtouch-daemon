@@ -173,7 +173,8 @@ def option(name: str, field: FieldInfo) -> Option:
 
 def options(model: type[BaseModel], skip: tuple[str, ...] = ()) -> tuple[Option, ...]:
     """The options of a model in the order it declares them."""
-    return tuple(option(name, field) for name, field in model.model_fields.items() if name not in skip)
+    # an option named like a word of Python has an alias (`from_` is `from`)
+    return tuple(option(field.alias or name, field) for name, field in model.model_fields.items() if name not in skip)
 
 
 @dataclass(frozen=True)

@@ -33,7 +33,7 @@ PARTS: dict[Group, frozenset[str]] = {
     "display": frozenset({"label", "color", "talking_color", "lit_when_idle"}),
     "buttons": frozenset({"rec", "solo", "select"}),
     "fader": frozenset({"fader", "min_volume", "max_volume", "meter", "meter_point"}),
-    "slots": frozenset({"absent_after", "in_auto", "tags"}),
+    "slots": frozenset({"absent_after", "in_pool", "tags"}),
 }
 """The options of each group but "controls", which has the rest (what the strip controls)."""
 

@@ -1,6 +1,6 @@
 """
 The channels of a file as the page Channels shows them: their types, the options of each type (those of its strip),
-the options of `[pool.auto]` and `[people]`, and where each channel is used.
+the options of the built-in pools (`[pool.apps]`, `[pool.people]`, `[pool.auto]`), and where each channel is used.
 """
 
 from collections.abc import Mapping
@@ -9,7 +9,7 @@ from typing import Any
 
 from xtouch_daemon.config.slots import CHANNEL_ONLY
 from xtouch_daemon.gui.domain.schema import Option, option, options, strip_options
-from xtouch_daemon.slots.model import AUTO, ChannelConfig, PeopleConfig, PoolConfig
+from xtouch_daemon.slots.model import APPS, AUTO, PEOPLE, AppsConfig, AutoConfig, ChannelConfig, PeopleConfig
 
 
 @dataclass(frozen=True)
@@ -41,22 +41,29 @@ NOT_ON_PEOPLE = frozenset({"label", "person"})
 
 
 def channel_options(channel_type: str) -> tuple[Option, ...]:
-    """The options of a channel of the type: its strip's, then those about slots (`tags`, `in_auto`, ...)."""
+    """The options of a channel of the type: its strip's, then those about slots (`tags`, `in_pool`, ...)."""
     kind = CHANNEL_TYPES[channel_type]
     own = tuple(option(name, ChannelConfig.model_fields[name]) for name in sorted(CHANNEL_ONLY))
     return (*strip_options(kind.strip), *own)
 
 
-def pool_options() -> tuple[Option, ...]:
-    """The options of `[pool.auto]`: which applications it takes, how long, and the look of its strips."""
-    look = strip_options("auto")
-    return (*options(PoolConfig, skip=("channels",)), *look)
+def pool_options(pool: str) -> tuple[Option, ...]:
+    """
+    The options of a built-in pool: `[pool.apps]` which applications it takes, how long and from where, `[pool.people]`
+    their order and side, and the look of the strips of each (`[pool.auto]` only that).
+    """
+    if pool == PEOPLE:
+        look = tuple(each for each in strip_options("voip") if each.name not in NOT_ON_PEOPLE)
+        return (*options(PeopleConfig), *look)
+    return (*options(AppsConfig if pool == APPS else AutoConfig), *strip_options("auto"))
 
 
-def people_options() -> tuple[Option, ...]:
-    """The options of `[people]`: their order, and the look of their strips."""
-    look = tuple(each for each in strip_options("voip") if each.name not in NOT_ON_PEOPLE)
-    return (*options(PeopleConfig), *look)
+BUILT_IN_POOLS = (
+    (APPS, "Applications", "apps", "the applications that play and have no slot"),
+    (PEOPLE, "People", "account-group", "the people of the voice chat, their order and side"),
+    (AUTO, "Auto", "auto-fix", "the applications and the people, who share its slots"),
+)
+"""The built-in pools as the page Channels lists them: id, title, icon, what they are."""
 
 
 def shown_by(entry: Any) -> str | None:

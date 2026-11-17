@@ -9,7 +9,7 @@ Mumble channel, one per strip:
   the button;
 - people who join or leave the channel, and you moving to another channel, show at once.
 
-It needs Mumble 1.4 or later on Linux (x86_64). People share the `auto` slots in every configuration; the
+It needs Mumble 1.4 or later on Linux (x86_64). People sit on the slots of `auto` (and `people`) in every configuration; the
 [`[voip]`](../configuration/people.md#voice-chat) section can be left out: its `provider = "bridge"` is the default.
 
 ## Setup in the GUI

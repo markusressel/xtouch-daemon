@@ -10,7 +10,7 @@ LEDs a `rec = "recording"` lights and when, how the ring of a `balance` encoder 
 
 ## Idea
 
-The form of a channel (and of `[pool.auto]` and `[people]`) groups its options by the part of the strip they are about,
+The form of a channel (and of the pools `[pool.apps]`, `[pool.people]` and `[pool.auto]`) groups its options by the part of the strip they are about,
 in the order of the device from top to bottom, each in a card:
 
 | Group | Options | Preview |
@@ -20,7 +20,7 @@ in the order of the device from top to bottom, each in a card:
 | Display | `label`, `color`, `talking_color`, `lit_when_idle` | the LCD |
 | Buttons | `rec`, `solo`, `select` | Rec, Solo, Mute, Select |
 | Fader and meter | `fader`, `min_volume`, `max_volume`, `meter`, `meter_point` | the meter and the fader |
-| Slots | `absent_after`, `in_auto`, `tags` | none |
+| Slots | `absent_after`, `in_pool`, `tags` | none |
 
 The card of a part has a small drawing of that part on its left: the same drawing as the window Device (a `StripView`,
 cut to the part), so it looks exactly like the device. It shows a short scene, a step at a time like pictures (‹ and ›,

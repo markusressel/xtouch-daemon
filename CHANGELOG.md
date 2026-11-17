@@ -24,8 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   fader, encoder and buttons of a slot whatever it shows (a launch, a mode, a state toggled by hand, Home
   Assistant), and the chord (Solo of strips 1 and 8 held together) picks the next mode or does another action
   (`chord = { strips = [1, 8], action = "toggle:call" }`: `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`). A
-  file without `[slots]` shows `auto` on every slot; `[pool.auto] exclude` leaves out `speech-dispatcher` by
-  default, `min_volume` and `max_volume` of channels and `auto` slots are checked, and `launch` on a `person`
+  file without `[slots]` shows `auto` on every slot; `[pool.apps] exclude` leaves out `speech-dispatcher` by
+  default, `min_volume` and `max_volume` of channels and `apps` and `auto` slots are checked, and `launch` on a `person`
   channel is an error (`[controls]` does that). `check-config` prints the table of the slots, `init-config` writes
   an example, `xtouch-daemon mode` lists and picks the modes, `xtouch-daemon why <slot or channel>` tells why a slot
   shows what it does, `xtouch-daemon simulate` what the slots show in given states, `xtouch-daemon observe` records
@@ -41,13 +41,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   channel is used, and lists the controls of the slot; above it the why line: why the slot shows what it does,
   which `xtouch-daemon why <slot or channel>` tells too; Simulate shows with a frame around the device what the
   slots would show in another mode, with other states on or channels absent, without sending anything (Esc ends it);
-  Grid lists every combination that shows something else, a row simulates it, a cell picks its slot), Channels (the channels, `[pool.auto]`
-  and `[people]`, with Add, Duplicate and Remove, and where each is used), States (modes first, their sources,
+  Grid lists every combination that shows something else, a row simulates it, a cell picks its slot), Channels (the channels, `[pool.apps]`,
+  `[pool.people]` and `[pool.auto]`, with Add, Duplicate and Remove, and where each is used), States (modes first, their sources,
   delays and where they are used, what the daemon says about each, an override or a mode picked) and Settings. Problems lead to their channel, state or setting.
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.
   `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
   `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` channels, `apps` and `processes` of states
-  and `exclude` of `[pool.auto]`, each with the names of the streams or of the processes of its applications (e.g. Steam's
+  and `exclude` of `[pool.apps]`, each with the names of the streams or of the processes of its applications (e.g. Steam's
   `reaper` for `@steam-games` in `processes`). An unknown preset, or one in a list it is not for, is an error that says
   what fits. `check-config` shows what each one stands for, `list-apps` the presets of each application that plays
   (`Brave (@browsers)`), and the GUI suggests the presets that fit a list, with what they stand for as the tooltip.
@@ -66,8 +66,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   while it runs. It starts as a transient systemd user service, so a restart of the daemon does not end it.
   `launch_when_running` starts it always (`apps`, `auto`). `check-config` shows it, the GUI edits it.
 - The people of a voice chat on the strips: one per strip, the name on the LCD, lit in `talking_color` while they
-  talk, the fader for their volume and Mute to mute them. They share the `auto` slots with the applications, from
-  the right (`[people] order`). A `person` channel (a name, or several names of one person, ignoring case) keeps a
+  talk, the fader for their volume and Mute to mute them. They sit on the slots that show `people`, and share
+  those of `auto` with the applications (`[pool.people] from` and `order`). A `person` channel (a name, or several names of one person, ignoring case) keeps a
   person on a strip, shown dark with `away` while they are not there (`label` names it). The daemon keeps the
   volume and mute set for each name and sets them again when the person comes back. `[voip]` picks where they come from: `bridge`, a
   plugin of the voice chat client on the socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` (the protocol is in the
@@ -124,6 +124,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   values (`color = white`) instead of their names alone. Shows and When have help, with "Learn more" to the
   slots and to the new section [Conditions](docs/configuration/slots.md#conditions), which documents the grammar of
   conditions.
+- The form of a state asks in order: State or Mode (label and priority only for a mode), then On while: Sources
+  (only those it has, Add source for more, ✕ to remove one) or Condition (the field of the page Slots, without
+  `present`), never both. Delays and overrides are folded away until a state has one. A state whose last option
+  is removed stays (it was removed with it).
+- On the cards of the page Slots, `present` is spelled out in what it means for the channel or pool (`when browser
+  plays → browser`, `mic is connected`, `mum is in the voice chat`) in the color of channels, and chips of one condition are joined by "or". Conditions are outlined chips,
+  what the slot shows filled ones. A rail joins the candidates of a card ("else" between two, numbered, a green node
+  on the one shown); above it they are dimmed with why they did not win, below it as not reached.
+- Three built-in pools: `apps` (the applications that play and have no slot), `people` (the people of the voice
+  chat) and `auto` (both, sharing its slots, people first). A slot says where people sit:
+  `5 = ["people", "apps"]` is a person, else the next application; a pool with no member for a slot hands it to the
+  pool or `-` right below it, and a slot two pools could fill goes to the one higher in its stack. `from` sets the
+  side each fills from (`[pool.people]` from the right, `[pool.apps]` from the left by default). `[people]` is
+  `[pool.people]` now, `hold` and `exclude` moved from `[pool.auto]` to `[pool.apps]`, `in_auto` is `in_pool`;
+  `check-config` names the old spellings. `present(apps)` and `present(people)` work in conditions,
+  `present(auto)` holds while either does. `check-config` notes candidates that never show and people that can
+  sit nowhere, `xtouch-daemon why people` tells who sits where and who waits, and the GUI's Simulate takes a
+  number of people in the call and of applications that play. See `docs/design/people-slots.md`.
 - A menu bar in the GUI: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window Device, the theme,
   the zoom) and Help (the documentation).
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.

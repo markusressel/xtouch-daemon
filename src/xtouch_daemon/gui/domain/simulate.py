@@ -10,7 +10,7 @@ from xtouch_daemon.config.slots import SlotsSetup
 from xtouch_daemon.gui.domain.looks import DARK, StripFace, StripLook
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import SlotsState, SlotView, StateView
-from xtouch_daemon.slots.model import AUTO, DEFAULT
+from xtouch_daemon.slots.model import AUTO, BUILT_IN, DEFAULT
 from xtouch_daemon.slots.outcomes import Outcome, dimensions, simulate, states_for
 
 SIMULATED = "what if"
@@ -23,12 +23,22 @@ class WhatIf:
     on: frozenset[str] = field(default_factory=frozenset[str])
     """The states that are on."""
     flipped: frozenset[str] = field(default_factory=frozenset[str])
-    """The channels and pools that are absent; `auto`: an application plays."""
+    """The channels and pools that are absent; the built-in pools: present (`auto`: an application plays)."""
+    people: int = 0
+    """The people in the voice chat (a call)."""
+    apps: int = 0
+    """The applications that play."""
 
     @classmethod
     def of(cls, outcome: Outcome) -> WhatIf:
         """The what-if of a row of the grid."""
         return cls(outcome.mode, frozenset(outcome.on), frozenset(outcome.flipped))
+
+    def counted(self, people: int | None = None, apps: int | None = None) -> WhatIf:
+        """With so many people in the call, or applications that play."""
+        return dataclasses.replace(
+            self, people=self.people if people is None else people, apps=self.apps if apps is None else apps
+        )
 
     def toggled(self, name: str, flip: bool) -> WhatIf:
         """With the state `name` (or, with `flip`, the presence of the channel or pool) the other way."""
@@ -52,14 +62,16 @@ class Inputs:
 
 
 def presence_text(name: str) -> str:
-    """`auto` is empty unless flipped, other channels present: the button says what flipping does."""
-    return f"{name} plays" if name == AUTO else f"{name} absent"
+    """The built-in pools are empty unless flipped, the channels present: the button says what flipping does."""
+    if name == AUTO:
+        return f"{name} plays"
+    return f"{name} fill" if name in BUILT_IN else f"{name} absent"
 
 
 def simulated(setup: SlotsSetup, what_if: WhatIf) -> SlotsState:
     """The slots and states as the live view would tell them in the what-if."""
     scene = setup.scene
-    result = simulate(scene, what_if.mode, what_if.on, what_if.flipped)
+    result = simulate(scene, what_if.mode, what_if.on, what_if.flipped, what_if.people, what_if.apps)
     views = tuple(
         SlotView(
             slot,
@@ -80,12 +92,16 @@ def simulated(setup: SlotsSetup, what_if: WhatIf) -> SlotsState:
 
 
 def simulated_faces(setup: SlotsSetup, slots: SlotsState) -> tuple[StripFace, ...]:
-    """The strips with the label and color of what each slot would show, dark for nothing."""
+    """
+    The strips with the label and color of what each slot would show, dark for nothing; an application or a person
+    with their name.
+    """
     faces: list[StripFace] = []
     for view in slots.slots[: protocol.STRIPS]:
         name = view.channel or view.pool or "-"
         strip = setup.strips.get((view.slot, view.candidate or 0, view.channel))
-        label = getattr(strip, "label", None) or name
+        member = view.member if view.channel is None else None
+        label = member or getattr(strip, "label", None) or name
         color = getattr(strip, "color", "white") if name != "-" else "off"
         state = dataclasses.replace(DARK, color=color, text=(label[: protocol.LCD_CELL_WIDTH], SIMULATED[:7]))
         look = StripLook("slot", label, f"Would show {name}", color, printed=name)

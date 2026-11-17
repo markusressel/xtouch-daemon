@@ -16,7 +16,7 @@ from xtouch_daemon.config.files import default_config_path, example_config
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
-from xtouch_daemon.slots.outcomes import outcomes, table
+from xtouch_daemon.slots.outcomes import notes, outcomes, table
 
 
 def describe_strip(config: StripConfig, name: str, meter_point: MeterPoint = "pre_fader") -> str:
@@ -85,6 +85,10 @@ def check_config(config_path: Path | None) -> None:
         click.echo(f"  {name}: {describe_strip(strip, name, meter_point)}")
     click.echo("What the slots show:")
     click.echo(table(outcomes(setup.scene)))
+    if found := notes(setup.scene):
+        click.echo("Notes:")
+        for note in found:
+            click.echo(f"  {note}")
 
 
 @click.command("init-config")

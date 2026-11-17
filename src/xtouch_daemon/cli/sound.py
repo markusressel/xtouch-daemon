@@ -13,7 +13,7 @@ from xtouch_daemon.audio.pulse import SoundServerError, read_state
 from xtouch_daemon.cli.options import CONFIG_OPTION, load_or_fail
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.model import Config
-from xtouch_daemon.slots.model import AUTO
+from xtouch_daemon.slots.model import APPS, AUTO
 
 
 def _audio_state() -> AudioState:
@@ -48,17 +48,20 @@ def list_devices() -> None:
 
 
 def strip_for(app_matches: Any, config: Config) -> str:
-    """Where an application goes: the `apps` channel that has it, `auto` (unless it is excluded), or nowhere."""
+    """Where an application goes: the `apps` channel that has it, `apps` or `auto` (unless excluded), or nowhere."""
     scene = config.slots.scene
     for name, channel in scene.channels.items():
         if channel.type == "apps" and app_matches(channel.streams):
             label = getattr(config.slots.channels.get(name), "label", None)
             return f"channel {name}" + (f" ({label})" if label else "")
-    excluded = presets.expand(scene.pools[AUTO].exclude, presets.Kind.STREAMS)
+    excluded = presets.expand(scene.apps.exclude, presets.Kind.STREAMS)
     if any(app_matches((pattern,)) for pattern in excluded):
         return "ignored"
-    if any(candidate.show == AUTO for stack in scene.stacks.values() for candidate in stack):
+    shown = {candidate.show for stack in scene.stacks.values() for candidate in stack}
+    if AUTO in shown:
         return "an auto slot"
+    if APPS in shown:
+        return "an apps slot"
     return "no slot"
 
 

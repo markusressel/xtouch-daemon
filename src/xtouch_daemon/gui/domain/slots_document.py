@@ -142,8 +142,10 @@ class SlotsDocument:
         else:
             parent.pop(key, None)
         # a section with options of its own stays (an optional one like [mqtt] is there or not, see
-        # `remove_section()`); an emptied channel, state or [state] goes
-        if len(path) > 1 and not parent and (len(path) > 2 or path[0] not in SECTIONS):
+        # `remove_section()`), and so does a state without options (on only by an override, or one being set up:
+        # Add makes one empty); an emptied channel or [state] goes
+        named_state = len(path) == 3 and path[0] == "state"
+        if len(path) > 1 and not parent and not named_state and (len(path) > 2 or path[0] not in SECTIONS):
             self.unset(path[:-1])
 
     def rename(self, path: OptionPath, new: str) -> None:

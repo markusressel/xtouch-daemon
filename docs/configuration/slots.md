@@ -40,16 +40,19 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 2 = ["voip if call", "auto"]                # the voice chat in a call, else the next application
 3 = ["game if gaming", "-"]                 # the game in the mode gaming, else dark
 4 = [{ show = "auto", color = "blue" }]     # options of the place
+5 = ["people", "apps"]                      # a person of the voice chat, else the next application
 ```
 
 - A slot shows the first candidate whose condition (after `if`) holds. Conditions name states and modes, with
   `and`, `or`, `not`, parentheses and `present` (the channel has something to control); see
   [Conditions](#conditions).
 - `auto` is the next application that plays and has no channel of its own, and the people of the voice chat (from
-  the right). A slot without an entry is `auto`, and so is a stack whose candidates all don't hold.
+  the right). `apps` and `people` are each of them alone. A slot without an entry is `auto`, and so is a stack whose
+  candidates all don't hold.
 - `-` is nothing: the slot is dark.
 - The table form `{ show = ..., when = ..., ... }` takes options of the look at this place (`label`, `color`,
-  `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`); on `auto` also `encoder`, `min_volume` and `max_volume`.
+  `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`); on `apps` and `auto` also `encoder`, `min_volume` and
+  `max_volume`; on `people` only `color`, `meter` and `meter_point`.
 - The GUI's page Slots simulates other modes and states (Simulate) and lists every combination that shows
   something else (Grid), like the table of `check-config`.
 - `xtouch-daemon why 2` says why slot 2 shows what it shows, `xtouch-daemon why voip` where the channel is and
@@ -57,10 +60,13 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
   `switching.banner` seconds.
 
-`auto` and the people are on the [People](people.md) page as well. `[pool.auto]` has `hold` (seconds a slot keeps an
-application after it stopped playing, 5 by default) and `exclude` (applications it never takes, by default
-`speech-dispatcher`, the voice of screen readers); `[people]` the look of the strips of people (`color`,
-`talking_color`, ...).
+Three pools are built in: `apps` (applications, see [Applications](applications.md#apps-and-auto)), `people` (the
+people of the voice chat, see [People](people.md#where-people-sit)) and `auto` (both). `[pool.apps]` has `from`,
+`hold` and `exclude`, `[pool.people]` `from`, `order` and the look of the strips of people, `[pool.auto]` the look of
+the applications on its slots.
+
+A pool that has no member for a slot hands it to the pool (or `-`) right below it: `["people", "apps"]` is a person,
+else an application. A slot that two pools could fill goes to the one higher in its stack.
 
 ## States and modes
 
@@ -112,14 +118,15 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 
 - `not` binds closest, then `and`, then `or`: `not call and gaming or present` is `((not call) and gaming) or
   present`. Parentheses say otherwise.
-- The words are lowercase, names are those of the file (`[state.<name>]`, `[channel.<name>]`, `[pool.<name>]`, and
-  `auto`).
-- A candidate without a condition always holds; below it, the others are never reached.
+- The words are lowercase, names are those of the file (`[state.<name>]`, `[channel.<name>]`, `[pool.<name>]`), and
+  `apps`, `people` and `auto`.
+- A candidate without a condition always holds; below it, the others are never reached, except pools and `-` below
+  a pool: they get the slots it has no member for.
 - Present means it has something to control: an `apps` channel while its application plays, an `output` or `input`
   channel while one of its `devices` is there (always without `devices`), a `person` channel while the person is in
   the voice chat, a `homeassistant` channel always. A channel stays present `absent_after` seconds (3 by default)
-  after that ended. `auto` is present while an application it may take plays or someone is in the voice chat,
-  another pool while one of its channels is present.
+  after that ended. `apps` is present while an application it may take plays, `people` while someone is in the
+  voice chat, `auto` while either is, another pool while one of its channels is present.
 - `present` is only for candidates of slots: a state takes channels with its `channels` source, and controls apply
   whatever the slot shows.
 - `check-config` and the GUI name the mistakes: an unknown state, mode, channel or pool, a word where none fits, a

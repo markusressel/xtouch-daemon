@@ -66,6 +66,8 @@ class OptionRow(QWidget):
         self._put = put
         self._placeholder = placeholder
         self._loading = False
+        self.resettable = True
+        """Shows the button back to the default while a value is set; off where the page removes it another way."""
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, Space.XS, 0, Space.XS)
         outer.setSpacing(Space.XS)
@@ -273,7 +275,7 @@ class OptionRow(QWidget):
                     assert_never(unreachable)
         finally:
             self._loading = False
-        self.reset.setVisible(value is not None and not self.option.required)
+        self.reset.setVisible(self.resettable and value is not None and not self.option.required)
 
     def _edit(self, value: Any) -> None:
         if self._loading:
@@ -282,7 +284,7 @@ class OptionRow(QWidget):
             # an empty text or list is none: the default applies (or the option is missing, if it is required)
             value = None
         self._put(value)
-        self.reset.setVisible(value is not None and not self.option.required)
+        self.reset.setVisible(self.resettable and value is not None and not self.option.required)
         if self.option.kind == Kind.CHOICE:
             self._show_meaning()
         self.edited.emit()

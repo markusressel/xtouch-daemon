@@ -19,6 +19,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import EmptyStripConfig, StripConfig
 from xtouch_daemon.config.values import EncoderMode, default_encoder
+from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.hardware.strip import Claimable, VirtualStrip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.mqtt import MqttBridge
@@ -245,12 +246,15 @@ class SlotMixer:
 
     def _dress(self, controller: StripController, key: Key, slot: int, candidate: int | None) -> None:
         """
-        The look of the place the controller is on now, and its encoder and volume range. People on slots of `auto`
-        keep the look of `[people]`.
+        The look of the place the controller is on now, and its encoder and volume range. People look as their place
+        of `people` says, and on slots of `auto` as `[pool.people]` says.
         """
-        if candidate is None or key[0] in ("empty", "person"):
+        if candidate is None or key[0] == "empty":
             return
         place = self.setup.strips[(slot, candidate, key[1] if key[0] == "channel" else None)]
+        if key[0] == "person":
+            controller.set_look(self._look(place if isinstance(place, VoipStripConfig) else self.setup.person(key[1])))
+            return
         controller.set_look(self._look(place))
         if isinstance(controller, AutoStrip):
             controller.slot = self.engine.slot(slot - 1)

@@ -23,7 +23,7 @@ processes = ["@steam-games"]    # while any game from Steam runs
 Presets work in:
 
 - `match` of [`apps` channels](applications.md#apps-channels), `apps` of [states](slots.md#states-and-modes) and
-  `exclude` of [`[pool.auto]`](applications.md#auto): they match the names and binaries of the applications' streams.
+  `exclude` of [`[pool.apps]`](applications.md#apps-and-auto): they match the names and binaries of the applications' streams.
 - `processes` of [states](slots.md#states-and-modes): they match the names of processes.
 
 A preset stands for different names in each: e.g. `@steam-games` is the streams of Windows games (`.exe`) in

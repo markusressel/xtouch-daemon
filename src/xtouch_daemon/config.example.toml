@@ -5,8 +5,9 @@
 #
 # A channel is something a strip controls (a device, a group of applications, a person, Home Assistant); a slot is
 # a strip of the device, and shows the first of its candidates whose condition holds; a state (in a call, gaming)
-# is what those conditions ask about. Slots without candidates show `auto`: the next application that plays, and
-# the people of the voice chat (from the right).
+# is what those conditions ask about. Slots without candidates show `auto`: the people of the voice chat (from the
+# right) and the applications that play (from the left). `people` and `apps` are the two on their own, e.g.
+# 6 = ["people", "apps"]: a person, else an application.
 
 [channel.out]
 type = "output"             # the default output
@@ -30,3 +31,7 @@ type = "input"              # the default input
 # [state.gaming]             # a mode: while a game from Steam runs
 # mode = true
 # processes = ["@steam-games"]
+#
+# [pool.people]              # the people of the voice chat
+# from = "right"             # the side they fill their slots from; [pool.apps] has one for the applications
+# order = ["Alice"]          # who sits first; the others in the order they were first seen

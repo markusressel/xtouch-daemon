@@ -23,8 +23,8 @@ The [GUI](../gui.md) edits the same options in a window and shows the same error
 | `[slots]` | What each strip of the device (a slot) shows, and when. | [Channels, states and slots](slots.md#slots) |
 | `[state.<id>]` | States and modes (in a call, gaming) that the slots ask about. | [Channels, states and slots](slots.md#states-and-modes) |
 | `[controls]` | Actions of the buttons, fader or encoder of a slot, whatever it shows. | [Channels, states and slots](slots.md#controls-and-the-chord) |
-| `[pool.auto]` | How `auto` takes the next application that plays. | [Applications](applications.md#auto) |
-| `[people]`, `[voip]` | The people of the voice chat. | [People](people.md) |
+| `[pool.apps]`, `[pool.auto]` | How `apps` and `auto` take the next application that plays. | [Applications](applications.md#apps-and-auto) |
+| `[pool.people]`, `[voip]` | The people of the voice chat, and where they sit. | [People](people.md) |
 | `[device]` | Which sound card is the extender. | [Behavior](behavior.md#device) |
 | `[behavior]` | Volume limit, encoder step, reset volume, meters. | [Behavior](behavior.md#behavior) |
 | `[aliases]` | Names to show for applications on `auto` slots. | [Behavior](behavior.md#aliases) |
@@ -40,8 +40,9 @@ The channel types:
 | `person` | Someone of the voice chat. | [People](people.md#strips-for-one-person) |
 | `homeassistant` | Nothing by itself: its parts are entities in Home Assistant. | [Home Assistant](../home-assistant.md) |
 
-In a slot, `auto` is the next application that plays and has no channel of its own ([Applications](applications.md#auto)),
-`-` a dark strip ([Channels](strips.md#empty-slots)).
+In a slot, `apps` is the next application that plays and has no channel of its own
+([Applications](applications.md#apps-and-auto)), `people` the next person of the voice chat
+([People](people.md#where-people-sit)), `auto` either, and `-` a dark strip ([Channels](strips.md#empty-slots)).
 
 ## Applying changes
 
@@ -99,7 +100,7 @@ match = ["@games"]
 label = "Game"
 color = "magenta"
 
-[pool.auto]
+[pool.apps]
 exclude = ["speech-dispatcher", "notification"]
 
 [state.gaming]

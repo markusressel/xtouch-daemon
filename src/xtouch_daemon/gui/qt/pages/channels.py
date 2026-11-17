@@ -15,7 +15,7 @@ from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
-from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, channel_options, people_options, pool_options, uses
+from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, channel_options, pool_options, uses
 from xtouch_daemon.gui.domain.demos import GROUPS, PREVIEWED, Part, Strip, group_of, scene
 from xtouch_daemon.gui.domain.schema import Option
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
@@ -30,9 +30,13 @@ from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Snapshot
+from xtouch_daemon.slots.model import BUILT_IN
 
+APPS = ("pool", "apps")
+PEOPLE = ("pool", "people")
 AUTO = ("pool", "auto")
-PEOPLE = ("people",)
+POOLS = tuple(("pool", name) for name, *_ in BUILT_IN_POOLS)
+"""The built-in pools: their options and look."""
 _ID = re.compile(r"[a-z0-9_]+")
 
 
@@ -40,8 +44,8 @@ class ChannelsPage(Page):
     def __init__(self, editor: Editor, audio: Audio, snapshot: Callable[[], Snapshot | None]):
         super().__init__(editor, audio)
         self.snapshot = snapshot
-        self.selection: OptionPath = AUTO
-        """What the form shows: `("channel", <id>)`, `AUTO` or `PEOPLE`."""
+        self.selection: OptionPath = POOLS[0]
+        """What the form shows: `("channel", <id>)` or a built-in pool (`("pool", <id>)`)."""
         header = QHBoxLayout()
         header.addWidget(label("Channels", "section"))
         header.addStretch()
@@ -110,15 +114,16 @@ class ChannelsPage(Page):
         """The strip type of each form."""
         for kind in CHANNEL_TYPES:
             self._form(kind, channel_options(kind), lambda name: (*self.selection, name), kind)
-        self._form("auto", pool_options(), lambda name: (*AUTO, name), "auto")
-        self._form("people", people_options(), lambda name: (*PEOPLE, name), "voip")
+        for pool, *_ in BUILT_IN_POOLS:
+            strip = "voip" if pool == "people" else "auto"
+            self._form(f"pool.{pool}", pool_options(pool), lambda name, pool=pool: ("pool", pool, name), strip)
         self._show()
 
     # -- building -------------------------------------------------------------------------------------------------
 
     def _form(self, key: str, form_options: tuple[Option, ...], path: Callable[[str], OptionPath], strip: str) -> None:
         """
-        The form of a type of channel (or of auto or people): a card per group of its options, in the order of the
+        The form of a type of channel (or of a built-in pool): a card per group of its options, in the order of the
         device, those about a part of the strip with a preview of what they do there.
         """
         form = QWidget()
@@ -200,10 +205,8 @@ class ChannelsPage(Page):
         return self.form_rows[self._form_key()]
 
     def _form_key(self) -> str:
-        if self.selection == AUTO:
-            return "auto"
-        if self.selection == PEOPLE:
-            return "people"
+        if self.selection in POOLS:
+            return f"pool.{self.selection[1]}"
         return str(self.document.get((*self.selection, "type"), "apps"))
 
     @property
@@ -226,13 +229,13 @@ class ChannelsPage(Page):
             preview.play(scene(part, strip))
 
     def select(self, selection: OptionPath) -> None:
-        """Shows a channel (`("channel", <id>)`), `AUTO` or `PEOPLE`."""
+        """Shows a channel (`("channel", <id>)`) or a built-in pool (`("pool", <id>)`)."""
         self.selection = selection
         self._show()
 
     def _show(self) -> None:
-        if self.selection not in (AUTO, PEOPLE) and self.selection[1] not in self.channels:
-            self.selection = AUTO
+        if self.selection not in POOLS and self.selection[1] not in self.channels:
+            self.selection = POOLS[0]
         self._show_list()
         key = self._form_key()
         is_channel = self.selection[0] == "channel"
@@ -241,21 +244,20 @@ class ChannelsPage(Page):
             set_text(self.title, kind.title)
             self.id_edit.setText(str(self.selection[1]))
         else:
-            set_text(self.title, "Auto: [pool.auto]" if key == "auto" else "People: [people]")
+            title = next(title for name, title, *_ in BUILT_IN_POOLS if name == self.selection[1])
+            set_text(self.title, f"{title}: [pool.{self.selection[1]}]")
         self.id_edit.setVisible(is_channel)
         self.duplicate_button.setEnabled(is_channel)
         self.remove_button.setEnabled(is_channel)
-        name = "auto" if key == "auto" else str(self.selection[-1])
-        where = uses(self.document.values, name) if key != "people" else ()
+        where = uses(self.document.values, str(self.selection[-1]))
         set_text(self.used, f"Used by: {', '.join(where)}" if where else "Not used by a slot, pool or state yet.")
-        self.used.setVisible(key != "people")
         self.forms.show_part(self.form_widgets[key])
         self._load_rows(self.rows)
         self._show_previews()
         self.show_problems(self.editor.validation)
 
     def _show_list(self) -> None:
-        """One line per channel, then auto and people; the selected one stays selected."""
+        """One line per channel, then the built-in pools; the selected one stays selected."""
         entries: list[tuple[OptionPath, str, str, str]] = []
         for name, channel in self.channels.items():
             kind = CHANNEL_TYPES.get(str(channel.get("type")))
@@ -263,8 +265,8 @@ class ChannelsPage(Page):
             where = ", ".join(uses(self.document.values, name)) or "not used"
             text = f"{channel.get('label') or name}  ·  {name}" + (f"  [{tags}]" if tags else "") + f"\n{where}"
             entries.append((("channel", name), text, kind.icon if kind else "help", kind.title if kind else "?"))
-        entries.append((AUTO, "Auto\nthe next application, and the people", "auto-fix", "[pool.auto]"))
-        entries.append((PEOPLE, "People\nthe look and order of the people", "account-group", "[people]"))
+        for pool, title, icon_name, what in BUILT_IN_POOLS:
+            entries.append((("pool", pool), f"{title}\n{what}", icon_name, f"[pool.{pool}]"))
         entries = [
             (path, text + "  ⚠" if self.editor.validation.at(*path) else text, icon_name, tip)
             for path, text, icon_name, tip in entries
@@ -319,7 +321,7 @@ class ChannelsPage(Page):
         new = self.id_edit.text()
         if new == name:
             return
-        if not _ID.fullmatch(new) or new in self.channels or new in ("auto", "people"):
+        if not _ID.fullmatch(new) or new in self.channels or new in BUILT_IN:
             set_role(self.id_edit, True, "problem")
             self.id_edit.setToolTip(f"{new!r} can't be the id: lowercase letters, digits and _, and not taken")
             return

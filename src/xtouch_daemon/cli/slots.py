@@ -12,7 +12,7 @@ import click
 from xtouch_daemon.audio.pulse import SoundServerError, read_state
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.slots.inputs import Attendee, Observation
-from xtouch_daemon.slots.model import AUTO, DEFAULT, PEOPLE, Scene
+from xtouch_daemon.slots.model import BUILT_IN, DEFAULT, Scene
 from xtouch_daemon.slots.outcomes import outcomes, states_for, table
 from xtouch_daemon.slots.recording import (
     only_watched,
@@ -76,19 +76,20 @@ def simulate(
             hint = ", a mode goes to --mode" if name in scene.modes else ""
             raise click.ClickException(f"--state {name}: no state of {file}{hint}")
     for name in absent:
-        if name not in scene.channels and (name not in scene.pools or name in (AUTO, PEOPLE)):
-            hint = ", use --playing or --person" if name in (AUTO, PEOPLE) else ""
+        if name not in scene.channels and (name not in scene.pools or name in BUILT_IN):
+            hint = ", use --playing or --person" if name in BUILT_IN else ""
             raise click.ClickException(f"--absent {name}: no channel or pool of channels of {file}{hint}")
     values = states_for(scene, mode, states)
-    gone = {
-        channel
-        for name in absent
-        for channel in scene.members_of(scene.pools[name].channels if name in scene.pools else (name,))
-    }
+    gone = {channel for name in absent for channel in (scene.channels_of(name) if name in scene.pools else (name,))}
     present = frozenset(name for name in scene.channels if name not in gone)
     result = resolve(
         scene,
-        Inputs(values, present, Observation(playing=playing, people=tuple(Attendee(name, name) for name in people))),
+        Inputs(
+            values,
+            present,
+            Observation(playing=playing, people=tuple(Attendee(name, name) for name in people)),
+            order=people,
+        ),
     )
     for slot, shown in result.slots.items():
         click.echo(f"{slot}  {shown}")

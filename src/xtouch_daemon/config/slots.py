@@ -15,17 +15,18 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
-from xtouch_daemon.slots.model import AUTO, PEOPLE, Scene
+from xtouch_daemon.slots.model import APPS, AUTO, MEMBER_OPTIONS, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS
 
 SECTIONS = ("channel", "pool", "people", "state", "slots", "controls")
-"""The sections of the format of channels, states and slots; a file with one of them is in that format."""
-CHANNEL_ONLY = frozenset({"tags", "in_auto", "absent_after"})
+"""
+The sections of the format of channels, states and slots; a file with one of them is in that format. `[people]` is
+`[pool.people]` now: `Scene.of()` says so.
+"""
+CHANNEL_ONLY = frozenset({"tags", "in_pool", "absent_after"})
 """Options of a channel that are about slots, not about its strip."""
-POOL_ONLY = frozenset({"channels", "exclude", "hold"})
-"""Options of a pool that are about its members, not about its strips."""
-PEOPLE_ONLY = frozenset({"order"})
-"""Options of `[people]` that are not about their strips."""
+POOL_ONLY = MEMBER_OPTIONS
+"""Options of a pool that are about its members and slots, not about its strips."""
 EMPTY = "-"
 
 _STRIP = TypeAdapter[StripConfig](StripConfig)
@@ -41,7 +42,7 @@ class SlotsSetup:
     strips: Mapping[tuple[int, int, str | None], StripConfig]
     """By slot, candidate and channel (None for a pool of applications, and for `-`)."""
     people: Mapping[str, Any] = field(default_factory=dict)
-    """The look of the strips of people (the options of `[people]`)."""
+    """The look of the strips of people (the options of `[pool.people]`)."""
     channels: Mapping[str, StripConfig] = field(default_factory=dict)
     """The strip of each channel on its own (its look where a candidate adds none)."""
 
@@ -112,8 +113,11 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 add((slot, index, candidate.show), where, channel_strip(candidate.show) | own)
             else:
                 look = {key: value for key, value in pools.get(candidate.show, {}).items() if key not in POOL_ONLY}
-                if candidate.show == AUTO:
+                if candidate.show in (APPS, AUTO):
                     add((slot, index, None), where, {"type": "auto"} | look | own)
+                elif candidate.show == PEOPLE:
+                    # the people on its slots: the look of [pool.people] and of the place (their names are theirs)
+                    add((slot, index, None), where, {"type": "voip"} | look | own | {"person": "someone"})
                 else:
                     add((slot, index, None), where, {"type": "empty"})
                 # a pool hands out channels: `auto` the apps channels without a slot, the others their own; a channel
@@ -121,16 +125,16 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 # options of the place are for applications without a channel)
                 members = (
                     [name for name, channel in scene.channels.items() if channel.type == "apps"]
-                    if candidate.show == AUTO
-                    else scene.members_of(scene.pools[candidate.show].channels)
+                    if candidate.show in (APPS, AUTO)
+                    else scene.channels_of(candidate.show)
                 )
                 for member in members:
                     add((slot, index, member), f"{where} ({member})", look | channel_strip(member))
-                if candidate.show == AUTO:
-                    # the person channels that share its slots, as themselves
+                if candidate.show in (PEOPLE, AUTO):
+                    # the person channels among the people, as themselves
                     for member in (name for name, channel in scene.channels.items() if channel.type == "person"):
                         add((slot, index, member), f"{where} ({member})", channel_strip(member))
-    # the volume ranges: of each channel, and of the places of auto (the only ones with a range of their own)
+    # the volume ranges: of each channel, and of the places of apps and auto (the only ones with a range of their own)
     ranged = [(f"channel.{name}", strip) for name, strip in own_strips.items()]
     ranged += [(f"slots.{slot}[{index}]", strip) for (slot, index, member), strip in strips.items() if member is None]
     for where, strip in ranged:
@@ -139,8 +143,8 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 if bottom >= top:
                     place = f"{where}.{part}" if part else where
                     problems.append(f"{place}: min_volume ({bottom}) is not below max_volume ({top})")
-    people = {key: value for key, value in data.get(PEOPLE, {}).items() if key not in PEOPLE_ONLY}
-    check("people", {"type": "voip"} | people | {"person": "someone"})
+    people = {key: value for key, value in pools.get(PEOPLE, {}).items() if key not in POOL_ONLY}
+    check("pool.people", {"type": "voip"} | people | {"person": "someone"})
     if config.mqtt is None:
         for name, strip in own_strips.items():
             if isinstance(strip, HomeAssistantStripConfig) or (
@@ -154,7 +158,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                     problems.append(f"{where}: Home Assistant needs an [mqtt] section")
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))
-    # people share the slots of auto in every configuration: the section has defaults for everything
+    # the people are members of auto in every configuration: the section has defaults for everything
     result = config.model_copy(update={"voip": config.voip or VoipConfig()})
     channel_strips = {name: strip for name, strip in own_strips.items() if strip is not None}
     result._slots = SlotsSetup(scene, data, strips, people, channel_strips)

@@ -6,15 +6,16 @@ the controls of the slot.
 """
 
 import dataclasses
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Mapping
+from typing import Any, Literal
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QDropEvent, QKeyEvent, QKeySequence, QShortcut
+from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QDropEvent, QKeyEvent, QKeySequence, QPainter, QPaintEvent, QPen, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QHeaderView,
     QListWidget,
@@ -22,6 +23,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QPushButton,
     QScrollArea,
+    QSpinBox,
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
@@ -41,7 +43,11 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     Row,
     choices,
     controls_text,
+    hands_down,
     place_options,
+    pool_text,
+    readable,
+    reasons,
     rows,
     stack_value,
     targets,
@@ -53,12 +59,12 @@ from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, entity_label, flat_b
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
-from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
-from xtouch_daemon.slots.model import AUTO, DEFAULT
+from xtouch_daemon.slots.model import APPS, AUTO, DEFAULT, PEOPLE
 from xtouch_daemon.slots.outcomes import Outcome, outcomes
 from xtouch_daemon.slots.why import why_channel, why_slot
 
@@ -100,12 +106,98 @@ class StackList(QListWidget):
         self.reordered.emit(self.order(), self.currentRow())
 
 
-def chip(text: str) -> QWidget:
-    """A part of a condition, a chip of a state; `always` is no condition, so it is a hint."""
-    return label(text, "hint") if text == ALWAYS else entity_label(text, Entity.STATE, chip=True)
+type RowState = Literal["", "shown", "passed", "unreached"]
+"""Where a candidate is against the one the device shows: it, above it (did not win), below it (not reached); "" while
+nothing tells."""
+
+RAIL = 24
+"""The width of the rail on the left of a card: a line through its candidates, with a node on each."""
+DIMMED = {"passed": 0.55, "unreached": 0.4}
+"""How much of a rule shows above the candidate shown and below it."""
 
 
-SHOWS_HELP = "What the slot shows while this candidate wins: a channel, a pool such as `auto`, or `-` for a dark strip."
+class CandidateRow(QWidget):
+    """
+    A candidate on the rail of its card, which joins the candidates from the top: `else` between two, a node on each
+    (green on the one the device shows), its number and its rule (`rule`, filled by the page). Above the one shown its
+    rule is dimmed, with why it did not win under it; below it, dimmed more: not reached.
+    """
+
+    def __init__(self, index: int, count: int, state: RowState, reason: str):
+        super().__init__()
+        self.first = index == 0
+        self.last = index == count - 1
+        self.state = state
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(RAIL, 0, Space.S, Space.XS if self.last else 0)
+        outer.setSpacing(0)
+        if not self.first:
+            # the band of `else` on the rail, painted by `paintEvent`
+            outer.addSpacing(self.fontMetrics().height() + 2 * Space.XS)
+        self.line = QWidget()
+        self.rule = QHBoxLayout(self.line)
+        self.rule.setContentsMargins(0, Space.XS if self.first else 0, 0, 0)
+        self.rule.setSpacing(Space.S)
+        number = label(str(index + 1), "hint")
+        number.setFixedWidth(Space.M)
+        self.rule.addWidget(number)
+        outer.addWidget(self.line)
+        if state in DIMMED:
+            effect = QGraphicsOpacityEffect(self.line)
+            effect.setOpacity(DIMMED[state])
+            self.line.setGraphicsEffect(effect)
+        if reason:
+            why = label(f"✗ {reason}", "hint")
+            why.setContentsMargins(Space.M + Space.S, 0, 0, 0)
+            outer.addWidget(why)
+        if state == "shown":
+            self.setToolTip("The device shows this one now")
+        elif state == "unreached":
+            self.setToolTip("Not reached: a candidate above it is shown")
+
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
+        colors = current_colors()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        x = RAIL / 2
+        node = self.line.geometry().center().y()
+        painter.setPen(QPen(QColor(colors.control_border), 2))
+        painter.drawLine(
+            QPointF(x, 0 if not self.first else node), QPointF(x, self.height() if not self.last else node)
+        )
+        if self.state == "shown":
+            painter.setPen(QPen(QColor(colors.tone_good), 2))
+            painter.setBrush(QColor(colors.tone_good))
+        else:
+            painter.setPen(QPen(QColor(colors.text_muted if self.state == "passed" else colors.control_border), 2))
+            painter.setBrush(QColor(colors.raised))
+        painter.drawEllipse(QPointF(x, node), 5, 5)
+        if not self.first:
+            painter.setPen(QColor(colors.text_muted))
+            band = QRectF(RAIL, 0, self.width() - RAIL, self.fontMetrics().height() + 2 * Space.XS)
+            painter.drawText(band, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "else")
+
+
+def chip(text: str, show: str, values: Mapping[str, Any]) -> QWidget:
+    """
+    A part of a condition as an outlined chip: in words (`present` says what has to be present, see `readable`), in
+    the color of a channel when it asks only about presence, else of a state; `always` is no condition, so it is a
+    hint.
+    """
+    if text == ALWAYS:
+        return label(text, "hint")
+    words, presence = readable(text, show, values)
+    widget = entity_label(words, Entity.CHANNEL if presence else Entity.STATE, chip=True)
+    # outlined: a condition, apart from the filled chip of what the slot shows
+    set_role(widget, "outline", "variant")
+    widget.setToolTip(f"In the file: {text}")
+    return widget
+
+
+SHOWS_HELP = (
+    "What the slot shows while this candidate wins: a channel, a pool (`apps`, `people`, `auto`, ...) or `-` for a "
+    "dark strip. A slot the pool has no member for goes to the pool right below."
+)
 """The help under Shows (see Writing help in `AGENTS.md`)."""
 WHEN_HELP = (
     "The slot shows this candidate while the condition holds and no candidate above it does. Empty means always. "
@@ -215,8 +307,8 @@ class SlotsPanel(Page):
         self.middle.addWidget(self.grid)
         self.lists: list[StackList] = []
         self.card_frames: list[QFrame] = []
-        self.card_contents: list[tuple[list[Row], int | None] | None] = [None] * protocol.STRIPS
-        """What each card shows: its candidates and the one the device shows."""
+        self.card_contents: list[tuple[list[Row], int | None, dict[int, str]] | None] = [None] * protocol.STRIPS
+        """What each card shows: its candidates, the one the device shows, and why those above it did not win."""
         for slot in range(1, protocol.STRIPS + 1):
             self._card(slot)
         self.cards.addStretch()
@@ -340,10 +432,11 @@ class SlotsPanel(Page):
             view = live.get(slot)
             candidates = rows(self.document.values, slot)
             shown_candidate = view.candidate if view is not None else None
-            if self.card_contents[slot - 1] != (candidates, shown_candidate):
-                # built again only when a candidate or the dot changed: every build lays out the card again
-                self.card_contents[slot - 1] = (candidates, shown_candidate)
-                self._fill_card(stack, candidates, shown_candidate)
+            why = reasons(candidates, shown_candidate, view.why if view is not None else (), self.document.values)
+            if self.card_contents[slot - 1] != (candidates, shown_candidate, why):
+                # built again only when a candidate, the one shown or a reason changed: every build lays out the card
+                self.card_contents[slot - 1] = (candidates, shown_candidate, why)
+                self._fill_card(stack, candidates, shown_candidate, why)
             if slot == self.slot and self.candidate is not None and self.candidate < stack.count():
                 stack.setCurrentRow(self.candidate)
             elif slot != self.slot:
@@ -353,13 +446,21 @@ class SlotsPanel(Page):
             set_role(self.card_frames[slot - 1], bool(problems), "problem")
             self.card_frames[slot - 1].setToolTip("\n".join(str(problem) for problem in problems))
 
-    def _fill_card(self, stack: StackList, candidates: list[Row], shown: int | None) -> None:
+    def _fill_card(self, stack: StackList, candidates: list[Row], shown: int | None, why: dict[int, str]) -> None:
         stack.clear()
         for index, candidate in enumerate(candidates):
             item = QListWidgetItem()
             item.setData(_INDEX, index)
             stack.addItem(item)
-            stack.setItemWidget(item, self._row_widget(candidate, shown == index, index, len(candidates)))
+            above = candidates[index - 1] if index else None
+            left_over = hands_down(self.document.values, above, candidate)
+            state: RowState = (
+                "" if shown is None else "shown" if index == shown else "passed" if index < shown else "unreached"
+            )
+            widget = self._row_widget(
+                candidate, state, index, len(candidates), self.document.values, left_over, why.get(index, "")
+            )
+            stack.setItemWidget(item, widget)
             item.setSizeHint(stack.itemWidget(item).sizeHint())  # pyright: ignore[reportOptionalMemberAccess]
         if stack.count() == 0:
             item = QListWidgetItem(f"{AUTO} (no entry)")
@@ -369,28 +470,36 @@ class SlotsPanel(Page):
         stack.setFixedHeight(rows_height + 2 * stack.frameWidth() + Space.XS)
 
     @staticmethod
-    def _row_widget(candidate: Row, shown: bool, index: int, count: int) -> QWidget:
+    def _row_widget(
+        candidate: Row,
+        state: RowState,
+        index: int,
+        count: int,
+        values: Mapping[str, Any],
+        left_over: bool = False,
+        reason: str = "",
+    ) -> QWidget:
         """
         A candidate as a rule, read from the top like if, else if, else: `when gaming → auto`, then
-        `otherwise → browser` for the last one without a condition. States and what it shows are chips in their colors
-        (see `Entity`).
+        `otherwise → browser` for the last one without a condition, `left over → auto` below a pool that always holds
+        (`left_over`: it gets the slots that pool has no member for). States and what it shows are chips in their
+        colors (see `Entity`). On the rail of its card (see `CandidateRow`), with why it did not win (`reason`).
         """
-        widget = QWidget()
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(Space.S, Space.XS, Space.S, Space.XS)
-        layout.setSpacing(Space.S)
-        # a lit LED, not ▶: an arrow in front of a row reads as "opens"
-        marker = label("●" if shown else "", "live")
-        marker.setFixedWidth(14)
-        marker.setToolTip("The device shows this one now" if shown else "")
-        layout.addWidget(marker)
-        if candidate.chips == (ALWAYS,):
+        widget = CandidateRow(index, count, state, reason)
+        layout = widget.rule
+        if left_over and candidate.chips == (ALWAYS,):
+            word = label("left over", "hint")
+            word.setToolTip("The slots the pool above has no member for")
+            layout.addWidget(word)
+        elif candidate.chips == (ALWAYS,):
             word = "otherwise" if index == count - 1 and count > 1 else ALWAYS
             layout.addWidget(label(word, "hint"))
         else:
             layout.addWidget(label("when", "hint"))
-            for part in candidate.chips:
-                layout.addWidget(chip(part))
+            for position, part in enumerate(candidate.chips):
+                if position:
+                    layout.addWidget(label("or", "hint"))
+                layout.addWidget(chip(part, candidate.show, values))
         layout.addWidget(label("→", "hint"))
         layout.addWidget(
             label(candidate.show, "hint")
@@ -447,8 +556,22 @@ class SlotsPanel(Page):
             )
             strip = kind.strip if kind else None
         else:
-            set_text(self.channel, "Nothing: the strip is dark." if candidate.show == EMPTY else "")
-            strip = "auto" if candidate.show == AUTO else "voip" if candidate.show != EMPTY else None
+            set_text(
+                self.channel,
+                "Nothing: the strip is dark."
+                if candidate.show == EMPTY
+                else pool_text(self.document.values, candidate.show) + self._channel_why(candidate.show),
+            )
+            # the strips a pool hands out: applications, people, or the channels of a pool of channels
+            strip = (
+                None
+                if candidate.show == EMPTY
+                else "auto"
+                if candidate.show in (APPS, AUTO)
+                else "voip"
+                if candidate.show == PEOPLE
+                else "apps"
+            )
         if strip is not None:
             form, self.place_rows = self._place_form(strip, place_options(candidate.show))
             self.place.show_part(form)
@@ -597,6 +720,18 @@ class SlotsPanel(Page):
             toggle.setChecked(checked)
             toggle.clicked.connect(lambda _=False, name=name, flip=flip: self.simulate(what_if.toggled(name, flip)))
             self.what_if_bar.addWidget(toggle)
+        # members of the pools: a call with so many people, so many applications that play
+        for text, value, tip, counted in (
+            ("people", what_if.people, "The people in the voice chat", lambda n: what_if.counted(people=n)),
+            ("applications", what_if.apps, "The applications that play", lambda n: what_if.counted(apps=n)),
+        ):
+            count = QSpinBox()
+            count.setRange(0, 2 * protocol.STRIPS)
+            count.setValue(value)
+            count.setSuffix(f" {text}")
+            count.setToolTip(tip)
+            count.valueChanged.connect(lambda n, counted=counted: self.simulate(counted(n)))
+            self.what_if_bar.addWidget(count)
 
     def show_grid(self, shown: bool) -> None:
         """The grid of distinct outcomes in place of the cards (or the cards again)."""

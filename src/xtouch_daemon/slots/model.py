@@ -1,7 +1,6 @@
 """
-The configuration of channels, pools, people, states, slots and controls, and its checks: `Scene.of()` reads the
-sections `[channel.*]`, `[pool.*]`, `[people]`, `[state.*]`, `[slots]` and `[controls]` of a file (other sections
-are not its business).
+The configuration of channels, pools, states, slots and controls, and its checks: `Scene.of()` reads the sections
+`[channel.*]`, `[pool.*]`, `[state.*]`, `[slots]` and `[controls]` of a file (other sections are not its business).
 """
 
 import difflib
@@ -12,19 +11,24 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.base import ConfigError, Meanings
 from xtouch_daemon.config.names import Presets
 from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.slots.expressions import RESERVED, Condition, ExpressionError, parse
 
 AUTO = "auto"
+"""The built-in pool of the applications and the people, who share its slots."""
+APPS = "apps"
+"""The built-in pool of the applications that play and have no slot (and `apps` channels without one)."""
 PEOPLE = "people"
-"""The people in the voice chat: no pool and no candidate, they share the slots of `auto`."""
+"""The built-in pool of the people in the voice chat without a slot of their own."""
 DEFAULT = "default"
-BUILT_IN = (AUTO, PEOPLE)
+BUILT_IN = (AUTO, APPS, PEOPLE)
 AUTO_EXCLUDE = ("speech-dispatcher",)
-"""What `auto` never takes unless `[pool.auto] exclude` says otherwise: the voice of screen readers."""
+"""What `apps` and `auto` never take unless `[pool.apps] exclude` says otherwise: the voice of screen readers."""
+MEMBER_OPTIONS = frozenset({"channels", "exclude", "hold", "from", "order"})
+"""Options of pools that are about their members and their slots, not about the look of their strips."""
 
 STATE_DELAY_OFF = 3.0
 """Seconds a state stays on after its sources stopped (`behavior.state_delay_off`)."""
@@ -35,9 +39,11 @@ ABSENT_AFTER = 3.0
 
 LOOK_OPTIONS = frozenset({"label", "color", "lit_when_idle", "rec", "solo", "meter", "meter_point"})
 """Options of a place that change only how a candidate looks there."""
+PEOPLE_LOOK_OPTIONS = frozenset({"color", "meter", "meter_point"})
+"""The options of a place of `people`: the strips of people show their names and have no Rec or Solo of their own."""
 APP_OPTIONS = frozenset({"encoder", "min_volume", "max_volume"})
 """
-Options of an `auto` place for the applications without a channel it shows (an `encoder` that acts on the
+Options of an `apps` or `auto` place for the applications without a channel it shows (an `encoder` that acts on the
 application: `pick`, `media`, `volume`, `balance`); a channel's controls belong to the channel, the controls that
 belong to the slot whatever it shows are in `[controls]`.
 """
@@ -79,14 +85,24 @@ class ChannelConfig(_Open):
     type: Literal["output", "input", "apps", "homeassistant", "person"]
     tags: tuple[str, ...] = ()
     """Words that group channels, for the conditions of slots (`present`) and the pools that take them."""
-    in_auto: bool = True
-    """`auto` hands out this `apps` channel, like an application, while no slot shows it."""
+    in_pool: bool = True
+    """
+    While no slot shows the channel, its pool hands it out: an `apps` channel like an application (`apps`, `auto`),
+    a `person` channel as one of the people (`people`, `auto`).
+    """
     match: Streams = ()
     device: str | tuple[str, ...] | None = None
     choices: tuple[dict[str, Any], ...] = ()
     person: str | tuple[str, ...] | None = None
     absent_after: float | None = None
     """Seconds the channel stays present after it had nothing to control any more; by default 3."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _old_spellings(cls, data: Any) -> Any:
+        if isinstance(data, Mapping) and "in_auto" in data:
+            raise ValueError("in_auto is in_pool now")
+        return data
 
     @model_validator(mode="after")
     def _of_its_type(self) -> ChannelConfig:
@@ -117,32 +133,106 @@ class ChannelConfig(_Open):
         return (self.person,) if isinstance(self.person, str) else self.person
 
 
+Side = Literal["left", "right"]
+"""The side a pool fills its slots from."""
+SIDES = Meanings({"left": "Slot 1 first.", "right": "Slot 8 first."})
+
+
 class PoolConfig(_Open):
+    """`[pool.<id>]`: a pool of channels."""
+
     channels: tuple[str, ...] = ()
-    """The channels the pool hands out, by id or tag. `auto` takes the applications without a channel."""
-    exclude: Streams = ()
-    """
-    Applications the pool never takes. `auto` leaves out `speech-dispatcher` (the voice of screen readers) by
-    default.
-    """
-    hold: float = 5.0
-    """Seconds a slot keeps an application after it stopped playing."""
-
-
-class PeopleConfig(_Open):
-    """`[people]`: the look of their strips (the options of today's `voip` strips) and their order."""
+    """The channels the pool hands out, by id or tag, in this order."""
+    from_: Annotated[Side, SIDES] = Field("left", alias="from")
+    """The side the pool fills its slots from."""
 
     @model_validator(mode="before")
     @classmethod
-    def _not_for_people(cls, data: Any) -> Any:
+    def _of_channels(cls, data: Any) -> Any:
+        _refuse(data, {"exclude": "an option of [pool.apps]", "hold": "an option of [pool.apps]"})
+        _refuse(data, {"order": "an option of [pool.people]"})
+        return data
+
+
+class AppsConfig(_Open):
+    """`[pool.apps]`: the applications that play and have no slot, and the look of their strips."""
+
+    from_: Annotated[Side, SIDES] = Field("left", alias="from")
+    """The side the applications fill their slots from, in `apps` and in `auto`."""
+    exclude: Streams = AUTO_EXCLUDE
+    """Applications that never get a slot of `apps` or `auto`."""
+    hold: float = 5.0
+    """Seconds a slot keeps an application after it stopped playing."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _of_apps(cls, data: Any) -> Any:
+        _refuse(
+            data, {"channels": "apps takes the applications without a channel", "order": "an option of [pool.people]"}
+        )
+        return data
+
+
+class PeopleConfig(_Open):
+    """`[pool.people]`: the people of the voice chat, their order and the look of their strips."""
+
+    from_: Annotated[Side, SIDES] = Field("right", alias="from")
+    """The side the people fill their slots from, in `people` and in `auto`."""
+    order: tuple[str, ...] = ()
+    """
+    The people by name or `person` channel, before the others. Those sit in the order they were first seen.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _of_people(cls, data: Any) -> Any:
         if isinstance(data, Mapping) and ("launch" in data or "launch_when_running" in data):
             raise ValueError("launch: the strips of people have none; a launch is a control of a slot ([controls])")
         if isinstance(data, Mapping) and "label" in data:
             raise ValueError("label: only on a person channel; the strips of people show their names")
+        _refuse(
+            data,
+            {
+                "channels": "people takes the people of the voice chat",
+                "exclude": "an option of [pool.apps]",
+                "hold": "people stay absent_after seconds after they left",
+            },
+        )
         return data
 
-    order: tuple[str, ...] = ()
-    """The order of the people from the right, by name or `person` channel. Then the others, in the order they came."""
+
+class AutoConfig(_Open):
+    """
+    `[pool.auto]`: the look of the strips of the applications on its slots. The people on them look as
+    `[pool.people]` says.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _of_auto(cls, data: Any) -> Any:
+        _refuse(
+            data,
+            {
+                "exclude": "an option of [pool.apps] now",
+                "hold": "an option of [pool.apps] now",
+                "from": "auto fills from the sides of [pool.apps] and [pool.people]",
+                "order": "an option of [pool.people]",
+                "channels": "auto takes the applications and the people",
+            },
+        )
+        return data
+
+
+type Pool = PoolConfig | AppsConfig | PeopleConfig | AutoConfig
+
+
+def _refuse(data: Any, options: Mapping[str, str]) -> None:
+    """Refuses the options of `options` with their reasons, e.g. `hold` in `[pool.people]`."""
+    if not isinstance(data, Mapping):
+        return
+    for name, reason in options.items():
+        if name in data:
+            raise ValueError(f"{name}: {reason}")
 
 
 class Launch(_Section):
@@ -223,8 +313,10 @@ class _File(BaseModel):
     model_config = ConfigDict(extra="ignore", frozen=True)
 
     channel: dict[str, ChannelConfig] = {}
-    pool: dict[str, PoolConfig] = {}
-    people: PeopleConfig = PeopleConfig()
+    pool: dict[str, dict[str, Any]] = {}
+    """Checked by `_parse_pools()`: each built-in pool has options of its own."""
+    people: dict[str, Any] | None = None
+    """Today's `[pool.people]`, refused with a pointer to it."""
     state: dict[str, StateConfig] = {}
     slots: dict[str, str | list[str | dict[str, Any]]] = {}
     controls: dict[str, dict[str, Any] | list[dict[str, Any]]] = {}
@@ -249,8 +341,8 @@ class Scene:
     """The checked configuration: channels, pools and states by id, and a stack per slot (1..8)."""
 
     channels: Mapping[str, ChannelConfig]
-    pools: Mapping[str, PoolConfig]
-    people: PeopleConfig
+    pools: Mapping[str, Pool]
+    """Every pool by id: the built-in ones (`auto`, `apps`, `people`) and the pools of channels."""
     states: Mapping[str, StateConfig]
     stacks: Mapping[int, tuple[Candidate, ...]]
     conditions: Mapping[str, Condition]
@@ -270,14 +362,16 @@ class Scene:
             file = _File.model_validate(data)
         except ValidationError as e:
             raise ConfigError("\n".join(_message(error) for error in e.errors())) from e
-        auto = file.pool.get(AUTO, PoolConfig())
-        if "exclude" not in auto.model_fields_set:
-            auto = auto.model_copy(update={"exclude": AUTO_EXCLUDE})
-        pools = {**file.pool, AUTO: auto}
         problems: list[str] = []
+        if file.people is not None:
+            problems.append(
+                "people: the section is [pool.people] now; the people sit on the slots whose stack names people or auto"
+            )
+        pools = _parse_pools(file.pool, problems)
         _check_ids(file, problems)
         conditions = _parse_conditions(file.state, problems)
         stacks = _parse_stacks(file.slots, file.channel, pools, problems)
+        _check_chains(stacks, pools, problems)
         controls, control_conditions = _parse_controls(file, stacks, problems)
         if chord is not None:
             strips, action = chord
@@ -287,7 +381,7 @@ class Scene:
                     problems.append(
                         f"controls.{slot}.solo: the Solo buttons of the chord can't be claimed (switching.chord)"
                     )
-        scene = cls(file.channel, pools, file.people, file.state, stacks, conditions, controls, control_conditions)
+        scene = cls(file.channel, pools, file.state, stacks, conditions, controls, control_conditions)
         scene._check_references(problems)
         if not problems:
             _check_loops(conditions, problems)
@@ -299,6 +393,29 @@ class Scene:
     def modes(self) -> tuple[str, ...]:
         """The modes in the order of the file, without `default`."""
         return tuple(name for name, state in self.states.items() if state.mode)
+
+    @property
+    def apps(self) -> AppsConfig:
+        pool = self.pools[APPS]
+        assert isinstance(pool, AppsConfig)
+        return pool
+
+    @property
+    def people(self) -> PeopleConfig:
+        pool = self.pools[PEOPLE]
+        assert isinstance(pool, PeopleConfig)
+        return pool
+
+    def channels_of(self, pool: str) -> tuple[str, ...]:
+        """The channels of a pool of channels, in its order; none for the built-in pools."""
+        config = self.pools[pool]
+        return self.members_of(config.channels) if isinstance(config, PoolConfig) else ()
+
+    def side(self, pool: str) -> Literal["left", "right"]:
+        """The side a pool of channels, `apps` or `people` fills its slots from."""
+        config = self.pools[pool]
+        assert not isinstance(config, AutoConfig), "auto fills from the sides of apps and people"
+        return config.from_
 
     def members_of(self, entries: Iterable[str]) -> tuple[str, ...]:
         """The channels of a list of ids and `#tags`, in its order (a tag's in the order of the file)."""
@@ -339,7 +456,11 @@ class Scene:
                 )
             if where.startswith("controls.") and condition.presence:
                 problems.append(f'{where}: "{condition.text}": present is only for candidates of slots')
-        lists = [(f"pool.{name}.channels", pool.channels) for name, pool in self.pools.items()]
+        lists = [
+            (f"pool.{name}.channels", pool.channels)
+            for name, pool in self.pools.items()
+            if isinstance(pool, PoolConfig)
+        ]
         lists += [(f"state.{name}.channels", state.channels) for name, state in self.states.items()]
         for where, entries in lists:
             for entry in entries:
@@ -355,6 +476,23 @@ class Scene:
                     problems.append(f"channel.{name}: {person} is also a person of channel {other}")
 
 
+def _parse_pools(raw: Mapping[str, Mapping[str, Any]], problems: list[str]) -> dict[str, Pool]:
+    """The pools of the file, the built-in ones with their defaults: each built-in pool has options of its own."""
+    pools: dict[str, Pool] = {}
+    models: dict[str, type[Pool]] = {AUTO: AutoConfig, APPS: AppsConfig, PEOPLE: PeopleConfig}
+    for name in (*BUILT_IN, *(name for name in raw if name not in BUILT_IN)):
+        model = models.get(name, PoolConfig)
+        try:
+            pools[name] = model.model_validate(raw.get(name, {}))
+        except ValidationError as e:
+            for error in e.errors():
+                where = ".".join(("pool", name, *(str(part) for part in error["loc"])))
+                problems.append(f"{where}: {error['msg'].removeprefix('Value error, ')}")
+            # still a pool: the slots that show it have no problems of their own
+            pools[name] = model.model_validate({})
+    return pools
+
+
 def _parse_conditions(states: Mapping[str, StateConfig], problems: list[str]) -> dict[str, Condition]:
     conditions: dict[str, Condition] = {}
     for name, state in states.items():
@@ -368,7 +506,7 @@ def _parse_conditions(states: Mapping[str, StateConfig], problems: list[str]) ->
 def _parse_stacks(
     slots: Mapping[str, str | list[str | dict[str, Any]]],
     channels: Mapping[str, ChannelConfig],
-    pools: Mapping[str, PoolConfig],
+    pools: Mapping[str, Pool],
     problems: list[str],
 ) -> dict[int, tuple[Candidate, ...]]:
     stacks: dict[int, tuple[Candidate, ...]] = {}
@@ -396,7 +534,7 @@ def _candidate(
     where: str,
     entry: str | dict[str, Any],
     channels: Mapping[str, ChannelConfig],
-    pools: Mapping[str, PoolConfig],
+    pools: Mapping[str, Pool],
     problems: list[str],
 ) -> Candidate | None:
     if isinstance(entry, str):
@@ -417,15 +555,14 @@ def _candidate(
         if condition is not None and None in condition.presence:
             problems.append(f'{where}: "{condition.text}": present of - (nothing) means nothing')
         return Candidate(None, condition)
-    if show == PEOPLE:
-        problems.append(f"{where}: people is no candidate: the people share the slots of auto (see [people])")
-        return None
     if show not in channels and show not in pools:
         problems.append(f"{where}: {show} is no channel or pool")
         return None
-    allowed = LOOK_OPTIONS | (APP_OPTIONS if show == AUTO else frozenset())
+    allowed = place_options(show)
     for option in sorted(set(options) - allowed):
-        if option in APP_OPTIONS:
+        if show == PEOPLE and option in LOOK_OPTIONS | APP_OPTIONS:
+            why = " (the strips of people show their names; people have no Rec, Solo or encoder of a place)"
+        elif option in APP_OPTIONS:
             why = " (it belongs to the channel)"
         elif option in {*CONTROLS, "launch", "launch_when_running", "id"}:
             why = " (a control of the slot: [controls])"
@@ -435,6 +572,32 @@ def _candidate(
     if options.get("encoder") == "homeassistant":
         problems.append(f'{where}: encoder = "homeassistant" is a control of the slot: [controls]')
     return Candidate(show, condition, options)
+
+
+def place_options(show: str) -> frozenset[str]:
+    """The options a place takes for what it shows: its look, and for `apps` and `auto` how it acts on applications."""
+    if show == PEOPLE:
+        return PEOPLE_LOOK_OPTIONS
+    return LOOK_OPTIONS | (APP_OPTIONS if show in (APPS, AUTO) else frozenset())
+
+
+def _check_chains(stacks: Mapping[int, tuple[Candidate, ...]], pools: Mapping[str, Pool], problems: list[str]) -> None:
+    """
+    A pool hands a slot it has no member for to the pool right below it: a pool of channels comes before the
+    built-in pools there, since those take the channels that no pool of channels gives a slot.
+    """
+    for slot, stack in stacks.items():
+        built_in: str | None = None
+        for index, candidate in enumerate(stack):
+            if candidate.show is None or candidate.show not in pools:
+                built_in = None
+            elif candidate.show in BUILT_IN:
+                built_in = built_in or candidate.show
+            elif built_in is not None:
+                problems.append(
+                    f"slots.{slot}[{index}]: {candidate.show} below {built_in}: a pool of channels goes above the "
+                    "pools auto, apps and people"
+                )
 
 
 def _check_ids(file: _File, problems: list[str]) -> None:
@@ -447,9 +610,7 @@ def _check_ids(file: _File, problems: list[str]) -> None:
                 problems.append(f"{where}: an id is lower case letters, digits and _")
             elif name in RESERVED or name == DEFAULT or name.startswith(("state_", "slot_")):
                 problems.append(f"{where}: {name} is reserved")
-            elif name == PEOPLE:
-                problems.append(f"{where}: people is built in: [people]")
-            elif section != "pool" and name == AUTO:
+            elif section != "pool" and name in BUILT_IN:
                 problems.append(f"{where}: {name} is a built-in pool")
             other = seen.setdefault(name, section)
             if other != section:

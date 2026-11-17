@@ -6,6 +6,7 @@ is used.
 
 import re
 from collections.abc import Callable
+from typing import Any
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -15,7 +16,9 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QMessageBox,
     QPushButton,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -27,17 +30,50 @@ from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.sources import patterns
 from xtouch_daemon.gui.domain.states import OVERRIDES, describe_live, live_state, ordered, state_uses
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import Suggest, help_label, label
+from xtouch_daemon.gui.qt.fields.basics import LABEL_WIDTH, Suggest, flat_button, help_label, label
+from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
+from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
-from xtouch_daemon.gui.qt.theme.icons import icon
+from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, Snapshot
-from xtouch_daemon.slots.model import StateConfig
+from xtouch_daemon.slots.model import DEFAULT, StateConfig
 
 _ID = re.compile(r"[a-z0-9_]+")
 """What a state can be called."""
+SOURCES = {
+    "apps": "An application plays",
+    "recording": "An application records",
+    "voice_chat": "You are in the voice chat",
+    "processes": "A process runs",
+    "devices": "A device is there",
+    "channels": "A channel is present",
+    "homeassistant": "A switch in Home Assistant is on",
+}
+"""The sources of a state, in the words of the menu Add source."""
+SWITCHES = frozenset({"voice_chat", "homeassistant"})
+"""Sources that are a switch: added, they are on."""
+MODE_ONLY = ("label", "priority")
+DELAYS = ("delay_on", "delay_off", "persist")
+KIND_HELP = (
+    "One mode is on at a time: the one with the highest priority whose sources are on. Any number of states can be on."
+)
+ON_WHILE_HELP = "Sources are what goes on at the computer. A condition combines other states and modes."
+WHEN_HELP = "On while this condition of other states and modes holds."
+
+
+def _set(value: Any) -> bool:
+    """Whether a source has a value: a list with something in it, or a switch that is on."""
+    return value is not None and value is not False and value != [] and value != ()
+
+
+def _check(group: QButtonGroup, index: int) -> None:
+    button = group.button(index)
+    assert button is not None
+    if not button.isChecked():
+        button.setChecked(True)
 
 
 class StatesPage(Page):
@@ -54,6 +90,8 @@ class StatesPage(Page):
         self.request = request
         self.selection: str | None = None
         """The name of the state the form shows, None while there is none."""
+        self.arranged: str | None = None
+        """The state the form was last arranged for: another one closes the delays again and forgets added sources."""
         self.shown_values: tuple[bool, ...] | None = None
         """The values of the states the list shows."""
         header = QHBoxLayout()
@@ -117,14 +155,7 @@ class StatesPage(Page):
         inspector.addWidget(row(live))
         inspector.addWidget(self.problem)
         self.form, layout = card()
-        suggest: dict[str, Suggest] = {
-            "apps": lambda: patterns(self.audio()),
-            "recording": lambda: patterns(self.audio()),
-        }
-        for option in options(StateConfig):
-            layout.addWidget(
-                self._row(option, lambda name: ("state", self.selection or "", name), suggest.get(option.name))
-            )
+        self._build_form(layout)
         inspector.addWidget(self.form)
         self.empty = label("No states yet: Add makes one.", "hint")
         inspector.addWidget(self.empty)
@@ -136,6 +167,152 @@ class StatesPage(Page):
         self.layout_.addWidget(self.splitter, 1)
         self._show()
 
+    def _build_form(self, layout: QVBoxLayout) -> None:
+        """
+        The form of a state, in the order of the questions: a state or a mode (a mode has a label and a priority),
+        on while its sources are on or while a condition holds (never both), and the delays and the override.
+        """
+        found = {option.name: option for option in options(StateConfig)}
+        suggest: dict[str, Suggest] = {
+            "apps": lambda: patterns(self.audio()),
+            "recording": lambda: patterns(self.audio()),
+        }
+
+        def option_row(name: str) -> OptionRow:
+            return self._row(found[name], lambda name: ("state", self.selection or "", name), suggest.get(name))
+
+        self.kind = self._segments(
+            layout, "Kind", ("State", "Mode"), lambda index: self._set_mode(index == 1), KIND_HELP
+        )
+        self.mode_rows = [option_row("label"), option_row("priority")]
+        for widget in self.mode_rows:
+            layout.addWidget(widget)
+        self.on_while = self._segments(
+            layout, "On while", ("Sources", "Condition"), lambda index: self._set_composed(index == 1), ON_WHILE_HELP
+        )
+        self.sources_box = QWidget()
+        sources = QVBoxLayout(self.sources_box)
+        sources.setContentsMargins(0, 0, 0, 0)
+        sources.setSpacing(Space.XS)
+        self.sources_hint = label("", "hint", wrap=True)
+        sources.addWidget(self.sources_hint)
+        self.source_rows: dict[str, QWidget] = {}
+        for name in SOURCES:
+            line = QHBoxLayout()
+            source = option_row(name)
+            # ✕ removes it
+            source.resettable = False
+            line.addWidget(source, 1)
+            remove = flat_button("close", "Remove this source")
+            remove.clicked.connect(lambda _=False, name=name: self._remove_source(name))
+            line.addWidget(remove, 0, Qt.AlignmentFlag.AlignTop)
+            holder = row(line)
+            self.source_rows[name] = holder
+            sources.addWidget(holder)
+        add = QHBoxLayout()
+        self.add_source = button("plus", "Add source")
+        self.source_menu = QMenu(self.add_source)
+        self.add_source.setMenu(self.source_menu)
+        add.addWidget(self.add_source)
+        add.addStretch()
+        sources.addWidget(row(add))
+        layout.addWidget(self.sources_box)
+        self.condition_box = QWidget()
+        condition = QVBoxLayout(self.condition_box)
+        condition.setContentsMargins(0, 0, 0, 0)
+        condition.setSpacing(Space.XS)
+        line = QHBoxLayout()
+        title = label("Condition")
+        title.setFixedWidth(LABEL_WIDTH)
+        line.addWidget(title)
+        self.when_edit = ConditionEdit(present=False)
+        self.when_edit.setPlaceholderText("e.g. call and not gaming")
+        self.when_edit.editingFinished.connect(self._edit_when)
+        line.addWidget(self.when_edit, 1)
+        condition.addWidget(row(line))
+        self.when_error = label("", "error", wrap=True)
+        self.when_error.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        self.when_error.hide()
+        condition.addWidget(self.when_error)
+        when_help = help_label(WHEN_HELP, "help", docs.guide_link("conditions"))
+        when_help.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        condition.addWidget(when_help)
+        layout.addWidget(self.condition_box)
+        self.delays_button = QToolButton()
+        self.delays_button.setText("Delays and overrides")
+        self.delays_button.setCheckable(True)
+        self.delays_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.delays_button.setAutoRaise(True)
+        self.delays_button.toggled.connect(self._show_delays)
+        layout.addWidget(self.delays_button)
+        self.delay_rows = [option_row("delay_on"), option_row("delay_off"), option_row("persist")]
+        for widget in self.delay_rows:
+            layout.addWidget(widget)
+        self.added: set[str] = set()
+        """Sources added to the state shown that have no value yet."""
+        self.composed: dict[str, bool] = {}
+        """States set to Condition (or Sources) that have neither a condition nor sources yet."""
+
+    def _segments(
+        self, layout: QVBoxLayout, title: str, texts: tuple[str, ...], picked: Callable[[int], None], help: str
+    ) -> QButtonGroup:
+        """A row of buttons of which one is checked, like the field of a choice, with help under it."""
+        line = QHBoxLayout()
+        line.setSpacing(Space.S)
+        name = label(title)
+        name.setFixedWidth(LABEL_WIDTH)
+        line.addWidget(name)
+        group = QButtonGroup(self)
+        for index, text in enumerate(texts):
+            segment = QPushButton(text)
+            set_role(segment, "segment", "variant")
+            segment.setCheckable(True)
+            group.addButton(segment, index)
+            line.addWidget(segment)
+        line.addStretch()
+        group.idClicked.connect(picked)
+        layout.addWidget(row(line))
+        hint = help_label(help, "help")
+        hint.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        layout.addWidget(hint)
+        return group
+
+    def _arrange(self) -> None:
+        """Shows the parts of the form that fit the state shown: mode or not, sources or a condition."""
+        name = self.selection
+        if name is None:
+            return
+        state: dict[str, Any] = self.states.get(name) or {}  # pyright: ignore[reportAssignmentType]
+        mode = bool(state.get("mode"))
+        _check(self.kind, 1 if mode else 0)
+        for widget in self.mode_rows:
+            widget.setVisible(mode)
+        composed = "when" in state or self.composed.get(name, False)
+        _check(self.on_while, 1 if composed else 0)
+        self.sources_box.setVisible(not composed)
+        self.condition_box.setVisible(composed)
+        shown = [source for source in SOURCES if _set(state.get(source)) or source in self.added]
+        for source, holder in self.source_rows.items():
+            holder.setVisible(source in shown)
+        set_text(
+            self.sources_hint,
+            "On while any of these is on."
+            if shown
+            else "No sources yet: it is on only while you turn it on. Add source adds one.",
+        )
+        self.source_menu.clear()
+        for source, text in SOURCES.items():
+            if source not in shown:
+                action = self.source_menu.addAction(text)
+                assert action is not None
+                action.triggered.connect(lambda _=False, source=source: self._add_source(source))
+        self.add_source.setVisible(len(shown) < len(SOURCES))
+
+    def _show_delays(self, shown: bool) -> None:
+        set_icon(self.delays_button, "chevron-down" if shown else "chevron-right")
+        for widget in self.delay_rows:
+            widget.setVisible(shown)
+
     @property
     def states(self) -> dict[str, object]:
         return self.document.get(("state",), {})
@@ -145,6 +322,7 @@ class StatesPage(Page):
             self._show()
         else:
             self._show_list()
+            self._arrange()
 
     def select(self, name: str) -> None:
         self.selection = name
@@ -171,6 +349,18 @@ class StatesPage(Page):
         where = state_uses(self.document.values, name)
         set_text(self.used, f"Used by: {', '.join(where)}" if where else "No slot or control asks about it yet.")
         self._load_rows(self.rows)
+        if name != self.arranged:
+            # another state: its delays open if it has any, sources added to the last one are gone
+            self.arranged = name
+            self.added = set()
+            self.delays_button.setChecked(
+                any(self.document.get(("state", name, delay)) is not None for delay in DELAYS)
+            )
+            self._show_delays(self.delays_button.isChecked())
+        others = [other for other in self.states if other != name]
+        self.when_edit.set_names([*others, DEFAULT], [])
+        self.when_edit.setText(str(self.document.get(("state", name, "when")) or ""))
+        self._arrange()
         self.show_live(self.snapshot())
         self.show_problems(self.editor.validation)
 
@@ -227,7 +417,11 @@ class StatesPage(Page):
         if self.selection is None:
             return
         path: OptionPath = ("state", self.selection)
-        names = {option_row.option.name for option_row in self.rows}
+        names = {option_row.option.name for option_row in self.rows} | {"when"}
+        when = [problem.message for problem in validation.at(*path, "when")]
+        set_text(self.when_error, "\n".join(when))
+        self.when_error.setVisible(bool(when))
+        set_role(self.when_edit, bool(when), "problem")
         self._show_rest(
             [
                 problem.message if len(problem.path) == 2 else str(problem)
@@ -255,6 +449,76 @@ class StatesPage(Page):
             self.request(SetMode(name if value == "on" else "auto"))
         else:
             self.request(SetOverride(name, value))
+
+    def _set_mode(self, mode: bool) -> None:
+        """A mode, or a state: a state has no label and no priority, so they go."""
+        name = self.selection
+        assert name is not None
+        if mode:
+            self.document.set(("state", name, "mode"), True)
+        else:
+            for option in ("mode", *MODE_ONLY):
+                self.document.unset(("state", name, option))
+        self.editor.edited(Change(Scope.STATES))
+
+    def _set_composed(self, composed: bool) -> None:
+        """On while a condition holds, or while sources are on: what the other way had goes, after a question."""
+        name = self.selection
+        assert name is not None
+        state: dict[str, Any] = self.states.get(name) or {}  # pyright: ignore[reportAssignmentType]
+        dropped = [source for source in SOURCES if source in state] if composed else ["when"] * ("when" in state)
+        if dropped:
+            what = ", ".join(SOURCES[source].lower() for source in dropped) if composed else "the condition"
+            question = f"A state is on either by its sources or by a condition. Remove {what}?"
+            if QMessageBox.question(self, "On while", question) != QMessageBox.StandardButton.Yes:
+                self._arrange()
+                return
+        self.composed[name] = composed
+        self.added = set()
+        for option in dropped:
+            self.document.unset(("state", name, option))
+        if dropped:
+            self.editor.edited(Change(Scope.STATES))
+        else:
+            self._arrange()
+        if composed:
+            self.when_edit.setFocus()
+
+    def _add_source(self, source: str) -> None:
+        name = self.selection
+        assert name is not None
+        if source in SWITCHES:
+            # a switch is the source once it is on: nothing else to fill in
+            self.document.set(("state", name, source), True)
+            self.editor.edited(Change(Scope.VALUE, ("state", name, source)))
+            self._load_rows(self.rows)
+        else:
+            self.added.add(source)
+        self._arrange()
+
+    def _remove_source(self, source: str) -> None:
+        name = self.selection
+        assert name is not None
+        self.added.discard(source)
+        if self.document.get(("state", name, source)) is not None:
+            self.document.unset(("state", name, source))
+            self.editor.edited(Change(Scope.VALUE, ("state", name, source)))
+            self._load_rows(self.rows)
+        self._arrange()
+
+    def _edit_when(self) -> None:
+        name = self.selection
+        if name is None:
+            return
+        when = self.when_edit.text().strip()
+        if when == (self.document.get(("state", name, "when")) or ""):
+            return
+        self.composed[name] = True
+        if when:
+            self.document.set(("state", name, "when"), when)
+        else:
+            self.document.unset(("state", name, "when"))
+        self.editor.edited(Change(Scope.VALUE, ("state", name, "when")))
 
     def _rename(self) -> None:
         name = self.selection

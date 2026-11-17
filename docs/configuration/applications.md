@@ -50,32 +50,40 @@ While no stream of the group is there (e.g. the application was closed), the LCD
 fader glides slowly to the bottom and does nothing. The channel keeps its volume while the daemon runs: when a stream
 comes back, the fader goes up to it and the stream gets it.
 
-## `auto`
+## `apps` and `auto`
 
-The next application that plays and has no channel of its own, on the slots that show `auto` (a slot without an
-entry shows it too). People of the voice chat share these slots, from the right (see [People](people.md)).
+The pool `apps` is the next application that plays and has no channel of its own, on the slots that show `apps`.
+`auto` is the same, and the people of the voice chat share its slots: people first, from the right, applications
+from the left (see [People](people.md#where-people-sit)). A slot without an entry shows `auto`.
 
 ```toml
-[pool.auto]
+[pool.apps]
+from = "left"                 # the side the applications fill their slots from (also in auto)
 hold = 5                      # seconds an application keeps its slot after it stopped playing
 exclude = ["notification"]    # never these (by default speech-dispatcher)
-color = "cyan"                # the look of every auto slot
+color = "cyan"                # the look of every apps slot
+
+[pool.auto]
+color = "cyan"                # the look of the applications on every auto slot
 
 [slots]
 5 = [{ show = "auto", encoder = "media", max_volume = 100 }]   # the options of one place
+6 = ["people", "apps"]        # a person, else an application
 ```
 
-The look options of every audio channel go into `[pool.auto]` or a place; a place of `auto` also takes `encoder`
+The look options of every audio channel go into `[pool.apps]`, `[pool.auto]` or a place; a place of `apps` or `auto`
+also takes `encoder`
 (`pick` by default: `pick`, `media`, `volume`, `balance` or `homeassistant`, see [Encoders](encoders.md)),
 `min_volume` and `max_volume`. There is no `label`: the label is the application's alias from
 [`[aliases]`](behavior.md#aliases), or its name.
 
-How `auto` gets its applications:
+How `apps` and `auto` get their applications:
 
 - An application qualifies while at least one of its streams plays (is not paused).
-- Applications of an `apps` channel with a slot, and those of `exclude`, never go to `auto`; an `apps` channel
-  without a slot goes into `auto` as a whole (`in_auto = false` keeps it out).
-- Free `auto` slots take new applications from the left, in the order the applications started.
+- Applications of an `apps` channel with a slot, and those of `exclude`, never go to `apps` or `auto`; an `apps`
+  channel without a slot goes in as a whole (`in_pool = false` keeps it out).
+- Free slots take new applications from the side of `from` (the left by default), in the order the applications
+  started. A slot that `apps` has no application for goes to the pool right below it (`["apps", "people"]`).
 - An application keeps its slot while it plays, and for `hold` seconds after it stopped. Then the slot is free
   again. This way a music player does not jump to another strip between two tracks.
 - A newly assigned application keeps its own volume.
@@ -83,7 +91,7 @@ How `auto` gets its applications:
 With the default `encoder = "pick"`, the encoder chooses the application and a push pins it, so it stays after it
 stopped playing. See [Encoders](encoders.md#pick).
 
-An `auto` slot works like an `apps` channel for its application. Without an application it is dark, blank, and does
+A slot of `apps` or `auto` works like an `apps` channel for its application. Without an application it is dark, blank, and does
 nothing.
 
 ## Launching the application

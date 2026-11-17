@@ -22,8 +22,10 @@ _PARTIAL = re.compile(r"[a-z0-9_(]*$")
 class ConditionEdit(QLineEdit):
     """A one-line field for a condition, with the states and the channels of the file it may name (see `set_names`)."""
 
-    def __init__(self) -> None:
+    def __init__(self, present: bool = True) -> None:
+        """Without `present` (the condition of a state or of controls), `present` is a mistake."""
         super().__init__()
+        self.present = present
         self.states: frozenset[str] = frozenset()
         self.targets: frozenset[str] = frozenset()
         self.words = QStringListModel(self)
@@ -40,7 +42,11 @@ class ConditionEdit(QLineEdit):
         self.states = frozenset(states)
         self.targets = frozenset(targets)
         self.words.setStringList(
-            [*KEYWORDS, *sorted(self.states), *(f"present({target})" for target in sorted(self.targets))]
+            [
+                *(word for word in KEYWORDS if self.present or word != "present"),
+                *sorted(self.states),
+                *(f"present({target})" for target in sorted(self.targets)),
+            ]
         )
         self._highlight()
 
@@ -59,6 +65,8 @@ class ConditionEdit(QLineEdit):
                     return match.start(), match.end() - match.start(), error.message
             return position, 1, error.message
         for word, start, kind in _tokens(text):
+            if word == "present" and not self.present:
+                return start, len(word), "present is only for candidates of slots."
             if kind == "name" and word not in self.states:
                 return start, len(word), f"There is no state or mode {word}."
             if kind == "target" and word not in self.targets:

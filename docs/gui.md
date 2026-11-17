@@ -31,11 +31,16 @@ Without the extra, `xtouch-daemon gui` says how to install it.
 The rail on the left has four pages:
 
 - **Slots:** what each slot shows when, see [The slots](#the-slots).
-- **Channels:** the channels of the file, `[pool.auto]` and `[people]`. Add (by type), Duplicate and Remove; the id
-  can be renamed. Each says where it is used (`slot 2`, `pool games`, `state call`).
-- **States:** the modes first, then the other states: their sources or `when`, delays and `persist`, what the daemon
-  says about each right now (since when, from which source), its override (a mode: picked by hand), and which
-  stacks and controls use it.
+- **Channels:** the channels of the file, then the built-in pools `[pool.apps]`, `[pool.people]` and `[pool.auto]`.
+  Add (by type), Duplicate and Remove; the id can be renamed. Each says where it is used (`slot 2`, `pool games`, `state call`).
+- **States:** the modes first, then the other states. The form asks in order: State or Mode (a mode has a label and
+  a priority), and On while: Sources or Condition, never both. Sources lists only the ones the state has, each with
+  ✕ to remove it; Add source offers the others ("An application plays", "You are in the voice chat", ...), and the
+  state is on while any of them is. Condition takes a [condition](configuration/slots.md#conditions) of other states
+  and modes, in the field of the page Slots. Switching between them asks before it removes what the other had.
+  Delays and overrides (`delay_on`, `delay_off`, `persist`) are folded away until a state has one. Above the form:
+  what the daemon says about it right now (since when, from which source), its override (a mode: picked by hand),
+  and which stacks and controls use it.
 - **Settings:** `[behavior]`, `[aliases]`, `[mqtt]` (as "Home Assistant"), `[switching]` (as "Modes and chord"),
   `[voip]` (as "Voice chat") and `[device]`. "Voice chat" also tells whether Mumble is connected, lists the steps of
   its setup, and installs the [Mumble plugin](integrations/mumble.md) with "Install Mumble plugin".
@@ -154,24 +159,33 @@ On the page Slots:
 - **The state bar** lists the states and modes: ● on, ○ off, with the override in brackets. Its menu overrides a
   state (`auto`, `on`, `off`) or picks a mode (`pick`, `auto`), like Home Assistant or `xtouch-daemon mode`.
 - **A card per slot** lists its candidates as rules, read from the top like "if, else if, else": the first whose
-  condition holds wins. `when gaming → auto` shows `auto` while `gaming` is on, `otherwise → browser` below it
-  `browser` the rest of the time (`always` for a lone candidate without a condition). The states are violet chips
-  (`call`, `not gaming`), what the slot shows is teal (see [the colors](#the-window)), and a green dot marks the one
-  the device shows. Options of the strip in that slot only follow as in the file
-  (`color = white, rec = recording`). + adds `auto` at the end, the bin removes the candidate picked.
-  Drag a candidate, or move it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
-- **The inspector** edits the candidate picked: what it shows (a channel, a pool, `-`), when (the
+  condition holds wins. `when gaming → auto` shows `auto` while `gaming` is on, `otherwise → browser` below it `browser`
+  the rest of the time (`always` for a lone candidate without a condition). Below a pool that always holds, `left over →
+  apps` gets the slots that pool has no member for. A rail on the left joins the candidates from the top, with "else"
+  between two and a node on each: green on the one the device shows (or Simulate would). Above it, the candidates are
+  dimmed with why they did not win (`✗ browser doesn't play`, `✗ browser is on slot 3`); below it, dimmed more: not
+  reached. Conditions are outlined chips, what the slot shows a filled one. The states are violet (`call`, `not gaming`,
+  one per `or`). `present` is spelled out in a teal chip, in what it means for the type of the channel or pool: `browser
+  if present` reads `when browser plays → browser`, `mic if present` `mic is connected`, `mum if present` `mum is in the
+  voice chat`, `present(people)` `someone is in the voice chat`. What the slot shows is teal (see [the
+  colors](#the-window)), and the green node is on the row that shows (on `people` while a person sits there, also when
+  `apps` is above it). Options of the strip in that slot only follow as in the file (`color = white, rec =
+  recording`). + adds `auto` at the end, the bin removes the candidate picked. Drag a candidate, or move it with Ctrl+Up
+  and Ctrl+Down. A slot without candidates shows `auto`.
+- **The inspector** edits the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or
+  `auto`, `-`), when (the
   [condition](configuration/slots.md#conditions):
   states violet, channels in `present(...)` teal, a mistake underlined in red with what is wrong in its tooltip;
   typing offers the states, keywords and channels that fit, Ctrl+Space all of them),
-  and the options of its place (look, and on `auto` the encoder and the volume range). It says why the slot
-  shows what it shows (the same as `xtouch-daemon why 2`), which channel the candidate shows, where else that is
-  used and where it is now, with "Edit the channel" to its page; below, the controls of the slot (`[controls]`).
+  and the options of its place (look, on `apps` and `auto` the encoder and the volume range, on `people` the look of
+  a person's strip). It says why the slot shows what it shows (the same as `xtouch-daemon why 2`), which channel the
+  candidate shows, where else that is used and where it is now, or what a pool hands out and from which side, with "Edit the channel" to its page; below, the controls of the slot (`[controls]`).
 
 Clicking a strip in the window Device (or Left, Right, Home, End) picks its card, with the candidate it shows.
 
-**Simulate** shows what the slots would show in another mode, with other states on, or with channels absent (`auto
-plays`: an application plays): a frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar,
+**Simulate** shows what the slots would show in another mode, with other states on, with channels absent (`auto
+plays`: an application plays; `people fill`, `apps fill`: as many as there are slots), or with so many people in the
+call and applications that play (the two counts; the strips show their names): a frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar,
 and the drawing, the cards and the why line follow it. Nothing is sent to the daemon. Esc, or Simulate again, ends it.
 
 **Grid** lists every combination that shows something else, like the table of `xtouch-daemon check-config`. A click
@@ -181,7 +195,7 @@ on a row simulates it, a click on a cell also picks the card of its slot.
 
 The forms come from the options of the configuration, so every option has a field. The options of a channel are in
 cards in the order of the device, from top to bottom: what it controls, the encoder, the display, the buttons (Rec,
-Solo, Mute, Select), the fader and the meter, then those about slots (`tags`, `in_auto`, ...).
+Solo, Mute, Select), the fader and the meter, then those about slots (`tags`, `in_pool`, ...).
 
 The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip, which shows
 what the options do on the device in a few steps (‹ and › go through them), each with a caption: the ring as the encoder turns and is pushed, the LCD while audio
@@ -215,7 +229,7 @@ The GUI reads the sound server and suggests what it has:
 |---|---|
 | `device` | The outputs or inputs by node name, with their descriptions; the default is marked. |
 | `profiles` | The profiles of the sound cards of those devices; the active one is marked. |
-| `match`, `exclude` of `[pool.auto]`, `apps` and `recording` of a state | The [presets](configuration/presets.md) (`@browsers`, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined. |
+| `match`, `exclude` of `[pool.apps]`, `apps` and `recording` of a state | The [presets](configuration/presets.md) (`@browsers`, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined. |
 | `processes` of a state | The presets for processes. |
 | `[aliases]` | The names of the applications that play. |
 | `person` of a `person` channel | The people in the voice chat now, as the running daemon tells them. |

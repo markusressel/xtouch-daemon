@@ -23,8 +23,8 @@ color = "red"
 The strips of `auto` (the next application that plays) and empty slots (`-`) are no channels: they are written in
 the [slots](slots.md#slots).
 
-Options about slots rather than the strip: `tags` (names to group channels under), `in_auto = false` (an `apps` or
-`person` channel without a slot stays out of `auto`) and `absent_after` (seconds the channel stays present after it
+Options about slots rather than the strip: `tags` (names to group channels under), `in_pool = false` (an `apps` or
+`person` channel without a slot stays out of `apps`, `people` and `auto`) and `absent_after` (seconds the channel stays present after it
 had nothing to control, for `if present`).
 
 ## Options of every audio channel

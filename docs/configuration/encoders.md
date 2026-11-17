@@ -77,8 +77,8 @@ come first. Applications without a player leave the encoder without a function.
 A paused player keeps the strip active, also after its streams are gone: browsers end the stream of a paused video
 a few seconds after the pause, and the strip would go dark with it. It stays lit with its fader at the volume, and
 the ring blinks; a move of the fader sets the volume the stream gets when it plays again. The strip goes dark when
-the player is stopped or closed. On an `auto` slot this lasts as long as the slot keeps the application
-(`hold` of `[pool.auto]`).
+the player is stopped or closed. On a slot of `apps` or `auto` this lasts as long as the slot keeps the application
+(`hold` of `[pool.apps]`).
 
 `xtouch-daemon` needs the D-Bus session bus for this, which a systemd user service has. Without it the daemon logs
 `No media players: the session bus is not reachable (...)` once and keeps trying.

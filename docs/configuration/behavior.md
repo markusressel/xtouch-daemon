@@ -72,8 +72,8 @@ What it can't do:
 | `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a channel turns off a single one. |
 | `meter_point` | `"pre_fader"` | Where the meters take the level: `"pre_fader"` before the volume and Mute of each strip, `"post_fader"` after them. A channel or a place in a slot may have its own, see [Meters](strips.md#meters). |
 
-How long `auto` keeps an application and which ones it never takes are `hold` and `exclude` of
-[`[pool.auto]`](applications.md#auto).
+How long `apps` and `auto` keep an application and which ones they never take are `hold` and `exclude` of
+[`[pool.apps]`](applications.md#apps-and-auto).
 
 ```toml
 [behavior]

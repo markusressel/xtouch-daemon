@@ -88,7 +88,8 @@ def set_role(widget: QWidget, value: str | bool, name: str = "role") -> None:
 def _entities(c: ThemeColors) -> str:
     """
     The colors of the states, channels and slots (see `Entity`): a label in one (`entity`) has its color, a chip of
-    one (`role="chip"`, also a state's button) a tint of it with a line around it, and its text in `text`.
+    one (`role="chip"`, also a state's button) a tint of it with a line around it, and its text in `text`; an outlined
+    chip (`variant="outline"`, a condition) only the line, and its text in the color.
     """
     rules: list[str] = []
     for entity in Entity:
@@ -101,6 +102,10 @@ def _entities(c: ThemeColors) -> str:
             f"min-height: {2 * Radius.PILL - 2}px; padding: 0 {Space.S}px; }}"
         )
         rules.append(f'QToolButton[entity="{entity}"]:hover {{ background: {tint(color, 4 * TINT_ALPHA)}; }}')
+        # a condition (`variant="outline"`): only the line and the text, so it reads apart from what a slot shows
+        rules.append(
+            f'QLabel[role="chip"][entity="{entity}"][variant="outline"] {{ color: {color}; background: transparent; }}'
+        )
     return "\n".join(rules)
 
 

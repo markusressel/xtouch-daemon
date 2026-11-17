@@ -15,7 +15,16 @@ def why_slot(slots: SlotsState, slot: int) -> str:
 
 
 def why_channel(slots: SlotsState, name: str) -> str:
-    """`browser: on 2; not 8 (on slot 2 (tie, to the left))`: the slots that show it and why not the others."""
+    """
+    `browser: on 2; not 8 (on slot 2 (tie, to the left))`: the slots that show a channel and why not the others. For
+    a pool its members and who waits: `people: Alice on 6, Bob on 5; waiting: Carol`.
+    """
+    if any(view.pool == name and view.channel != name for view in slots.slots) or name in slots.waiting:
+        seated = [f"{view.member} on {view.slot}" for view in slots.slots if view.pool == name and view.member]
+        waiting = slots.waiting.get(name, ())
+        parts = [", ".join(seated) if seated else "nobody on a slot"]
+        parts += [f"waiting: {', '.join(waiting)}"] if waiting else []
+        return f"{name}: " + "; ".join(parts)
     parts = [f"on {view.slot}" for view in slots.slots if name in (view.channel, view.member)]
     for view in slots.slots:
         if name in (view.channel, view.member):
@@ -26,7 +35,7 @@ def why_channel(slots: SlotsState, name: str) -> str:
 
 
 def why(slots: SlotsState, target: str) -> str:
-    """For a slot (its number) or a channel (its id)."""
+    """For a slot (its number), a channel or a pool (its id)."""
     return why_slot(slots, int(target)) if target.isdigit() else why_channel(slots, target)
 
 

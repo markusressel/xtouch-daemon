@@ -674,11 +674,12 @@ class MainWindow(QMainWindow):
             case ("channel", str(name), *_):
                 self.channels_page.select(("channel", name))
                 self.show_page("channels")
-            case ("pool", "auto", *_):
-                self.channels_page.select(("pool", "auto"))
+            case ("pool", "auto" | "apps" | "people" as pool, *_):
+                self.channels_page.select(("pool", pool))
                 self.show_page("channels")
             case ("people", *_):
-                self.channels_page.select(("people",))
+                # today's [pool.people]: its message is there
+                self.channels_page.select(("pool", "people"))
                 self.show_page("channels")
             case ("state", str(name), *_):
                 self.states_page.select(name)

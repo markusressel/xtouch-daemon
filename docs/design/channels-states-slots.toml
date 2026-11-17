@@ -41,7 +41,7 @@ match = ["@voip"]
 label = "VoIP"
 color = "yellow"
 lit_when_idle = true
-in_auto = false             # notification sounds of Discord don't take an auto slot
+in_pool = false             # notification sounds of Discord don't take an auto slot
 
 [channel.mic]
 type = "input"
@@ -53,7 +53,7 @@ encoder = "balance"
 [pool.auto]
 color = "white"
 
-[people]                    # they take auto slots from the right (next to VoIP), applications from the left
+[pool.people]               # they take auto slots from the right (next to VoIP), applications from the left
 color = "yellow"
 
 [state.gaming]

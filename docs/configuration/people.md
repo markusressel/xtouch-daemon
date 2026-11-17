@@ -1,15 +1,20 @@
 # People and the voice chat
 
 The people of the voice chat come from the provider of [`[voip]`](#voice-chat) (by default the Mumble plugin). They
-share the `auto` slots with the applications: people take them from the right, in their order, applications from
-the left (see [Slots](slots.md#slots)). Someone who should always have a strip of their own gets a
-[`person` channel](#strips-for-one-person).
+sit on the slots that show the pool `people`, and share the slots of `auto` with the applications: people from the
+right, in their order, applications from the left (see [Where people sit](#where-people-sit)). Someone who should
+always have a strip of their own gets a [`person` channel](#strips-for-one-person).
 
 ```toml
-[people]
+[pool.people]
+from = "right"              # the side they fill their slots from
 color = "white"
 talking_color = "green"
-order = ["Alice", "mum"]    # from the right: these first, then the others as they came
+order = ["Alice", "mum"]    # these first, then the others as they came
+
+[slots]
+5 = ["people", "apps"]      # a person, else an application
+6 = ["people", "apps"]
 
 [channel.mum]
 type = "person"
@@ -19,8 +24,8 @@ label = "Mum"
 
 ## The strips of people
 
-`[people]` is the look of the strips of people without a channel of their own, a `person` channel has the same
-options:
+`[pool.people]` has the look of the strips of people without a channel of their own, a `person` channel has the
+same options:
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -30,9 +35,26 @@ options:
 | `meter` | `true` | Whether the LED meter shows the person's voice. Without levels from the provider it lights while they talk. The level is after their volume, see [Meters](strips.md#meters). |
 | `max_volume` | `behavior.max_volume` | The volume of a person with the fader at the top, 1..200 percent; 100 % is at the 0 dB mark as on the other strips. Above 100 % the voice is louder than Mumble plays it, and may clip. |
 
-`[people]` also has `order`: the people from the right, as names or ids of `person` channels, before the others in
-the order the daemon first saw them (it remembers that order across restarts). The strips of people have no `launch`: starting the voice chat is a control of a slot,
-e.g. `7 = { select = { launch = ["mumble"] }, when = "not call" }` in [`[controls]`](slots.md#controls-and-the-chord).
+The strips of people have no `launch`: starting the voice chat is a control of a slot, e.g.
+`7 = { select = { launch = ["mumble"] }, when = "not call" }` in [`[controls]`](slots.md#controls-and-the-chord).
+A place of `people` in a slot takes `color`, `meter` and `meter_point`: `{ show = "people", color = "orange" }`.
+
+## Where people sit
+
+| Option of `[pool.people]` | Default | Meaning |
+|---|---|---|
+| `from` | `"right"` | The side the people fill their slots from: `"right"` slot 8 first, `"left"` slot 1 first. Also inside `auto`. |
+| `order` | none | Who sits first: names, or ids of `person` channels. Then the others in the order the daemon first saw them (it remembers that order for 30 days, across restarts). |
+
+- People sit on the slots whose candidate `people` or `auto` wins, in their order. They keep no slot: when someone
+  earlier in the order comes, the others move one slot on.
+- They take the slots where nothing is above them in the stack first, then the others: a slot that a candidate above
+  can take back (`voip if call`) would move every one of them.
+- A slot `people` has no one for goes to the pool right below it: `["people", "apps"]` shows the next application.
+  A slot of `auto` takes a person before an application; on `["apps", "people"]` the application comes first.
+- More people than slots: the others wait, `xtouch-daemon why people` says who.
+- `"people if call"` shows people only while `call` is on; `present(people)` holds while anyone of them is in the
+  voice chat. Slots that should never show people say `apps` instead of `auto`.
 
 The top line shows the name, the bottom line `muted`, the volume while the fader moves, or `talks`. The fader sets
 the person's volume and Mute mutes them for you, if the provider can. The daemon remembers the volume and the mute it
@@ -47,8 +69,8 @@ provider's order with one of them is on the strip.
 
 While the person is not in the channel, the strip shows the name dark, `away` on the second line and its fader at
 the bottom; `"mum if present"` in a slot shows the channel only while they are there. The volume and mute the strip
-set stay with the name while they are away and come back with them. A `person` channel without a slot joins the
-people of `auto` as itself (`in_auto = false` keeps it out).
+set stay with the name while they are away and come back with them. A `person` channel without a slot is one of
+the people (of `people` and `auto`) as itself; `in_pool = false` keeps it out.
 
 ## Voice chat
 

@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 
 from xtouch_daemon.config.presets import Kind, expand
-from xtouch_daemon.slots.model import AUTO, ChannelConfig, Scene
+from xtouch_daemon.slots.model import APPS, AUTO, PEOPLE, ChannelConfig, Scene
 from xtouch_daemon.slots.timing import Delayed
 
 
@@ -22,7 +22,7 @@ class Attendee:
 
 @dataclass(frozen=True)
 class App:
-    """An application of `auto`, by its name (see `stream_name()`)."""
+    """An application of `apps` and `auto`, by its name (see `stream_name()`)."""
 
     name: str
 
@@ -32,7 +32,7 @@ class App:
 
 @dataclass(frozen=True)
 class Channel:
-    """A channel as a member of a pool (or of `auto`, an `apps` channel without a slot as a whole)."""
+    """A channel as a member of a pool (or of `apps` and `auto`, an `apps` channel without a slot as a whole)."""
 
     id: str
 
@@ -43,8 +43,8 @@ class Channel:
 @dataclass(frozen=True)
 class Person:
     """
-    Someone who shares the slots of `auto`: who is in the voice chat (`id`, `name`), with the `person` channel they
-    have (`channel`), if any.
+    A member of `people` and `auto`: who is in the voice chat (`id`, `name`), with the `person` channel they have
+    (`channel`), if any.
     """
 
     id: str
@@ -71,8 +71,8 @@ def channel_of(member: Member | None) -> str | None:
 @dataclass(frozen=True)
 class Observation:
     playing: tuple[str, ...] = ()
-    """The applications with a playback stream (playing or paused), in the order they started; with those an `auto`
-    pool still holds (`hold`) after they stopped."""
+    """The applications with a playback stream (playing or paused), in the order they started; with those `apps`
+    still holds (`hold`) after they stopped."""
     recording: tuple[str, ...] = ()
     """The applications with a capture stream."""
     voice_chat: bool = False
@@ -109,11 +109,11 @@ def owner_of(scene: Scene, app: str) -> str | None:
 
 
 def excluded(scene: Scene, app: str) -> bool:
-    """Whether the `auto` pool never takes it: `exclude`, or a channel with `in_auto = false` has it."""
-    if app_matches(app, expand(scene.pools[AUTO].exclude, Kind.STREAMS)):
+    """Whether `apps` and `auto` never take it: `[pool.apps] exclude`, or a channel with `in_pool = false` has it."""
+    if app_matches(app, expand(scene.apps.exclude, Kind.STREAMS)):
         return True
     owner = owner_of(scene, app)
-    return owner is not None and not scene.channels[owner].in_auto
+    return owner is not None and not scene.channels[owner].in_pool
 
 
 def present_now(channel: ChannelConfig, observation: Observation) -> bool:
@@ -142,9 +142,9 @@ def person_channel_of(scene: Scene, person: str) -> str | None:
 
 def people_of(scene: Scene, observation: Observation, present: frozenset[str], with_slot: set[str]) -> list[Person]:
     """
-    The people that share the slots of `auto`, in the order they came: who has no `person` channel, and the
-    `person` channels with `in_auto` that are present and have no slot of their own (once, for the first of its
-    names in the voice chat).
+    The members of `people` (and of `auto`), in the order they came: who has no `person` channel, and the `person`
+    channels with `in_pool` that are present and have no slot of their own (once, for the first of its names in the
+    voice chat).
     """
     members: list[Person] = []
     for attendee in observation.people:
@@ -152,7 +152,7 @@ def people_of(scene: Scene, observation: Observation, present: frozenset[str], w
         if channel is None:
             members.append(Person(attendee.id, attendee.name))
         elif (
-            scene.channels[channel].in_auto
+            scene.channels[channel].in_pool
             and channel in present
             and channel not in with_slot
             and all(person.channel != channel for person in members)
@@ -163,16 +163,19 @@ def people_of(scene: Scene, observation: Observation, present: frozenset[str], w
 
 def pool_present(scene: Scene, pool: str, observation: Observation, present: frozenset[str]) -> bool:
     """
-    Whether a pool has members, counted before slots are assigned (so conditions never depend on the result):
-    `auto` while anything plays that it may take or anyone is in the voice chat (people share its slots), a pool of
-    channels while one of them is present.
+    Whether a pool has members, counted before slots are assigned (so conditions never depend on the result): `apps`
+    while anything plays that it may take, `people` while anyone is in the voice chat who would be one of them (also
+    someone whose `person` channel has a slot of its own), `auto` while either is, a pool of channels while one of
+    them is present.
     """
-    if pool == AUTO:
+    if pool == APPS:
+        return any(not excluded(scene, app) for app in observation.playing)
+    if pool == PEOPLE:
         people = (person_channel_of(scene, attendee.name) for attendee in observation.people)
-        return any(channel is None or scene.channels[channel].in_auto for channel in people) or any(
-            not excluded(scene, app) for app in observation.playing
-        )
-    return any(channel in present for channel in scene.members_of(scene.pools[pool].channels))
+        return any(channel is None or scene.channels[channel].in_pool for channel in people)
+    if pool == AUTO:
+        return pool_present(scene, APPS, observation, present) or pool_present(scene, PEOPLE, observation, present)
+    return any(channel in present for channel in scene.channels_of(pool))
 
 
 class Presence:
@@ -241,12 +244,12 @@ class Lingering[T]:
 
 class PoolMembers:
     """
-    The observation the pools see: the applications of `auto` stay its `hold` after they stopped, the people
+    The observation the pools see: the applications stay `[pool.apps] hold` after they stopped, the people
     `absent_after` after they left the voice chat (like the channels).
     """
 
     def __init__(self, scene: Scene, absent_after: float):
-        self._playing = Lingering[str](scene.pools[AUTO].hold)
+        self._playing = Lingering[str](scene.apps.hold)
         # a reconnect gets a new id: the same name takes the place of who left
         self._people = Lingering[Attendee](absent_after, lambda gone, new: gone.name == new.name)
 
