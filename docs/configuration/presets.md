@@ -49,7 +49,7 @@ applications that play, and the [GUI](../gui.md) suggests the presets that fit e
 
 - `@browsers`: Electron applications before Electron 40 (e.g. the sounds of Discord) name their streams "Chromium" too. The processes leave out Google Chrome: its process `chrome` is also part of the name of the crash handler of every Electron application.
 - `@voip`: Discord talks in a stream of its own, "WEBRTC VoiceEngine".
-- `@steam-games`: Steam starts every game through its `reaper`, which runs as long as the game. A stream does not tell who started a game: the streams are those of every game under Wine or Proton. The digital audio workstation REAPER is called `reaper` too: with it, name the games in `processes` instead.
+- `@steam-games`: Steam starts every game through its `reaper`, which runs as long as the game (not the install scripts it runs through it after an update). A stream does not tell who started a game: the streams are those of every game under Wine or Proton. The digital audio workstation REAPER is called `reaper` too: with it, name the games in `processes` instead.
 - `@games`: Lutris and Heroic leave no process of their own while a game runs; `wineserver` runs while any Windows program runs under Wine or Proton, and a few seconds after it. Native games from Lutris or Heroic are not part of it.
 <!-- presets: end -->
 

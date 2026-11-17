@@ -142,9 +142,10 @@ PRESETS: dict[str, Preset] = {
             "Games started from Steam",
             streams=_WINE_STREAMS,
             processes=("reaper",),
-            note="Steam starts every game through its `reaper`, which runs as long as the game. A stream does not "
-            "tell who started a game: the streams are those of every game under Wine or Proton. The digital audio "
-            "workstation REAPER is called `reaper` too: with it, name the games in `processes` instead.",
+            note="Steam starts every game through its `reaper`, which runs as long as the game (not the install "
+            "scripts it runs through it after an update). A stream does not tell who started a game: the streams are "
+            "those of every game under Wine or Proton. The digital audio workstation REAPER is called `reaper` too: "
+            "with it, name the games in `processes` instead.",
         ),
         Preset(
             "games",
