@@ -22,3 +22,18 @@ Mumble disconnected a moment ago, and the faders for it
   "disconnected" sounds, is that expected? I don't think it
   should be, because that means i cannot change the volume of
   the connection sounds.
+
+## The Game strip starts at 0 %
+
+The strip of the `game` channel starts at 0 % when a game starts, even though its volume was set to something else
+before. Two possible causes, not checked yet:
+
+- Ours: gaming builds a new mixer (the prototype of slots), so the strip is new and has forgotten its volume
+  (`AppGroupStrip.group_volume`); until the game has a stream the fader is down ("idle"), then it shows the volume
+  the stream starts with. Step 5 of `docs/design/channels-states-slots.md` keeps one controller per channel for as
+  long as the configuration, which fixes this within a run.
+- PipeWire's: WirePlumber restores the volume of a stream by its properties (mostly `application.name`). Games under
+  Proton/Wine often have a generic or changing name, so nothing is restored.
+
+Next time a game starts: `pactl list sink-inputs` shows its `application.name` and the volume it starts with. If
+PipeWire doesn't restore it, remember the volume per game ourselves.
