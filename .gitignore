@@ -15,3 +15,5 @@ _migrate/
 site/
 # worktrees and links of Claude Code
 .claude/
+# core dumps of crashed processes
+/core.[0-9]*
