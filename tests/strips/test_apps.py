@@ -6,6 +6,7 @@ import pytest
 from tests.support.audio import FakeBackend, stream
 from tests.support.hardware import RecordingSurface
 from tests.support.launch import FakeLauncher
+from tests.support.strips import ID, build
 from tests.support.tasks import settle
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Capture, Direction
@@ -13,15 +14,14 @@ from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
-from xtouch_daemon.strips.base import StripController, StripEnv
+from xtouch_daemon.strips.base import Look, StripController, StripEnv
 
 BROWSERS = ("brave", "firefox")
 
 
 def group(surface: RecordingSurface, env: StripEnv, meter: bool = True) -> AppGroupStrip:
-    return AppGroupStrip(surface.strips[0], env, BROWSERS, "Browser", Color.YELLOW, meter)
+    return AppGroupStrip(surface.strips[0], env, ID, BROWSERS, Look("Browser", "yellow", meter))
 
 
 def state(*streams: object) -> AudioState:
@@ -44,7 +44,7 @@ async def test_a_group_without_streams_is_idle_and_dark(surface: RecordingSurfac
 
 async def test_a_group_lit_when_idle_keeps_its_backlight(surface: RecordingSurface, env: StripEnv) -> None:
     config = AppsStripConfig(type="apps", match=BROWSERS, label="Browser", color="yellow", lit_when_idle=True)
-    strip = build_strip(config, surface.strips[0], env, {})
+    strip = build(config, surface.strips[0], env, {})
     strip.update(state(stream(1, "Spotify", "spotify")))
     await surface.settled()
 
@@ -190,7 +190,7 @@ async def test_a_stream_plays_while_it_is_not_paused(surface: RecordingSurface, 
 
 
 def auto(surface: RecordingSurface, env: StripEnv) -> AutoStrip:
-    return AutoStrip(surface.strips[0], env, {"WEBRTC VoiceEngine": "Discord"}, Color.CYAN)
+    return AutoStrip(surface.strips[0], env, ID, {"WEBRTC VoiceEngine": "Discord"}, Look(color="cyan"))
 
 
 async def test_an_auto_strip_without_application_is_dark_and_empty(surface: RecordingSurface, env: StripEnv) -> None:
@@ -354,7 +354,7 @@ def test_a_pinned_slot_keeps_its_application() -> None:
 
 
 async def test_the_pick_knob_waits_for_its_slot(surface: RecordingSurface, env: StripEnv) -> None:
-    strip = AutoStrip(surface.strips[0], env, {}, encoder="pick")
+    strip = AutoStrip(surface.strips[0], env, ID, {}, Look(), encoder="pick")
     strip.update(state())
     strip.on_encoder(1)
     strip.on_encoder_press(True)
@@ -362,7 +362,7 @@ async def test_the_pick_knob_waits_for_its_slot(surface: RecordingSurface, env: 
 
 
 async def test_a_single_application_is_at_the_start_of_the_ring(surface: RecordingSurface, env: StripEnv) -> None:
-    strip = AutoStrip(surface.strips[0], env, {}, encoder="pick")
+    strip = AutoStrip(surface.strips[0], env, ID, {}, Look(), encoder="pick")
     assigner = AutoAssigner(1, hold=5, ignore=())
     playing = state(stream(1, "Spotify"))
     strip.slot = AutoSlot(assigner, 0, lambda: playing, (), lambda: strip.assign(assigner.assign(playing)[0]))
@@ -372,7 +372,7 @@ async def test_a_single_application_is_at_the_start_of_the_ring(surface: Recordi
 
 
 async def test_the_pick_knob_says_which_one_and_whether_pinned(surface: RecordingSurface, env: StripEnv) -> None:
-    strip = AutoStrip(surface.strips[0], env, {}, encoder="pick")
+    strip = AutoStrip(surface.strips[0], env, ID, {}, Look(), encoder="pick")
     assigner = AutoAssigner(1, hold=5, ignore=())
     playing = state(stream(1, "Spotify"), stream(2, "Discord"))
     strip.slot = AutoSlot(assigner, 0, lambda: playing, (), lambda: strip.update(playing))
@@ -404,7 +404,7 @@ def test_without_auto_strips_nothing_is_assigned() -> None:
 async def test_the_volume_strip_base_needs_a_kind(surface: RecordingSurface, behavior: BehaviorConfig) -> None:
     from xtouch_daemon.strips.base import VolumeStrip
 
-    strip = VolumeStrip(surface.strips[0], StripEnv(FakeBackend(), behavior), "x")
+    strip = VolumeStrip(surface.strips[0], StripEnv(FakeBackend(), behavior), ID, Look("x"))
     with pytest.raises(NotImplementedError):
         strip.current(state())
     with pytest.raises(NotImplementedError):
@@ -421,13 +421,13 @@ async def test_the_base_of_application_strips_needs_streams(surface: RecordingSu
     from xtouch_daemon.strips.apps import AppStrip
 
     with pytest.raises(NotImplementedError):
-        AppStrip(surface.strips[0], env, "x").streams_in(state())
+        AppStrip(surface.strips[0], env, ID, Look("x")).streams_in(state())
 
 
 async def test_the_base_strip_does_nothing(surface: RecordingSurface, env: StripEnv) -> None:
     from xtouch_daemon.strips.base import StripController
 
-    strip = StripController(surface.strips[0], env)
+    strip = StripController(surface.strips[0], env, ID, Look())
     strip.update(state())
     strip.on_fader(0.5)
     strip.on_touch(True)
@@ -461,7 +461,11 @@ async def test_the_rec_led_of_a_group_shows_whether_one_of_its_applications_reco
     surface: RecordingSurface, env: StripEnv
 ) -> None:
     strip = AppGroupStrip(
-        surface.strips[0], env, ("discord",), "VoIP", indicators={Button.REC: "recording", Button.SOLO: "playing"}
+        surface.strips[0],
+        env,
+        ID,
+        ("discord",),
+        Look("VoIP", indicators={Button.REC: "recording", Button.SOLO: "playing"}),
     )
 
     # it records without playing anything: the strip is idle, the LED is on all the same
@@ -475,7 +479,9 @@ async def test_the_rec_led_of_a_group_shows_whether_one_of_its_applications_reco
 
 
 async def test_the_rec_led_of_an_auto_strip_follows_its_application(surface: RecordingSurface, env: StripEnv) -> None:
-    strip = AutoStrip(surface.strips[0], env, {}, indicators={Button.REC: "recording", Button.SOLO: "default"})
+    strip = AutoStrip(
+        surface.strips[0], env, ID, {}, Look(indicators={Button.REC: "recording", Button.SOLO: "default"})
+    )
     capturing = AudioState(captures=(recording("Discord", "discord"),))
 
     strip.update(capturing)
@@ -506,7 +512,7 @@ def press_select(strip: StripController) -> None:
 
 async def test_select_launches_the_application_of_a_group(surface: RecordingSurface, env: StripEnv) -> None:
     env, launcher = launching_env(env, "bash", "systemd")
-    strip = build_strip(VOIP, surface.strips[0], env, {})
+    strip = build(VOIP, surface.strips[0], env, {})
     strip.update(state(stream(1, "Spotify", "spotify")))
     assert surface.strips[0].leds[Button.SELECT] == Led.OFF
 
@@ -524,7 +530,7 @@ async def test_select_launches_the_application_of_a_group(surface: RecordingSurf
 async def test_a_group_whose_process_runs_does_not_launch(surface: RecordingSurface, env: StripEnv) -> None:
     # a silent Mumble has no stream, its process runs
     env, launcher = launching_env(env, "mumble")
-    strip = build_strip(VOIP, surface.strips[0], env, {})
+    strip = build(VOIP, surface.strips[0], env, {})
     strip.update(state())
 
     press_select(strip)
@@ -536,7 +542,7 @@ async def test_a_group_whose_process_runs_does_not_launch(surface: RecordingSurf
 async def test_the_program_of_launch_counts_as_running(surface: RecordingSurface, env: StripEnv) -> None:
     env, launcher = launching_env(env, "ts3client")
     config = AppsStripConfig(type="apps", match=("teamspeak",), label="VoIP", launch=("ts3client",))
-    strip = build_strip(config, surface.strips[0], env, {})
+    strip = build(config, surface.strips[0], env, {})
     strip.update(state())
 
     press_select(strip)
@@ -547,7 +553,7 @@ async def test_the_program_of_launch_counts_as_running(surface: RecordingSurface
 async def test_launch_when_running_launches_also_while_it_runs(surface: RecordingSurface, env: StripEnv) -> None:
     env, launcher = launching_env(env, "mumble")
     config = VOIP.model_copy(update={"launch_when_running": True})
-    strip = build_strip(config, surface.strips[0], env, {})
+    strip = build(config, surface.strips[0], env, {})
     strip.update(state())
 
     press_select(strip)
@@ -558,7 +564,7 @@ async def test_launch_when_running_launches_also_while_it_runs(surface: Recordin
 
 async def test_without_launch_select_does_nothing(surface: RecordingSurface, env: StripEnv) -> None:
     env, launcher = launching_env(env)
-    strip = build_strip(VOIP.model_copy(update={"launch": None}), surface.strips[0], env, {})
+    strip = build(VOIP.model_copy(update={"launch": None}), surface.strips[0], env, {})
     strip.update(state())
 
     press_select(strip)
@@ -572,7 +578,7 @@ async def test_with_launch_the_other_buttons_work_as_before(
     surface: RecordingSurface, env: StripEnv, backend: FakeBackend
 ) -> None:
     env, launcher = launching_env(env)
-    strip = build_strip(VOIP, surface.strips[0], env, {})
+    strip = build(VOIP, surface.strips[0], env, {})
     assert strip.launches
     # before the first state, Select has nothing to go by
     press_select(strip)
@@ -588,7 +594,7 @@ async def test_with_launch_the_other_buttons_work_as_before(
 async def test_select_launches_on_an_auto_strip_without_application(surface: RecordingSurface, env: StripEnv) -> None:
     env, launcher = launching_env(env)
     config = AutoStripConfig(type="auto", launch=("spotify",))
-    strip = build_strip(config, surface.strips[0], env, {})
+    strip = build(config, surface.strips[0], env, {})
     assert isinstance(strip, AutoStrip)
     strip.assign("Brave")
     strip.update(state(stream(1, "Brave")))
@@ -624,13 +630,13 @@ async def test_the_processes_of_the_presets_of_a_group_count_as_running(
     # a game from Steam that makes no sound: Steam's reaper runs, the `.exe` of the streams is no process name
     config = AppsStripConfig(type="apps", match=("@steam-games",), label="Game", launch=("steam",))
     running, launcher = launching_env(env, "reaper")
-    strip = build_strip(config, surface.strips[0], running, {})
+    strip = build(config, surface.strips[0], running, {})
     strip.update(state())
     press_select(strip)
     assert launcher.spawned == []
 
     idle, launcher = launching_env(env, "explorer.exe", "steamwebhelper")
-    strip = build_strip(config, surface.strips[1], idle, {})
+    strip = build(config, surface.strips[1], idle, {})
     strip.update(state())
     press_select(strip)
     assert len(launcher.spawned) == 1

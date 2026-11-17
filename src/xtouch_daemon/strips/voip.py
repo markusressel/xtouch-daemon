@@ -17,7 +17,15 @@ from xtouch_daemon.config.values import MeterPoint, color_of
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.strip import Strip
-from xtouch_daemon.strips.base import NOTICE_TIME, StripController, StripEnv, fader_position, fader_volume
+from xtouch_daemon.strips.base import (
+    NOTICE_TIME,
+    Identity,
+    Look,
+    StripController,
+    StripEnv,
+    fader_position,
+    fader_volume,
+)
 from xtouch_daemon.system.launch import LaunchButton
 from xtouch_daemon.voip.provider import Capability, Participant, VoipProvider
 
@@ -111,8 +119,11 @@ class VoipStrip(StripController):
     starts the voice chat, with `launch`).
     """
 
-    def __init__(self, strip: Strip, env: StripEnv, seat: VoipSeat, config: VoipStripConfig):
-        super().__init__(strip, env, color_of(config.color), config.meter)
+    def __init__(
+        self, strip: Strip, env: StripEnv, identity: Identity, look: Look, seat: VoipSeat, config: VoipStripConfig
+    ):
+        """`config` tells what the look doesn't: the color while talking, the volume range, `person`."""
+        super().__init__(strip, env, identity, look)
         self.seats = seat.seats
         self.seat = seat.seat
         self.launch = seat.launch

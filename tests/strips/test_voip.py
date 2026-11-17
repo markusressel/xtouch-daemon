@@ -12,6 +12,7 @@ from xtouch_daemon.audio.model import DISCONNECTED
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
+from xtouch_daemon.strips import look_of, strip_identity
 from xtouch_daemon.strips import voip as voip_module
 from xtouch_daemon.strips.base import StripEnv
 from xtouch_daemon.strips.voip import VoipSeat, VoipSeats, VoipStrip
@@ -77,7 +78,14 @@ def make(
 
     seats = VoipSeats(provider, [config.person for config in configs], refresh)
     strips += [
-        VoipStrip(surface.strips[seat], env, VoipSeat(seats, seat, launch), config)
+        VoipStrip(
+            surface.strips[seat],
+            env,
+            strip_identity(config, seat),
+            look_of(config),
+            VoipSeat(seats, seat, launch),
+            config,
+        )
         for seat, config in enumerate(configs)
     ]
     return seats, strips, refreshed

@@ -4,21 +4,22 @@ import pytest
 
 from tests.support.audio import FakeBackend, output, source, stream
 from tests.support.hardware import RecordingSurface
+from tests.support.strips import ID, build
 from tests.support.tasks import settle
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.strips import StripConfig
-from xtouch_daemon.hardware.protocol import Color, RingMode
-from xtouch_daemon.strips import base, build_strip
+from xtouch_daemon.hardware.protocol import RingMode
+from xtouch_daemon.strips import base
 from xtouch_daemon.strips.apps import AppGroupStrip
-from xtouch_daemon.strips.base import StripEnv
+from xtouch_daemon.strips.base import Look, StripEnv
 from xtouch_daemon.strips.device import DeviceStrip
 from xtouch_daemon.strips.knobs import BalanceKnob, Knob, MediaKnob, VolumeKnob, balance_text, clock, ring_position
 
 
 def device(surface: RecordingSurface, env: StripEnv, direction: Direction = Direction.OUTPUT) -> DeviceStrip:
     name = "speaker" if direction == Direction.OUTPUT else "mic"
-    return DeviceStrip(surface.strips[0], env, direction, (name,), color=Color.CYAN, encoder="balance")
+    return DeviceStrip(surface.strips[0], env, ID, direction, (name,), Look(color="cyan"), encoder="balance")
 
 
 def test_the_ring_goes_from_the_first_to_the_last_led():
@@ -143,7 +144,7 @@ async def test_a_missing_device_ignores_the_encoder(
 async def test_applications_get_the_balance_of_all_their_streams(
     surface: RecordingSurface, env: StripEnv, backend: FakeBackend
 ) -> None:
-    strip = AppGroupStrip(surface.strips[0], env, ("brave",), "Browser", encoder="balance")
+    strip = AppGroupStrip(surface.strips[0], env, ID, ("brave",), Look("Browser"), encoder="balance")
     strip.update(AudioState(streams=(stream(2, balance=0.5), stream(1, balance=-0.5))))
     # the first stream shows the balance; halves round away from the center
     assert surface.strips[0].ring == (3, RingMode.BOOST_CUT)
@@ -157,11 +158,11 @@ async def test_applications_get_the_balance_of_all_their_streams(
 
 async def test_a_strip_without_a_knob_of_that_kind_says_so(surface: RecordingSurface, env: StripEnv) -> None:
     with pytest.raises(ValueError, match="DeviceStrip has no encoder 'pick'"):
-        DeviceStrip(surface.strips[0], env, Direction.OUTPUT, (), encoder="pick")  # type: ignore[arg-type]
+        DeviceStrip(surface.strips[0], env, ID, Direction.OUTPUT, (), Look(), encoder="pick")  # type: ignore[arg-type]
 
 
 def test_a_knob_does_nothing_by_default(surface: RecordingSurface, env: StripEnv) -> None:
-    knob = Knob(DeviceStrip(surface.strips[0], env, Direction.OUTPUT, ()))
+    knob = Knob(DeviceStrip(surface.strips[0], env, ID, Direction.OUTPUT, (), Look()))
     knob.turn(1)
     knob.push(True)
     knob.close()
@@ -169,7 +170,7 @@ def test_a_knob_does_nothing_by_default(surface: RecordingSurface, env: StripEnv
 
 
 async def test_the_volume_knob_steps_and_resets(surface: RecordingSurface, env: StripEnv, backend: FakeBackend) -> None:
-    strip = DeviceStrip(surface.strips[0], env, Direction.OUTPUT, ("speaker",), encoder="volume")
+    strip = DeviceStrip(surface.strips[0], env, ID, Direction.OUTPUT, ("speaker",), Look(), encoder="volume")
     strip.update(AudioState(outputs=(output("speaker", 50),)))
     assert surface.strips[0].ring == (6, RingMode.WRAP)
     strip.on_encoder(-1)
@@ -207,5 +208,5 @@ async def test_a_balance_for_a_device_that_went_away_is_dropped(
 def test_the_encoder_of_a_strip_by_default_and_configured(
     surface: RecordingSurface, env: StripEnv, config: StripConfig, knob: type[Knob]
 ) -> None:
-    strip = build_strip(config, surface.strips[0], env, {})
+    strip = build(config, surface.strips[0], env, {})
     assert type(strip.knob) is knob  # type: ignore[attr-defined]

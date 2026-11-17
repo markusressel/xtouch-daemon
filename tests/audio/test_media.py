@@ -12,6 +12,7 @@ from dbus_fast.service import ServiceInterface, dbus_property, method
 
 from tests.support.audio import FakeBackend, stream
 from tests.support.hardware import RecordingSurface
+from tests.support.strips import ID
 from tests.support.tasks import settle
 from xtouch_daemon.audio import media
 from xtouch_daemon.audio.media import MediaCommandError, MprisPlayers, Player, ancestors, parent_pid, player_of
@@ -19,7 +20,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.hardware.protocol import Color, RingMode
 from xtouch_daemon.strips import knobs
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
-from xtouch_daemon.strips.base import StripEnv
+from xtouch_daemon.strips.base import Look, StripEnv
 
 # -- which player plays the streams ---------------------------------------------------------------------------------
 
@@ -258,7 +259,7 @@ SPOTIFY = Player("org.mpris.MediaPlayer2.spotify", None)
 
 def browser(surface: RecordingSurface, env: StripEnv, players: FakePlayers | None) -> AppGroupStrip:
     env = StripEnv(env.backend, env.behavior, players=players)
-    return AppGroupStrip(surface.strips[0], env, ("spotify",), "Music", encoder="media")
+    return AppGroupStrip(surface.strips[0], env, ID, ("spotify",), Look("Music"), encoder="media")
 
 
 async def test_the_encoder_seeks_and_plays_or_pauses_the_player(
@@ -385,7 +386,9 @@ async def test_an_auto_strip_forgets_the_paused_player_of_its_application(
     monkeypatch.setattr(knobs, "PROGRESS_INTERVAL", 0.01)
     players = FakePlayers(SPOTIFY)
     players.playback = "Paused"
-    strip = AutoStrip(surface.strips[0], StripEnv(env.backend, env.behavior, players=players), {}, encoder="media")
+    strip = AutoStrip(
+        surface.strips[0], StripEnv(env.backend, env.behavior, players=players), ID, {}, Look(), encoder="media"
+    )
     strip.assign("Spotify")
     strip.update(AudioState(streams=(stream(1, "Spotify", "spotify"),)))
     await wait_for(lambda: strip.knob.status == "Paused")  # type: ignore[attr-defined]

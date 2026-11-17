@@ -8,13 +8,13 @@ import pytest
 
 from tests.support.audio import FakeBackend, output
 from tests.support.hardware import RecordingSurface
-from tests.support.strips import STATE, make
+from tests.support.strips import ID, STATE, make
 from tests.support.tasks import settle
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Card, Direction, Profile
 from xtouch_daemon.config.audio_strips import ChoiceConfig
-from xtouch_daemon.hardware.protocol import Button, Color, Led
-from xtouch_daemon.strips.base import StripEnv
+from xtouch_daemon.hardware.protocol import Button, Led
+from xtouch_daemon.strips.base import Look, StripEnv
 from xtouch_daemon.strips.device import ChoiceStrip, _options
 
 CARD = "alsa_card.pci-0000_11_00.4"
@@ -58,9 +58,9 @@ def sound(
 
 
 def make_choices(
-    surface: RecordingSurface, env: StripEnv, choices: tuple[ChoiceConfig, ...] = CHOICES, **kwargs: object
+    surface: RecordingSurface, env: StripEnv, choices: tuple[ChoiceConfig, ...] = CHOICES, label: str | None = None
 ) -> ChoiceStrip:
-    return ChoiceStrip(surface.strips[0], env, Direction.OUTPUT, choices, color=Color.CYAN, **kwargs)  # type: ignore[arg-type]
+    return ChoiceStrip(surface.strips[0], env, ID, Direction.OUTPUT, choices, Look(label, "cyan"))
 
 
 async def test_the_choice_of_the_default_shows_with_its_label_and_range(

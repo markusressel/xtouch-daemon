@@ -18,15 +18,15 @@ from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strips import StripConfig, collapses
-from xtouch_daemon.config.values import DEFAULT_LAYOUT, MeterPoint
+from xtouch_daemon.config.values import DEFAULT_LAYOUT
 from xtouch_daemon.hardware.strip import VirtualStrip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.placement import Flow, Placement
-from xtouch_daemon.strips import build_strip, launch_button
+from xtouch_daemon.strips import build_strip, launch_button, look_of, strip_identity
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
-from xtouch_daemon.strips.base import StripController, StripEnv
+from xtouch_daemon.strips.base import Identity, StripController, StripEnv
 from xtouch_daemon.strips.voip import VoipSeat, VoipSeats, VoipStrip
 from xtouch_daemon.system.launch import LaunchButton, Launcher
 from xtouch_daemon.system.processes import running_processes
@@ -86,11 +86,11 @@ class Mixer:
         strips = config.all_strips(layout)
         self.strips = [VirtualStrip(surface, index) for index in range(len(strips))]
         """What each strip of the configuration shows, on the strip of the device it is on (see `flow`)."""
-        seats = self._voip_seats(strips, self.strips, env)
-        for strip_config, strip, seat in zip(strips, self.strips, seats, strict=True):
-            self.controllers.append(build_strip(strip_config, strip, env, config.aliases, seat))
-        self.meter_points: list[MeterPoint] = [config.meter_point(strip, layout) for strip in strips]
-        """Where the meter of each strip of the configuration takes the level."""
+        identities = [strip_identity(strip, position) for position, strip in enumerate(strips)]
+        seats = self._voip_seats(strips, identities, env)
+        for strip_config, strip, identity, seat in zip(strips, self.strips, identities, seats, strict=True):
+            look = look_of(strip_config, config.meter_point(strip_config, layout))
+            self.controllers.append(build_strip(strip_config, strip, env, config.aliases, identity, look, seat))
         self.flow = Flow(
             self.strips,
             surface.strips,
@@ -101,7 +101,7 @@ class Mixer:
             lambda device_index, index: self.desk.bind(
                 device_index,
                 self.controllers[index] if index is not None else None,
-                self.meter_points[index] if index is not None else "pre_fader",
+                self.controllers[index].look.meter_point if index is not None else "pre_fader",
             ),
         )
         self.desk.on_hands_free = self._hands_free
@@ -125,7 +125,7 @@ class Mixer:
             voip.subscribe(self.refresh)
 
     def _voip_seats(
-        self, strips: tuple[StripConfig, ...], views: list[VirtualStrip], env: StripEnv
+        self, strips: tuple[StripConfig, ...], identities: list[Identity], env: StripEnv
     ) -> list[VoipSeat | None]:
         """
         Where each `voip` strip sits among those of the layout (None for the other strips). The strips with the same
@@ -138,12 +138,12 @@ class Mixer:
         seats = VoipSeats(self.voip, [strip.person for strip in voip], self.refresh)
         buttons: dict[tuple[str, ...], LaunchButton | None] = {}
         result: list[VoipSeat | None] = []
-        for strip, view in zip(strips, views, strict=True):
+        for strip, identity in zip(strips, identities, strict=True):
             if not isinstance(strip, VoipStripConfig):
                 result.append(None)
                 continue
             if strip.launch is not None and strip.launch not in buttons:
-                buttons[strip.launch] = launch_button(strip, view, env)
+                buttons[strip.launch] = launch_button(strip, identity, env)
             launch = buttons[strip.launch] if strip.launch is not None else None
             result.append(VoipSeat(seats, sum(seat is not None for seat in result), launch))
         return result

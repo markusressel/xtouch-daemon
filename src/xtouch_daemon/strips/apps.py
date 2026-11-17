@@ -3,15 +3,15 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Stream
-from xtouch_daemon.config.values import EncoderMode, Indicator
-from xtouch_daemon.hardware.protocol import Button, Color
+from xtouch_daemon.config.values import EncoderMode
+from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.hardware.strip import Strip
-from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
+from xtouch_daemon.strips.base import Identity, Level, Look, StripEnv, VolumeStrip
 from xtouch_daemon.strips.knobs import Knob, MediaKnob, PickKnob
 from xtouch_daemon.system.launch import LaunchButton
 from xtouch_daemon.system.processes import process_matching
@@ -39,16 +39,14 @@ class AppStrip(VolumeStrip):
         self,
         strip: Strip,
         env: StripEnv,
-        label: str,
-        color: Color = Color.WHITE,
-        meter: bool = True,
-        indicators: Mapping[Button, Indicator] | None = None,
+        identity: Identity,
+        look: Look,
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
     ):
-        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder, controls)
+        super().__init__(strip, env, identity, look, min_volume, max_volume, encoder, controls)
         self.streams: dict[int, Stream] = {}
         self.group_volume: int | None = None
         """The volume of the strip: set on the strip, or the loudest stream; None before the first stream."""
@@ -169,18 +167,16 @@ class AppGroupStrip(AppStrip):
         self,
         strip: Strip,
         env: StripEnv,
+        identity: Identity,
         patterns: tuple[str, ...],
-        label: str,
-        color: Color = Color.WHITE,
-        meter: bool = True,
-        indicators: Mapping[Button, Indicator] | None = None,
+        look: Look,
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
         processes: tuple[str, ...] | None = None,
     ):
-        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder, controls)
+        super().__init__(strip, env, identity, look, min_volume, max_volume, encoder, controls)
         self.patterns = patterns
         self.processes = patterns if processes is None else processes
 
@@ -212,16 +208,15 @@ class AutoStrip(AppStrip):
         self,
         strip: Strip,
         env: StripEnv,
+        identity: Identity,
         aliases: dict[str, str],
-        color: Color = Color.WHITE,
-        meter: bool = True,
-        indicators: Mapping[Button, Indicator] | None = None,
+        look: Look,
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
     ):
-        super().__init__(strip, env, "", color, meter, indicators, min_volume, max_volume, encoder, controls)
+        super().__init__(strip, env, identity, look, min_volume, max_volume, encoder, controls)
         self.aliases = aliases
         self.app: str | None = None
         self.slot: AutoSlot | None = None
