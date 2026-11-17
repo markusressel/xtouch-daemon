@@ -22,10 +22,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   (`since`, `source`, `override`), an override select per state, an input switch per state with
   `homeassistant = true`, `binary_sensor.<ns>_<channel>_shown` and `sensor.<ns>_slot_<n>` (what the slot shows,
   with `label`, `kind`, `via` and `reason`). The live view tells the mode, the states and what each slot shows and
-  why, takes requests to pick a mode and to override a state, and the GUI shows the mode in a pill next to the
+  why, takes requests to pick a mode and to override a state (no longer the layout, the layouts, the placement, who is
+  on which strip, or a request to switch the layout), and the GUI shows the mode in a pill next to the
   preview, with the states and slots in its tooltip. `xtouch-daemon migrate-config` writes a file with strips and
   layouts in that format and lists what needs a look (renamed entities, resolved `inherit` strips, strips without a
-  slot); `check-config` points old files to it. `init-config` writes the new format (`--strips` the old example),
+  slot); `check-config` points old files to it. `init-config` writes the new format,
   `xtouch-daemon mode` lists and picks the modes (`layout` only points to it). See the new page Channels,
   states and slots. The daemon runs only this format: it refuses a file with strips and layouts and points to
   `migrate-config`, and a file without `[slots]` shows `auto` on every

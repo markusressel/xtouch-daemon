@@ -2,7 +2,7 @@
 
 xtouch-daemon reads a TOML file, by default `~/.config/xtouch-daemon/config.toml` (`$XDG_CONFIG_HOME` is respected).
 `-c FILE` selects another one. Without a file at the default path it uses the
-[example configuration](https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/slots.example.toml):
+[example configuration](https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/config.example.toml):
 six `auto` slots, the default input and the default output.
 
 ```shell

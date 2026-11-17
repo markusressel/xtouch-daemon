@@ -4,7 +4,7 @@ xtouch-daemon turns a Behringer X-Touch Extender into a hardware mixer for PipeW
 meters and scribble strips control your devices and applications. A strip can also belong to Home Assistant instead,
 for lights, speakers in other rooms or scenes.
 
-![The GUI: the eight strips as the device shows them, and the options of the selected one](images/gui.png)
+![The GUI: the device as it is, the slots and the inspector of the slot picked](images/gui.png)
 
 ## Features
 

@@ -110,8 +110,6 @@ async def test_without_mqtt_section_there_is_no_bridge(
     daemon = make(config_path, surface, backend)
     assert daemon.bridge is None
     assert daemon.snapshot().mqtt is None
-    # where the strips are
-    assert daemon.snapshot().placement == daemon.mixer.placement
     # the GUI tells whether it runs the installed version
     assert daemon.snapshot().daemon_version == __version__
     config = parse_config(HOME_ASSISTANT)

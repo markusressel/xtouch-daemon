@@ -21,7 +21,6 @@ from xtouch_daemon.live.messages import (
     StartPreview,
     StateView,
     StripState,
-    SwitchLayout,
     VoipState,
 )
 
@@ -70,10 +69,7 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
         data.get("daemon_version"),
         bool(data.get("preview", False)),
         tuple(data.get("features", ())),
-        data.get("layout"),
-        tuple(data.get("layouts", ())),
         _voip(data.get("voip")),
-        _placement(data.get("placement")),
         _slots(data.get("slots")),
     )
 
@@ -100,13 +96,8 @@ def _voip(value: dict[str, Any] | None) -> VoipState | None:
         value["channel"],
         value["participants"],
         tuple(value.get("names", ())),
-        tuple(value.get("strips", ())),
         tuple(value.get("ids", ())),
     )
-
-
-def _placement(value: list[int | None] | None) -> tuple[int | None, ...] | None:
-    return None if value is None else tuple(value)
 
 
 def encode_reply(reply: Reply) -> bytes:
@@ -117,7 +108,6 @@ _REQUEST_NAMES: dict[type, str] = {
     StartPreview: "preview",
     KeepPreview: "keep_preview",
     EndPreview: "end_preview",
-    SwitchLayout: "layout",
     SetMode: "mode",
     SetOverride: "override",
 }
@@ -127,8 +117,6 @@ def encode_request(request: Request) -> bytes:
     data = {"request": _REQUEST_NAMES[type(request)]}
     if isinstance(request, StartPreview):
         data["config"] = request.config
-    elif isinstance(request, SwitchLayout):
-        data["layout"] = request.layout
     elif isinstance(request, SetMode):
         data["mode"] = request.mode
     elif isinstance(request, SetOverride):
@@ -149,8 +137,6 @@ def decode_request(line: bytes) -> Request:
             return KeepPreview()
         case {"request": "end_preview"}:
             return EndPreview()
-        case {"request": "layout", "layout": str(layout)}:
-            return SwitchLayout(layout)
         case {"request": "mode", "mode": str(mode)}:
             return SetMode(mode)
         case {"request": "override", "state": str(state), "value": str(value)}:

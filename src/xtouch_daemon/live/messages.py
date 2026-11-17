@@ -15,7 +15,7 @@ VERSION = 1
 """Changes when a line means something else; a client ignores lines of another version."""
 
 
-FEATURES = ("preview", "layout", "mode", "override")
+FEATURES = ("preview", "mode", "override")
 """The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 
 
@@ -72,11 +72,6 @@ class VoipState:
     participants: int
     names: tuple[str, ...] = ()
     """The names of the participants, in the order of the provider."""
-    strips: tuple[str | None, ...] = ()
-    """
-    For each strip of the layout shown (an index of `Config.all_strips(layout)`, as `Snapshot.placement`), the name
-    of the participant it shows: None for nobody and for the strips that are no `voip` strips.
-    """
     ids: tuple[str, ...] = ()
     """The ids of the participants (what the provider knows them by), as `names`; empty from an older daemon."""
 
@@ -148,20 +143,10 @@ class Snapshot:
     """
     features: tuple[str, ...] = ()
     """The requests the daemon takes (`FEATURES`), none for an older daemon."""
-    layout: str | None = None
-    """The name of the layout the device shows (an older daemon does not tell it)."""
-    layouts: tuple[str, ...] = ()
-    """The names of every layout of the configuration, the default one first."""
     voip: VoipState | None = None
     """The voice chat, None without `[voip]` (or for an older daemon)."""
-    placement: tuple[int | None, ...] | None = None
-    """
-    For each strip of the device, the strip of the layout it shows (an index of `Config.all_strips(layout)`), None
-    for a dark one; None for an older daemon, whose strips are where they are
-    configured. It differs from 0..7 with `collapse` (see `placement.py`).
-    """
     slots: SlotsState | None = None
-    """The slots, states and mode of a configuration of channels, states and slots; None for one of layouts."""
+    """The slots, states and mode; None for an older daemon."""
 
 
 @dataclass(frozen=True)
@@ -186,16 +171,6 @@ class EndPreview:
 
 
 @dataclass(frozen=True)
-class SwitchLayout:
-    """
-    Show another layout: `layout` is its name, or "+1" ("-1") for the next (previous) one. The daemon answers with a
-    `Reply` of kind "layout".
-    """
-
-    layout: str
-
-
-@dataclass(frozen=True)
 class SetMode:
     """With slots: pick a mode, or `auto` for the rules. The daemon answers with a `Reply` of kind "mode"."""
 
@@ -213,9 +188,9 @@ class SetOverride:
     value: str
 
 
-type Request = StartPreview | KeepPreview | EndPreview | SwitchLayout | SetMode | SetOverride
+type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride
 
-type ReplyKind = Literal["preview", "ended", "layout", "mode", "override", "error"]
+type ReplyKind = Literal["preview", "ended", "mode", "override", "error"]
 
 
 @dataclass(frozen=True)
@@ -223,8 +198,8 @@ class Reply:
     """
     An answer of the daemon, or news for a client. "preview": whether a `StartPreview` runs now (`message` says why
     not, e.g. the errors of the configuration, as `check-config` tells them). "ended": the preview of this client
-    ended, `message` says why. "layout": whether a `SwitchLayout` was carried out (`message` is the layout shown
-    then, or why not); "mode" and "override" the same for `SetMode` and `SetOverride`. "error": a request could not
+    ended, `message` says why. "mode" and "override": whether a `SetMode` (`message` is the mode then, or why not)
+    or a `SetOverride` was carried out. "error": a request could not
     be read, or is not allowed.
     """
 

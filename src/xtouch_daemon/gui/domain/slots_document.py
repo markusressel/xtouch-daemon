@@ -19,7 +19,7 @@ from tomlkit.container import Container
 from tomlkit.items import AoT, InlineTable, Table
 
 from xtouch_daemon.config.base import ConfigError
-from xtouch_daemon.config.files import Problem, parse_config, slots_example_config
+from xtouch_daemon.config.files import Problem, example_config, parse_config
 from xtouch_daemon.config.migrate import migrate
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.gui.domain.schema import RESTART_SECTIONS, SECTIONS
@@ -100,7 +100,7 @@ class SlotsDocument:
         try:
             text = path.read_text(encoding="utf-8")
         except FileNotFoundError:
-            return cls(path, slots_example_config(), exists=False)
+            return cls(path, example_config(), exists=False)
         except OSError as e:
             raise ConfigError(f"can't read {path}: {e}") from e
         return cls(path, text, exists=True)

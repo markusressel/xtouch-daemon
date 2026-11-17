@@ -73,7 +73,7 @@ class FakeModes:
         connection, _ = self.server.accept()
         with connection, connection.makefile("rb") as lines:
             # an older line first, which the client skips
-            snapshot = Snapshot("abc", True, True, None, (), slots=self.slots, layouts=("default",))
+            snapshot = Snapshot("abc", True, True, None, (), slots=self.slots)
             connection.sendall(b'{"version": 0}\n' + encode(snapshot))
             for line in lines:
                 request = decode_request(line)

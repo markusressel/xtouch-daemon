@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from tests.support.config import FULL, GAMING, HOME_ASSISTANT, MQTT, legacy, legacy_errors_of
+from tests.support.config import FULL, GAMING, HOME_ASSISTANT, LEGACY_EXAMPLE, MQTT, legacy, legacy_errors_of
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import (
@@ -17,7 +17,6 @@ from xtouch_daemon.config.files import (
     load_config,
     parse_config,
     problems_of,
-    slots_example_config,
 )
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.legacy.model import LegacyConfig
@@ -67,7 +66,7 @@ def test_colors_have_their_lcd_color():
 
 
 def test_the_example_configuration_is_valid():
-    config = legacy(example_config())
+    config = legacy(LEGACY_EXAMPLE)
     assert len(config.all_strips()) == 8
 
 
@@ -173,7 +172,7 @@ def test_a_missing_file_that_was_asked_for_is_an_error(tmp_path: Path):
 
 def test_without_a_file_at_the_default_path_it_is_the_example(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    assert load_config() == parse_config(slots_example_config())
+    assert load_config() == parse_config(example_config())
 
     default_config_path().parent.mkdir()
     default_config_path().write_text("[behavior]\nencoder_step = 3")

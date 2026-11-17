@@ -4,8 +4,9 @@
 
 import pytest
 
+from tests.support.config import LEGACY_EXAMPLE
 from xtouch_daemon.config.base import ConfigError
-from xtouch_daemon.config.files import example_config, parse_config
+from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.migrate import migrate
 
 OLD = """[behavior]
@@ -187,7 +188,7 @@ def test_strips_and_layouts_become_channels_states_and_slots() -> None:
 
 
 def test_the_example_keeps_its_comments() -> None:
-    migration = migrate(example_config())
+    migration = migrate(LEGACY_EXAMPLE)
     assert migration.text.startswith("# xtouch-daemon configuration")
     assert migration.notes == ("Comments about strips and layouts are still in the file: delete or rewrite them",)
     assert parse_config(migration.text).slots is not None

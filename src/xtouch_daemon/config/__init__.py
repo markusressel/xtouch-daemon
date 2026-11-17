@@ -1,5 +1,5 @@
 """
-The configuration: a TOML file, by default `$XDG_CONFIG_HOME/xtouch-daemon/config.toml`. See `slots.example.toml`
+The configuration: a TOML file, by default `$XDG_CONFIG_HOME/xtouch-daemon/config.toml`. See `config.example.toml`
 (written by `xtouch-daemon init-config`) and docs/configuration/.
 
 - `files`: reading the file, its errors.

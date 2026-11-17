@@ -19,7 +19,6 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import StripConfig
 from xtouch_daemon.config.values import EncoderMode, default_encoder
-from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.strip import Claimable, VirtualStrip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.mqtt import MqttBridge
@@ -31,7 +30,6 @@ from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.strips import EmptyStrip, build_strip, look_of
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
-from xtouch_daemon.strips.voip import VoipStrip
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.system.processes import running_processes
 from xtouch_daemon.voip.provider import VoipProvider
@@ -293,21 +291,6 @@ class SlotMixer:
     def controllers(self) -> list[StripController]:
         """The controllers on the strips of the device, from the left (none before the first `apply()`)."""
         return [controller for slot in SLOTS if (controller := self._at(slot)) is not None]
-
-    @property
-    def placement(self) -> tuple[int | None, ...]:
-        """Each strip of the device shows its slot."""
-        return tuple(range(protocol.STRIPS))
-
-    @property
-    def voip_names(self) -> tuple[str | None, ...]:
-        """For each strip of the device, the name of the participant it shows (None for nobody)."""
-        return tuple(
-            person.name
-            if isinstance(controller, VoipStrip) and (person := controller.participant) is not None
-            else None
-            for controller in self.controllers
-        )
 
     # -- running --------------------------------------------------------------------------------------------------
 

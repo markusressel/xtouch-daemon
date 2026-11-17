@@ -9,9 +9,9 @@ to be right. A client that does not keep up is dropped instead of being waited f
 the daemon.
 
 A client of the same user may also send requests, a line of JSON each: the live preview of the GUI (`StartPreview`,
-`KeepPreview`, `EndPreview`) and the switch to another layout (`SwitchLayout`). The daemon answers with `Reply` lines,
-which have no `version`: a GUI that does not know replies ignores them like lines of another version, and an older
-daemon ignores the requests.
+`KeepPreview`, `EndPreview`), a mode picked (`SetMode`) and the override of a state (`SetOverride`). The daemon
+answers with `Reply` lines, which have no `version`: a GUI that does not know replies ignores them like lines of
+another version, and an older daemon ignores the requests.
 
 - `messages`: the snapshots, requests and replies.
 - `codec`: them as lines of JSON.

@@ -78,8 +78,6 @@ async def test_only_the_slots_that_changed_are_bound_again(
     rig.step(STATE)
     assert rig.labels()[:4] == ["Mic", "Speaker", "Spotify", "Alice"]
     assert rig.labels()[7] == "Ann"
-    assert mixer.voip_names[3] == "Alice"
-    assert mixer.voip_names[7] == "Ann"
     spotify = mixer.controllers[2]
     assert isinstance(spotify, AutoStrip)
     assert spotify.max_volume is None

@@ -2,6 +2,8 @@
 Helpers for the tests of the configuration.
 """
 
+from pathlib import Path
+
 import pytest
 
 from xtouch_daemon.config.base import ConfigError
@@ -50,6 +52,10 @@ def errors_of(text: str) -> str:
     with pytest.raises(ConfigError) as error:
         parse_config(text, "config.toml")
     return str(error.value)
+
+
+LEGACY_EXAMPLE = (Path(__file__).parent.parent / "config" / "legacy.example.toml").read_text(encoding="utf-8")
+"""The example of the format with strips and layouts, for the tests of reading and migrating such files."""
 
 
 def legacy(text: str, source: str = "config") -> LegacyConfig:

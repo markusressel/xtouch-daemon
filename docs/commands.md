@@ -93,8 +93,7 @@ xtouch-daemon init-config [PATH] [-f]
 ```
 
 Writes the example configuration with [channels, states and slots](configuration/slots.md) to
-`~/.config/xtouch-daemon/config.toml`, or to `PATH`; `--strips` the one with strips and layouts (which the GUI
-edits). An existing file stays, unless `-f` (`--force`) overwrites it.
+`~/.config/xtouch-daemon/config.toml`, or to `PATH`. An existing file stays, unless `-f` (`--force`) overwrites it.
 
 ## `list-devices`
 

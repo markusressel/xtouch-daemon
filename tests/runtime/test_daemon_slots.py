@@ -24,7 +24,6 @@ from xtouch_daemon.live.messages import (
     SetOverride,
     SlotView,
     StateView,
-    SwitchLayout,
     VoipState,
     fingerprint,
 )
@@ -160,8 +159,9 @@ async def test_the_strips_follow_the_states_and_auto_keeps_its_application(
     await until(lambda: labels(surface) == ["Game", "Spotify", "Mic"])
     assert daemon.slots is not None
     assert daemon.slots.mode == "gaming"
-    assert daemon.snapshot().layout == "gaming"
-    assert daemon.snapshot().layouts == ("default", "gaming", "auto")
+    view = daemon.snapshot().slots
+    assert view is not None
+    assert view.mode == "gaming"
     assert "State gaming on (mygame runs)" in caplog.text
     assert "Slots: 1 game" in caplog.text
 
@@ -178,13 +178,12 @@ async def test_modes_by_hand_and_by_the_chord(
     task = asyncio.create_task(daemon.run())
     await until(lambda: labels(surface, 1) == ["Speaker"])
 
-    # an older client asks for a layout: a mode
-    assert daemon.on_request(None, SwitchLayout("gaming")) == Reply("layout", True, "gaming")
+    assert daemon.on_request(None, SetMode("gaming")) == Reply("mode", True, "gaming")
     assert labels(surface, 1) == ["Game"]
     assert "Gaming" in "".join(strip.shown_text[0] for strip in surface.strips)
-    assert daemon.request_mode("+1") == Reply("layout", True, "default")
-    assert daemon.request_mode("nope") == Reply("layout", False, "There is no mode nope (auto, default, gaming)")
-    assert daemon.request_mode("auto") == Reply("layout", True, "default")
+    assert daemon.request_mode("+1") == Reply("mode", True, "default")
+    assert daemon.request_mode("nope") == Reply("mode", False, "There is no mode nope (auto, default, gaming)")
+    assert daemon.request_mode("auto") == Reply("mode", True, "default")
 
     def press(strip: int, pressed: bool = True) -> None:
         surface.on_event(protocol.ButtonPressed(strip, Button.SOLO, pressed))

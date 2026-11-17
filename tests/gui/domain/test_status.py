@@ -3,15 +3,15 @@ from pathlib import Path
 
 import pytest
 
-from tests.support.config import legacy
+from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
 from xtouch_daemon.live.messages import Snapshot, fingerprint
 from xtouch_daemon.system import systemd
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import ServiceState
 
-CONFIG = legacy('[[strip]]\ntype = "output"\n')
-OTHER = legacy('[[strip]]\ntype = "input"\n')
+CONFIG = parse_config('[channel.out]\ntype = "output"\nlabel = "Out"\n[slots]\n1 = "out"\n')
+OTHER = parse_config('[channel.mic]\ntype = "input"\nlabel = "Mic"\n[slots]\n1 = "mic"\n')
 PATH = Path("/home/me/config.toml")
 DAEMON = Instance(42, PATH, systemd=True)
 

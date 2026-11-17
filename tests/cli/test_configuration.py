@@ -79,12 +79,6 @@ def test_init_config_writes_the_example(config_home: Path) -> None:
     assert "What the slots show:" in output
 
 
-def test_init_config_with_strips(tmp_path: Path) -> None:
-    path = tmp_path / "strips.toml"
-    assert invoke("init-config", "--strips", str(path)).exit_code == 0
-    assert "[[strip]]" in path.read_text()
-
-
 def test_migrate_config_writes_the_new_file_next_to_the_old_one(tmp_path: Path) -> None:
     path = tmp_path / "config.toml"
     path.write_text(OLD)

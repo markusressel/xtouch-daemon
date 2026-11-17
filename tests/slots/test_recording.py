@@ -128,8 +128,8 @@ def test_the_voice_chat_of_the_running_daemon():
                     connection.sendall(b"".join(lines))
 
             for lines, expected in [
-                ([encode_reply(Reply("layout", True)), encode(snapshot)], VOIP),
-                ([encode_reply(Reply("layout", True))], None),
+                ([encode_reply(Reply("mode", True)), encode(snapshot)], VOIP),
+                ([encode_reply(Reply("mode", True))], None),
             ]:
                 thread = threading.Thread(target=serve, args=(lines,))
                 thread.start()

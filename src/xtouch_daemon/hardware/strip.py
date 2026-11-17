@@ -1,6 +1,7 @@
 """
 A strip of the device: what it shows (LCD, LEDs, ring, meter) and where its fader is, which glides to its target
-like a damped spring. `VirtualStrip` is a strip that waits off the device (see `placement.py`).
+like a damped spring. `VirtualStrip` is the strip of a channel, on a slot of the device or off it (see
+`runtime/binder.py`).
 """
 
 import asyncio
@@ -284,9 +285,8 @@ class Strip:
 
 class VirtualStrip(Strip):
     """
-    What a strip of the configuration shows, wherever it is: the controller of a strip draws on it, and it passes that
-    on to the strip of the device it is on (`target`), if any. With `collapse`, the strips of the configuration move
-    between the strips of the device (see `placement.py`); one that waits or collapsed is on none, and shows
+    What the strip of a channel shows, wherever it is: the controller of the channel draws on it, and it passes that
+    on to the strip of the device it is on (`target`), if any. A channel that no slot shows is on none, and shows
     everything again when it gets one (`bind()`). Its `index` is its place in the configuration.
     """
 

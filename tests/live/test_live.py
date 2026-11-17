@@ -31,7 +31,6 @@ from xtouch_daemon.live.messages import (
     StartPreview,
     StateView,
     StripState,
-    SwitchLayout,
     VoipState,
     fingerprint,
 )
@@ -122,9 +121,6 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     # with its version
     versioned = Snapshot("abc", True, False, None, snapshot.strips, daemon_version="1.2.3")
     assert decode(encode(versioned)) == versioned
-    # with strips that moved
-    placed = Snapshot("abc", True, False, None, snapshot.strips, placement=(0, 2, 3, 4, 5, 6, 7, None))
-    assert decode(encode(placed)) == placed
     # with slots
     slots = SlotsState(
         "gaming",
@@ -263,7 +259,6 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
         StartPreview('[[strip]]\ntype = "empty"\n'),
         KeepPreview(),
         EndPreview(),
-        SwitchLayout("+1"),
         SetMode("gaming"),
         SetOverride("call", "on"),
     ):
@@ -277,7 +272,7 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
     with pytest.raises(ValueError, match="unknown"):
         decode_request(b'{"request": "preview", "config": 1}')
     with pytest.raises(ValueError, match="unknown"):
-        decode_request(b'{"request": "layout"}')
+        decode_request(b'{"request": "layout", "layout": "gaming"}')
 
     reply = Reply("preview", False, "strip[1].type: wrong")
     assert decode_message(encode_reply(reply)) == reply
@@ -413,18 +408,6 @@ def test_the_peer_is_the_user_itself():
         assert peer_uid(first) == os.getuid()
 
 
-def test_the_layouts_go_through_a_line(surface: RecordingSurface):
-    snapshot = Snapshot(
-        "abc", True, True, None, strip_states(surface, 0.0), layout="gaming", layouts=("default", "gaming")
-    )
-    assert decode(encode(snapshot)) == snapshot
-    # an older daemon does not tell them
-    older = encode(snapshot).replace(b',"layout":"gaming","layouts":["default","gaming"]', b"")
-    decoded = decode(older)
-    assert decoded is not None
-    assert (decoded.layout, decoded.layouts) == (None, ())
-
-
 def test_the_live_view_shows_a_banner(surface: RecordingSurface):
     surface.strips[0].set_text(0, "Speaker")
     surface.strips[0].set_overlay(("Gaming", ""))
@@ -432,12 +415,12 @@ def test_the_live_view_shows_a_banner(surface: RecordingSurface):
 
 
 def test_the_voice_chat_goes_through_a_line(surface: RecordingSurface):
-    voip = VoipState("bridge", True, "mumble", "Lobby", 3, ("Ann", "Bob", "Carol"), ("Bob", None, "Ann"))
+    voip = VoipState("bridge", True, "mumble", "Lobby", 3, ("Ann", "Bob", "Carol"), ("a", "b", "c"))
     snapshot = dataclasses.replace(snapshot_of(surface), voip=voip)
     assert decode(encode(snapshot)) == snapshot
-    # without who is where
-    plain = dataclasses.replace(voip, names=(), strips=())
-    line = encode(dataclasses.replace(snapshot, voip=plain)).replace(b',"names":[],"strips":[]', b"")
+    # without the names
+    plain = dataclasses.replace(voip, names=(), ids=())
+    line = encode(dataclasses.replace(snapshot, voip=plain)).replace(b',"names":[],"ids":[]', b"")
     assert b"names" not in line
     decoded = decode(line)
     assert decoded is not None

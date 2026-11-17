@@ -13,7 +13,7 @@ from xtouch_daemon.cli.options import CONFIG_OPTION, load_or_fail
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import ConfigError
-from xtouch_daemon.config.files import default_config_path, example_config, slots_example_config
+from xtouch_daemon.config.files import default_config_path, example_config
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.migrate import migrate
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
@@ -92,16 +92,13 @@ def check_config(config_path: Path | None) -> None:
 @click.command("init-config")
 @click.argument("path", type=click.Path(path_type=Path, dir_okay=False), required=False)
 @click.option("-f", "--force", is_flag=True, help="Overwrite an existing file.")
-@click.option(
-    "--strips", is_flag=True, help="The example with strips and layouts (for the GUI, which edits only those)."
-)
-def init_config(path: Path | None, force: bool, strips: bool) -> None:
+def init_config(path: Path | None, force: bool) -> None:
     """Write the example configuration (to the default path, or PATH)."""
     path = path or default_config_path()
     if path.exists() and not force:
         raise click.ClickException(f"{path} exists already (--force overwrites it)")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(example_config() if strips else slots_example_config(), encoding="utf-8")
+    path.write_text(example_config(), encoding="utf-8")
     click.echo(f"Wrote {path}. Edit it, then check it with: xtouch-daemon check-config")
 
 

@@ -34,13 +34,8 @@ def default_config_path() -> Path:
 
 
 def example_config() -> str:
-    """The example with strips and layouts (the GUI's new file, and the defaults without a file)."""
+    """The example configuration (`init-config`, the GUI's new file, and the defaults without a file)."""
     return resources.files("xtouch_daemon").joinpath("config.example.toml").read_text(encoding="utf-8")
-
-
-def slots_example_config() -> str:
-    """The example with channels, states and slots (`init-config`)."""
-    return resources.files("xtouch_daemon").joinpath("slots.example.toml").read_text(encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -124,7 +119,7 @@ def load_config(path: Path | None = None) -> Config:
     except FileNotFoundError:
         if explicit:
             raise ConfigError(f"{path} does not exist") from None
-        return parse_config(slots_example_config(), "the example configuration")
+        return parse_config(example_config(), "the example configuration")
     except OSError as e:
         raise ConfigError(f"can't read {path}: {e}") from e
     return parse_config(text, str(path))

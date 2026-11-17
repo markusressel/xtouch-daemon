@@ -40,7 +40,6 @@ from xtouch_daemon.live.messages import (
     SetOverride,
     Snapshot,
     StartPreview,
-    SwitchLayout,
     VoipState,
     fingerprint,
 )
@@ -82,8 +81,8 @@ def mqtt_state(bridge: MqttBridge) -> MqttState:
     )
 
 
-def voip_state(provider: VoipProvider, strips: tuple[str | None, ...] = ()) -> VoipState:
-    """The voice chat, for the live view; `strips` names who each strip shows (`SlotMixer.voip_names`)."""
+def voip_state(provider: VoipProvider) -> VoipState:
+    """The voice chat, for the live view."""
     return VoipState(
         provider=provider.name,
         connected=provider.connected,
@@ -92,7 +91,6 @@ def voip_state(provider: VoipProvider, strips: tuple[str | None, ...] = ()) -> V
         participants=len(provider.participants),
         names=tuple(participant.name for participant in provider.participants),
         ids=tuple(participant.id for participant in provider.participants),
-        strips=strips,
     )
 
 
@@ -301,18 +299,18 @@ class Daemon:
 
     def request_mode(self, name: str, reason: str = MANUAL) -> Reply:
         """
-        A mode asked for (also as a layout, `live.SwitchLayout`, by an older client): `default` or a mode picks it
+        A mode asked for (`live.SetMode`, `mode`, the chord, Home Assistant): `default` or a mode picks it
         (until the rules want another one), "+1" ("-1") the next (previous) one, `auto` lets the rules decide.
         """
         modes = self.slots.modes
         if name in ("+1", "-1"):
             name = modes[(modes.index(self.slots.mode) + int(name)) % len(modes)]
         elif name != "auto" and name not in modes:
-            return Reply("layout", False, f"There is no mode {name} (auto, {', '.join(modes)})")
+            return Reply("mode", False, f"There is no mode {name} (auto, {', '.join(modes)})")
         _LOGGER.info(f"Mode {name} ({reason})")
         self.slots.pick_mode(None if name == "auto" else name)
         self._step_slots()
-        return Reply("layout", True, self.slots.mode)
+        return Reply("mode", True, self.slots.mode)
 
     def request_override(self, name: str, value: str) -> Reply:
         """The override of a state that is no mode (`auto`, `on`, `off`)."""
@@ -398,11 +396,8 @@ class Daemon:
                 if client is self._previewer:
                     self._back_to_file("the GUI ended it")
                 return None
-            case SwitchLayout(layout=name):
-                return self.request_mode(name)
             case SetMode(mode=name):
-                reply = self.request_mode(name)
-                return Reply("mode", reply.ok, reply.message)
+                return self.request_mode(name)
             case SetOverride(state=name, value=value):
                 return self.request_override(name, value)
             case _ as unreachable:
@@ -600,11 +595,7 @@ class Daemon:
             daemon_version=__version__,
             preview=self.previewing,
             features=FEATURES,
-            # for an older GUI: the modes as layouts, and auto to give the choice back to the rules
-            layout=self.slots.mode,
-            layouts=(*self.slots.modes, "auto"),
-            voip=voip_state(self.voip, self.mixer.voip_names),
-            placement=self.mixer.placement,
+            voip=voip_state(self.voip),
             slots=self.slots.view(),
         )
 
