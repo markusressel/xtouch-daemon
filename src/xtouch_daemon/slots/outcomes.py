@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from xtouch_daemon.slots.inputs import Observation
 from xtouch_daemon.slots.model import AUTO, DEFAULT, Scene
-from xtouch_daemon.slots.resolver import SLOTS, Inputs, resolve
+from xtouch_daemon.slots.resolver import SLOTS, Inputs, Result, resolve
 from xtouch_daemon.slots.states import composed_order
 
 
@@ -19,6 +19,11 @@ class Outcome:
     """The combination, e.g. `gaming and call, people present`."""
     slots: tuple[str, ...]
     """What each slot shows: a channel, a pool, or `-`."""
+    mode: str = DEFAULT
+    on: tuple[str, ...] = ()
+    """The states that are on."""
+    flipped: tuple[str, ...] = ()
+    """The channels and pools that are absent (`auto`: present), see `simulate()`."""
 
 
 def dimensions(scene: Scene) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -68,7 +73,7 @@ def outcomes(scene: Scene) -> list[Outcome]:
         slots = _outcome(scene, mode, set(on), set(flipped))
         if slots not in seen:
             seen.add(slots)
-            rows.append(Outcome(_label(scene, mode, on, flipped), slots))
+            rows.append(Outcome(_label(scene, mode, on, flipped), slots, mode, on, flipped))
     return rows
 
 
@@ -104,13 +109,21 @@ def states_for(scene: Scene, mode: str, on: Iterable[str]) -> dict[str, bool]:
     return values
 
 
-def _outcome(scene: Scene, mode: str, on: set[str], flipped: set[str]) -> tuple[str, ...]:
+def simulate(scene: Scene, mode: str, on: Iterable[str], flipped: Iterable[str]) -> Result:
+    """
+    What the slots show in the mode with the states `on` on: the channels and pools of channels are present, `auto`
+    empty, except those `flipped` (absent; `auto`: an application plays).
+    """
+    flipped = set(flipped)
     values = states_for(scene, mode, on)
-    # channels and pools of channels are present, auto empty, unless the combination says otherwise
     gone = {channel for name in flipped if name != AUTO for channel in _channels_of(scene, name)}
     present = frozenset(name for name in scene.channels if name not in gone)
     observation = Observation(playing=("an application",) if AUTO in flipped else ())
-    result = resolve(scene, Inputs(values, present, observation))
+    return resolve(scene, Inputs(values, present, observation))
+
+
+def _outcome(scene: Scene, mode: str, on: set[str], flipped: set[str]) -> tuple[str, ...]:
+    result = simulate(scene, mode, on, flipped)
     return tuple(shown.pool or shown.channel or "-" for shown in result.slots.values())
 
 

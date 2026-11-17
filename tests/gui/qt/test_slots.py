@@ -4,7 +4,7 @@ The slots on the page Device: the state bar, a card per slot, the inspector, and
 
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QDropEvent
-from PyQt6.QtWidgets import QComboBox, QToolButton
+from PyQt6.QtWidgets import QComboBox, QPushButton, QToolButton
 from PyQt6.QtWidgets import QLabel as QLabelType
 from pytestqt.qtbot import QtBot
 
@@ -82,7 +82,7 @@ def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
     assert page.candidate == 1
     assert page.why.text() == "Slot 2: shows 1"
     page.lists[1].setCurrentRow(0)
-    assert page.channel.text().endswith("\nNow browser: on no slot, and no slot asks for it")
+    assert page.channel.text().endswith("\nNow: browser: on no slot, and no slot asks for it")
 
     menu = page.state_buttons["call"].menu()
     assert menu is not None
@@ -214,3 +214,78 @@ def test_controls_of_a_slot_are_listed(window: MainWindow):
     window.document.set(("controls", "1"), {"select": "toggle:call"})
     window.editor.edited()
     assert panel(window).controls.text() == "Controls: select: toggle:call"
+
+
+def test_simulate_shows_what_the_slots_would_show(qtbot: QtBot, window: MainWindow):
+    page = panel(window)
+    device = window.device_page
+    window.document.set(("state", "gaming"), {"mode": True, "processes": ["steam"]})
+    window.document.set(("slots", "3"), ["browser if gaming", "-"])
+    window.editor.edited()
+    sent: list[Request] = []
+    page.request = lambda request: sent.append(request) is None
+
+    page.simulate_button.click()
+    assert page.what_if is not None
+    assert device.preview.simulating
+    assert page.state_bar_row.isHidden()
+    assert not page.what_if_row.isHidden()
+    assert texts(page.lists[1]) == ["browser call", "▶ auto always"]
+    assert texts(page.lists[2]) == ["browser gaming", "▶ - always"]
+    assert device.preview.strips[0].face.look.printed == "out"
+    assert device.preview.strips[2].face.state.color == "off"
+
+    # the bar of what-ifs: the mode, the states, the presence the stacks ask about
+    (mode,) = page.what_if_row.findChildren(QComboBox)
+    mode.setCurrentText("gaming")
+    assert texts(page.lists[2]) == ["▶ browser gaming", "- always"]
+    toggles = {toggle.text(): toggle for toggle in page.what_if_row.findChildren(QPushButton)}
+    toggles["call"].click()
+    assert texts(page.lists[1]) == ["▶ browser call", "auto always"]
+    assert page.why.text().startswith("Slot 1: ")
+    assert sent == []
+
+    # Esc ends it
+    device.preview.strips[0].setFocus()
+    qtbot.keyClick(device.preview.strips[0], Qt.Key.Key_Escape)
+    assert page.what_if is None
+    assert not device.preview.simulating
+    assert not page.simulate_button.isChecked()
+
+    # a file with problems has nothing to simulate
+    page.simulate_button.click()
+    window.document.set(("slots", "3"), "nothing")
+    window.editor.edited()
+    assert page.what_if is None
+    assert not page.simulate_button.isEnabled()
+
+
+def test_the_grid_lists_the_outcomes(window: MainWindow):
+    page = panel(window)
+    page.grid_button.click()
+    assert page.middle.currentWidget() is page.grid
+    header = page.grid.verticalHeaderItem(1)
+    assert header is not None
+    assert [page.outcomes[index].label for index in range(page.grid.rowCount())] == ["default", "call"]
+    cell = page.grid.item(1, 1)
+    assert cell is not None
+    assert cell.text() == "browser"
+
+    # a row simulates its combination
+    page.grid.verticalHeader().sectionClicked.emit(1)  # pyright: ignore[reportOptionalMemberAccess]
+    assert page.what_if is not None
+    assert page.what_if.on == {"call"}
+    # an edit shows the grid again
+    window.document.set(("slots", "4"), "browser")
+    window.editor.edited()
+    assert page.grid.item(0, 3).text() == "browser"  # pyright: ignore[reportOptionalMemberAccess]
+    # a cell picks its slot too
+    page.grid.cellClicked.emit(0, 1)
+    assert page.what_if is not None
+    assert page.what_if.on == frozenset()
+    assert page.middle.currentWidget() is page.card_scroll
+    assert (page.slot, page.candidate) == (2, 1)
+    window.document.set(("slots", "4"), "nothing")
+    window.editor.edited()
+    page.show_grid(True)
+    assert not page.grid_button.isEnabled()

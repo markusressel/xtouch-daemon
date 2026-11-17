@@ -16,11 +16,16 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QPushButton,
     QScrollArea,
+    QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -29,6 +34,7 @@ from PyQt6.QtWidgets import (
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
 from xtouch_daemon.gui.domain.schema import Option, strip_options
+from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text, simulated
 from xtouch_daemon.gui.domain.slot_stacks import (
     ALWAYS,
     EMPTY,
@@ -40,7 +46,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     stack_value,
 )
 from xtouch_daemon.gui.domain.slots_document import Validation
-from xtouch_daemon.gui.domain.states import OVERRIDES, live_state, ordered
+from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import flat_button, label
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
@@ -48,8 +54,9 @@ from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, set_
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotView, Snapshot
+from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
 from xtouch_daemon.slots.model import AUTO
+from xtouch_daemon.slots.outcomes import Outcome, outcomes
 from xtouch_daemon.slots.why import why_channel, why_slot
 
 _INDEX = Qt.ItemDataRole.UserRole
@@ -93,7 +100,18 @@ def chip(text: str) -> QWidget:
     return label(text, "hint" if text == ALWAYS else "chip")
 
 
+def _clear(bar: QHBoxLayout) -> None:
+    """Removes the widgets of a bar (it has nothing else)."""
+    while (item := bar.takeAt(0)) is not None:
+        widget = item.widget()
+        assert widget is not None
+        widget.deleteLater()
+
+
 class SlotsPanel(Page):
+    simulated = pyqtSignal(arguments=[])
+    """Simulate started, changed or ended: the drawing shows the simulation (`simulation`) or the device again."""
+
     def __init__(
         self,
         editor: Editor,
@@ -112,10 +130,39 @@ class SlotsPanel(Page):
         self.candidate: int | None = None
         """The candidate of the slot the inspector shows, None for none."""
         self.shown_live: tuple[object, ...] | None = None
+        self.what_if: WhatIf | None = None
+        """What Simulate shows, None while the cards show what the daemon tells."""
+        self.simulation: SlotsState | None = None
+        """The slots of `what_if`."""
         self.layout_.setContentsMargins(0, Space.S, 0, 0)
+        top = QHBoxLayout()
         self.state_bar = QHBoxLayout()
         self.state_bar.setSpacing(Space.S)
-        self.layout_.addWidget(row(self.state_bar))
+        self.state_bar_row = row(self.state_bar)
+        top.addWidget(self.state_bar_row)
+        self.what_if_bar = QHBoxLayout()
+        self.what_if_bar.setSpacing(Space.S)
+        self.what_if_row = row(self.what_if_bar)
+        self.what_if_row.hide()
+        top.addWidget(self.what_if_row)
+        top.addStretch()
+        self.simulate_button = button("flask-outline", "Simulate")
+        set_role(self.simulate_button, "segment", "variant")
+        self.simulate_button.setCheckable(True)
+        self.simulate_button.setToolTip(
+            "What the slots would show in other modes and states; nothing is sent (Esc ends it)"
+        )
+        self.simulate_button.clicked.connect(lambda checked: self.simulate(WhatIf() if checked else None))
+        top.addWidget(self.simulate_button)
+        self.grid_button = button("table", "Grid")
+        set_role(self.grid_button, "segment", "variant")
+        self.grid_button.setCheckable(True)
+        self.grid_button.setToolTip(
+            "Every combination that shows something else: a row simulates it, a cell picks its slot"
+        )
+        self.grid_button.clicked.connect(self.show_grid)
+        top.addWidget(self.grid_button)
+        self.layout_.addWidget(row(top))
         self.state_buttons: dict[str, QToolButton] = {}
         body = QHBoxLayout()
         body.setSpacing(Space.L)
@@ -126,7 +173,20 @@ class SlotsPanel(Page):
         self.card_scroll.setWidgetResizable(True)
         self.card_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.card_scroll.setWidget(cards)
-        body.addWidget(self.card_scroll, 1)
+        self.grid = QTableWidget()
+        self.grid.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.grid.cellClicked.connect(self._grid_cell)
+        horizontal = self.grid.horizontalHeader()
+        assert horizontal is not None
+        horizontal.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        vertical = self.grid.verticalHeader()
+        assert vertical is not None
+        vertical.sectionClicked.connect(self._grid_row)
+        self.outcomes: list[Outcome] = []
+        self.middle = QStackedWidget()
+        self.middle.addWidget(self.card_scroll)
+        self.middle.addWidget(self.grid)
+        body.addWidget(self.middle, 1)
         self.lists: list[StackList] = []
         self.card_frames: list[QFrame] = []
         for slot in range(1, protocol.STRIPS + 1):
@@ -210,14 +270,20 @@ class SlotsPanel(Page):
             self._show()
 
     def _show(self) -> None:
+        config = self.editor.validation.config
+        for toggle in (self.simulate_button, self.grid_button):
+            toggle.setEnabled(config is not None)
+            toggle.setToolTip(toggle.toolTip() if config is not None else "Only for a file without problems")
+        if self.what_if is not None:
+            self.simulate(self.what_if if config is not None else None)
+        if self.grid_button.isChecked():
+            self.show_grid(config is not None)
         self._show_state_bar()
         self._show_cards()
         self._show_inspector()
 
     def _show_state_bar(self) -> None:
-        while (item := self.state_bar.takeAt(0)) is not None:
-            if (widget := item.widget()) is not None:
-                widget.deleteLater()
+        _clear(self.state_bar)
         self.state_buttons = {}
         for name in ordered(self.document.get(("state",), {})):
             state_button = QToolButton()
@@ -233,12 +299,11 @@ class SlotsPanel(Page):
             state_button.setMenu(menu)
             self.state_bar.addWidget(state_button)
             self.state_buttons[name] = state_button
-        self.state_bar.addStretch()
         self.shown_live = None
         self.show_live(self.snapshot())
 
     def _show_cards(self) -> None:
-        live = self._live_slots(self.snapshot())
+        live = self._views()
         for slot, stack in enumerate(self.lists, start=1):
             stack.blockSignals(True)
             stack.clear()
@@ -330,14 +395,13 @@ class SlotsPanel(Page):
         self.show_problems(self.editor.validation)
 
     def _channel_why(self, name: str) -> str:
-        snapshot = self.snapshot()
-        if snapshot is None or snapshot.slots is None:
+        slots = self.shown_slots()
+        if slots is None:
             return ""
-        return f"\nNow {why_channel(snapshot.slots, name)}"
+        return f"\n{'What if' if self.simulation else 'Now'}: {why_channel(slots, name)}"
 
     def _show_why(self) -> None:
-        snapshot = self.snapshot()
-        live = snapshot.slots if snapshot is not None else None
+        live = self.shown_slots()
         self.why.setVisible(live is not None)
         if live is not None:
             set_text(self.why, why_slot(live, self.slot))
@@ -371,9 +435,16 @@ class SlotsPanel(Page):
         for option_row in self.place_rows:
             option_row.show_problems(validation.at("slots", str(self.slot), self.candidate, option_row.option.name))
 
+    def shown_slots(self, snapshot: Snapshot | None = None) -> SlotsState | None:
+        """What the cards show: the simulation, else what the daemon tells."""
+        if self.simulation is not None:
+            return self.simulation
+        snapshot = snapshot if snapshot is not None else self.snapshot()
+        return snapshot.slots if snapshot is not None else None
+
     def show_live(self, snapshot: Snapshot | None) -> None:
-        """The states in the bar, and ▶ on the candidates the device shows, when they changed."""
-        slots = snapshot.slots if snapshot is not None else None
+        """The states in the bar, and ▶ on the candidates the device shows (or would), when they changed."""
+        slots = self.shown_slots(snapshot)
         live = (
             (
                 *((state.name, state.value, state.override) for state in slots.states),
@@ -387,8 +458,9 @@ class SlotsPanel(Page):
             return
         self.shown_live = live
         picked = slots.mode_pick if slots is not None else None
+        states = {state.name: state for state in slots.states} if slots is not None else {}
         for name, state_button in self.state_buttons.items():
-            state = live_state(snapshot, name)
+            state = states.get(name)
             dot = "" if state is None else "● " if state.value else "○ "
             override = "" if state is None or state.override == "auto" else f" ({state.override})"
             if picked == name:
@@ -398,17 +470,77 @@ class SlotsPanel(Page):
         self._show_cards()
         self._show_why()
 
-    @staticmethod
-    def _live_slots(snapshot: Snapshot | None) -> dict[int, SlotView]:
-        if snapshot is None or snapshot.slots is None:
-            return {}
-        return {view.slot: view for view in snapshot.slots.slots}
+    def _views(self) -> dict[int, SlotView]:
+        slots = self.shown_slots()
+        return {view.slot: view for view in slots.slots} if slots is not None else {}
+
+    # -- simulate and the grid ---------------------------------------------------------------------------------------
+
+    def simulate(self, what_if: WhatIf | None) -> None:
+        """Shows what the slots would show in `what_if`; None goes back to what the daemon tells."""
+        config = self.editor.validation.config
+        self.what_if = what_if
+        self.simulation = simulated(config.slots, what_if) if what_if is not None and config is not None else None
+        self.simulate_button.setChecked(self.simulation is not None)
+        self.state_bar_row.setVisible(self.simulation is None)
+        self.what_if_row.setVisible(self.simulation is not None)
+        if config is not None and what_if is not None:
+            self._show_what_if_bar(Inputs.of(config.slots), what_if)
+        self.shown_live = None
+        self.show_live(self.snapshot())
+        self.simulated.emit()
+
+    def _show_what_if_bar(self, inputs: Inputs, what_if: WhatIf) -> None:
+        _clear(self.what_if_bar)
+        self.what_if_bar.addWidget(label("What if", "hint"))
+        mode = QComboBox()
+        mode.addItems(inputs.modes)
+        mode.setCurrentText(what_if.mode)
+        mode.setToolTip("The mode")
+        mode.currentTextChanged.connect(lambda name: self.simulate(dataclasses.replace(what_if, mode=name)))
+        self.what_if_bar.addWidget(mode)
+        for name, flip, checked in (
+            *((name, False, name in what_if.on) for name in inputs.states),
+            *((name, True, name in what_if.flipped) for name in inputs.presence),
+        ):
+            toggle = QPushButton(presence_text(name) if flip else name)
+            set_role(toggle, "segment", "variant")
+            toggle.setCheckable(True)
+            toggle.setChecked(checked)
+            toggle.clicked.connect(lambda _=False, name=name, flip=flip: self.simulate(what_if.toggled(name, flip)))
+            self.what_if_bar.addWidget(toggle)
+
+    def show_grid(self, shown: bool) -> None:
+        """The grid of distinct outcomes in place of the cards (or the cards again)."""
+        config = self.editor.validation.config
+        self.grid_button.setChecked(shown)
+        self.middle.setCurrentWidget(self.grid if shown else self.card_scroll)
+        if not shown or config is None:
+            return
+        self.outcomes = outcomes(config.slots.scene)
+        self.grid.clear()
+        self.grid.setRowCount(len(self.outcomes))
+        self.grid.setColumnCount(protocol.STRIPS)
+        self.grid.setHorizontalHeaderLabels([str(slot) for slot in range(1, protocol.STRIPS + 1)])
+        self.grid.setVerticalHeaderLabels([outcome.label for outcome in self.outcomes])
+        for index, outcome in enumerate(self.outcomes):
+            for column, shows in enumerate(outcome.slots):
+                self.grid.setItem(index, column, QTableWidgetItem(shows))
+
+    def _grid_row(self, index: int) -> None:
+        self.simulate(WhatIf.of(self.outcomes[index]))
+
+    def _grid_cell(self, index: int, column: int) -> None:
+        """Simulates the row and picks the card of the slot."""
+        self._grid_row(index)
+        self.show_grid(False)
+        self.select_slot(column + 1)
 
     # -- picking --------------------------------------------------------------------------------------------------
 
     def select_slot(self, slot: int) -> None:
         """A strip of the drawing was clicked: its card, with the candidate the device shows."""
-        view = self._live_slots(self.snapshot()).get(slot)
+        view = self._views().get(slot)
         count = len(rows(self.document.values, slot))
         self.slot = slot
         self.candidate = view.candidate if view is not None and view.candidate is not None else 0 if count else None

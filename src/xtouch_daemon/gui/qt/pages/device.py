@@ -2,10 +2,12 @@
 The page Device: the device as it is right now (the live view of the daemon), and below it what each slot shows when.
 """
 
-from PyQt6.QtGui import QShowEvent
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeySequence, QShortcut, QShowEvent
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.looks import device_faces
+from xtouch_daemon.gui.domain.simulate import simulated_faces
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Preview
 from xtouch_daemon.gui.qt.theme.settings import load_preview_share, save_preview_share
@@ -24,6 +26,9 @@ class DevicePage(QWidget):
         self.slots = slots
         """The slots, under the drawing of the device."""
         self.slots.setMinimumHeight(EDITOR_MIN_HEIGHT)
+        self.slots.simulated.connect(lambda: self.show_live(self.snapshot))
+        end = QShortcut(QKeySequence(Qt.Key.Key_Escape), self, context=Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        end.activated.connect(lambda: self.slots.simulate(None))
         self.splitter = PreviewSplitter()
         self.splitter.addWidget(self.preview)
         self.splitter.addWidget(self.slots)
@@ -60,7 +65,13 @@ class DevicePage(QWidget):
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         self.snapshot = snapshot
-        self.preview.show_faces(device_faces(snapshot), self.selected)
+        simulation = self.slots.simulation
+        config = self.slots.editor.validation.config
+        if simulation is not None and config is not None:
+            faces = simulated_faces(config.slots, simulation)
+        else:
+            faces = device_faces(snapshot)
+        self.preview.show_faces(faces, self.selected, simulating=simulation is not None)
         self.slots.show_live(snapshot)
 
     def select(self, index: int) -> None:

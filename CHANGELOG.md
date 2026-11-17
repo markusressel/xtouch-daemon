@@ -37,7 +37,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with its candidates, their conditions as chips and ▶ on the one shown, to add, remove, drag or move with
   Ctrl+Up/Down; the inspector edits what a candidate shows, when and the options of its place, says where else its
   channel is used, and lists the controls of the slot; above it the why line: why the slot shows what it does,
-  which `xtouch-daemon why <slot or channel>` tells too), Channels (the channels, `[pool.auto]`
+  which `xtouch-daemon why <slot or channel>` tells too; Simulate shows with a frame around the device what the
+  slots would show in another mode, with other states on or channels absent, without sending anything (Esc ends it);
+  Grid lists every combination that shows something else, a row simulates it, a cell picks its slot), Channels (the channels, `[pool.auto]`
   and `[people]`, with Add, Duplicate and Remove, and where each is used), States (modes first, their sources,
   delays and where they are used, what the daemon says about each, an override or a mode picked) and Settings; it opens a file with
   strips and layouts migrated, to save in the new format. Problems lead to their channel, state or setting.

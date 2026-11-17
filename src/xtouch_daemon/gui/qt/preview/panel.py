@@ -32,6 +32,7 @@ from xtouch_daemon.gui.domain.looks import StripFace
 from xtouch_daemon.gui.qt.preview.geometry import HEIGHT, PANEL, WIDTH, slot_position
 from xtouch_daemon.gui.qt.preview.painting import HW, PANEL_RADIUS
 from xtouch_daemon.gui.qt.preview.strip_view import StripView
+from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.hardware import protocol
 
 MIN_SCALE = 0.5
@@ -70,6 +71,8 @@ class Preview(QWidget):
         self.blinker = QTimer(self)
         self.blinker.setInterval(BLINK_MS)
         self.blinker.timeout.connect(self._blink)
+        self.simulating = False
+        """Whether the strips show a simulation, not the device: then the panel has a frame in the accent color."""
 
     def sizeHint(self) -> QSize:
         return QSize(ceil(PANEL.width()), ceil(PANEL.height()))
@@ -118,7 +121,10 @@ class Preview(QWidget):
         for view in self.strips:
             view.update()
 
-    def show_faces(self, strip_faces: tuple[StripFace, ...], selected: int | None) -> None:
+    def show_faces(self, strip_faces: tuple[StripFace, ...], selected: int | None, simulating: bool = False) -> None:
+        if simulating != self.simulating:
+            self.simulating = simulating
+            self.update()
         for view, face in zip(self.strips, strip_faces, strict=True):
             view.show_face(face, view.index == selected)
         flashing = any("flash" in face.state.leds.values() for face in strip_faces)
@@ -163,7 +169,8 @@ class Preview(QWidget):
         gradient.setColorAt(0, QColor(HW.panel_top))
         gradient.setColorAt(1, QColor(HW.panel_bottom))
         painter.setBrush(gradient)
-        painter.setPen(QPen(QColor(HW.panel_edge), 1))
+        edge = QPen(QColor(current_colors().accent), 4) if self.simulating else QPen(QColor(HW.panel_edge), 1)
+        painter.setPen(edge)
         painter.drawRoundedRect(panel, PANEL_RADIUS, PANEL_RADIUS)
         painter.setPen(QPen(QColor(255, 255, 255, 18), 1))
         painter.drawLine(
