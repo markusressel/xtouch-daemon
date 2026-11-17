@@ -6,6 +6,7 @@ from PyQt6.QtGui import QShowEvent
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.looks import device_faces
+from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Preview
 from xtouch_daemon.gui.qt.theme.settings import load_preview_share, save_preview_share
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -14,19 +15,18 @@ from xtouch_daemon.live.messages import Snapshot
 
 
 class DevicePage(QWidget):
-    def __init__(self) -> None:
+    def __init__(self, slots: SlotsPanel) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, Space.S, 0, 0)
         self.preview = Preview()
         self.preview.clicked.connect(self.select)
-        self.below = QWidget()
+        self.slots = slots
         """The slots, under the drawing of the device."""
-        self.below.setMinimumHeight(EDITOR_MIN_HEIGHT)
-        QVBoxLayout(self.below)
+        self.slots.setMinimumHeight(EDITOR_MIN_HEIGHT)
         self.splitter = PreviewSplitter()
         self.splitter.addWidget(self.preview)
-        self.splitter.addWidget(self.below)
+        self.splitter.addWidget(self.slots)
         # a larger window gives the room to the slots, the drawing keeps its size until the handle is dragged
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
@@ -61,7 +61,10 @@ class DevicePage(QWidget):
     def show_live(self, snapshot: Snapshot | None) -> None:
         self.snapshot = snapshot
         self.preview.show_faces(device_faces(snapshot), self.selected)
+        self.slots.show_live(snapshot)
 
     def select(self, index: int) -> None:
+        """A strip of the drawing was picked: the card of its slot too."""
         self.selected = index
         self.show_live(self.snapshot)
+        self.slots.select_slot(index + 1)

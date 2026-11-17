@@ -188,6 +188,7 @@ QWidget[role="chips"] {{ background: {c.sunken}; border: 1px solid {c.control_bo
 QWidget[role="chips"][problem="true"] {{ border-width: 2px; }}
 QWidget[role="chips"] QLineEdit {{ border: none; background: transparent; padding: {Space.XS}px 2px; }}
 QWidget[role="chip"] {{ background: {tint(c.accent, 2 * TINT_ALPHA)}; border-radius: {Radius.PILL}px; }}
+QLabel[role="chip"] {{ padding: 1px {Space.S}px; }}
 QWidget[role="chip"][variant="preset"] {{ background: transparent; border: 1px solid {c.accent}; }}
 
 QWidget[role="bar"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-top-width: 1px;

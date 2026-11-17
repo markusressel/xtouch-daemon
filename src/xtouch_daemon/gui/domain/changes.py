@@ -16,6 +16,8 @@ class Scope(Enum):
     """The channels: one was added, removed, renamed or duplicated."""
     STATES = "states"
     """The states: one was added, removed or renamed."""
+    SLOTS = "slots"
+    """The stacks of the slots: a candidate was added, removed, moved or changed (not by a field of its options)."""
     SECTION = "section"
     """A section (`Change.path`, e.g. `("mqtt",)`) was added or removed."""
     ALIASES = "aliases"

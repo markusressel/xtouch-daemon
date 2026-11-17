@@ -53,6 +53,7 @@ from xtouch_daemon.gui.qt.pages.sections import (
     SectionPage,
     VoipPage,
 )
+from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.pages.states import StatesPage
 from xtouch_daemon.gui.qt.theme.icons import refresh_icons, set_icon
 from xtouch_daemon.gui.qt.theme.settings import (
@@ -334,10 +335,11 @@ class MainWindow(QMainWindow):
             # the pages ask for the current one every time
             return self.audio
 
-        self.device_page = DevicePage()
+        slots = SlotsPanel(self.editor, audio, lambda: self.live.snapshot, self.live.send, self.show_channel)
+        self.device_page = DevicePage(slots)
         self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
         self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
-        self.pages: dict[str, Page] = {"channels": self.channels_page, "states": self.states_page}
+        self.pages: dict[str, Page] = {"slots": slots, "channels": self.channels_page, "states": self.states_page}
         for name in SETTINGS_PAGES:
             if name == "aliases":
                 self.pages[name] = AliasesPage(self.editor, audio)
@@ -543,6 +545,10 @@ class MainWindow(QMainWindow):
                 action.triggered.connect(lambda _=False, problem=problem: self.go_to(problem))
             self.problems_menu.addAction(action)
 
+    def show_channel(self, name: str) -> None:
+        self.channels_page.select(("channel", name))
+        self.show_page("channels")
+
     def go_to(self, problem: Problem) -> None:
         """Shows the page of the problem."""
         match problem.path:
@@ -558,6 +564,11 @@ class MainWindow(QMainWindow):
             case ("state", str(name), *_):
                 self.states_page.select(name)
                 self.show_page("states")
+            case ("slots" | "controls", str(slot), *_) if slot.isdigit() and 1 <= int(slot) <= len(
+                self.device_page.preview.strips
+            ):
+                self.device_page.select(int(slot) - 1)
+                self.show_page("slots")
             case ("slots" | "controls", *_):
                 self.show_page("slots")
             case (str(name), *_) if name in SECTIONS or name == "aliases":

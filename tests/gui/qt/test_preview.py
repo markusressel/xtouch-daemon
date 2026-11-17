@@ -260,7 +260,7 @@ def test_the_preview_scales_to_the_space_it_gets(window: MainWindow):
         assert view.pos() == preview.slot_point(index)
         assert view.width() == math.ceil(WIDTH * preview.scale)
     # the editor keeps its room
-    assert window.device_page.below.height() >= EDITOR_MIN_HEIGHT
+    assert window.device_page.slots.height() >= EDITOR_MIN_HEIGHT
     handle = window.device_page.splitter.handle(1)
     assert handle is not None
     assert handle.cursor().shape() == Qt.CursorShape.SplitVCursor
