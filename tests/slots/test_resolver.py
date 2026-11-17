@@ -291,3 +291,16 @@ def test_people_of_their_own_slots_first_then_auto_slots():
     )
     result = resolve(read, Inputs(states(read), ALL, Observation(people=("Bob", "Carol"))))
     assert shows(result, [1, 8]) == ["people:Bob", "people:Carol"]
+
+
+def test_people_take_the_auto_slots_nothing_takes_over_first():
+    """At a start the voice chat is there before call (its delay_on): the person must not take slot 8, mic's."""
+    slots = '[slots]\n1 = "out"\n2 = "browser"\n7 = ["voip if call", "auto"]\n8 = ["out if call", "auto"]\n'
+    read = scene(SCENE + '[pool.people]\nshare = "auto"\n' + slots)
+    playing = ("a", "b", "c", "d")
+    before = resolve(read, Inputs(states(read), ALL, Observation(people=("Bob",))))
+    assert shows(before, [6, 7, 8]) == ["people:Bob", "auto", "auto"]
+    # 3-6 full of applications that keep their slots: the free slot 8 first, then the rightmost stable one
+    full = resolve(read, Inputs(states(read), ALL, Observation(playing=playing)))
+    joined = resolve(read, Inputs(states(read), ALL, Observation(playing=playing, people=("Bob", "Carol"))), full)
+    assert shows(joined, [6, 7, 8]) == ["auto:d", "people:Carol", "people:Bob"]

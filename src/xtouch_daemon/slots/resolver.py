@@ -213,8 +213,9 @@ class _Resolver:
     def _share(self, shown: dict[int, Shown], people: tuple[str, ...], with_slot: set[str]) -> tuple[str, ...]:
         """
         Puts people on slots of `auto`: each keeps the slot it had, a new one takes the rightmost slot whose
-        application doesn't keep it (the applications fill from the left), else the rightmost one left. The people
-        that find none wait.
+        application doesn't keep it (the applications fill from the left), else the rightmost one left. Slots where
+        `auto` is the first candidate go first: nothing above takes them over, so the person needn't move again
+        (e.g. when the delay of `call` ends and its strips come). The people that find none wait.
         """
         slots = sorted(slot for slot, s in shown.items() if s.pool == AUTO and slot not in self.inputs.fixed)
         members = set(self._members(AUTO, with_slot))
@@ -233,7 +234,9 @@ class _Resolver:
             if person in assigned.values():
                 continue
             free = [slot for slot in slots if slot not in assigned]
-            slot = next((s for s in reversed(free) if s not in keeping), free[-1] if free else None)
+            # free before an application's (moving one now is worse than maybe later), then stable; the rightmost
+            ranked = sorted(free, key=lambda s: (s not in keeping, shown[s].candidate == 0, s))
+            slot = ranked[-1] if ranked else None
             if slot is None:
                 left.append(person)
                 continue
