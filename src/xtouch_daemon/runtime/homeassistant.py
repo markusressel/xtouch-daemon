@@ -28,7 +28,7 @@ from haad_mqtt_autodiscovery.entity.switch import MQTTSwitch
 from xtouch_daemon.config.slots import SlotsSetup
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.slots import SlotEngine
-from xtouch_daemon.slots.inputs import App, Person
+from xtouch_daemon.slots.inputs import App, Device, Person
 from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.slots.states import Override
 
@@ -189,6 +189,8 @@ class SlotEntities:
                 value, kind, label = f"app:{name}", "app", name
             case Person(channel=None, name=name):
                 value, kind, label = f"person:{name}", "person", name
+            case Device(name=name):
+                value, kind, label = f"device:{name}", "device", str(shown.member)
             case _ if shown.channel is not None:
                 value, kind, label = shown.channel, "channel", self._label(shown.channel)
             case _:

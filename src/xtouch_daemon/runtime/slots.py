@@ -15,7 +15,7 @@ from pathlib import Path
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.live.messages import SlotsState, SlotView, StateView, VoipState
-from xtouch_daemon.slots.inputs import App, Channel, Member, Person, excluded, owner_of
+from xtouch_daemon.slots.inputs import App, Channel, Device, Member, Person, excluded, owner_of
 from xtouch_daemon.slots.model import DEFAULT, Scene
 from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
@@ -389,12 +389,14 @@ def write_choices(path: Path, choices: Choices) -> None:
 
 
 def _member_text(member: Member | None) -> str | None:
-    """How the live view names a member: `app:<name>`, `person:<name>`, or the channel."""
+    """How the live view names a member: `app:<name>`, `person:<name>`, `device:<node name>`, or the channel."""
     match member:
         case App(name=name):
             return f"app:{name}"
         case Person(channel=None, name=name):
             return f"person:{name}"
+        case Device(name=name):
+            return f"device:{name}"
         case Person(channel=str(channel)) | Channel(id=channel):
             return channel
         case _:

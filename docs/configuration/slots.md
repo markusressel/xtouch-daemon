@@ -60,10 +60,11 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
   `switching.banner` seconds.
 
-Three pools are built in: `apps` (applications, see [Applications](applications.md#apps-and-auto)), `people` (the
-people of the voice chat, see [People](people.md#where-people-sit)) and `auto` (both). `[pool.apps]` has `from`,
-`hold` and `exclude`, `[pool.people]` `from`, `order` and the look of the strips of people, `[pool.auto]` the look of
-the applications on its slots.
+Four pools are built in: `apps` (applications, see [Applications](applications.md#apps-and-auto)), `people` (the
+people of the voice chat, see [People](people.md#where-people-sit)), `auto` (both) and `devices` (the outputs and
+inputs no channel has, see [Devices](devices.md#devices-without-a-channel)). `[pool.apps]` has `from`, `hold` and
+`exclude`, `[pool.people]` `from`, `order` and the look of the strips of people, `[pool.auto]` the look of the
+applications on its slots, `[pool.devices]` `from`, `hold`, `exclude` and the look of the strips of devices.
 
 A pool that has no member for a slot hands it to the pool (or `-`) right below it: `["people", "apps"]` is a person,
 else an application. A slot that two pools could fill goes to the one higher in its stack.
@@ -126,7 +127,7 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
   channel while one of its `devices` is there (always without `devices`), a `person` channel while the person is in
   the voice chat, a `homeassistant` channel always. A channel stays present `absent_after` seconds (3 by default)
   after that ended. `apps` is present while an application it may take plays, `people` while someone is in the
-  voice chat, `auto` while either is, another pool while one of its channels is present.
+  voice chat, `auto` while either is, `devices` while a device no channel has is there, another pool while one of its channels is present.
 - `present` is only for candidates of slots: a state takes channels with its `channels` source, and controls apply
   whatever the slot shows.
 - `check-config` and the GUI name the mistakes: an unknown state, mode, channel or pool, a word where none fits, a

@@ -28,16 +28,21 @@ class WhatIf:
     """The people in the voice chat (a call)."""
     apps: int = 0
     """The applications that play."""
+    devices: int = 0
+    """The outputs and inputs without a channel."""
 
     @classmethod
     def of(cls, outcome: Outcome) -> WhatIf:
         """The what-if of a row of the grid."""
         return cls(outcome.mode, frozenset(outcome.on), frozenset(outcome.flipped))
 
-    def counted(self, people: int | None = None, apps: int | None = None) -> WhatIf:
-        """With so many people in the call, or applications that play."""
+    def counted(self, people: int | None = None, apps: int | None = None, devices: int | None = None) -> WhatIf:
+        """With so many people in the call, applications that play, or devices without a channel."""
         return dataclasses.replace(
-            self, people=self.people if people is None else people, apps=self.apps if apps is None else apps
+            self,
+            people=self.people if people is None else people,
+            apps=self.apps if apps is None else apps,
+            devices=self.devices if devices is None else devices,
         )
 
     def toggled(self, name: str, flip: bool) -> WhatIf:
@@ -71,7 +76,7 @@ def presence_text(name: str) -> str:
 def simulated(setup: SlotsSetup, what_if: WhatIf) -> SlotsState:
     """The slots and states as the live view would tell them in the what-if."""
     scene = setup.scene
-    result = simulate(scene, what_if.mode, what_if.on, what_if.flipped, what_if.people, what_if.apps)
+    result = simulate(scene, what_if.mode, what_if.on, what_if.flipped, what_if.people, what_if.apps, what_if.devices)
     views = tuple(
         SlotView(
             slot,

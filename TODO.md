@@ -42,11 +42,3 @@ before. Two possible causes, not checked yet:
 
 Next time a game starts: `pactl list sink-inputs` shows its `application.name` and the volume it starts with. If
 PipeWire doesn't restore it, remember the volume per game ourselves.
-
-## A built-in pool `devices`
-
-Next to `apps`, `people` and `auto` (see `docs/design/people-slots.md`): outputs and inputs that appear without a
-channel of their own (a USB headset, Bluetooth speakers), handed out to the slots that name `devices`, like `apps`
-hands out applications. Needs its own design first: what the strip of a device does (volume, mute, Select for the
-default device), how it looks, whether `auto` takes devices too, and what happens when a device is unplugged while
-it has a slot. The resolver's rules for pools (hand-down, contest, `from`) apply unchanged.

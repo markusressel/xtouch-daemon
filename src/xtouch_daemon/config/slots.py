@@ -15,7 +15,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
-from xtouch_daemon.slots.model import APPS, AUTO, MEMBER_OPTIONS, PEOPLE, Scene
+from xtouch_daemon.slots.model import APPS, AUTO, DEVICES, MEMBER_OPTIONS, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS
 
 SECTIONS = ("channel", "pool", "people", "state", "slots", "controls")
@@ -45,6 +45,12 @@ class SlotsSetup:
     """The look of the strips of people (the options of `[pool.people]`)."""
     channels: Mapping[str, StripConfig] = field(default_factory=dict)
     """The strip of each channel on its own (its look where a candidate adds none)."""
+
+    def device(self, place: StripConfig, name: str, direction: str) -> StripConfig:
+        """The strip of a device of `devices` on a place of it: an output or input strip of that device."""
+        return _STRIP.validate_python(
+            place.model_dump(exclude_unset=True, by_alias=True) | {"type": direction, "device": [name]}
+        )
 
     def person(self, name: str) -> StripConfig:
         """The strip of a person without a channel (checked with a made-up name when the file is loaded)."""
@@ -115,6 +121,9 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 look = {key: value for key, value in pools.get(candidate.show, {}).items() if key not in POOL_ONLY}
                 if candidate.show in (APPS, AUTO):
                     add((slot, index, None), where, {"type": "auto"} | look | own)
+                elif candidate.show == DEVICES:
+                    # the devices on its slots: an output strip until a device comes (see `SlotsSetup.device()`)
+                    add((slot, index, None), where, {"type": "output"} | look | own)
                 elif candidate.show == PEOPLE:
                     # the people on its slots: the look of [pool.people] and of the place (their names are theirs)
                     add((slot, index, None), where, {"type": "voip"} | look | own | {"person": "someone"})
@@ -145,6 +154,8 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                     problems.append(f"{place}: min_volume ({bottom}) is not below max_volume ({top})")
     people = {key: value for key, value in pools.get(PEOPLE, {}).items() if key not in POOL_ONLY}
     check("pool.people", {"type": "voip"} | people | {"person": "someone"})
+    devices = {key: value for key, value in pools.get(DEVICES, {}).items() if key not in POOL_ONLY}
+    check("pool.devices", {"type": "output"} | devices)
     if config.mqtt is None:
         for name, strip in own_strips.items():
             if isinstance(strip, HomeAssistantStripConfig) or (

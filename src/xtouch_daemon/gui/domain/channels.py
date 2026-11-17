@@ -9,7 +9,17 @@ from typing import Any
 
 from xtouch_daemon.config.slots import CHANNEL_ONLY
 from xtouch_daemon.gui.domain.schema import Option, option, options, strip_options
-from xtouch_daemon.slots.model import APPS, AUTO, PEOPLE, AppsConfig, AutoConfig, ChannelConfig, PeopleConfig
+from xtouch_daemon.slots.model import (
+    APPS,
+    AUTO,
+    DEVICES,
+    PEOPLE,
+    AppsConfig,
+    AutoConfig,
+    ChannelConfig,
+    DevicesConfig,
+    PeopleConfig,
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +48,8 @@ CHANNEL_TYPES = {
 
 NOT_ON_PEOPLE = frozenset({"label", "person"})
 """What the strips of people have no use for: they show the name of the person, who is who it is."""
+NOT_ON_DEVICES = frozenset({"device", "choices", "profiles", "label"})
+"""What the strips of devices of `devices` have no use for: each is its own device, with its own name."""
 
 
 def channel_options(channel_type: str) -> tuple[Option, ...]:
@@ -50,17 +62,22 @@ def channel_options(channel_type: str) -> tuple[Option, ...]:
 def pool_options(pool: str) -> tuple[Option, ...]:
     """
     The options of a built-in pool: `[pool.apps]` which applications it takes, how long and from where, `[pool.people]`
-    their order and side, and the look of the strips of each (`[pool.auto]` only that).
+    their order and side, `[pool.devices]` which devices it takes, and the look of the strips of each (`[pool.auto]`
+    only that).
     """
     if pool == PEOPLE:
         look = tuple(each for each in strip_options("voip") if each.name not in NOT_ON_PEOPLE)
         return (*options(PeopleConfig), *look)
+    if pool == DEVICES:
+        look = tuple(each for each in strip_options("output") if each.name not in NOT_ON_DEVICES)
+        return (*options(DevicesConfig), *look)
     return (*options(AppsConfig if pool == APPS else AutoConfig), *strip_options("auto"))
 
 
 BUILT_IN_POOLS = (
     (APPS, "Applications", "apps", "the applications that play and have no slot"),
     (PEOPLE, "People", "account-group", "the people of the voice chat, their order and side"),
+    (DEVICES, "Devices", "headphones", "the outputs and inputs that no channel has, e.g. a USB headset"),
     (AUTO, "Auto", "auto-fix", "the applications and the people, who share its slots"),
 )
 """The built-in pools as the page Channels lists them: id, title, icon, what they are."""

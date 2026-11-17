@@ -9,7 +9,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from xtouch_daemon.config.base import ConfigError, Meanings
 from xtouch_daemon.config.names import Presets
@@ -23,8 +23,10 @@ APPS = "apps"
 """The built-in pool of the applications that play and have no slot (and `apps` channels without one)."""
 PEOPLE = "people"
 """The built-in pool of the people in the voice chat without a slot of their own."""
+DEVICES = "devices"
+"""The built-in pool of the outputs and inputs that no channel has (a USB headset, Bluetooth speakers)."""
 DEFAULT = "default"
-BUILT_IN = (AUTO, APPS, PEOPLE)
+BUILT_IN = (AUTO, APPS, PEOPLE, DEVICES)
 AUTO_EXCLUDE = ("speech-dispatcher",)
 """What `apps` and `auto` never take unless `[pool.apps] exclude` says otherwise: the voice of screen readers."""
 MEMBER_OPTIONS = frozenset({"channels", "exclude", "hold", "from", "order"})
@@ -47,6 +49,8 @@ Options of an `apps` or `auto` place for the applications without a channel it s
 application: `pick`, `media`, `volume`, `balance`); a channel's controls belong to the channel, the controls that
 belong to the slot whatever it shows are in `[controls]`.
 """
+DEVICE_OPTIONS = frozenset({"encoder", "min_volume", "max_volume", "select"})
+"""Options of a `devices` place for the devices it shows (`encoder`: `volume` or `balance`; `select`)."""
 CONTROLS = ("fader", "encoder", "select", "rec", "solo")
 """What `[controls]` can claim of a slot (not Mute: it stays with what the slot shows)."""
 CONTROL_ACTIONS = re.compile(r"homeassistant|cycle_modes|mode:[a-z0-9_]+|toggle:[a-z0-9_]+")
@@ -223,7 +227,35 @@ class AutoConfig(_Open):
         return data
 
 
-type Pool = PoolConfig | AppsConfig | PeopleConfig | AutoConfig
+class DevicesConfig(_Open):
+    """`[pool.devices]`: the outputs and inputs that no channel has, and the look of their strips."""
+
+    from_: Annotated[Side, SIDES] = Field("left", alias="from")
+    """The side the devices fill their slots from."""
+    exclude: tuple[str, ...] = ()
+    """Devices that never get a slot of `devices`, by node name or description; `*` and `?` are wildcards."""
+    hold: float = 5.0
+    """Seconds a slot keeps a device after it went, e.g. while Bluetooth headphones reconnect."""
+
+    @field_validator("exclude", mode="before")
+    @classmethod
+    def _one_or_several(cls, value: object) -> object:
+        return (value,) if isinstance(value, str) else value
+
+    @model_validator(mode="before")
+    @classmethod
+    def _of_devices(cls, data: Any) -> Any:
+        _refuse(
+            data,
+            {
+                "channels": "devices takes the outputs and inputs without a channel",
+                "order": "an option of [pool.people]",
+            },
+        )
+        return data
+
+
+type Pool = PoolConfig | AppsConfig | PeopleConfig | AutoConfig | DevicesConfig
 
 
 def _refuse(data: Any, options: Mapping[str, str]) -> None:
@@ -406,6 +438,12 @@ class Scene:
         assert isinstance(pool, PeopleConfig)
         return pool
 
+    @property
+    def devices(self) -> DevicesConfig:
+        pool = self.pools[DEVICES]
+        assert isinstance(pool, DevicesConfig)
+        return pool
+
     def channels_of(self, pool: str) -> tuple[str, ...]:
         """The channels of a pool of channels, in its order; none for the built-in pools."""
         config = self.pools[pool]
@@ -479,7 +517,7 @@ class Scene:
 def _parse_pools(raw: Mapping[str, Mapping[str, Any]], problems: list[str]) -> dict[str, Pool]:
     """The pools of the file, the built-in ones with their defaults: each built-in pool has options of its own."""
     pools: dict[str, Pool] = {}
-    models: dict[str, type[Pool]] = {AUTO: AutoConfig, APPS: AppsConfig, PEOPLE: PeopleConfig}
+    models: dict[str, type[Pool]] = {AUTO: AutoConfig, APPS: AppsConfig, PEOPLE: PeopleConfig, DEVICES: DevicesConfig}
     for name in (*BUILT_IN, *(name for name in raw if name not in BUILT_IN)):
         model = models.get(name, PoolConfig)
         try:
@@ -575,9 +613,14 @@ def _candidate(
 
 
 def place_options(show: str) -> frozenset[str]:
-    """The options a place takes for what it shows: its look, and for `apps` and `auto` how it acts on applications."""
+    """
+    The options a place takes for what it shows: its look, and for `apps`, `auto` and `devices` how it acts on what it
+    shows (the encoder, the volume range).
+    """
     if show == PEOPLE:
         return PEOPLE_LOOK_OPTIONS
+    if show == DEVICES:
+        return LOOK_OPTIONS | DEVICE_OPTIONS
     return LOOK_OPTIONS | (APP_OPTIONS if show in (APPS, AUTO) else frozenset())
 
 
@@ -596,7 +639,7 @@ def _check_chains(stacks: Mapping[int, tuple[Candidate, ...]], pools: Mapping[st
             elif built_in is not None:
                 problems.append(
                     f"slots.{slot}[{index}]: {candidate.show} below {built_in}: a pool of channels goes above the "
-                    "pools auto, apps and people"
+                    "pools auto, apps, people and devices"
                 )
 
 

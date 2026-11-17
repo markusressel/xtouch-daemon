@@ -10,20 +10,38 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.slots.inputs import (
     App,
     Channel,
+    Device,
     Member,
     Observation,
     Person,
     channel_of,
+    devices_of,
     excluded,
     owner_of,
     people_of,
     pool_present,
 )
-from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, PEOPLE, Candidate, Scene
+from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, DEVICES, PEOPLE, Candidate, Scene
 
 SLOTS = range(1, protocol.STRIPS + 1)
-KINDS: Mapping[str, tuple[str, ...]] = {APPS: (APPS,), PEOPLE: (PEOPLE,), AUTO: (PEOPLE, APPS)}
+KINDS: Mapping[str, tuple[str, ...]] = {
+    APPS: (APPS,),
+    PEOPLE: (PEOPLE,),
+    DEVICES: (DEVICES,),
+    AUTO: (PEOPLE, APPS),
+}
 """The members each built-in pool hands out: `auto` the people and the applications, the people first."""
+ORDER = (PEOPLE, APPS, DEVICES)
+"""The kinds of members, in the order that wins a tie on a slot (a slot of `auto`: the people)."""
+
+
+def kind_of(member: Member) -> str:
+    """The kind of member: a person, a device, or an application (or an `apps` channel as a whole)."""
+    if isinstance(member, Person):
+        return PEOPLE
+    if isinstance(member, Device):
+        return DEVICES
+    return APPS
 
 
 @dataclass(frozen=True)
@@ -286,34 +304,45 @@ class _Resolver:
                 if member not in apps:
                     # a pin stays after its application (or channel) stopped playing
                     apps.append(member)
+        devices = [device for device in devices_of(self.scene, self.inputs.observation) if device not in held]
+        members: dict[str, list[Member]] = {PEOPLE: list(people), APPS: apps, DEVICES: list(devices)}
         order = {
             kind: self._fill_order(
                 kind,
                 (slot for slot in kinds if kind in kinds[slot] and slot not in pinned),
                 {slot: kinds[slot][kind] for slot in kinds if kind in kinds[slot]},
             )
-            for kind in (PEOPLE, APPS)
+            for kind in ORDER
         }
-        lost: dict[str, set[int]] = {PEOPLE: set(), APPS: set()}
+        lost: dict[str, set[int]] = {kind: set() for kind in ORDER}
         while True:
-            seated = dict(zip((slot for slot in order[PEOPLE] if slot not in lost[PEOPLE]), people, strict=False))
-            placed = self._place(apps, pinned, [slot for slot in order[APPS] if slot not in lost[APPS]])
-            contested = seated.keys() & placed.keys()
+            taken: dict[str, dict[int, Member]] = {
+                PEOPLE: dict(zip((slot for slot in order[PEOPLE] if slot not in lost[PEOPLE]), people, strict=False)),
+                APPS: self._place(apps, pinned, [slot for slot in order[APPS] if slot not in lost[APPS]], (APPS, AUTO)),
+                DEVICES: self._place(
+                    members[DEVICES], {}, [slot for slot in order[DEVICES] if slot not in lost[DEVICES]], (DEVICES,)
+                ),
+            }
+            contested = {slot for slot in kinds if sum(slot in taken[kind] for kind in ORDER) > 1}
             if not contested:
                 break
             for slot in contested:
                 # it ends: a kind only ever loses slots, and a slot one won stays taken
-                first = min(kinds[slot], key=lambda kind: (kinds[slot][kind], KINDS[AUTO].index(kind)))
-                lost[APPS if first == PEOPLE else PEOPLE].add(slot)
+                takers = [kind for kind in ORDER if slot in taken[kind]]
+                first = min(takers, key=lambda kind: (kinds[slot][kind], ORDER.index(kind)))
+                for kind in takers:
+                    if kind != first:
+                        lost[kind].add(slot)
         for slot in kinds:
-            member: Member | None = seated.get(slot, placed.get(slot))
+            member: Member | None = next((taken[kind][slot] for kind in ORDER if slot in taken[kind]), None)
             if member is None:
                 end = ends[slot]
                 show = stacks[slot][end].show
                 shown[slot] = Shown(end) if show is None else Shown(end, pool=show)
                 continue
-            index = kinds[slot][PEOPLE if isinstance(member, Person) else APPS]
-            for above in sorted({kinds[slot][kind] for kind in kinds[slot]} - {index}):
+            kind = kind_of(member)
+            index = kinds[slot][kind]
+            for above in sorted({kinds[slot][other] for other in kinds[slot]} - {index}):
                 if above < index:
                     self.why[slot].append(f"{stacks[slot][above].show}: none left for this slot")
             before = self.previous.slots.get(slot) if self.previous is not None else None
@@ -321,24 +350,30 @@ class _Resolver:
                 if before is not None and before.member is not None and not isinstance(before.member, Person):
                     self.why[slot].append(f"{before}: gives way to {member}")
                 shown[slot] = Shown(index, channel=member.channel, pool=PEOPLE, member=member)
+            elif isinstance(member, Device):
+                shown[slot] = Shown(index, pool=DEVICES, member=member)
             else:
                 shown[slot] = Shown(index, channel=channel_of(member), pool=stacks[slot][index].show, member=member)
         waiting: dict[str, tuple[Member, ...]] = {}
-        if left := tuple(person for person in people if person not in seated.values()):
-            waiting[PEOPLE] = left
-        if left := tuple(member for member in apps if member not in placed.values()):
-            waiting[APPS] = left
+        for kind in ORDER:
+            if left := tuple(member for member in members[kind] if member not in taken[kind].values()):
+                waiting[kind] = left
         return waiting
 
-    def _place(self, apps: list[Member], pinned: Mapping[int, Member], slots: list[int]) -> dict[int, Member]:
-        """The applications on their slots: pinned ones, then each on the slot it had, then the others in order."""
+    def _place(
+        self, apps: list[Member], pinned: Mapping[int, Member], slots: list[int], pools: tuple[str, ...]
+    ) -> dict[int, Member]:
+        """
+        The applications (or devices) on their slots: pinned ones, then each on the slot it had in one of `pools`,
+        then the others in order.
+        """
         placed = dict(pinned)
         if self.previous is not None:
             for slot in slots:
                 before = self.previous.slots.get(slot)
                 if (
                     before is not None
-                    and before.pool in (APPS, AUTO)
+                    and before.pool in pools
                     and before.member in apps
                     and before.member not in placed.values()
                 ):

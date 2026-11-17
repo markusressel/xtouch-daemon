@@ -26,7 +26,7 @@ from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.controls import Controls
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.slots import SlotEngine
-from xtouch_daemon.slots.inputs import App, Person
+from xtouch_daemon.slots.inputs import App, Device, Person
 from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.strips import build_strip, look_of
 from xtouch_daemon.strips.apps import AutoStrip
@@ -39,7 +39,10 @@ PROCESS_INTERVAL = 2.0
 """How often the processes are checked while a controller launches applications (`launch`)."""
 
 type Key = tuple[str, str]
-"""What a strip of the device shows: ("channel", id), ("app", name), ("person", id) or ("empty", slot)."""
+"""
+What a strip of the device shows: ("channel", id), ("app", name), ("person", id), ("device", node name) or ("empty",
+slot).
+"""
 type Place = tuple[EncoderMode, int | None, int | None]
 """What the encoder of a controller does and its volume range: those of the place it is on."""
 
@@ -50,8 +53,15 @@ def key_of(slot: int, shown: Shown) -> Key:
             return "app", name
         case Person(channel=None, id=person):
             return "person", person
+        case Device(name=name):
+            return "device", name
         case _:
             return ("channel", shown.channel) if shown.channel is not None else ("empty", str(slot))
+
+
+def _entity_id(name: str) -> str:
+    """A node name as part of an id in Home Assistant: `bluez_output.AA_BB.1` is `bluez_output_aa_bb_1`."""
+    return "".join(char if char.isalnum() else "_" for char in name.lower())
 
 
 def place_of(strip: StripConfig) -> Place | None:
@@ -237,6 +247,11 @@ class SlotMixer:
                 controller = self._build(key, place, Identity(f"app_{name}", name))
                 assert isinstance(controller, AutoStrip)
                 controller.assign(self.engine.observer.apps.get(name, name))
+            elif isinstance(shown.member, Device):
+                device = shown.member
+                place = self.setup.strips[(slot, shown.candidate if shown.candidate is not None else -1, None)]
+                strip = self.setup.device(place, device.name, device.direction)
+                controller = self._build(key, strip, Identity(f"device_{_entity_id(name)}", str(device)))
             else:
                 assert isinstance(shown.member, Person)
                 person = shown.member.name
@@ -255,6 +270,11 @@ class SlotMixer:
         if key[0] == "person":
             controller.set_look(self._look(place if isinstance(place, VoipStripConfig) else self.setup.person(key[1])))
             return
+        if key[0] == "device":
+            # the look of the place; its label stays the device's own
+            member = self.engine.member(slot)
+            assert isinstance(member, Device)
+            place = self.setup.device(place, member.name, member.direction)
         controller.set_look(self._look(place))
         if isinstance(controller, AutoStrip):
             controller.slot = self.engine.slot(slot - 1)
@@ -270,7 +290,11 @@ class SlotMixer:
         """Closes the controllers of members that show nowhere and are no members any more."""
         shown = {key for key, _ in self.bound.values()}
         pools = self.engine.simulation.pools
-        alive = {("app", app) for app in pools.playing} | {("person", person.id) for person in pools.people}
+        alive = (
+            {("app", app) for app in pools.playing}
+            | {("person", person.id) for person in pools.people}
+            | {("device", device.name) for device in pools.sound_devices}
+        )
         for key in [key for key in self.members if key not in shown and key not in alive]:
             self.members.pop(key).close()
             self.places.pop(key, None)

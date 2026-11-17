@@ -82,6 +82,27 @@ With several devices, the strip shows one of those that are there: the default o
 Select makes it the default. Pressed on the default one, it switches to the next one that is there and makes that the
 default. Without `label`, the LCD shows which one it is.
 
+## Devices without a channel
+
+The built-in pool `devices` holds the outputs and inputs that no `output` or `input` channel has, e.g. a USB headset
+or Bluetooth speakers. A channel has the devices its `device` matches; a channel without `device` has the default
+device of its direction. A slot that names `devices` shows the next of them as an `output` or `input` strip of that
+one device: its volume on the fader, Mute, Select makes it the default. `auto` doesn't take devices.
+
+```toml
+[slots]
+8 = ["devices", "apps"]   # a headset that was plugged in, else an application
+
+[pool.devices]
+from = "left"                 # the side the devices fill from (default)
+exclude = ["*HDMI*", "alsa_output.pci-*"]   # never a member: node names or descriptions, `*` wildcards
+hold = 5                      # seconds a device keeps its slot after it went away (default 5)
+color = "cyan"                # the look of the strips of devices, as on an output channel
+```
+
+A device that goes away stays on its slot for `hold` seconds (its strip shows `off`), so a short drop of a Bluetooth
+link doesn't move the strips. `present(devices)` holds while a device of the pool is there.
+
 ## Choices
 
 `choices` is one strip for several devices that are used one at a time, e.g. headphones on the analog output of a

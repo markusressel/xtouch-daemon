@@ -7,8 +7,8 @@ import itertools
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from xtouch_daemon.slots.inputs import Attendee, Observation
-from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, DEFAULT, PEOPLE, Scene
+from xtouch_daemon.slots.inputs import Attendee, Observation, SoundDevice
+from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, DEFAULT, DEVICES, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS, Inputs, Result, resolve
 from xtouch_daemon.slots.states import composed_order
 
@@ -33,7 +33,7 @@ PEOPLE_NAMES = ("Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Heidi
 def dimensions(scene: Scene) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """
     The states (modes excluded) and the channels and pools whose presence the stacks ask about, in their order, and
-    `apps` and `people` where stacks name them (with members, they fill their slots). A composed state is no
+    `apps`, `people` and `devices` where stacks name them (with members, they fill their slots). A composed state is no
     dimension of its own but follows from the states it names, so the table never has `call` together with `not
     call`.
     """
@@ -48,7 +48,7 @@ def dimensions(scene: Scene) -> tuple[tuple[str, ...], tuple[str, ...]]:
                 name = target if target is not None else candidate.show
                 assert name is not None, "the model has no present on - (nothing)"
                 presence[name] = None
-    for pool in (APPS, PEOPLE):
+    for pool in (APPS, PEOPLE, DEVICES):
         if any(candidate.show == pool for slot in SLOTS for candidate in scene.stacks[slot]):
             presence[pool] = None
     return tuple(name for name in states if not scene.states[name].mode), tuple(presence)
@@ -142,12 +142,19 @@ def states_for(scene: Scene, mode: str, on: Iterable[str]) -> dict[str, bool]:
 
 
 def simulate(
-    scene: Scene, mode: str, on: Iterable[str], flipped: Iterable[str], people: int = 0, apps: int = 0
+    scene: Scene,
+    mode: str,
+    on: Iterable[str],
+    flipped: Iterable[str],
+    people: int = 0,
+    apps: int = 0,
+    devices: int = 0,
 ) -> Result:
     """
     What the slots show in the mode with the states `on` on: the channels and pools of channels are present, the
     built-in pools empty, except those `flipped` (absent; `auto`: an application plays; `apps` and `people`: as many
-    as there are slots). `people` and `apps`: so many people in the call and applications that play.
+    as there are slots). `people`, `apps` and `devices`: so many people in the call, applications that play and
+    outputs without a channel.
     """
     flipped = set(flipped)
     values = states_for(scene, mode, on)
@@ -155,11 +162,13 @@ def simulate(
     present = frozenset(name for name in scene.channels if name not in gone)
     apps = max(apps, len(SLOTS) if APPS in flipped else 1 if AUTO in flipped else 0)
     people = max(people, len(SLOTS) if PEOPLE in flipped else 0)
+    devices = max(devices, len(SLOTS) if DEVICES in flipped else 0)
     names = (*PEOPLE_NAMES, *(f"Person {n}" for n in range(len(PEOPLE_NAMES) + 1, people + 1)))[:people]
     observation = Observation(
         playing=tuple(f"app {n}" for n in range(1, apps + 1)),
         voice_chat=people > 0,
         people=tuple(Attendee(name, name) for name in names),
+        sound_devices=tuple(SoundDevice(f"device_{n}", f"Device {n}", "output") for n in range(1, devices + 1)),
     )
     return resolve(scene, Inputs(values, present, observation, order=names))
 

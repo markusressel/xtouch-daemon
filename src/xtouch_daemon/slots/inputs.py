@@ -6,9 +6,10 @@ presence of channels and pools in it.
 import fnmatch
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
+from typing import Literal
 
 from xtouch_daemon.config.presets import Kind, expand
-from xtouch_daemon.slots.model import APPS, AUTO, PEOPLE, ChannelConfig, Scene
+from xtouch_daemon.slots.model import APPS, AUTO, DEVICES, PEOPLE, ChannelConfig, Scene
 from xtouch_daemon.slots.timing import Delayed
 
 
@@ -18,6 +19,16 @@ class Attendee:
 
     id: str
     name: str
+
+
+@dataclass(frozen=True)
+class SoundDevice:
+    """An output or an input of the sound server."""
+
+    name: str
+    """The node name, e.g. `bluez_output.AA_BB_CC_DD_EE_FF.1`."""
+    description: str
+    direction: Literal["output", "input"]
 
 
 @dataclass(frozen=True)
@@ -55,7 +66,19 @@ class Person:
         return self.channel or self.name
 
 
-type Member = App | Channel | Person
+@dataclass(frozen=True)
+class Device:
+    """A member of `devices`: an output or an input of the sound server without a channel, by its node name."""
+
+    name: str
+    direction: Literal["output", "input"]
+    description: str = ""
+
+    def __str__(self) -> str:
+        return self.description or self.name
+
+
+type Member = App | Channel | Person | Device
 """What a pool hands out: never told apart by name (someone called `browser` is no channel)."""
 
 
@@ -82,6 +105,11 @@ class Observation:
     processes: frozenset[str] = frozenset()
     devices: frozenset[str] = frozenset()
     """The node names (and descriptions) of the outputs and inputs that are there."""
+    sound_devices: tuple[SoundDevice, ...] = ()
+    """The outputs and inputs that are there, in the order the sound server lists them; with those `devices` still
+    holds (`hold`) after they went."""
+    defaults: frozenset[str] = frozenset()
+    """The node names of the default output and the default input."""
     homeassistant: frozenset[str] = frozenset()
     """The states whose input switch in Home Assistant is on."""
 
@@ -134,6 +162,35 @@ def present_now(channel: ChannelConfig, observation: Observation) -> bool:
             return True
 
 
+def device_owner(scene: Scene, device: SoundDevice, defaults: frozenset[str]) -> str | None:
+    """
+    The `output` or `input` channel that has a device: one whose `device` (or `choices`) takes its node name or
+    description, or one without, which has the default device of its direction. None for a member of `devices`.
+    """
+    for name, channel in scene.channels.items():
+        if channel.type != device.direction:
+            continue
+        patterns = channel.devices
+        if (not patterns and device.name in defaults) or any(
+            device_matches(value, pattern) for pattern in patterns for value in (device.name, device.description)
+        ):
+            return name
+    return None
+
+
+def devices_of(scene: Scene, observation: Observation) -> list[Device]:
+    """The members of `devices`, in the order the sound server lists them: no channel has them, none is excluded."""
+    exclude = scene.devices.exclude
+    return [
+        Device(device.name, device.direction, device.description)
+        for device in observation.sound_devices
+        if device_owner(scene, device, observation.defaults) is None
+        and not any(
+            device_matches(value, pattern) for pattern in exclude for value in (device.name, device.description)
+        )
+    ]
+
+
 def person_channel_of(scene: Scene, person: str) -> str | None:
     """The `person` channel of someone in the voice chat, None for none."""
     name = person.lower()
@@ -165,8 +222,8 @@ def pool_present(scene: Scene, pool: str, observation: Observation, present: fro
     """
     Whether a pool has members, counted before slots are assigned (so conditions never depend on the result): `apps`
     while anything plays that it may take, `people` while anyone is in the voice chat who would be one of them (also
-    someone whose `person` channel has a slot of its own), `auto` while either is, a pool of channels while one of
-    them is present.
+    someone whose `person` channel has a slot of its own), `auto` while either is, `devices` while an output or input
+    is there that no channel has, a pool of channels while one of them is present.
     """
     if pool == APPS:
         return any(not excluded(scene, app) for app in observation.playing)
@@ -175,6 +232,8 @@ def pool_present(scene: Scene, pool: str, observation: Observation, present: fro
         return any(channel is None or scene.channels[channel].in_pool for channel in people)
     if pool == AUTO:
         return pool_present(scene, APPS, observation, present) or pool_present(scene, PEOPLE, observation, present)
+    if pool == DEVICES:
+        return bool(devices_of(scene, observation))
     return any(channel in present for channel in scene.channels_of(pool))
 
 
@@ -244,18 +303,21 @@ class Lingering[T]:
 
 class PoolMembers:
     """
-    The observation the pools see: the applications stay `[pool.apps] hold` after they stopped, the people
-    `absent_after` after they left the voice chat (like the channels).
+    The observation the pools see: the applications stay `[pool.apps] hold` after they stopped, the devices
+    `[pool.devices] hold` after they went, the people `absent_after` after they left the voice chat (like the
+    channels).
     """
 
     def __init__(self, scene: Scene, absent_after: float):
         self._playing = Lingering[str](scene.apps.hold)
+        self._devices = Lingering[SoundDevice](scene.devices.hold, lambda gone, new: gone.name == new.name)
         # a reconnect gets a new id: the same name takes the place of who left
         self._people = Lingering[Attendee](absent_after, lambda gone, new: gone.name == new.name)
 
     def carry(self, before: PoolMembers) -> None:
         """Goes on from where `before` was (a reload)."""
         self._playing.carry(before._playing)
+        self._devices.carry(before._devices)
         self._people.carry(before._people)
 
     def update(self, observation: Observation, now: float) -> Observation:
@@ -263,7 +325,9 @@ class PoolMembers:
             observation,
             playing=self._playing.update(observation.playing, now),
             people=self._people.update(observation.people, now),
+            sound_devices=self._devices.update(observation.sound_devices, now),
         )
 
     def deadline(self) -> float | None:
-        return min((d for d in (self._playing.deadline(), self._people.deadline()) if d is not None), default=None)
+        deadlines = (self._playing.deadline(), self._people.deadline(), self._devices.deadline())
+        return min((d for d in deadlines if d is not None), default=None)

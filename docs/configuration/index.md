@@ -25,6 +25,7 @@ The [GUI](../gui.md) edits the same options in a window and shows the same error
 | `[controls]` | Actions of the buttons, fader or encoder of a slot, whatever it shows. | [Channels, states and slots](slots.md#controls-and-the-chord) |
 | `[pool.apps]`, `[pool.auto]` | How `apps` and `auto` take the next application that plays. | [Applications](applications.md#apps-and-auto) |
 | `[pool.people]`, `[voip]` | The people of the voice chat, and where they sit. | [People](people.md) |
+| `[pool.devices]` | Outputs and inputs without a channel (a USB headset) on the slots that name `devices`. | [Devices](devices.md#devices-without-a-channel) |
 | `[device]` | Which sound card is the extender. | [Behavior](behavior.md#device) |
 | `[behavior]` | Volume limit, encoder step, reset volume, meters. | [Behavior](behavior.md#behavior) |
 | `[aliases]` | Names to show for applications on `auto` slots. | [Behavior](behavior.md#aliases) |

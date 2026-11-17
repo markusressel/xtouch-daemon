@@ -13,7 +13,7 @@ from xtouch_daemon.gui.domain.channels import stack_of
 from xtouch_daemon.gui.domain.states import stack_of_controls
 from xtouch_daemon.slots import model
 from xtouch_daemon.slots.expressions import ExpressionError, parse
-from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, CONTROLS, PEOPLE
+from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, CONTROLS, DEVICES, PEOPLE
 
 EMPTY = "-"
 ALWAYS = "always"
@@ -76,6 +76,8 @@ def presence_words(values: Mapping[str, Any], name: str, negated: bool = False) 
         return "no application plays" if negated else "an application plays"
     if name == PEOPLE:
         return "nobody is in the voice chat" if negated else "someone is in the voice chat"
+    if name == DEVICES:
+        return "no other device is connected" if negated else "another device is connected"
     if name == AUTO:
         return (
             "nothing plays and nobody is in the voice chat"
@@ -200,6 +202,8 @@ def pool_text(values: Mapping[str, Any], name: str) -> str:
             "the people of the voice chat without a slot of their own, in their order, "
             f"from the {side(PEOPLE, 'right')}"
         )
+    elif name == DEVICES:
+        what = f"the outputs and inputs that no channel has, from the {side(DEVICES, 'left')}"
     elif name == AUTO:
         what = (
             f"the people (from the {side(PEOPLE, 'right')}) and the applications (from the {side(APPS, 'left')}), "

@@ -142,6 +142,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `present(auto)` holds while either does. `check-config` notes candidates that never show and people that can
   sit nowhere, `xtouch-daemon why people` tells who sits where and who waits, and the GUI's Simulate takes a
   number of people in the call and of applications that play. See `docs/design/people-slots.md`.
+- A built-in pool `devices`: the outputs and inputs no channel has (a USB headset, Bluetooth speakers), on the slots
+  that name `devices`, each as the `output` or `input` strip of that device. A channel without `device` has the
+  default device of its direction. `[pool.devices]` takes `from` (left by default), `exclude` (node names or
+  descriptions), `hold` (5 s a device keeps its slot after it went away) and the look of an output strip; `auto`
+  doesn't take devices. `present(devices)` works in conditions, and the GUI's Simulate takes a number of devices.
 - A menu bar in the GUI: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window Device, the theme,
   the zoom) and Help (the documentation).
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.

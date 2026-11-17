@@ -64,7 +64,7 @@ from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
-from xtouch_daemon.slots.model import APPS, AUTO, DEFAULT, PEOPLE
+from xtouch_daemon.slots.model import APPS, AUTO, DEFAULT, DEVICES, PEOPLE
 from xtouch_daemon.slots.outcomes import Outcome, outcomes
 from xtouch_daemon.slots.why import why_channel, why_slot
 
@@ -570,6 +570,8 @@ class SlotsPanel(Page):
                 if candidate.show in (APPS, AUTO)
                 else "voip"
                 if candidate.show == PEOPLE
+                else "output"
+                if candidate.show == DEVICES
                 else "apps"
             )
         if strip is not None:
@@ -720,11 +722,16 @@ class SlotsPanel(Page):
             toggle.setChecked(checked)
             toggle.clicked.connect(lambda _=False, name=name, flip=flip: self.simulate(what_if.toggled(name, flip)))
             self.what_if_bar.addWidget(toggle)
-        # members of the pools: a call with so many people, so many applications that play
-        for text, value, tip, counted in (
+        # members of the pools: a call with so many people, so many applications that play, devices plugged in
+        counts: list[tuple[str, int, str, Callable[[int], WhatIf]]] = [
             ("people", what_if.people, "The people in the voice chat", lambda n: what_if.counted(people=n)),
             ("applications", what_if.apps, "The applications that play", lambda n: what_if.counted(apps=n)),
-        ):
+        ]
+        if DEVICES in inputs.presence:
+            counts.append(
+                ("devices", what_if.devices, "Outputs without a channel", lambda n: what_if.counted(devices=n))
+            )
+        for text, value, tip, counted in counts:
             count = QSpinBox()
             count.setRange(0, 2 * protocol.STRIPS)
             count.setValue(value)

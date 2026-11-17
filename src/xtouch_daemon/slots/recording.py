@@ -13,7 +13,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.presets import PRESETS
 from xtouch_daemon.live.codec import decode_message
 from xtouch_daemon.live.messages import Snapshot, VoipState
-from xtouch_daemon.slots.inputs import Attendee, Observation, app_matches
+from xtouch_daemon.slots.inputs import Attendee, Observation, SoundDevice, app_matches
 
 LIVE_TIMEOUT = 1.0
 """Seconds to wait for a snapshot of the running daemon."""
@@ -56,6 +56,11 @@ class Observer:
             people=attendees(voip) if voip is not None else (),
             processes=processes,
             devices=frozenset(device for device in devices if device),
+            sound_devices=tuple(
+                SoundDevice(device.name, device.description, device.direction.value)
+                for device in (*audio.outputs, *audio.inputs)
+            ),
+            defaults=frozenset(name for name in (audio.default_output, audio.default_input) if name),
             homeassistant=homeassistant,
         )
 
@@ -94,6 +99,8 @@ def to_line(now: float, observation: Observation) -> str:
             "people": [[person.id, person.name] for person in observation.people],
             "processes": sorted(observation.processes),
             "devices": sorted(observation.devices),
+            "sound_devices": [[d.name, d.description, d.direction] for d in observation.sound_devices],
+            "defaults": sorted(observation.defaults),
             "homeassistant": sorted(observation.homeassistant),
         }
     )
@@ -111,6 +118,9 @@ def from_line(line: str) -> tuple[float, Observation]:
         ),
         processes=frozenset(data["processes"]),
         devices=frozenset(data["devices"]),
+        # a recording made before the pool devices has none of them
+        sound_devices=tuple(SoundDevice(*device) for device in data.get("sound_devices", ())),
+        defaults=frozenset(data.get("defaults", ())),
         homeassistant=frozenset(data["homeassistant"]),
     )
 
