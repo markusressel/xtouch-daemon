@@ -612,7 +612,7 @@ daemon, the configuration or a member, and a binder that changes only the slots 
 Each step keeps the daemon working and the tests green:
 
 1. The format: `[people]`, no `people` candidate, people skip pins, `person` channels in the block, the presence of
-   `auto`, typed members, `[controls]` (read and checked; the prototype doesn't run them), `talking_color` only for
+   `auto`, typed members, `[controls]` (read and checked; they run from step 5c on), `talking_color` only for
    people.
 2. `Desk` out of `Mixer`, for both formats: touch and held buttons survive a new mixer. See [Step 2](#step-2-the-desk).
 3. Controllers get their look, identity and entity ids from outside (the old format from its strips).
@@ -736,12 +736,13 @@ What building it showed:
 every 0.2 s (that is the batching) on what the sound server, the processes and the voice chat of the daemon show.
 Each channel has its controller for as long as the configuration, each application of `auto` and each person
 without a channel one while they are members (`SlotMixer` in `runtime/binder.py`, step 5b); after each step only the
-slots whose result changed get another controller, so the others keep their texts, fader and LEDs. Apps channels never go into `auto`
-one application at a time, only as a whole. The mode takes the place of the layout: `xtouch-daemon layout gaming`,
-the GUI and the chord pick a mode, `layout auto` gives it back to the rules; the banner names a new mode. Not yet:
-Home Assistant (no entities for states and modes, no `select.xtouch_mode`), overrides of states, keeping overrides
-and picks across restarts, the GUI (it can't edit the format), and the `pick` encoder pins the strip's application,
-not the resolver's member.
+slots whose result changed get another controller, so the others keep their texts, fader and LEDs. `[controls]` run
+(`runtime/controls.py`, step 5c): the first entry of a slot whose `when` holds claims its controls on the `Desk`,
+shows their fader, ring and LEDs, and launches, picks modes, toggles states or puts them into Home Assistant. Apps
+channels never go into `auto` one application at a time, only as a whole. The mode takes the place of the layout:
+`xtouch-daemon layout gaming`, the GUI and the chord pick a mode, `layout auto` gives it back to the rules; the
+banner names a new mode. Not yet: Home Assistant entities of states, modes and slots (no `select.xtouch_mode`), and
+the GUI (it can't edit the format).
 
 Next: see [Decisions after the live test](#decisions-after-the-live-test).
 

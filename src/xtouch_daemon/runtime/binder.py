@@ -21,9 +21,10 @@ from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import StripConfig
 from xtouch_daemon.config.values import EncoderMode, default_encoder
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.hardware.strip import VirtualStrip
+from xtouch_daemon.hardware.strip import Claimable, VirtualStrip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.mqtt import MqttBridge
+from xtouch_daemon.runtime.controls import Controls
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.slots import SlotEngine
 from xtouch_daemon.slots.inputs import App, Person
@@ -116,13 +117,29 @@ class SlotMixer:
         """What a dark slot shows."""
         self.bound: dict[int, tuple[Key, int | None]] = {}
         """What each slot (from 1) shows now: the key of its controller and its candidate."""
-        self.watches_processes = any(controller.launches for controller in self.channels.values())
+        self.controls = Controls(
+            self.setup.scene,
+            desk,
+            engine,
+            bridge,
+            self.env.launcher,
+            lambda: self.processes,
+            config.behavior.encoder_step,
+        )
+        """The `[controls]` of the slots: claims on the strips of the desk."""
+        self.controls.on_change = self.controls.show
+        self.watches_processes = self.controls.launches or any(
+            controller.launches for controller in self.channels.values()
+        )
         if self.watches_processes:
             self.processes = processes()
         self.entities = {
             entity: default for controller in self.channels.values() for entity, default in controller.entities.items()
-        }
-        """The entities of the channels in Home Assistant, for the MQTT bridge: the same for the whole configuration."""
+        } | self.controls.entities
+        """
+        The entities of the channels and the controls in Home Assistant, for the MQTT bridge: the same for the whole
+        configuration.
+        """
         if bridge is not None:
             bridge.bind(self.entities)
         voip.subscribe(self.refresh)
@@ -146,8 +163,11 @@ class SlotMixer:
     def apply(self, result: Result) -> None:
         """
         Puts on each slot the controller of what it shows. Only slots whose result changed are touched: the others
-        keep their controller, so their texts, fader and LEDs stay as they are.
+        keep their controller, so their texts, fader and LEDs stay as they are. The controls of the slots claim what
+        their `when` says (see `runtime.controls`).
         """
+        states = self.engine.simulation.states
+        self.controls.apply(states.values if states is not None else {})
         for slot, shown in result.slots.items():
             key = key_of(slot, shown)
             before = self.bound.get(slot)
@@ -167,10 +187,30 @@ class SlotMixer:
                     # (a controller that moved to a slot handled before is on its new strip already)
                     old_view.bind(None)
             if view.target is not device:
+                # what the controls of the slot claim stays theirs
+                self._give(controller, self.controls.taken(slot))
                 view.bind(device)
             self.desk.bind(slot - 1, controller, controller.look.meter_point)
         self._close_gone()
+        self._hand_out_claims()
         self.desk.watch(self.state)
+
+    def _hand_out_claims(self) -> None:
+        """Each controller learns what the controls of its slot take (none off the device); the claims show theirs."""
+        slots = {id(controller): slot for slot in SLOTS if (controller := self._at(slot)) is not None}
+        for controller in self.all_controllers:
+            slot = slots.get(id(controller))
+            self._give(controller, self.controls.taken(slot) if slot is not None else frozenset())
+        self.controls.show()
+
+    @staticmethod
+    def _give(controller: StripController, taken: frozenset[Claimable]) -> None:
+        if controller.taken == taken:
+            return
+        controller.set_taken(taken)
+        view = controller.strip
+        assert isinstance(view, VirtualStrip)
+        view.mask(taken)
 
     def _at(self, slot: int) -> StripController | None:
         presenter = self.desk.presenters[slot - 1]
@@ -235,6 +275,7 @@ class SlotMixer:
     def refresh(self) -> None:
         for controller in self.all_controllers:
             controller.update(self.state)
+        self.controls.show()
         self.desk.watch(self.state)
 
     @property
@@ -276,6 +317,7 @@ class SlotMixer:
         await asyncio.Event().wait()
 
     def close(self) -> None:
+        self.controls.close()
         self.desk.unbind(self.all_controllers)
         self.voip.unsubscribe(self.refresh)
         for controller in self.all_controllers:

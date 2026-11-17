@@ -14,7 +14,8 @@ from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.config.sections import VoipConfig
-from xtouch_daemon.config.strips import StripConfig
+from xtouch_daemon.config.strip import BaseStripConfig
+from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.slots.model import AUTO, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS
 
@@ -136,6 +137,17 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                         add((slot, index, member), f"{where} ({member})", channel_strip(member))
     people = {key: value for key, value in data.get(PEOPLE, {}).items() if key not in PEOPLE_ONLY}
     check("people", {"type": "voip"} | people | {"person": "someone"})
+    if config.mqtt is None:
+        for name, strip in own_strips.items():
+            if isinstance(strip, HomeAssistantStripConfig) or (
+                isinstance(strip, BaseStripConfig) and strip.uses_home_assistant
+            ):
+                problems.append(f"channel.{name}: Home Assistant needs an [mqtt] section")
+        for slot, entries in scene.controls.items():
+            for index, entry in enumerate(entries):
+                if "homeassistant" in (entry.fader, entry.encoder, entry.select, entry.rec, entry.solo):
+                    where = f"controls.{slot}" + (f"[{index}]" if len(entries) > 1 else "")
+                    problems.append(f"{where}: Home Assistant needs an [mqtt] section")
     for slot in config.switching.chord:
         if any(controls.solo is not None for controls in scene.controls.get(slot, ())):
             problems.append(f"controls.{slot}.solo: the Solo buttons of the chord can't be claimed (switching.chord)")

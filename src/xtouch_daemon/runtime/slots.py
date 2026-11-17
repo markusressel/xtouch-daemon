@@ -120,6 +120,40 @@ class SlotEngine:
         self.simulation.engine.set_override(state, value)
         self._keep_choices()
 
+    # -- the actions of buttons in [controls] (see `runtime.controls`): they show at once -------------------------
+
+    def value(self, name: str) -> bool:
+        """Whether a state is on, or a mode is the mode; False before the first step."""
+        states = self.simulation.states
+        return states is not None and (states.mode == name if name in self.modes else states.values.get(name, False))
+
+    def cycle_modes(self) -> None:
+        """The next mode, as the chord picks it."""
+        modes = self.modes
+        self.choose_mode(modes[(modes.index(self.mode) + 1) % len(modes)])
+
+    def choose_mode(self, mode: str) -> None:
+        """A mode by hand (until the rules want another one)."""
+        _LOGGER.info(f"Mode {mode} (a control)")
+        self.pick_mode(mode)
+        self.on_request()
+
+    def toggle(self, name: str) -> None:
+        """
+        A mode: picks it, and the next time gives the choice back to the rules. A state: overrides it to the opposite
+        of its value now, and the next time gives it back to its sources.
+        """
+        engine = self.simulation.engine
+        if name in self.scene.modes:
+            back = engine.mode_pick == name
+            _LOGGER.info(f"Mode {'auto' if back else name} (a control)")
+            self.pick_mode(None if back else name)
+        else:
+            value = Override.AUTO if name in engine.overrides else Override.OFF if self.value(name) else Override.ON
+            _LOGGER.info(f"State {name}: override {value} (a control)")
+            self.set_override(name, value)
+        self.on_request()
+
     def pin(self, slot: int, member: App | Channel | None) -> None:
         """Pins a member to a slot of `auto`, None takes the pin away; from the next step on."""
         if member is None:

@@ -11,19 +11,16 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 
 from tests.support.audio import FakeBackend, output, source, stream
-from tests.support.daemon import QUIET
 from tests.support.hardware import RecordingSurface
+from tests.support.slots import Rig
 from tests.support.tasks import settle
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
-from xtouch_daemon.config.model import Config
 from xtouch_daemon.hardware.strip import Strip, VirtualStrip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime import binder as binder_module
 from xtouch_daemon.runtime.binder import SlotMixer
-from xtouch_daemon.runtime.daemon import voip_state
 from xtouch_daemon.runtime.desk import Desk
-from xtouch_daemon.runtime.slots import SlotEngine
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.voip import VoipStrip
 from xtouch_daemon.voip.demo import DemoProvider
@@ -75,36 +72,13 @@ STATE = AudioState(
 )
 
 
-class Rig:
-    """A slot mixer on a recording surface, and the engine whose results it shows."""
-
-    def __init__(self, surface: RecordingSurface, config: Config, bridge: MqttBridge | None = None, **kwargs) -> None:
-        self.surface = surface
-        assert config.voip is not None
-        self.voip = DemoProvider(config.voip.participants)
-        self.engine = SlotEngine(config)
-        self.desk = Desk(surface, capture_command=QUIET)
-        self.mixer = SlotMixer(
-            surface, FakeBackend(()), config, self.engine, self.desk, self.voip, bridge=bridge, **kwargs
-        )
-        self.now = 0.0
-
-    def step(self, state: AudioState = STATE, processes: frozenset[str] = frozenset()) -> None:
-        self.now += 1
-        self.mixer.on_state(state)
-        self.mixer.apply(self.engine.step(state, processes, voip_state(self.voip), frozenset(), self.now))
-
-    def labels(self) -> list[str]:
-        return [strip.text[0] for strip in self.surface.strips]
-
-
 async def test_only_the_slots_that_changed_are_bound_again(
     surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     rig = Rig(surface, parse_config(CONFIG))
     mixer = rig.mixer
     assert mixer.controllers == []
-    rig.step()
+    rig.step(STATE)
     assert rig.labels()[:4] == ["Mic", "Speaker", "Spotify", "Alice"]
     assert rig.labels()[7] == "Ann"
     assert mixer.voip_names[3] == "Alice"
@@ -120,7 +94,7 @@ async def test_only_the_slots_that_changed_are_bound_again(
         monkeypatch.setattr(strip, "show_from", lambda view, index=index: redrawn.append(index))
     # gaming: the speaker moves from slot 2 to slot 1 (handled first), the game takes slot 2; Spotify stays where
     # it is, with the options of the other candidate of slot 3
-    rig.step(processes=frozenset({"mygame"}))
+    rig.step(STATE, frozenset({"mygame"}))
     assert rig.labels()[:3] == ["Speaker", "Game", "Spotify"]
     assert redrawn == []
     assert mixer.controllers[2] is spotify
@@ -179,7 +153,7 @@ async def test_the_channels_announce_their_entities_and_follow_the_processes(
     rig = Rig(
         surface,
         config,
-        RecordingBridge(config.mqtt),
+        bridge=RecordingBridge(config.mqtt),
         shared_entities={shared: "default"},
         preview=True,
         processes=processes,
@@ -204,7 +178,7 @@ def test_a_slot_mixer_needs_a_configuration_of_slots(surface: RecordingSurface) 
 
 async def test_a_voip_strip_is_on_its_slot(surface: RecordingSurface) -> None:
     rig = Rig(surface, parse_config(CONFIG))
-    rig.step()
+    rig.step(STATE)
     alice = rig.mixer.channels["alice"]
     assert isinstance(alice, VoipStrip)
     assert isinstance(alice.strip, VirtualStrip)
