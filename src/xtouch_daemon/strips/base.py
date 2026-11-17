@@ -92,6 +92,10 @@ class StripController:
         self.look = look
         self._tasks: set[asyncio.Task[None]] = set()
 
+    def set_look(self, look: Look) -> None:
+        """Another look (the strip it is on now has other options); shows at the next `update()`."""
+        self.look = look
+
     @property
     def color(self) -> Color:
         return color_of(self.look.color)
@@ -264,6 +268,17 @@ class VolumeStrip(StripController):
         """Shown on the second line instead of the volume for a moment (`notify`)."""
         self._notice_timer: asyncio.TimerHandle | None = None
         self.knob = self.make_knob(encoder)
+
+    def set_look(self, look: Look) -> None:
+        super().set_look(look)
+        self.label = look.label or self.label
+
+    def set_place(self, encoder: EncoderMode, min_volume: int | None, max_volume: int | None) -> None:
+        """What the encoder does and the volume range: those of the place the strip is on now."""
+        self.knob.close()
+        self.knob = self.make_knob(encoder)
+        self.min_volume = min_volume
+        self.max_volume = max_volume
 
     @property
     def indicators(self) -> dict[Button, Indicator]:

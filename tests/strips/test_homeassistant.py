@@ -285,6 +285,16 @@ async def test_a_strip_without_label_is_named_by_its_position(surface: Recording
     strip.close()
 
 
+async def test_another_look_is_what_shows_while_not_connected(surface: RecordingSurface, bridge: MqttBridge) -> None:
+    env = StripEnv(FakeBackend(), BehaviorConfig(), bridge)
+    strip = HomeAssistantStrip(surface.strips[0], env, bridge, Identity("lights", "Lights"), Look("Lights"))
+    strip.set_look(Look("Lamps", "red"))
+    strip.update(AudioState())
+    assert surface.strips[0].text[0] == "Lamps"
+    assert strip.default_color == "red"
+    strip.close()
+
+
 class GatedNumber:
     """A number entity whose publishing waits for `gate`."""
 

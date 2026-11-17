@@ -314,6 +314,11 @@ class HomeAssistantStrip(StripController):
             if entity is not self.buttons:
                 bridge.watch(entity, self._changed)
 
+    def set_look(self, look: Look) -> None:
+        super().set_look(look)
+        self.default_label = look.label or ""
+        self.default_color = look.color
+
     @property
     def entities(self) -> dict[MQTTEntity, str | None]:
         """Every entity with the state it starts with in Home Assistant (events have none)."""

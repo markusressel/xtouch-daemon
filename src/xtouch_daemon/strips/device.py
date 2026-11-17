@@ -118,6 +118,10 @@ class DeviceStrip(VolumeStrip):
             if switch.make_default and not self.default:
                 self.run_command(self.env.backend.set_default(self.direction, self.device.name), "make default")
 
+    def set_look(self, look: Look) -> None:
+        super().set_look(look)
+        self._label_option = look.label
+
     def _update_label(self) -> None:
         """The label of the profile, else the configured one, else the start of the description of the device."""
         if (profile := self._profile()) is not None:

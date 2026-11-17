@@ -239,6 +239,10 @@ class AutoStrip(AppStrip):
     def make_knob(self, encoder: EncoderMode) -> Knob:
         return PickKnob(self) if encoder == "pick" else super().make_knob(encoder)
 
+    def set_look(self, look: Look) -> None:
+        # the label is the application's
+        self.look = look
+
     def assign(self, app: str | None) -> None:
         if app == self.app:
             return
