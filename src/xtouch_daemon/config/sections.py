@@ -35,6 +35,11 @@ class DeviceConfig(Model):
 
     name: str = "X-Touch-Ext"
     """Part of the name of the extender's sound card, as `/proc/asound/cards` lists it."""
+    virtual: bool = False
+    """
+    Drive the virtual device instead (`xtouch-daemon virtual-device`, or the GUI's), for trying things without the
+    device. `xtouch-daemon run --virtual-device` does the same for one run. Changes with a restart.
+    """
     touch_required: bool = True
     """
     Whether a fader changes a value only while the device reports a touch, so a fader moved by its motor does not

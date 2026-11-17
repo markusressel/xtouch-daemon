@@ -10,10 +10,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 from xtouch_daemon.config.values import Sequence
-from xtouch_daemon.hardware import midi, protocol
-from xtouch_daemon.hardware.midi import RawMidi, find_card
+from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import FADER_TICK, Strip
+from xtouch_daemon.hardware.transport import AlsaPort, Port, Transport
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -86,9 +86,14 @@ class Surface:
         device_name: str = DEVICE_NAME,
         proc_asound_cards: Path | None = None,
         dev_snd: Path | None = None,
+        port: Port | None = None,
     ):
-        """`proc_asound_cards` and `dev_snd` are where the sound cards are, `midi.PROC_ASOUND_CARDS` and `DEV_SND`."""
-        self.device_name = device_name
+        """
+        `port` reaches the device, by default the sound card named `device_name` (`AlsaPort`, with
+        `proc_asound_cards` and `dev_snd` where the sound cards are).
+        """
+        self.port = port or AlsaPort(device_name, proc_asound_cards, dev_snd)
+        self.device_name = self.port.name
         self.startup: Sequence = "sweep"
         self.shutdown: Sequence = "sweep"
         """How the strips light up after a connect and go dark at the end (see `steps()`)."""
@@ -97,8 +102,6 @@ class Surface:
         The strips (from 0) whose fader has no working touch sensor: a move counts as a touch, a pause of
         TOUCHLESS_LET_GO as letting go.
         """
-        self.proc_asound_cards = proc_asound_cards or midi.PROC_ASOUND_CARDS
-        self.dev_snd = dev_snd or midi.DEV_SND
         self.strips = [Strip(self, index) for index in range(protocol.STRIPS)]
         self.on_event: EventHandler = lambda event: None
         self.on_connection: ConnectionHandler = lambda connected: None
@@ -112,7 +115,7 @@ class Surface:
             f"Unknown message from the device: {message.hex(' ')}"
         )
         """For the messages the daemon doesn't use: to find out what a device sends."""
-        self._midi: RawMidi | None = None
+        self._midi: Transport | None = None
         self._parser = protocol.MessageParser()
         self._disconnected = asyncio.Event()
         self._gliding: set[Strip] = set()
@@ -306,12 +309,7 @@ class Surface:
         Connects to the device and shows everything on it. LookupError if it is not there, OSError if it can't be
         opened (e.g. another program has it open).
         """
-        cards = self.proc_asound_cards.read_text()
-        card = find_card(cards, self.device_name)
-        if card is None:
-            raise LookupError(f"{self.device_name} is not connected")
-        path = self.dev_snd / f"midiC{card}D0"
-        self._midi = RawMidi(path, on_data=self._on_data, on_closed=self._on_closed)
+        self._midi, path = self.port.open(on_data=self._on_data, on_closed=self._on_closed)
         self._disconnected.clear()
         self._connected_at = asyncio.get_running_loop().time()
         self._parser = protocol.MessageParser()

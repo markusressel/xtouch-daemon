@@ -29,15 +29,18 @@ def find_card(proc_asound_cards: str, name: str) -> int | None:
 
 class RawMidi:
     """
-    An open raw MIDI device (/dev/snd/midiC<card>D0). Calls `on_data` with every chunk that was read, and
-    `on_closed` once when the device is gone (e.g. unplugged).
+    An open raw MIDI device (/dev/snd/midiC<card>D0), or `fd`, a connected socket that speaks the same bytes (the
+    virtual device). Calls `on_data` with every chunk that was read, and `on_closed` once when the device is gone
+    (e.g. unplugged).
     """
 
-    def __init__(self, path: Path, on_data: Callable[[bytes], None], on_closed: Callable[[], None]):
+    def __init__(
+        self, path: Path, on_data: Callable[[bytes], None], on_closed: Callable[[], None], fd: int | None = None
+    ):
         self.path = path
         self._on_data = on_data
         self._on_closed = on_closed
-        self._fd: int | None = os.open(path, os.O_RDWR | os.O_NONBLOCK)
+        self._fd: int | None = os.open(path, os.O_RDWR | os.O_NONBLOCK) if fd is None else fd
         self._pending = bytearray()
         self._drained = asyncio.Event()
         self._drained.set()

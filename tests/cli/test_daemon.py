@@ -16,6 +16,8 @@ from xtouch_daemon.cli import daemon as run_commands
 from xtouch_daemon.cli import sound as sound_commands
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.hardware.surface import Surface
+from xtouch_daemon.hardware.transport import SocketPort
 from xtouch_daemon.system import instance, systemd
 
 
@@ -57,12 +59,14 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
     started: list[tuple[Config, Path | None]] = []
     sockets: list[Path] = []
     levels: list[int] = []
+    surfaces: list[Surface | None] = []
 
     class FakeDaemon:
         def __init__(
             self,
             config: Config,
             backend: object,
+            surface: Surface | None,
             config_path: Path | None,
             live_socket: Path,
             players: object,
@@ -70,6 +74,7 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
         ) -> None:
             started.append((config, config_path))
             sockets.append(live_socket)
+            surfaces.append(surface)
             # what it remembers, in the state directory of the user
             assert state_dir == instance.state_dir()
             assert state_dir.name == "xtouch-daemon"
@@ -87,6 +92,14 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
     assert started[0][1] == config_file
     assert sockets == [instance.socket_file()]
     assert levels == [10]
+    # the device of the configuration, unless the virtual one is asked for
+    assert surfaces == [None]
+    assert invoke("run", "-c", str(config_file), "--virtual-device").exit_code == 0
+    virtual = surfaces[1]
+    assert virtual is not None
+    assert isinstance(virtual.port, SocketPort)
+    assert virtual.port.path == instance.virtual_device_socket_file()
+    assert virtual.device_name == "the virtual X-Touch-Ext"
 
 
 def test_run_says_that_it_runs_and_a_second_one_does_not_start(
@@ -99,6 +112,7 @@ def test_run_says_that_it_runs_and_a_second_one_does_not_start(
             self,
             config: Config,
             backend: object,
+            surface: Surface | None,
             config_path: Path | None,
             live_socket: Path,
             players: object,

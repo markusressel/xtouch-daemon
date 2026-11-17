@@ -111,7 +111,7 @@ async def test_a_preview_runs_the_configuration_of_the_gui_and_never_writes_the_
     )
     # and so does the device name, which the reply says
     assert daemon.on_request(gui, StartPreview('[device]\nname = "X-Touch"\n' + BOXES)) == Reply(
-        "preview", True, "The device name changes only with a restart."
+        "preview", True, "The device name and virtual change only with a restart."
     )
 
     # only the GUI that previews ends it

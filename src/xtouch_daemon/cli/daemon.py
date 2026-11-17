@@ -14,7 +14,7 @@ from xtouch_daemon.cli.options import CONFIG_OPTION, load_or_fail
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path
 from xtouch_daemon.hardware.selftest import run_selftest
-from xtouch_daemon.runtime.daemon import Daemon
+from xtouch_daemon.runtime.daemon import Daemon, device_surface
 from xtouch_daemon.system import instance, systemd
 
 
@@ -27,7 +27,10 @@ from xtouch_daemon.system import instance, systemd
     default="info",
     show_default=True,
 )
-def run(config_path: Path | None, log_level: str) -> None:
+@click.option(
+    "--virtual-device", is_flag=True, help="Drive the virtual device (`virtual-device`), as `[device] virtual = true`."
+)
+def run(config_path: Path | None, log_level: str, virtual_device: bool) -> None:
     """Run the daemon (in the foreground; `install-service` sets it up as a systemd user service)."""
     systemd.setup_logging(getattr(logging, log_level.upper()))
     config = load_or_fail(config_path)
@@ -35,6 +38,7 @@ def run(config_path: Path | None, log_level: str) -> None:
         daemon = Daemon(
             config,
             PulseBackend(),
+            surface=device_surface(config.device.name, virtual=True) if virtual_device else None,
             config_path=config_path,
             live_socket=instance.socket_file(),
             players=MprisPlayers(),

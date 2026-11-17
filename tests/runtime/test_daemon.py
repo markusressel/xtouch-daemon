@@ -163,7 +163,7 @@ async def test_a_changed_device_name_needs_a_restart(
     config_path.write_text('[device]\nname = "X-Touch"\n' + SPEAKER)
     assert daemon.reload()
 
-    assert "The name in the [device] section changed: restart the daemon" in caplog.text
+    assert "The [device] name or virtual changed: restart the daemon" in caplog.text
     assert surface.touchless == frozenset()
     assert (surface.startup, surface.shutdown) == ("sweep", "sweep")
     daemon.mixer.close()

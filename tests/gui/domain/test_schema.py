@@ -47,7 +47,7 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
     unity = options(BehaviorConfig)[1]
     assert (unity.default, unity.minimum, unity.maximum) == (77, 10, 95)
     assert "0 dB at about\n77" in unity.help
-    name, touch_required, touchless, startup, shutdown = options(DeviceConfig)
+    name, _virtual, touch_required, touchless, startup, shutdown = options(DeviceConfig)
     assert (touch_required.kind, touch_required.default) == (Kind.SWITCH, True)
     assert name.default == "X-Touch-Ext"
     assert (touchless.kind, touchless.default, touchless.minimum, touchless.maximum) == (Kind.NUMBERS, (), 1, 8)

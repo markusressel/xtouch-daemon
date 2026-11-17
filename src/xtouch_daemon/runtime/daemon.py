@@ -29,6 +29,7 @@ from xtouch_daemon.config.files import default_config_path, load_config, parse_c
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.surface import Surface
+from xtouch_daemon.hardware.transport import SocketPort
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
@@ -94,6 +95,11 @@ def voip_state(provider: VoipProvider) -> VoipState:
     )
 
 
+def device_surface(name: str, virtual: bool) -> Surface:
+    """The surface of the device named `name`, or of the virtual device (`[device] virtual`)."""
+    return Surface(port=SocketPort(instance.virtual_device_socket_file())) if virtual else Surface(name)
+
+
 def touchless(config: Config) -> frozenset[int]:
     """The strips (from 0) whose fader moves count without a touch: all of them without `touch_required`."""
     if not config.device.touch_required:
@@ -138,7 +144,7 @@ class Daemon:
         self._watchdog: asyncio.Task[None] | None = None
         self._file_stamp = self._stamp()
         self.backend = backend
-        self.surface = surface or Surface(config.device.name)
+        self.surface = surface or device_surface(config.device.name, config.device.virtual)
         self._configure_surface(config)
         self.bridge = bridge or (MqttBridge(config.mqtt) if config.mqtt is not None else None)
         if self.bridge is not None:
@@ -223,8 +229,8 @@ class Daemon:
             self._back_to_file("the [mqtt] section of the file changed, the device runs the file before")
             systemd.notify("READY=1", "STATUS=The [mqtt] section changed, restart the daemon")
             return False
-        if config.device.name != self.config.device.name:
-            _LOGGER.warning("The name in the [device] section changed: restart the daemon for it to take effect")
+        if (config.device.name, config.device.virtual) != (self.config.device.name, self.config.device.virtual):
+            _LOGGER.warning("The [device] name or virtual changed: restart the daemon for it to take effect")
         self.file_config = config
         self._end_preview("the configuration file was loaded")
         self._use(config)
@@ -438,8 +444,11 @@ class Daemon:
             self._use(config)
         if previous is None:
             systemd.notify(self._status())
-        if config.device.name != self.file_config.device.name:
-            return Reply("preview", True, "The device name changes only with a restart.")
+        if (config.device.name, config.device.virtual) != (
+            self.file_config.device.name,
+            self.file_config.device.virtual,
+        ):
+            return Reply("preview", True, "The device name and virtual change only with a restart.")
         return Reply("preview", True)
 
     def _end_preview(self, reason: str) -> bool:

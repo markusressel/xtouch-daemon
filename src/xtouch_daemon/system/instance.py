@@ -16,6 +16,7 @@ from pathlib import Path
 FILE_NAME = "xtouch-daemon.json"
 SOCKET_NAME = "xtouch-daemon.sock"
 VOIP_SOCKET_NAME = "xtouch-daemon-voip.sock"
+VIRTUAL_DEVICE_SOCKET_NAME = "virtual-device.sock"
 STATE_DIR_NAME = "xtouch-daemon"
 
 
@@ -99,6 +100,11 @@ def socket_file() -> Path:
 def voip_socket_file() -> Path:
     """Where the `bridge` VoIP provider waits for the plugin of a voice chat client (see `voip/bridge.py`)."""
     return runtime_file().with_name(VOIP_SOCKET_NAME)
+
+
+def virtual_device_socket_file() -> Path:
+    """Where the virtual device waits for the daemon (see `simulator`), next to the runtime file."""
+    return runtime_file().with_name(VIRTUAL_DEVICE_SOCKET_NAME)
 
 
 def state_dir() -> Path:
