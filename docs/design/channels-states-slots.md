@@ -555,6 +555,7 @@ and the state engine are code now, pure (no sound server, no device), in `xtouch
 | `resolver` | `resolve()`: fixed slots, channels by rank, pools; the trace. |
 | `simulation` | `Simulation`: all of it over time, with the dwell time and held slots. |
 | `outcomes` | The distinct outcomes: the table above, `simulate --table`, the GUI's grid. |
+| `recording`, `replay` | `observe` records the real system; `simulate --replay` replays it: changes, flaps, time on. |
 
 `xtouch-daemon simulate docs/design/channels-states-slots.toml --mode gaming --state call --playing firefox` shows
 the slots and why. The tests (`tests/slots/`) have every scenario the reviews traced, and one keeps the table above in
@@ -574,9 +575,8 @@ What building it showed:
   shown.
 - **A multi-line inline table is no TOML 1.0**: the examples of `choices` use `[[channel.out.choices]]`.
 
-Next: try the semantics against real use (e.g. a log of a day's observations replayed through `Simulation`), then a
-review of the code and its scenarios, then the daemon, the format of the real configuration, the GUI and the
-migration.
+Next: replay a day of real observations (`observe`, then `simulate --replay`), a review of the code and its
+scenarios, then the daemon, the format of the real configuration, the GUI and the migration.
 
 ## Review log
 

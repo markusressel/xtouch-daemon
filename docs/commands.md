@@ -13,6 +13,7 @@
 | [`xtouch-daemon install-service`](#install-service) | Sets the daemon up as a systemd user service. |
 | [`xtouch-daemon gui`](#gui) | Edits the configuration in a window. |
 | [`xtouch-daemon simulate`](#simulate) | Prototype: what the slots of a configuration in the format of channels, states and slots show. |
+| [`xtouch-daemon observe`](#observe) | Prototype: records what plays, records and runs, for `simulate --replay`. |
 
 Every command takes `-h`/`--help`. `xtouch-daemon -V` (`--version`) shows the version.
 
@@ -212,3 +213,14 @@ in the given states, and why not the candidates above. The daemon does not use t
 | `--absent` | A channel that is not present; the others are. |
 | `--playing`, `--person` | The applications that play (in the order they started) and the people in the voice chat, for the pools `auto` and `people`. |
 | `--table` | Every combination of the states and presence the stacks ask about that changes what the slots show. |
+| `--replay LOG` | Instead: replays observations recorded by `observe` through FILE. Prints when states and slots changed, how often each slot changed, the flaps (a slot back to what it showed within 60 s) and how long each state was on. |
+
+## `observe`
+
+```shell
+xtouch-daemon observe LOG [--interval 2.0] [--process NAME]...
+```
+
+Records, every `--interval` seconds, what plays and records on the sound server, the devices, the running processes
+(those of the presets, and `--process`) and the voice chat of the running daemon, and appends a line of JSON to LOG
+when that changed. Runs until interrupted (Ctrl+C). `simulate FILE --replay LOG` replays it.

@@ -3,16 +3,29 @@
 prototype of docs/design/channels-states-slots.md).
 """
 
+import time
 import tomllib
 from pathlib import Path
 
 import click
 
+from xtouch_daemon.audio.pulse import SoundServerError, read_state
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.slots.inputs import Observation
 from xtouch_daemon.slots.model import DEFAULT, Scene
 from xtouch_daemon.slots.outcomes import outcomes, states_for, table
+from xtouch_daemon.slots.recording import (
+    only_watched,
+    read_log,
+    read_voip,
+    record,
+    watched_processes,
+)
+from xtouch_daemon.slots.replay import clock
+from xtouch_daemon.slots.replay import replay as replay_log
 from xtouch_daemon.slots.resolver import Inputs, resolve
+from xtouch_daemon.system import instance
+from xtouch_daemon.system.processes import running_processes
 
 
 @click.command()
@@ -23,6 +36,11 @@ from xtouch_daemon.slots.resolver import Inputs, resolve
 @click.option("--playing", multiple=True, help="An application that plays, in the order they started.")
 @click.option("--person", "people", multiple=True, help="A person in the voice chat.")
 @click.option("--table", "as_table", is_flag=True, help="Print the distinct outcomes of every combination instead.")
+@click.option(
+    "--replay",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Replay the observations of a log of `observe` instead: what the states and slots would have done.",
+)
 def simulate(
     file: Path,
     mode: str,
@@ -31,6 +49,7 @@ def simulate(
     playing: tuple[str, ...],
     people: tuple[str, ...],
     as_table: bool,
+    replay: Path | None,
 ) -> None:
     """What the 8 slots of FILE show, and why (a configuration with [channel.*], [state.*] and [slots])."""
     try:
@@ -39,6 +58,16 @@ def simulate(
         raise click.ClickException(f"{file}:\n{e}") from e
     if as_table:
         click.echo(table(outcomes(scene)))
+        return
+    if replay is not None:
+        report = replay_log(scene, read_log(replay))
+        for event in report.events:
+            click.echo(f"{clock(event.at)}  {event.text}")
+        click.echo()
+        for line in report.summary():
+            click.echo(line)
+        for event in report.flaps:
+            click.echo(f"flap at {clock(event.at)}: {event.text}")
         return
     for name in (mode, *states, *absent):
         if name != DEFAULT and name not in scene.states and name not in scene.channels:
@@ -52,3 +81,29 @@ def simulate(
             click.echo(f"     {line}")
     for pool, members in result.waiting.items():
         click.echo(f"waiting for a slot of {pool}: {', '.join(members)}")
+
+
+@click.command()
+@click.argument("log", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--interval", default=2.0, show_default=True, help="Seconds between two looks.")
+@click.option("--process", "extra", multiple=True, help="Also record processes with this in their name.")
+def observe(log: Path, interval: float, extra: tuple[str, ...]) -> None:
+    """
+    Record what plays, records and runs (and the voice chat of the running daemon) to LOG, until Ctrl+C, for
+    `simulate --replay`. A line only when something changed.
+    """
+    watched = watched_processes(extra)
+    try:
+        record(
+            log,
+            read_audio=lambda: read_state("xtouch-daemon-observe"),
+            read_processes=lambda: only_watched(running_processes(), watched),
+            read_voice=lambda: read_voip(instance.socket_file()),
+            clock=time.time,
+            wait=time.sleep,
+            interval=interval,
+        )
+    except KeyboardInterrupt:
+        pass
+    except SoundServerError as e:
+        raise click.ClickException(str(e)) from e

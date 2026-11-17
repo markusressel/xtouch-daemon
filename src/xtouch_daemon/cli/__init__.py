@@ -12,7 +12,7 @@ from xtouch_daemon.cli.editor import gui
 from xtouch_daemon.cli.layouts import layout
 from xtouch_daemon.cli.mumble import mumble_plugin
 from xtouch_daemon.cli.service import install_service
-from xtouch_daemon.cli.simulate import simulate
+from xtouch_daemon.cli.slots import observe, simulate
 from xtouch_daemon.cli.sound import list_apps, list_devices
 
 
@@ -31,6 +31,7 @@ for command in (
     list_apps,
     list_devices,
     mumble_plugin,
+    observe,
     run,
     simulate,
     test,
