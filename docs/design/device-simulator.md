@@ -9,7 +9,10 @@ The X-Touch Extender used for development was defective (the touch sensors of fa
 Without a device nothing above the protocol can be tried outside the tests: no slots on strips, no fader under a
 finger while a slot changes, no LEDs and texts to look at. The protocol and the behavior of the device are known well
 (see [Hardware](../hardware.md), verified on the device on 2026-11-15), so a simulated device can stand in for it:
-for development, for the GUI (which could show and drive it), and for tests that run the real `Surface` end to end.
+for development, for the GUI, and for tests that run the real `Surface` end to end.
+
+The model is also how the GUI sees the device (decided 2026-11-17): the daemon keeps one as a mirror of the device it
+drives, and the GUI shows the mirror. One model of the device, then, for the virtual device, the GUI and the tests.
 
 ## Goals
 
@@ -18,8 +21,8 @@ for development, for the GUI (which could show and drive it), and for tests that
   unchanged, so it gets tried too.
 - The simulated device behaves like the real one where [Hardware](../hardware.md) says how, including faults: a
   touch sensor that fails (like the returned unit), the device switched off and on (faders move by themselves), unplugged.
-- One model of the device, without IO and without Qt, behind three frontends: a socket server for the daemon, a
-  window in the GUI to look at and use it, and a test fixture.
+- One model of the device, without IO and without Qt, behind its frontends: the mirror in the daemon (what the GUI
+  shows), a socket server for the daemon, the GUI's drawing to use it, and a test fixture.
 - No root, no kernel modules: it has to work in CI and in a user session.
 
 Not a goal: proving timing-sensitive motor behavior (slow moves, the stop short of the bottom, motor noise). The
@@ -45,7 +48,7 @@ Today `Surface.open()` finds the card in `/proc/asound/cards` and opens `/dev/sn
     `Surface.run()` waits and connects when it starts, and a closed simulator is an unplugged device: the reconnect
     path gets used.
 - `Surface(port=...)`; the daemon picks the port from the configuration: `[device] virtual = true` (or
-  `xtouch-daemon run --virtual-device`, which wins) uses `SocketPort(instance.simulator_socket_file())`, next to the
+  `xtouch-daemon run --virtual-device`, which wins) uses `SocketPort(instance.virtual_device_socket_file())`, next to the
   other runtime files (`$XDG_RUNTIME_DIR/xtouch-daemon/`).
 - The log says which: "Connected to the simulated X-Touch-Ext at ...".
 
@@ -72,7 +75,7 @@ State per strip:
 - The LEDs of Rec, Solo, Mute and Select: off, on, flashing.
 - The ring: position 0..11, mode, center LED.
 - The meter: the level and when it was set; it falls by itself. The rate of the fall is not measured: about one
-  level per 100 ms, marked as an assumption (see "Fidelity").
+  level per 150 ms, marked as an assumption (see "Fidelity").
 - The fader: where it is (14 bits, but positions in multiples of 4 as the device reports them), the motor's target,
   touched or not. The motor goes to the target at a fixed speed (about 100 ms over the whole range), not while
   touched; a motor move sends nothing back (the real device doesn't either).
@@ -94,30 +97,37 @@ Faults and events:
 
 A `changed` callback (or a version counter) tells frontends to repaint.
 
-### 4. The socket server: `simulator/server.py`
+### 4. The mirror: what the GUI shows
 
-An asyncio Unix socket server at `instance.simulator_socket_file()` with one `SimulatedDevice`. One client at a
-time (the daemon); a second one is refused, like a device another program has open. A tick (every 10 ms) moves
-the motors and lets the meters fall. The same device stays when the daemon disconnects and connects again, so a
-daemon restart sees the faders where they were, as on the real device.
+The `Surface` keeps a `SimulatedDevice` as the mirror of the device: every byte it sends goes into it (also while
+the device is away: then it is what the device will show once it is there), and what the device sends goes in too
+(`observe()`: fader moves, touches, encoder pushes; a host query after switching on clears what the device lost). The
+live view's strips are the mirror's state (`strip_states()`), so the GUI shows what reached the device, banners and
+flashes included, with the motor and the meters moving as the model moves them. The `Surface` keeps its own record of
+what each strip shows only where it needs it to send (the strips' values and looks).
 
-### 5. Frontends
+What the mirror can't know: what the device does without saying (a motor that stopped short, where the faders are
+after a connect). It shows what was sent and what the device reported.
+
+### 5. The virtual device and its frontends
+
+`simulator/server.py`: a Unix socket server at `instance.virtual_device_socket_file()` with one `SimulatedDevice`.
+One client at a time (the daemon); a second one is refused, like a device another program has open. A tick (every
+10 ms) moves the motors and lets the meters fall. The same device stays when the daemon disconnects and connects
+again, so a daemon restart sees the faders where they were, as on the real device.
 
 - **CLI**: `xtouch-daemon virtual-device` runs the server headless, logs what the host sets at debug level, and
-  takes a few options (`--broken-touch 1,4`). Useful for the daemon on a machine without a display and in scripts.
-  (Not `simulate`: that one simulates slots.)
-- **GUI**: a "Virtual device" window in the Qt app. It hosts the device itself (a `QLocalServer` around the same
-  `SimulatedDevice`; the GUI runs the Qt event loop, like `live_view.py` with `QLocalSocket`). It paints the strips
-  with the painting of the preview (`gui/qt/preview/strip_view.py`, `painting.py`), fed from the device's state
-  instead of a `StripState` of the live view (an adapter to `StripState`, if it fits). With the mouse:
-  - a fader: press = touch, drag = moves, release = let go; Alt-drag moves it without a touch (a broken sensor, or
-    the device moving it);
+  takes a few options (`--broken-touch 1,4`). (Not `simulate`: that one simulates slots.)
+- **GUI**: the GUI can host the server itself (a `QLocalServer` around the same `SimulatedDevice`). Then its drawing
+  of the device takes the mouse, sent to the hosted device as a hand:
+  - a fader: press = touch, drag = moves, release = let go; Alt-drag moves it without a touch;
   - the buttons: click (press and release), held while the mouse is down;
   - the encoder: the wheel turns it, a click pushes it;
   - a toolbar: plug in / unplug, switch off and on, broken touch per fader.
 
-  The GUI's preview of a configuration and the virtual device are different things: the preview shows what the daemon
-  would show (from the live view), the virtual device shows what reached the device. Both can be open side by side.
+  What it paints still comes from the live view (the daemon's mirror), which is the hosted device's state once it got
+  there; the GUI doesn't paint two models. While the daemon waits for a device that isn't connected, the pill "X-Touch-Ext
+  not connected" offers "Open the virtual device"; nothing starts without a click.
 - **Tests**: a fixture that connects a real `Surface` to a `SimulatedDevice` through an in-memory transport (no
   socket), with the loop's clock (`looptime`). New end-to-end tests: touch grace, touchless faders, the glide arriving,
   the startup sequence, a power cycle, a reconnect, a slot change under a finger. `RecordingSurface` stays for the
@@ -134,14 +144,15 @@ assumptions with measurements.
 
 Each step is a commit with its tests, docs and CHANGELOG entry; the daemon works after each.
 
-1. **Protocol**: the decoders of the messages to the device and the encoders of those from it, with round-trip tests.
-2. **Model**: `SimulatedDevice` with its state, the input, the motor and meter over time, and the faults; unit tests.
-3. **Transport**: `Transport`, `AlsaPort`, `SocketPort`; `Surface(port=...)`; `[device] virtual`,
-   `run --virtual-device`; the in-memory transport and the test fixture; end-to-end tests of the `Surface`.
-4. **Server and CLI**: `simulator/server.py`, `xtouch-daemon virtual-device`; a test of the daemon against the
+1. **Protocol** (done): the decoders of the messages to the device and the encoders of those from it.
+2. **Model** (done): `SimulatedDevice` with its state, the input, the motor and meter over time, and the faults.
+3. **Transport**: `Port`, `AlsaPort`, `SocketPort`; `Surface(port=...)`; `[device] virtual`, `run --virtual-device`;
+   the in-memory transport and the test fixture; end-to-end tests of the `Surface`.
+4. **Mirror**: the `Surface` feeds its `SimulatedDevice`, `strip_states()` reads it; the GUI's drawing shows it.
+5. **Server and CLI**: `simulator/server.py`, `xtouch-daemon virtual-device`; a test of the daemon against the
    server over a real socket (connect, unplug, reconnect, a second client refused).
-5. **GUI**: the "Virtual device" window: painting, mouse input, toolbar; GUI tests with `pytest-qt`.
-6. **Docs**: "Without a device" in Getting started, the simulator in Hardware (what is verified, what is assumed),
+6. **GUI**: hosting the virtual device, the mouse on the drawing, the toolbar, the offer in the pill; GUI tests.
+7. **Docs**: "Without a device" in Getting started, the simulator in Hardware (what is verified, what is assumed),
    GUI, Commands, Configuration (`[device] virtual`), the architecture page.
 
 ## Decisions (2026-11-17)

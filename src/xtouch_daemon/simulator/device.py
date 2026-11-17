@@ -6,7 +6,7 @@ no IO, no asyncio, no Qt; the time comes in as `now` (seconds), so frontends and
 What it does is verified on the device (see docs/hardware.md), except these assumptions:
 
 - the motor goes to its target at a fixed speed, `MOTOR_SECONDS` over the whole range;
-- a meter falls by one level every `METER_FALL` seconds after it was set;
+- a meter falls by one level every `METER_FALL` seconds after it was set (as the live view assumed);
 - a quick hand's touch comes `touch_delay` seconds after its first move (the device: 50-100 ms);
 - after switching on, the faders go down by themselves, reporting their moves without a touch.
 """
@@ -31,7 +31,7 @@ from xtouch_daemon.hardware.protocol import (
 
 MOTOR_SECONDS = 0.1
 """How long the motor takes over the whole range (an assumption)."""
-METER_FALL = 0.1
+METER_FALL = 0.15
 """Seconds per level a meter falls (an assumption)."""
 TOUCH_DELAY = 0.07
 """Seconds after the first move of a quick hand until the touch is reported."""
