@@ -21,8 +21,13 @@ PAGES: dict[str, str] = {
 
 GUIDES: dict[str, str] = {
     "mumble": "integrations/mumble/",
+    "slots": "configuration/slots/#slots",
+    "conditions": "configuration/slots/#conditions",
 }
-"""The pages on setting up something outside the daemon, e.g. the plugin of a voice chat client."""
+"""
+Pages on a topic the editor links to: setting up something outside the daemon (the plugin of a voice chat client),
+the slots and their conditions.
+"""
 
 STRIP_TYPES: dict[str, str] = {
     "output": "configuration/devices/",

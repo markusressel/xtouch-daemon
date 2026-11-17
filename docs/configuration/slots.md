@@ -43,7 +43,8 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 ```
 
 - A slot shows the first candidate whose condition (after `if`) holds. Conditions name states and modes, with
-  `and`, `or`, `not`, parentheses and `present` (the channel has something to control).
+  `and`, `or`, `not`, parentheses and `present` (the channel has something to control); see
+  [Conditions](#conditions).
 - `auto` is the next application that plays and has no channel of its own, and the people of the voice chat (from
   the right). A slot without an entry is `auto`, and so is a stack whose candidates all don't hold.
 - `-` is nothing: the slot is dark.
@@ -76,7 +77,7 @@ processes = ["@steam-games"]
 ```
 
 A state is on while any of its sources is: `apps` (playing), `recording`, `voice_chat`, `processes`, `devices`,
-`channels`, `homeassistant` (a switch in Home Assistant), or `when` (an expression of other states). `delay_on` and
+`channels`, `homeassistant` (a switch in Home Assistant), or `when` (a [condition](#conditions) of other states). `delay_on` and
 `delay_off` smooth it. Modes are states with `mode = true`: the one with the highest `priority` whose sources are
 on is the mode, else `default`. When the mode changes, the LCDs show its `label` across the strips for
 `switching.banner` seconds.
@@ -93,6 +94,44 @@ override lasts until its sources change (`persist = true`: until it is set back)
 (`xtouch-daemon mode gaming`, the [chord](#controls-and-the-chord), Home Assistant) lasts until the rules want
 another one.
 
+## Conditions
+
+A condition says when something applies: a candidate of a slot (after `if`, or `when` in the table form), a state
+(`when`) or controls (`when`). It holds or not at any moment, and the slot follows at once.
+
+| Part | Holds while | Example |
+|---|---|---|
+| a state or mode | it is on | `call`, `gaming` |
+| `default` | no other mode is on | `default` |
+| `present` | the channel or pool of the candidate has something to control | `browser if present` |
+| `present(<channel or pool>)` | that channel or pool has something to control | `present(game)` |
+| `not <part>` | the part does not hold | `not call` |
+| `<part> and <part>` | both hold | `call and not gaming` |
+| `<part> or <part>` | either holds | `call or present(voip)` |
+| `( ... )` | what is inside holds | `(call or gaming) and present` |
+
+- `not` binds closest, then `and`, then `or`: `not call and gaming or present` is `((not call) and gaming) or
+  present`. Parentheses say otherwise.
+- The words are lowercase, names are those of the file (`[state.<name>]`, `[channel.<name>]`, `[pool.<name>]`, and
+  `auto`).
+- A candidate without a condition always holds; below it, the others are never reached.
+- Present means it has something to control: an `apps` channel while its application plays, an `output` or `input`
+  channel while one of its `devices` is there (always without `devices`), a `person` channel while the person is in
+  the voice chat, a `homeassistant` channel always. A channel stays present `absent_after` seconds (3 by default)
+  after that ended. `auto` is present while an application it may take plays or someone is in the voice chat,
+  another pool while one of its channels is present.
+- `present` is only for candidates of slots: a state takes channels with its `channels` source, and controls apply
+  whatever the slot shows.
+- `check-config` and the GUI name the mistakes: an unknown state, mode, channel or pool, a word where none fits, a
+  condition that ends too early. The GUI underlines them in the field When.
+
+```toml
+[slots]
+2 = ["browser if present", "auto"]                   # the browser while it plays, else the next application
+7 = ["voip if call and not gaming", "auto"]          # the voice chat in a call, but not while gaming
+8 = ["game if gaming or present(game)", "-"]         # the game in the mode gaming or while it plays
+```
+
 ## Controls and the chord
 
 `[controls]` claims parts of a slot, whatever it shows:
@@ -104,7 +143,8 @@ another one.
 6 = { fader = "homeassistant", id = "desk" }                    # the fader is number.xtouch_desk_fader
 ```
 
-Actions: `homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, or `{ launch = [...] }` (see
+`when` takes a [condition](#conditions) of states and modes: the controls apply while it holds. Actions:
+`homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, or `{ launch = [...] }` (see
 [Launching the application](applications.md#launching-the-application)).
 
 | Option of `[switching]` | Default | Meaning |

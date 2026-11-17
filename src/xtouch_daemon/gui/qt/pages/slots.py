@@ -1,8 +1,8 @@
 """
 The slots under the drawing of the device: a bar of the states (live, with their overrides), a card per slot with its
-stack (the candidates in order, their conditions as chips, ▶ on the one the device shows), and an inspector for the
-candidate picked: what it shows, when, the options of its place, its channel and where else that is used, and the
-controls of the slot.
+stack (the candidates in order, their conditions as chips, a green dot on the one the device shows), and an inspector
+for the candidate picked: what it shows, when, the options of its place, its channel and where else that is used, and
+the controls of the slot.
 """
 
 import dataclasses
@@ -17,7 +17,6 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMenu,
@@ -31,6 +30,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
 from xtouch_daemon.gui.domain.schema import Option, strip_options
@@ -44,11 +44,13 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     place_options,
     rows,
     stack_value,
+    targets,
 )
 from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, label
+from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, entity_label, flat_button, help_label, label
+from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -56,7 +58,7 @@ from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
-from xtouch_daemon.slots.model import AUTO
+from xtouch_daemon.slots.model import AUTO, DEFAULT
 from xtouch_daemon.slots.outcomes import Outcome, outcomes
 from xtouch_daemon.slots.why import why_channel, why_slot
 
@@ -101,6 +103,24 @@ class StackList(QListWidget):
 def chip(text: str) -> QWidget:
     """A part of a condition, a chip of a state; `always` is no condition, so it is a hint."""
     return label(text, "hint") if text == ALWAYS else entity_label(text, Entity.STATE, chip=True)
+
+
+SHOWS_HELP = "What the slot shows while this candidate wins: a channel, a pool such as `auto`, or `-` for a dark strip."
+"""The help under Shows (see Writing help in `AGENTS.md`)."""
+WHEN_HELP = (
+    "The slot shows this candidate while the condition holds and no candidate above it does. Empty means always. "
+    "It takes states, modes, `present`, `and`, `or`, `not` and parentheses, e.g. `call and not gaming`."
+)
+"""The help under When."""
+
+
+def _value(value: Any) -> str:
+    """A value of an option as in the file, without quotes: `white`, `true`, `[a, b]`."""
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, list):
+        return "[" + ", ".join(_value(item) for item in value) + "]"  # pyright: ignore[reportUnknownVariableType]
+    return str(value)
 
 
 def _clear(bar: QHBoxLayout) -> None:
@@ -215,14 +235,17 @@ class SlotsPanel(Page):
         self.show_box.lineEdit().editingFinished.connect(self._edit_show)  # pyright: ignore[reportOptionalMemberAccess]
         what.addWidget(self.show_box, 1)
         inspector.addWidget(row(what))
+        self.show_help = help_label(SHOWS_HELP, "help", docs.guide_link("slots"))
+        inspector.addWidget(self.show_help)
         when = QHBoxLayout()
         when.addWidget(label("When"))
-        self.when_edit = QLineEdit()
+        self.when_edit = ConditionEdit()
         self.when_edit.setPlaceholderText("always")
-        self.when_edit.setToolTip("States and modes with `and`, `or`, `not`, parentheses and `present`")
         self.when_edit.editingFinished.connect(self._edit_when)
         when.addWidget(self.when_edit, 1)
         inspector.addWidget(row(when))
+        self.when_help = help_label(WHEN_HELP, "help", docs.guide_link("conditions"))
+        inspector.addWidget(self.when_help)
         inspector.addWidget(self.problem)
         self.place = Stack()
         inspector.addWidget(self.place)
@@ -318,7 +341,7 @@ class SlotsPanel(Page):
             candidates = rows(self.document.values, slot)
             shown_candidate = view.candidate if view is not None else None
             if self.card_contents[slot - 1] != (candidates, shown_candidate):
-                # built again only when a candidate or ▶ changed: every build lays out the card again
+                # built again only when a candidate or the dot changed: every build lays out the card again
                 self.card_contents[slot - 1] = (candidates, shown_candidate)
                 self._fill_card(stack, candidates, shown_candidate)
             if slot == self.slot and self.candidate is not None and self.candidate < stack.count():
@@ -356,9 +379,10 @@ class SlotsPanel(Page):
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(Space.S, Space.XS, Space.S, Space.XS)
         layout.setSpacing(Space.S)
-        marker = label("▶" if shown else "")
+        # a lit LED, not ▶: an arrow in front of a row reads as "opens"
+        marker = label("●" if shown else "", "live")
         marker.setFixedWidth(14)
-        marker.setToolTip("What the device shows" if shown else "")
+        marker.setToolTip("The device shows this one now" if shown else "")
         layout.addWidget(marker)
         if candidate.chips == (ALWAYS,):
             word = "otherwise" if index == count - 1 and count > 1 else ALWAYS
@@ -374,8 +398,13 @@ class SlotsPanel(Page):
             else entity_label(candidate.show, Entity.CHANNEL, True)
         )
         if candidate.options:
-            layout.addWidget(label(", ".join(candidate.options), "hint"))
-        layout.addStretch()
+            options = ElidedLabel(", ".join(f"{name} = {_value(value)}" for name, value in candidate.options.items()))
+            set_role(options, "hint")
+            options.own_tip = True
+            options.setToolTip("Options of the strip in this slot only: " + options.text())
+            layout.addWidget(options, 1)
+        else:
+            layout.addStretch()
         return widget
 
     def _show_inspector(self) -> None:
@@ -387,7 +416,8 @@ class SlotsPanel(Page):
         set_text(self.controls, "Controls: " + "; ".join(controls) if controls else "No controls of its own.")
         for widget in (self.show_box, self.when_edit, self.channel):
             widget.parentWidget().setVisible(self.candidate is not None)  # pyright: ignore[reportOptionalMemberAccess]
-        self.channel.setVisible(self.candidate is not None)
+        for widget in (self.channel, self.show_help, self.when_help):
+            widget.setVisible(self.candidate is not None)
         self.place.setVisible(False)
         self.place_rows = []
         if self.candidate is None:
@@ -402,6 +432,7 @@ class SlotsPanel(Page):
         self.show_box.addItems(choices(self.document.values))
         self.show_box.setCurrentText(candidate.show)
         self.show_box.blockSignals(False)
+        self.when_edit.set_names([*self.document.values.get("state", {}), DEFAULT], targets(self.document.values))
         self.when_edit.setText(candidate.when)
         channel = self.document.get(("channel", candidate.show))
         self.channel_button.setVisible(isinstance(channel, dict))
@@ -500,7 +531,7 @@ class SlotsPanel(Page):
         return snapshot.slots if snapshot is not None else None
 
     def show_live(self, snapshot: Snapshot | None) -> None:
-        """The states in the bar, and ▶ on the candidates the device shows (or would), when they changed."""
+        """The states in the bar, and the dot on the candidates the device shows (or would), when they changed."""
         slots = self.shown_slots(snapshot)
         live = (
             (

@@ -156,10 +156,15 @@ On the page Slots:
 - **A card per slot** lists its candidates as rules, read from the top like "if, else if, else": the first whose
   condition holds wins. `when gaming → auto` shows `auto` while `gaming` is on, `otherwise → browser` below it
   `browser` the rest of the time (`always` for a lone candidate without a condition). The states are violet chips
-  (`call`, `not gaming`), what the slot shows is teal (see [the colors](#the-window)), and ▶ marks the one the device shows. + adds `auto` at the end, the bin removes the candidate picked.
+  (`call`, `not gaming`), what the slot shows is teal (see [the colors](#the-window)), and a green dot marks the one
+  the device shows. Options of the strip in that slot only follow as in the file
+  (`color = white, rec = recording`). + adds `auto` at the end, the bin removes the candidate picked.
   Drag a candidate, or move it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
-- **The inspector** edits the candidate picked: what it shows (a channel, a pool, `-`), when (the condition as
-  text), and the options of its place (look, and on `auto` the encoder and the volume range). It says why the slot
+- **The inspector** edits the candidate picked: what it shows (a channel, a pool, `-`), when (the
+  [condition](configuration/slots.md#conditions):
+  states violet, channels in `present(...)` teal, a mistake underlined in red with what is wrong in its tooltip;
+  typing offers the states, keywords and channels that fit, Ctrl+Space all of them),
+  and the options of its place (look, and on `auto` the encoder and the volume range). It says why the slot
   shows what it shows (the same as `xtouch-daemon why 2`), which channel the candidate shows, where else that is
   used and where it is now, with "Edit the channel" to its page; below, the controls of the slot (`[controls]`).
 

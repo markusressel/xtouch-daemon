@@ -82,6 +82,11 @@ def choices(values: Mapping[str, Any]) -> list[str]:
     return [*channels, AUTO, *pools, EMPTY]
 
 
+def targets(values: Mapping[str, Any]) -> list[str]:
+    """What `present(...)` can ask about: the channels and the pools (`auto` too)."""
+    return [name for name in choices(values) if name != EMPTY]
+
+
 def controls_text(values: Mapping[str, Any], slot: int) -> list[str]:
     """The controls of a slot for people: `select: toggle:call (when not call)`."""
     lines: list[str] = []

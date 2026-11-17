@@ -117,6 +117,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   their pages, the chips on the cards of the slots, the state bar, and the words and sections in the help.
 - Shorter help for the options, written for someone at the device: what changes there first, short sentences,
   details behind "Learn more". The rules are in `AGENTS.md` (Writing help).
+- The condition of a candidate (When, on the page Slots) is a code field: states violet, channels in `present(...)`
+  teal, keywords bold, a mistake (an unknown state, a condition that ends too early) underlined in red with what is
+  wrong in its tooltip, and the words that fit offered while typing (Ctrl+Space: all of them). The candidate the
+  device shows has a green dot instead of ▶, which read as "opens"; the options of its place show with their
+  values (`color = white`) instead of their names alone. Shows and When have help, with "Learn more" to the
+  slots and to the new section [Conditions](docs/configuration/slots.md#conditions), which documents the grammar of
+  conditions.
 - A menu bar in the GUI: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window Device, the theme,
   the zoom) and Help (the documentation).
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.
