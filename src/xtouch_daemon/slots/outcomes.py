@@ -22,14 +22,18 @@ class Outcome:
 
 
 def dimensions(scene: Scene) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """The states (modes excluded) and the channels and pools whose presence the stacks ask about, in their order."""
+    """
+    The states (modes excluded) and the channels and pools whose presence the stacks ask about, in their order. A
+    composed state is no dimension of its own but follows from the states it names, so the table never has `call`
+    together with `not call`.
+    """
     states: dict[str, None] = {}
     presence: dict[str, None] = {}
     for slot in SLOTS:
         for candidate in scene.stacks[slot]:
             if candidate.when is None:
                 continue
-            states.update((name, None) for name in sorted(candidate.when.states) if name in scene.states)
+            states.update((name, None) for name in _sourced(scene, candidate.when.states) if name in scene.states)
             for target in sorted(candidate.when.presence, key=lambda target: target or ""):
                 name = target if target is not None else candidate.show
                 assert name is not None, "the model has no present on - (nothing)"
@@ -40,7 +44,13 @@ def dimensions(scene: Scene) -> tuple[tuple[str, ...], tuple[str, ...]]:
 def outcomes(scene: Scene) -> list[Outcome]:
     """One row per combination that shows something no simpler combination shows."""
     states, presence = dimensions(scene)
-    asked = {name for slot in SLOTS for c in scene.stacks[slot] if c.when is not None for name in c.when.states}
+    asked = {
+        name
+        for slot in SLOTS
+        for c in scene.stacks[slot]
+        if c.when is not None
+        for name in _sourced(scene, c.when.states)
+    }
     modes = [DEFAULT, *(mode for mode in scene.modes if mode in asked)]
     combinations = [
         (mode, on, flipped)
@@ -116,3 +126,14 @@ def _label(scene: Scene, mode: str, on: tuple[str, ...], flipped: tuple[str, ...
 def _channels_of(scene: Scene, name: str) -> tuple[str, ...]:
     """A channel, or the channels of a pool of channels."""
     return scene.members_of(scene.pools[name].channels) if name in scene.pools else (name,)
+
+
+def _sourced(scene: Scene, names: Iterable[str]) -> list[str]:
+    """The states `names` stand for: composed ones by the states they name, in turn."""
+    result: dict[str, None] = {}
+    for name in sorted(names):
+        if name in scene.conditions:
+            result.update((other, None) for other in _sourced(scene, scene.conditions[name].states))
+        else:
+            result[name] = None
+    return list(result)

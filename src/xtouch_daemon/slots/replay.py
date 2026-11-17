@@ -3,6 +3,7 @@ Replaying recorded observations through a `Simulation`: what the states and slot
 often a slot went back and forth.
 """
 
+import math
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -79,22 +80,33 @@ def replay(scene: Scene, log: Iterable[tuple[float, Observation]], simulation: S
             if past and past[-1][1] != text:
                 report.changes[slot] += 1
                 report.events.append(Event(at, f"slot {slot}: {past[-1][1]} -> {text}"))
-                if len(past) >= 2 and past[-2][1] == text and at - past[-2][0] <= FLAP_WINDOW:
+                # back within the window since it changed away from it
+                if len(past) >= 2 and past[-2][1] == text and at - past[-1][0] <= FLAP_WINDOW:
                     report.flaps.append(Event(at, f"slot {slot}: {past[-1][1]} and back to {text}"))
             if not past or past[-1][1] != text:
                 past.append((at, text))
+
+    def until(end: float) -> None:
+        """Steps at the deadlines after the previous observation, before `end`."""
+        nonlocal previous
+        assert previous is not None
+        for _ in range(MAX_STEPS_BETWEEN):
+            deadline = simulation.deadline()
+            if deadline is None or deadline >= end or deadline <= previous[0]:
+                break
+            step(previous[1], deadline)
+            previous = (deadline, previous[1])
+            report.end = deadline
 
     for at, observation in log:
         if previous is None:
             report.start = at
         else:
-            for _ in range(MAX_STEPS_BETWEEN):
-                deadline = simulation.deadline()
-                if deadline is None or deadline >= at or deadline <= previous[0]:
-                    break
-                step(previous[1], deadline)
-                previous = (deadline, previous[1])
+            until(at)
         step(observation, at)
         previous = (at, observation)
         report.end = at
+    if previous is not None:
+        # the delays and dwell times still pending at the end of the log
+        until(math.inf)
     return report

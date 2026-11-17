@@ -6,7 +6,8 @@ import re
 
 from tests.support.paths import DOCS
 from tests.support.slots import example, scene
-from xtouch_daemon.slots.outcomes import Outcome, dimensions, outcomes, table
+from xtouch_daemon.slots.model import DEFAULT
+from xtouch_daemon.slots.outcomes import Outcome, dimensions, outcomes, states_for, table
 
 
 def test_the_table_in_the_design_is_the_one_of_its_example():
@@ -50,18 +51,21 @@ apps = ["mpv"]
 3 = ["out if video", "auto"]
 """
     )
+    # quiet follows from night: no row has one without the other
     assert table(outcomes(read)) == (
         "when                          1     2         3     4-8\n"
         "default                       buds  wireless  auto  auto\n"
-        "quiet                         buds  -         auto  auto\n"
+        "night                         buds  -         auto  auto\n"
         "video                         buds  wireless  out   auto\n"
         "buds absent                   out   auto      auto  auto\n"
-        "video and quiet               buds  -         out   auto\n"
-        "quiet, buds absent            out   -         auto  auto\n"
+        "video and night               buds  -         out   auto\n"
+        "night, buds absent            out   -         auto  auto\n"
         # out ranks higher on slot 3: slot 1 goes on to auto
         "video, buds absent            auto  auto      out   auto\n"
-        "video and quiet, buds absent  auto  -         out   auto"
+        "video and night, buds absent  auto  -         out   auto"
     )
+    # a composed state named on is on, whatever it names (simulate --state quiet)
+    assert states_for(read, DEFAULT, ["quiet"])["quiet"]
 
 
 def test_neighbors_that_always_show_the_same_are_merged():

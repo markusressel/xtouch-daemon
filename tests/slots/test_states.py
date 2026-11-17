@@ -180,3 +180,31 @@ def test_a_picked_mode_lasts_until_a_rule_starts_or_stops_matching():
     states.pick_mode("party")
     states.pick_mode(None)
     assert states.update(NOTHING, frozenset(), 15).mode == "default"
+
+
+def test_a_pick_lasts_while_the_rules_want_the_same_mode_and_through_modes_with_persist():
+    states = StateEngine(scene(SCENE.replace('apps = ["steam_app_"]', 'apps = ["steam_app_"]\npersist = true')))
+    states.update(Observation(playing=("mpv",)), frozenset(), 0)
+    states.pick_mode("default")
+    # party starts, but video still wins: the rules want the same mode
+    assert states.update(Observation(playing=("mpv", "party")), frozenset(), 1).mode == "default"
+    # gaming has persist: its start doesn't end the pick, though it wins now
+    assert states.update(Observation(playing=("mpv", "steam_app_1")), frozenset(), 2).mode == "default"
+    # video stops: the rules want gaming, a change by a mode without persist
+    assert states.update(Observation(playing=("steam_app_1",)), frozenset(), 3).mode == "default"
+    assert states.update(Observation(playing=("steam_app_1",)), frozenset(), 13).mode == "gaming"
+
+
+def test_composed_states_have_no_delays_of_their_own():
+    """quiet is "night and not call": it turns on the moment call is off, the two never overlap."""
+    states = engine()
+    states.update(Observation(homeassistant=frozenset({"night"})), frozenset(), 0)
+    calling = Observation(homeassistant=frozenset({"night"}), voice_chat=True)
+    states.update(calling, frozenset(), 1)
+    result = states.update(calling, frozenset(), 3)
+    assert (result.values["call"], result.values["quiet"]) == (True, False)
+    states.update(Observation(homeassistant=frozenset({"night"})), frozenset(), 33)
+    result = states.update(Observation(homeassistant=frozenset({"night"})), frozenset(), 62.9)
+    assert (result.values["call"], result.values["quiet"]) == (True, False)
+    result = states.update(Observation(homeassistant=frozenset({"night"})), frozenset(), 63)
+    assert (result.values["call"], result.values["quiet"]) == (False, True)

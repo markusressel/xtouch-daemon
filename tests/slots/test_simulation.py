@@ -42,3 +42,26 @@ def test_overrides_and_picks_kept_from_before():
     simulation = Simulation(example(), overrides={"call": Override.ON}, mode_pick="gaming")
     assert shows(simulation.step(Observation(), 0), [1, 8]) == ["game", "mic"]
     assert Simulation(example()).deadline() is None
+
+
+def test_a_reconnect_in_the_voice_chat_moves_nothing():
+    """Bob is gone for half a second (Mumble reconnects): slot 2 stays on him, like a channel within absent_after."""
+    simulation = Simulation(example())
+    simulation.step(JOINED, 0)
+    assert shows(simulation.step(GAMING, 20), [2]) == ["people:Bob"]
+    assert shows(simulation.step(JOINED, 20.5), [2]) == ["people:Bob"]
+    # gone for good: after absent_after
+    simulation.step(GAMING, 30)
+    assert simulation.deadline() == 33
+    assert shows(simulation.step(GAMING, 33), [2]) == ["browser"]
+
+
+def test_auto_holds_an_application_that_stopped():
+    """A notification sound keeps its auto slot for the hold of the pool, and only gets one."""
+    simulation = Simulation(example())
+    simulation.step(Observation(), 0)
+    assert shows(simulation.step(Observation(playing=("paplay",)), 10), [3]) == ["auto:paplay"]
+    assert shows(simulation.step(Observation(), 10.3), [3]) == ["auto:paplay"]
+    assert simulation.deadline() == 11  # the dwell; the hold of 5 s ends at 15.3
+    assert shows(simulation.step(Observation(), 11), [3]) == ["auto:paplay"]
+    assert shows(simulation.step(Observation(), 15.3), [3]) == ["auto"]

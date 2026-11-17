@@ -213,8 +213,11 @@ class Scene:
                 problems.append(f'{where}: "{condition.text}": unknown state {name}{_did_you_mean(name, states)}')
             for target in sorted(t for t in condition.presence if t is not None and t not in known):
                 problems.append(f'{where}: "{condition.text}": {target} is no channel or pool')
-            if where.startswith("state.") and None in condition.presence:
-                problems.append(f'{where}: "{condition.text}": present without a channel is only for candidates')
+            if where.startswith("state.") and condition.presence:
+                problems.append(
+                    f'{where}: "{condition.text}": present is only for candidates of slots, a state '
+                    "takes channels with its source channels"
+                )
         lists = [(f"pool.{name}.channels", pool.channels) for name, pool in self.pools.items()]
         lists += [(f"state.{name}.channels", state.channels) for name, state in self.states.items()]
         for where, entries in lists:

@@ -145,7 +145,7 @@ def test_a_replay_tells_changes_flaps_and_time_on():
     assert "gaming on for 82 s" in report.summary()
     assert replay(example(), [(0.0, Observation(processes=frozenset({"reaper"}))), (600.0, Observation())]).summary()[
         2:
-    ] == ["gaming on for 10 min"]
+    ] == ["gaming on for 10 min", "default on for 1 s"]
 
 
 def test_a_replay_steps_at_deadlines_between_observations():
@@ -162,3 +162,15 @@ def test_a_replay_steps_at_most_so_often_between_observations(monkeypatch: pytes
 
 def test_a_replay_of_nothing():
     assert replay(example(), []).summary()[0] == "0.0 h replayed, 0 slot changes, 0 flaps"
+
+
+def test_a_short_excursion_after_a_long_time_is_a_flap():
+    report = replay(
+        example(),
+        [
+            (0.0, Observation(people=("Bob",), processes=frozenset({"reaper"}))),
+            (3600.0, Observation(processes=frozenset({"reaper"}))),
+            (3610.0, Observation(people=("Bob",), processes=frozenset({"reaper"}))),
+        ],
+    )
+    assert [flap.text for flap in report.flaps] == ["slot 2: browser and back to people:Bob"]

@@ -48,9 +48,16 @@ def test_the_table():
 
 
 def test_problems(tmp_path: Path):
-    result = invoke("simulate", str(EXAMPLE), "--state", "cal")
-    assert result.exit_code == 1
-    assert "cal is no mode, state or channel" in result.output
+    for options, message in [
+        (("--state", "cal"), "--state cal: no state of"),
+        (("--state", "gaming"), "--state gaming: no state of {}, a mode goes to --mode"),
+        (("--mode", "call"), "--mode call: no mode of {} (default, gaming)"),
+        (("--absent", "call"), "--absent call: no channel or pool of channels of"),
+        (("--absent", "people"), "--absent people: no channel or pool of channels of {}, use --playing or --person"),
+    ]:
+        result = invoke("simulate", str(EXAMPLE), *options)
+        assert result.exit_code == 1
+        assert message.format(EXAMPLE) in result.output
     broken = tmp_path / "broken.toml"
     broken.write_text('[slots]\n1 = "nothing"\n')
     result = invoke("simulate", str(broken))
@@ -107,3 +114,13 @@ def test_observe_without_a_sound_server(tmp_path: Path, monkeypatch: pytest.Monk
     result = invoke("observe", str(tmp_path / "log.jsonl"))
     assert result.exit_code == 1
     assert "no sound server" in result.output
+
+
+def test_an_absent_pool_of_channels(tmp_path: Path):
+    config = tmp_path / "pool.toml"
+    config.write_text(
+        '[channel.a]\ntype = "output"\ntags = ["x"]\n[pool.both]\nchannels = ["#x"]\n'
+        '[slots]\n1 = ["a if present", "-"]\n'
+    )
+    assert invoke("simulate", str(config)).output.startswith("1  a\n")
+    assert invoke("simulate", str(config), "--absent", "both").output.startswith("1  -\n")

@@ -217,3 +217,39 @@ def test_shown_as_text():
     assert str(Shown(0, channel="out")) == "out"
     assert str(Shown(0, pool="auto")) == "auto"
     assert str(Shown(0, pool="auto", member="mpv")) == "auto:mpv"
+
+
+# -- the code review -----------------------------------------------------------------------------------------------
+
+
+def test_a_held_slot_keeps_a_channel_it_shows_as_a_member_of_auto():
+    """Bob leaves while slot 3 dwells on Browser in auto: slot 2 doesn't show Browser too."""
+    read = example()
+    present = frozenset(read.channels)
+    before = resolve(
+        read,
+        Inputs(states(read, mode="gaming"), present, Observation(playing=("firefox",), people=("Bob",))),
+    )
+    assert shows(before, [2, 3]) == ["people:Bob", "auto:browser"]
+    after = resolve(
+        read,
+        Inputs(states(read, mode="gaming"), present, Observation(playing=("firefox",)), fixed=frozenset({3})),
+        before,
+    )
+    # people is empty, browser is on slot 3: on to auto, which has nothing else
+    assert shows(after, [2, 3]) == ["auto", "auto:browser"]
+    assert "browser: browser is on a held slot" in after.why[2]
+
+
+def test_a_pinned_channel_that_got_a_slot_of_its_own_is_shown_there_only():
+    read = example()
+    result = resolve(
+        read, Inputs(states(read), frozenset(read.channels), Observation(playing=("firefox",)), pins={3: "browser"})
+    )
+    assert shows(result, [2, 3]) == ["browser", "auto"]
+    assert result.why[3][0] == "pin browser: on another slot"
+
+
+def test_a_pool_of_channels_gets_its_channel_before_auto_takes_it():
+    result = run('[slots]\n1 = "media"\n2 = "auto"', observation=Observation(playing=("spotify",)))
+    assert shows(result, [1, 2]) == ["media:spotify", "auto"]

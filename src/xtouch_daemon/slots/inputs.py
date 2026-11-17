@@ -5,7 +5,7 @@ presence of channels and pools in it.
 
 import fnmatch
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.slots.model import AUTO, PEOPLE, ChannelConfig, Scene
@@ -115,3 +115,50 @@ class Presence:
     def deadline(self) -> float | None:
         """When an absence becomes final, if one is pending."""
         return min((d for delayed in self._delayed.values() if (d := delayed.deadline()) is not None), default=None)
+
+
+class Lingering:
+    """
+    Names (applications, people) that stay `after` seconds after they went, in the order they came: a person whose
+    voice chat reconnects, or a notification sound, doesn't move a fader twice.
+    """
+
+    def __init__(self, after: float):
+        self.after = after
+        self._gone: dict[str, float | None] = {}
+        """In the order they came: when each went, None while it is there."""
+
+    def update(self, names: tuple[str, ...], now: float) -> tuple[str, ...]:
+        for name in names:
+            self._gone[name] = None
+        for name, since in list(self._gone.items()):
+            if name in names:
+                continue
+            since = self._gone[name] = now if since is None else since
+            if now - since >= self.after:
+                del self._gone[name]
+        return tuple(self._gone)
+
+    def deadline(self) -> float | None:
+        return min((since + self.after for since in self._gone.values() if since is not None), default=None)
+
+
+class PoolMembers:
+    """
+    The observation the pools see: the applications of `auto` stay its `hold` after they stopped, the people
+    `absent_after` after they left the voice chat (like the channels).
+    """
+
+    def __init__(self, scene: Scene, absent_after: float):
+        self._playing = Lingering(scene.pools[AUTO].hold)
+        self._people = Lingering(absent_after)
+
+    def update(self, observation: Observation, now: float) -> Observation:
+        return replace(
+            observation,
+            playing=self._playing.update(observation.playing, now),
+            people=self._people.update(observation.people, now),
+        )
+
+    def deadline(self) -> float | None:
+        return min((d for d in (self._playing.deadline(), self._people.deadline()) if d is not None), default=None)

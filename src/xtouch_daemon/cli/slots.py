@@ -12,7 +12,7 @@ import click
 from xtouch_daemon.audio.pulse import SoundServerError, read_state
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.slots.inputs import Observation
-from xtouch_daemon.slots.model import DEFAULT, Scene
+from xtouch_daemon.slots.model import AUTO, DEFAULT, PEOPLE, Scene
 from xtouch_daemon.slots.outcomes import outcomes, states_for, table
 from xtouch_daemon.slots.recording import (
     only_watched,
@@ -69,11 +69,23 @@ def simulate(
         for event in report.flaps:
             click.echo(f"flap at {clock(event.at)}: {event.text}")
         return
-    for name in (mode, *states, *absent):
-        if name != DEFAULT and name not in scene.states and name not in scene.channels:
-            raise click.ClickException(f"{name} is no mode, state or channel of {file}")
+    if mode != DEFAULT and mode not in scene.modes:
+        raise click.ClickException(f"--mode {mode}: no mode of {file} ({', '.join((DEFAULT, *scene.modes))})")
+    for name in states:
+        if name not in scene.states or name in scene.modes:
+            hint = ", a mode goes to --mode" if name in scene.modes else ""
+            raise click.ClickException(f"--state {name}: no state of {file}{hint}")
+    for name in absent:
+        if name not in scene.channels and (name not in scene.pools or name in (AUTO, PEOPLE)):
+            hint = ", use --playing or --person" if name in (AUTO, PEOPLE) else ""
+            raise click.ClickException(f"--absent {name}: no channel or pool of channels of {file}{hint}")
     values = states_for(scene, mode, states)
-    present = frozenset(name for name in scene.channels if name not in absent)
+    gone = {
+        channel
+        for name in absent
+        for channel in scene.members_of(scene.pools[name].channels if name in scene.pools else (name,))
+    }
+    present = frozenset(name for name in scene.channels if name not in gone)
     result = resolve(scene, Inputs(values, present, Observation(playing=playing, people=people)))
     for slot, shown in result.slots.items():
         click.echo(f"{slot}  {shown}")

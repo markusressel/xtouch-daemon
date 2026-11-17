@@ -91,7 +91,8 @@ class _Resolver:
             for slot in self.inputs.fixed:
                 shown[slot] = self.previous.slots[slot]
                 self.why[slot].append("held")
-        taken = {s.channel for s in shown.values() if s.channel is not None and s.pool is None}
+        # also a channel a fixed slot shows as a member of a pool: one channel has one slot
+        taken = {s.channel for s in shown.values() if s.channel is not None}
         # 2. channels by rank: every free slot proposes its first candidate that holds
         position = {slot: self._next(slot, 0) for slot in SLOTS if slot not in shown}
         while True:
@@ -156,7 +157,9 @@ class _Resolver:
         """Hands out the members of each pool to its slots; the members left over wait."""
         with_slot: set[str] = {s.channel for s in shown.values() if s.channel is not None}
         waiting: dict[str, tuple[str, ...]] = {}
-        for pool in self.scene.pools:
+        # pools of channels first: a slot meant for a channel gets it before `auto` takes it as a whole
+        order = [pool for pool in self.scene.pools if pool not in (AUTO, PEOPLE)] + [PEOPLE, AUTO]
+        for pool in order:
             slots = sorted(slot for slot, s in shown.items() if s.pool == pool and slot not in self.inputs.fixed)
             held = {s.member for slot, s in shown.items() if s.pool == pool and slot in self.inputs.fixed}
             members = [member for member in self._members(pool, with_slot) if member not in held]
@@ -168,7 +171,10 @@ class _Resolver:
             assigned: dict[int, str] = {}
             if pool == AUTO:
                 for slot, member in self.inputs.pins.items():
-                    if slot in slots:
+                    if member in with_slot:
+                        # a channel pinned while it had no slot, and has one now: it shows there
+                        self.why[slot].append(f"pin {member}: on another slot")
+                    elif slot in slots:
                         assigned[slot] = member
                         if member not in members:
                             # a pin stays after its application stopped playing

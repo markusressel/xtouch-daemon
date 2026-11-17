@@ -75,7 +75,7 @@ class StateEngine:
         self._delayed = {
             name: Delayed(
                 state.delay_on,
-                state.delay_off if state.delay_off is not None else MODE_DELAY_OFF if state.mode else STATE_DELAY_OFF,
+                state.delay_off if state.delay_off is not None else default_delay_off(state),
             )
             for name, state in scene.states.items()
         }
@@ -83,6 +83,8 @@ class StateEngine:
         self._since: dict[str, float] = {}
         self._last: dict[str, bool] = {}
         self._reasons: dict[str, str] = {}
+        self._automatic = DEFAULT
+        """The mode the rules want."""
 
     def set_override(self, name: str, value: Override) -> None:
         """Takes effect at the next update, past the delays."""
@@ -110,7 +112,7 @@ class StateEngine:
             edge = delayed.update(why is not None, now)
             if why is not None:
                 self._reasons[name] = why
-            if edge and state.mode:
+            if edge and state.mode and not state.persist:
                 rule_changed = True
             if edge and not state.persist:
                 self.overrides.pop(name, None)
@@ -148,16 +150,14 @@ class StateEngine:
         return min((d for delayed in self._delayed.values() if (d := delayed.deadline()) is not None), default=None)
 
     def _mode(self, values: Mapping[str, bool], rule_changed: bool) -> str:
-        if rule_changed:
-            # a pick lasts until a rule starts or stops matching
-            self.mode_pick = None
-        if self.mode_pick is not None:
-            return self.mode_pick
         on = [name for name in self.scene.modes if values[name]]
-        if not on:
-            return DEFAULT
         # the highest priority, then the first in the file
-        return max(on, key=lambda name: (self.scene.states[name].priority, -on.index(name)))
+        automatic = max(on, key=lambda name: (self.scene.states[name].priority, -on.index(name))) if on else DEFAULT
+        if rule_changed and automatic != self._automatic:
+            # a pick lasts until the rules want another mode (a mode with `persist` doesn't count)
+            self.mode_pick = None
+        self._automatic = automatic
+        return self.mode_pick if self.mode_pick is not None else automatic
 
 
 def composed_order(scene: Scene) -> list[str]:
@@ -175,3 +175,13 @@ def composed_order(scene: Scene) -> list[str]:
     for name in scene.conditions:
         visit(name)
     return order
+
+
+def default_delay_off(state: StateConfig) -> float:
+    """
+    Without `delay_off`: modes and states with sources stay a while, composed states none (their expression has
+    the delays of what it names already; another one would let `call` and `not call` overlap).
+    """
+    if state.when is not None:
+        return 0.0
+    return MODE_DELAY_OFF if state.mode else STATE_DELAY_OFF

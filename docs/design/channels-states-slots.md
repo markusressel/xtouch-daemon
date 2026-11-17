@@ -58,8 +58,8 @@ atom     := ID | "present" | "present(" ID ")" | "(" expr ")"
 ```
 
 - `ID`: a state or mode; `default` is on while no other mode is.
-- `present`: the candidate's own channel or pool is present; only in candidates. `present(spotify)`: that channel or
-  pool is. Presence of a pool is defined before slots are assigned (below), so conditions never depend on the result.
+- `present`: the candidate's own channel or pool is present; only in candidates of slots (a state takes channels
+  with its source `channels`). `present(spotify)`: that channel or pool is. Presence of a pool is defined before slots are assigned (below), so conditions never depend on the result.
 - The GUI shows conditions as chips that read as text: `call or gaming`.
 - Errors point at the place: `slots.7[0]: "voip if cal": unknown state cal (did you mean call?)`, with a caret in
   the GUI and `check-config`.
@@ -126,7 +126,7 @@ A pool gives each slot that shows it one **member** that no other slot shows.
 | Pool | Members, in this order |
 |---|---|
 | `auto` (built in) | **Whatever plays and has no slot**: `apps` channels with `in_auto` that are present and not shown (each as a whole: its label, volume, entities, as in DAW banking), and applications that play and no channel matches. In the order they started playing. A member stays one for `hold` seconds after it stopped (today's `auto_hold`). |
-| `people` (built in) | People in the voice chat who have no `person` channel, in the provider's order (Mumble: who came first). |
+| `people` (built in) | People in the voice chat who have no `person` channel, in the provider's order (Mumble: who came first). Like a channel, a person stays a member `absent_after` after they left, so a reconnect moves nothing. |
 | `[pool.<id>] channels = [...]` | The present channels of the list (ids, `"#tag"`) that are not shown by a candidate of their own, in the list's order. |
 
 ```toml
@@ -193,7 +193,8 @@ homeassistant = true        # Home Assistant feeds it: switch.xtouch_state_night
 
 A state with several sources is on while any of them is. Without sources it is only what its override says.
 `delay_on` (default 0) and `delay_off` (default `behavior.state_delay_off`, 3 s; for modes 10 s, today's
-`switching.hold`, which goes away) apply to the sources, not to the override. References between states and modes
+`switching.hold`, which goes away; 0 for composed states, whose expression has the delays of what it names, so
+`call` and `not call` never overlap) apply to the sources, not to the override. References between states and modes
 must not form a loop; `check-config` names it.
 
 #### Overrides
@@ -218,7 +219,9 @@ all states and modes:
 Modes are states with `mode = true`. Exactly one mode is on: the one with the highest `priority` whose sources are
 on (then the first in the file), else `default`. The override is one `select.xtouch_mode` with `auto` and every mode,
 `xtouch-daemon mode gaming`, `mode --next`/`--previous`, `mode --auto`. `--next` and the chord cycle through
-`default` and the modes in the order of the file (not through `auto`; the override ends at the next edge anyway).
+`default` and the modes in the order of the file (not through `auto`). A picked mode lasts until the rules want
+another mode than before; edges that don't change what the rules want (a mode of lower priority starts) and edges of
+modes with `persist` don't end it.
 A mode keeps `label`, the banner across the LCDs.
 
 ```toml
@@ -277,7 +280,9 @@ members only, the previous result.
 3. **Pools.** The members are computed now (the `auto` pool needs to know which channels have a slot) and handed
    out: a member of `auto` or `people` keeps the slot it had if that slot still shows the pool; pinned members go to
    their slots; the others go to the remaining slots of the pool left to right, in the pool's order (a pool of
-   channels: all by its order). Members left over **wait**. A slot of a pool without a member for it is dark.
+   channels: all by its order). Members left over **wait**. A slot of a pool without a member for it is dark. The
+   pools of channels go first, then `people`, then `auto`: a slot meant for a channel gets it before `auto` takes it
+   as a whole. A pin of a channel that has a slot of its own now is dropped (one channel, one slot).
 
 Pools never fall through and conditions never look at the result, so the steps run once each, in this order: the
 same inputs give the same result.
@@ -558,9 +563,10 @@ and the state engine are code now, pure (no sound server, no device), in `xtouch
 | `recording`, `replay` | `observe` records the real system; `simulate --replay` replays it: changes, flaps, time on. |
 
 `xtouch-daemon simulate docs/design/channels-states-slots.toml --mode gaming --state call --playing firefox` shows
-the slots and why. The tests (`tests/slots/`) have every scenario the reviews traced, and one keeps the table above in
-line with the example. Not in the prototype: batching (a matter of when the daemon calls it), the touch sensors
-(their result is `held`), Home Assistant and the live view, the GUI, the migration.
+the slots and why. The tests (`tests/slots/`) have the scenarios the reviews traced that the prototype covers, and
+one keeps the table above in line with the example. Not in the prototype: batching (a matter of when the daemon calls
+it), the touch sensors (their result is `held`), paging of `people`, reload carrying the result over, cycling
+through modes (`--next`), Home Assistant and the live view, the GUI, the migration.
 
 What building it showed:
 
@@ -574,6 +580,13 @@ What building it showed:
 - **Channels of a pool without a slot don't wait**: only applications and people do; such channels are just not
   shown.
 - **A multi-line inline table is no TOML 1.0**: the examples of `choices` use `[[channel.out.choices]]`.
+- **The code review** (a DAW, Linux desktop and Home Assistant user, reviewing the code with counter-examples) found
+  seven bugs no scenario had caught, all fixed with a test each: a held slot didn't reserve a channel it showed in
+  `auto`, nor did pins check for one, so a channel could be on two slots; `auto` took a channel before the pool of
+  channels meant for it; pool members had no delay (a Mumble reconnect moved a fader twice) and `hold` wasn't used;
+  `persist` didn't apply to modes, and any mode edge ended a pick; replays missed flaps after long stable times.
+  Also: `present` in a state's `when` is an error now, composed states have no delays of their own, `simulate`
+  checks its options, and `--table` no longer shows composed states apart from what they name.
 
 Next: replay a day of real observations (`observe`, then `simulate --replay`), a review of the code and its
 scenarios, then the daemon, the format of the real configuration, the GUI and the migration.
