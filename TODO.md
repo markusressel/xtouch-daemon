@@ -14,3 +14,11 @@ script, `init-config`), "Save and apply" writes the GUI's old version over those
 - A reload is one step in the undo history.
 - The live preview: a reload while it runs sends the new document (the daemon ends a preview when the file changes,
   see `live/`; check how that interacts).
+
+
+## Mumble Disconnects
+Mumble disconnected a moment ago, and the faders for it
+  disappeared completely, even though mumble played
+  "disconnected" sounds, is that expected? I don't think it
+  should be, because that means i cannot change the volume of
+  the connection sounds.
