@@ -7,12 +7,13 @@ The sections that apply to the daemon and to every strip. The GUI shows them in 
 | Option | Default | Meaning |
 |---|---|---|
 | `name` | `"X-Touch-Ext"` | Part of the name of the extender's sound card, as `/proc/asound/cards` lists it. |
+| `virtual` | `false` | Drive the [virtual device](../getting-started.md#without-a-device) instead of the real one (`xtouch-daemon run --virtual-device` does the same for one run). |
 | `touch_required` | `true` | Whether a fader changes a value only while the device reports a touch. `false` makes every move count, see [below](#faders-without-a-touch-sensor). |
 | `touchless_faders` | `[]` | Faders whose touch sensor does not work, numbered from 1 on the left, see [below](#faders-without-a-touch-sensor). |
 | `startup` | `"sweep"` | How the strips light up after a connect, see [below](#startup-and-shutdown-sequences). |
 | `shutdown` | `"sweep"` | How the strips go dark when the daemon stops, see [below](#startup-and-shutdown-sequences). |
 
-A changed `name` needs a restart of the daemon; a reload takes the others.
+A changed `name` or `virtual` needs a restart of the daemon; a reload takes the others.
 
 ### Startup and shutdown sequences
 

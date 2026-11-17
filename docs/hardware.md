@@ -75,6 +75,19 @@ Only one program can have the device open. Stop the daemon before `xtouch-daemon
 - **Fast moves:** the device sends many positions per second. Only the latest one is set when the previous command
   finished, so a slow sound server does not build a queue.
 
+## The virtual device
+
+`xtouch-daemon virtual-device` and the GUI simulate the device (`simulator/device.py`), byte for byte, on a Unix
+socket in the runtime directory instead of `/dev/snd`. The daemon keeps the same model as a mirror of the real
+device, which is what the GUI draws. What it does like the device, as described on this page: the messages of
+[Protocol](#protocol) both ways, the LCD as two lines of characters across the strips, a touch on a fader, positions
+reported in steps of 4, the motor that moves only when the host sets a value or a finger lets go, never under a
+finger, a fader whose touch sensor failed (no touch reported), and switching it off and on (its query, everything
+dark, the faders going down by themselves and reporting it).
+
+What is assumed: how fast the motor goes (0.1 s over the whole travel), how fast a meter falls (one level per
+0.15 s), and when the touch of a quick hand comes (70 ms after its first move).
+
 ## Protocol
 
 The Mackie Control protocol; the extender is an MCU XT (model id `0x15`). Verified on the device (2026-11-15) unless

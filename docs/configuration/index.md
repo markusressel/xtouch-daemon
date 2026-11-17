@@ -55,7 +55,7 @@ and the current configuration stays.
 
 Two sections need a restart (`systemctl --user restart xtouch-daemon`):
 
-- A changed `[device] name`. A reload takes the rest of the file, but keeps the old device.
+- A changed `[device] name` or `virtual`. A reload takes the rest of the file, but keeps the old device.
 - A changed `[mqtt]` section. Until the restart, a reload keeps the whole current configuration.
 
 The GUI applies a saved file the same way: it reloads the running daemon (the service, or one started from a terminal

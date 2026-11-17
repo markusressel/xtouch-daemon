@@ -65,6 +65,21 @@ you do on the device: faders, buttons and encoders. Ctrl+C stops it.
 Only one program can use the device. Stop the daemon before the test (`systemctl --user stop xtouch-daemon`), and close
 DAWs that use it.
 
+## Without a device
+
+A virtual X-Touch Extender stands in for the device, e.g. to try a configuration or while the device is away:
+
+```shell
+xtouch-daemon run --virtual-device   # or [device] virtual = true
+xtouch-daemon gui
+```
+
+While the daemon waits for it, the pill above the drawing in the GUI says "virtual device not running · Open it": a
+click opens it, and the mouse on the drawing is a hand on the device (see [GUI](gui.md#the-virtual-device)).
+`xtouch-daemon virtual-device` runs one without the GUI. The virtual device speaks the bytes of the real one, so the
+daemon does the same with it, down to faders that wait for a touch; [Hardware](hardware.md#the-virtual-device) lists
+what it does like the device and what is assumed.
+
 ## Write a configuration
 
 Without a configuration file the daemon uses the example configuration: six `auto` slots, the default input and the

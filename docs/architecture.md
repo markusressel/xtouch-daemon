@@ -33,7 +33,8 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `hardware/protocol.py` | The Mackie Control codec: decodes the device's MIDI messages into events, builds the messages that drive it. Pure functions. |
 | `hardware/midi.py` | Finds the device's sound card in `/proc/asound/cards` and reads and writes its raw MIDI device without blocking. |
 | `hardware/strip.py` | `Strip`: what a strip of the device shows, sending only what changed; its motor fader glides to its target and stays still while touched. `VirtualStrip`: a strip that waits off the device. |
-| `hardware/surface.py` | `Surface`: the connection to the device (connects again after it was unplugged), its events, touches, and the startup and shutdown sequences. Shows everything again after a reconnect. |
+| `hardware/transport.py` | How the `Surface` reaches the device: a `Port` finds and opens it, `AlsaPort` the raw MIDI device of its sound card, `SocketPort` the virtual device's Unix socket. |
+| `hardware/surface.py` | `Surface`: the connection to the device (connects again after it was unplugged), its events, touches, and the startup and shutdown sequences. Shows everything again after a reconnect. Keeps a `SimulatedDevice` as the mirror of the device (what it sent, what the device reported), which the live view shows. |
 | `hardware/selftest.py` | `xtouch-daemon test`: lights up the device and echoes what happens on it. |
 | `audio/model.py` | `AudioState`: an immutable snapshot of the outputs, inputs, application streams and defaults. |
 | `audio/backend.py` | `AudioBackend`: the interface the strips use (snapshots, volume, mute, default). |
@@ -49,6 +50,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `runtime/controls.py` | `Controls`: the `[controls]` of the slots, built once per configuration with their entities in Home Assistant (`number.<ns>_slot_<n>_fader`, ..., or the `id` instead of `slot_<n>`). After each step the first entry of a slot whose `when` holds is its claim on the `Desk` (a slot under a finger keeps its claim until it is let go); it shows what it takes and launches, picks modes (`SlotEngine.choose_mode()`, `cycle_modes()`), toggles states and modes (`toggle()`), or sends events to Home Assistant. |
 | `runtime/homeassistant.py` | `SlotEntities`: with `[mqtt]`, the mode select, a binary sensor, override select and (`homeassistant = true`) input switch per state, whether each channel is shown, and what each slot shows. Published after each step when they changed (all of them again after the broker was away); choices in Home Assistant go to the `SlotEngine`, inputs into its observation. |
 | `runtime/slots.py`, `runtime/binder.py` | The slots on the device. `config/slots` builds and checks the strip of every candidate when the file is loaded; the `SlotEngine` steps a `Simulation` 0.1 s after a change (the audio, the voice chat, a finger let go), at the deadlines of its delays and every 2 s for the processes; it takes the requests (a mode, an override, the pick and pin of a slot's `pick` encoder) and hands out the applications of the `auto` strips, keeps overrides, the mode picked (`slots.json`) and the people (`people.json`) across restarts, and carries its state over a reload by id. The `SlotMixer` (`runtime/binder.py`) has a controller per channel for as long as the configuration, one per application of `auto` and per person without a channel while they are members, and an empty one per slot; after each step it binds to the `Desk` only the slots whose result changed (the others keep their controller, texts, fader and LEDs) and gives a controller the look, encoder and volume range of the candidate it is on. |
+| `simulator/` | The virtual device: `device` (`SimulatedDevice`, the model of the device without IO: what the host sets, a hand on it, the motors and meters over time, a broken touch sensor, switching it off and on) and `server` (it on a Unix socket for `virtual-device`). The GUI hosts it with Qt (`gui/qt/virtual_device.py`). See [Design: device simulator](design/device-simulator.md). |
 | `system/processes.py` | The processes that run, from `/proc`, for the `processes` of states and `launch`. |
 | `system/launch.py` | `Launcher`: starts the command of a `launch` (of a channel or a control) detached from the daemon (a transient systemd user service); `LaunchButton`: when Select launches, and its LED. See [Design: launching applications](design/launch.md). |
 | `system/instance.py` | The running daemon for other processes: its runtime file (process, configuration file) and where its live view is served. |
@@ -56,7 +58,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `live/` | The live view for the GUI over a Unix socket: `messages` (snapshots, requests, replies), `codec` (lines of JSON), `server` (`LiveServer`). See [Live view](#live-view). |
 | `voip/` | `VoipProvider`: the people of a voice chat, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). |
 | `voip/mumble.py`, `integrations/mumble/` | The Mumble plugin (C): its sources, building its bundle with CMake, finding it and copying it into Mumble's plugin directory. See [Mumble](integrations/mumble.md). |
-| `cli/` | The command line: one module per topic (`daemon`, `configuration`, `sound`, `layouts`, `mumble`, `service`, `editor`), put together by `main` in `cli/__init__.py`. |
+| `cli/` | The command line: one module per topic (`daemon`, `configuration`, `sound`, `layouts`, `mumble`, `service`, `editor`, `simulator`), put together by `main` in `cli/__init__.py`. |
 | `gui/domain/` | The configuration editor without a toolkit: the editable document (`document`, `drafts`, `toml_sync`), the options of the models, the look of the strips, suggestions from the sound server, applying a saved file. See [GUI](#gui). |
 | `gui/qt/` | The widgets of `xtouch-daemon gui` (the `gui` extra): `window/`, `preview/`, `pages/`, `fields/`, `theme/`. |
 
@@ -330,7 +332,8 @@ The unit tests run without hardware and without a sound server:
 
 - the protocol codec and the MIDI parser with captured messages,
 - the raw MIDI device against a FIFO,
-- the surface with a recording `send`,
+- the surface with a recording `send`, and end to end against the `SimulatedDevice` in memory (`tests/support/simulator.py`,
+  on the fake clock of the test) and over its socket,
 - the strips, the mixer and the daemon with a fake `AudioBackend`,
 - `PulseBackend` with a fake pulsectl connection,
 - the meters with a fake `pw-record` script,

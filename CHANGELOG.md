@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- A virtual X-Touch Extender, for the daemon without the device: `xtouch-daemon run --virtual-device` (or
+  `[device] virtual = true`) drives it on a Unix socket instead of the real one, `xtouch-daemon virtual-device` runs
+  it headless (`--broken-touch 1,4`), and the GUI opens it from the pill while the daemon waits for it: the mouse on
+  the drawing is a hand on it (faders with and without a touch, buttons, encoders), a bar unplugs it, switches it off
+  and on and breaks touch sensors. It speaks the bytes of the device, and does what the device does as far as
+  [Hardware](docs/hardware.md#the-virtual-device) knows. The live view shows the daemon's mirror of the device (the
+  same model), so the GUI draws what reached the device, banners and flashes included, with the motors and meters
+  moving as on it. See `docs/design/device-simulator.md`.
 - Prototype of channels, states and slots (`docs/design/channels-states-slots.md`), the planned successor of
   layouts, `inherit` and `collapse`: `xtouch-daemon simulate` shows what the slots of a configuration in that
   format show in given states, and why; `xtouch-daemon observe` records what plays and runs, and

@@ -85,8 +85,26 @@ While the daemon runs with an `[mqtt]` section, a second pill tells how its conn
 "Home Assistant" while it is connected, otherwise what is wrong, e.g. "Home Assistant · not authorized" or
 "Home Assistant · refused". Its tooltip has the broker's own words and what to check; a click opens the settings.
 
+With the [virtual device](getting-started.md#without-a-device) (`run --virtual-device`), the pill says "Live · virtual
+device" once the daemon drives it, and "virtual device not running · Open it" while the daemon waits for it: a click
+opens it in the window (see [below](#the-virtual-device)).
+
 A third pill shows the mode ("Mode gaming", "Mode gaming · by hand"); its tooltip lists the states and what each slot
 shows.
+
+## The virtual device
+
+While the window hosts the virtual device, the mouse on the drawing is a hand on it:
+
+- a fader: press to touch it, drag to move it, release to let go; Alt-drag moves it without a touch, like the device
+  moving it by itself (the daemon puts it back);
+- a button: held while the mouse button is down;
+- an encoder: the wheel turns it, a click pushes it.
+
+A bar above the drawing unplugs it and plugs it in again, switches it off and on (the faders go down by themselves,
+as on the device), and breaks the touch sensor of faders ("Broken touch"), to try `touchless_faders`. "Close" closes
+it, and so does closing the window: for the daemon it is unplugged. What the drawing shows still comes from the
+daemon, which is what reached the device.
 
 ## Live preview
 
