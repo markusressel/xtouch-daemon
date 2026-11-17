@@ -355,10 +355,6 @@ def test_the_default_switching() -> None:
             '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\ncount = 5\n',
             r"layout\[1\].strip\[1\]: count is gone: write N voip strips; voip strips without `person` form a group",
         ),
-        (
-            '[[strip]]\ntype = "voip"\nmeter_point = "pre_fader"\n',
-            r"strip\[1\]: meter_point: the voice chat tells the level of a participant after their volume",
-        ),
         ('[behavior]\nmeter_point = "pre"\n', r"behavior.meter_point: Input should be 'pre_fader' or 'post_fader'"),
         (
             '[[strip]]\ntype = "voip"\nperson = "Bob"\n[[strip]]\ntype = "voip"\nperson = ["Carol", "BOB"]\n',

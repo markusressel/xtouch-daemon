@@ -96,9 +96,9 @@ Mumble, which connects to the server and joins the channel, and the layout above
 - **Not their own mute.** Whether other people muted or deafened themselves is not in Mumble's plugin interface: it
   tells their talking state only, and someone who muted themselves sends nothing, so they just don't talk.
 - **Your channel only**, without you: nobody else's channel, no whispers to other channels.
-- **The level** on the meter is the voice as it arrives (after the fader), before Mumble's own volume and positional
-  audio. A muted person shows no level (Mumble does not fetch their voice), but the backlight still shows when they
-  talk.
+- **The level** on the meter is the voice as it arrives, before or after the fader (`meter_point`), and before
+  Mumble's own volume and positional audio. Mumble does not fetch the voice of a muted person: before the fader their
+  meter lights while they talk, without a level; after it, it stays dark.
 
 ## How it works
 

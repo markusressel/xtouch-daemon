@@ -142,7 +142,7 @@ class Config(Model):
         Where the meter of a strip of `all_strips(layout)` takes the level: its own `meter_point`, else the layout's,
         else `behavior.meter_point`. An `inherit` strip brings its own along, the layout is the one it is shown in.
         """
-        if isinstance(strip, BaseStripConfig) and strip.meter_point is not None:
+        if isinstance(strip, BaseStripConfig | VoipStripConfig) and strip.meter_point is not None:
             return strip.meter_point
         return self.layout(layout).meter_point or self.behavior.meter_point
 

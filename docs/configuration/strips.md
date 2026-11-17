@@ -133,7 +133,7 @@ What each strip type can show:
 | `output` | Before its volume and Mute, as PipeWire's monitor of the output has it. | Its monitor times its volume, nothing while muted. |
 | `apps`, `auto` | The streams' audio divided by their volume, so the fader doesn't move the meter. **While muted the meter stays dark:** PipeWire applies the volume and Mute inside the stream, before anything else can listen, so the audio of a muted stream is gone. | The streams as they play. |
 | `input` | The input divided by its volume. Dark while muted, as above. | The input as applications get it. |
-| `voip` | Not possible: the voice chat tells the level after the participant's volume (`meter_point` is refused on these strips and ignored from the layout and `[behavior]`). | |
+| `voip` | The voice before the participant's volume (the plugin's fader). Muted, Mumble doesn't fetch their voice: the meter lights while they talk, without a level. A plugin that tells no level before the volume shows the one after it. | The voice after their volume, dark while muted. |
 | `homeassistant` | The meter entity, see [Home Assistant](../home-assistant.md). | |
 
 The first strip that sets it wins: the strip's `meter_point`, then the one of its [layout](layouts.md), then

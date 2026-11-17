@@ -79,7 +79,7 @@ class BehaviorConfig(WithPresets):
     meter_point: Annotated[MeterPoint, METER_POINTS] = "pre_fader"
     """
     Where the meters take the level: before the volume and Mute of the strip, or after them. A `[[layout]]` or a strip
-    may have its own (`meter_point`). Not for `voip` strips: the voice chat tells their level after the volume.
+    may have its own (`meter_point`).
     """
     auto_hold: Annotated[float, Field(ge=0)] = 5.0
     """

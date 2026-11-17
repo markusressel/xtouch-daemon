@@ -12,9 +12,11 @@ From the plugin, the whole state each time (like the live view: a plugin that se
 talks needs nothing else):
 
     {"protocol": 1, "client": "mumble", "channel": "Lobby", "capabilities": ["volume", "mute", "levels"],
-     "participants": [{"id": "12", "name": "Alice", "talking": true, "muted": false, "volume": 100, "level": 0.4}]}
+     "participants": [{"id": "12", "name": "Alice", "talking": true, "muted": false, "volume": 100, "level": 0.4,
+                       "pre_fader_level": 0.8}]}
 
-`id` and `name` are needed, the rest is optional; `protocol` is 1 without it. To the plugin:
+`id` and `name` are needed, the rest is optional; `protocol` is 1 without it. `level` is the peak of the voice after
+the volume of the participant, `pre_fader_level` before it. To the plugin:
 
     {"set_volume": {"id": "12", "volume": 80}}
     {"set_muted": {"id": "12", "muted": true}}
@@ -75,9 +77,11 @@ def parse_state(line: bytes) -> tuple[tuple[Participant, ...], frozenset[Capabil
             raise ProtocolError(f"a participant without id or name: {item!r}")
         entry: dict[str, Any] = item  # pyright: ignore[reportUnknownVariableType]: JSON
         level = entry.get("level")
+        pre_fader_level = entry.get("pre_fader_level")
         try:
             volume = max(0, min(VOLUME_LIMIT, round(float(entry.get("volume", 100)))))
             level = None if level is None else max(0.0, min(1.0, float(level)))
+            pre_fader_level = None if pre_fader_level is None else max(0.0, min(1.0, float(pre_fader_level)))
         except (TypeError, ValueError, OverflowError) as e:
             raise ProtocolError(f"the volume or level of {entry['name']}: {e}") from e
         participants.append(
@@ -88,6 +92,7 @@ def parse_state(line: bytes) -> tuple[tuple[Participant, ...], frozenset[Capabil
                 muted=bool(entry.get("muted", False)),
                 volume=volume,
                 level=level,
+                pre_fader_level=pre_fader_level,
             )
         )
     return tuple(participants), capabilities

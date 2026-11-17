@@ -9,7 +9,17 @@ from pydantic import AfterValidator, BeforeValidator, Field, model_validator
 
 from xtouch_daemon.config.base import Model
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
-from xtouch_daemon.config.values import COLORS, MAX_STRIPS, VOLUME_LIMIT, ColorName, Command, Label, Slug
+from xtouch_daemon.config.values import (
+    COLORS,
+    MAX_STRIPS,
+    METER_POINTS,
+    VOLUME_LIMIT,
+    ColorName,
+    Command,
+    Label,
+    MeterPoint,
+    Slug,
+)
 
 
 class InheritStripConfig(Model):
@@ -61,6 +71,12 @@ class VoipStripConfig(Model):
     """The backlight while the participant talks."""
     meter: bool = True
     """Whether the LED meter shows the participant's voice (if the provider tells it and `behavior.meters` is on)."""
+    meter_point: Annotated[MeterPoint, METER_POINTS] | None = None
+    """
+    Where the meter takes the voice: before the fader and Mute (a muted participant who talks lights it, without a
+    level: Mumble doesn't fetch their voice), or after them; by default the `meter_point` of the layout, else
+    `behavior.meter_point`.
+    """
     max_volume: Annotated[int, Field(ge=1, le=VOLUME_LIMIT)] | None = None
     """
     The volume of a participant with the fader at the top, in percent; by default `behavior.max_volume`, so 100 % is
@@ -83,11 +99,6 @@ class VoipStripConfig(Model):
     def _refused(cls, data: object) -> object:
         if isinstance(data, Mapping) and "count" in data:
             raise ValueError("count is gone: write N voip strips; voip strips without `person` form a group")
-        if isinstance(data, Mapping) and "meter_point" in data:
-            raise ValueError(
-                "meter_point: the voice chat tells the level of a participant after their volume, a voip strip has "
-                "no other"
-            )
         return data
 
     @model_validator(mode="after")

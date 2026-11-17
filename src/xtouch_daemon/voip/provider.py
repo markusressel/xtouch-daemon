@@ -47,7 +47,12 @@ class Participant:
     volume: int = 100
     """The volume of the participant for the user, in percent."""
     level: float | None = None
-    """How loud they talk right now (the peak since the last snapshot), 0..1; None if the provider can't tell."""
+    """
+    How loud they talk right now (the peak since the last snapshot, after their volume), 0..1; None if the provider
+    can't tell.
+    """
+    pre_fader_level: float | None = None
+    """The same before their volume; None if the provider can't tell (then `level` stands in)."""
 
 
 type Listener = Callable[[], None]

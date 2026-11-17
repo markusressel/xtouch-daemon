@@ -32,7 +32,7 @@ from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
-from xtouch_daemon.config.values import ColorName, color_of, default_encoder
+from xtouch_daemon.config.values import ColorName, MeterPoint, color_of, default_encoder
 from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.mqtt import MqttBridge
@@ -358,10 +358,10 @@ class HomeAssistantStrip(StripController):
         self.fader_link.show()
         self.strip.set_ring(*self.encoder_link.ring())
 
-    def held_meter(self) -> Lit | None:
+    def held_meter(self, point: MeterPoint) -> Lit | None:
         """
         The level of the meter entity: 0..100 % over the levels of the meter, 100 % lights all LEDs (the red one too),
-        nothing while not connected.
+        nothing while not connected. Home Assistant sets the level, so the meter point means nothing here.
         """
         percent = _value(self.meter_level.target_state)
         if not self.connected or percent is None:

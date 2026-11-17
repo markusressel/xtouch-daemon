@@ -148,3 +148,6 @@ def test_the_meter_point_of_a_strip_wins_over_the_layout_which_wins_over_the_beh
     assert points("plain") == ["post_fader"] * 3
     # the auto strips that fill a layout up too
     assert config.meter_point(config.all_strips("gaming")[7], "gaming") == "pre_fader"
+    # voip strips have one too
+    voip = parse_config('[[strip]]\ntype = "voip"\nmeter_point = "post_fader"\n[[strip]]\ntype = "voip"\n')
+    assert [voip.meter_point(strip) for strip in voip.strips] == ["post_fader", "pre_fader"]

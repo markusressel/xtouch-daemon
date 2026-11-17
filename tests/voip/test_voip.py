@@ -85,8 +85,14 @@ async def test_the_demo_keeps_volume_and_mute():
     assert (ann.volume, ann.talking, bob.muted) == (40, True, True)
     await provider.set_muted("1", True)
     provider.tick(0.0)
-    # a muted participant is not heard
-    assert provider.participants[0] == Participant("1", "Ann", talking=False, muted=True, volume=40, level=0.0)
+    # a muted participant still talks, as in Mumble, but is not heard
+    assert provider.participants[0] == Participant(
+        "1", "Ann", talking=True, muted=True, volume=40, level=0.0, pre_fader_level=0.0
+    )
+    await provider.set_muted("1", False)
+    provider.tick(0.0)
+    assert provider.participants[0].level == pytest.approx(0.35 * 0.4)
+    assert provider.participants[0].pre_fader_level == pytest.approx(0.35)
 
 
 async def test_the_demo_runs(monkeypatch: pytest.MonkeyPatch):
@@ -104,12 +110,12 @@ async def test_the_demo_runs(monkeypatch: pytest.MonkeyPatch):
 def test_the_lines_of_the_plugin():
     participants, capabilities = parse_state(
         b'{"client": "mumble", "capabilities": ["volume", "levels"], "participants": ['
-        b'{"id": 12, "name": "Ann", "talking": true, "volume": 250, "level": 1.5},'
+        b'{"id": 12, "name": "Ann", "talking": true, "volume": 250, "level": 1.5, "pre_fader_level": -0.5},'
         b'{"id": "b", "name": "Bob", "muted": true, "volume": 80.4}]}'
     )
     assert capabilities == {Capability.VOLUME, Capability.LEVELS}
     assert participants == (
-        Participant("12", "Ann", talking=True, volume=200, level=1.0),
+        Participant("12", "Ann", talking=True, volume=200, level=1.0, pre_fader_level=0.0),
         Participant("b", "Bob", muted=True, volume=80),
     )
     assert parse_state(b'{"participants": []}') == ((), frozenset())

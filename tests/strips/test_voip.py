@@ -149,8 +149,29 @@ async def test_a_strip_shows_its_participant(surface: RecordingSurface, env: Str
     assert first.leds[Button.SELECT] == Led.ON
     assert (second.color, second.text, second.leds[Button.MUTE]) == (Color.CYAN, ["Bob", "muted"], Led.ON)
     # audio: the mixer shows it in dB like the meters of streams
-    assert ann.held_meter() == Peak(0.5)
-    assert bob.held_meter() is None
+    assert ann.held_meter("pre_fader") == Peak(0.5)
+    assert bob.held_meter("pre_fader") is None
+
+
+async def test_the_meter_takes_the_voice_before_or_after_the_fader(
+    surface: RecordingSurface, env: StripEnv, provider: FakeProvider
+):
+    provider.update(
+        (
+            Participant("1", "Ann", talking=True, volume=50, level=0.3, pre_fader_level=0.6),
+            Participant("2", "Bob", talking=True, muted=True, level=0.0, pre_fader_level=0.0),
+        )
+    )
+    _, (ann, bob), _ = make(surface, env, provider)
+    assert ann.held_meter("pre_fader") == Peak(0.6)
+    assert ann.held_meter("post_fader") == Peak(0.3)
+    # the voice chat doesn't get the voice of a muted participant: before the fader they light it while they talk
+    assert bob.held_meter("pre_fader") == Lit(protocol.METER_MAX - 1)
+    assert bob.held_meter("post_fader") == Peak(0.0)
+    # a plugin without the level before the fader: the one after it
+    provider.update((Participant("1", "Ann", talking=True, level=0.3), Participant("2", "Bob", muted=True)))
+    assert ann.held_meter("pre_fader") == Peak(0.3)
+    assert bob.held_meter("pre_fader") is None
 
 
 async def test_without_volumes_and_levels(surface: RecordingSurface, env: StripEnv):
@@ -164,8 +185,8 @@ async def test_without_volumes_and_levels(surface: RecordingSurface, env: StripE
     assert surface.strips[0].fader == 0
     assert surface.strips[0].leds[Button.SELECT] == Led.OFF
     # a talking participant fills the meter, a silent one leaves it
-    assert ann.held_meter() == Lit(protocol.METER_MAX - 1)
-    assert bob.held_meter() is None
+    assert ann.held_meter("pre_fader") == Lit(protocol.METER_MAX - 1)
+    assert bob.held_meter("pre_fader") is None
     ann.on_fader(0.5)
     ann.on_button(Button.MUTE, True)
     await settle()
@@ -178,7 +199,7 @@ async def test_an_empty_place_is_dark(surface: RecordingSurface, env: StripEnv):
     empty.update(DISCONNECTED)
     strip = surface.strips[0]
     assert (strip.color, strip.text, strip.fader) == (Color.BLACK, ["", ""], 0)
-    assert empty.held_meter() is None
+    assert empty.held_meter("pre_fader") is None
     empty.on_fader(0.7)
     empty.on_button(Button.MUTE, True)
     await settle()
@@ -187,7 +208,7 @@ async def test_an_empty_place_is_dark(surface: RecordingSurface, env: StripEnv):
 
 async def test_the_meter_can_be_off(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
     _, (ann, _), _ = make(surface, env, provider, CONFIG.model_copy(update={"meter": False}), CONFIG)
-    assert ann.held_meter() is None
+    assert ann.held_meter("pre_fader") is None
 
 
 async def test_the_fader_sets_the_volume(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
@@ -358,7 +379,7 @@ async def test_a_person_who_is_away(surface: RecordingSurface, env: StripEnv, pr
     assert strip.leds[Button.MUTE] == Led.OFF
     assert dave.absent(DISCONNECTED)
     assert dave.title == "Dave"
-    assert dave.held_meter() is None
+    assert dave.held_meter("pre_fader") is None
     dave.on_fader(0.5)
     dave.on_button(Button.MUTE, True)
     await settle()

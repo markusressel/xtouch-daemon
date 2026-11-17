@@ -189,7 +189,7 @@ async def test_a_held_level_is_sent_again_and_again(
 ) -> None:
     monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
     mixer.on_state(STATE)
-    monkeypatch.setattr(mixer.controllers[2], "held_meter", lambda: Lit(7))
+    monkeypatch.setattr(mixer.controllers[2], "held_meter", lambda point: Lit(7))
 
     task = asyncio.create_task(mixer.run())
     for _ in range(200):

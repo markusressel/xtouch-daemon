@@ -85,8 +85,9 @@ struct participant {
 	unsigned requests;
 	unsigned done;
 	int volume;
-	// the loudest sample since the state was sent last, 0..1
+	// the loudest sample since the state was sent last, 0..1: after the plugin's volume, and before it
 	float peak;
+	float pre_fader_peak;
 };
 
 // Everything the threads share, under `lock`.
@@ -206,6 +207,7 @@ static void refresh(void) {
 			next[i].done = known->done;
 			next[i].volume = known->volume;
 			next[i].peak = known->peak;
+			next[i].pre_fader_peak = known->pre_fader_peak;
 		}
 	}
 	if (next != NULL) {
@@ -312,10 +314,12 @@ static char *state_line(bool *talking) {
 		struct participant *each = &participants[i];
 		appendf(&line, "%s{\"id\":\"%u\",\"name\":", i ? "," : "", each->id);
 		append_string(&line, each->name);
-		appendf(&line, ",\"talking\":%s,\"muted\":%s,\"volume\":%d,\"level\":%.3f}", each->talking ? "true" : "false",
-				shown_muted(each) ? "true" : "false", each->volume, (double) each->peak);
+		appendf(&line, ",\"talking\":%s,\"muted\":%s,\"volume\":%d,\"level\":%.3f,\"pre_fader_level\":%.3f}",
+				each->talking ? "true" : "false", shown_muted(each) ? "true" : "false", each->volume, (double) each->peak,
+				(double) each->pre_fader_peak);
 		*talking = *talking || each->talking;
 		each->peak = 0.0f;
+		each->pre_fader_peak = 0.0f;
 	}
 	dirty = false;
 	pthread_mutex_unlock(&lock);
@@ -731,7 +735,10 @@ bool mumble_onAudioSourceFetched(float *pcm, uint32_t sample_count, uint16_t cha
 	// Mumble fetches no audio of a locally muted user
 	float gain = speaker == NULL ? 1.0f : (float) speaker->volume / 100.0f;
 	float peak = 0.0f;
+	float pre_fader_peak = 0.0f;
 	for (size_t i = 0; i < samples; i++) {
+		float before = fabsf(pcm[i]);
+		pre_fader_peak = before > pre_fader_peak ? before : pre_fader_peak;
 		if (gain != 1.0f) {
 			pcm[i] *= gain;
 		}
@@ -740,6 +747,9 @@ bool mumble_onAudioSourceFetched(float *pcm, uint32_t sample_count, uint16_t cha
 	}
 	if (speaker != NULL && peak > speaker->peak) {
 		speaker->peak = peak > 1.0f ? 1.0f : peak;
+	}
+	if (speaker != NULL && pre_fader_peak > speaker->pre_fader_peak) {
+		speaker->pre_fader_peak = pre_fader_peak > 1.0f ? 1.0f : pre_fader_peak;
 	}
 	pthread_mutex_unlock(&lock);
 	return gain != 1.0f;

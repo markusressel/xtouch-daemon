@@ -128,16 +128,18 @@ async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[
     await host.do("user 4 6 Carol")
     await until(lambda: [each.name for each in provider.participants] == ["Alice", 'Bob "the builder"'])
     assert provider.channel == "Channel 5"
-    assert provider.participants[0] == Participant("2", "Alice", level=0.0)
+    assert provider.participants[0] == Participant("2", "Alice", level=0.0, pre_fader_level=0.0)
 
     # who talks, and how loud
     await host.do("talk 2 1")
     assert await host.do("audio 2 0.5") == ["audio 0 0.500"]
-    await until(lambda: Participant("2", "Alice", talking=True, level=0.5) in seen)
+    await until(lambda: Participant("2", "Alice", talking=True, level=0.5, pre_fader_level=0.5) in seen)
     # the level of what came since the line before
-    await until(lambda: provider.participant("2") == Participant("2", "Alice", talking=True, level=0.0))
+    await until(
+        lambda: provider.participant("2") == Participant("2", "Alice", talking=True, level=0.0, pre_fader_level=0.0)
+    )
     await host.do("talk 2 0")
-    await until(lambda: provider.participant("2") == Participant("2", "Alice", level=0.0))
+    await until(lambda: provider.participant("2") == Participant("2", "Alice", level=0.0, pre_fader_level=0.0))
 
     # the fader and Mute
     await provider.set_volume("2", 50)
@@ -145,6 +147,8 @@ async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[
     assert await host.do("audio 2 0.8") == ["audio 1 0.400"]
     await provider.set_volume("3", 500)
     await until(lambda: getattr(provider.participant("3"), "volume", None) == 200)
+    # the level after the volume, and before it (with the next line: nobody talks)
+    assert Participant("2", "Alice", volume=50, level=0.4, pre_fader_level=0.8) in seen
     # Mute is Mumble's local mute: Mumble fetches no audio of Alice then
     await provider.set_muted("2", True)
     await until(lambda: getattr(provider.participant("2"), "muted", False))
@@ -161,7 +165,7 @@ async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[
     # the volume stays while people come and go
     await host.do("user 4 5 Carol")
     await until(lambda: len(provider.participants) == 3)
-    assert provider.participant("2") == Participant("2", "Alice", muted=True, volume=50, level=0.0)
+    assert provider.participant("2") == Participant("2", "Alice", muted=True, volume=50, level=0.0, pre_fader_level=0.0)
     await host.do("leave 3")
     await until(lambda: [each.id for each in provider.participants] == ["2", "4"])
     # the user goes to another channel
@@ -206,7 +210,7 @@ async def test_a_mute_set_in_mumble_lights_the_button(setup: tuple[BridgeProvide
     await host.do("localmute 3 1")
     await host.do("user 3 5 Carol")
     await until(lambda: len(provider.participants) == 2)
-    assert provider.participant("3") == Participant("3", "Carol", muted=True, level=0.0)
+    assert provider.participant("3") == Participant("3", "Carol", muted=True, level=0.0, pre_fader_level=0.0)
 
     # Mumble has no event for it: the plugin reads it every POLL_MS (500 ms)
     loop = asyncio.get_running_loop()
@@ -232,7 +236,7 @@ async def test_a_mute_mumble_refuses_goes_back(setup: tuple[BridgeProvider, Fake
     await host.collect(
         "record", ["requestLocalMute 2 1 -1", "log xtouch-daemon: can't mute Alice in Mumble: Generic error"]
     )
-    await until(lambda: provider.participant("2") == Participant("2", "Alice", level=0.0))
+    await until(lambda: provider.participant("2") == Participant("2", "Alice", level=0.0, pre_fader_level=0.0))
     assert await host.do("audio 2 0.5") == ["audio 0 0.500"]
 
 

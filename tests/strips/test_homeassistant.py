@@ -133,18 +133,18 @@ async def test_home_assistant_sets_a_meter_that_holds(
     strip: HomeAssistantStrip, bridge: MqttBridge, broker: FakeBroker
 ) -> None:
     # without a connection the meter shows nothing
-    assert strip.held_meter() is None
+    assert strip.held_meter("pre_fader") is None
     await connect(strip, bridge)
     assert broker.retained[topic("number", "meter")] == "0"
     discovery = json.loads(broker.retained[topic("number", "meter", "config")])
     assert (discovery["min"], discovery["max"], discovery["step"]) == (0, 100, 1)
-    assert strip.held_meter() == Lit(0)
+    assert strip.held_meter("pre_fader") == Lit(0)
 
     # 0..100 % over the levels of the meter
     for percent, level in (("50", 7), ("100", protocol.METER_MAX), ("3", 0), ("4", 1), ("150", protocol.METER_MAX)):
         broker.publish(topic("number", "meter", "set"), percent)
         await until(lambda percent=percent: strip.meter_level.target_state == percent)
-        assert strip.held_meter() == Lit(level), percent
+        assert strip.held_meter("pre_fader") == Lit(level), percent
 
 
 async def test_a_color_that_is_no_color_shows_the_configured_one(

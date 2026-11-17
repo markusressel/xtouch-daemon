@@ -192,8 +192,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   layout over `[behavior]`. The monitor of an output is before its volume (so its pre-fader meter is what it was
   before, and post-fader multiplies by the volume); streams and inputs apply their volume and Mute in their own
   PipeWire node, so their pre-fader level is the captured one divided by the volume, and a muted stream or input
-  stays dark either way. `voip` strips refuse it: the voice chat tells their level after the volume. The GUI shows
-  it next to `meter`, on the layout page and on the behavior page; `check-config` names post-fader meters.
+  stays dark either way. On `voip` strips the Mumble plugin tells the level before and after the participant's
+  volume; a muted participant who talks lights the meter before the fader (Mumble doesn't fetch their voice). The
+  GUI shows it next to `meter`, on the layout page and on the behavior page; `check-config` names post-fader meters.
 - A documentation site (Zensical, published to GitHub Pages): getting started, a page per topic of the
   configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 

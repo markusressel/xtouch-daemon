@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from xtouch_daemon.audio.meter import Lit, Peak, Reading
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.layout_strips import VoipStripConfig
-from xtouch_daemon.config.values import color_of
+from xtouch_daemon.config.values import MeterPoint, color_of
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.strip import Strip
@@ -200,14 +200,24 @@ class VoipStrip(StripController):
             bottom = "talks" if person.talking else ""
         self.strip.set_text(1, bottom)
 
-    def held_meter(self) -> Reading | None:
-        """The participant's level from the provider; without levels a full meter while they talk."""
+    def held_meter(self, point: MeterPoint) -> Reading | None:
+        """
+        The participant's level from the provider, before or after their volume; a full meter while they talk if
+        the provider tells no level, or before the fader while they are muted (the voice chat doesn't get their
+        voice then).
+        """
         person = self.participant
         if not self.meter or person is None:
             return None
+        talking = Lit(protocol.METER_MAX - 1) if person.talking else None
+        if point == "pre_fader":
+            if person.muted:
+                return talking
+            if person.pre_fader_level is not None:
+                return Peak(person.pre_fader_level)
         if person.level is not None:
             return Peak(person.level)
-        return Lit(protocol.METER_MAX - 1) if person.talking else None
+        return talking
 
     # -- the device -----------------------------------------------------------------------------------------------
 

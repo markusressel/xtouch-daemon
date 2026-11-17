@@ -90,6 +90,7 @@ def test_every_strip_type_has_its_model_and_options():
         "color",
         "talking_color",
         "meter",
+        "meter_point",
         "launch",
         "max_volume",
     ]
