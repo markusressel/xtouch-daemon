@@ -1,19 +1,36 @@
 """
 The desk: events of the device go to the presenter bound to their strip, releases to whoever got the press, the hands
-on the device, the chord of Solo buttons.
+on the device, the chord of Solo buttons, the meters.
 """
 
+import asyncio
+
+import pytest
+
+from tests.support.audio import output
+from tests.support.daemon import QUIET
 from tests.support.hardware import RecordingSurface
+from tests.support.tasks import settle
+from xtouch_daemon.audio.meter import CaptureTarget, Lit, Reading
+from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.config.values import MeterPoint
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.hardware.protocol import METER_MAX, Button
+from xtouch_daemon.runtime import desk as desk_module
 from xtouch_daemon.runtime.desk import Desk
+
+SPEAKER = CaptureTarget("speaker", monitor=True)
+STATE = AudioState(outputs=(output("speaker", 50),), default_output="speaker")
 
 
 class Recorder:
-    """A presenter that records what it got."""
+    """A presenter that records what it got; its meter shows `targets`, or without audio `held`."""
 
-    def __init__(self) -> None:
+    def __init__(self, targets: set[CaptureTarget] | None = None, held: Reading | None = None) -> None:
         self.events: list[tuple[str, object]] = []
+        self.targets = targets or set()
+        self.held = held
+        self.points: list[MeterPoint] = []
 
     def on_fader(self, fraction: float) -> None:
         self.events.append(("fader", round(fraction, 2)))
@@ -29,6 +46,19 @@ class Recorder:
 
     def on_encoder_press(self, pressed: bool) -> None:
         self.events.append(("push", pressed))
+
+    def meter_targets(self, state: AudioState) -> set[CaptureTarget]:
+        return self.targets if state.connected else set()
+
+    def is_playing(self, target: CaptureTarget, state: AudioState) -> bool:
+        return state.connected
+
+    def target_gain(self, target: CaptureTarget, state: AudioState) -> float | None:
+        return 0.5 if state.connected else None
+
+    def held_meter(self, point: MeterPoint) -> Reading | None:
+        self.points.append(point)
+        return self.held
 
 
 def test_the_events_of_a_strip_go_to_its_presenter(surface: RecordingSurface) -> None:
@@ -152,3 +182,46 @@ def test_the_chord_of_solo_buttons(surface: RecordingSurface) -> None:
     solo(0, False)
     solo(0, True)
     assert chords == [1, 1]
+
+
+async def test_a_capture_goes_on_when_another_presenter_shows_the_same(surface: RecordingSurface) -> None:
+    desk = Desk(surface, capture_command=QUIET)
+    meter = desk.meters[0]
+    desk.bind(0, Recorder({SPEAKER}), "post_fader")
+    assert meter.point == "post_fader"
+    assert meter.targets == set()  # from the next watch() on
+    desk.watch(STATE)
+    capture = meter._captures[SPEAKER]
+    assert meter._playing(SPEAKER)
+    assert meter._gain(SPEAKER) == 0.5
+    # a new mixer: its presenter shows the speaker too
+    desk.bind(0, Recorder({SPEAKER}))
+    desk.watch(STATE)
+    assert meter._captures[SPEAKER] is capture
+    assert meter.point == "pre_fader"
+    # nobody on the strip: nothing plays there
+    desk.bind(0, None)
+    assert not meter._playing(SPEAKER)
+    assert meter._gain(SPEAKER) is None
+    desk.watch(STATE)
+    assert meter.targets == set()
+    desk.close()
+    await desk.wait_closed()
+
+
+async def test_the_meters_show_the_level_or_what_the_presenter_holds(
+    surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(desk_module, "METER_INTERVAL", 0.001)
+    desk = Desk(surface, capture_command=QUIET)
+    desk.bind(0, Recorder())
+    desk.bind(1, held := Recorder(held=Lit(5)), "post_fader")
+    desk.meters[2].feed(1.0)  # a clip, on a strip nobody is on
+    task = asyncio.create_task(desk.run())
+    await asyncio.sleep(0.01)
+    task.cancel()
+    await settle()
+    assert surface.meters(0) == []
+    assert surface.meters(1)[-1] == 5
+    assert held.points[-1] == "post_fader"
+    assert surface.meters(2)[0] == METER_MAX

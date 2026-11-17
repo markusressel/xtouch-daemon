@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend
-from tests.support.daemon import HOME_ASSISTANT, SPEAKER, STATE, Notifications, make_with_mqtt, quiet_mixer, until
+from tests.support.daemon import HOME_ASSISTANT, QUIET, SPEAKER, STATE, Notifications, make_with_mqtt, until
 from tests.support.hardware import RecordingSurface
 from tests.support.mqtt import FakeBroker
 from tests.support.tasks import settle
@@ -48,7 +48,7 @@ def make_previewing(
         backend,
         surface,
         config_path,
-        mixer_factory=quiet_mixer,
+        capture_command=QUIET,
         live_socket=config_path.with_name("live.sock"),
     )
     told = Told()
@@ -269,7 +269,7 @@ async def test_the_gui_previews_through_the_live_view_while_the_daemon_runs(
             backend,
             surface,
             config_path,
-            mixer_factory=quiet_mixer,
+            capture_command=QUIET,
             bridge=MqttBridge(config.mqtt, client_factory=broker.client),
             live_socket=socket,
         )

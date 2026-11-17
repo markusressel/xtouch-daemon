@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend, stream
-from tests.support.daemon import SPEAKER, STATE, Notifications, quiet_mixer, until
+from tests.support.daemon import QUIET, SPEAKER, STATE, Notifications, until
 from tests.support.hardware import RecordingSurface
 from tests.support.mqtt import FakeBroker
 from tests.support.tasks import settle
@@ -68,7 +68,7 @@ def make_layouts(config_path: Path, surface: RecordingSurface, backend: FakeBack
         backend,
         surface,
         config_path,
-        mixer_factory=quiet_mixer,
+        capture_command=QUIET,
         **options,  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]
     )
 
@@ -186,13 +186,13 @@ async def test_without_rules_processes_are_not_looked_at(
 
     text = '[[layout]]\nname = "a"\napps = ["x"]\n'
     config_path.write_text(text)
-    daemon = Daemon(parse_config(text), backend, surface, config_path, mixer_factory=quiet_mixer, processes=processes)
+    daemon = Daemon(parse_config(text), backend, surface, config_path, capture_command=QUIET, processes=processes)
     task = asyncio.create_task(daemon.run())
     await asyncio.sleep(0.02)
     assert asked == []
     daemon.stop()
     await task
-    plain = Daemon(parse_config(""), backend, surface, mixer_factory=quiet_mixer)
+    plain = Daemon(parse_config(""), backend, surface, capture_command=QUIET)
     assert not plain.switcher.has_rules
     task = asyncio.create_task(plain.run())
     await asyncio.sleep(0.02)
@@ -230,7 +230,7 @@ async def test_without_a_banner_the_strips_show_at_once(
 ) -> None:
     text = LAYOUTS.replace("banner = 0.05", "banner = 0")
     config_path.write_text(text)
-    daemon = Daemon(parse_config(text), backend, surface, config_path, mixer_factory=quiet_mixer)
+    daemon = Daemon(parse_config(text), backend, surface, config_path, capture_command=QUIET)
     daemon.mixer.on_state(STATE)
     daemon.switch_layout("voice")
     assert surface.strips[0].overlay is None
@@ -276,7 +276,7 @@ async def test_home_assistant_chooses_the_layout(
         backend,
         surface,
         config_path,
-        mixer_factory=quiet_mixer,
+        capture_command=QUIET,
         bridge=MqttBridge(config.mqtt, client_factory=broker.client),
     )
     task = asyncio.create_task(daemon.run())
@@ -320,7 +320,7 @@ async def test_a_preview_has_layouts_too(
         backend,
         surface,
         config_path,
-        mixer_factory=quiet_mixer,
+        capture_command=QUIET,
         bridge=MqttBridge(config.mqtt, client_factory=broker.client),
     )
     task = asyncio.create_task(daemon.run())
@@ -373,7 +373,7 @@ async def test_the_layout_chosen_last_comes_back_after_a_restart(
             FakeBackend((state,)),
             surface,
             config_path,
-            mixer_factory=quiet_mixer,
+            capture_command=QUIET,
             bridge=MqttBridge(config.mqtt, client_factory=broker.client),
             processes=lambda: processes,
             layout_file=remembered,

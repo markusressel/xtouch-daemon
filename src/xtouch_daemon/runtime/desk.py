@@ -2,12 +2,17 @@
 The desk: the 8 strips of the device for as long as the daemon runs, whatever configuration, mixer or slots show on
 them. It knows the hands (faders under a finger, buttons held down), hands every event of the device to the presenter
 bound to its strip, and sends a release to whoever got the press, even when another presenter was bound in between.
-The chord of Solo buttons is its business too. See "Step 2: the Desk" in docs/design/channels-states-slots.md.
+The meters of the strips and the chord of Solo buttons are its business too: a capture goes on while another
+mixer takes over a strip that shows the same. See "Step 2: the Desk" in docs/design/channels-states-slots.md.
 """
 
+import asyncio
 from collections.abc import Callable, Sequence
 from typing import Protocol, assert_never
 
+from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter, Reading, leds_of
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState
+from xtouch_daemon.config.values import MeterPoint
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.hardware.surface import Surface
@@ -17,6 +22,8 @@ type Control = Button | None
 type Key = tuple[int, Control | str]
 """A strip of the device (from 0) and its control; "fader" for the touch of its fader."""
 FADER = "fader"
+METER_INTERVAL = 0.1
+"""How often the meters show the peak since the last time (the device lets them fall in between)."""
 
 
 class Presenter(Protocol):
@@ -27,17 +34,26 @@ class Presenter(Protocol):
     def on_button(self, button: Button, pressed: bool) -> None: ...
     def on_encoder(self, steps: int) -> None: ...
     def on_encoder_press(self, pressed: bool) -> None: ...
+    def meter_targets(self, state: AudioState) -> set[CaptureTarget]: ...
+    def is_playing(self, target: CaptureTarget, state: AudioState) -> bool: ...
+    def target_gain(self, target: CaptureTarget, state: AudioState) -> float | None: ...
+    def held_meter(self, point: MeterPoint) -> Reading | None: ...
 
 
 class Desk:
     """
     The strips of the device and the hands on them. `bind()` gives a strip (from 0) its presenter; `on_hands_free` is
     called when the last finger left the device (what waited for that may happen now), `on_chord` when the Solo
-    buttons of `chord` (strips from 0) are all held down.
+    buttons of `chord` (strips from 0) are all held down. Its meters capture with `capture_command` what the
+    presenters show (see `watch()`), `run()` shows them.
     """
 
     def __init__(
-        self, surface: Surface, chord: frozenset[int] = frozenset(), on_chord: Callable[[], None] = lambda: None
+        self,
+        surface: Surface,
+        chord: frozenset[int] = frozenset(),
+        on_chord: Callable[[], None] = lambda: None,
+        capture_command: str = PW_RECORD,
     ):
         self.surface = surface
         self.chord = chord
@@ -52,13 +68,30 @@ class Desk:
         self._pressed: dict[Key, Presenter | None] = {}
         """Who got each press and touch not let go yet: they get its release."""
         self._held_solos: set[int] = set()
+        self.state: AudioState = DISCONNECTED
+        """The audio state the presenters show, for the meters (see `watch()`)."""
+        self.meters = [self._meter(strip, capture_command) for strip in range(len(surface.strips))]
+        """The meter of each strip of the device."""
         surface.on_event = self.dispatch
 
-    def bind(self, strip: int, presenter: Presenter | None) -> None:
+    def _meter(self, strip: int, command: str) -> Meter:
+        def playing(target: CaptureTarget) -> bool:
+            presenter = self.presenters[strip]
+            return presenter is not None and presenter.is_playing(target, self.state)
+
+        def gain(target: CaptureTarget) -> float | None:
+            presenter = self.presenters[strip]
+            return presenter.target_gain(target, self.state) if presenter is not None else None
+
+        return Meter(playing, command, gain=gain)
+
+    def bind(self, strip: int, presenter: Presenter | None, meter_point: MeterPoint = "pre_fader") -> None:
         """
-        Binds a presenter to a strip of the device (from 0). The fader under a finger goes over to it: the presenter
-        that had the touch lets go, the new one gets it at once (so each sees a touch and its release).
+        Binds a presenter to a strip of the device (from 0), its meter shows the level at `meter_point`. The fader
+        under a finger goes over to it: the presenter that had the touch lets go, the new one gets it at once (so
+        each sees a touch and its release). The meter captures what it shows from the next `watch()` on.
         """
+        self.meters[strip].point = meter_point
         if self.presenters[strip] is presenter:
             return
         self.presenters[strip] = presenter
@@ -148,3 +181,36 @@ class Desk:
             # once per chord: the buttons have to be let go first
             self._held_solos.clear()
             self.on_chord()
+
+    # -- meters ---------------------------------------------------------------------------------------------------
+
+    def watch(self, state: AudioState) -> None:
+        """The meters capture what the presenters bound now show in `state`."""
+        self.state = state
+        for presenter, meter in zip(self.presenters, self.meters, strict=True):
+            meter.watch(presenter.meter_targets(state) if presenter is not None else ())
+
+    def show_meters(self) -> None:
+        """
+        Shows the level of each strip since the last time; without audio the one its presenter holds (a voice in
+        voice chat), or nothing, so the device lets the meter fall.
+        """
+        for strip, presenter, meter in zip(self.surface.strips, self.presenters, self.meters, strict=True):
+            level = meter.take_level()
+            if level is None and presenter is not None and (held := presenter.held_meter(meter.point)) is not None:
+                level = leds_of(held)
+            if level is not None:
+                strip.set_meter(level)
+
+    async def run(self) -> None:
+        while True:
+            await asyncio.sleep(METER_INTERVAL)
+            self.show_meters()
+
+    def close(self) -> None:
+        """Stops the captures; `wait_closed()` waits until their processes ended."""
+        for meter in self.meters:
+            meter.close()
+
+    async def wait_closed(self) -> None:
+        await asyncio.gather(*(meter.wait_closed() for meter in self.meters))

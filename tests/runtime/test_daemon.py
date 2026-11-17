@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend
-from tests.support.daemon import SPEAKER, STATE, Notifications, make, quiet_mixer, until
+from tests.support.daemon import QUIET, SPEAKER, STATE, Notifications, make, until
 from tests.support.hardware import RecordingSurface
 from tests.support.tasks import settle
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
@@ -39,7 +39,7 @@ async def test_the_daemon_runs_until_it_is_stopped_and_leaves_the_surface_dark(
     assert notifications[-1] == ("STOPPING=1",)
     assert surface.strips[0].color == Color.BLACK
     assert surface.strips[0].text == ["", ""]
-    assert daemon.mixer.meters[0].targets == set()
+    assert daemon.mixer.desk.meters[0].targets == set()
 
 
 async def test_sigterm_stops_the_daemon(
@@ -282,7 +282,7 @@ async def test_the_media_players_follow_while_the_daemon_runs_and_go_to_every_mi
         backend,
         surface,
         config_path,
-        mixer_factory=quiet_mixer,
+        capture_command=QUIET,
         players=players,  # type: ignore[arg-type]
     )
     assert daemon.mixer.controllers[0].env.players is players

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend
-from tests.support.daemon import HOME_ASSISTANT, Notifications, make, make_with_mqtt, quiet_mixer, until
+from tests.support.daemon import HOME_ASSISTANT, QUIET, Notifications, make, make_with_mqtt, until
 from tests.support.hardware import RecordingSurface
 from tests.support.mqtt import FakeBroker
 from xtouch_daemon import __version__
@@ -65,7 +65,7 @@ async def test_the_live_view_shows_what_the_daemon_does(
             backend,
             surface,
             config_path,
-            mixer_factory=quiet_mixer,
+            capture_command=QUIET,
             bridge=MqttBridge(config.mqtt, client_factory=broker.client),
             live_socket=socket,
         )
@@ -107,7 +107,7 @@ async def test_without_mqtt_section_there_is_no_bridge(
     # the GUI tells whether it runs the installed version
     assert daemon.snapshot().daemon_version == __version__
     config = parse_config(HOME_ASSISTANT)
-    assert Daemon(config, backend, surface, mixer_factory=quiet_mixer).bridge is not None
+    assert Daemon(config, backend, surface, capture_command=QUIET).bridge is not None
 
 
 async def test_a_changed_mqtt_section_needs_a_restart(

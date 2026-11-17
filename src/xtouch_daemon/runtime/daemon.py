@@ -15,7 +15,7 @@ import signal
 import time
 from collections.abc import Callable, Coroutine
 from pathlib import Path
-from typing import Any, Protocol, assert_never
+from typing import Any, assert_never
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
@@ -23,6 +23,7 @@ from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from xtouch_daemon import __version__
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.media import MediaPlayers
+from xtouch_daemon.audio.meter import PW_RECORD
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path, load_config, parse_config
@@ -69,25 +70,6 @@ HOME_ASSISTANT = "Home Assistant"
 """The reason of a switch from Home Assistant."""
 CHORD = "buttons"
 """The reason of a switch by the chord on the device."""
-
-
-class MixerFactory(Protocol):
-    def __call__(
-        self,
-        surface: Surface,
-        backend: AudioBackend,
-        config: Config,
-        *,
-        bridge: MqttBridge | None,
-        players: MediaPlayers | None,
-        layout: str,
-        voip: VoipProvider | None,
-        shared_entities: dict[MQTTEntity, str | None],
-        keep: frozenset[str],
-        preview: bool = False,
-        processes: Callable[[], frozenset[str]] = ...,
-        desk: Desk | None = None,
-    ) -> Mixer: ...
 
 
 def layout_entity_ids(config: Config, namespace: str) -> frozenset[str]:
@@ -139,7 +121,7 @@ class Daemon:
         backend: AudioBackend,
         surface: Surface | None = None,
         config_path: Path | None = None,
-        mixer_factory: MixerFactory = Mixer,
+        capture_command: str = PW_RECORD,
         bridge: MqttBridge | None = None,
         live_socket: Path | None = None,
         players: MediaPlayers | None = None,
@@ -148,7 +130,8 @@ class Daemon:
         layout_file: Path | None = None,
     ):
         """
-        `bridge` is by default the one of the [mqtt] section, if there is one. `live_socket` is where the live view
+        `bridge` is by default the one of the [mqtt] section, if there is one. `capture_command` is what the meters
+        capture with. `live_socket` is where the live view
         for the GUI is served (see `live.server`), None for none. `players` are the media players of the session, for
         `encoder = "media"`. `voip_socket` is where the `bridge` VoIP provider waits for its plugin (by default
         `instance.voip_socket_file()`), `processes` tells the processes that run, for the rules of the layouts.
@@ -183,13 +166,12 @@ class Daemon:
         """Where the order of the people is kept (see `runtime.slots`): next to the layout, the daemon's state."""
         self.switcher = LayoutSwitcher(config, self._switched, active=self._remembered_layout(config))
         self.layout_select = self._layout_select(config)
-        self.desk = Desk(self.surface, self._chord(config), self._on_chord)
+        self.desk = Desk(self.surface, self._chord(config), self._on_chord, capture_command)
         """The strips of the device and the hands on them, for every mixer."""
         self.slots = SlotRunner(config, self._people_file) if config.slots is not None else None
         """The slots of a configuration of channels, states and slots; None for one of strips and layouts."""
         self._slot_processes: tuple[float, frozenset[str]] | None = None
         """When the processes were scanned for the states of the slots last, and what ran."""
-        self._mixer_factory = mixer_factory
         self.mixer = self._new_mixer()
         self._background: set[asyncio.Task[None]] = set()
         self._stop = asyncio.Event()
@@ -213,7 +195,7 @@ class Daemon:
             keep = layout_entity_ids(self.config, self.bridge.config.namespace)
             if self.layout_select is not None:
                 shared[self.layout_select] = self.layout
-        return self._mixer_factory(
+        return Mixer(
             self.surface,
             self.backend,
             self.slots.mixer_config() if self.slots is not None else self.config,
@@ -563,7 +545,10 @@ class Daemon:
         for signum, handler in handlers.items():
             loop.add_signal_handler(signum, handler)
         surface = asyncio.create_task(self.surface.run(), name="surface")
-        parts = [asyncio.create_task(self.backend.run(self._on_state), name="sound server")]
+        parts = [
+            asyncio.create_task(self.backend.run(self._on_state), name="sound server"),
+            asyncio.create_task(self.desk.run(), name="meters"),
+        ]
         if self.bridge is not None:
             parts.append(asyncio.create_task(self.bridge.run(), name="mqtt"))
         self._start_mixer()
@@ -612,6 +597,7 @@ class Daemon:
         _LOGGER.info("Stopping")
         self.surface.on_event = lambda event: None
         self.mixer.close()
+        self.desk.close()
         if self.bridge is not None:
             # while it is still connected: Home Assistant sees the entities unavailable right away
             await self.bridge.close()
@@ -622,7 +608,7 @@ class Daemon:
         for task in others:
             task.cancel()
         await asyncio.gather(*others, return_exceptions=True)
-        await self.mixer.wait_closed()
+        await self.desk.wait_closed()
 
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self.surface.put_away(), SHUTDOWN_TIMEOUT)

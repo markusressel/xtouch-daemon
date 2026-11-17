@@ -16,6 +16,7 @@ from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Led, RingMode
+from xtouch_daemon.runtime import desk as desk_module
 from xtouch_daemon.runtime import mixer as mixer_module
 from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.strips import EmptyStrip
@@ -112,10 +113,10 @@ async def test_a_state_updates_every_strip_and_fills_the_auto_strips(mixer: Mixe
 async def test_a_state_sets_what_the_meters_capture(mixer: Mixer) -> None:
     mixer.on_state(STATE)
 
-    assert mixer.meters[0].targets == {CaptureTarget("speaker", monitor=True)}
-    assert mixer.meters[1].targets == {CaptureTarget("1", monitor=False)}
-    assert mixer.meters[2].targets == set()
-    assert mixer.meters[3].targets == {CaptureTarget("2", monitor=False)}
+    assert mixer.desk.meters[0].targets == {CaptureTarget("speaker", monitor=True)}
+    assert mixer.desk.meters[1].targets == {CaptureTarget("1", monitor=False)}
+    assert mixer.desk.meters[2].targets == set()
+    assert mixer.desk.meters[3].targets == {CaptureTarget("2", monitor=False)}
 
 
 async def test_events_go_to_the_strip_they_happened_on(mixer: Mixer, backend: FakeBackend) -> None:
@@ -167,7 +168,8 @@ async def test_the_encoder_of_an_auto_strip_picks_its_application(mixer: Mixer, 
 async def test_the_meters_show_the_captured_level(
     mixer: Mixer, surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.01)
+    monkeypatch.setattr(desk_module, "METER_INTERVAL", 0.01)
+    monkeypatch.setattr(mixer_module, "TICK", 0.01)
     mixer.on_state(STATE)
 
     task = asyncio.create_task(mixer.run())
@@ -187,7 +189,8 @@ async def test_the_meters_show_the_captured_level(
 async def test_a_held_level_is_sent_again_and_again(
     mixer: Mixer, surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(desk_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(mixer_module, "TICK", 0.001)
     mixer.on_state(STATE)
     monkeypatch.setattr(mixer.controllers[2], "held_meter", lambda point: Lit(7))
 
@@ -205,7 +208,8 @@ async def test_a_held_level_is_sent_again_and_again(
 async def test_an_application_leaves_its_auto_strip_once_the_hold_time_is_over(
     mixer: Mixer, surface: RecordingSurface, clock: Clock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(desk_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(mixer_module, "TICK", 0.001)
     monkeypatch.setattr(mixer_module, "AUTO_INTERVAL", 0.002)
     mixer.on_state(STATE)
     mixer.on_state(AudioState(outputs=STATE.outputs, default_output="speaker"))
@@ -229,7 +233,8 @@ async def test_without_auto_strips_nothing_is_refreshed(
     config = parse_config('[[strip]]\ntype = "empty"\n' * 8)
     mixer = Mixer(surface, backend, config)
     refreshed: list[None] = []
-    monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(desk_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(mixer_module, "TICK", 0.001)
     monkeypatch.setattr(mixer_module, "AUTO_INTERVAL", 0.001)
     monkeypatch.setattr(mixer, "refresh", lambda: refreshed.append(None))
 
@@ -245,34 +250,34 @@ async def test_closing_stops_the_meters(mixer: Mixer) -> None:
 
     mixer.close()
 
-    assert all(meter.targets == set() for meter in mixer.meters)
+    assert all(meter.targets == set() for meter in mixer.desk.meters)
 
 
 async def test_a_meter_knows_whether_its_target_plays_from_the_latest_state(mixer: Mixer) -> None:
     target = CaptureTarget("speaker", monitor=True)
     mixer.on_state(STATE)
-    assert not mixer.meters[0]._playing(target)
+    assert not mixer.desk.meters[0]._playing(target)
 
     mixer.on_state(AudioState(outputs=(output("speaker", 50, running=True),)))
-    assert mixer.meters[0]._playing(target)
+    assert mixer.desk.meters[0]._playing(target)
 
 
 async def test_a_meter_knows_the_volume_of_its_target_from_the_latest_state(mixer: Mixer) -> None:
     speaker = CaptureTarget("speaker", monitor=True)
     brave = CaptureTarget("1", monitor=False)
     mixer.on_state(STATE)
-    assert mixer.meters[0]._gain(speaker) == 0.125
-    assert mixer.meters[1]._gain(brave) == 1.0
+    assert mixer.desk.meters[0]._gain(speaker) == 0.125
+    assert mixer.desk.meters[1]._gain(brave) == 1.0
 
     mixer.on_state(AudioState(outputs=(output("speaker", 100, muted=True),), streams=(stream(1, volume=50),)))
-    assert mixer.meters[0]._gain(speaker) == 0.0
-    assert mixer.meters[1]._gain(brave) == 0.125
+    assert mixer.desk.meters[0]._gain(speaker) == 0.0
+    assert mixer.desk.meters[1]._gain(brave) == 0.125
     # gone: the audio stays as captured
     mixer.on_state(DISCONNECTED)
-    assert mixer.meters[0]._gain(speaker) is None
-    assert mixer.meters[1]._gain(brave) is None
+    assert mixer.desk.meters[0]._gain(speaker) is None
+    assert mixer.desk.meters[1]._gain(brave) is None
     # strips without captures know no volumes
-    assert mixer.meters[2]._gain(brave) is None
+    assert mixer.desk.meters[2]._gain(brave) is None
 
 
 async def test_each_meter_takes_the_level_where_its_strip_says(surface: RecordingSurface, backend: FakeBackend) -> None:
@@ -284,10 +289,10 @@ async def test_each_meter_takes_the_level_where_its_strip_says(surface: Recordin
         '[[layout.strip]]\ntype = "inherit"\n'
     )
     mixer = Mixer(surface, backend, config, capture_command="true")
-    assert [meter.point for meter in mixer.meters][:3] == ["post_fader", "pre_fader", "post_fader"]
+    assert [meter.point for meter in mixer.desk.meters][:3] == ["post_fader", "pre_fader", "post_fader"]
     mixer.close()
     gaming = Mixer(surface, backend, config, capture_command="true", layout="gaming")
-    assert [meter.point for meter in gaming.meters][:2] == ["pre_fader", "pre_fader"]
+    assert [meter.point for meter in gaming.desk.meters][:2] == ["pre_fader", "pre_fader"]
     gaming.close()
 
 
@@ -465,7 +470,8 @@ async def test_strips_with_launch_follow_the_processes(
 
     # it shows up: the next look at the processes sees it
     running[0] = frozenset({"bash", "mumble"})
-    monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(desk_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(mixer_module, "TICK", 0.001)
     monkeypatch.setattr(mixer_module, "PROCESS_INTERVAL", 0.002)
     task = asyncio.create_task(mixer.run())
     for _ in range(100):
@@ -589,9 +595,9 @@ async def test_a_device_that_appears_takes_its_place_and_the_others_move(
     # the faders glide to the volumes of the strips they show now
     assert surface.strips[1].position == protocol.fader_value(0.3)
     assert surface.strips[2].position == protocol.fader_value(0.4)
-    # the meters capture for the strips on the device only
-    assert flow_mixer.meters[1].targets == {CaptureTarget("bluez_output.buds", monitor=True)}
-    assert flow_mixer.meters[8].targets == set()
+    # the meters capture for the strips on the device only: not for Spotify, which waits
+    assert flow_mixer.desk.meters[1].targets == {CaptureTarget("bluez_output.buds", monitor=True)}
+    assert all(CaptureTarget("2", monitor=False) not in meter.targets for meter in flow_mixer.desk.meters)
 
 
 async def test_a_device_that_goes_away_gives_its_place_up_after_the_hold_time(
@@ -612,7 +618,8 @@ async def test_a_device_that_goes_away_gives_its_place_up_after_the_hold_time(
 async def test_the_hold_time_ends_without_a_new_state(
     flow_mixer: Mixer, surface: RecordingSurface, clock: Clock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(desk_module, "METER_INTERVAL", 0.001)
+    monkeypatch.setattr(mixer_module, "TICK", 0.001)
     flow_mixer.on_state(BUDS_ON)
     flow_mixer.on_state(QUIET)
     task = asyncio.create_task(flow_mixer.run())
@@ -624,7 +631,8 @@ async def test_the_hold_time_ends_without_a_new_state(
         if labels(surface)[1] == "Browser":
             break
     assert labels(surface)[1] == "Browser"
-    assert flow_mixer.meters[8].targets == {CaptureTarget("2", monitor=False)}
+    # Spotify is back on the device
+    assert flow_mixer.desk.meters[7].targets == {CaptureTarget("2", monitor=False)}
     task.cancel()
 
 
@@ -645,7 +653,7 @@ async def test_nothing_moves_under_a_finger(
     assert labels(surface)[1] == "Browser"
     flow_mixer.desk.dispatch(release)
     assert labels(surface)[1] == "Buds"
-    assert flow_mixer.meters[1].targets == {CaptureTarget("bluez_output.buds", monitor=True)}
+    assert flow_mixer.desk.meters[1].targets == {CaptureTarget("bluez_output.buds", monitor=True)}
 
 
 async def test_a_fader_moved_without_a_touch_holds_the_strips_too(flow_mixer: Mixer, surface: RecordingSurface) -> None:

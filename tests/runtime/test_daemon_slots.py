@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend, output, source, stream
-from tests.support.daemon import Notifications, quiet_mixer, until
+from tests.support.daemon import QUIET, Notifications, until
 from tests.support.hardware import RecordingSurface
 from tests.support.tasks import settle
 from xtouch_daemon.audio.model import AudioState
@@ -90,7 +90,7 @@ def make(path: Path, surface: RecordingSurface, processes: Processes, states: tu
         FakeBackend(states),
         surface,
         path,
-        mixer_factory=quiet_mixer,
+        capture_command=QUIET,
         processes=processes,
     )
 
@@ -217,7 +217,7 @@ async def test_the_processes_are_scanned_every_few_seconds(
         FakeBackend(),
         surface,
         path,
-        mixer_factory=quiet_mixer,
+        capture_command=QUIET,
         processes=lambda: scans.append(1) or frozenset(),
     )
     daemon.mixer.on_state(STATE)

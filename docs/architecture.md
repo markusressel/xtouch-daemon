@@ -8,11 +8,11 @@ graph LR
     Device[X-Touch Extender<br/>/dev/snd/midiC*D0] <-- "raw MIDI (midi.py, protocol.py)" --> Surface
     Surface -- "events: fader, touch, buttons, encoders" --> Desk
     Desk -- "to the controller bound to the strip" --> Mixer
-    Mixer -- "set_fader, set_text, set_led, set_meter ..." --> Surface
+    Mixer -- "set_fader, set_text, set_led ..." --> Surface
     Backend[PulseBackend<br/>one pulsectl-asyncio connection] -- "AudioState snapshot after every change" --> Mixer
     Mixer -- "set volume, mute, default" --> Backend
     Backend <--> Sound[pipewire-pulse]
-    Mixer -- "captures (meter.py)" --> PwRecord[pw-record, passive]
+    Desk -- "captures (meter.py), set_meter" --> PwRecord[pw-record, passive]
     Mixer -- "entities of homeassistant strips" --> Bridge[MqttBridge<br/>aiomqtt]
     Bridge <-- "discovery, states, commands, events" --> Broker[MQTT broker / Home Assistant]
     Daemon -- "owns, reloads, stops" --> Surface & Backend & Mixer & Bridge
@@ -44,8 +44,8 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `slots/` | Prototype of [Design: channels, states and slots](design/channels-states-slots.md), not used by the daemon yet: the model (`model`), conditions (`expressions`), presence (`inputs`), the delays (`timing`), the states and modes (`states`), the resolver (`resolver`), the slots over time (`simulation`), the distinct outcomes (`outcomes`), recorded observations (`recording`) and their replay (`replay`). Pure but for the recorder, driven by `simulate` and `observe`. |
 | `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` strips. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
 | `runtime/daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications) and switching layouts. |
-| `runtime/desk.py` | `Desk`: the strips of the device for as long as the daemon runs. Hands each event to the controller (`Presenter`) bound to its strip, a release to whoever got the press, follows the hands on the device and the chord of Solo buttons. |
-| `runtime/mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state, bound to the strips of the `Desk`, and the meter ticker. |
+| `runtime/desk.py` | `Desk`: the strips of the device for as long as the daemon runs. Hands each event to the controller (`Presenter`) bound to its strip, a release to whoever got the press, follows the hands on the device and the chord of Solo buttons. Its meters (one per strip of the device) capture what the controllers bound now show, so a capture goes on when a new mixer shows the same. |
+| `runtime/mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state, bound to the strips of the `Desk`. |
 | `runtime/placement.py` | `place()` and `Flow`: which strip of the configuration each strip of the device shows, for strips that collapse. See [Collapsing strips](#collapsing-strips). |
 | `runtime/layouts.py` | `LayoutSwitcher`: which layout the device shows, chosen by hand or by the rules (`apps`, `processes`, `hold`). |
 | `runtime/slots.py`, `config/slots.py` | Prototype: a file of channels, states and slots on the device. `config/slots` builds and checks the strip of every candidate when the file is loaded; `SlotRunner` steps a `Simulation` every 0.2 s, and the daemon builds a new mixer for the strips of the result when one of them changes (the `auto` strips keep their applications). Modes take the place of layouts: switching layouts by hand picks a mode. |
@@ -349,13 +349,13 @@ strips, and the device shows the first 8 that take a place (see [Collapsing stri
 - **A pure placement.** `place(collapse, absent)` takes the first 8 strips that don't collapse. `Flow` keeps the
   state around it in one typed record per strip (`_Absence`: since when absent, collapsed or not), so the hold time
   (`behavior.collapse_hold`) and coming back at once are one rule. The mixer asks it after every state (one placement
-  per state) and every meter tick, for hold times that end without a new state.
-- **Not under a finger.** The mixer follows touches, held buttons and encoder pushes from the events of the device,
+  per state) and every tick (0.1 s), for hold times that end without a new state.
+- **Not under a finger.** The desk follows touches, held buttons and encoder pushes from the events of the device,
   and a fader moved without a touch (`Strip.held`); while any of them is there, `Flow.update()` is told it is busy and
   nothing moves. The release places what waited. Events of a dark strip of the device go nowhere.
 - **From scratch.** A new mixer (a reload, a layout switch, the start) places from scratch with its first state: a
   strip that has nothing to control collapses at once. Hold times are not carried from one mixer to the next.
-- **Meters follow.** Only controllers on the device get captures, so a strip that waits or collapsed runs no
+- **Meters follow.** The desk has a meter per strip of the device, so only controllers on the device get captures, so a strip that waits or collapsed runs no
   `pw-record`.
 - **The live view** tells the placement (`Snapshot.placement`, an optional field: an older GUI ignores it, an older
   daemon does not send it and its strips are where they are configured).

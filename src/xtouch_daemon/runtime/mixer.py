@@ -1,6 +1,6 @@
 """
-The mixer: the strips of one configuration, fed with every audio state, and their meters; the desk hands them the
-events of the strips of the device they are on. A new configuration gets a new mixer on the same desk and sound
+The mixer: the strips of one configuration, fed with every audio state; the desk hands them the events of the strips
+of the device they are on, and shows their meters. A new configuration gets a new mixer on the same desk and sound
 server connection. With `collapse`, the strips of the configuration move between the strips of the device (see
 `placement.py`).
 """
@@ -13,7 +13,7 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.media import MediaPlayers
-from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter, leds_of
+from xtouch_daemon.audio.meter import PW_RECORD
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.model import Config
@@ -32,8 +32,8 @@ from xtouch_daemon.system.launch import LaunchButton, Launcher
 from xtouch_daemon.system.processes import running_processes
 from xtouch_daemon.voip.provider import VoipProvider
 
-METER_INTERVAL = 0.1
-"""How often the meters show the peak since the last time (the device lets them fall in between)."""
+TICK = 0.1
+"""How often the mixer looks whether a strip collapsed after its hold time."""
 AUTO_INTERVAL = 1.0
 """How often `auto` strips are checked for applications whose hold time is over."""
 PROCESS_INTERVAL = 2.0
@@ -60,7 +60,8 @@ class Mixer:
         desk: Desk | None = None,
     ):
         """
-        `desk` is the desk of the daemon (a mixer on its own makes one for the surface). `layout` is the layout whose
+        `desk` is the desk of the daemon; a mixer on its own makes one for the surface, whose meters capture with
+        `capture_command`, and runs and closes it. `layout` is the layout whose
         strips the mixer drives, `voip` the provider of the participants for `voip`
         strips. `shared_entities` are entities in Home Assistant that are not of a strip (e.g. the layout select),
         `keep` the unique ids of entities of the other layouts, which stay in Home Assistant. `preview`: the
@@ -78,7 +79,8 @@ class Mixer:
         """The processes that run, while a strip launches an application (`launch`), every PROCESS_INTERVAL."""
         env = StripEnv(backend, config.behavior, bridge, players, voip, launcher or Launcher(), lambda: self.processes)
         self.surface = surface
-        self.desk = desk if desk is not None else Desk(surface)
+        self._own_desk = desk is None
+        self.desk = desk if desk is not None else Desk(surface, capture_command=capture_command)
         self.state: AudioState = DISCONNECTED
         self.controllers: list[StripController] = []
         strips = config.all_strips(layout)
@@ -87,6 +89,8 @@ class Mixer:
         seats = self._voip_seats(strips, self.strips, env)
         for strip_config, strip, seat in zip(strips, self.strips, seats, strict=True):
             self.controllers.append(build_strip(strip_config, strip, env, config.aliases, seat))
+        self.meter_points: list[MeterPoint] = [config.meter_point(strip, layout) for strip in strips]
+        """Where the meter of each strip of the configuration takes the level."""
         self.flow = Flow(
             self.strips,
             surface.strips,
@@ -95,7 +99,9 @@ class Mixer:
             config.behavior.collapse_hold,
             clock,
             lambda device_index, index: self.desk.bind(
-                device_index, self.controllers[index] if index is not None else None
+                device_index,
+                self.controllers[index] if index is not None else None,
+                self.meter_points[index] if index is not None else "pre_fader",
             ),
         )
         self.desk.on_hands_free = self._hands_free
@@ -106,10 +112,6 @@ class Mixer:
         self.assigner = AutoAssigner(len(self.auto_strips), config.behavior.auto_hold, config.behavior.ignore, clock)
         for index, auto in enumerate(self.auto_strips):
             auto.slot = AutoSlot(self.assigner, index, lambda: self.state, self.claimed, self.refresh)
-        self.meters = [
-            self._meter(controller, capture_command, config.meter_point(strip, layout))
-            for controller, strip in zip(self.controllers, strips, strict=True)
-        ]
         self.watches_processes = any(controller.launches for controller in self.controllers)
         if self.watches_processes:
             self.processes = processes()
@@ -156,15 +158,6 @@ class Mixer:
             for controller in self.controllers
         )
 
-    def _meter(self, controller: StripController, command: str, point: MeterPoint) -> Meter:
-        def playing(target: CaptureTarget) -> bool:
-            return controller.is_playing(target, self.state)
-
-        def gain(target: CaptureTarget) -> float | None:
-            return controller.target_gain(target, self.state)
-
-        return Meter(playing, command, gain=gain, point=point)
-
     # -- input ----------------------------------------------------------------------------------------------------
 
     def on_state(self, state: AudioState) -> None:
@@ -180,10 +173,8 @@ class Mixer:
         self._watch_meters()
 
     def _watch_meters(self) -> None:
-        """The meters capture for the strips on the device only."""
-        for index, (controller, meter) in enumerate(zip(self.controllers, self.meters, strict=True)):
-            on_device = self.flow.position(index) is not None
-            meter.watch(controller.meter_targets(self.state) if on_device else set())
+        """The meters capture for the strips on the device."""
+        self.desk.watch(self.state)
 
     def _place(self) -> bool:
         """Moves the strips if one collapsed or came back (not while a finger is on the device); True if they moved."""
@@ -228,22 +219,24 @@ class Mixer:
 
     async def run(self) -> None:
         """
-        Announces the entities of the `homeassistant` strips, then shows the meters and lets `auto` strips go of
-        applications that stopped long enough.
+        Announces the entities of the `homeassistant` strips, then lets `auto` strips go of applications that stopped
+        long enough. A mixer with its own desk runs it too (the meters).
         """
         if self.bridge is not None:
             await self.bridge.set_entities(self.entities | self.shared_entities, keep=self.keep, preview=self.preview)
-        ticks_per_auto = round(AUTO_INTERVAL / METER_INTERVAL)
-        ticks_per_scan = round(PROCESS_INTERVAL / METER_INTERVAL)
+        if self._own_desk:
+            async with asyncio.TaskGroup() as group:
+                group.create_task(self.desk.run())
+                group.create_task(self._tick())
+        else:
+            await self._tick()
+
+    async def _tick(self) -> None:
+        ticks_per_auto = round(AUTO_INTERVAL / TICK)
+        ticks_per_scan = round(PROCESS_INTERVAL / TICK)
         tick = 0
         while True:
-            await asyncio.sleep(METER_INTERVAL)
-            for controller, meter in zip(self.controllers, self.meters, strict=True):
-                level = meter.take_level()
-                if level is None and (held := controller.held_meter(meter.point)) is not None:
-                    level = leds_of(held)
-                if level is not None:
-                    controller.strip.set_meter(level)
+            await asyncio.sleep(TICK)
             tick += 1
             if self.watches_processes and tick % ticks_per_scan == 0:
                 # a launched application shows up, the LED of a launch that took too long stops flashing
@@ -261,13 +254,10 @@ class Mixer:
             self.desk.on_hands_free = lambda: None
         if self.voip is not None:
             self.voip.unsubscribe(self.refresh)
-        for controller, meter in zip(self.controllers, self.meters, strict=True):
-            meter.close()
+        for controller in self.controllers:
             controller.close()
+        if self._own_desk:
+            self.desk.close()
         for strip in self.strips:
             # the next mixer draws on the device
             strip.target = None
-
-    async def wait_closed(self) -> None:
-        """Waits until the meter captures `close()` stopped ended their processes."""
-        await asyncio.gather(*(meter.wait_closed() for meter in self.meters))
