@@ -35,6 +35,12 @@ class Delayed:
             return True
         return False
 
+    def carry(self, before: Delayed) -> None:
+        """Goes on from where `before` was (a reload), with its own delays."""
+        self.value = before.value
+        self._started = before._started
+        self._pending = before._pending
+
     def deadline(self) -> float | None:
         """When a pending change takes effect if the input stays as it is, None without one."""
         if self._pending is None:

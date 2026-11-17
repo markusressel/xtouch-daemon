@@ -138,7 +138,7 @@ def test_unbound_presenters_let_go_of_the_fader(surface: RecordingSurface) -> No
 def test_the_hands_on_the_device(surface: RecordingSurface) -> None:
     desk = Desk(surface)
     free: list[int] = []
-    desk.on_hands_free = lambda: free.append(1)
+    desk.hands_free.append(lambda: free.append(1))
     assert not desk.busy
     surface.on_event(protocol.FaderTouched(3, True))
     surface.on_event(protocol.ButtonPressed(0, Button.REC, True))

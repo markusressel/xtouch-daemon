@@ -4,10 +4,11 @@ the daemon will run, driven by observations at given times instead of the sound 
 """
 
 from collections.abc import Mapping
+from dataclasses import replace
 
 from xtouch_daemon.slots.inputs import App, Channel, Observation, PoolMembers, Presence
 from xtouch_daemon.slots.model import ABSENT_AFTER, Scene
-from xtouch_daemon.slots.resolver import Inputs, Result, resolve
+from xtouch_daemon.slots.resolver import Inputs, Result, Shown, resolve
 from xtouch_daemon.slots.states import Override, StateEngine, States
 
 DWELL = 1.0
@@ -39,6 +40,20 @@ class Simulation:
         self.states: States | None = None
         self._changed: dict[int, float] = {}
         self._known: dict[str, float] = dict(known or {})
+
+    def carry(self, before: Simulation) -> None:
+        """
+        Goes on from where `before` (of the configuration before a reload) was: states, presence and members by
+        their ids, the people, and the result (so pool members keep their slots and held slots what they show).
+        """
+        self.presence.carry(before.presence)
+        self.members.carry(before.members)
+        self.engine.carry(before.engine)
+        self.states = before.states
+        self._known = dict(before._known)
+        self._changed = {slot: since for slot, since in before._changed.items() if slot in self.scene.stacks}
+        if before.result is not None:
+            self.result = carried(before.scene, self.scene, before.result)
 
     def step(
         self,
@@ -84,3 +99,19 @@ class Simulation:
         times = [self.engine.deadline(), self.presence.deadline(), self.members.deadline()]
         times += [since + self.dwell for since in self._changed.values()]
         return min((time for time in times if time is not None), default=None)
+
+
+def carried(before: Scene, after: Scene, result: Result) -> Result:
+    """
+    A result of `before` in the terms of `after`: what each slot shows points at the first candidate of its new stack
+    that shows the same channel or pool; a slot whose stack has none shows nothing.
+    """
+    slots: dict[int, Shown] = {}
+    for slot, shown in result.slots.items():
+        if shown.candidate is None:
+            slots[slot] = shown
+            continue
+        show = before.stacks[slot][shown.candidate].show
+        index = next((i for i, candidate in enumerate(after.stacks[slot]) if candidate.show == show), None)
+        slots[slot] = replace(shown, candidate=index) if index is not None else Shown(None)
+    return replace(result, slots=slots)

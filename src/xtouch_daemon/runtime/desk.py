@@ -42,7 +42,7 @@ class Presenter(Protocol):
 
 class Desk:
     """
-    The strips of the device and the hands on them. `bind()` gives a strip (from 0) its presenter; `on_hands_free` is
+    The strips of the device and the hands on them. `bind()` gives a strip (from 0) its presenter; `hands_free` are
     called when the last finger left the device (what waited for that may happen now), `on_chord` when the Solo
     buttons of `chord` (strips from 0) are all held down. Its meters capture with `capture_command` what the
     presenters show (see `watch()`), `run()` shows them.
@@ -58,7 +58,7 @@ class Desk:
         self.surface = surface
         self.chord = chord
         self.on_chord = on_chord
-        self.on_hands_free: Callable[[], None] = lambda: None
+        self.hands_free: list[Callable[[], None]] = []
         self.presenters: list[Presenter | None] = [None] * len(surface.strips)
         """The presenter bound to each strip of the device."""
         self._touched: set[int] = set()
@@ -146,7 +146,8 @@ class Desk:
             case _ as unreachable:
                 assert_never(unreachable)
         if released and not (self._touched or self._held):
-            self.on_hands_free()
+            for listener in list(self.hands_free):
+                listener()
 
     def _press(self, key: Key, down: bool) -> Presenter | None:
         """Who gets a press (the presenter bound now) or its release (who got the press)."""

@@ -49,8 +49,8 @@ from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout
 from xtouch_daemon.runtime.mixer import Mixer
-from xtouch_daemon.runtime.slots import INTERVAL as SLOTS_INTERVAL
-from xtouch_daemon.runtime.slots import PEOPLE_FILE_NAME, PROCESS_INTERVAL, SlotRunner
+from xtouch_daemon.runtime.slots import BATCH as SLOTS_BATCH
+from xtouch_daemon.runtime.slots import PROCESS_INTERVAL, SlotEngine
 from xtouch_daemon.strips.homeassistant import entity_ids
 from xtouch_daemon.system import instance, systemd
 from xtouch_daemon.system.processes import running_processes
@@ -159,18 +159,21 @@ class Daemon:
         if self.bridge is not None:
             self.bridge.on_connection = self._on_mqtt_connection
         self._voip_socket = voip_socket or instance.voip_socket_file()
-        self.voip = build_provider(config.voip, self._voip_socket) if config.voip is not None else None
+        self._slots_wake = asyncio.Event()
+        """Set when something the slots look at changed: they are resolved SLOTS_BATCH later."""
+        self.voip = self._build_voip(config)
         self._voip_task: asyncio.Task[None] | None = None
         self._processes = processes
         self._layout_file = layout_file
-        self._people_file = layout_file.with_name(PEOPLE_FILE_NAME) if layout_file is not None else None
-        """Where the order of the people is kept (see `runtime.slots`): next to the layout, the daemon's state."""
+        self._state_dir = layout_file.parent if layout_file is not None else None
+        """Where the slots keep the choices and the people (see `runtime.slots`): next to the layout."""
         self.switcher = LayoutSwitcher(config, self._switched, active=self._remembered_layout(config))
         self.layout_select = self._layout_select(config)
         self.desk = Desk(self.surface, self._chord(config), self._on_chord, capture_command)
         """The strips of the device and the hands on them, for every mixer."""
-        self.slots = SlotRunner(config, self._people_file) if config.slots is not None else None
+        self.slots = SlotEngine(config, self._state_dir) if config.slots is not None else None
         """The slots of a configuration of channels, states and slots; None for one of strips and layouts."""
+        self.desk.hands_free.append(self._wake_slots)
         self._slot_processes: tuple[float, frozenset[str]] | None = None
         """When the processes were scanned for the states of the slots last, and what ran."""
         self.mixer = self._new_mixer()
@@ -309,7 +312,13 @@ class Daemon:
         self.config = config
         self.switcher = LayoutSwitcher(config, self._switched, active=self.switcher.active)
         self.layout_select = self._layout_select(config)
-        self.slots = SlotRunner(config, self._people_file) if config.slots is not None else None
+        if config.slots is None:
+            self.slots = None
+        elif self.slots is None:
+            self.slots = SlotEngine(config, self._state_dir)
+        else:
+            # what the states, channels and members were carries over
+            self.slots.reconfigure(config)
         if self.slots is not None and self.mixer.state.connected:
             # the slots of the new configuration right away (a new mixer), not dark until the next step
             self._step_slots()
@@ -332,8 +341,19 @@ class Daemon:
         if self._voip_task is not None:
             self._voip_task.cancel()
             self._voip_task = None
-        self.voip = build_provider(config.voip, self._voip_socket) if config.voip is not None else None
+        self.voip = self._build_voip(config)
         self._start_voip()
+
+    def _build_voip(self, config: Config) -> VoipProvider | None:
+        if config.voip is None:
+            return None
+        provider = build_provider(config.voip, self._voip_socket)
+        provider.subscribe(self._wake_slots)
+        return provider
+
+    def _wake_slots(self) -> None:
+        """Something the slots look at changed (the audio, the voice chat, a finger let go)."""
+        self._slots_wake.set()
 
     def _start_voip(self) -> None:
         if self.voip is not None and self._mixer_task is not None:
@@ -414,9 +434,20 @@ class Daemon:
                 self.switcher.evaluate(self.mixer.state, self._running())
 
     async def _follow_slots(self) -> None:
-        """Resolves the slots, while the configuration has them, every SLOTS_INTERVAL."""
+        """
+        Resolves the slots, while the configuration has them: SLOTS_BATCH after a change (what comes together goes
+        together), when a delay or a dwell ends, and every PROCESS_INTERVAL for the processes.
+        """
         while True:
-            await asyncio.sleep(SLOTS_INTERVAL)
+            timeout = PROCESS_INTERVAL
+            if self.slots is not None and (deadline := self.slots.deadline()) is not None:
+                timeout = min(timeout, max(0.0, deadline - time.monotonic()))
+            with contextlib.suppress(TimeoutError):
+                # at least a moment: a deadline that is due must not keep the others from their turn
+                await asyncio.wait_for(self._slots_wake.wait(), max(timeout, 0.001))
+            if self._slots_wake.is_set():
+                await asyncio.sleep(SLOTS_BATCH)
+                self._slots_wake.clear()
             if self.slots is not None and self.mixer.state.connected:
                 self._step_slots()
 
@@ -626,6 +657,7 @@ class Daemon:
     def _on_state(self, state: AudioState) -> None:
         was_connected = self.mixer.state.connected
         self.mixer.on_state(state)
+        self._wake_slots()
         if state.connected != was_connected:
             systemd.notify(self._status())
         if self.switcher.has_rules and state.connected:

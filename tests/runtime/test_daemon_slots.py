@@ -21,7 +21,9 @@ from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.live.messages import Reply, VoipState, fingerprint
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon
-from xtouch_daemon.runtime.slots import SlotRunner
+from xtouch_daemon.runtime.slots import SlotEngine
+from xtouch_daemon.slots.inputs import App
+from xtouch_daemon.slots.states import Override
 
 SLOTS = """
 [switching]
@@ -80,8 +82,8 @@ class Processes:
 
 @pytest.fixture(autouse=True)
 def fast(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(daemon_module, "SLOTS_INTERVAL", 0.002)
-    monkeypatch.setattr(daemon_module, "PROCESS_INTERVAL", 0.0)
+    monkeypatch.setattr(daemon_module, "SLOTS_BATCH", 0.002)
+    monkeypatch.setattr(daemon_module, "PROCESS_INTERVAL", 0.002)
 
 
 def make(path: Path, surface: RecordingSurface, processes: Processes, states: tuple[AudioState, ...] = (STATE,)):
@@ -197,6 +199,10 @@ async def test_a_reload_shows_the_slots_of_the_new_file_at_once(
     assert daemon.reload()
     assert daemon.slots is None
     assert labels(surface, 1) == ["Plain"]
+    # and back to slots
+    path.write_text(SLOTS)
+    assert daemon.reload()
+    assert labels(surface, 1) == ["Speaker"]
     daemon.mixer.close()
     await settle()
 
@@ -232,22 +238,83 @@ VOICE = VoipState("bridge", True, "mumble", "Lobby", 1, ("Bob",))
 
 
 def test_the_order_of_people_lasts_across_a_restart(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-    people = tmp_path / "state" / "people.json"
+    state = tmp_path / "state"
+    people = state / "people.json"
     config = parse_config(SLOTS)
-    runner = SlotRunner(config, people, clock=lambda: 100.0, wall_clock=lambda: 1100.0)
+    runner = SlotEngine(config, state, clock=lambda: 100.0, wall_clock=lambda: 1100.0)
     runner.step(STATE, frozenset(), VOICE, frozenset(), 100)
     assert json.loads(people.read_text()) == [["Bob", 1100.0]]
     written = people.stat().st_mtime_ns
     runner.step(STATE, frozenset(), VOICE, frozenset(), 100.2)
     assert people.stat().st_mtime_ns == written  # nothing changed
     # a restart: the clock of the steps starts anew, Bob was seen as long ago as he was
-    again = SlotRunner(config, people, clock=lambda: 5.0, wall_clock=lambda: 1200.0)
+    again = SlotEngine(config, state, clock=lambda: 5.0, wall_clock=lambda: 1200.0)
     assert again.simulation.known == {"Bob": 5.0 - 100}
     # files that can't be read or written
     people.write_text("{")
-    assert SlotRunner(config, people).simulation.known == {}
+    assert SlotEngine(config, state).simulation.known == {}
     blocked = tmp_path / "file"
     blocked.write_text("")
-    SlotRunner(config, blocked / "people.json").step(STATE, frozenset(), VOICE, frozenset(), 1)
+    SlotEngine(config, blocked).step(STATE, frozenset(), VOICE, frozenset(), 1)
     assert "Can't read the order of the people" in caplog.text
     assert "Can't keep the order of the people" in caplog.text
+
+
+def test_the_choices_last_across_a_restart(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    config = parse_config(SLOTS)
+    engine = SlotEngine(config, tmp_path)
+    engine.pick_mode("gaming")
+    engine.set_override("call", Override.ON)
+    assert json.loads((tmp_path / "slots.json").read_text()) == {"overrides": {"call": "on"}, "mode": "gaming"}
+    again = SlotEngine(config, tmp_path)
+    assert again.choices == ({"call": Override.ON}, "gaming")
+    # the first step is the baseline: the kept choices survive it
+    again.step(STATE, frozenset(), None, frozenset(), 0)
+    assert again.mode == "gaming"
+    assert again.simulation.states is not None
+    assert again.simulation.states.values["call"]
+    # back to auto: written as such
+    again.pick_mode(None)
+    again.set_override("call", Override.AUTO)
+    assert json.loads((tmp_path / "slots.json").read_text()) == {"overrides": {}, "mode": None}
+    # choices of states and modes the file no longer has are dropped
+    (tmp_path / "slots.json").write_text('{"overrides": {"gone": "on", "gaming": "on"}, "mode": "gone"}')
+    assert SlotEngine(config, tmp_path).choices == ({}, None)
+    (tmp_path / "slots.json").write_text("{")
+    assert SlotEngine(config, tmp_path).choices == ({}, None)
+    assert "Can't read the overrides and the mode" in caplog.text
+    blocked = tmp_path / "file"
+    blocked.write_text("")
+    SlotEngine(config, blocked).pick_mode("gaming")
+    assert "Can't keep the overrides and the mode" in caplog.text
+    # nowhere to keep them
+    SlotEngine(config).pick_mode("gaming")
+
+
+def test_a_reload_carries_the_states_the_members_and_the_choices_over() -> None:
+    engine = SlotEngine(parse_config(SLOTS))
+    spotify = AudioState(streams=(stream(1, "Spotify", "spotify"),))
+    engine.step(spotify, frozenset({"mumble"}), None, frozenset(), 0)
+    engine.pin(3, App("mpv"))
+    engine.pin(2, App("spotify"))
+    engine.pin(2, None)
+    engine.set_override("call", Override.OFF)
+    assert engine.pins == {3: App("mpv")}
+    # the label of the output changes, a slot goes: call stays (off, overridden), Spotify keeps slot 2
+    engine.reconfigure(parse_config(SLOTS.replace('"Speaker"', '"Boxes"').replace('3 = ["mic if call", "auto"]\n', "")))
+    assert engine.choices == ({"call": Override.OFF}, None)
+    assert engine.shape is not None
+    assert engine.simulation.result is not None
+    assert str(engine.simulation.result.slots[2]) == "auto:Spotify"
+    engine.step(spotify, frozenset({"mumble"}), None, frozenset(), 0.1)
+    assert str(engine.simulation.result.slots[2]) == "auto:Spotify"
+    # a slot whose new stack lacks what it showed shows nothing until the next step; new states and channels
+    engine.pick_mode("gaming")
+    more = '[channel.extra]\ntype = "input"\n[state.other]\nprocesses = ["x"]\n'
+    engine.reconfigure(parse_config(more + SLOTS.replace('1 = ["game if gaming", "out"]', '1 = "mic"')))
+    assert engine.simulation.result is not None
+    assert engine.simulation.result.slots[1].candidate is None
+    assert engine.choices == ({"call": Override.OFF}, "gaming")
+    engine.reconfigure(parse_config(SLOTS))
+    assert engine.simulation.result.slots[1].candidate is None
+    assert (deadline := engine.deadline()) is None or deadline >= 0

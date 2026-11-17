@@ -86,6 +86,23 @@ class StateEngine:
         self._automatic = DEFAULT
         """The mode the rules want."""
 
+    def carry(self, before: StateEngine) -> None:
+        """
+        Goes on from where `before` was (a reload): the states with the same name keep their values, delays under way,
+        overrides and since when; the mode picked stays if it is still a mode. The first update is no baseline then.
+        """
+        for name, delayed in self._delayed.items():
+            if name in before._delayed:
+                delayed.carry(before._delayed[name])
+        states = self.scene.states
+        self.overrides = {name: value for name, value in before.overrides.items() if name in states}
+        if before.mode_pick is not None and (before.mode_pick == DEFAULT or before.mode_pick in self.scene.modes):
+            self.mode_pick = before.mode_pick
+        self._since = {name: since for name, since in before._since.items() if name in states or name == DEFAULT}
+        self._last = {name: value for name, value in before._last.items() if name in states or name == DEFAULT}
+        self._reasons = {name: why for name, why in before._reasons.items() if name in states}
+        self._automatic = before._automatic if before._automatic in (DEFAULT, *self.scene.modes) else DEFAULT
+
     def set_override(self, name: str, value: Override) -> None:
         """Takes effect at the next update, past the delays."""
         assert not self.scene.states[name].mode, "modes are picked with pick_mode()"

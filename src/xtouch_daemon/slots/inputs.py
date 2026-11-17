@@ -185,6 +185,12 @@ class Presence:
             for name, channel in scene.channels.items()
         }
 
+    def carry(self, before: Presence) -> None:
+        """Goes on from where `before` was (a reload): the channels with the same id."""
+        for name, delayed in self._delayed.items():
+            if name in before._delayed:
+                delayed.carry(before._delayed[name])
+
     def update(self, observation: Observation, now: float) -> frozenset[str]:
         for name, delayed in self._delayed.items():
             delayed.update(present_now(self.scene.channels[name], observation), now)
@@ -225,6 +231,10 @@ class Lingering[T]:
                 del self._gone[name]
         return tuple(self._gone)
 
+    def carry(self, before: Lingering[T]) -> None:
+        """Goes on from where `before` was (a reload), with its own time after."""
+        self._gone = dict(before._gone)
+
     def deadline(self) -> float | None:
         return min((since + self.after for since in self._gone.values() if since is not None), default=None)
 
@@ -239,6 +249,11 @@ class PoolMembers:
         self._playing = Lingering[str](scene.pools[AUTO].hold)
         # a reconnect gets a new id: the same name takes the place of who left
         self._people = Lingering[Attendee](absent_after, lambda gone, new: gone.name == new.name)
+
+    def carry(self, before: PoolMembers) -> None:
+        """Goes on from where `before` was (a reload)."""
+        self._playing.carry(before._playing)
+        self._people.carry(before._people)
 
     def update(self, observation: Observation, now: float) -> Observation:
         return replace(

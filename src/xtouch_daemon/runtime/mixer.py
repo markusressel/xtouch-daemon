@@ -104,7 +104,7 @@ class Mixer:
                 self.controllers[index].look.meter_point if index is not None else "pre_fader",
             ),
         )
-        self.desk.on_hands_free = self._hands_free
+        self.desk.hands_free.append(self._hands_free)
         self.auto_strips = [controller for controller in self.controllers if isinstance(controller, AutoStrip)]
         self.claimed = tuple(
             controller.patterns for controller in self.controllers if isinstance(controller, AppGroupStrip)
@@ -250,8 +250,8 @@ class Mixer:
 
     def close(self) -> None:
         self.desk.unbind(self.controllers)
-        if self.desk.on_hands_free == self._hands_free:
-            self.desk.on_hands_free = lambda: None
+        if self._hands_free in self.desk.hands_free:
+            self.desk.hands_free.remove(self._hands_free)
         if self.voip is not None:
             self.voip.unsubscribe(self.refresh)
         for controller in self.controllers:

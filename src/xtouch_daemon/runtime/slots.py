@@ -1,15 +1,15 @@
 """
 Running a configuration of channels, states and slots on the device (the prototype of
-docs/design/channels-states-slots.md): a `Simulation` fed with what the sound server, the processes and the voice
-chat show, whose result becomes the strips of a mixer. A mixer is built anew only when the strip of a slot changes
-(another channel, a pool instead of a channel), like at a layout switch; the members of `auto` and `people` are
-handed out by its `auto` and `voip` strips.
+docs/design/channels-states-slots.md): the `SlotEngine` feeds a `Simulation` with what the sound server, the
+processes and the voice chat show, and takes the requests (a mode, an override, a pin); its result becomes the
+strips of a mixer. A mixer is built anew only when the strip of a slot changes (another channel, a pool instead of a
+channel), like at a layout switch; the members of `auto` and `people` are handed out by its `auto` and `voip` strips.
 """
 
 import json
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from xtouch_daemon.audio.model import AudioState
@@ -17,11 +17,12 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.slots import Shape, shape_of, showing
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import VoipState
-from xtouch_daemon.slots.model import DEFAULT
+from xtouch_daemon.slots.inputs import App, Channel
+from xtouch_daemon.slots.model import DEFAULT, Scene
 from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.simulation import Known, Simulation
-from xtouch_daemon.slots.states import States
+from xtouch_daemon.slots.states import Override, States
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,38 +30,64 @@ DARK: Shape = ((None, None, None, None),) * protocol.STRIPS
 """Every slot dark: before the first step."""
 PEOPLE_FILE_NAME = "people.json"
 """The file of the order of the people, in the state directory of the daemon."""
-INTERVAL = 0.2
-"""How often the slots are resolved: also the batching of changes that come together (a game starts)."""
+CHOICES_FILE_NAME = "slots.json"
+"""The file of the overrides and the mode picked, in the state directory of the daemon."""
+BATCH = 0.1
+"""Changes are resolved together this long after the first one (a game starts several streams and a process)."""
 PROCESS_INTERVAL = 2.0
 """How often the processes are scanned for the states, as for the rules of layouts."""
 
+type Choices = tuple[Mapping[str, Override], str | None]
+"""What was chosen by hand: the overrides of states, and the mode picked (None for the rules)."""
 
-class SlotRunner:
-    """The slots of `config` (which has `slots`) over time: `step()` after each look at the system."""
+
+class SlotEngine:
+    """
+    The slots of a configuration (which has `slots`) over time: `step()` after each look at the system, `deadline()`
+    when the next one is due without a change. It outlives the configuration: `reconfigure()` goes on with a new one
+    (a reload). Overrides, the mode picked and the people are kept across restarts in `state_dir`.
+    """
 
     def __init__(
         self,
         config: Config,
-        people_file: Path | None = None,
+        state_dir: Path | None = None,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
     ):
-        """
-        `people_file` keeps the order of the people across restarts (None: nowhere). `clock` is the clock of
-        `step()`, `wall_clock` the one of the file.
-        """
+        """`state_dir` keeps the choices and the people (None: nowhere); `wall_clock` is the clock of the files."""
         assert config.slots is not None, "only for a configuration of slots"
         self.config = config
         self.scene = config.slots.scene
-        self.people_file = people_file
+        self.state_dir = state_dir
         self._clocks = (clock, wall_clock)
-        known = read_people(people_file, clock(), wall_clock()) if people_file is not None else {}
-        self.simulation = Simulation(self.scene, known=known)
+        people = state_dir / PEOPLE_FILE_NAME if state_dir is not None else None
+        known = read_people(people, clock(), wall_clock()) if people is not None else {}
+        overrides, mode = (
+            read_choices(state_dir / CHOICES_FILE_NAME, self.scene) if state_dir is not None else ({}, None)
+        )
+        self.simulation = Simulation(self.scene, overrides, mode, known=known)
         self._kept: tuple[tuple[str, ...], tuple[str, ...]] = ((), ())
         """The people known and those present when the file was written last."""
+        self._chosen: Choices = self.choices
+        """The choices when the file was written last (or read)."""
+        self.pins: dict[int, App | Channel] = {}
+        """The members pinned to slots of `auto` (the `pick` encoder)."""
         self.observer = Observer()
         self.shape: Shape | None = None
         """What the strips of the mixer show; None before the first step (the sound server is not there yet)."""
+
+    def reconfigure(self, config: Config) -> None:
+        """Goes on with another configuration (a reload): states, channels, members and choices carry over by id."""
+        assert config.slots is not None, "only for a configuration of slots"
+        before = self.simulation
+        self.config = config
+        self.scene = config.slots.scene
+        self.simulation = Simulation(self.scene)
+        self.simulation.carry(before)
+        self.pins = {slot: member for slot, member in self.pins.items() if slot in self.scene.stacks}
+        self.shape = shape_of(self.simulation.result) if self.simulation.result is not None else None
+        self._keep_choices()
 
     @property
     def mode(self) -> str:
@@ -72,6 +99,11 @@ class SlotRunner:
         """`default` and the modes, in the order of the file."""
         return (DEFAULT, *self.scene.modes)
 
+    @property
+    def choices(self) -> Choices:
+        engine = self.simulation.engine
+        return dict(engine.overrides), engine.mode_pick
+
     def mode_label(self, mode: str) -> str:
         label = self.scene.states[mode].label if mode in self.scene.states else None
         return label or mode.capitalize()
@@ -79,6 +111,31 @@ class SlotRunner:
     def mixer_config(self) -> Config:
         """The configuration of today's format for the mixer: the strips of the result, all of them dark before."""
         return showing(self.config, self.shape or DARK)
+
+    def deadline(self) -> float | None:
+        """When a delay or a dwell ends, if one is pending: then the slots need another step."""
+        return self.simulation.deadline()
+
+    # -- requests -------------------------------------------------------------------------------------------------
+
+    def pick_mode(self, mode: str | None) -> None:
+        """A mode by hand (`default` too), None for the rules; from the next step on."""
+        self.simulation.engine.pick_mode(mode)
+        self._keep_choices()
+
+    def set_override(self, state: str, value: Override) -> None:
+        """The override of a state that is no mode; from the next step on."""
+        self.simulation.engine.set_override(state, value)
+        self._keep_choices()
+
+    def pin(self, slot: int, member: App | Channel | None) -> None:
+        """Pins a member to a slot of `auto`, None takes the pin away; from the next step on."""
+        if member is None:
+            self.pins.pop(slot, None)
+        else:
+            self.pins[slot] = member
+
+    # -- steps ----------------------------------------------------------------------------------------------------
 
     def step(
         self,
@@ -95,11 +152,13 @@ class SlotRunner:
         observation = self.observer.observe(audio, processes, voip, now)
         before = self.simulation.states
         previous = self.simulation.result
-        result = self.simulation.step(observation, now, held)
+        result = self.simulation.step(observation, now, held, self.pins)
         states = self.simulation.states
         assert states is not None
         self._log_states(before, states)
         self._keep_people(tuple(person.name for person in observation.people))
+        # an override ends at an edge of its state, a mode picked when the rules want another one
+        self._keep_choices()
         shape = shape_of(result)
         if shape == self.shape:
             return False
@@ -111,15 +170,19 @@ class SlotRunner:
         """Writes the people known when someone came or went (then they were last seen)."""
         known = self.simulation.known
         kept = (tuple(known), people)
-        if self.people_file is None or kept == self._kept:
+        if self.state_dir is None or kept == self._kept:
             return
         self._kept = kept
         clock, wall_clock = self._clocks
-        write_people(self.people_file, known, clock(), wall_clock())
+        write_people(self.state_dir / PEOPLE_FILE_NAME, known, clock(), wall_clock())
 
-    def pick_mode(self, mode: str | None) -> None:
-        """A mode by hand (`default` too), None for the rules."""
-        self.simulation.engine.pick_mode(mode)
+    def _keep_choices(self) -> None:
+        """Writes the choices when they changed."""
+        choices = self.choices
+        if self.state_dir is None or choices == self._chosen:
+            return
+        self._chosen = choices
+        write_choices(self.state_dir / CHOICES_FILE_NAME, choices)
 
     @staticmethod
     def _log_states(before: States | None, after: States) -> None:
@@ -160,6 +223,10 @@ def read_people(path: Path, now: float, wall_now: float) -> dict[str, float]:
 def write_people(path: Path, known: Known, now: float, wall_now: float) -> None:
     """Keeps the people known for the next start, in their order, with wall-clock times. Errors are logged."""
     data = [[person, round(wall_now - (now - at), 1)] for person, at in known.items()]
+    _write(path, data, "the order of the people")
+
+
+def _write(path: Path, data: object, what: str) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         # whole or not at all
@@ -167,4 +234,29 @@ def write_people(path: Path, known: Known, now: float, wall_now: float) -> None:
         temporary.write_text(json.dumps(data) + "\n", encoding="utf-8")
         temporary.replace(path)
     except OSError as e:
-        _LOGGER.warning(f"Can't keep the order of the people in {path}: {e}")
+        _LOGGER.warning(f"Can't keep {what} in {path}: {e}")
+
+
+def read_choices(path: Path, scene: Scene) -> Choices:
+    """The choices `write_choices()` kept, those that still fit the scene (none without a readable file)."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        overrides = {str(name): Override(value) for name, value in data["overrides"].items()}
+        mode = data["mode"]
+    except FileNotFoundError:
+        return {}, None
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as e:
+        _LOGGER.warning(f"Can't read the overrides and the mode from {path}: {e}")
+        return {}, None
+    kept = {name: value for name, value in overrides.items() if name in scene.states and not scene.states[name].mode}
+    return kept, mode if mode == DEFAULT or mode in scene.modes else None
+
+
+def write_choices(path: Path, choices: Choices) -> None:
+    """Keeps the choices for the next start. Errors are logged."""
+    overrides, mode = choices
+    _write(
+        path,
+        {"overrides": {name: value.value for name, value in overrides.items()}, "mode": mode},
+        "the overrides and the mode",
+    )
