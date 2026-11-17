@@ -160,6 +160,11 @@ class _Resolver:
         # pools of channels first: a slot meant for a channel gets it before `auto` takes it as a whole
         order = [pool for pool in self.scene.pools if pool not in (AUTO, PEOPLE)] + [PEOPLE, AUTO]
         for pool in order:
+            if pool == AUTO and self.scene.pools[PEOPLE].share == AUTO and PEOPLE in waiting:
+                # before auto hands out its members: the people that got no slot of their own take some of its slots
+                left = self._share(shown, waiting.pop(PEOPLE), with_slot)
+                if left:
+                    waiting[PEOPLE] = left
             slots = sorted(slot for slot, s in shown.items() if s.pool == pool and slot not in self.inputs.fixed)
             held = {s.member for slot, s in shown.items() if s.pool == pool and slot in self.inputs.fixed}
             members = [member for member in self._members(pool, with_slot) if member not in held]
@@ -204,6 +209,41 @@ class _Resolver:
                     # a channel one pool gave a slot is not a member of the next one
                     with_slot.add(channel)
         return waiting
+
+    def _share(self, shown: dict[int, Shown], people: tuple[str, ...], with_slot: set[str]) -> tuple[str, ...]:
+        """
+        Puts people on slots of `auto`: each keeps the slot it had, a new one takes the rightmost slot whose
+        application doesn't keep it (the applications fill from the left), else the rightmost one left. The people
+        that find none wait.
+        """
+        slots = sorted(slot for slot, s in shown.items() if s.pool == AUTO and slot not in self.inputs.fixed)
+        members = set(self._members(AUTO, with_slot))
+        keeping: set[int] = set()
+        assigned: dict[int, str] = {}
+        for slot in slots:
+            before = self.previous.slots.get(slot) if self.previous is not None else None
+            if before is None:
+                continue
+            if before.pool == PEOPLE and before.member in people and before.member not in assigned.values():
+                assigned[slot] = before.member
+            elif (before.pool == AUTO and before.member in members) or slot in self.inputs.pins:
+                keeping.add(slot)
+        left: list[str] = []
+        for person in people:
+            if person in assigned.values():
+                continue
+            free = [slot for slot in slots if slot not in assigned]
+            slot = next((s for s in reversed(free) if s not in keeping), free[-1] if free else None)
+            if slot is None:
+                left.append(person)
+                continue
+            assigned[slot] = person
+            if slot in keeping:
+                self.why[slot].append(f"{shown[slot]}: gives way to {person}")
+        for slot, person in assigned.items():
+            shown[slot] = Shown(shown[slot].candidate, pool=PEOPLE, member=person)
+            self.why[slot].append(f"auto: shared with people, {person}")
+        return tuple(left)
 
     def _members(self, pool: str, with_slot: set[str]) -> list[str]:
         observation = self.inputs.observation

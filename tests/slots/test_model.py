@@ -88,6 +88,8 @@ def test_stacks_in_all_forms():
         ("[state.loop]\nwhen = 'present'", 'state.loop.when: "present": present is only for candidates'),
         ("[state.loop]\nwhen = 'present(out)'", 'state.loop.when: "present(out)": present is only for candidates'),
         ("[pool.media]\nchannels = ['#music']", "pool.media.channels: no channel has the tag music"),
+        ("[pool.people]\nshare = 'out'", "pool.people.share: only people share, and only the slots of auto"),
+        ("[pool.auto]\nshare = 'auto'", "pool.auto.share: only people share"),
         ("[pool.media]\nchannels = ['tape']", "pool.media.channels: tape is no channel"),
         ("[state.music]\nchannels = ['tape']", "state.music.channels: tape is no channel"),
         ("[channel.app]\ntype = 'apps'", "channel.app: Value error, an apps channel needs match"),

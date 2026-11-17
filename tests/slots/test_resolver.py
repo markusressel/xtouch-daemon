@@ -5,6 +5,7 @@ of the reviews of the design are here by name.
 
 from tests.support.slots import example, scene, shows, states
 from xtouch_daemon.slots.inputs import Observation
+from xtouch_daemon.slots.model import AUTO, PEOPLE
 from xtouch_daemon.slots.resolver import Inputs, Result, Shown, resolve
 
 SCENE = """
@@ -253,3 +254,40 @@ def test_a_pinned_channel_that_got_a_slot_of_its_own_is_shown_there_only():
 def test_a_pool_of_channels_gets_its_channel_before_auto_takes_it():
     result = run('[slots]\n1 = "media"\n2 = "auto"', observation=Observation(playing=("spotify",)))
     assert shows(result, [1, 2]) == ["media:spotify", "auto"]
+
+
+def test_people_share_the_auto_slots_from_the_right_and_nobody_moves():
+    """Applications fill auto from the left, people from the right (next to VoIP): coming and going moves no one."""
+    read = scene(SCENE + '[pool.people]\nshare = "auto"\n[slots]\n1 = "out"\n2 = "browser"\n7 = "voip"\n8 = "-"\n')
+    present = ALL
+
+    def step(previous: Result | None, playing: tuple[str, ...], people: tuple[str, ...]) -> Result:
+        return resolve(read, Inputs(states(read), present, Observation(playing=playing, people=people)), previous)
+
+    first = step(None, ("mpv",), ())
+    assert shows(first, [3, 4, 5, 6]) == ["auto:mpv", "auto", "auto", "auto"]
+    bob = step(first, ("mpv",), ("Bob",))
+    assert shows(bob, [3, 4, 5, 6]) == ["auto:mpv", "auto", "auto", "people:Bob"]
+    carol = step(bob, ("mpv", "vlc"), ("Bob", "Carol"))
+    assert shows(carol, [3, 4, 5, 6]) == ["auto:mpv", "auto:vlc", "people:Carol", "people:Bob"]
+    # full: Dave takes the rightmost slot left, vlc gives way and waits
+    dave = step(carol, ("mpv", "vlc"), ("Bob", "Carol", "Dave"))
+    assert shows(dave, [3, 4, 5, 6]) == ["auto:mpv", "people:Dave", "people:Carol", "people:Bob"]
+    assert dave.waiting == {AUTO: ("vlc",)}
+    assert "auto: gives way to Dave" in dave.why[4]
+    # Bob leaves: vlc gets his slot, nobody else moves
+    gone = step(dave, ("mpv", "vlc"), ("Carol", "Dave"))
+    assert shows(gone, [3, 4, 5, 6]) == ["auto:mpv", "people:Dave", "people:Carol", "auto:vlc"]
+    # five people for four slots: one waits
+    crowd = step(None, (), ("A", "B", "C", "D", "E"))
+    assert shows(crowd, [3, 4, 5, 6]) == ["people:D", "people:C", "people:B", "people:A"]
+    assert crowd.waiting == {PEOPLE: ("E",)}
+
+
+def test_people_of_their_own_slots_first_then_auto_slots():
+    read = scene(
+        SCENE
+        + '[pool.people]\nshare = "auto"\n[slots]\n1 = "people"\n2 = "-"\n3 = "-"\n4 = "-"\n5 = "-"\n6 = "-"\n7 = "-"\n'
+    )
+    result = resolve(read, Inputs(states(read), ALL, Observation(people=("Bob", "Carol"))))
+    assert shows(result, [1, 8]) == ["people:Bob", "people:Carol"]

@@ -126,7 +126,7 @@ A pool gives each slot that shows it one **member** that no other slot shows.
 | Pool | Members, in this order |
 |---|---|
 | `auto` (built in) | **Whatever plays and has no slot**: `apps` channels with `in_auto` that are present and not shown (each as a whole: its label, volume, entities, as in DAW banking), and applications that play and no channel matches. In the order they started playing. A member stays one for `hold` seconds after it stopped (today's `auto_hold`). |
-| `people` (built in) | People in the voice chat who have no `person` channel, in the provider's order (Mumble: who came first). Like a channel, a person stays a member `absent_after` after they left, so a reconnect moves nothing. |
+| `people` (built in) | People in the voice chat who have no `person` channel, in the provider's order (Mumble: who came first). Like a channel, a person stays a member `absent_after` after they left, so a reconnect moves nothing. With `share = "auto"` the people that have no slot of their own take slots of `auto`: from the right (next to the voice chat's strips), while the applications fill them from the left, so neither moves when the other comes or goes; a person takes the slot of an application only when all are taken. |
 | `[pool.<id>] channels = [...]` | The present channels of the list (ids, `"#tag"`) that are not shown by a candidate of their own, in the list's order. |
 
 ```toml

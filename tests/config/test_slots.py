@@ -66,8 +66,12 @@ def test_the_strips_of_every_candidate_and_member():
     assert "beep" in config.behavior.ignore
     assert "radio" in config.behavior.ignore
     assert "firefox" in config.behavior.ignore
-    shown = showing(config, ((0, None, "out"), (0, "web", "radio"), *[(None, None, None)] * 6))
-    assert [strip.type for strip in shown.strips[:3]] == ["output", "apps", "empty"]
+    shown = showing(
+        config,
+        ((0, None, "out", None), (0, "web", "radio", None), (0, "people", None, "Bo"), *[(None, None, None, None)] * 5),
+    )
+    assert [strip.type for strip in shown.strips[:4]] == ["output", "apps", "voip", "empty"]
+    assert shown.strips[2].model_dump()["person"] == ("Bo",)
 
 
 def test_without_people_no_voip_section():

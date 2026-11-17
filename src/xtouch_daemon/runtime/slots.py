@@ -21,7 +21,7 @@ from xtouch_daemon.slots.states import States
 
 _LOGGER = logging.getLogger(__name__)
 
-DARK: Shape = ((None, None, None),) * protocol.STRIPS
+DARK: Shape = ((None, None, None, None),) * protocol.STRIPS
 """Every slot dark: before the first step."""
 INTERVAL = 0.2
 """How often the slots are resolved: also the batching of changes that come together (a game starts)."""

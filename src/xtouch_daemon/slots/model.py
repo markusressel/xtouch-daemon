@@ -90,6 +90,11 @@ class PoolConfig(_Open):
     channels: tuple[str, ...] = ()
     exclude: tuple[str, ...] = ()
     hold: float = 5.0
+    share: str | None = None
+    """
+    `people` only: `"auto"` lets the people take slots of `auto`, from the right (next to the voice chat's strips),
+    while the applications fill them from the left; neither moves when the other comes.
+    """
 
 
 class StateConfig(_Section):
@@ -196,6 +201,9 @@ class Scene:
         return tuple(result)
 
     def _check_references(self, problems: list[str]) -> None:
+        for name, pool in self.pools.items():
+            if pool.share is not None and (name != PEOPLE or pool.share != AUTO):
+                problems.append(f'pool.{name}.share: only people share, and only the slots of auto (share = "auto")')
         states = {*self.states, DEFAULT}
         known = {*self.channels, *self.pools}
         tags = {tag for channel in self.channels.values() for tag in channel.tags}

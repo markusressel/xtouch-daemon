@@ -6,7 +6,7 @@ resolver (see `runtime.slots`).
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
@@ -23,12 +23,15 @@ SECTIONS = ("channel", "pool", "state", "slots")
 """The sections of the format of channels, states and slots; a file with one of them is in that format."""
 CHANNEL_ONLY = frozenset({"tags", "in_auto", "absent_after"})
 """Options of a channel that are about slots, not about its strip."""
-POOL_ONLY = frozenset({"channels", "exclude", "hold"})
+POOL_ONLY = frozenset({"channels", "exclude", "hold", "share"})
 """Options of a pool that are about its members, not about its strips."""
 EMPTY = "-"
 
-type Shape = tuple[tuple[int | None, str | None, str | None], ...]
-"""Per slot, what decides its strip: the candidate, its pool and its channel (not the members of `auto`/`people`)."""
+type Shape = tuple[tuple[int | None, str | None, str | None, str | None], ...]
+"""
+Per slot, what decides its strip: the candidate, its pool, its channel and the person of `people` (each person has
+a strip of their own, so they stay where the resolver put them; the applications of `auto` go to its strips).
+"""
 
 _STRIP = TypeAdapter[StripConfig](StripConfig)
 
@@ -38,7 +41,10 @@ def shape_of(result: Result) -> Shape:
     What the strips of a result depend on: a channel (also one a pool hands out), a pool of applications or people
     (its members go to the strips of the mixer), or nothing.
     """
-    return tuple((shown.candidate, shown.pool, shown.channel) for shown in result.slots.values())
+    return tuple(
+        (shown.candidate, shown.pool, shown.channel, shown.member if shown.pool == PEOPLE else None)
+        for shown in result.slots.values()
+    )
 
 
 @dataclass(frozen=True)
@@ -50,12 +56,22 @@ class SlotsSetup:
     """The sections of the format, as in the file."""
     strips: Mapping[tuple[int, int, str | None], StripConfig]
     """By slot, candidate and channel (None for a pool of applications or people, and for `-`)."""
+    people: Mapping[str, Any] = field(default_factory=dict)
+    """The look of the strips of people (the options of `[pool.people]`)."""
 
     def strips_of(self, shape: Shape) -> tuple[StripConfig, ...]:
         return tuple(
-            self.strips[(slot, candidate, channel)] if candidate is not None else self.strips[(slot, -1, None)]
-            for slot, (candidate, _, channel) in zip(SLOTS, shape, strict=True)
+            self.person(person)
+            if person is not None
+            else self.strips[(slot, candidate, channel)]
+            if candidate is not None
+            else self.strips[(slot, -1, None)]
+            for slot, (candidate, _, channel, person) in zip(SLOTS, shape, strict=True)
         )
+
+    def person(self, name: str) -> StripConfig:
+        """The strip of a person of `people` (checked with a made-up name when the file is loaded)."""
+        return _STRIP.validate_python({"type": "voip"} | dict(self.people) | {"person": name})
 
     def ignored(self) -> tuple[str, ...]:
         """
@@ -140,6 +156,8 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 )
                 for member in members:
                     add((slot, index, member), f"{where} ({member})", look | channel_strip(member) | own)
+    people = {key: value for key, value in pools.get(PEOPLE, {}).items() if key not in POOL_ONLY}
+    check("pool.people", {"type": "voip"} | people | {"person": "someone"})
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))
     voip = config.voip
@@ -149,11 +167,11 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
     behavior = config.behavior.model_copy(
         update={
             "auto_hold": scene.pools[AUTO].hold,
-            "ignore": (*config.behavior.ignore, *SlotsSetup(scene, data, strips).ignored()),
+            "ignore": (*config.behavior.ignore, *SlotsSetup(scene, data, strips, people).ignored()),
         }
     )
     result = config.model_copy(update={"voip": voip, "behavior": behavior})
-    result._slots = SlotsSetup(scene, data, strips)
+    result._slots = SlotsSetup(scene, data, strips, people)
     return result
 
 
