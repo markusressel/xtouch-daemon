@@ -405,3 +405,40 @@ async def test_the_chord_does_its_action(
     assert daemon.slots.mode == expected[0] or action.startswith("toggle")
     daemon.stop()
     await task
+
+
+async def test_the_slots_in_home_assistant(
+    tmp_path: Path, surface: RecordingSurface, notifications: Notifications, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.support.mqtt import FakeBroker
+    from xtouch_daemon import mqtt as mqtt_module
+    from xtouch_daemon.config.sections import MqttConfig
+    from xtouch_daemon.mqtt import MqttBridge
+
+    monkeypatch.setattr(mqtt_module, "RECONNECT_DELAY", 0.001)
+    broker = FakeBroker()
+    path = tmp_path / "slots.toml"
+    path.write_text(SLOTS + '[mqtt]\nhost = "broker"\n')
+    bridge = MqttBridge(MqttConfig(host="broker"), client_factory=broker.client)
+    daemon = Daemon(
+        parse_config(path.read_text()),
+        FakeBackend((STATE,)),
+        surface,
+        path,
+        capture_command=QUIET,
+        bridge=bridge,
+        processes=Processes(),
+    )
+    task = asyncio.create_task(daemon.run())
+    entities = daemon.slot_entities
+    assert entities is not None
+    await until(lambda: broker.last(entities.slots[2].state_topic) == "app:Spotify")
+    # a reload: entities of the new configuration
+    assert daemon.reload()
+    assert daemon.slot_entities is not entities
+    # the broker goes away and comes back: everything again
+    count = len(broker.published)
+    broker.disconnect()
+    await until(lambda: len(broker.published) > count + 20)
+    daemon.stop()
+    await task

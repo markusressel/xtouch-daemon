@@ -73,6 +73,8 @@ class SlotEngine:
         self.on_request: Callable[[], None] = lambda: None
         """Called after a request of a slot's encoder, which should show at once."""
         self.observer = Observer()
+        self.homeassistant: frozenset[str] = frozenset()
+        """The states whose input in Home Assistant is on (`homeassistant = true`, see `runtime.homeassistant`)."""
 
     def reconfigure(self, config: Config) -> None:
         """Goes on with another configuration (a reload): states, channels, members and choices carry over by id."""
@@ -103,6 +105,11 @@ class SlotEngine:
     def mode_label(self, mode: str) -> str:
         label = self.scene.states[mode].label if mode in self.scene.states else None
         return label or mode.capitalize()
+
+    @property
+    def clocks(self) -> tuple[Callable[[], float], Callable[[], float]]:
+        """The clock of the steps and the wall clock."""
+        return self._clocks
 
     def deadline(self) -> float | None:
         """When a delay or a dwell ends, if one is pending: then the slots need another step."""
@@ -194,7 +201,7 @@ class SlotEngine:
         now: float,
     ) -> Result:
         """Resolves the slots with what the system shows at `now`; `held` are the slots (from 1) under a finger."""
-        observation = self.observer.observe(audio, processes, voip, now)
+        observation = self.observer.observe(audio, processes, voip, now, self.homeassistant)
         before = self.simulation.states
         previous = self.simulation.result
         result = self.simulation.step(observation, now, held, self.picks | self.pins)

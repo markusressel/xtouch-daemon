@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   fader, encoder and buttons of a slot whatever it shows (a launch, a mode, a state toggled by hand, Home Assistant),
   layout switches by hand pick a mode, the chord can do another action (`chord = { strips = [1, 8], action =
   "toggle:call" }`: `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`), and `check-config` prints its table.
+  With `[mqtt]`, Home Assistant gets `select.<ns>_mode` (instead of the layout select), a binary sensor per state
+  (`since`, `source`, `override`), an override select per state, an input switch per state with
+  `homeassistant = true`, `binary_sensor.<ns>_<channel>_shown` and `sensor.<ns>_slot_<n>` (what the slot shows,
+  with `label`, `kind`, `via` and `reason`).
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.
   `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
   `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` strips, `apps` and `processes` of layouts

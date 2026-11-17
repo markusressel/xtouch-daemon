@@ -32,7 +32,14 @@ class Observer:
     apps: dict[str, str] = field(default_factory=dict)
     """The name of the application of the streams of each name (`stream_name()`), as the sound server says it."""
 
-    def observe(self, audio: AudioState, processes: frozenset[str], voip: VoipState | None, now: float) -> Observation:
+    def observe(
+        self,
+        audio: AudioState,
+        processes: frozenset[str],
+        voip: VoipState | None,
+        now: float,
+        homeassistant: frozenset[str] = frozenset(),
+    ) -> Observation:
         names = [stream_name(stream.app, stream.binary) for stream in audio.streams]
         for stream in audio.streams:
             self.apps[stream_name(stream.app, stream.binary)] = stream.app
@@ -49,6 +56,7 @@ class Observer:
             people=attendees(voip) if voip is not None else (),
             processes=processes,
             devices=frozenset(device for device in devices if device),
+            homeassistant=homeassistant,
         )
 
 

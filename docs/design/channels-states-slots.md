@@ -743,8 +743,8 @@ for `switching.banner` seconds, unless the mode changed (its banner says it). `[
 shows their fader, ring and LEDs, and launches, picks modes, toggles states or puts them into Home Assistant. Apps
 channels never go into `auto` one application at a time, only as a whole. The mode takes the place of the layout:
 `xtouch-daemon layout gaming`, the GUI and the chord pick a mode, `layout auto` gives it back to the rules; the
-banner names a new mode. Not yet: Home Assistant entities of states, modes and slots (no `select.xtouch_mode`), and
-the GUI (it can't edit the format).
+banner names a new mode. With `[mqtt]`, Home Assistant has the entities of [Home Assistant](#home-assistant)
+(`runtime/homeassistant.py`, step 6). Not yet: the GUI (it can't edit the format).
 
 Next: see [Decisions after the live test](#decisions-after-the-live-test).
 

@@ -48,6 +48,7 @@ from xtouch_daemon.live.server import LiveServer, strip_states
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.runtime.desk import Desk
+from xtouch_daemon.runtime.homeassistant import SlotEntities
 from xtouch_daemon.runtime.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout
 from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.runtime.slots import BATCH as SLOTS_BATCH
@@ -177,6 +178,8 @@ class Daemon:
         self.desk.hands_free.append(self._wake_slots)
         self._slot_processes: tuple[float, frozenset[str]] | None = None
         """When the processes were scanned for the states of the slots last, and what ran."""
+        self.slot_entities: SlotEntities | None = None
+        """The states, the mode, the channels and the slots in Home Assistant (with slots and [mqtt])."""
         self.mixer = self._new_mixer()
         self._background: set[asyncio.Task[None]] = set()
         self._stop = asyncio.Event()
@@ -200,6 +203,13 @@ class Daemon:
             keep = layout_entity_ids(self.config, self.bridge.config.namespace)
             if self.layout_select is not None:
                 shared[self.layout_select] = self.layout
+        if self.slot_entities is not None:
+            self.slot_entities.close()
+            self.slot_entities = None
+        if self.slots is not None and self.bridge is not None:
+            assert self.config.slots is not None
+            self.slot_entities = SlotEntities(self.bridge, self.slots, self.config.slots, self._wake_slots)
+            shared |= self.slot_entities.entities
         if self.slots is not None:
             assert self.voip is not None, "people share the slots of auto in every configuration of slots"
             return SlotMixer(
@@ -493,6 +503,8 @@ class Daemon:
         # a new mode shows its banner instead of a flash per slot
         self.mixer.apply(result, 0.0 if new_mode else seconds)
         self.mixer.refresh()
+        if self.slot_entities is not None:
+            self.slot_entities.update(result)
         if new_mode and seconds > 0:
             self.surface.banner(self.slots.mode_label(states.mode), states.reasons.get(states.mode, ""), seconds)
 
@@ -701,6 +713,8 @@ class Daemon:
 
     def _on_mqtt_connection(self, connected: bool) -> None:
         self.mixer.refresh()
+        if not connected and self.slot_entities is not None:
+            self.slot_entities.forget()
         systemd.notify(self._status())
 
     def _in_background(self, coroutine: Coroutine[Any, Any, None], name: str) -> None:
