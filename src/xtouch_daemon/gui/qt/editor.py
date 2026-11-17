@@ -72,6 +72,22 @@ class Editor(QObject):
         self.document.rename(("channel", name), new)
         self.edited(Change(Scope.CHANNELS))
 
+    def add_state(self, mode: bool) -> str:
+        """Adds a state (or a mode), with an id after it; returns the id."""
+        name = free_id(self.document.get(("state",), {}), "mode" if mode else "state")
+        self.document.set(("state", name), {"mode": True} if mode else {})
+        self.edited(Change(Scope.STATES))
+        return name
+
+    def remove_state(self, name: str) -> None:
+        self.document.unset(("state", name))
+        self.edited(Change(Scope.STATES))
+
+    def rename_state(self, name: str, new: str) -> None:
+        """Another id for a state; the conditions that name it are the user's to change."""
+        self.document.rename(("state", name), new)
+        self.edited(Change(Scope.STATES))
+
     # -- history and the file -------------------------------------------------------------------------------------
 
     def undo(self) -> bool:

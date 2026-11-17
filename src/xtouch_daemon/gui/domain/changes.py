@@ -14,6 +14,8 @@ class Scope(Enum):
     """One value, in place (`Change.path`): the field that made the change shows it already."""
     CHANNELS = "channels"
     """The channels: one was added, removed, renamed or duplicated."""
+    STATES = "states"
+    """The states: one was added, removed or renamed."""
     SECTION = "section"
     """A section (`Change.path`, e.g. `("mqtt",)`) was added or removed."""
     ALIASES = "aliases"

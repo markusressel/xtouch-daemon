@@ -336,8 +336,8 @@ class MainWindow(QMainWindow):
 
         self.device_page = DevicePage()
         self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
-        self.states_page = StatesPage()
-        self.pages: dict[str, Page] = {"channels": self.channels_page}
+        self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
+        self.pages: dict[str, Page] = {"channels": self.channels_page, "states": self.states_page}
         for name in SETTINGS_PAGES:
             if name == "aliases":
                 self.pages[name] = AliasesPage(self.editor, audio)
@@ -352,7 +352,7 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.stack.addWidget(self.device_page)
         self.stack.addWidget(self._scroll(self.channels_page))
-        self.stack.addWidget(self.states_page)
+        self.stack.addWidget(self._scroll(self.states_page))
         self.stack.addWidget(self._settings())
         return self.stack
 
@@ -489,6 +489,7 @@ class MainWindow(QMainWindow):
         self.slots_pill.setVisible(slots is not None)
         if slots is not None:
             show_status(self.slots_pill, slots)
+        self.states_page.show_live(snapshot)
         self.mqtt_page.show_live(snapshot)
         self.voip_page.show_live(snapshot)
         sync = sync_status(
@@ -554,7 +555,8 @@ class MainWindow(QMainWindow):
             case ("people", *_):
                 self.channels_page.select(("people",))
                 self.show_page("channels")
-            case ("state", *_):
+            case ("state", str(name), *_):
+                self.states_page.select(name)
                 self.show_page("states")
             case ("slots" | "controls", *_):
                 self.show_page("slots")

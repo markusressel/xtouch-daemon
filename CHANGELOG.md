@@ -34,7 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `min_volume` and `max_volume` of channels and `auto` slots are checked. `collapse` on a channel and `launch` on a
   `person` channel are errors (they did nothing): `"<id> if present"` and `[controls]` do that now.
   The GUI edits this format: a rail with the pages Device (the device live), Channels (the channels, `[pool.auto]`
-  and `[people]`, with Add, Duplicate and Remove, and where each is used), States and Settings; it opens a file with
+  and `[people]`, with Add, Duplicate and Remove, and where each is used), States (modes first, their sources,
+  delays and where they are used, what the daemon says about each, an override or a mode picked) and Settings; it opens a file with
   strips and layouts migrated, to save in the new format. Problems lead to their channel, state or setting.
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.
   `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
