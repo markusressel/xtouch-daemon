@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.config import legacy
 from xtouch_daemon.config.base import ConfigError
-from xtouch_daemon.config.files import Problem, example_config, parse_config
+from xtouch_daemon.config.files import Problem, example_config
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.drafts import StripDraft
 
@@ -88,7 +89,7 @@ def test_a_removed_option_goes_back_to_its_default():
 
     assert "meters" not in text
     assert "device =" not in text
-    assert parse_config(text).behavior.meters is True
+    assert legacy(text).behavior.meters is True
 
 
 def test_a_new_option_goes_after_the_last_option_of_its_table():
@@ -293,7 +294,7 @@ def test_kept_options_survive_saving_and_reopening(tmp_path: Path):
 
     # the daemon reads comments as nothing
     text = path.read_text()
-    assert parse_config(text) == config
+    assert legacy(text) == config
     assert config.strips[0].type == "empty"
     assert (
         "[[strip]]\n"
@@ -344,7 +345,7 @@ def test_kept_options_without_a_look_in_the_file_fit_on_comment_lines():
 
     text = doc.render()
 
-    parse_config(text)
+    legacy(text)
     assert text == (
         "[[strip]]\n"
         'type = "auto"\n'
@@ -388,7 +389,7 @@ def test_kept_options_changed_into_no_toml_stay_as_they_are():
     doc = document(UNREADABLE)
     assert doc.strips[0].unreadable == ("output",)
     assert doc.strips[0].kept == {}
-    parse_config(UNREADABLE)
+    legacy(UNREADABLE)
 
     doc.set_strip_type(0, "apps")
     doc.set(("strip", 0, "match"), ["vlc"])
@@ -414,7 +415,7 @@ def test_a_strip_without_a_type_keeps_its_options_too():
 
 def test_validation_uses_the_models():
     doc = document()
-    assert doc.validate().config == parse_config(FILE)
+    assert doc.validate().config == legacy(FILE)
     assert doc.validate().problems == []
 
     doc.unset(("strip", 1, "label"))
@@ -606,10 +607,10 @@ def test_a_strip_knows_whether_it_changed():
 
 def test_the_saved_configuration_is_known():
     doc = document()
-    assert doc.saved_config == parse_config(FILE)
+    assert doc.saved_config == legacy(FILE)
     doc.set(("behavior", "max_volume"), 110)
     # the one in the file, not the edited one
-    assert doc.saved_config == parse_config(FILE)
+    assert doc.saved_config == legacy(FILE)
     assert document('[[strip]]\ntype = "fader"\n').saved_config is None
 
 

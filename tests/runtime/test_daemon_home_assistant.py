@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend
-from tests.support.daemon import HOME_ASSISTANT, QUIET, Notifications, make, make_with_mqtt, until
+from tests.support.daemon import HOME_ASSISTANT, QUIET, STATE, Notifications, make, make_with_mqtt, until
 from tests.support.hardware import RecordingSurface
 from tests.support.mqtt import FakeBroker
 from xtouch_daemon import __version__
@@ -34,8 +34,13 @@ async def test_home_assistant_strips_follow_the_broker(
     assert daemon.bridge is not None
 
     task = asyncio.create_task(daemon.run())
+    await until(
+        lambda: "STATUS=waiting for X-Touch-Ext, waiting for the sound server, MQTT connected" in notifications.states()
+    )
+    # the slots show once the sound server tells what plays
+    assert backend.on_state is not None
+    backend.on_state(STATE)
     await until(lambda: surface.strips[0].text == ["Lights", ""])
-    assert "STATUS=waiting for X-Touch-Ext, waiting for the sound server, MQTT connected" in notifications.states()
 
     # the device comes and goes: Home Assistant shows the entities as available or not
     surface.on_connection(True)
@@ -70,6 +75,9 @@ async def test_the_live_view_shows_what_the_daemon_does(
             live_socket=socket,
         )
         task = asyncio.create_task(daemon.run())
+        await until(lambda: backend.on_state is not None)
+        assert backend.on_state is not None
+        backend.on_state(STATE)
         await until(lambda: surface.strips[0].text == ["Lights", ""] and daemon.bridge and daemon.bridge.connected)
         await until(socket.exists)
 
@@ -77,7 +85,7 @@ async def test_the_live_view_shows_what_the_daemon_does(
         snapshot = decode(await reader.readline())
         assert snapshot is not None
         assert snapshot.config == fingerprint(config)
-        assert (snapshot.device, snapshot.sound_server, snapshot.mqtt) == (False, False, True)
+        assert (snapshot.device, snapshot.sound_server, snapshot.mqtt) == (False, True, True)
         state = snapshot.mqtt_state
         assert state is not None
         assert (state.broker, state.username, state.connected, state.error, state.entities) == (
@@ -85,7 +93,7 @@ async def test_the_live_view_shows_what_the_daemon_does(
             None,
             True,
             None,
-            11,
+            21,
         )
         assert snapshot.strips[0].text == ("Lights", "")
 
@@ -136,12 +144,15 @@ async def test_a_reload_gives_the_bridge_the_new_strips(
     config_path.write_text(HOME_ASSISTANT)
     daemon = make_with_mqtt(config_path, surface, backend, broker)
     task = asyncio.create_task(daemon.run())
+    await until(lambda: backend.on_state is not None)
+    assert backend.on_state is not None
+    backend.on_state(STATE)
     await until(lambda: surface.strips[0].text == ["Lights", ""])
 
-    config_path.write_text(HOME_ASSISTANT.replace('"homeassistant"', '"homeassistant"\nid = "desk"'))
+    config_path.write_text(HOME_ASSISTANT.replace("lights", "desk"))
     assert daemon.reload()
     await until(lambda: "homeassistant/number/xtouch/desk_fader/config" in broker.retained)
     daemon.stop()
     await task
 
-    assert "homeassistant/number/xtouch/strip_1_fader/config" not in broker.retained
+    assert "homeassistant/number/xtouch/lights_fader/config" not in broker.retained

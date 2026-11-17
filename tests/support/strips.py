@@ -2,6 +2,10 @@
 Helpers for the tests of the strips.
 """
 
+import tomllib
+
+from pydantic import TypeAdapter
+
 from tests.support.audio import output, source
 from tests.support.hardware import RecordingSurface
 from xtouch_daemon.audio.model import AudioState, Direction
@@ -14,6 +18,12 @@ from xtouch_daemon.strips.device import DeviceStrip
 
 ID = Identity("strip_1", "Strip 1")
 """The identity of a controller of the tests that has no other."""
+
+
+def strips_of(text: str) -> tuple[StripConfig, ...]:
+    """The strips of `[[strip]]` tables, as the configurations of channels and places are checked."""
+    adapter = TypeAdapter[StripConfig](StripConfig)
+    return tuple(adapter.validate_python(strip) for strip in tomllib.loads(text)["strip"])
 
 
 def build(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[str, str] | None = None) -> StripController:

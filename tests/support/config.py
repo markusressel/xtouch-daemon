@@ -6,6 +6,8 @@ import pytest
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.config.migrate import read_legacy
+from xtouch_daemon.config.model import Config
 
 FULL = """
 [device]
@@ -47,6 +49,17 @@ type = "empty"
 def errors_of(text: str) -> str:
     with pytest.raises(ConfigError) as error:
         parse_config(text, "config.toml")
+    return str(error.value)
+
+
+def legacy(text: str, source: str = "config") -> Config:
+    """A file with strips and layouts, read with the models of the old format (as `migrate-config` reads it)."""
+    return read_legacy(text, source)[1]
+
+
+def legacy_errors_of(text: str) -> str:
+    with pytest.raises(ConfigError) as error:
+        legacy(text, "config.toml")
     return str(error.value)
 
 

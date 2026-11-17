@@ -12,11 +12,11 @@ CONFIG = """
 [aliases]
 "WEBRTC VoiceEngine" = "Discord"
 
-[[strip]]
+[channel.out]
 type = "output"
 label = "Out"
 
-[[strip]]
+[channel.mic]
 type = "input"
 device = "mic"
 select = false
@@ -24,23 +24,27 @@ meter = false
 rec = "off"
 solo = "muted"
 
-[[strip]]
+[channel.browser]
 type = "apps"
 label = "Browser"
 match = ["brave", "firefox"]
 color = "yellow"
 
-[[strip]]
-type = "empty"
-
-[[strip]]
+[channel.lights]
 type = "homeassistant"
 label = "Lights"
 
-[[strip]]
+[channel.desk]
 type = "homeassistant"
-id = "desk"
 color = "blue"
+
+[slots]
+1 = "out"
+2 = "mic"
+3 = "browser"
+4 = "-"
+5 = "lights"
+6 = "desk"
 
 [mqtt]
 host = "broker"

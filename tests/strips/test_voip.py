@@ -7,7 +7,7 @@ import pytest
 from tests.support.hardware import RecordingSurface
 from tests.support.launch import FakeLauncher
 from tests.support.tasks import finish_tasks, settle
-from xtouch_daemon.audio.meter import Lit, Peak
+from xtouch_daemon.audio.meter import CaptureTarget, Lit, Peak
 from xtouch_daemon.audio.model import DISCONNECTED
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.hardware import protocol
@@ -337,12 +337,11 @@ async def test_a_launch_that_fails_shows_nothing(surface: RecordingSurface, env:
     assert first.notice is None
 
 
-async def test_a_place_without_a_participant_is_absent(
+async def test_a_place_without_a_participant_shows_the_label(
     surface: RecordingSurface, env: StripEnv, provider: FakeProvider
 ):
     seats, strips, _ = make(surface, env, provider)
     seats.next_page()
-    assert [strip.absent(DISCONNECTED) for strip in strips] == [False, True]
     assert [strip.title for strip in strips] == ["Carol", "voip"]
 
 
@@ -364,7 +363,7 @@ async def test_a_strip_of_a_person(surface: RecordingSurface, env: StripEnv, pro
     carol.update(DISCONNECTED)
     group.update(DISCONNECTED)
     assert surface.strips[0].text == ["Mum", "150%"]
-    assert (carol.title, carol.absent(DISCONNECTED)) == ("Mum", False)
+    assert carol.title == "Mum"
     # the group has the two others, on one strip: two pages
     assert surface.strips[1].text == ["Annabel", "100%"]
     assert surface.strips[1].leds[Button.SELECT] == Led.ON
@@ -385,9 +384,10 @@ async def test_a_person_who_is_away(surface: RecordingSurface, env: StripEnv, pr
     # the name stays, dark, with the fader down
     assert (strip.color, strip.text, strip.fader) == (Color.BLACK, ["Dave", "away"], 0)
     assert strip.leds[Button.MUTE] == Led.OFF
-    assert dave.absent(DISCONNECTED)
     assert dave.title == "Dave"
     assert dave.held_meter("pre_fader") is None
+    # people have no meter of the sound server
+    assert dave.target_gain(CaptureTarget(None, monitor=True), DISCONNECTED) is None
     dave.on_fader(0.5)
     dave.on_button(Button.MUTE, True)
     await settle()
@@ -395,7 +395,6 @@ async def test_a_person_who_is_away(surface: RecordingSurface, env: StripEnv, pr
     provider.update((*PEOPLE, Participant("4", "dave")))
     dave.update(DISCONNECTED)
     assert strip.text == ["Dave", "100%"]
-    assert not dave.absent(DISCONNECTED)
 
 
 def test_the_volume_range_is_the_one_of_the_other_strips_by_default(

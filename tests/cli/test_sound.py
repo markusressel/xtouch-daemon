@@ -39,25 +39,25 @@ def test_list_devices_marks_the_defaults() -> None:
 
 
 @pytest.mark.usefixtures("audio", "config_file")
-def test_list_apps_tells_which_strip_takes_each_application() -> None:
+def test_list_apps_tells_which_channel_or_slot_takes_each_application() -> None:
     lines = invoke("list-apps").output.splitlines()
 
     assert lines == [
         "  Brave (@browsers)  binary: brave, 100%",
-        "      goes to strip 3 (Browser)",
+        "      goes to channel browser (Browser)",
         "  WEBRTC VoiceEngine (shown as 'Discord') (@voip)  binary: Discord, 60%, paused",
-        "      goes to an auto strip",
+        "      goes to an auto slot",
         "  speech-dispatcher-espeak  binary: -, 100%",
         "      goes to ignored",
     ]
 
 
 @pytest.mark.usefixtures("audio")
-def test_without_auto_strips_an_application_may_get_no_strip(tmp_path: Path) -> None:
+def test_without_auto_an_application_may_get_no_slot(tmp_path: Path) -> None:
     path = tmp_path / "c.toml"
-    path.write_text('[[strip]]\ntype = "empty"\n' * 8)
+    path.write_text("[slots]\n" + "".join(f'{slot} = "-"\n' for slot in range(1, 9)))
 
-    assert "goes to no strip" in invoke("list-apps", "-c", str(path)).output
+    assert "goes to no slot" in invoke("list-apps", "-c", str(path)).output
 
 
 def test_list_apps_without_applications(monkeypatch: pytest.MonkeyPatch) -> None:

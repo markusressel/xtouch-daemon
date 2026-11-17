@@ -12,8 +12,8 @@ from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.audio.pulse import SoundServerError, read_state
 from xtouch_daemon.cli.options import CONFIG_OPTION, load_or_fail
 from xtouch_daemon.config import presets
-from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.slots.model import AUTO
 
 
 def _audio_state() -> AudioState:
@@ -48,20 +48,24 @@ def list_devices() -> None:
 
 
 def strip_for(app_matches: Any, config: Config) -> str:
-    for number, strip in enumerate(config.all_strips(), start=1):
-        if isinstance(strip, AppsStripConfig) and app_matches(strip.match):
-            return f"strip {number} ({strip.label})"
-    if any(app_matches((pattern,)) for pattern in config.behavior.ignore):
+    """Where an application goes: the `apps` channel that has it, `auto` (unless it is excluded), or nowhere."""
+    scene = config.slots.scene
+    for name, channel in scene.channels.items():
+        if channel.type == "apps" and app_matches(channel.streams):
+            label = getattr(config.slots.channels.get(name), "label", None)
+            return f"channel {name}" + (f" ({label})" if label else "")
+    excluded = (*config.behavior.ignore, *presets.expand(scene.pools[AUTO].exclude, presets.Kind.STREAMS))
+    if any(app_matches((pattern,)) for pattern in excluded):
         return "ignored"
-    if any(isinstance(strip, AutoStripConfig) for strip in config.all_strips()):
-        return "an auto strip"
-    return "no strip"
+    if any(candidate.show == AUTO for stack in scene.stacks.values() for candidate in stack):
+        return "an auto slot"
+    return "no slot"
 
 
 @click.command("list-apps")
 @CONFIG_OPTION
 def list_apps(config_path: Path | None) -> None:
-    """List the applications that play now, and which strip takes them."""
+    """List the applications that play now, and which channel or slot takes them."""
     config = load_or_fail(config_path)
     state = _audio_state()
     if not state.streams:

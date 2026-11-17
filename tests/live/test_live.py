@@ -145,11 +145,11 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
 
 
 def test_the_fingerprint_tells_configurations_apart():
-    speaker = parse_config('[[strip]]\ntype = "output"\nlabel = "Speaker"\n')
+    speaker = parse_config('[channel.out]\ntype = "output"\nlabel = "Speaker"\n')
     secret = '[mqtt]\nhost = "broker"\npassword = "{}"\n'
 
-    assert fingerprint(speaker) == fingerprint(parse_config('[[strip]]\ntype = "output"\nlabel = "Speaker"\n'))
-    assert fingerprint(speaker) != fingerprint(parse_config('[[strip]]\ntype = "output"\nlabel = "Boxes"\n'))
+    assert fingerprint(speaker) == fingerprint(parse_config('[channel.out]\ntype = "output"\nlabel = "Speaker"\n'))
+    assert fingerprint(speaker) != fingerprint(parse_config('[channel.out]\ntype = "output"\nlabel = "Boxes"\n'))
     # also a changed password, which a dump shows as stars
     assert fingerprint(parse_config(secret.format("one"))) != fingerprint(parse_config(secret.format("two")))
     assert len(fingerprint(speaker)) == 16

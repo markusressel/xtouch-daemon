@@ -127,7 +127,7 @@ async def test_a_configuration_with_errors_is_reported_and_the_current_one_kept(
     daemon = make(config_path, surface, backend)
     old = daemon.mixer
 
-    config_path.write_text('[[strip]]\ntype = "loud"\n')
+    config_path.write_text('[channel.x]\ntype = "loud"\n')
     assert not daemon.reload()
 
     assert daemon.mixer is old
@@ -210,6 +210,7 @@ async def test_events_of_the_surface_go_to_the_current_mixer(
     daemon = make(config_path, surface, backend)
     daemon.reload()
     daemon.mixer.on_state(STATE)
+    daemon._step_slots()
 
     surface.on_event(ButtonPressed(0, Button.MUTE, True))
     await settle()
@@ -285,10 +286,10 @@ async def test_the_media_players_follow_while_the_daemon_runs_and_go_to_every_mi
         capture_command=QUIET,
         players=players,  # type: ignore[arg-type]
     )
-    assert daemon.mixer.controllers[0].env.players is players
+    assert daemon.mixer.channels["speaker"].env.players is players
     task = asyncio.create_task(daemon.run())
     await asyncio.wait_for(players.running.wait(), 1)
     assert daemon.reload()
-    assert daemon.mixer.controllers[0].env.players is players
+    assert daemon.mixer.channels["speaker"].env.players is players
     daemon.stop()
     await task

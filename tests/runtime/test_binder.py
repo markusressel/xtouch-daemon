@@ -10,7 +10,7 @@ import pytest
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 
-from tests.support.audio import FakeBackend, output, source, stream
+from tests.support.audio import output, source, stream
 from tests.support.hardware import RecordingSurface
 from tests.support.slots import Rig
 from tests.support.tasks import settle
@@ -19,11 +19,8 @@ from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware.strip import Strip, VirtualStrip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime import binder as binder_module
-from xtouch_daemon.runtime.binder import SlotMixer
-from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.voip import VoipStrip
-from xtouch_daemon.voip.demo import DemoProvider
 
 CONFIG = """
 [voip]
@@ -168,12 +165,6 @@ async def test_the_channels_announce_their_entities_and_follow_the_processes(
     assert announced == [rig.mixer.channels["lamp"].entities | {shared: "default"}]
     assert previews == [True]
     rig.mixer.close()
-
-
-def test_a_slot_mixer_needs_a_configuration_of_slots(surface: RecordingSurface) -> None:
-    config = parse_config('[[strip]]\ntype = "auto"\n[voip]\nprovider = "demo"\n')
-    with pytest.raises(AssertionError):
-        SlotMixer(surface, FakeBackend(()), config, None, Desk(surface), DemoProvider(()))  # type: ignore[arg-type]
 
 
 async def test_a_voip_strip_is_on_its_slot(surface: RecordingSurface) -> None:

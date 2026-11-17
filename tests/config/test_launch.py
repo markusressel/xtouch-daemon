@@ -6,16 +6,13 @@ import re
 
 import pytest
 
-from tests.support.config import errors_of
+from tests.support.config import legacy, legacy_errors_of
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, ChoiceConfig, DeviceStripConfig
-from xtouch_daemon.config.files import (
-    parse_config,
-)
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 
 
 def test_launch_is_a_command_as_a_list_or_one_string():
-    config = parse_config(
+    config = legacy(
         '[voip]\n[[strip]]\ntype = "apps"\nmatch = ["mumble"]\nlabel = "VoIP"\n'
         'launch = ["mumble", "mumble://me@example.org/Gaming"]\n'
         '[[strip]]\ntype = "auto"\nlaunch = "spotify --uri \'spotify:playlist:x y\' ~/$HOME"\n'
@@ -43,7 +40,7 @@ def test_launch_is_a_command_as_a_list_or_one_string():
     ],
 )
 def test_a_launch_that_is_no_command_is_an_error(launch: str, message: str):
-    assert message in errors_of(f'[[strip]]\ntype = "auto"\nlaunch = {launch}\n')
+    assert message in legacy_errors_of(f'[[strip]]\ntype = "auto"\nlaunch = {launch}\n')
 
 
 @pytest.mark.parametrize(
@@ -57,13 +54,14 @@ def test_a_launch_that_is_no_command_is_an_error(launch: str, message: str):
 )
 def test_strips_whose_select_is_taken_have_no_launch(strip: str):
     text = f'[mqtt]\nhost = "broker"\n[[strip]]\n{strip}\nlaunch = ["mumble"]\n'
-    assert "\n  strip[1].launch: " in errors_of(text)
+    assert "\n  strip[1].launch: " in legacy_errors_of(text)
 
 
 def test_launch_when_running_needs_launch_and_is_not_for_voip_strips():
-    assert "launch_when_running: needs launch" in errors_of('[[strip]]\ntype = "auto"\nlaunch_when_running = true\n')
+    auto = '[[strip]]\ntype = "auto"\nlaunch_when_running = true\n'
+    assert "launch_when_running: needs launch" in legacy_errors_of(auto)
     text = '[voip]\n[[strip]]\ntype = "voip"\nlaunch = ["mumble"]\nlaunch_when_running = true\n'
-    assert "strip[1].launch_when_running: " in errors_of(text)
+    assert "strip[1].launch_when_running: " in legacy_errors_of(text)
 
 
 CHOICES = (
@@ -74,7 +72,7 @@ CHOICES = (
 
 
 def test_a_strip_switches_between_choices() -> None:
-    config = parse_config(CHOICES)
+    config = legacy(CHOICES)
     strip = config.strips[0]
     assert isinstance(strip, DeviceStripConfig)
     assert strip.switches
@@ -110,24 +108,20 @@ def test_a_strip_switches_between_choices() -> None:
     ],
 )
 def test_choices_are_checked(text: str, message: str) -> None:
-    assert re.search(message, errors_of(text))
+    assert re.search(message, legacy_errors_of(text))
 
 
 def test_strips_with_collapse_may_be_more_than_the_device_has() -> None:
-    config = parse_config(
-        '[[strip]]\ntype = "output"\ndevice = "buds"\ncollapse = true\n' + '[[strip]]\ntype = "auto"\n' * 8
-    )
+    config = legacy('[[strip]]\ntype = "output"\ndevice = "buds"\ncollapse = true\n' + '[[strip]]\ntype = "auto"\n' * 8)
     assert len(config.all_strips()) == 9
     assert config.unreachable() == []
     assert config.behavior.collapse_hold == 3.0
     # fewer than 8: the rest are auto
-    assert [strip.type for strip in parse_config('[[strip]]\ntype = "empty"\n').all_strips()] == ["empty"] + [
-        "auto"
-    ] * 7
+    assert [strip.type for strip in legacy('[[strip]]\ntype = "empty"\n').all_strips()] == ["empty"] + ["auto"] * 7
 
 
 def test_a_strip_that_could_never_show_is_an_error() -> None:
-    message = errors_of('[[strip]]\ntype = "auto"\n' * 8 + '[[strip]]\ntype = "auto"\ncollapse = true\n' * 2)
+    message = legacy_errors_of('[[strip]]\ntype = "auto"\n' * 8 + '[[strip]]\ntype = "auto"\ncollapse = true\n' * 2)
     assert "strip[9], strip[10] can never show: 8 strips before them don't collapse" in message
 
 
@@ -139,4 +133,4 @@ def test_a_strip_that_could_never_show_is_an_error() -> None:
     ],
 )
 def test_some_strips_never_collapse(strip: str, message: str) -> None:
-    assert message in errors_of(f'[mqtt]\nhost = "b"\n[[strip]]\n{strip}\ncollapse = true\n')
+    assert message in legacy_errors_of(f'[mqtt]\nhost = "b"\n[[strip]]\n{strip}\ncollapse = true\n')

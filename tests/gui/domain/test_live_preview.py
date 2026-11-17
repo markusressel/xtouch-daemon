@@ -1,13 +1,13 @@
 import dataclasses
 from pathlib import Path
 
-from xtouch_daemon.config.files import parse_config
+from tests.support.config import legacy
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
 from xtouch_daemon.gui.domain.status import Tone
 from xtouch_daemon.live.messages import FEATURES, Snapshot, fingerprint
 from xtouch_daemon.system.instance import Instance
 
-CONFIG = parse_config('[[strip]]\ntype = "output"\n')
+CONFIG = legacy('[[strip]]\ntype = "output"\n')
 PATH = Path("/home/me/config.toml")
 DAEMON = Instance(42, PATH, systemd=True)
 SNAPSHOT = Snapshot(fingerprint(CONFIG), True, sound_server=True, mqtt=None, strips=(), features=FEATURES)
@@ -42,7 +42,7 @@ def test_the_device_shows_the_document_once_its_preview_runs():
     assert not previewed(None, CONFIG, running=True)
     # the document has problems, or changed since
     assert not previewed(preview, None, running=True)
-    assert not previewed(preview, parse_config('[[strip]]\ntype = "input"\n'), running=True)
+    assert not previewed(preview, legacy('[[strip]]\ntype = "input"\n'), running=True)
 
 
 def test_the_pill_says_what_the_device_runs():

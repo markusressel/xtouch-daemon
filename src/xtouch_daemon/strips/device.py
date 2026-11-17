@@ -160,10 +160,6 @@ class DeviceStrip(VolumeStrip):
     def recording(self, state: AudioState) -> bool:
         return self.device is not None and state.is_recorded(self.device)
 
-    def absent(self, state: AudioState) -> bool:
-        """None of its devices is there (never for the default device)."""
-        return bool(self.devices) and not state.devices_matching(self.direction, self.devices)
-
     @property
     def title(self) -> str:
         return self.label
@@ -386,10 +382,6 @@ class ChoiceStrip(DeviceStrip):
         elif not choosing.defaulted:
             self._choosing = replace(choosing, defaulted=True)
             self.run_command(self._make_default(self._choosing, device.name), "make default")
-
-    def absent(self, state: AudioState) -> bool:
-        """None of its choices is there."""
-        return not self.available
 
     def _choice_config(self) -> ChoiceConfig | None:
         return self.choices[self.choice] if self.choice is not None else None

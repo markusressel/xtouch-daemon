@@ -350,6 +350,11 @@ async def test_the_meter_shows_the_monitor_of_an_output_or_the_input(surface: Re
     assert mic.meter_targets(STATE) == {CaptureTarget("mic", monitor=False)}
     assert make(surface, env, device="gone").meter_targets(STATE) == set()
     assert make(surface, env, meter=False).meter_targets(STATE) == set()
+    # the meter takes the level of the device with its volume
+    speaker = STATE.device(Direction.OUTPUT, "speaker")
+    assert speaker is not None
+    assert out.target_gain(CaptureTarget("speaker", monitor=True), STATE) == speaker.gain
+    assert out.target_gain(CaptureTarget("gone", monitor=True), STATE) is None
 
 
 async def test_the_meters_can_be_switched_off_for_all_strips(surface: RecordingSurface, backend: FakeBackend) -> None:

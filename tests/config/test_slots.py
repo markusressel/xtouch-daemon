@@ -89,7 +89,10 @@ def test_nothing_ignored_without_apps_channels():
 @pytest.mark.parametrize(
     ("text", "problem"),
     [
-        ('[[strip]]\ntype = "auto"\n[slots]\n1 = "auto"\n', "[slots] replaces [[strip]] and [[layout]]"),
+        (
+            '[[strip]]\ntype = "auto"\n[slots]\n1 = "auto"\n',
+            "has strips and layouts, which are gone: `xtouch-daemon migrate-config`",
+        ),
         (
             CHANNELS.replace('label = "Out"', 'label = "Out"\nvolume = 3') + "[slots]\n",
             "channel.out: volume: Extra inputs are not permitted",
@@ -112,10 +115,7 @@ def test_nothing_ignored_without_apps_channels():
             "switching.chord.action: mode:x: no mode x",
         ),
         ("[switching]\nchord = { strips = [1, 2], what = 1 }\n", "chord: what: only strips and action"),
-        (
-            '[switching]\nchord = { action = "toggle:x" }\n',
-            "switching.chord.action: only with channels, states and slots",
-        ),
+        ('[switching]\nchord = { action = "toggle:x" }\n', "switching.chord.action: toggle:x: no state or mode x"),
     ],
 )
 def test_problems(text: str, problem: str):

@@ -13,11 +13,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import tomlkit
+from pydantic import ValidationError
 from tomlkit.items import InlineTable, Table
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.inheritance import Inheritance
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.slots import SECTIONS
 from xtouch_daemon.config.values import DEFAULT_LAYOUT
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.slots.expressions import RESERVED
@@ -167,12 +169,7 @@ class _Migrator:
 
 def migrate(text: str, source: str = "config") -> Migration:
     """The file in the format of channels, states and slots; ConfigError for a file that is no valid old one."""
-    from xtouch_daemon.config.files import parse_config
-
-    config = parse_config(text, source)
-    if config.slots is not None:
-        raise ConfigError(f"{source} has channels, states and slots already")
-    data = tomllib.loads(text)
+    data, config = read_legacy(text, source)
     migrator = _Migrator(data, config)
     layouts = config.layout_list()
     raw = [list(data.get("strip", ())), *(list(layout.get("strip", ())) for layout in data.get("layout", ()))]
@@ -239,6 +236,23 @@ def _metered(place: _Place, meter_point: str | None, migrator: _Migrator) -> _Pl
     if place.show in migrator.channels and "meter_point" in migrator.channels[place.show]:
         return place
     return _Place(place.show, {**place.options, "meter_point": meter_point}, place.controls, place.present)
+
+
+def read_legacy(text: str, source: str = "config") -> tuple[dict[str, Any], Config]:
+    """The data of a file with strips and layouts, and its configuration; ConfigError for another one."""
+    from xtouch_daemon.config.files import problems_of
+
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as e:
+        raise ConfigError(f"{source} is not valid TOML: {e}") from e
+    if any(section in data for section in SECTIONS):
+        raise ConfigError(f"{source} has channels, states and slots already")
+    try:
+        return data, Config.model_validate(data)
+    except ValidationError as e:
+        problems = "\n".join(f"  {problem}" for problem in problems_of(e))
+        raise ConfigError(f"{source} has errors:\n{problems}") from e
 
 
 def _candidate(place: _Place, mode: str | None) -> str | InlineTable:

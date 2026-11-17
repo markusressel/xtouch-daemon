@@ -75,7 +75,6 @@ async def test_the_choice_of_the_default_shows_with_its_label_and_range(
     assert s.leds[Button.SELECT] == Led.ON
     assert strip.available == (0, 1, 2)
     assert strip.meter_targets(sound(SPEAKER_PROFILE, default=SPEAKER)) == {CaptureTarget(SPEAKER, monitor=True)}
-    assert not strip.absent(sound())
 
     strip.update(sound(default=BUDS))
     assert s.text == ["Buds", "30%"]
@@ -241,7 +240,6 @@ async def test_without_any_choice_there_the_strip_is_absent(
     nothing = AudioState(outputs=(output("hdmi"),), default_output="hdmi")
     strip.update(nothing)
 
-    assert strip.absent(nothing)
     assert surface.strips[0].text == ["Output", "off"]
     assert strip.meter_targets(nothing) == set()
     strip.on_button(Button.SELECT, True)
@@ -319,14 +317,8 @@ async def test_the_new_default_may_come_before_the_command_returns(
     assert backend.calls[-1] == ("set_card_profile", CARD, PHONES_PROFILE.name)
 
 
-async def test_a_device_strip_is_absent_while_none_of_its_devices_is_there(
-    surface: RecordingSurface, env: StripEnv
-) -> None:
+async def test_a_device_strip_shows_the_device_that_is_there(surface: RecordingSurface, env: StripEnv) -> None:
     strip = make(surface, env, device=("speaker", "buds"))
-    assert not strip.absent(STATE)
-    assert strip.absent(AudioState(outputs=(output("hdmi"),)))
-    # the default device is never absent
-    assert not make(surface, env, device=None).absent(AudioState())
     strip.update(STATE)
     assert strip.title == "buds de"
     nothing = make_choices(surface, env)

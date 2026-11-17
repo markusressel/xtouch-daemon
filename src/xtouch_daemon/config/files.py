@@ -79,18 +79,19 @@ def parse_config(text: str, source: str = "config") -> Config:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"{source} is not valid TOML: {e}") from e
+    if "strip" in data or "layout" in data:
+        raise ConfigError(
+            f"{source} has strips and layouts, which are gone: `xtouch-daemon migrate-config` writes it as channels, "
+            "states and slots"
+        )
     rest, slots = split(data)
     try:
         config = Config.model_validate(rest)
     except ValidationError as e:
         problems = "\n".join(f"  {problem}" for problem in problems_of(e))
         raise ConfigError(f"{source} has errors:\n{problems}") from e
-    if slots is None:
-        if config.switching.chord_action != "cycle_modes":
-            raise ConfigError(f"{source} has errors:\n  switching.chord.action: only with channels, states and slots")
-        return config
     try:
-        return setup(config, slots)
+        return setup(config, slots or {})
     except ConfigError as e:
         problems = "\n".join(f"  {line}" for line in str(e).splitlines())
         raise ConfigError(f"{source} has errors:\n{problems}") from e
@@ -99,7 +100,7 @@ def parse_config(text: str, source: str = "config") -> Config:
 def load_config(path: Path | None = None) -> Config:
     """
     The configuration from the file. Without a file at the default path it is the example configuration (6 `auto`
-    strips, the default input and the default output), so the daemon is useful right away.
+    slots, the default input and the default output), so the daemon is useful right away.
     """
     explicit = path is not None
     path = path or default_config_path()
@@ -108,7 +109,7 @@ def load_config(path: Path | None = None) -> Config:
     except FileNotFoundError:
         if explicit:
             raise ConfigError(f"{path} does not exist") from None
-        return parse_config(example_config(), "the example configuration")
+        return parse_config(slots_example_config(), "the example configuration")
     except OSError as e:
         raise ConfigError(f"can't read {path}: {e}") from e
     return parse_config(text, str(path))

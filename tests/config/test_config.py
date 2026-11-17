@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from tests.support.config import FULL, GAMING, HOME_ASSISTANT, MQTT, errors_of
+from tests.support.config import FULL, GAMING, HOME_ASSISTANT, MQTT, legacy, legacy_errors_of
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import (
@@ -17,6 +17,7 @@ from xtouch_daemon.config.files import (
     load_config,
     parse_config,
     problems_of,
+    slots_example_config,
 )
 from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
 from xtouch_daemon.config.model import Config
@@ -27,7 +28,7 @@ from xtouch_daemon.hardware.protocol import Color
 
 
 def test_reads_every_option():
-    config = parse_config(FULL)
+    config = legacy(FULL)
 
     assert config.behavior.max_volume == 120
     assert config.behavior.encoder_step == 2
@@ -45,14 +46,14 @@ def test_reads_every_option():
 
 
 def test_strips_that_are_not_configured_are_auto():
-    strips = parse_config(FULL).all_strips()
+    strips = legacy(FULL).all_strips()
     assert len(strips) == 8
     assert strips[4:] == (AutoStripConfig(type="auto"),) * 4
     assert len(Config().all_strips()) == 8
 
 
 def test_an_empty_file_is_the_defaults():
-    config = parse_config("")
+    config = legacy("")
     assert config == Config()
     assert config.device.name == "X-Touch-Ext"
     assert config.behavior.max_volume == 130
@@ -65,12 +66,12 @@ def test_colors_have_their_lcd_color():
 
 
 def test_the_example_configuration_is_valid():
-    config = parse_config(example_config())
+    config = legacy(example_config())
     assert len(config.all_strips()) == 8
 
 
 def test_invalid_toml_names_the_file():
-    assert errors_of("[device").startswith("config.toml is not valid TOML: ")
+    assert legacy_errors_of("[device").startswith("config.toml is not valid TOML: ")
 
 
 @pytest.mark.parametrize(
@@ -95,13 +96,13 @@ def test_invalid_toml_names_the_file():
     ],
 )
 def test_errors_name_the_option(text: str, location: str):
-    message = errors_of(text)
+    message = legacy_errors_of(text)
     assert message.startswith("config.toml has errors:\n")
     assert f"\n  {location}: " in message
 
 
 def test_a_blank_pattern_would_match_every_application():
-    message = errors_of('[[strip]]\ntype = "apps"\nmatch = ["discord", " "]\nlabel = "VoIP"')
+    message = legacy_errors_of('[[strip]]\ntype = "apps"\nmatch = ["discord", " "]\nlabel = "VoIP"')
     assert "strip[1].match: an empty pattern would match every application" in message
 
 
@@ -150,8 +151,9 @@ def test_the_default_path_follows_xdg(monkeypatch: pytest.MonkeyPatch, tmp_path:
 
 def test_loads_the_file(tmp_path: Path):
     path = tmp_path / "config.toml"
-    path.write_text(FULL)
-    assert load_config(path) == parse_config(FULL)
+    text = '[channel.out]\ntype = "output"\n[slots]\n1 = "out"\n'
+    path.write_text(text)
+    assert load_config(path) == parse_config(text)
 
 
 def test_errors_name_the_file_they_are_in(tmp_path: Path):
@@ -168,7 +170,7 @@ def test_a_missing_file_that_was_asked_for_is_an_error(tmp_path: Path):
 
 def test_without_a_file_at_the_default_path_it_is_the_example(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    assert load_config() == parse_config(example_config())
+    assert load_config() == parse_config(slots_example_config())
 
     default_config_path().parent.mkdir()
     default_config_path().write_text("[behavior]\nencoder_step = 3")
@@ -182,13 +184,13 @@ def test_a_file_that_can_not_be_read_is_an_error(tmp_path: Path):
 
 
 def test_errors_of_checks_across_options_read_as_a_sentence():
-    assert errors_of("[behavior]\nreset_volume = 140").endswith(
+    assert legacy_errors_of("[behavior]\nreset_volume = 140").endswith(
         "\n  behavior: reset_volume (140) is above max_volume (130)"
     )
 
 
 def test_home_assistant_strips_get_ids_by_their_position_or_their_own():
-    config = parse_config(HOME_ASSISTANT + '[[strip]]\ntype = "auto"\n' + HOME_ASSISTANT + 'id = "desk"\n' + MQTT)
+    config = legacy(HOME_ASSISTANT + '[[strip]]\ntype = "auto"\n' + HOME_ASSISTANT + 'id = "desk"\n' + MQTT)
 
     assert [(strip.type, strip_id) for strip, strip_id in config.home_assistant_strips()] == [
         ("homeassistant", "strip_1"),
@@ -214,32 +216,32 @@ def test_home_assistant_strips_get_ids_by_their_position_or_their_own():
     ],
 )
 def test_errors_of_home_assistant_strips(text: str, message: str):
-    assert message in errors_of(text)
+    assert message in legacy_errors_of(text)
 
 
 def test_a_device_strip_takes_one_device_or_several() -> None:
-    config = parse_config('[[strip]]\ntype = "output"\ndevice = ["bluez_output.*", "Speaker"]\n')
+    config = legacy('[[strip]]\ntype = "output"\ndevice = ["bluez_output.*", "Speaker"]\n')
     assert config.strips[0] == DeviceStripConfig(type="output", device=("bluez_output.*", "Speaker"))
     assert DeviceStripConfig.model_validate({"type": "output", "device": "speaker"}).device == ("speaker",)
 
     with pytest.raises(ConfigError, match="an empty device name"):
-        parse_config('[[strip]]\ntype = "output"\ndevice = ["speaker", " "]\n')
+        legacy('[[strip]]\ntype = "output"\ndevice = ["speaker", " "]\n')
 
 
 def test_a_device_strip_switches_between_two_or_more_profiles_with_rec() -> None:
     analog = '[[strip.profiles]]\nlabel = "Analog"\nprofile = "output:analog-stereo"\n'
     profiles = analog + '[[strip.profiles]]\nlabel = "Digital"\nprofile = "Digital Stereo (IEC958) Output"\n'
     strip = '[[strip]]\ntype = "output"\ndevice = "alsa_output.*"\n'
-    config = parse_config(strip + profiles)
+    config = legacy(strip + profiles)
     assert [p.label for p in config.strips[0].profiles] == ["Analog", "Digital"]  # type: ignore[union-attr]
 
     with pytest.raises(ConfigError, match=r"strip\[1\]\.profiles: at least two to switch between"):
-        parse_config(strip + analog)
+        legacy(strip + analog)
     # its LED shows the profile
     with pytest.raises(ConfigError, match="rec: with profiles its LED shows the profile"):
-        parse_config(strip + 'rec = "playing"\n' + profiles)
+        legacy(strip + 'rec = "playing"\n' + profiles)
     with pytest.raises(ConfigError, match=r"strip\[1\]\.profiles\[1\]\.label"):
-        parse_config(strip + profiles.replace('"Analog"', '"Analog Stereo"'))
+        legacy(strip + profiles.replace('"Analog"', '"Analog Stereo"'))
 
 
 @pytest.mark.parametrize(
@@ -260,11 +262,11 @@ def test_a_device_strip_switches_between_two_or_more_profiles_with_rec() -> None
     ],
 )
 def test_a_volume_range_goes_up(text: str, message: str) -> None:
-    assert message in errors_of(text)
+    assert message in legacy_errors_of(text)
 
 
 def test_strips_and_profiles_have_volume_ranges_of_their_own() -> None:
-    config = parse_config(
+    config = legacy(
         '[behavior]\nmax_volume = 120\n[[strip]]\ntype = "output"\nmin_volume = 10\n'
         '[[strip.profiles]]\nlabel = "Phones"\nprofile = "a"\n'
         '[[strip.profiles]]\nlabel = "Speaker"\nprofile = "b"\nmin_volume = 50\nmax_volume = 200\n'
@@ -279,17 +281,17 @@ def test_strips_and_profiles_have_volume_ranges_of_their_own() -> None:
 
 
 def test_a_strip_has_only_the_encoders_of_its_type() -> None:
-    assert parse_config('[[strip]]\ntype = "auto"\nencoder = "pick"\n').strips[0].encoder == "pick"  # type: ignore[union-attr]
+    assert legacy('[[strip]]\ntype = "auto"\nencoder = "pick"\n').strips[0].encoder == "pick"  # type: ignore[union-attr]
     with pytest.raises(
         ConfigError, match=r"strip\[1\]: encoder: pick is not for output strips \(balance, volume, homeassistant\)"
     ):
-        parse_config('[[strip]]\ntype = "output"\nencoder = "pick"\n')
+        legacy('[[strip]]\ntype = "output"\nencoder = "pick"\n')
 
 
 def test_the_fader_or_the_encoder_of_an_audio_strip_in_home_assistant() -> None:
     mqtt = '[mqtt]\nhost = "broker"\n'
     output = '[[strip]]\ntype = "output"\n'
-    config = parse_config(
+    config = legacy(
         output
         + 'fader = "homeassistant"\n'
         + '[[strip]]\ntype = "auto"\nencoder = "homeassistant"\nid = "desk"\n'
@@ -298,11 +300,11 @@ def test_the_fader_or_the_encoder_of_an_audio_strip_in_home_assistant() -> None:
     assert [strip_id for _, strip_id in config.home_assistant_strips()] == ["strip_1", "desk"]
 
     with pytest.raises(ConfigError, match=r"strips in Home Assistant need an \[mqtt\] section"):
-        parse_config(output + 'encoder = "homeassistant"\n')
+        legacy(output + 'encoder = "homeassistant"\n')
     with pytest.raises(ConfigError, match="encoder: with the fader in Home Assistant, the encoder sets the volume"):
-        parse_config(output + 'fader = "homeassistant"\nencoder = "balance"\n' + mqtt)
+        legacy(output + 'fader = "homeassistant"\nencoder = "balance"\n' + mqtt)
     with pytest.raises(ConfigError, match="the same id: desk"):
-        parse_config(
+        legacy(
             output
             + 'fader = "homeassistant"\nid = "desk"\n'
             + '[[strip]]\ntype = "homeassistant"\nid = "desk"\n'
@@ -311,7 +313,7 @@ def test_the_fader_or_the_encoder_of_an_audio_strip_in_home_assistant() -> None:
 
 
 def test_layouts_have_strips_of_their_own() -> None:
-    config = parse_config(GAMING)
+    config = legacy(GAMING)
     assert config.layout_names == ("default", "gaming")
     default, gaming = config.layout_list()
     assert (default.name, default.title, default.strips) == ("default", "Default", config.strips)
@@ -329,13 +331,13 @@ def test_layouts_have_strips_of_their_own() -> None:
     alice = strips[2]
     assert isinstance(alice, VoipStripConfig)
     assert (alice.person, alice.title) == (("Alice", "alice-phone"), "Alice")
-    assert parse_config('[[layout]]\nname = "x"\n').layout("x").title == "x"
+    assert legacy('[[layout]]\nname = "x"\n').layout("x").title == "x"
 
 
 def test_the_default_switching() -> None:
-    switching = parse_config("").switching
+    switching = legacy("").switching
     assert (switching.hold, switching.chord, switching.banner) == (10.0, (1, 8), 1.5)
-    assert parse_config("[switching]\nchord = []\n").switching.chord == ()
+    assert legacy("[switching]\nchord = []\n").switching.chord == ()
 
 
 @pytest.mark.parametrize(
@@ -389,11 +391,11 @@ def test_the_default_switching() -> None:
 )
 def test_errors_of_layouts(text: str, message: str) -> None:
     with pytest.raises(ConfigError, match=message):
-        parse_config(text)
+        legacy(text)
 
 
 def test_home_assistant_strips_of_a_layout() -> None:
-    config = parse_config(
+    config = legacy(
         '[mqtt]\nhost = "b"\n[[strip]]\ntype = "homeassistant"\nid = "desk"\n'
         '[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "auto"\n[[layout.strip]]\ntype = "homeassistant"\n'
         '[[layout.strip]]\ntype = "homeassistant"\nid = "desk"\n'
@@ -403,7 +405,7 @@ def test_home_assistant_strips_of_a_layout() -> None:
 
 
 def test_voip_strips_get_the_defaults_of_a_missing_voip_section():
-    config = parse_config('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\n')
+    config = legacy('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "voip"\n')
     assert config.voip == VoipConfig()
     # without voip strips, no voice chat
-    assert parse_config("").voip is None
+    assert legacy("").voip is None

@@ -6,11 +6,8 @@ import re
 
 import pytest
 
-from tests.support.config import errors_of
+from tests.support.config import legacy, legacy_errors_of
 from xtouch_daemon.config.audio_strips import AppsStripConfig
-from xtouch_daemon.config.files import (
-    parse_config,
-)
 from xtouch_daemon.config.strips import HomeAssistantStripConfig
 
 INHERIT = """
@@ -77,7 +74,7 @@ layout = "voice"
 
 
 def test_an_inherit_strip_takes_any_strip_of_any_layout() -> None:
-    config = parse_config(INHERIT)
+    config = legacy(INHERIT)
     voice, games = config.all_strips("voice"), config.all_strips("games")
     # the same strips, the same objects
     assert (voice[0], voice[1]) == (games[0], games[1])
@@ -88,11 +85,6 @@ def test_an_inherit_strip_takes_any_strip_of_any_layout() -> None:
     assert voice[2] is games[2] is music
     assert isinstance(music, AppsStripConfig)
     assert music.launch == ("spotify",)
-    assert config.inherited("games")[:3] == (
-        "layout voice, strip 1",
-        "layout voice, strip 2",
-        "the default layout, strip 2",
-    )
     # the homeassistant strip keeps the entities of its place in the default layout
     home_assistant = games[3]
     assert isinstance(home_assistant, HomeAssistantStripConfig)
@@ -103,7 +95,7 @@ def test_an_inherit_strip_takes_any_strip_of_any_layout() -> None:
 
 
 def test_an_inherit_strip_in_the_default_layout_names_its_strip() -> None:
-    config = parse_config(
+    config = legacy(
         '[[strip]]\ntype = "inherit"\nlayout = "a"\n[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "output"\n'
     )
     assert config.all_strips()[0] is config.layout("a").strips[0]
@@ -150,4 +142,4 @@ def test_an_inherit_strip_in_the_default_layout_names_its_strip() -> None:
     ],
 )
 def test_errors_of_inherit_strips(text: str, message: str) -> None:
-    assert re.search(message, errors_of(text))
+    assert re.search(message, legacy_errors_of(text))

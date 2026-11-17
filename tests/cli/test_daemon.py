@@ -66,13 +66,13 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
             config_path: Path | None,
             live_socket: Path,
             players: object,
-            layout_file: Path,
+            state_dir: Path,
         ) -> None:
             started.append((config, config_path))
             sockets.append(live_socket)
             # what it remembers, in the state directory of the user
-            assert layout_file == instance.layout_file()
-            assert layout_file.parent.name == "xtouch-daemon"
+            assert state_dir == instance.state_dir()
+            assert state_dir.name == "xtouch-daemon"
             # the media players of the session
             assert isinstance(players, MprisPlayers)
 
@@ -102,7 +102,7 @@ def test_run_says_that_it_runs_and_a_second_one_does_not_start(
             config_path: Path | None,
             live_socket: Path,
             players: object,
-            layout_file: Path,
+            state_dir: Path,
         ) -> None:
             pass
 

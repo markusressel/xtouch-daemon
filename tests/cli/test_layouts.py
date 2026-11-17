@@ -12,54 +12,13 @@ import pytest
 from click.testing import CliRunner
 
 from tests.support.cli import invoke
+from tests.support.strips import strips_of
 from xtouch_daemon import cli
 from xtouch_daemon.cli import layouts as layout_commands
 from xtouch_daemon.cli.configuration import describe_strip
-from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.layout_strips import InheritStripConfig
 from xtouch_daemon.live.codec import decode_request, encode, encode_reply
 from xtouch_daemon.live.messages import FEATURES, Reply, Request, SetMode, SlotsState, Snapshot, StateView, SwitchLayout
-
-
-def test_check_config_shows_the_layouts(tmp_path: Path) -> None:
-    path = tmp_path / "layouts.toml"
-    path.write_text(
-        '[[strip]]\ntype = "output"\n[voip]\n'
-        '[[layout]]\nname = "gaming"\nlabel = "Gaming"\napps = ["steam"]\nprocesses = ["mumble", "ts3"]\npriority = 2\n'
-        '[[layout.strip]]\ntype = "inherit"\n[[layout.strip]]\ntype = "voip"\n'
-        '[[layout.strip]]\ntype = "voip"\nperson = ["Ann", "ann-phone"]\nlabel = "Mum"\ncollapse = true\n'
-        '[[layout.strip]]\ntype = "voip"\nperson = "Bob"\n'
-        '[[layout]]\nname = "plain"\n[[layout]]\nname = "music"\napps = ["spotify"]\n'
-    )
-    lines = invoke("check-config", "-c", str(path)).output.splitlines()
-    gaming = lines.index("Layout gaming (Gaming), while steam has a stream or mumble or ts3 runs, priority 2:")
-    assert lines[gaming + 1].startswith("  1. the default output")
-    assert lines[gaming + 1].endswith("), from the default layout, strip 1")
-    assert lines[gaming + 2] == "  2. a participant of the voice chat, in the group (white, talking: green)"
-    assert (
-        lines[gaming + 3]
-        == "  3. 'Mum' Ann or ann-phone in the voice chat, dark while away (white, talking: green, collapses)"
-    )
-    assert lines[gaming + 4] == "  4. Bob in the voice chat, dark while away (white, talking: green)"
-    assert "Layout plain:" in lines
-    assert "Layout music, while spotify has a stream:" in lines
-    config = parse_config('[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "inherit"\n')
-    assert describe_strip(config.layouts[0].strips[0], 1) == "the strip of the default layout at this place"
-    other = InheritStripConfig(type="inherit", layout="voice", strip="music")
-    assert describe_strip(other, 1) == "strip music of layout voice"
-
-
-def test_check_config_tells_where_inherited_strips_come_from(tmp_path: Path) -> None:
-    path = tmp_path / "inherit.toml"
-    path.write_text(
-        '[[strip]]\ntype = "output"\n[[layout]]\nname = "a"\n[[layout.strip]]\ntype = "empty"\n'
-        '[[layout.strip]]\ntype = "inherit"\n[[layout]]\nname = "b"\n[[layout.strip]]\ntype = "inherit"\n'
-        'layout = "a"\nstrip = 1\n'
-    )
-    lines = invoke("check-config", "-c", str(path)).output.splitlines()
-    a = lines.index("Layout a:")
-    assert lines[a + 2].endswith("encoder: pick), from the default layout, an auto strip")
-    assert lines[lines.index("Layout b:") + 1] == "  1. empty, from layout a, strip 1"
 
 
 class FakeLive:
@@ -186,35 +145,32 @@ def test_layout_reports_what_goes_wrong(live_socket: Path, monkeypatch: pytest.M
 
 
 def test_check_config_shows_what_select_launches() -> None:
-    config = parse_config(
-        '[voip]\n[[strip]]\ntype = "apps"\nmatch = ["mumble"]\nlabel = "VoIP"\n'
+    (apps, auto, voip) = strips_of(
+        '[[strip]]\ntype = "apps"\nmatch = ["mumble"]\nlabel = "VoIP"\n'
         'launch = ["mumble", "mumble://me@example.org/Gaming Night"]\n'
         '[[strip]]\ntype = "auto"\nlaunch = "spotify"\nlaunch_when_running = true\n'
         '[[strip]]\ntype = "voip"\nlaunch = ["mumble"]\n'
     )
-    apps, auto, voip = config.strips[:3]
-    assert describe_strip(apps, 1) == (
+    assert describe_strip(apps, "voip") == (
         "'VoIP' applications mumble, select launches mumble 'mumble://me@example.org/Gaming Night' while it does "
         "not run (white, rec: recording, solo: off, encoder: media)"
     )
-    assert "the next application that plays, select launches spotify also while it runs (" in describe_strip(auto, 2)
-    assert describe_strip(voip, 3).endswith(", select launches mumble while it is not there")
-
-
-def test_check_config_names_meters_after_the_fader(tmp_path: Path) -> None:
-    path = tmp_path / "meters.toml"
-    path.write_text(
-        '[[strip]]\ntype = "output"\nmeter_point = "post_fader"\n'
-        '[[strip]]\ntype = "input"\nmeter_point = "post_fader"\nmeter = false\n'
-        '[[layout]]\nname = "quiet"\nmeter_point = "post_fader"\n[[layout.strip]]\ntype = "inherit"\nstrip = 2\n'
+    assert "the next application that plays, select launches spotify also while it runs (" in describe_strip(auto, "a")
+    assert describe_strip(voip, "b").endswith(", select launches mumble while it is not there")
+    (output, empty, other) = strips_of(
+        '[[strip]]\ntype = "output"\nmeter_point = "post_fader"\ncollapse = true\n[[strip]]\ntype = "empty"\n'
+        '[[strip]]\ntype = "voip"\nperson = "Ann"\nlabel = "Mum"\ncollapse = true\n'
     )
-    lines = invoke("check-config", "-c", str(path)).output.splitlines()
-    # before the fader is the default: not worth a word; without a meter neither
-    assert lines[1] == "  1. the default output (white, meter post-fader, rec: recording, solo: off, encoder: balance)"
-    assert lines[2] == "  2. the default input (white, no meter, rec: recording, solo: off, encoder: balance)"
-    assert lines[3] == "  3. the next application that plays (white, rec: recording, solo: off, encoder: pick)"
-    quiet = lines.index("Layout quiet:")
-    assert "(white, meter post-fader, rec" in lines[quiet + 2]
+    assert describe_strip(output, "out", "post_fader") == (
+        "the default output (white, meter post-fader, rec: recording, solo: off, encoder: balance, collapses)"
+    )
+    assert describe_strip(empty, "x") == "empty"
+    assert (
+        describe_strip(other, "ann")
+        == "'Mum' Ann in the voice chat, dark while away (white, talking: green, collapses)"
+    )
+    assert describe_strip(InheritStripConfig(type="inherit", layout="a", strip=2), "x") == "strip 2 of layout a"
+    assert describe_strip(InheritStripConfig(type="inherit"), "x") == "the strip of the default layout at this place"
 
 
 SLOTS = SlotsState(

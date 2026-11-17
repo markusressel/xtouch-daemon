@@ -84,7 +84,6 @@ class SlotMixer:
         launcher: Launcher | None = None,
         processes: Callable[[], frozenset[str]] = running_processes,
     ):
-        assert config.slots is not None, "only for a configuration of slots"
         self.setup = config.slots
         self.config = config
         self.engine = engine

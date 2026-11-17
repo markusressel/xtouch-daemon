@@ -60,34 +60,20 @@ def test_mumble_plugin_builds_and_installs(monkeypatch: pytest.MonkeyPatch) -> N
     assert "Error: Mumble is not installed" in result.output
 
 
-def test_check_config_describes_choices_and_strips_that_collapse(tmp_path: Path) -> None:
+def test_check_config_describes_the_channels(tmp_path: Path) -> None:
     path = tmp_path / "flow.toml"
     path.write_text(
-        '[[strip]]\ntype = "output"\nchoices = [{ label = "Phones", device = "a" },'
+        '[channel.out]\ntype = "output"\nchoices = [{ label = "Phones", device = "a" },'
         ' { label = "Speaker", device = "b" }, { device = "bluez_output.*" }]\n'
-        '[[strip]]\ntype = "output"\ndevice = "bluez_output.*"\ncollapse = true\n'
-        + '[[strip]]\ntype = "auto"\n' * 6
-        + '[voip]\nprovider = "demo"\n[[strip]]\ntype = "voip"\ncollapse = true\n'
-    )
-    output = invoke("check-config", "-c", str(path)).output
-    assert "  1. output: Phones, Speaker or bluez_output.* (Select switches) (white, rec: recording" in output
-    assert "  2. output bluez_output.*, select makes it the default (white, rec: recording, solo: off, " in output
-    assert "encoder: balance, collapses)" in output
-    assert "  9. a participant of the voice chat, in the group (white, talking: green, collapses)" in output
-    assert "  The device shows the first 8 of them that don't collapse." in output
-
-
-def test_check_config_shows_what_presets_stand_for(tmp_path: Path) -> None:
-    path = tmp_path / "presets.toml"
-    path.write_text(
-        '[[strip]]\ntype = "apps"\nmatch = ["@video", "netflix"]\nlabel = "Video"\n'
-        '[[layout]]\nname = "gaming"\napps = ["@steam-games", "minecraft"]\nprocesses = ["@steam-games"]\n'
+        '[channel.buds]\ntype = "output"\ndevice = "bluez_output.*"\n'
+        '[channel.video]\ntype = "apps"\nmatch = ["@video", "netflix"]\nlabel = "Video"\n'
+        '[slots]\n1 = "out"\n2 = "buds if present"\n3 = "video"\n'
     )
     lines = invoke("check-config", "-c", str(path)).output.splitlines()
-    assert lines[1].startswith(
-        "  1. 'Video' applications @video (vlc, mpv, celluloid, totem, kodi, haruna, clapper, mplayer), netflix ("
+    assert lines[1] == "Channels:"
+    assert lines[2].startswith("  out: output: Phones, Speaker or bluez_output.* (Select switches) (white, rec: ")
+    assert lines[3].startswith("  buds: output bluez_output.*, select makes it the default (white, rec: recording")
+    assert lines[4].startswith(
+        "  video: 'Video' applications @video (vlc, mpv, celluloid, totem, kodi, haruna, clapper, mplayer), netflix ("
     )
-    assert (
-        "Layout gaming, while @steam-games (steam_app_, .exe, wine-preloader, wine64-preloader) or minecraft has a "
-        "stream or @steam-games (reaper) runs:" in lines
-    )
+    assert "What the slots show:" in lines

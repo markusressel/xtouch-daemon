@@ -115,10 +115,6 @@ class AppStrip(VolumeStrip):
         balance = streams[min(streams)].balance
         return Level(volume, all(stream.muted for stream in streams.values()), balance), True
 
-    def absent(self, state: AudioState) -> bool:
-        """None of its applications has a stream, playing or paused."""
-        return not self.streams_in(state)
-
     @property
     def title(self) -> str:
         return self.label
@@ -265,10 +261,6 @@ class AutoStrip(AppStrip):
 
     def inactive_text(self) -> str:
         return "" if self.app is None else "idle"
-
-    def absent(self, state: AudioState) -> bool:
-        """It has no application (after `behavior.auto_hold`)."""
-        return self.app is None
 
     @property
     def title(self) -> str:

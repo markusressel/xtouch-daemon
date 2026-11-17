@@ -164,10 +164,6 @@ class VoipStrip(StripController):
         """Whether the voice chat is there: its plugin reports it (also while nobody talks), or its program runs."""
         return self.provider.connected or (self.launch is not None and self.launch.program_runs(self.env.processes()))
 
-    def absent(self, state: AudioState) -> bool:
-        """It shows nobody: its person is not there, or the group has no participant for it."""
-        return self.participant is None
-
     @property
     def title(self) -> str:
         if self.fixed:

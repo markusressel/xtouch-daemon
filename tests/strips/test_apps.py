@@ -175,6 +175,9 @@ async def test_the_meter_shows_the_streams_of_the_group(surface: RecordingSurfac
 
     assert group(surface, env).meter_targets(current) == {CaptureTarget("1", False), CaptureTarget("3", False)}
     assert group(surface, env, meter=False).meter_targets(current) == set()
+    # the meter takes the level of a stream with its volume
+    assert group(surface, env).target_gain(CaptureTarget("1", False), current) == current.streams[0].gain
+    assert group(surface, env).target_gain(CaptureTarget("9", False), current) is None
 
 
 async def test_a_stream_plays_while_it_is_not_paused(surface: RecordingSurface, env: StripEnv) -> None:
@@ -610,17 +613,11 @@ async def test_select_launches_on_an_auto_strip_without_application(surface: Rec
     assert surface.strips[0].leds[Button.SELECT] == Led.FLASH
 
 
-def test_a_strip_without_streams_or_application_is_absent(surface: RecordingSurface, env: StripEnv) -> None:
-    browsers = group(surface, env)
-    assert browsers.absent(state())
-    # a paused one counts
-    assert not browsers.absent(state(stream(1, "Brave", corked=True)))
-    assert browsers.title == "Browser"
+def test_the_titles_of_groups_and_auto_strips(surface: RecordingSurface, env: StripEnv) -> None:
+    assert group(surface, env).title == "Browser"
     strip = auto(surface, env)
-    assert strip.absent(state())
     assert strip.title == "auto"
     strip.assign("WEBRTC VoiceEngine")
-    assert not strip.absent(state())
     assert strip.title == "Discord"
 
 

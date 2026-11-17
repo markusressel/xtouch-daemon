@@ -52,7 +52,6 @@ class SlotEngine:
         wall_clock: Callable[[], float] = time.time,
     ):
         """`state_dir` keeps the choices and the people (None: nowhere); `wall_clock` is the clock of the files."""
-        assert config.slots is not None, "only for a configuration of slots"
         self.config = config
         self.scene = config.slots.scene
         self.state_dir = state_dir
@@ -79,7 +78,6 @@ class SlotEngine:
 
     def reconfigure(self, config: Config) -> None:
         """Goes on with another configuration (a reload): states, channels, members and choices carry over by id."""
-        assert config.slots is not None, "only for a configuration of slots"
         before = self.simulation
         self.config = config
         self.scene = config.slots.scene

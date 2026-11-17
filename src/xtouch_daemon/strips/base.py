@@ -133,13 +133,6 @@ class StripController:
         """
         return None
 
-    def absent(self, state: AudioState) -> bool:
-        """
-        Whether the strip has nothing to control (its devices are not there, no application has a stream), so with
-        `collapse` the strips after it take its place (see `placement.py`).
-        """
-        return False
-
     @property
     def title(self) -> str:
         """What the strip is, for the log: its label, or its name."""

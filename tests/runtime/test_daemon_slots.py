@@ -18,7 +18,16 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
-from xtouch_daemon.live.messages import Reply, SetMode, SetOverride, SlotView, StateView, VoipState, fingerprint
+from xtouch_daemon.live.messages import (
+    Reply,
+    SetMode,
+    SetOverride,
+    SlotView,
+    StateView,
+    SwitchLayout,
+    VoipState,
+    fingerprint,
+)
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.runtime.daemon import Daemon
@@ -169,12 +178,13 @@ async def test_modes_by_hand_and_by_the_chord(
     task = asyncio.create_task(daemon.run())
     await until(lambda: labels(surface, 1) == ["Speaker"])
 
-    assert daemon.request_layout("gaming") == Reply("layout", True, "gaming")
+    # an older client asks for a layout: a mode
+    assert daemon.on_request(None, SwitchLayout("gaming")) == Reply("layout", True, "gaming")
     assert labels(surface, 1) == ["Game"]
     assert "Gaming" in "".join(strip.shown_text[0] for strip in surface.strips)
-    assert daemon.request_layout("+1") == Reply("layout", True, "default")
-    assert daemon.request_layout("nope") == Reply("layout", False, "There is no mode nope (auto, default, gaming)")
-    assert daemon.request_layout("auto") == Reply("layout", True, "default")
+    assert daemon.request_mode("+1") == Reply("layout", True, "default")
+    assert daemon.request_mode("nope") == Reply("layout", False, "There is no mode nope (auto, default, gaming)")
+    assert daemon.request_mode("auto") == Reply("layout", True, "default")
 
     def press(strip: int, pressed: bool = True) -> None:
         surface.on_event(protocol.ButtonPressed(strip, Button.SOLO, pressed))
@@ -222,16 +232,48 @@ async def test_a_reload_shows_the_slots_of_the_new_file_at_once(
     path.write_text(SLOTS.replace('"Speaker"', '"Boxes"'))
     assert daemon.reload()
     assert labels(surface, 1) == ["Boxes"]
-    # back to strips and layouts
-    path.write_text('[[strip]]\ntype = "output"\ndevice = "speaker"\nlabel = "Plain"\n')
-    assert daemon.reload()
-    assert daemon.slots is None
-    assert labels(surface, 1) == ["Plain"]
-    # and back to slots
-    path.write_text(SLOTS)
+    # another VoIP provider, before the daemon runs: it starts with the daemon
+    path.write_text(SLOTS + '\n[voip]\nprovider = "demo"\n')
     assert daemon.reload()
     assert labels(surface, 1) == ["Speaker"]
+    assert daemon.voip.name == "demo"
+    assert daemon._voip_task is None
     daemon.mixer.close()
+    await settle()
+
+
+async def test_a_reload_with_another_voip_provider_runs_it(
+    tmp_path: Path, surface: RecordingSurface, notifications: Notifications
+) -> None:
+    path = tmp_path / "slots.toml"
+    path.write_text(SLOTS)
+    daemon = make(path, surface, Processes())
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: labels(surface, 1) == ["Speaker"])
+    first = daemon._voip_task
+    assert daemon.voip.name == "bridge"
+    assert first is not None
+
+    path.write_text(SLOTS + '\n[voip]\nprovider = "demo"\nparticipants = ["Ann"]\n')
+    assert daemon.reload()
+    assert daemon.voip.name == "demo"
+    await until(lambda: "Ann" in labels(surface, 8))
+    await until(first.done)
+    task.cancel()
+    await settle()
+
+
+async def test_the_slots_wait_for_the_sound_server(tmp_path: Path, surface: RecordingSurface) -> None:
+    path = tmp_path / "slots.toml"
+    path.write_text(SLOTS)
+    daemon = make(path, surface, Processes(), states=())
+    steps: list[int] = []
+    daemon._step_slots = lambda: steps.append(1)  # type: ignore[method-assign]
+    task = asyncio.create_task(daemon.run())
+    daemon._wake_slots()
+    await asyncio.sleep(0.05)
+    assert steps == []
+    task.cancel()
     await settle()
 
 
@@ -255,8 +297,8 @@ async def test_the_processes_are_scanned_every_few_seconds(
         processes=lambda: scans.append(1) or frozenset(),
     )
     daemon.mixer.on_state(STATE)
-    daemon.request_layout("gaming")
-    daemon.request_layout("default")
+    daemon.request_mode("gaming")
+    daemon.request_mode("default")
     assert len(scans) == 1
     daemon.mixer.close()
     await settle()
@@ -491,19 +533,6 @@ async def test_the_live_view_shows_the_slots_and_sets_modes_and_overrides(
     )
     daemon.stop()
     await task
-
-
-def test_modes_and_overrides_need_slots(tmp_path: Path, surface: RecordingSurface) -> None:
-    path = tmp_path / "layouts.toml"
-    path.write_text('[[strip]]\ntype = "empty"\n')
-    daemon = make(path, surface, Processes())
-    assert daemon.snapshot().slots is None
-    assert daemon.on_request(None, SetMode("gaming")) == Reply(
-        "mode", False, "The configuration has no modes (it has layouts)"
-    )
-    assert daemon.on_request(None, SetOverride("call", "on")) == Reply(
-        "override", False, "The configuration has no states (it has layouts)"
-    )
 
 
 def test_how_the_live_view_names_members() -> None:

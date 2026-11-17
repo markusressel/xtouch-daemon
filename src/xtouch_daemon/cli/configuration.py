@@ -14,18 +14,18 @@ from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path, example_config, slots_example_config
-from xtouch_daemon.config.layout import LayoutConfig
 from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
 from xtouch_daemon.config.migrate import migrate
-from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
-from xtouch_daemon.config.values import DEFAULT_LAYOUT, MeterPoint, default_encoder
-from xtouch_daemon.hardware import protocol
+from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.slots.outcomes import outcomes, table
 
 
-def describe_strip(config: StripConfig, number: int, meter_point: MeterPoint = "pre_fader") -> str:
-    """What the strip does, for `check-config`; `meter_point` is where its meter takes the level (see `Config`)."""
+def describe_strip(config: StripConfig, name: str, meter_point: MeterPoint = "pre_fader") -> str:
+    """
+    What the strip of a channel does, for `check-config`; `name` is the channel's (that of its entities),
+    `meter_point` where its meter takes the level.
+    """
     match config:
         case DeviceStripConfig(choices=choices) if choices:
             titles = [choice.title for choice in choices]
@@ -43,7 +43,7 @@ def describe_strip(config: StripConfig, number: int, meter_point: MeterPoint = "
             what = "the next application that plays"
         case HomeAssistantStripConfig():
             label = f"{config.label!r} " if config.label else ""
-            return f"{label}Home Assistant, entities *.*_{config.id or f'strip_{number}'}_* ({config.color})"
+            return f"{label}Home Assistant, entities *.*_{name}_* ({config.color})"
         case EmptyStripConfig():
             return "empty"
         case InheritStripConfig(layout=layout, strip=strip):
@@ -89,43 +89,14 @@ def check_config(config_path: Path | None) -> None:
     config = load_or_fail(config_path)
     source = str(path) if path.exists() else "No configuration file, the defaults"
     click.echo(f"{source}: valid")
-    if config.slots is not None:
-        click.echo("Channels, states and slots (a prototype): what the slots show")
-        click.echo(table(outcomes(config.slots.scene)))
-        return
-    _describe_strips(config)
-    for layout in config.layouts:
-        click.echo(f"Layout {layout.name}{f' ({layout.label})' if layout.label else ''}{describe_rules(layout)}:")
-        _describe_strips(config, layout.name)
-    click.echo(
-        "Strips and layouts go away: `xtouch-daemon migrate-config` writes this file as channels, states and slots"
-    )
-
-
-def _describe_strips(config: Config, layout: str = DEFAULT_LAYOUT) -> None:
-    strips = config.all_strips(layout)
-    for number, (strip, where) in enumerate(zip(strips, config.inherited(layout), strict=True), start=1):
-        what = describe_strip(strip, number, config.meter_point(strip, layout))
-        click.echo(f"  {number}. {what}{f', from {where}' if where else ''}")
-    if len(strips) > protocol.STRIPS:
-        click.echo(f"  The device shows the first {protocol.STRIPS} of them that don't collapse.")
-
-
-def describe_rules(layout: LayoutConfig) -> str:
-    """When the rules of a layout switch to it, e.g. ", while steam plays or mumble runs"."""
-    rules = [
-        *([f"{_any_of(layout.written('apps'), presets.Kind.STREAMS)} has a stream"] if layout.apps else []),
-        *([f"{_any_of(layout.written('processes'), presets.Kind.PROCESSES)} runs"] if layout.processes else []),
-    ]
-    if not rules:
-        return ""
-    priority = f", priority {layout.priority}" if layout.priority else ""
-    return f", while {' or '.join(rules)}{priority}"
-
-
-def _any_of(entries: tuple[str, ...], kind: presets.Kind) -> str:
-    """The entries of a rule, joined with "or", presets with what they stand for."""
-    return " or ".join(presets.describe((entry,), kind) for entry in entries)
+    setup = config.slots
+    if setup.channels:
+        click.echo("Channels:")
+    for name, strip in setup.channels.items():
+        meter_point = getattr(strip, "meter_point", None) or config.behavior.meter_point
+        click.echo(f"  {name}: {describe_strip(strip, name, meter_point)}")
+    click.echo("What the slots show:")
+    click.echo(table(outcomes(setup.scene)))
 
 
 @click.command("init-config")

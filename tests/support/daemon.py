@@ -13,7 +13,14 @@ from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.daemon import Daemon
 
-SPEAKER = '[[strip]]\ntype = "output"\ndevice = "speaker"\nlabel = "Speaker"\ncolor = "cyan"\n'
+SPEAKER = """[channel.speaker]
+type = "output"
+device = "speaker"
+label = "Speaker"
+color = "cyan"
+[slots]
+1 = "speaker"
+"""
 
 
 STATE = AudioState(outputs=(output("speaker", 50),), default_output="speaker")
@@ -40,7 +47,9 @@ async def until(condition: object) -> None:
     raise AssertionError("the condition never became true")
 
 
-HOME_ASSISTANT = '[[strip]]\ntype = "homeassistant"\nlabel = "Lights"\n\n[mqtt]\nhost = "broker"\n'
+HOME_ASSISTANT = (
+    '[channel.lights]\ntype = "homeassistant"\nlabel = "Lights"\n[slots]\n1 = "lights"\n\n[mqtt]\nhost = "broker"\n'
+)
 
 
 def make_with_mqtt(config_path: Path, surface: RecordingSurface, backend: FakeBackend, broker: FakeBroker) -> Daemon:

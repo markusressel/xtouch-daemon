@@ -94,10 +94,10 @@ async def test_a_preview_runs_the_configuration_of_the_gui_and_never_writes_the_
     assert surface.strips[0].color == Color.GREEN
 
     # one with errors is not used: the GUI learns why
-    reply = daemon.on_request(gui, StartPreview('[[strip]]\ntype = "loud"\n'))
+    reply = daemon.on_request(gui, StartPreview('[channel.x]\ntype = "loud"\n'))
     assert reply is not None
     assert not reply.ok
-    assert reply.message.startswith("The previewed configuration has errors:\n  strip[1]")
+    assert reply.message.startswith("The previewed configuration has errors:\n  channel.x.type")
     assert surface.strips[0].color == Color.GREEN
     reply = daemon.on_request(gui, StartPreview("[[strip"))
     assert reply is not None
@@ -216,7 +216,7 @@ async def test_a_reload_ends_the_preview_also_when_the_file_can_not_be_used(
 
     # a file with errors: the one before runs, not the preview
     daemon.on_request(gui, StartPreview(SPEAKER.replace('"Speaker"', '"Desk"')))
-    config_path.write_text('[[strip]]\ntype = "loud"\n')
+    config_path.write_text('[channel.x]\ntype = "loud"\n')
     assert not daemon.reload()
     assert not daemon.previewing
     assert surface.strips[0].text == ["Boxes", "50%"]
@@ -274,12 +274,15 @@ async def test_the_gui_previews_through_the_live_view_while_the_daemon_runs(
             live_socket=socket,
         )
         task = asyncio.create_task(daemon.run())
+        await until(lambda: backend.on_state is not None)
+        assert backend.on_state is not None
+        backend.on_state(STATE)
         await until(lambda: daemon.bridge is not None and daemon.bridge.ready and socket.exists())
-        lights = "homeassistant/number/xtouch/strip_1_fader/config"
+        lights = "homeassistant/number/xtouch/lights_fader/config"
         assert lights in broker.retained
 
         reader, writer = await asyncio.open_unix_connection(socket)
-        # a preview without the Home Assistant strip: its entities stay in Home Assistant
+        # a preview without the Home Assistant channel: its entities stay in Home Assistant
         writer.write(encode_request(StartPreview(SPEAKER + '[mqtt]\nhost = "broker"\n')))
         while not isinstance(reply := decode_message(await reader.readline()), Reply):
             pass
@@ -290,13 +293,11 @@ async def test_the_gui_previews_through_the_live_view_while_the_daemon_runs(
             snapshot = decode(await reader.readline())
         await until(lambda: daemon.bridge is not None and daemon.bridge.ready)
         assert lights in broker.retained
-        assert daemon.bridge is not None
-        assert daemon.bridge.entity_count == 0
 
         # the GUI closed: back to the file, with the entities as they were
         writer.close()
         await until(lambda: not daemon.previewing and surface.strips[0].text[0] == "Lights")
-        await until(lambda: daemon.bridge is not None and daemon.bridge.ready and daemon.bridge.entity_count == 11)
+        await until(lambda: daemon.bridge is not None and daemon.bridge.ready and daemon.bridge.entity_count == 21)
         assert lights in broker.retained
 
         # stopping during a preview leaves the file as it was

@@ -72,8 +72,6 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
     `config` (today's sections of the file) with the slots of `data`; ConfigError for every problem, also of the
     strips the candidates make.
     """
-    if config.strips or config.layouts:
-        raise ConfigError("[slots] replaces [[strip]] and [[layout]]: a file has either")
     scene = Scene.of(data, (config.switching.chord, config.switching.chord_action))
     problems: list[str] = []
     strips: dict[tuple[int, int, str | None], StripConfig] = {}

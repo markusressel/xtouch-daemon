@@ -44,11 +44,9 @@ class Config(Model):
     _slots: SlotsSetup | None = PrivateAttr(default=None)
 
     @property
-    def slots(self) -> SlotsSetup | None:
-        """
-        The channels, states and slots of a file in that format (the prototype of
-        docs/design/channels-states-slots.md), None for one with strips and layouts.
-        """
+    def slots(self) -> SlotsSetup:
+        """The channels, states and slots (see `config.slots.setup()`, which every file goes through)."""
+        assert self._slots is not None, "parse_config() sets up the slots"
         return self._slots
 
     @model_validator(mode="after")
@@ -155,25 +153,6 @@ class Config(Model):
         inheritance = Inheritance(self.layout_list())
         result = [inheritance.resolve((index, position)) for position in range(len(self.layout(layout).strips))]
         return (*result, *(AutoStripConfig(type="auto") for _ in range(protocol.STRIPS - len(result))))
-
-    def inherited(self, layout: str = DEFAULT_LAYOUT) -> tuple[str | None, ...]:
-        """
-        For each strip of `all_strips()`, where it comes from if it is an `inherit` strip (e.g.
-        "layout voice, strip 2"), None for the others.
-        """
-        index = self.layout_names.index(self.layout(layout).name)
-        inheritance = Inheritance(self.layout_list())
-        result: list[str | None] = []
-        for position, strip in enumerate(self.layout(layout).strips):
-            where: str | None = None
-            if isinstance(strip, InheritStripConfig):
-                origin = inheritance.origin((index, position))
-                name = self.layout_names[origin[0]] if origin is not None else strip.layout or DEFAULT_LAYOUT
-                where = ("the default layout" if name == DEFAULT_LAYOUT else f"layout {name}") + (
-                    f", strip {origin[1] + 1}" if origin is not None else ", an auto strip"
-                )
-            result.append(where)
-        return (*result, *[None] * (len(self.all_strips(layout)) - len(result)))
 
     def unreachable(self, layout: str = DEFAULT_LAYOUT) -> list[int]:
         """

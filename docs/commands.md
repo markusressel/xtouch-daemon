@@ -70,8 +70,9 @@ its layout or `[behavior]`, see [Meters](configuration/strips.md#meters)) says `
 strips end with `The device shows the first 8 of them that don't collapse.`
 
 A file with errors names the place of each one, e.g. `strip[3].label: String should have at most 7 characters`, and
-the command fails. A file with strips and layouts ends with a pointer to [`migrate-config`](#migrate-config); one
-with [channels, states and slots](configuration/slots.md) shows the table of what its slots show in which states.
+the command fails. A file with strips and layouts fails too, with a pointer to [`migrate-config`](#migrate-config): the
+daemon runs only [channels, states and slots](configuration/slots.md). The command lists the channels and shows the
+table of what the slots show in which states.
 
 ## `migrate-config`
 

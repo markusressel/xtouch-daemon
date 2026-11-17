@@ -10,23 +10,31 @@ from tests.support.cli import CONFIG, invoke
 from xtouch_daemon import cli
 
 
-def test_check_config_shows_what_each_strip_does(config_file: Path) -> None:
+def test_check_config_shows_the_channels_and_the_slots(config_file: Path) -> None:
     result = invoke("check-config")
 
     assert result.exit_code == 0
     assert result.output.splitlines() == [
         f"{config_file}: valid",
-        "  1. 'Out' the default output (white, rec: recording, solo: off, encoder: balance)",
-        "  2. input mic (white, no meter, rec: off, solo: muted, encoder: balance)",
-        "  3. 'Browser' applications brave, firefox (yellow, rec: recording, solo: off, encoder: media)",
-        "  4. empty",
-        "  5. 'Lights' Home Assistant, entities *.*_strip_5_* (white)",
-        "  6. Home Assistant, entities *.*_desk_* (blue)",
-        *[
-            f"  {number}. the next application that plays (white, rec: recording, solo: off, encoder: pick)"
-            for number in range(7, 9)
-        ],
-        "Strips and layouts go away: `xtouch-daemon migrate-config` writes this file as channels, states and slots",
+        "Channels:",
+        "  out: 'Out' the default output (white, rec: recording, solo: off, encoder: balance)",
+        "  mic: input mic (white, no meter, rec: off, solo: muted, encoder: balance)",
+        "  browser: 'Browser' applications brave, firefox (yellow, rec: recording, solo: off, encoder: media)",
+        "  lights: 'Lights' Home Assistant, entities *.*_lights_* (white)",
+        "  desk: Home Assistant, entities *.*_desk_* (blue)",
+        "What the slots show:",
+        "when     1    2    3        4  5       6     7-8",
+        "default  out  mic  browser  -  lights  desk  auto",
+    ]
+
+
+def test_check_config_of_a_file_without_channels(tmp_path: Path) -> None:
+    path = tmp_path / "empty.toml"
+    path.write_text("")
+    assert invoke("check-config", "-c", str(path)).output.splitlines()[1:] == [
+        "What the slots show:",
+        "when     1-8",
+        "default  auto",
     ]
 
 
@@ -40,10 +48,13 @@ def test_check_config_without_a_file_checks_the_defaults() -> None:
 
 def test_a_named_device_with_select_says_so(tmp_path: Path) -> None:
     path = tmp_path / "other.toml"
-    path.write_text('[[strip]]\ntype = "output"\ndevice = "buds"\nfader = "homeassistant"\n[mqtt]\nhost = "b"\n')
+    path.write_text(
+        '[channel.buds]\ntype = "output"\ndevice = "buds"\nfader = "homeassistant"\n[mqtt]\nhost = "b"\n'
+        '[slots]\n1 = "buds"\n'
+    )
 
     assert (
-        "1. output buds, select makes it the default (white, rec: recording, solo: off, encoder: volume, "
+        "buds: output buds, select makes it the default (white, rec: recording, solo: off, encoder: volume, "
         "fader: homeassistant)" in invoke("check-config", "-c", str(path)).output
     )
 
@@ -65,7 +76,7 @@ def test_init_config_writes_the_example(config_home: Path) -> None:
     assert f"Wrote {config_home}" in result.output
     output = invoke("check-config").output
     assert output.startswith(f"{config_home}: valid")
-    assert "what the slots show" in output
+    assert "What the slots show:" in output
 
 
 def test_init_config_with_strips(tmp_path: Path) -> None:
@@ -88,7 +99,7 @@ def test_migrate_config_writes_the_new_file_next_to_the_old_one(tmp_path: Path) 
         f"Check it with: xtouch-daemon check-config -c {new}",
     ]
     assert path.read_text() == OLD
-    assert "what the slots show" in invoke("check-config", "-c", str(new)).output
+    assert "What the slots show:" in invoke("check-config", "-c", str(new)).output
     # once more: the new file is there
     again = CliRunner().invoke(cli.main, ["migrate-config", "-c", str(path)])
     assert "exists already (--force overwrites it)" in again.output

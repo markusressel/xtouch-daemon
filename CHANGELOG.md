@@ -27,7 +27,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   layouts in that format and lists what needs a look (renamed entities, resolved `inherit` strips, strips without a
   slot); `check-config` points old files to it. `init-config` writes the new format (`--strips` the old example),
   `xtouch-daemon mode` lists and picks the modes (`layout` still works and says so). See the new page Channels,
-  states and slots.
+  states and slots. The daemon runs only this format: it refuses a file with strips and layouts and points to
+  `migrate-config` (the GUI still edits the old format for now), and a file without `[slots]` shows `auto` on every
+  slot.
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.
   `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
   `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` strips, `apps` and `processes` of layouts

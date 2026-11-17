@@ -7,7 +7,8 @@ import pytest
 from tests.support.audio import FakeBackend, output
 from tests.support.hardware import RecordingSurface
 from tests.support.mqtt import FakeBroker
-from tests.support.strips import build
+from tests.support.slots import Rig
+from tests.support.strips import build, strips_of
 from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.meter import Lit
@@ -17,7 +18,6 @@ from xtouch_daemon.config.sections import BehaviorConfig, MqttConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.strips import homeassistant as homeassistant_module
 from xtouch_daemon.strips.base import Identity, Look, StripEnv, VolumeStrip
 from xtouch_daemon.strips.homeassistant import EVENT_TYPES, HomeAssistantStrip, LatestValue
@@ -273,7 +273,7 @@ async def test_a_closed_strip_no_longer_follows_home_assistant(
 
 async def test_a_strip_without_label_is_named_by_its_position(surface: RecordingSurface, bridge: MqttBridge) -> None:
     env = StripEnv(FakeBackend(), BehaviorConfig(), bridge)
-    (config,) = parse_config('[[strip]]\ntype = "homeassistant"\n' * 3 + MQTT).strips[2:]
+    (config,) = strips_of('[[strip]]\ntype = "homeassistant"\n' * 3)[2:]
     strip = build(config, surface.strips[2], env)
     assert isinstance(strip, HomeAssistantStrip)
 
@@ -348,7 +348,7 @@ SPEAKER = AudioState(outputs=(output("speaker", 50),))
 
 def audio_strip(surface: RecordingSurface, bridge: MqttBridge, config: str) -> VolumeStrip:
     env = StripEnv(FakeBackend(), BehaviorConfig(encoder_step=5), bridge)
-    (strip_config,) = parse_config(config + MQTT).strips
+    (strip_config,) = strips_of(config)
     controller = build(strip_config, surface.strips[0], env, {})
     assert isinstance(controller, VolumeStrip)
     return controller
@@ -452,11 +452,11 @@ async def test_with_the_fader_in_home_assistant_the_encoder_sets_the_volume(
     ],
 )
 def test_the_ids_of_the_entities_are_those_of_the_strip(surface: RecordingSurface, bridge: MqttBridge, strip: str):
-    config = parse_config(strip + '[mqtt]\nhost = "broker"\n')
+    (config,) = strips_of(strip)
     env = StripEnv(FakeBackend(), BehaviorConfig(), bridge)
-    controller = build(config.strips[0], surface.strips[0], env, {})
+    controller = build(config, surface.strips[0], env, {})
     expected = {entity.unique_id for entity in controller.entities}
-    assert homeassistant_module.entity_ids("xtouch", config.strips[0], "desk") == expected
+    assert homeassistant_module.entity_ids("xtouch", config, "desk") == expected
     controller.close()
 
 
@@ -474,9 +474,9 @@ choices = [{ label = "Phones", device = "phones" }, { label = "Speaker", device 
 async def test_the_choice_of_a_strip_is_a_select_in_home_assistant(
     surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
 ) -> None:
-    config = parse_config(CHOICES_CONFIG)
+    (config,) = strips_of(CHOICES_CONFIG)
     backend = FakeBackend()
-    controller = build(config.strips[0], surface.strips[0], StripEnv(backend, BehaviorConfig(), bridge), {})
+    controller = build(config, surface.strips[0], StripEnv(backend, BehaviorConfig(), bridge), {})
     state = AudioState(outputs=(output("phones"), output("speaker")), default_output="phones")
     controller.update(state)
     await bridge.set_entities(controller.entities)
@@ -517,12 +517,13 @@ async def test_the_choice_of_a_strip_is_a_select_in_home_assistant(
 async def test_a_new_mixer_publishes_the_choice_before_it_runs(
     surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
 ) -> None:
-    """A layout switch (or a slot getting the output) on a connected bridge: the state goes out at once."""
+    """A new configuration on a connected bridge: the state of the choice goes out at once."""
     task = asyncio.create_task(bridge.run())
     await until(lambda: bridge.ready)
-    mixer = Mixer(surface, FakeBackend(), parse_config(CHOICES_CONFIG), capture_command="true", bridge=bridge)
-    mixer.on_state(AudioState(outputs=(output("phones"),), default_output="phones"))
+    channel = CHOICES_CONFIG.replace("[[strip]]", "[channel.out]").replace('id = "out"\n', "")
+    rig = Rig(surface, parse_config(channel + '[slots]\n1 = "out"\n[voip]\nprovider = "demo"\n'), bridge=bridge)
+    rig.step(AudioState(outputs=(output("phones"),), default_output="phones"))
     await until(lambda: broker.last("homeassistant/select/xtouch/out_output/state") == "Phones")
-    mixer.close()
+    rig.mixer.close()
     task.cancel()
     await finish_tasks()
