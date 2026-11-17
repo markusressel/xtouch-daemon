@@ -634,8 +634,10 @@ Each step keeps the daemon working and the tests green:
   presenter bound to a slot a finger is on gets `on_touch(True)` at once, so it knows (in the old format a layout
   switch rebinds under a finger; in the new one a held slot doesn't change).
 - `dispatch` routes by slot and control (fader, encoder, each button) to an owner: the bound presenter, or a claim
-  (a hook that stays empty until step 5 brings `[controls]`). It is sticky: a release (button up, fader let go,
-  encoder push up) goes to whoever got the press, even if `bind()` changed in between.
+  (a hook that stays empty until step 5 brings `[controls]`). It is sticky: a release (button up, encoder push up)
+  goes to whoever got the press, even if `bind()` changed in between. A touched fader goes over instead: on `bind()`
+  the presenter that had it gets `on_touch(False)`, the new one `on_touch(True)`, its moves and its release, so each
+  sees a touch and its release.
 - Until step 9 the old format binds the controllers of its mixer through the `Flow` (`strip_at`).
 - The `Desk` owns the meters from step 2 on: it runs the meter loop for the presenters bound now.
 - The `Desk` also keeps the chord's held Solo buttons and the flashes and banners of the slots.

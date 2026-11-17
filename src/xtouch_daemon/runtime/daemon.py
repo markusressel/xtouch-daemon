@@ -45,6 +45,7 @@ from xtouch_daemon.live.messages import (
 )
 from xtouch_daemon.live.server import LiveServer, strip_states
 from xtouch_daemon.mqtt import MqttBridge
+from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout
 from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.runtime.slots import INTERVAL as SLOTS_INTERVAL
@@ -85,6 +86,7 @@ class MixerFactory(Protocol):
         keep: frozenset[str],
         preview: bool = False,
         processes: Callable[[], frozenset[str]] = ...,
+        desk: Desk | None = None,
     ) -> Mixer: ...
 
 
@@ -181,7 +183,8 @@ class Daemon:
         """Where the order of the people is kept (see `runtime.slots`): next to the layout, the daemon's state."""
         self.switcher = LayoutSwitcher(config, self._switched, active=self._remembered_layout(config))
         self.layout_select = self._layout_select(config)
-        self._held_solos: set[int] = set()
+        self.desk = Desk(self.surface, self._chord(config), self._on_chord)
+        """The strips of the device and the hands on them, for every mixer."""
         self.slots = SlotRunner(config, self._people_file) if config.slots is not None else None
         """The slots of a configuration of channels, states and slots; None for one of strips and layouts."""
         self._slot_processes: tuple[float, frozenset[str]] | None = None
@@ -191,7 +194,6 @@ class Daemon:
         self._background: set[asyncio.Task[None]] = set()
         self._stop = asyncio.Event()
         self._mixer_task: asyncio.Task[None] | None = None
-        self.surface.on_event = self._on_event
         self.surface.on_connection = self._on_connection
         self.live = (
             LiveServer(live_socket, self.snapshot, self.on_request, self.on_client_closed)
@@ -223,6 +225,7 @@ class Daemon:
             keep=keep,
             preview=self.previewing,
             processes=self._processes,
+            desk=self.desk,
         )
 
     def _remembered_layout(self, config: Config) -> str:
@@ -315,6 +318,7 @@ class Daemon:
         a new mixer on the same surface, sound server and broker. The layout shown stays, if `config` has it.
         """
         self._configure_surface(config)
+        self.desk.chord = self._chord(config)
         if config.voip != self.config.voip:
             self._replace_voip(config)
         if self.bridge is not None and self.layout_select is not None:
@@ -408,24 +412,16 @@ class Daemon:
         self._step_slots()
         return Reply("layout", True, self.slots.mode)
 
-    def _on_event(self, event: protocol.StripEvent) -> None:
-        self.mixer.on_event(event)
-        if not isinstance(event, protocol.ButtonPressed) or event.button != protocol.Button.SOLO:
-            return
-        chord = {number - 1 for number in self.config.switching.chord}
-        if event.strip not in chord:
-            return
-        if not event.pressed:
-            self._held_solos.discard(event.strip)
-            return
-        self._held_solos.add(event.strip)
-        if self._held_solos == chord:
-            # once per chord: the buttons have to be let go first
-            self._held_solos.clear()
-            if self.slots is not None:
-                self.request_mode("+1", CHORD)
-            else:
-                self.switcher.step(1, CHORD)
+    @staticmethod
+    def _chord(config: Config) -> frozenset[int]:
+        """The strips (from 0) whose Solo buttons together switch the layout or mode."""
+        return frozenset(number - 1 for number in config.switching.chord)
+
+    def _on_chord(self) -> None:
+        if self.slots is not None:
+            self.request_mode("+1", CHORD)
+        else:
+            self.switcher.step(1, CHORD)
 
     async def _follow_rules(self) -> None:
         """Checks the rules of the layouts for processes and for the end of their hold time, while there are any."""
@@ -448,7 +444,7 @@ class Daemon:
         if self._slot_processes is None or now - self._slot_processes[0] >= PROCESS_INTERVAL:
             self._slot_processes = (now, self._processes())
         mode = self.slots.mode if self.slots.simulation.states is not None else None
-        held = frozenset(strip + 1 for strip in self.mixer.held_strips)
+        held = self.desk.held_slots()
         voip = voip_state(self.voip) if self.voip is not None else None
         changed = self.slots.step(self.mixer.state, self._slot_processes[1], voip, held, now)
         if changed:

@@ -57,14 +57,19 @@ class Flow:
         titles: Callable[[int], str],
         hold: float,
         clock: Callable[[], float] = time.monotonic,
+        on_bind: Callable[[int, int | None], None] = lambda device_index, index: None,
     ):
-        """`titles` names a strip of the configuration for the log."""
+        """
+        `titles` names a strip of the configuration for the log, `on_bind` is told which strip of the configuration
+        (None for none) each strip of the device shows whenever that is decided.
+        """
         self.strips = list(strips)
         self.device = list(device)
         self.collapse = tuple(collapse)
         self.titles = titles
         self.hold = hold
         self.clock = clock
+        self.on_bind = on_bind
         self.placement: Placement = place(self.collapse, [False] * len(self.strips), len(self.device))
         """What the device shows; until the first `update()` every strip takes a place."""
         for device_index, index in enumerate(self.placement):
@@ -72,6 +77,7 @@ class Flow:
                 # what the strips draw before the first update (e.g. from Home Assistant) goes to the device as it
                 # did before them; the device keeps what it shows until then (another mixer's), nothing is reset
                 self.strips[index].target = self.device[device_index]
+            on_bind(device_index, index)
         self._absences = [_Absence() for _ in self.strips]
         self._bound = False
         self._fresh = True
@@ -128,6 +134,7 @@ class Flow:
                 self.device[device_index].reset()
             else:
                 self.strips[index].bind(self.device[device_index])
+            self.on_bind(device_index, index)
         if not initial:
             self._log(before)
 

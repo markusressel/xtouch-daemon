@@ -121,15 +121,15 @@ async def test_a_state_sets_what_the_meters_capture(mixer: Mixer) -> None:
 async def test_events_go_to_the_strip_they_happened_on(mixer: Mixer, backend: FakeBackend) -> None:
     mixer.on_state(STATE)
 
-    mixer.on_event(protocol.FaderTouched(0, True))
-    mixer.on_event(protocol.FaderMoved(0, protocol.fader_value(0.25)))
-    mixer.on_event(protocol.FaderTouched(0, False))
+    mixer.desk.dispatch(protocol.FaderTouched(0, True))
+    mixer.desk.dispatch(protocol.FaderMoved(0, protocol.fader_value(0.25)))
+    mixer.desk.dispatch(protocol.FaderTouched(0, False))
     await settle()
-    mixer.on_event(protocol.ButtonPressed(0, Button.MUTE, True))
+    mixer.desk.dispatch(protocol.ButtonPressed(0, Button.MUTE, True))
     await settle()
-    mixer.on_event(protocol.EncoderTurned(1, -10))
+    mixer.desk.dispatch(protocol.EncoderTurned(1, -10))
     await settle()
-    mixer.on_event(protocol.EncoderPressed(1, True))
+    mixer.desk.dispatch(protocol.EncoderPressed(1, True))
     await settle()
 
     assert backend.calls == [
@@ -147,18 +147,18 @@ async def test_the_encoder_of_an_auto_strip_picks_its_application(mixer: Mixer, 
     assert surface.strips[3].ring == (1, RingMode.DOT)
 
     # the next one: they swap
-    mixer.on_event(protocol.EncoderTurned(3, 1))
+    mixer.desk.dispatch(protocol.EncoderTurned(3, 1))
     assert [surface.strips[i].text[0] for i in (3, 4)] == ["Discord", "Spotify"]
     assert surface.strips[3].ring == (11, RingMode.DOT)
 
     # an empty one picks too; a push pins
-    mixer.on_event(protocol.EncoderTurned(5, -1))
+    mixer.desk.dispatch(protocol.EncoderTurned(5, -1))
     # from the strip that had it, which is left empty
     assert [surface.strips[i].text[0] for i in (3, 4, 5)] == ["", "Spotify", "Discord"]
-    mixer.on_event(protocol.EncoderPressed(5, True))
+    mixer.desk.dispatch(protocol.EncoderPressed(5, True))
     assert surface.strips[5].ring == (11, RingMode.WRAP)
-    mixer.on_event(protocol.EncoderPressed(5, False))
-    mixer.on_event(protocol.EncoderPressed(5, True))
+    mixer.desk.dispatch(protocol.EncoderPressed(5, False))
+    mixer.desk.dispatch(protocol.EncoderPressed(5, True))
     assert surface.strips[5].ring == (11, RingMode.DOT)
 
 
@@ -459,7 +459,7 @@ async def test_strips_with_launch_follow_the_processes(
     assert mixer.processes == {"bash"}
     mixer.on_state(AudioState())
 
-    mixer.on_event(protocol.ButtonPressed(0, Button.SELECT, True))
+    mixer.desk.dispatch(protocol.ButtonPressed(0, Button.SELECT, True))
     assert len(launcher.spawned) == 1
     assert surface.strips[0].leds[Button.SELECT] == Led.FLASH
 
@@ -640,10 +640,10 @@ async def test_nothing_moves_under_a_finger(
     flow_mixer: Mixer, surface: RecordingSurface, press: protocol.StripEvent, release: protocol.StripEvent
 ) -> None:
     flow_mixer.on_state(QUIET)
-    flow_mixer.on_event(press)
+    flow_mixer.desk.dispatch(press)
     flow_mixer.on_state(BUDS_ON)
     assert labels(surface)[1] == "Browser"
-    flow_mixer.on_event(release)
+    flow_mixer.desk.dispatch(release)
     assert labels(surface)[1] == "Buds"
     assert flow_mixer.meters[1].targets == {CaptureTarget("bluez_output.buds", monitor=True)}
 
@@ -662,8 +662,8 @@ async def test_events_go_to_the_strip_the_device_shows_there(
     flow_mixer: Mixer, surface: RecordingSurface, backend: FakeBackend
 ) -> None:
     flow_mixer.on_state(BUDS_ON)
-    flow_mixer.on_event(protocol.FaderTouched(2, True))
-    flow_mixer.on_event(protocol.FaderMoved(2, protocol.fader_value(0.25)))
+    flow_mixer.desk.dispatch(protocol.FaderTouched(2, True))
+    flow_mixer.desk.dispatch(protocol.FaderMoved(2, protocol.fader_value(0.25)))
     await settle()
     # the browser, which is the third strip of the device now
     assert backend.calls[-1] == ("set_stream_volume", 1, 25)
@@ -678,8 +678,8 @@ async def test_a_dark_strip_of_the_device_ignores_the_hand(
     mixer = Mixer(surface, backend, config, clock=clock, capture_command=capture_script)
     mixer.on_state(QUIET)
     assert mixer.placement == (1, 2, 3, 4, 5, 6, 7, None)
-    mixer.on_event(protocol.ButtonPressed(7, Button.MUTE, True))
-    mixer.on_event(protocol.ButtonPressed(7, Button.MUTE, False))
+    mixer.desk.dispatch(protocol.ButtonPressed(7, Button.MUTE, True))
+    mixer.desk.dispatch(protocol.ButtonPressed(7, Button.MUTE, False))
     await settle()
     assert backend.calls == []
     mixer.close()

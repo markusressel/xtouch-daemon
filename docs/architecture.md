@@ -6,7 +6,8 @@ How the daemon works inside, for developers. To set up the project and run the t
 ```mermaid
 graph LR
     Device[X-Touch Extender<br/>/dev/snd/midiC*D0] <-- "raw MIDI (midi.py, protocol.py)" --> Surface
-    Surface -- "events: fader, touch, buttons, encoders" --> Mixer
+    Surface -- "events: fader, touch, buttons, encoders" --> Desk
+    Desk -- "to the controller bound to the strip" --> Mixer
     Mixer -- "set_fader, set_text, set_led, set_meter ..." --> Surface
     Backend[PulseBackend<br/>one pulsectl-asyncio connection] -- "AudioState snapshot after every change" --> Mixer
     Mixer -- "set volume, mute, default" --> Backend
@@ -43,7 +44,8 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `slots/` | Prototype of [Design: channels, states and slots](design/channels-states-slots.md), not used by the daemon yet: the model (`model`), conditions (`expressions`), presence (`inputs`), the delays (`timing`), the states and modes (`states`), the resolver (`resolver`), the slots over time (`simulation`), the distinct outcomes (`outcomes`), recorded observations (`recording`) and their replay (`replay`). Pure but for the recorder, driven by `simulate` and `observe`. |
 | `mqtt.py` | `MqttBridge`: the connection to the MQTT broker for `homeassistant` strips. Announces their entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
 | `runtime/daemon.py` | `Daemon`: the lifecycle (signals, reload, shutdown, systemd notifications) and switching layouts. |
-| `runtime/mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state and every event, and the meter ticker. |
+| `runtime/desk.py` | `Desk`: the strips of the device for as long as the daemon runs. Hands each event to the controller (`Presenter`) bound to its strip, a release to whoever got the press, follows the hands on the device and the chord of Solo buttons. |
+| `runtime/mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state, bound to the strips of the `Desk`, and the meter ticker. |
 | `runtime/placement.py` | `place()` and `Flow`: which strip of the configuration each strip of the device shows, for strips that collapse. See [Collapsing strips](#collapsing-strips). |
 | `runtime/layouts.py` | `LayoutSwitcher`: which layout the device shows, chosen by hand or by the rules (`apps`, `processes`, `hold`). |
 | `runtime/slots.py`, `config/slots.py` | Prototype: a file of channels, states and slots on the device. `config/slots` builds and checks the strip of every candidate when the file is loaded; `SlotRunner` steps a `Simulation` every 0.2 s, and the daemon builds a new mixer for the strips of the result when one of them changes (the `auto` strips keep their applications). Modes take the place of layouts: switching layouts by hand picks a mode. |
@@ -65,7 +67,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 2. The `Mixer` lets the `AutoAssigner` give the `auto` strips their applications, then calls `update(state)` on every
    controller. A controller shows the state on its `Strip`: color, LCD lines, LEDs, ring and fader.
 3. The `Surface` sends only what changed. A fader target starts a glide that moves the motor every 10 ms.
-4. An event from the device goes from the `Surface` to the `Mixer`, which hands it to the controller of its strip. A
+4. An event from the device goes from the `Surface` to the `Desk`, which hands it to the controller bound to its strip. A
    controller turns it into commands to the backend. These run as tasks: nothing blocks the event loop.
 5. The sound server reports the result as a new snapshot, which goes through step 2 again.
 

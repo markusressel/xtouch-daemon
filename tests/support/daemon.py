@@ -19,6 +19,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.daemon import Daemon
+from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.voip import VoipProvider
 
@@ -46,6 +47,7 @@ def quiet_mixer(
     keep: frozenset[str] = frozenset(),
     preview: bool = False,
     processes: Callable[[], frozenset[str]] = frozenset,
+    desk: Desk | None = None,
 ) -> Mixer:
     # meters that capture nothing: the tests don't touch the audio of the machine they run on
     return Mixer(
@@ -61,6 +63,7 @@ def quiet_mixer(
         keep=keep,
         preview=preview,
         processes=processes,
+        desk=desk,
     )
 
 
