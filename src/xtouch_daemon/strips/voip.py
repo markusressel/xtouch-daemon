@@ -10,6 +10,7 @@ import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from xtouch_daemon.audio.meter import level_of
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.values import color_of
@@ -200,12 +201,15 @@ class VoipStrip(StripController):
         self.strip.set_text(1, bottom)
 
     def held_meter(self) -> int | None:
-        """The participant's level from the provider; without levels a full meter while they talk."""
+        """
+        The participant's level from the provider, on the scale of the other meters (in dB, see `level_of()`):
+        their voice reads like the stream of the voice chat. Without levels a full meter while they talk.
+        """
         person = self.participant
         if not self.meter or person is None:
             return None
         if person.level is not None:
-            return round(person.level * protocol.METER_MAX)
+            return level_of(person.level)
         return protocol.METER_MAX - 1 if person.talking else None
 
     # -- the device -----------------------------------------------------------------------------------------------

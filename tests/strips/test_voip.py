@@ -7,6 +7,7 @@ import pytest
 from tests.support.hardware import RecordingSurface
 from tests.support.launch import FakeLauncher
 from tests.support.tasks import finish_tasks, settle
+from xtouch_daemon.audio.meter import level_of
 from xtouch_daemon.audio.model import DISCONNECTED
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.hardware import protocol
@@ -147,7 +148,8 @@ async def test_a_strip_shows_its_participant(surface: RecordingSurface, env: Str
     # more participants than places: Select pages
     assert first.leds[Button.SELECT] == Led.ON
     assert (second.color, second.text, second.leds[Button.MUTE]) == (Color.CYAN, ["Bob", "muted"], Led.ON)
-    assert ann.held_meter() == round(0.5 * protocol.METER_MAX)
+    # on the scale of the other meters (dB): half of full scale (-6 dB) lights 11 LEDs, linear it was 7
+    assert ann.held_meter() == level_of(0.5) == 11
     assert bob.held_meter() is None
 
 
