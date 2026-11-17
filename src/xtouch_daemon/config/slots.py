@@ -1,8 +1,7 @@
 """
 A configuration of channels, states and slots (the prototype of docs/design/channels-states-slots.md) on the
 device: the strips each slot can show, built from the channels, pools and the options of the candidates as strips of
-today's types and checked when the file is loaded, and the configuration of today's format that shows a result of the
-resolver (see `runtime.slots`).
+today's types and checked when the file is loaded (see `runtime.binder` for how they show).
 """
 
 from collections.abc import Mapping
@@ -16,9 +15,8 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.config.strips import StripConfig
-from xtouch_daemon.slots.inputs import Person
 from xtouch_daemon.slots.model import AUTO, PEOPLE, Scene
-from xtouch_daemon.slots.resolver import SLOTS, Result
+from xtouch_daemon.slots.resolver import SLOTS
 
 SECTIONS = ("channel", "pool", "people", "state", "slots", "controls")
 """The sections of the format of channels, states and slots; a file with one of them is in that format."""
@@ -30,30 +28,7 @@ PEOPLE_ONLY = frozenset({"order"})
 """Options of `[people]` that are not about their strips."""
 EMPTY = "-"
 
-type Shape = tuple[tuple[int | None, str | None, str | None, str | None], ...]
-"""
-Per slot, what decides its strip: the candidate, its pool (`people` for a person on a slot of `auto`), its channel
-and the person without a channel (each person has a strip of their own, so they stay where the resolver put them;
-the applications of `auto` go to its strips).
-"""
-
 _STRIP = TypeAdapter[StripConfig](StripConfig)
-
-
-def shape_of(result: Result) -> Shape:
-    """
-    What the strips of a result depend on: a channel (also one a pool hands out), a pool of applications or people
-    (its members go to the strips of the mixer), or nothing.
-    """
-    return tuple(
-        (
-            shown.candidate,
-            shown.pool,
-            shown.channel,
-            shown.member.name if isinstance(shown.member, Person) and not shown.channel else None,
-        )
-        for shown in result.slots.values()
-    )
 
 
 @dataclass(frozen=True)
@@ -67,16 +42,8 @@ class SlotsSetup:
     """By slot, candidate and channel (None for a pool of applications, and for `-`)."""
     people: Mapping[str, Any] = field(default_factory=dict)
     """The look of the strips of people (the options of `[people]`)."""
-
-    def strips_of(self, shape: Shape) -> tuple[StripConfig, ...]:
-        return tuple(
-            self.person(person)
-            if person is not None
-            else self.strips[(slot, candidate, channel)]
-            if candidate is not None
-            else self.strips[(slot, -1, None)]
-            for slot, (candidate, _, channel, person) in zip(SLOTS, shape, strict=True)
-        )
+    channels: Mapping[str, StripConfig] = field(default_factory=dict)
+    """The strip of each channel on its own (its look where a candidate adds none)."""
 
     def person(self, name: str) -> StripConfig:
         """The strip of a person without a channel (checked with a made-up name when the file is loaded)."""
@@ -136,7 +103,8 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
         return options
 
     # each channel on its own first: its problems once, not on every slot
-    broken = {name for name in scene.channels if check(f"channel.{name}", channel_strip(name)) is None}
+    own_strips = {name: check(f"channel.{name}", channel_strip(name)) for name in scene.channels}
+    broken = {name for name, strip in own_strips.items() if strip is None}
     for slot in SLOTS:
         add((slot, -1, None), f"slots.{slot}", {"type": "empty"})
         for index, candidate in enumerate(scene.stacks[slot]):
@@ -182,11 +150,6 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
         }
     )
     result = config.model_copy(update={"voip": voip, "behavior": behavior})
-    result._slots = SlotsSetup(scene, data, strips, people)
+    channel_strips = {name: strip for name, strip in own_strips.items() if strip is not None}
+    result._slots = SlotsSetup(scene, data, strips, people, channel_strips)
     return result
-
-
-def showing(config: Config, shape: Shape) -> Config:
-    """The configuration of today's format whose strips show `shape`, in place (nothing collapses)."""
-    assert config.slots is not None
-    return config.model_copy(update={"strips": config.slots.strips_of(shape)})

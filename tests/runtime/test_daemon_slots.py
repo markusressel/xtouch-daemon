@@ -20,10 +20,12 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.live.messages import Reply, VoipState, fingerprint
 from xtouch_daemon.runtime import daemon as daemon_module
+from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.runtime.daemon import Daemon
 from xtouch_daemon.runtime.slots import SlotEngine
 from xtouch_daemon.slots.inputs import App
 from xtouch_daemon.slots.states import Override
+from xtouch_daemon.strips.apps import AutoStrip
 
 SLOTS = """
 [switching]
@@ -97,12 +99,22 @@ def make(path: Path, surface: RecordingSurface, processes: Processes, states: tu
     )
 
 
+def app_of(engine: SlotEngine, index: int) -> str | None:
+    """The application on a slot (from 0), as the sound server names it."""
+    member = engine.member(index + 1)
+    return engine.observer.apps.get(member.name) if isinstance(member, App) else None
+
+
 def labels(surface: RecordingSurface, count: int = 3) -> list[str]:
     return [strip.text[0] for strip in surface.strips[:count]]
 
 
 async def test_the_strips_follow_the_states_and_auto_keeps_its_application(
-    tmp_path: Path, surface: RecordingSurface, notifications: Notifications, caplog: pytest.LogCaptureFixture
+    tmp_path: Path,
+    surface: RecordingSurface,
+    notifications: Notifications,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     caplog.set_level(logging.INFO)
     path = tmp_path / "slots.toml"
@@ -112,17 +124,27 @@ async def test_the_strips_follow_the_states_and_auto_keeps_its_application(
     task = asyncio.create_task(daemon.run())
     await until(lambda: labels(surface) == ["Speaker", "Spotify", ""])
     first = daemon.mixer
+    assert isinstance(first, SlotMixer)
+    kept = first.controllers[:2]
     # the encoder of slot 2 pins its application: a request to the slots
-    slot = first.auto_strips[0].slot
+    spotify = kept[1]
+    assert isinstance(spotify, AutoStrip)
+    slot = spotify.slot
     assert slot is not None
     slot.toggle_pin()
     assert daemon.slots is not None
     assert daemon.slots.pins == {2: App("Spotify")}
     assert slot.pinned
 
+    redrawn: list[int] = []
+    for index in (0, 1):
+        monkeypatch.setattr(surface.strips[index], "show_from", lambda view, index=index: redrawn.append(index))
     processes.running.add("mumble")
     await until(lambda: labels(surface) == ["Speaker", "Spotify", "Mic"])
-    assert daemon.mixer is not first
+    # only slot 3 changed: slots 1 and 2 keep their controllers and are not drawn again (no blank texts)
+    assert daemon.mixer is first
+    assert first.controllers[:2] == kept
+    assert redrawn == []
     # the auto strip of slot 2 keeps its application, and its pin
     assert daemon.slots.pins == {2: App("Spotify")}
     processes.running.add("mygame")
@@ -309,7 +331,6 @@ def test_a_reload_carries_the_states_the_members_and_the_choices_over() -> None:
     # the label of the output changes, a slot goes: call stays (off, overridden), Spotify keeps slot 2
     engine.reconfigure(parse_config(SLOTS.replace('"Speaker"', '"Boxes"').replace('3 = ["mic if call", "auto"]\n', "")))
     assert engine.choices == ({"call": Override.OFF}, None)
-    assert engine.shape is not None
     assert engine.simulation.result is not None
     assert str(engine.simulation.result.slots[2]) == "auto:Spotify"
     engine.step(spotify, frozenset({"mumble"}), None, frozenset(), 0.1)
@@ -337,7 +358,7 @@ def test_the_encoder_of_an_auto_slot_picks_and_pins_through_the_engine() -> None
     assert slot.position() is None
     assert requests == []
     engine.step(two, frozenset(), None, frozenset(), 0)
-    assert [engine.app(index) for index in (1, 2)] == ["Spotify", "mpv"]
+    assert [app_of(engine, index) for index in (1, 2)] == ["Spotify", "mpv"]
     assert engine.candidates() == [App("Spotify"), App("mpv (mpv-bin)")]
     assert slot.position() == (0, 2)
     # the next one: slot 2 gets mpv once, slot 3 the other application
@@ -345,7 +366,7 @@ def test_the_encoder_of_an_auto_slot_picks_and_pins_through_the_engine() -> None
     assert engine.picks == {2: App("mpv (mpv-bin)")}
     engine.step(two, frozenset(), None, frozenset(), 0.1)
     assert engine.picks == {}
-    assert [engine.app(index) for index in (1, 2)] == ["mpv", "Spotify"]
+    assert [app_of(engine, index) for index in (1, 2)] == ["mpv", "Spotify"]
     # pinned, a pick keeps the pin on the new application; a push again unpins
     slot.toggle_pin()
     slot.pick(-1)
@@ -358,7 +379,7 @@ def test_the_encoder_of_an_auto_slot_picks_and_pins_through_the_engine() -> None
     dark.toggle_pin()
     assert not dark.pinned
     assert dark.position() is None
-    assert engine.app(0) is None
+    assert app_of(engine, 0) is None
     # an empty slot of auto picks from the end backwards
     engine.slot(3).pick(-1)
     assert engine.picks[4] == App("mpv (mpv-bin)")

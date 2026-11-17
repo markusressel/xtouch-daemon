@@ -7,7 +7,6 @@ import pytest
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import parse_config
-from xtouch_daemon.config.slots import showing
 
 CHANNELS = """
 [channel.out]
@@ -75,19 +74,10 @@ def test_the_strips_of_every_candidate_and_member():
     assert "beep" in config.behavior.ignore
     assert "radio" in config.behavior.ignore
     assert "firefox" in config.behavior.ignore
-    shown = showing(
-        config,
-        (
-            (0, None, "out", None),
-            (0, "web", "radio", None),
-            (0, "people", None, "Bo"),
-            (0, "people", "alice", None),
-            *[(None, None, None, None)] * 4,
-        ),
-    )
-    assert [strip.type for strip in shown.strips[:5]] == ["output", "apps", "voip", "voip", "empty"]
-    assert shown.strips[2].model_dump()["person"] == ("Bo",)
-    assert shown.strips[3].model_dump()["person"] == ("Alice",)
+    # each channel on its own, for its controller
+    assert config.slots.channels["out"].type == "output"
+    assert config.slots.channels["alice"].model_dump()["person"] == ("Alice",)
+    assert config.slots.channels["radio"].model_dump()["color"] == "white"
 
 
 def test_nothing_ignored_without_apps_channels():

@@ -734,9 +734,9 @@ What building it showed:
 
 **On the device**: the daemon runs a file in this format (`xtouch-daemon run -c slots.toml`). The resolver runs
 every 0.2 s (that is the batching) on what the sound server, the processes and the voice chat of the daemon show.
-When the strip of a slot changes (another channel, a pool instead of a channel) the daemon builds a new mixer from
-today's strip types, as for a layout switch; the members of `auto` and `people` are handed out by its `auto` and
-`voip` strips, and the `auto` strips that stay keep their applications and pins. Apps channels never go into `auto`
+Each channel has its controller for as long as the configuration, each application of `auto` and each person
+without a channel one while they are members (`SlotMixer` in `runtime/binder.py`, step 5b); after each step only the
+slots whose result changed get another controller, so the others keep their texts, fader and LEDs. Apps channels never go into `auto`
 one application at a time, only as a whole. The mode takes the place of the layout: `xtouch-daemon layout gaming`,
 the GUI and the chord pick a mode, `layout auto` gives it back to the rules; the banner names a new mode. Not yet:
 Home Assistant (no entities for states and modes, no `select.xtouch_mode`), overrides of states, keeping overrides

@@ -1,9 +1,8 @@
 """
 Running a configuration of channels, states and slots on the device (the prototype of
 docs/design/channels-states-slots.md): the `SlotEngine` feeds a `Simulation` with what the sound server, the
-processes and the voice chat show, and takes the requests (a mode, an override, a pin); its result becomes the
-strips of a mixer. A mixer is built anew only when the strip of a slot changes (another channel, a pool instead of a
-channel), like at a layout switch; the members of `auto` and `people` are handed out by its `auto` and `voip` strips.
+processes and the voice chat show, and takes the requests (a mode, an override, a pin); its result says what the
+`SlotMixer` (`runtime.binder`) puts on each strip of the device.
 """
 
 import json
@@ -14,8 +13,6 @@ from pathlib import Path
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.model import Config
-from xtouch_daemon.config.slots import Shape, shape_of, showing
-from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import VoipState
 from xtouch_daemon.slots.inputs import App, Channel, Member, excluded, owner_of
 from xtouch_daemon.slots.model import DEFAULT, Scene
@@ -26,8 +23,6 @@ from xtouch_daemon.slots.states import Override, States
 
 _LOGGER = logging.getLogger(__name__)
 
-DARK: Shape = ((None, None, None, None),) * protocol.STRIPS
-"""Every slot dark: before the first step."""
 PEOPLE_FILE_NAME = "people.json"
 """The file of the order of the people, in the state directory of the daemon."""
 CHOICES_FILE_NAME = "slots.json"
@@ -78,8 +73,6 @@ class SlotEngine:
         self.on_request: Callable[[], None] = lambda: None
         """Called after a request of a slot's encoder, which should show at once."""
         self.observer = Observer()
-        self.shape: Shape | None = None
-        """What the strips of the mixer show; None before the first step (the sound server is not there yet)."""
 
     def reconfigure(self, config: Config) -> None:
         """Goes on with another configuration (a reload): states, channels, members and choices carry over by id."""
@@ -90,7 +83,6 @@ class SlotEngine:
         self.simulation = Simulation(self.scene)
         self.simulation.carry(before)
         self.pins = {slot: member for slot, member in self.pins.items() if slot in self.scene.stacks}
-        self.shape = shape_of(self.simulation.result) if self.simulation.result is not None else None
         self._keep_choices()
 
     @property
@@ -111,10 +103,6 @@ class SlotEngine:
     def mode_label(self, mode: str) -> str:
         label = self.scene.states[mode].label if mode in self.scene.states else None
         return label or mode.capitalize()
-
-    def mixer_config(self) -> Config:
-        """The configuration of today's format for the mixer: the strips of the result, all of them dark before."""
-        return showing(self.config, self.shape or DARK)
 
     def deadline(self) -> float | None:
         """When a delay or a dwell ends, if one is pending: then the slots need another step."""
@@ -157,11 +145,6 @@ class SlotEngine:
             if not excluded(scene, app) and owner_of(scene, app) is None
         ]
 
-    def app(self, index: int) -> str | None:
-        """The application of the `auto` strip of a slot (from 0), as the sound server names it; None for none."""
-        member = self.member(index + 1)
-        return self.observer.apps.get(member.name) if isinstance(member, App) else None
-
     def slot(self, index: int) -> EngineSlot:
         """Where the `pick` encoder of the slot (from 0) picks."""
         return EngineSlot(self, index + 1)
@@ -175,11 +158,8 @@ class SlotEngine:
         voip: VoipState | None,
         held: frozenset[int],
         now: float,
-    ) -> bool:
-        """
-        Resolves the slots with what the system shows at `now`; `held` are the slots (from 1) under a finger. True
-        if the strips changed: then the mixer is built anew from `mixer_config()`.
-        """
+    ) -> Result:
+        """Resolves the slots with what the system shows at `now`; `held` are the slots (from 1) under a finger."""
         observation = self.observer.observe(audio, processes, voip, now)
         before = self.simulation.states
         previous = self.simulation.result
@@ -192,12 +172,8 @@ class SlotEngine:
         self._keep_people(tuple(person.name for person in observation.people))
         # an override ends at an edge of its state, a mode picked when the rules want another one
         self._keep_choices()
-        shape = shape_of(result)
-        if shape == self.shape:
-            return False
         self._log_slots(previous, result)
-        self.shape = shape
-        return True
+        return result
 
     def _keep_people(self, people: tuple[str, ...]) -> None:
         """Writes the people known when someone came or went (then they were last seen)."""
@@ -235,6 +211,8 @@ class SlotEngine:
             for slot, shown in after.slots.items()
             if before is None or str(before.slots[slot]) != str(shown)
         ]
+        if not changes:
+            return
         _LOGGER.info(f"Slots: {', '.join(changes)}")
         for slot in after.slots:
             if before is None or str(before.slots[slot]) != str(after.slots[slot]):

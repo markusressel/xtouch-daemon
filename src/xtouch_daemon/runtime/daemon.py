@@ -46,6 +46,7 @@ from xtouch_daemon.live.messages import (
 )
 from xtouch_daemon.live.server import LiveServer, strip_states
 from xtouch_daemon.mqtt import MqttBridge
+from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout
 from xtouch_daemon.runtime.mixer import Mixer
@@ -192,17 +193,32 @@ class Daemon:
         """The layout the device shows."""
         return self.switcher.active
 
-    def _new_mixer(self) -> Mixer:
+    def _new_mixer(self) -> Mixer | SlotMixer:
         shared: dict[MQTTEntity, str | None] = {}
         keep: frozenset[str] = frozenset()
         if self.bridge is not None:
             keep = layout_entity_ids(self.config, self.bridge.config.namespace)
             if self.layout_select is not None:
                 shared[self.layout_select] = self.layout
+        if self.slots is not None:
+            assert self.voip is not None, "people share the slots of auto in every configuration of slots"
+            return SlotMixer(
+                self.surface,
+                self.backend,
+                self.config,
+                self.slots,
+                self.desk,
+                self.voip,
+                bridge=self.bridge,
+                players=self.players,
+                shared_entities=shared,
+                preview=self.previewing,
+                processes=self._processes,
+            )
         return Mixer(
             self.surface,
             self.backend,
-            self.slots.mixer_config() if self.slots is not None else self.config,
+            self.config,
             bridge=self.bridge,
             players=self.players,
             layout=self.layout,
@@ -212,7 +228,6 @@ class Daemon:
             preview=self.previewing,
             processes=self._processes,
             desk=self.desk,
-            slots=self.slots,
         )
 
     def _remembered_layout(self, config: Config) -> str:
@@ -320,11 +335,10 @@ class Daemon:
         else:
             # what the states, channels and members were carries over
             self.slots.reconfigure(config)
+        self._replace_mixer()
         if self.slots is not None and self.mixer.state.connected:
-            # the slots of the new configuration right away (a new mixer), not dark until the next step
+            # the slots of the new configuration right away, not dark until the next step
             self._step_slots()
-        else:
-            self._replace_mixer()
 
     def _replace_mixer(self) -> None:
         """A new mixer for the configuration and the layout, on the same surface, sound server and broker."""
@@ -456,7 +470,7 @@ class Daemon:
                 self._step_slots()
 
     def _step_slots(self) -> None:
-        """One step of the slots: a new mixer if a strip changed, the banner if the mode did."""
+        """One step of the slots: the slots that changed show their new controllers, the banner if the mode did."""
         assert self.slots is not None
         now = time.monotonic()
         if self._slot_processes is None or now - self._slot_processes[0] >= PROCESS_INTERVAL:
@@ -464,12 +478,10 @@ class Daemon:
         mode = self.slots.mode if self.slots.simulation.states is not None else None
         held = self.desk.held_slots()
         voip = voip_state(self.voip) if self.voip is not None else None
-        changed = self.slots.step(self.mixer.state, self._slot_processes[1], voip, held, now)
-        if changed:
-            self._replace_mixer()
-        else:
-            # the applications of the auto strips
-            self.mixer.refresh()
+        result = self.slots.step(self.mixer.state, self._slot_processes[1], voip, held, now)
+        assert isinstance(self.mixer, SlotMixer)
+        self.mixer.apply(result)
+        self.mixer.refresh()
         states = self.slots.simulation.states
         assert states is not None
         if mode is not None and states.mode != mode:
@@ -601,9 +613,12 @@ class Daemon:
             self._in_background(self.players.run(), "media players")
         systemd.notify("READY=1", self._status())
         layouts = f" ({len(self.config.layout_names)} layouts)" if self.config.layouts else ""
-        _LOGGER.info(
-            f"Running with {len(self.mixer.controllers)} strips{layouts}, waiting for {self.config.device.name}"
+        shows = (
+            f"{len(self.mixer.controllers)} strips{layouts}"
+            if self.config.slots is None
+            else f"{len(self.config.slots.channels)} channels"
         )
+        _LOGGER.info(f"Running with {shows}, waiting for {self.config.device.name}")
         stopped = asyncio.create_task(self._stop.wait())
         try:
             done, _ = await asyncio.wait([stopped, surface, *parts], return_when=asyncio.FIRST_COMPLETED)

@@ -28,6 +28,7 @@ from xtouch_daemon.live.messages import (
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon
+from xtouch_daemon.runtime.mixer import Mixer
 
 LAYOUTS = (
     SPEAKER
@@ -86,6 +87,7 @@ async def test_switching_layouts_by_hand(
 
     assert daemon.switch_layout("gaming")
     assert not daemon.switch_layout("gaming")
+    assert isinstance(daemon.mixer, Mixer)
     assert daemon.mixer.layout == "gaming"
     # the banner names the layout and why, the strips draw underneath
     assert surface.strips[3].shown_text == ("    Gam", "    man")
@@ -337,6 +339,7 @@ async def test_a_preview_has_layouts_too(
     await until(lambda: json.loads(broker.retained[f"{select}/config"])["options"][-1:] == ["music"])
     # the GUI shows it on the device: still a preview
     assert daemon.on_request(gui, SwitchLayout("music")) == Reply("layout", True, "music")
+    assert isinstance(daemon.mixer, Mixer)
     assert daemon.mixer.layout == "music"
     assert daemon.mixer.preview
     assert daemon.snapshot().preview
