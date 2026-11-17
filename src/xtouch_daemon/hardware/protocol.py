@@ -253,3 +253,121 @@ def fader_value(fraction: float) -> int:
 
 def fader_fraction(value: int) -> float:
     return value / FADER_MAX
+
+
+# -- the other side: the messages to the device as the device reads them, and what it sends -------------------------
+# (for the simulated device, see docs/design/device-simulator.md)
+
+
+@dataclass(frozen=True)
+class MotorMoved:
+    """The host moves the motor of a fader."""
+
+    strip: int
+    value: int
+    """0..FADER_MAX"""
+
+
+@dataclass(frozen=True)
+class LedSet:
+    strip: int
+    button: Button
+    state: Led
+
+
+@dataclass(frozen=True)
+class RingSet:
+    strip: int
+    position: int
+    """0 (off) or 1..RING_MAX"""
+    mode: RingMode
+    center: bool
+
+
+@dataclass(frozen=True)
+class MeterSet:
+    strip: int
+    level: int
+    """0..METER_MAX"""
+
+
+@dataclass(frozen=True)
+class LcdText:
+    """Characters written into the 2 x LCD_LINE_LENGTH characters of the LCDs, from `offset` on."""
+
+    offset: int
+    text: str
+
+
+@dataclass(frozen=True)
+class LcdColors:
+    colors: tuple[Color, ...]
+
+
+type HostEvent = MotorMoved | LedSet | RingSet | MeterSet | LcdText | LcdColors
+"""What the host sets on the device."""
+
+
+def decode_host(message: bytes) -> HostEvent | None:
+    """
+    One complete MIDI message of the host as the device takes it, None for one it does not use. An LED takes any
+    velocity but 0 (off) and 1 (flashing) as on.
+    """
+    if not message:
+        return None
+    status = message[0]
+    kind = status & 0xF0
+    if kind == 0xE0 and len(message) == 3:
+        return MotorMoved(status & 0x0F, message[1] | message[2] << 7)
+    if status == 0x90 and len(message) == 3 and message[1] < 4 * STRIPS:
+        note, velocity = message[1], message[2]
+        state = Led.OFF if velocity == 0 else Led.FLASH if velocity == 1 else Led.ON
+        return LedSet(note % STRIPS, Button(note - note % STRIPS), state)
+    if status == 0xB0 and len(message) == 3 and V_POT_RING_CC <= message[1] < V_POT_RING_CC + STRIPS:
+        value = message[2]
+        return RingSet(message[1] - V_POT_RING_CC, value & 0x0F, RingMode(value >> 4 & 0x03), bool(value & 0x40))
+    if kind == 0xD0 and len(message) == 2:
+        return MeterSet(message[1] >> 4, message[1] & 0x0F)
+    if message.startswith(SYSEX_HEADER) and message[-1] == SYSEX_END and len(message) > len(SYSEX_HEADER) + 1:
+        command, data = message[len(SYSEX_HEADER)], message[len(SYSEX_HEADER) + 1 : -1]
+        if command == 0x12 and data:
+            return LcdText(data[0], data[1:].decode("ascii", errors="replace"))
+        if command == 0x72 and len(data) == STRIPS:
+            return LcdColors(tuple(Color(color & 0x07) for color in data))
+    return None
+
+
+def fader_moved(strip: int, value: int) -> bytes:
+    """The device: a fader moved to 0..FADER_MAX."""
+    _check_strip(strip)
+    return bytes([0xE0 | strip, value & 0x7F, value >> 7 & 0x7F])
+
+
+def fader_touched(strip: int, touched: bool) -> bytes:
+    _check_strip(strip)
+    return bytes([0x90, FADER_TOUCH_NOTE + strip, 0x7F if touched else 0x00])
+
+
+def button(strip: int, which: Button, pressed: bool) -> bytes:
+    _check_strip(strip)
+    return bytes([0x90, which + strip, 0x7F if pressed else 0x00])
+
+
+def encoder_turned(strip: int, steps: int) -> bytes:
+    """Steps 1..63 clockwise, -1..-63 counter-clockwise."""
+    _check_strip(strip)
+    if not 1 <= abs(steps) <= 0x3F:
+        raise ValueError(f"{steps} steps are not 1..63 either way")
+    return bytes([0xB0, V_POT_TURN_CC + strip, steps if steps > 0 else 0x40 - steps])
+
+
+def encoder_pressed(strip: int, pressed: bool) -> bytes:
+    _check_strip(strip)
+    return bytes([0x90, V_POT_PUSH_NOTE + strip, 0x7F if pressed else 0x00])
+
+
+def host_query(serial: bytes, challenge: bytes) -> bytes:
+    """What the device sends after it started: its serial (7 bytes) and a challenge (4 bytes)."""
+    if len(serial) != 7 or len(challenge) != 4:
+        raise ValueError("the serial has 7 bytes, the challenge 4")
+    return SYSEX_HEADER + b"\x01" + serial + challenge + bytes([SYSEX_END])

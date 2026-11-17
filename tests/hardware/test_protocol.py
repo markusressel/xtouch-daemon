@@ -126,3 +126,73 @@ def test_fader_fractions_and_values_convert_both_ways():
     assert protocol.fader_value(-0.5) == 0
     assert protocol.fader_fraction(protocol.FADER_MAX) == 1.0
     assert protocol.fader_fraction(protocol.fader_value(0.25)) == pytest.approx(0.25, abs=1e-4)
+
+
+# -- the other side, for the simulated device ------------------------------------------------------------------------
+
+
+def test_the_device_reads_what_the_host_sends():
+    for strip in range(protocol.STRIPS):
+        for value in (0, 1, 0x7F, 0x80, 0x2000, protocol.FADER_MAX):
+            assert protocol.decode_host(protocol.fader(strip, value)) == protocol.MotorMoved(strip, value)
+        for button in Button:
+            for state in Led:
+                assert protocol.decode_host(protocol.led(strip, button, state)) == protocol.LedSet(strip, button, state)
+        for position in range(protocol.RING_MAX + 1):
+            for mode in RingMode:
+                for center in (False, True):
+                    assert protocol.decode_host(protocol.ring(strip, position, mode, center)) == protocol.RingSet(
+                        strip, position, mode, center
+                    )
+        for level in range(protocol.METER_MAX + 1):
+            assert protocol.decode_host(protocol.meter(strip, level)) == protocol.MeterSet(strip, level)
+        for line in (0, 1):
+            offset = line * protocol.LCD_LINE_LENGTH + strip * protocol.LCD_CELL_WIDTH
+            message = protocol.lcd_text(strip, line, "Speaker")
+            assert protocol.decode_host(message) == protocol.LcdText(offset, "Speaker")
+    colors = list(Color)
+    assert protocol.decode_host(protocol.lcd_colors(colors)) == protocol.LcdColors(tuple(colors))
+    # any other velocity lights the LED
+    assert protocol.decode_host(bytes([0x90, 0x01, 0x40])) == protocol.LedSet(1, Button.REC, Led.ON)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        b"",
+        bytes([0x90, 0x68, 0x7F]),  # a touch is no LED
+        bytes([0xB0, 0x10, 0x01]),  # a turn is no ring
+        bytes([0x80, 0x00, 0x00]),
+        protocol.SYSEX_HEADER + bytes([0x12, protocol.SYSEX_END]),
+        protocol.SYSEX_HEADER + bytes([0x72, 1, 2, protocol.SYSEX_END]),
+        protocol.SYSEX_HEADER + bytes([0x99, 0, protocol.SYSEX_END]),
+        protocol.SYSEX_HEADER + bytes([protocol.SYSEX_END]),
+    ],
+)
+def test_the_device_ignores_what_it_does_not_use(message: bytes):
+    assert protocol.decode_host(message) is None
+
+
+def test_the_host_reads_what_the_device_sends():
+    for strip in range(protocol.STRIPS):
+        for value in (0, 4, 0x7F, 0x80, protocol.FADER_MAX):
+            assert decode(protocol.fader_moved(strip, value)) == protocol.FaderMoved(strip, value)
+        for flag in (False, True):
+            assert decode(protocol.fader_touched(strip, flag)) == protocol.FaderTouched(strip, flag)
+            assert decode(protocol.encoder_pressed(strip, flag)) == protocol.EncoderPressed(strip, flag)
+            for button in Button:
+                assert decode(protocol.button(strip, button, flag)) == protocol.ButtonPressed(strip, button, flag)
+        for steps in (1, 5, 63, -1, -5, -63):
+            assert decode(protocol.encoder_turned(strip, steps)) == protocol.EncoderTurned(strip, steps)
+    serial, challenge = b"ABCDEFG", b"\x01\x02\x03\x04"
+    assert decode(protocol.host_query(serial, challenge)) == protocol.HostQuery(serial, challenge)
+
+
+def test_the_device_sends_only_what_it_can():
+    for steps in (0, 64, -64):
+        with pytest.raises(ValueError, match="steps"):
+            protocol.encoder_turned(0, steps)
+    with pytest.raises(ValueError, match="7 bytes"):
+        protocol.host_query(b"short", b"\x00" * 4)
+    with pytest.raises(ValueError, match="strip"):
+        protocol.button(8, Button.REC, True)
