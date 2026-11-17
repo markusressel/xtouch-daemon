@@ -26,7 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   preview, with the states and slots in its tooltip. `xtouch-daemon migrate-config` writes a file with strips and
   layouts in that format and lists what needs a look (renamed entities, resolved `inherit` strips, strips without a
   slot); `check-config` points old files to it. `init-config` writes the new format (`--strips` the old example),
-  `xtouch-daemon mode` lists and picks the modes (`layout` still works and says so). See the new page Channels,
+  `xtouch-daemon mode` lists and picks the modes (`layout` only points to it). See the new page Channels,
   states and slots. The daemon runs only this format: it refuses a file with strips and layouts and points to
   `migrate-config` (the GUI still edits the old format for now), and a file without `[slots]` shows `auto` on every
   slot. `behavior.auto_hold`, `behavior.ignore`, `behavior.collapse_hold` and `switching.hold` are errors that name

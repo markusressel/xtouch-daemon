@@ -1,5 +1,5 @@
 """
-Switching the layout (`layout`) or the mode (`mode`) of the running daemon, over the socket of its live view.
+Picking the mode of the running daemon (`mode`), over the socket of its live view; `layout` points to it.
 """
 
 import socket
@@ -9,11 +9,11 @@ from typing import BinaryIO
 import click
 
 from xtouch_daemon.live.codec import decode_message, encode_request
-from xtouch_daemon.live.messages import Reply, SetMode, Snapshot, SwitchLayout
+from xtouch_daemon.live.messages import Reply, SetMode, Snapshot
 from xtouch_daemon.system import instance
 
-LAYOUT_TIMEOUT = 3.0
-"""Seconds `layout` waits for the daemon to show the layout."""
+TIMEOUT = 3.0
+"""Seconds `mode` waits for the daemon."""
 
 
 def _live_lines(lines: BinaryIO) -> Iterator[Snapshot | Reply]:
@@ -24,19 +24,16 @@ def _live_lines(lines: BinaryIO) -> Iterator[Snapshot | Reply]:
             yield message
 
 
-@click.command()
-@click.argument("name", required=False)
-@click.option("--next", "step", flag_value=1, type=int, help="Switch to the next layout.")
-@click.option("--previous", "step", flag_value=-1, type=int, help="Switch to the previous layout.")
-def layout(name: str | None, step: int | None) -> None:
-    """List the layouts of the running daemon, or switch it to the layout NAME (or the next or previous one)."""
-    with _connect() as sock:
-        _switch_layout(sock, name, step)
+@click.command(hidden=True, context_settings={"ignore_unknown_options": True})
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def layout(args: tuple[str, ...]) -> None:
+    """Layouts are gone: `mode` lists and picks the modes."""
+    raise click.ClickException("layouts are gone: `xtouch-daemon mode` lists and picks the modes")
 
 
 def _connect() -> socket.socket:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(LAYOUT_TIMEOUT)
+    sock.settimeout(TIMEOUT)
     try:
         sock.connect(str(instance.socket_file()))
     except OSError as e:
@@ -62,7 +59,7 @@ def mode(name: str | None, step: str | None) -> None:
             raise click.ClickException("the daemon did not answer") from e
         slots = current.slots
         if slots is None:
-            raise click.ClickException("the daemon runs strips and layouts: see `xtouch-daemon layout`")
+            raise click.ClickException("the daemon is older than this program, restart it")
         if name is None and step is None:
             modes = ("default", *(state.name for state in slots.states if state.mode))
             for each in modes:
@@ -77,33 +74,3 @@ def mode(name: str | None, step: str | None) -> None:
         if not reply.ok:
             raise click.ClickException(reply.message)
         click.echo(f"Mode {reply.message}")
-
-
-def _switch_layout(sock: socket.socket, name: str | None, step: int | None) -> None:
-    with sock.makefile("rb") as lines:
-        messages = _live_lines(lines)
-        try:
-            current = next(message for message in messages if isinstance(message, Snapshot))
-        except (StopIteration, TimeoutError) as e:
-            raise click.ClickException("the daemon did not answer") from e
-        names = current.layouts or ("default",)
-        if name is None and step is None:
-            for each in names:
-                click.echo(f"{'*' if each == current.layout else ' '} {each}")
-            return
-        if name is not None and name not in names:
-            raise click.ClickException(f"there is no layout {name} ({', '.join(names)})")
-        if current.slots is not None:
-            click.echo("The daemon has modes: `xtouch-daemon mode` replaces `layout`", err=True)
-        if "layout" not in current.features:
-            raise click.ClickException("the daemon is older than this program, restart it")
-        active = current.layout or names[0]
-        wanted = name if name is not None else names[(names.index(active) + (step or 0)) % len(names)]
-        sock.sendall(encode_request(SwitchLayout(wanted)))
-        try:
-            reply = next(message for message in messages if isinstance(message, Reply))
-        except (StopIteration, TimeoutError) as e:
-            raise click.ClickException(f"the daemon did not switch to {wanted}") from e
-        if not reply.ok:
-            raise click.ClickException(reply.message)
-        click.echo(f"Layout {wanted}")

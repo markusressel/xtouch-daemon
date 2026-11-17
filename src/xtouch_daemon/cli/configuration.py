@@ -47,14 +47,9 @@ def describe_strip(config: StripConfig, name: str, meter_point: MeterPoint = "pr
         case EmptyStripConfig():
             return "empty"
         case VoipStripConfig():
-            launch = f", select launches {shlex.join(config.launch)} while it is not there" if config.launch else ""
-            collapse = ", collapses" if config.collapse else ""
-            colors = f"{config.color}, talking: {config.talking_color}"
-            if config.person:
-                who = f"{' or '.join(config.person)} in the voice chat"
-                label = f"{config.label!r} " if config.label else ""
-                return f"{label}{who}, dark while away ({colors}{collapse}){launch}"
-            return f"a participant of the voice chat, in the group ({colors}{collapse}){launch}"
+            label = f"{config.label!r} " if config.label else ""
+            who = f"{' or '.join(config.person)} in the voice chat"
+            return f"{label}{who}, dark while away ({config.color}, talking: {config.talking_color})"
         case _ as unreachable:
             assert_never(unreachable)
     label = f"{config.label!r} " if isinstance(config, DeviceStripConfig | AppsStripConfig) and config.label else ""
@@ -73,8 +68,6 @@ def describe_strip(config: StripConfig, name: str, meter_point: MeterPoint = "pr
     if not isinstance(config, DeviceStripConfig) and config.launch is not None:
         when = "also while it runs" if config.launch_when_running else "while it does not run"
         what += f", select launches {shlex.join(config.launch)} {when}"
-    if config.collapse:
-        details.append("collapses")
     return f"{label}{what} ({', '.join(details)})"
 
 

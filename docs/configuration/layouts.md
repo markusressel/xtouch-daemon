@@ -68,7 +68,7 @@ shown before (by hand, or `default` once no rule matched). It keeps that in `~/.
 (`$XDG_STATE_HOME`, if set). A layout that is not in the configuration anymore gives `default`, and the rules still
 win: if one matches right after the start (a game that still runs), its layout comes as usual. Another one comes:
 
-- by hand: `xtouch-daemon layout gaming`, `xtouch-daemon layout --next` (see [Commands](../commands.md#layout)),
+- by hand: `xtouch-daemon layout gaming`, `xtouch-daemon layout --next` (see [Commands](../commands.md#mode)),
   or "Show on the device" in the [GUI](../gui.md);
 - from Home Assistant: the select entity `select.xtouch_layout` (see [Home Assistant](../home-assistant.md#layouts));
 - on the device: holding the Solo buttons of strips 1 and 8 together switches to the next layout;
