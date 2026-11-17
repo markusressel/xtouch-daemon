@@ -4,6 +4,7 @@ Helpers for the tests of channels, states and slots: configurations from TOML, s
 
 import tomllib
 from collections.abc import Iterable
+from pathlib import Path
 
 from tests.support.paths import DOCS
 from xtouch_daemon.slots.model import DEFAULT, Scene
@@ -31,3 +32,11 @@ def states(scene: Scene, *on: str, mode: str = DEFAULT) -> dict[str, bool]:
 
 def shows(result: Result, slots: Iterable[int] = range(1, 9)) -> list[str]:
     return [str(result.slots[slot]) for slot in slots]
+
+
+OLDER = Path(__file__).with_name("older_example.toml")
+"""The example of the design before the live test: people in slot 2 while gaming, `call` waits 2 s."""
+
+
+def older() -> Scene:
+    return Scene.of(tomllib.loads(OLDER.read_text()))

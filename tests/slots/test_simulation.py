@@ -4,7 +4,7 @@ The slots over time: presence, states, the dwell time and held slots, as the dae
 
 from dataclasses import replace
 
-from tests.support.slots import EXAMPLE, example, scene, shows
+from tests.support.slots import OLDER, older, scene, shows
 from xtouch_daemon.slots.inputs import Observation
 from xtouch_daemon.slots.simulation import Simulation
 from xtouch_daemon.slots.states import Override
@@ -15,7 +15,7 @@ JOINED = Observation(processes=frozenset({"reaper"}), people=("Bob",), voice_cha
 
 def test_joining_mumble_while_gaming_changes_each_slot_once():
     """The third review: slot 2 at once, slot 8 after the delay_on of call, each once."""
-    simulation = Simulation(example())
+    simulation = Simulation(older())
     assert shows(simulation.step(GAMING, 0), [2, 8]) == ["browser", "auto"]
     assert shows(simulation.step(JOINED, 10), [2, 8]) == ["people:Bob", "auto"]
     assert simulation.deadline() == 11  # the dwell of slot 2 (call is due at 12)
@@ -26,7 +26,7 @@ def test_joining_mumble_while_gaming_changes_each_slot_once():
 
 
 def test_a_slot_dwells_and_a_held_one_waits_for_the_finger():
-    simulation = Simulation(example(), dwell=1.0)
+    simulation = Simulation(older(), dwell=1.0)
     simulation.step(Observation(), 0)
     simulation.step(GAMING, 5)
     # gaming ends right away: slot 1 still dwells on Game
@@ -41,14 +41,14 @@ def test_a_slot_dwells_and_a_held_one_waits_for_the_finger():
 
 
 def test_overrides_and_picks_kept_from_before():
-    simulation = Simulation(example(), overrides={"call": Override.ON}, mode_pick="gaming")
+    simulation = Simulation(older(), overrides={"call": Override.ON}, mode_pick="gaming")
     assert shows(simulation.step(Observation(), 0), [1, 8]) == ["game", "mic"]
-    assert Simulation(example()).deadline() is None
+    assert Simulation(older()).deadline() is None
 
 
 def test_a_reconnect_in_the_voice_chat_moves_nothing():
     """Bob is gone for half a second (Mumble reconnects): slot 2 stays on him, like a channel within absent_after."""
-    simulation = Simulation(example())
+    simulation = Simulation(older())
     simulation.step(JOINED, 0)
     assert shows(simulation.step(GAMING, 20), [2]) == ["people:Bob"]
     assert shows(simulation.step(JOINED, 20.5), [2]) == ["people:Bob"]
@@ -60,7 +60,7 @@ def test_a_reconnect_in_the_voice_chat_moves_nothing():
 
 def test_auto_holds_an_application_that_stopped():
     """A notification sound keeps its auto slot for the hold of the pool, and only gets one."""
-    simulation = Simulation(example())
+    simulation = Simulation(older())
     simulation.step(Observation(), 0)
     assert shows(simulation.step(Observation(playing=("paplay",)), 10), [3]) == ["auto:paplay"]
     assert shows(simulation.step(Observation(), 10.3), [3]) == ["auto:paplay"]
@@ -71,7 +71,7 @@ def test_auto_holds_an_application_that_stopped():
 
 def test_the_order_of_people_is_configured_then_learned():
     read = scene(
-        EXAMPLE.read_text().replace('[pool.people]\ncolor = "yellow"', '[pool.people]\nshare = "auto"\norder = ["Bob"]')
+        OLDER.read_text().replace('[pool.people]\ncolor = "yellow"', '[pool.people]\nshare = "auto"\norder = ["Bob"]')
     )
     simulation = Simulation(read, known={"Old": -1e9, "Carol": 0.0})
     talking = Observation(voice_chat=True)

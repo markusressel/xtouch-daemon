@@ -1,0 +1,69 @@
+# The example of the design before the live test: people in a slot of their own while gaming, VoIP while gaming,
+# a call that waits 2 s and stays 30 s. The tests of those features use it; the design has the current one.
+
+[channel.out]
+type = "output"
+color = "cyan"
+
+[[channel.out.choices]]
+label = "Phones"
+device = "alsa_output.pci-0000_11_00.4.analog-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:analog-stereo+input:analog-stereo"
+
+[[channel.out.choices]]
+label = "Speaker"
+device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:iec958-stereo+input:analog-stereo"
+max_volume = 200
+
+[[channel.out.choices]]
+label = "Buds"
+device = "bluez_output.*"
+
+[channel.browser]
+type = "apps"
+match = ["@browsers"]
+label = "Browser"
+color = "blue"
+
+[channel.game]
+type = "apps"
+match = ["@games"]
+label = "Game"
+
+[channel.voip]
+type = "apps"
+match = ["@voip"]
+label = "VoIP"
+color = "yellow"
+lit_when_idle = true
+in_auto = false             # notification sounds of Discord don't take an auto slot
+
+[channel.mic]
+type = "input"
+device = "alsa_input.pci-0000_11_00.4.analog-stereo"
+label = "Mic"
+color = "red"
+
+[pool.people]
+color = "yellow"
+
+[state.gaming]
+mode = true
+label = "Gaming"
+processes = ["@steam-games"]
+apps = ["@games"]
+
+[state.call]
+voice_chat = true
+recording = ["discord", "vesktop"]
+delay_on = 2
+delay_off = 30
+
+[slots]
+1 = ["game if gaming", "out"]
+2 = ["people if gaming and present", "browser"]
+7 = ["voip if call or gaming", "auto"]
+8 = ["mic if call", "auto"]

@@ -9,7 +9,7 @@ import pytest
 
 from tests.support.audio import stream
 from tests.support.cli import invoke
-from tests.support.slots import EXAMPLE
+from tests.support.slots import EXAMPLE, OLDER
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.cli import slots as simulate_command
@@ -19,7 +19,7 @@ from xtouch_daemon.slots.recording import read_log, to_line
 
 def test_the_slots_and_why():
     result = invoke(
-        "simulate", str(EXAMPLE), "--state", "call", "--playing", "mpv", "--playing", "spotify", "--absent", "mic"
+        "simulate", str(OLDER), "--state", "call", "--playing", "mpv", "--playing", "spotify", "--absent", "mic"
     )
     assert result.exit_code == 0
     assert result.output.splitlines()[:6] == [
@@ -35,15 +35,15 @@ def test_the_slots_and_why():
 
 
 def test_who_waits():
-    result = invoke("simulate", str(EXAMPLE), *(arg for app in "abcdefg" for arg in ("--playing", app)))
+    result = invoke("simulate", str(OLDER), *(arg for app in "abcdefg" for arg in ("--playing", app)))
     assert result.output.splitlines()[-1] == "waiting for a slot of auto: g"
-    result = invoke("simulate", str(EXAMPLE), "--mode", "gaming", "--person", "Bob", "--person", "Al")
+    result = invoke("simulate", str(OLDER), "--mode", "gaming", "--person", "Bob", "--person", "Al")
     assert "2  people:Bob" in result.output
     assert result.output.splitlines()[-1] == "waiting for a slot of people: Al"
 
 
 def test_the_table():
-    result = invoke("simulate", str(EXAMPLE), "--table")
+    result = invoke("simulate", str(OLDER), "--table")
     assert result.output.splitlines()[0].split() == ["when", "1", "2", "3-6", "7", "8"]
 
 
@@ -55,9 +55,9 @@ def test_problems(tmp_path: Path):
         (("--absent", "call"), "--absent call: no channel or pool of channels of"),
         (("--absent", "people"), "--absent people: no channel or pool of channels of {}, use --playing or --person"),
     ]:
-        result = invoke("simulate", str(EXAMPLE), *options)
+        result = invoke("simulate", str(OLDER), *options)
         assert result.exit_code == 1
-        assert message.format(EXAMPLE) in result.output
+        assert message.format(OLDER) in result.output
     broken = tmp_path / "broken.toml"
     broken.write_text('[slots]\n1 = "nothing"\n')
     result = invoke("simulate", str(broken))
@@ -74,7 +74,7 @@ def test_a_replay(tmp_path: Path):
         to_line(40, Observation()),
     ]
     log.write_text("\n".join(lines) + "\n")
-    result = invoke("simulate", str(EXAMPLE), "--replay", str(log))
+    result = invoke("simulate", str(OLDER), "--replay", str(log))
     assert result.exit_code == 0
     output = result.output.splitlines()
     assert output[0].endswith("  gaming on (reaper runs)")

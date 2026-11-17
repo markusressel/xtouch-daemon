@@ -5,7 +5,7 @@ The distinct outcomes of a configuration, and the table in the design that shows
 import re
 
 from tests.support.paths import DOCS
-from tests.support.slots import example, scene
+from tests.support.slots import example, older, scene
 from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Outcome, dimensions, outcomes, states_for, table
 
@@ -18,7 +18,8 @@ def test_the_table_in_the_design_is_the_one_of_its_example():
 
 
 def test_what_the_stacks_ask_about():
-    assert dimensions(example()) == (("call",), ("people",))
+    assert dimensions(older()) == (("call",), ("people",))
+    assert dimensions(example()) == (("call",), ())
 
 
 def test_states_presence_and_composed_states():

@@ -3,7 +3,7 @@ What the slots show: channels by rank, ties to the left, held slots, pools and t
 of the reviews of the design are here by name.
 """
 
-from tests.support.slots import example, scene, shows, states
+from tests.support.slots import older, scene, shows, states
 from xtouch_daemon.slots.inputs import Observation
 from xtouch_daemon.slots.model import PEOPLE
 from xtouch_daemon.slots.resolver import Inputs, Result, Shown, resolve
@@ -71,7 +71,7 @@ def run(
 
 def test_browser_goes_back_to_slot_2_when_gaming_ends():
     """The second review: with stickiness, slot 2 stayed dark after gaming. Now the result has no history."""
-    read = example()
+    read = older()
     present = frozenset(read.channels)
     people = Observation(people=("Bob",))
     gaming = resolve(read, Inputs(states(read, mode="gaming"), present, people))
@@ -82,7 +82,7 @@ def test_browser_goes_back_to_slot_2_when_gaming_ends():
 
 def test_a_hidden_channel_takes_an_auto_slot_as_a_whole():
     """The third review: while slot 2 shows people, Browser plays in an auto slot, not as two owners of a stream."""
-    read = example()
+    read = older()
     observation = Observation(playing=("firefox", "discord", "mpv"), people=("Bob",))
     result = resolve(read, Inputs(states(read, mode="gaming"), frozenset(read.channels), observation))
     assert shows(result) == ["game", "people:Bob", "auto:browser", "auto:mpv", "auto", "auto", "voip", "auto"]
@@ -225,7 +225,7 @@ def test_shown_as_text():
 
 def test_a_held_slot_keeps_a_channel_it_shows_as_a_member_of_auto():
     """Bob leaves while slot 3 dwells on Browser in auto: slot 2 doesn't show Browser too."""
-    read = example()
+    read = older()
     present = frozenset(read.channels)
     before = resolve(
         read,
@@ -243,7 +243,7 @@ def test_a_held_slot_keeps_a_channel_it_shows_as_a_member_of_auto():
 
 
 def test_a_pinned_channel_that_got_a_slot_of_its_own_is_shown_there_only():
-    read = example()
+    read = older()
     result = resolve(
         read, Inputs(states(read), frozenset(read.channels), Observation(playing=("firefox",)), pins={3: "browser"})
     )

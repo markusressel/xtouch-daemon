@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import output, stream
-from tests.support.slots import example
+from tests.support.slots import older
 from xtouch_daemon.audio.model import AudioState, Capture
 from xtouch_daemon.live.codec import encode, encode_reply
 from xtouch_daemon.live.messages import Reply, Snapshot, VoipState
@@ -136,7 +136,7 @@ def test_a_replay_tells_changes_flaps_and_time_on():
         (100.0, Observation()),
         (200.0, Observation()),
     ]
-    report = replay(example(), log)
+    report = replay(older(), log)
     texts = [event.text for event in report.events]
     assert texts[:4] == ["gaming on (reaper runs)", "default off", "slot 1: out -> game", "slot 7: auto -> voip"]
     # gaming ends 10 s after reaper (its delay_off), at 22 s: slot 1 goes back within a minute
@@ -146,30 +146,30 @@ def test_a_replay_tells_changes_flaps_and_time_on():
     assert report.on_time["gaming"] == 12 + 70
     assert report.summary()[0] == f"0.1 h replayed, {sum(report.changes.values())} slot changes, 4 flaps"
     assert "gaming on for 82 s" in report.summary()
-    assert replay(example(), [(0.0, Observation(processes=frozenset({"reaper"}))), (600.0, Observation())]).summary()[
+    assert replay(older(), [(0.0, Observation(processes=frozenset({"reaper"}))), (600.0, Observation())]).summary()[
         2:
     ] == ["gaming on for 10 min", "default on for 1 s"]
 
 
 def test_a_replay_steps_at_deadlines_between_observations():
-    report = replay(example(), [(0.0, Observation(voice_chat=True)), (0.5, Observation()), (100.0, Observation())])
+    report = replay(older(), [(0.0, Observation(voice_chat=True)), (0.5, Observation()), (100.0, Observation())])
     # call (the baseline) stays 30 s after the voice chat ended: off at 30.5, between the observations
     assert [event.at for event in report.events if event.text == "call off"] == [30.5]
 
 
 def test_a_replay_steps_at_most_so_often_between_observations(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(replay_module, "MAX_STEPS_BETWEEN", 0)
-    report = replay(example(), [(0.0, Observation(voice_chat=True)), (0.5, Observation()), (100.0, Observation())])
+    report = replay(older(), [(0.0, Observation(voice_chat=True)), (0.5, Observation()), (100.0, Observation())])
     assert [event.at for event in report.events if event.text == "call off"] == [100.0]
 
 
 def test_a_replay_of_nothing():
-    assert replay(example(), []).summary()[0] == "0.0 h replayed, 0 slot changes, 0 flaps"
+    assert replay(older(), []).summary()[0] == "0.0 h replayed, 0 slot changes, 0 flaps"
 
 
 def test_a_short_excursion_after_a_long_time_is_a_flap():
     report = replay(
-        example(),
+        older(),
         [
             (0.0, Observation(people=("Bob",), processes=frozenset({"reaper"}))),
             (3600.0, Observation(processes=frozenset({"reaper"}))),

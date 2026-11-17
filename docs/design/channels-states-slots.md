@@ -356,6 +356,7 @@ type = "apps"
 match = ["@browsers"]
 label = "Browser"
 color = "blue"
+meter = true
 
 [channel.game]
 type = "apps"
@@ -375,9 +376,14 @@ type = "input"
 device = "alsa_input.pci-0000_11_00.4.analog-stereo"
 label = "Mic"
 color = "red"
+encoder = "balance"
+
+[pool.auto]
+color = "white"
 
 [pool.people]
 color = "yellow"
+share = "auto"              # people take auto slots from the right (next to VoIP), applications from the left
 
 [state.gaming]
 mode = true
@@ -388,13 +394,14 @@ apps = ["@games"]
 [state.call]
 voice_chat = true
 recording = ["discord", "vesktop"]
-delay_on = 2
-delay_off = 30
+delay_on = 0               # voice_chat and recording have no blips to swallow
+delay_off = 5               # VoIP and Mic stay through a reconnect, not much longer
 
 [slots]
 1 = ["game if gaming", "out"]
-2 = ["people if gaming and present", "browser"]
-7 = ["voip if call or gaming", "auto"]
+2 = "browser"
+4 = [{ show = "auto", rec = "recording" }]
+7 = ["voip if call", "auto"]
 8 = ["mic if call", "auto"]
 ```
 
@@ -403,19 +410,19 @@ What it shows, as `xtouch-daemon simulate docs/design/channels-states-slots.toml
 and presence the stacks ask about that changes something.
 
 ```
-when                             1     2        3-6   7     8
-default                          out   browser  auto  auto  auto
-call                             out   browser  auto  voip  mic
-gaming                           game  browser  auto  voip  auto
-gaming and call                  game  browser  auto  voip  mic
-gaming, people present           game  people   auto  voip  auto
-gaming and call, people present  game  people   auto  voip  mic
+when             1     2        3-6   7     8
+default          out   browser  auto  auto  auto
+call             out   browser  auto  voip  mic
+gaming           game  browser  auto  auto  auto
+gaming and call  game  browser  auto  voip  mic
 ```
 
-- With Mumble, people present means `call` after 2 s: joining a channel while gaming changes slot 2 at once and
-  slot 8 two seconds later, each once.
-- While slot 2 shows people, Browser is in the `auto` pool: if it plays, it takes an auto slot as a whole (its
-  label, volume and entities), so no stream has two owners.
+- People share the auto slots (`share = "auto"`): they sit as a block from the right, next to VoIP, in their
+  order (`order`, then the order they were first seen in); applications fill the auto slots from the left. A person
+  takes the slot of an application only if no auto slot is free, and the application moves to a free one or waits.
+- With Mumble, joining a channel turns `call` on at once (`delay_on = 0`): VoIP, Mic and the person show up
+  together. Leaving shows at once on the person's strip; VoIP and Mic stay 5 s, through a reconnect.
+- A candidate can set options of its strip: slot 4 sets `rec` (here to its default, the REC LED shows recording).
 
 ## The GUI
 
