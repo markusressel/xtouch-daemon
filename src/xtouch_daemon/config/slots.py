@@ -161,8 +161,13 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))
     voip = config.voip
-    if voip is None and any(strip.type == "voip" for strip in strips.values()):
-        # as for voip strips: the section has defaults for everything
+    uses_voip = (
+        any(strip.type == "voip" for strip in strips.values())
+        or scene.pools[PEOPLE].share is not None
+        or any(state.voice_chat for state in scene.states.values())
+    )
+    if voip is None and uses_voip:
+        # as for voip strips: the section has defaults for everything (people in auto slots, a voice_chat source)
         voip = VoipConfig()
     behavior = config.behavior.model_copy(
         update={

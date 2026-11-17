@@ -99,3 +99,9 @@ def test_problems(text: str, problem: str):
     with pytest.raises(ConfigError) as error:
         parse_config(text, "slots.toml")
     assert problem in str(error.value)
+
+
+def test_people_in_auto_slots_and_voice_chat_states_need_the_voice_chat():
+    plain = '[channel.out]\ntype = "output"\n[slots]\n1 = ["out", "-"]\n2 = "-"\n3 = "-"\n'
+    assert parse_config(plain + '[pool.people]\nshare = "auto"\n').voip is not None
+    assert parse_config(plain + "[state.call]\nvoice_chat = true\n").voip is not None
