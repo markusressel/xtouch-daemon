@@ -1,5 +1,10 @@
 # TODO
 
+## A simulated device
+
+After the migration to channels, states and slots: a simulated X-Touch Extender for development without the device,
+in the GUI and in end-to-end tests. The plan is in `docs/design/device-simulator.md`.
+
 ## GUI: notice changes of the configuration file on disk
 
 The GUI reads the file once when it opens and never again. If the file changes while the GUI is open (an editor, a
