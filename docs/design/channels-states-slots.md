@@ -1,9 +1,10 @@
 # Design: channels, states and slots
 
-Status: proposal (prototyping). It replaces layouts, `inherit` strips and `collapse` with concepts that are each
-edited in one place. The configuration format may change freely before 0.1.0. Revision 4, after three independent
-reviews, see [Review log](#review-log). The resolver and the state engine run as a prototype (`xtouch_daemon.slots`,
-`xtouch-daemon simulate`), see [Prototype](#prototype); the daemon doesn't use them yet.
+Status: decided, being built. It replaces strips, layouts, `inherit` strips and `collapse` with concepts that are
+each edited in one place; the old format goes (see [Decisions after the live test](#decisions-after-the-live-test)).
+The configuration format may change freely before 0.1.0. Revision 5, after three reviews of the design and a live test
+of a prototype on the device, see [Review log](#review-log). The resolver and the state engine run in
+`xtouch_daemon.slots` and `xtouch-daemon simulate`; the daemon runs them as a prototype, see [Prototype](#prototype).
 
 ## Motivation
 
@@ -33,7 +34,7 @@ That makes simple wishes hard:
 | Concept | Answers | Edited on |
 |---|---|---|
 | **Channel** | What a strip controls: a device, applications, a person in the voice chat, a Home Assistant strip. | Channels page |
-| **Pool** | Which one of several a strip takes: whatever plays and has no slot (`auto`), the next person in the voice chat (`people`), the next present channel of a list. | Channels page |
+| **Pool** | Which one of several a strip takes: whatever plays and has no slot (`auto`, which people in the voice chat share), the next present channel of a list. | Channels page |
 | **State** | When something matters: a named on/off condition, live, with a manual override. A **mode** is a state that excludes the other modes (today's layouts). | States page |
 | **Slot** | Where: one of the 8 strips of the device, with a stack of candidates (channels or pools, each with a condition). | Device page |
 
@@ -126,7 +127,7 @@ A pool gives each slot that shows it one **member** that no other slot shows.
 | Pool | Members, in this order |
 |---|---|
 | `auto` (built in) | **Whatever plays and has no slot**: `apps` channels with `in_auto` that are present and not shown (each as a whole: its label, volume, entities, as in DAW banking), and applications that play and no channel matches. In the order they started playing. A member stays one for `hold` seconds after it stopped (today's `auto_hold`). |
-| `people` (built in) | People in the voice chat who have no `person` channel, in the provider's order (Mumble: who came first). Like a channel, a person stays a member `absent_after` after they left, so a reconnect moves nothing. With `share = "auto"` the people that have no slot of their own take slots of `auto`: from the right (next to the voice chat's strips), while the applications fill them from the left; an application moves only when the people need its slot. The people sit as a block from the right **in their order**, for muscle memory of who sits where: `order = ["MPhone", ...]`, then the others in the order they were first seen (kept 30 days, across restarts, in `~/.local/state/xtouch-daemon/people.json`). Slots where `auto` is the first candidate go first. Someone earlier in the order who comes moves those after them one slot to the left (a newcomer comes last and moves no one); no slot is kept empty for someone who is away. |
+| `people` (built in) | People in the voice chat who have no `person` channel. They are not a candidate of their own: they **share the slots of `auto`**, from the right (next to the voice chat's strips), while the applications fill them from the left; an application moves only when the people need its slot (to a free one, else it waits). Like a channel, a person stays a member `absent_after` after they left, so a reconnect moves nothing. The people sit as a block from the right **in their order**, for muscle memory of who sits where: `order = ["MPhone", ...]`, then the others in the order they were first seen (kept 30 days, across restarts, in `~/.local/state/xtouch-daemon/people.json`). Slots where `auto` is the first candidate go first. Someone earlier in the order who comes moves those after them one slot to the left (a newcomer comes last and moves no one); no slot is kept empty for someone who is away. |
 | `[pool.<id>] channels = [...]` | The present channels of the list (ids, `"#tag"`) that are not shown by a candidate of their own, in the list's order. |
 
 ```toml
@@ -138,22 +139,22 @@ exclude = ["speech-dispatcher", "notification"]   # never these: today's behavio
 [pool.people]
 color = "yellow"
 talking_color = "green"
+order = ["Alice", "Bob"]      # then the others in the order they were first seen
 
 [pool.media]
 channels = ["#media"]
 ```
 
-- The options of `[pool.auto]` and `[pool.people]` are those of today's `auto` and `voip` strips; a pool of channels
-  has none (its members bring their own).
+- The options of `[pool.auto]` and `[pool.people]` are those of today's `auto` and `voip` strips (`[pool.people]`
+  gives the strips of people their look, and `order`); a pool of channels has none (its members bring their own).
 - **Presence of a pool**, for `if present`, counts its members before slots are assigned: `auto` is present while
-  anything plays that is not excluded, `people` while someone without a `person` channel is in the voice chat, a pool
-  of channels while one of them is present. Conditions stay independent of the result.
-- **Members keep their slot** in `auto` and `people`, so applications and people don't hop around. A pool of
+  anything plays that is not excluded or someone without a `person` channel is in the voice chat, a pool of channels
+  while one of them is present. Conditions stay independent of the result.
+- **Members keep their slot** in `auto`, so applications don't hop around (people keep their order instead). A pool of
   channels fills **by its order** instead (the first present channel gets the first slot), which is what `collapse`
   does today: Buds coming back takes its place, the others move on.
-- **Paging** (`people` only): the pool has one page, shared by every slot that shows it. Select on any of them shows
-  the next people (`pg 2/3`), as the group of `voip` strips does today. On other pools Select does what it does on
-  the member (makes a device the default, launches).
+- **No paging**: more people than free `auto` slots wait, like applications. Select does what it does on the member
+  (makes a device the default, launches).
 - **Pick** (the `pick` encoder of `auto` slots), as today: turning picks the slot's member among those without a
   slot (`2/5`); a push pins it, and it stays on the slot after it stopped playing, until the next push (`pinned`,
   `auto`). A pin beats the pool's order.
@@ -165,10 +166,9 @@ view, Home Assistant, `xtouch-daemon state`.
 
 ```toml
 [state.call]
-voice_chat = true           # in a channel of the voice chat with others (from the bridge)
+voice_chat = true           # in a channel of the voice chat, also alone (from the bridge)
 recording = ["discord", "vesktop"]   # or: one of these records (they open a capture stream only in a call)
-delay_on = 2                # on only after 2 s: a join tone is no call
-delay_off = 30              # stays 30 s after: a call that drops for a moment
+delay_off = 5               # stays 5 s after: a reconnect, not much longer
 
 [state.wireless]
 devices = ["bluez_output.*"]
@@ -240,19 +240,21 @@ candidates, top first.
 ```toml
 [slots]
 1 = ["game if gaming", "out"]
-2 = ["people if gaming and present", "browser"]
-7 = ["voip if call or gaming", "auto"]
-8 = "mic"                   # a single candidate: the same as ["mic"]
+2 = "browser"               # a single candidate: the same as ["browser"]
+7 = ["voip if call", "auto"]
+8 = ["mic if call", "auto"]
 ```
 
-- A candidate is `"<channel or pool>"`, optionally with `" if <expression>"`, or `"-"`: deliberately nothing (the
-  slot is dark, today's `empty`). A slot whose value is a string has that one candidate.
+- A candidate is `"<channel or pool>"` (not `people`, who share `auto`), optionally with `" if <expression>"`, or
+  `"-"`: deliberately nothing (the slot is dark, today's `empty`). A slot whose value is a string has that one
+  candidate.
 - A slot without an entry is `"auto"`. A stack whose candidates all don't hold, or lose, ends in an implicit
   `"auto"`; `"-"` at the end makes it dark instead.
 - The table form `{ show = "...", when = "...", ... }` takes **options for this place**:
   - on any candidate, what it looks like here: `label`, `color`, `lit_when_idle`, `rec`, `solo`, `meter`,
     `meter_point`;
-  - on a pool candidate also what a strip of today's `auto` or `voip` type has: `encoder`, `fader`, `min_volume`,
+  - on an `auto` candidate also what a strip of today's `auto` type has (the strips of people take theirs from
+    `[pool.people]`): `encoder`, `fader`, `min_volume`,
     `max_volume`, `launch`, `launch_when_running`, `talking_color`, and `id`, which names the Home Assistant entities
     of this place (with `encoder` or `fader = "homeassistant"`). A channel's entities belong to the channel, so
     these are not for channel candidates.
@@ -264,7 +266,7 @@ candidates, top first.
 Two words keep the rules apart: a candidate **holds** while its condition is true; a slot **shows** the candidate it
 gets in the end. Every candidate without a condition holds: a channel that is absent is shown dark (`off`) and keeps
 its place, an empty pool is shown dark like an `auto` strip without an application. `"spotify if present"` and
-`"people if present"` hold only while there is something.
+`"auto if present"` hold only while there is something.
 
 #### The resolver
 
@@ -278,11 +280,12 @@ members only, the previous result.
    to their next candidate that holds. Repeat until nothing changes. A pool candidate always takes its slot in this
    step (pools are not contested). It ends: a slot only ever goes down its stack.
 3. **Pools.** The members are computed now (the `auto` pool needs to know which channels have a slot) and handed
-   out: a member of `auto` or `people` keeps the slot it had if that slot still shows the pool; pinned members go to
-   their slots; the others go to the remaining slots of the pool left to right, in the pool's order (a pool of
-   channels: all by its order). Members left over **wait**. A slot of a pool without a member for it is dark. The
-   pools of channels go first, then `people`, then `auto`: a slot meant for a channel gets it before `auto` takes it
-   as a whole. A pin of a channel that has a slot of its own now is dropped (one channel, one slot).
+   out: the people take the slots of `auto` from the right, in their order; a member of `auto` keeps the slot it had
+   if that slot still shows the pool and no person needs it; pinned members go to their slots; the others go to the
+   remaining slots of the pool left to right, in the pool's order (a pool of channels: all by its order). Members left
+   over **wait**. A slot of a pool without a member for it is dark. The pools of channels go first, then the people,
+   then `auto`: a slot meant for a channel gets it before `auto` takes it as a whole. A pin of a channel that has a
+   slot of its own now is dropped (one channel, one slot).
 
 Pools never fall through and conditions never look at the result, so the steps run once each, in this order: the
 same inputs give the same result.
@@ -313,13 +316,13 @@ per resolution with the changes and the reasons: `7: auto:Spotify -> voip (call:
 
 ### Pitfalls the design makes possible
 
-- **Launch**: a channel with `launch` can only be launched while a slot shows it. `"voip if call or gaming"` hides
-  VoIP exactly when you'd press Select to start the voice chat. Keep such a channel in a stack without a condition.
+- **Launch**: a channel with `launch` can only be launched while a slot shows it. `"voip if call"` hides VoIP
+  exactly when you'd press Select to start the voice chat. Keep such a channel in a stack without a condition.
   `check-config` warns.
 - **Indicators**: a hidden channel's LEDs are not on the device. `mic if call` hides the Mic and its Rec LED, which
   lights while any application records (a meeting in a browser tab, OBS).
-- **A voice chat outside its slots**: people in a Mumble call while no slot shows `people` are on no strip; the why
-  line says so ("people: on no slot").
+- **A voice chat without room**: people in a Mumble call while no `auto` slot is free for them wait; the why line
+  says so ("Bob waits").
 
 ### Home Assistant
 
@@ -417,9 +420,10 @@ gaming           game  browser  auto  auto  auto
 gaming and call  game  browser  auto  voip  mic
 ```
 
-- People share the auto slots (`share = "auto"`): they sit as a block from the right, next to VoIP, in their
-  order (`order`, then the order they were first seen in); applications fill the auto slots from the left. A person
-  takes the slot of an application only if no auto slot is free, and the application moves to a free one or waits.
+- People share the auto slots (`share = "auto"`, which the prototype still needs; it goes, see the decisions): they
+  sit as a block from the right, next to VoIP, in their order (`order`, then the order they were first seen in);
+  applications fill the auto slots from the left. A person takes the slot of an application only if no auto slot is
+  free, and the application moves to a free one or waits.
 - With Mumble, joining a channel turns `call` on at once (`delay_on = 0`): VoIP, Mic and the person show up
   together. Leaving shows at once on the person's strip; VoIP and Mic stay 5 s, through a reconnect.
 - A candidate can set options of its strip: slot 4 sets `rec` (here to its default, the REC LED shows recording).
@@ -434,13 +438,13 @@ A left rail with four pages; the header and the footer (problems, undo, save) st
 │Device├────────────────────────────────────────────────────────────────────────────────┤
 │ ≡    │  [ the live device as today: LCDs, meters, faders, buttons, 8 strips ]         │
 │Chan- │ ┌─1──────────┐┌─2────────────┐┌─3──────┐ ··· ┌─7──────────────┐┌─8──────────┐ │
-│nels  │ │▶ Game      ││  people      ││▶ auto  │     │▶ VoIP          ││▶ Mic       │ │
-│ ◐    │ │  gaming    ││  gaming and  ││ always │     │  call or gaming││  call      │ │
-│States│ │  Out       ││  present     │└────────┘     │  auto          ││  auto      │ │
-│ ⚙    │ │  always    ││▶ Browser     │               │  always        ││  always    │ │
-│Sett. │ │ + add      ││  always      │               │ + add          ││ + add      │ │
-│      │ └────────────┘└──────────────┘               └────────────────┘└────────────┘ │
-│      │ Slot 2 · Browser: people doesn't hold (gaming is off)       [Slots | Grid]     │
+│nels  │ │  Game      ││▶ Browser     ││▶ auto  │     │▶ VoIP          ││▶ Mic       │ │
+│ ◐    │ │  gaming    ││  always      ││ always │     │  call          ││  call      │ │
+│States│ │▶ Out       ││ + add        │└────────┘     │  auto          ││  auto      │ │
+│ ⚙    │ │  always    │└──────────────┘               │  always        ││  always    │ │
+│Sett. │ │ + add      │                               │ + add          ││ + add      │ │
+│      │ └────────────┘                               └────────────────┘└────────────┘ │
+│      │ Slot 1 · Out: game doesn't hold (gaming is off)             [Slots | Grid]     │
 │      │ ┌ Candidate ─────────────────┐┌ Channel browser (also in: —) ────────────────┐ │
 │      │ │ show [browser ▾] always    ││ apps · match @browsers · label Browser · ... │ │
 │      │ │ + condition   place opts ▾ ││                                              │ │
@@ -494,8 +498,7 @@ type = "input"              # the default input
 
 # [state.call]               # in a call, for slots like 6 = ["voip if call", "auto"]
 # voice_chat = true          # Mumble with the plugin; for Discord: recording = ["discord"]
-# delay_on = 2
-# delay_off = 30
+# delay_off = 5
 #
 # [state.gaming]             # a mode: while a game from Steam runs
 # mode = true
@@ -510,7 +513,8 @@ type = "input"              # the default input
 - `SlotResolver` (replaces `runtime/placement.py`): the steps of [The resolver](#the-resolver) and
   [Stability](#stability). Pure: inputs and the previous result in, the 8 slots and a trace (why and why not) out.
 - Channel controllers live as long as the configuration, not as long as a layout: a mode switch rebinds them to
-  slots (`VirtualStrip`, as the `Flow` does today) and rebuilds nothing.
+  slots (`VirtualStrip`, as the `Flow` does today) and rebuilds nothing. Strips and layouts go: the slots are the
+  only way the daemon places controllers (the prototype still builds a mixer of today's strips per result).
 - `check-config` prints channels, pools, states with their sources, per slot its stack, the outcome table, and the
   warnings above. `list-apps` says per application which channel, pool or slot has it.
 
@@ -523,7 +527,7 @@ type = "input"              # the default input
 | A strip | A channel and a candidate in the slot of its position. Its id: its `id`; for a strip with Home Assistant entities `strip_<position>` (so `select.xtouch_strip_1_output` keeps working), with a suggestion to rename it; else its label in lower case, else `<type>_<n>`. |
 | `homeassistant` strips that share entities across layouts | One channel. |
 | An `auto` strip | `auto`; its options that differ from those of the other `auto` strips become options of the place. Candidates the same as the slot's fallback are dropped. |
-| A `voip` strip | Without `person`: `people`. With `person`: a `person` channel. |
+| A `voip` strip | Without `person`: an `auto` candidate, its look goes to `[pool.people]`. With `person`: a `person` channel. |
 | An `empty` strip | `"-"`. |
 | A `[[layout]]` | A `[state.<name>] mode = true` with its rules, label and priority; each of its strips a candidate `if <name>` above the default one of that slot. |
 | `meter_point` of a layout | `meter_point` on the places of its candidates. |
@@ -542,10 +546,11 @@ No compatibility reading of the old format: an old file fails `check-config` wit
 The resolver and the state engine are pure, so each rule gets unit tests, among them every scenario the reviews
 traced:
 
-- the example's table, row by row, and joining Mumble while gaming (slot 2 at once, slot 8 after `delay_on`);
+- the example's table, row by row, and joining Mumble while gaming (VoIP, Mic and the person at once);
 - a channel several stacks want at the same and at different ranks; an exhausted stack ending in `auto`; `"-"`;
 - a held slot keeping a channel another slot now ranks higher; a touchless fader moved by the user and by the motor;
-- pool members keeping their slots and waiting (6 applications, then a call); `pick` and pins; paging of `people`;
+- pool members keeping their slots and waiting (6 applications, then a call); `pick` and pins; people in their
+  order from the right, moving applications only when needed;
   a pool of channels filling by order; a hidden channel taking an `auto` slot as a whole, and `in_auto = false`;
 - batching and dwell; startup as the baseline with a kept override; a reload carrying the result over;
 - `delay_on` swallowing a join tone; overrides in all three values, ending at an edge, with `persist`;
@@ -572,7 +577,7 @@ and the state engine are code now, pure (no sound server, no device), in `xtouch
 `xtouch-daemon simulate docs/design/channels-states-slots.toml --mode gaming --state call --playing firefox` shows
 the slots and why. The tests (`tests/slots/`) have the scenarios the reviews traced that the prototype covers, and
 one keeps the table above in line with the example. Not in the prototype: batching (a matter of when the daemon calls
-it), the touch sensors (their result is `held`), paging of `people`, reload carrying the result over, cycling
+it), the touch sensors (their result is `held`), reload carrying the result over, cycling
 through modes (`--next`), Home Assistant and the live view, the GUI, the migration.
 
 What building it showed:
@@ -606,7 +611,26 @@ Home Assistant (no entities for states and modes, no `select.xtouch_mode`), over
 and picks across restarts, the GUI (it can't edit the format), and the `pick` encoder pins the strip's application,
 not the resolver's member.
 
-Next: try it on the device, then the format of the real configuration, the GUI and the migration.
+Next: see [Decisions after the live test](#decisions-after-the-live-test).
+
+## Decisions after the live test
+
+The prototype ran on the author's device (the example above). Decided then:
+
+1. **People only share `auto`.** `people` is no candidate of a slot any more, and `share` goes: people always take
+   `auto` slots from the right, in their order. One way to place people; no paging. Fixed people are `person`
+   channels.
+2. **Slots replace strips and layouts in the daemon.** Not a translation into today's strips: channel controllers
+   that live as long as the configuration, bound to slots by the resolver ([The daemon](#the-daemon)).
+3. **The conditions stay as they are** (`"x if y"` strings with the grammar above): they read well and worked on
+   the device.
+4. **One format.** The old one goes: no reading of it, `migrate-config` writes the new one
+   ([Migration](#migration)). The GUI, the docs and `init-config` move to the new format.
+
+Found on the device and changed in the prototype: `call` on at once and off after 5 s (a delay showed VoIP and Mic
+after the people, a long one hid leaving); people in a learned order instead of fixed home slots (no empty slots);
+people from the right, applications from the left (they don't push each other around); `voice_chat` also alone (the
+mic before anyone comes); the meters of people on the dB scale like every other meter.
 
 ## Review log
 
@@ -648,7 +672,7 @@ Next: try it on the device, then the format of the real configuration, the GUI a
 |---|---|
 | **Blocker**: pools and fall-through were circular; the steps didn't say how they iterate. | Pools always hold (like channels); `if present` with pool presence counted before assignment; conditions depend only on inputs; the steps run once each, in order. |
 | **Blocker**: an exhausted stack and a held slot were undefined; motor moves of touchless faders. | An implicit trailing `auto` (`"-"` for dark); held and dwelling slots are fixed inputs whose channel is reserved; motor moves don't count. |
-| **Blocker**: the example's table showed a scene that barely exists (people present means `call` with Mumble) and slot 8 changed twice. | The example asks `people if gaming and present` and drops Browser from slot 8; the table has presence rows and the Discord case. |
+| **Blocker**: the example's table showed a scene that barely exists (people present means `call` with Mumble) and slot 8 changed twice. | The example asked `people if gaming and present` and dropped Browser from slot 8 (replaced after the live test: people share `auto`). |
 | **Blocker**: a hidden channel's streams in `auto` had two owners. | `auto` hands out whatever plays and has no slot, hidden `apps` channels as a whole; `in_auto = false` opts out. |
 | **Blocker**: four contradictions (`meter_point`, `buds` as state and channel, `switching.hold`, the noisy slot 4). | `meter_point` on channels and places; the state is `wireless`; `switching.hold` goes; slot 4 removed from the example. |
 | Options for a place leaked entity ownership; options of today's `auto` strips missing. | Look options on any candidate; control options and `id` on pool candidates only; the missing ones added. |
