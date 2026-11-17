@@ -138,6 +138,21 @@ and the messages from the device the daemon doesn't use, until Ctrl+C. `--no-eve
 It takes the name of the device from `[device]` of the configuration. Stop the daemon first
 (`systemctl --user stop xtouch-daemon`): only one program can use the device.
 
+## `virtual-device`
+
+```shell
+xtouch-daemon virtual-device [--broken-touch 1,4] [--log-level debug]
+```
+
+A virtual X-Touch Extender, for trying the daemon without the device: `xtouch-daemon run --virtual-device` (or
+`[device] virtual = true`) drives it instead of the real one, and the GUI shows what it shows. It runs headless until
+interrupted (Ctrl+C); the GUI can host one itself, with the mouse on its strips. One daemon at a time can use it.
+
+| Option | Meaning |
+|---|---|
+| `--broken-touch` | The faders (from 1) whose touch sensor failed: they never report a touch, see [Motor faders](hardware.md#motor-faders). |
+| `--log-level` | `debug` also logs every message of the daemon. |
+
 ## `mode`
 
 ```shell
@@ -227,8 +242,8 @@ Edits the configuration in a window, and applies it. Needs the `gui` extra, or t
 xtouch-daemon simulate FILE [--mode NAME] [--state NAME]... [--absent CHANNEL]... [--playing APP]... [--person NAME]... [--table]
 ```
 
-A prototype of [Design: channels, states and slots](design/channels-states-slots.md): what the 8 slots of FILE show
-in the given states, and why not the candidates above. The daemon does not use that format yet.
+What the 8 slots of FILE show in the given states, and why not the candidates above (see
+[Channels, states and slots](configuration/slots.md)).
 
 | Option | Meaning |
 |---|---|

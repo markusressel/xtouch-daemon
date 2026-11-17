@@ -151,7 +151,7 @@ Each step is a commit with its tests, docs and CHANGELOG entry; the daemon works
 3. **Transport** (done): `Port`, `AlsaPort`, `SocketPort`; `Surface(port=...)`; `[device] virtual`, `run --virtual-device`;
    the in-memory transport and the test fixture; end-to-end tests of the `Surface`.
 4. **Mirror** (done): the `Surface` feeds its `SimulatedDevice`, `strip_states()` reads it; the GUI's drawing shows it.
-5. **Server and CLI**: `simulator/server.py`, `xtouch-daemon virtual-device`; a test of the daemon against the
+5. **Server and CLI** (done): `simulator/server.py`, `xtouch-daemon virtual-device`; a test of the daemon against the
    server over a real socket (connect, unplug, reconnect, a second client refused).
 6. **GUI**: hosting the virtual device, the mouse on the drawing, the toolbar, the offer in the pill; GUI tests.
 7. **Docs**: "Without a device" in Getting started, the simulator in Hardware (what is verified, what is assumed),

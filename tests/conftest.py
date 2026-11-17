@@ -7,6 +7,7 @@ to import, are in `tests.support`.
 import asyncio
 import gc
 import os
+import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -140,6 +141,13 @@ def quick_faders(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def backend() -> FakeBackend:
     return FakeBackend()
+
+
+@pytest.fixture
+def socket_dir() -> Iterator[Path]:
+    """A directory with a short path: the path of a Unix socket has at most 107 bytes, which tmp_path may exceed."""
+    with tempfile.TemporaryDirectory(prefix="xtl-") as path:
+        yield Path(path)
 
 
 @pytest.fixture

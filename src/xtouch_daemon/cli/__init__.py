@@ -12,6 +12,7 @@ from xtouch_daemon.cli.editor import gui
 from xtouch_daemon.cli.layouts import layout, mode, why
 from xtouch_daemon.cli.mumble import mumble_plugin
 from xtouch_daemon.cli.service import install_service
+from xtouch_daemon.cli.simulator import virtual_device
 from xtouch_daemon.cli.slots import observe, simulate
 from xtouch_daemon.cli.sound import list_apps, list_devices
 
@@ -37,6 +38,7 @@ for command in (
     run,
     simulate,
     test,
+    virtual_device,
     why,
 ):
     main.add_command(command)

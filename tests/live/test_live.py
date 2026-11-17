@@ -3,8 +3,7 @@ import dataclasses
 import logging
 import os
 import socket
-import tempfile
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
@@ -37,13 +36,6 @@ from xtouch_daemon.live.messages import (
 )
 from xtouch_daemon.live.server import INTERVAL, MAX_BUFFER, LiveServer, peer_uid, strip_states
 from xtouch_daemon.simulator.device import METER_FALL
-
-
-@pytest.fixture
-def socket_dir() -> Iterator[Path]:
-    """A directory with a short path: the path of a Unix socket has at most 107 bytes, which tmp_path may exceed."""
-    with tempfile.TemporaryDirectory(prefix="xtl-") as path:
-        yield Path(path)
 
 
 @pytest.fixture(autouse=True)
