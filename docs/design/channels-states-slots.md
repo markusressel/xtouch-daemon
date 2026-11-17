@@ -647,6 +647,25 @@ Each step keeps the daemon working and the tests green:
 - Tests: `tests/runtime/test_desk.py` with what moves from `test_mixer.py`, and "a finger on fader 2 during a change
   of slot 7 keeps slot 2 as it is, and the new presenter of slot 2 knows about the finger".
 
+### Step 9: the old format goes
+
+Decided 2026-11-17: step 9 before step 10; the GUI may not edit configurations in between.
+
+- **9a, reading**: the old `Config` (strips, layouts and their checks), `LayoutConfig`, `InheritStripConfig`,
+  `Inheritance` and the old-only options (`behavior.auto_hold`, `ignore`, `collapse_hold`, `switching.hold`) move
+  to `config/legacy/`, which only `migrate-config` (and the GUI until step 10) reads. `parse_config` refuses a file
+  with `[[strip]]` or `[[layout]]` with a pointer to `migrate-config`; a file without `[slots]` is one of channels,
+  states and slots with all slots `auto`, so `Config.slots` is always there. The defaults without a file are
+  `slots.example.toml`.
+- **9b, runtime**: the daemon runs only slots: `Mixer`, `runtime/layouts.py` (`LayoutSwitcher`, `layout_file`),
+  `placement.py`, `AutoAssigner`/`AutoSlot`, `VoipSeats`, `collapse` in the strips, `select.<ns>_layout`, and in the
+  live view `layout`, `layouts`, `placement` and `SwitchLayout` go; `xtouch-daemon layout` fails with a pointer to
+  `mode`. The binder reads `hold` and the excluded applications from the scene, not from `[behavior]`.
+- **9c, commands**: `check-config` describes channels, states and slots (the table, and per channel what it is),
+  `list-apps` says which channel, pool or slot takes each application, `test` and `run` as before.
+- **9d, docs**: the pages of strips, layouts and collapsing go into Channels, states and slots; Getting started, Home
+  Assistant, Commands, Architecture and the example follow.
+
 ## Migration
 
 `xtouch-daemon migrate-config` (and the GUI on opening an old file) writes the new format and reports what it did:
