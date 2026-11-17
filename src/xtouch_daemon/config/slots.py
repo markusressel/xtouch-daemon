@@ -129,7 +129,8 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                     add((slot, index, None), where, {"type": "voip"} | look | own)
                 else:
                     add((slot, index, None), where, {"type": "empty"})
-                # a pool hands out channels: `auto` the apps channels without a slot, the others their own
+                # a pool hands out channels: `auto` the apps channels without a slot, the others their own; a channel
+                # keeps its own look, the pool's only fills in what the channel leaves open
                 members = (
                     [name for name, channel in scene.channels.items() if channel.type == "apps"]
                     if candidate.show == AUTO
@@ -138,7 +139,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                     else scene.members_of(scene.pools[candidate.show].channels)
                 )
                 for member in members:
-                    add((slot, index, member), f"{where} ({member})", channel_strip(member) | look | own)
+                    add((slot, index, member), f"{where} ({member})", look | channel_strip(member) | own)
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))
     voip = config.voip

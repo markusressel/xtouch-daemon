@@ -18,6 +18,7 @@ label = "Out"
 type = "apps"
 match = ["@browsers"]
 label = "Browser"
+color = "magenta"
 tags = ["web"]
 
 [channel.radio]
@@ -55,6 +56,8 @@ def test_the_strips_of_every_candidate_and_member():
     # auto: its own strip, and the apps channels it takes as a whole
     assert strips[(5, 0, None)].model_dump()["color"] == "white"
     assert strips[(5, 0, "browser")].type == "apps"
+    # a channel keeps its own color in a pool
+    assert strips[(5, 0, "browser")].model_dump()["color"] == "magenta"
     assert strips[(3, 0, None)].type == "voip"
     assert strips[(4, 0, "alice")].model_dump()["person"] == ("Alice",)
     # voip strips without [voip]: its defaults
