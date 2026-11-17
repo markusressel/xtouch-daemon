@@ -1,6 +1,6 @@
 # A simulated device
 
-Status: planned (2026-11-17), to be built after the migration to channels, states and slots
+Status: in progress (2026-11-17); the migration to channels, states and slots
 ([channels-states-slots.md](channels-states-slots.md), steps 1-10) is finished.
 
 ## Why
@@ -44,8 +44,8 @@ Today `Surface.open()` finds the card in `/proc/asound/cards` and opens `/dev/sn
   - `SocketPort(path)`: connects to the simulator's Unix socket. No simulator running is "not connected", so
     `Surface.run()` waits and connects when it starts, and a closed simulator is an unplugged device: the reconnect
     path gets used.
-- `Surface(port=...)`; the daemon picks the port from the configuration: `[device] simulator = true` (or
-  `xtouch-daemon run --simulator`, which wins) uses `SocketPort(instance.simulator_socket_file())`, next to the
+- `Surface(port=...)`; the daemon picks the port from the configuration: `[device] virtual = true` (or
+  `xtouch-daemon run --virtual-device`, which wins) uses `SocketPort(instance.simulator_socket_file())`, next to the
   other runtime files (`$XDG_RUNTIME_DIR/xtouch-daemon/`).
 - The log says which: "Connected to the simulated X-Touch-Ext at ...".
 
@@ -136,15 +136,17 @@ Each step is a commit with its tests, docs and CHANGELOG entry; the daemon works
 
 1. **Protocol**: the decoders of the messages to the device and the encoders of those from it, with round-trip tests.
 2. **Model**: `SimulatedDevice` with its state, the input, the motor and meter over time, and the faults; unit tests.
-3. **Transport**: `Transport`, `AlsaPort`, `SocketPort`; `Surface(port=...)`; `[device] simulator`,
-   `run --simulator`; the in-memory transport and the test fixture; end-to-end tests of the `Surface`.
+3. **Transport**: `Transport`, `AlsaPort`, `SocketPort`; `Surface(port=...)`; `[device] virtual`,
+   `run --virtual-device`; the in-memory transport and the test fixture; end-to-end tests of the `Surface`.
 4. **Server and CLI**: `simulator/server.py`, `xtouch-daemon virtual-device`; a test of the daemon against the
    server over a real socket (connect, unplug, reconnect, a second client refused).
 5. **GUI**: the "Virtual device" window: painting, mouse input, toolbar; GUI tests with `pytest-qt`.
 6. **Docs**: "Without a device" in Getting started, the simulator in Hardware (what is verified, what is assumed),
-   GUI, Commands, Configuration (`[device] simulator`), the architecture page.
+   GUI, Commands, Configuration (`[device] virtual`), the architecture page.
 
-## Open questions (for when the work starts)
+## Decisions (2026-11-17)
 
-- The name of the CLI command (`virtual-device`?) and of the option (`[device] simulator`?).
-- Should the GUI offer the virtual device on its own when the daemon waits for a device that isn't there?
+- The CLI command is `xtouch-daemon virtual-device`, the option `[device] virtual = true`, and
+  `xtouch-daemon run --virtual-device` overrides it.
+- The GUI offers the virtual device but doesn't start it: while the daemon waits for a device that isn't connected,
+  the pill "X-Touch-Ext not connected" has "Open the virtual device". Nothing starts without a click.
