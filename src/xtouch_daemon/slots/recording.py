@@ -29,9 +29,13 @@ class Observer:
     """Turns readings into observations, keeping the order in which applications started to play."""
 
     started: dict[str, float] = field(default_factory=dict)
+    apps: dict[str, str] = field(default_factory=dict)
+    """The name of the application of the streams of each name (`stream_name()`), as the sound server says it."""
 
     def observe(self, audio: AudioState, processes: frozenset[str], voip: VoipState | None, now: float) -> Observation:
         names = [stream_name(stream.app, stream.binary) for stream in audio.streams]
+        for stream in audio.streams:
+            self.apps[stream_name(stream.app, stream.binary)] = stream.app
         for name in names:
             self.started.setdefault(name, now)
         for name in list(self.started):

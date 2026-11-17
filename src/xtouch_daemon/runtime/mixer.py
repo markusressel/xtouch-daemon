@@ -8,6 +8,7 @@ server connection. With `collapse`, the strips of the configuration move between
 import asyncio
 import time
 from collections.abc import Callable, Mapping
+from typing import Protocol
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 
@@ -25,7 +26,7 @@ from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.placement import Flow, Placement
 from xtouch_daemon.strips import build_strip, launch_button, look_of, strip_identity
-from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
+from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip, PickSlot
 from xtouch_daemon.strips.base import Identity, StripController, StripEnv
 from xtouch_daemon.strips.voip import VoipSeat, VoipSeats, VoipStrip
 from xtouch_daemon.system.launch import LaunchButton, Launcher
@@ -38,6 +39,18 @@ AUTO_INTERVAL = 1.0
 """How often `auto` strips are checked for applications whose hold time is over."""
 PROCESS_INTERVAL = 2.0
 """How often the processes are checked while a strip launches applications (`launch`), like the layout rules."""
+
+
+class SlotView(Protocol):
+    """The slots of channels and states, for a mixer of their strips: what their `auto` strips show."""
+
+    def app(self, index: int) -> str | None:
+        """The application of the `auto` strip of a slot (from 0), None for none."""
+        ...
+
+    def slot(self, index: int) -> PickSlot:
+        """Where the `pick` encoder of the slot (from 0) picks."""
+        ...
 
 
 class Mixer:
@@ -58,6 +71,7 @@ class Mixer:
         launcher: Launcher | None = None,
         processes: Callable[[], frozenset[str]] = running_processes,
         desk: Desk | None = None,
+        slots: SlotView | None = None,
     ):
         """
         `desk` is the desk of the daemon; a mixer on its own makes one for the surface, whose meters capture with
@@ -66,7 +80,8 @@ class Mixer:
         strips. `shared_entities` are entities in Home Assistant that are not of a strip (e.g. the layout select),
         `keep` the unique ids of entities of the other layouts, which stay in Home Assistant. `preview`: the
         configuration is a live preview of the GUI (see `MqttBridge.set_entities()`). `launcher` starts the
-        applications of strips with `launch`, `processes` tells the processes that run, which those need.
+        applications of strips with `launch`, `processes` tells the processes that run, which those need. With `slots`
+        (one strip per slot), its `auto` strips show what the slots say, not what an `AutoAssigner` hands out.
         """
         self.bridge = bridge
         self.layout = layout
@@ -110,8 +125,13 @@ class Mixer:
             controller.patterns for controller in self.controllers if isinstance(controller, AppGroupStrip)
         )
         self.assigner = AutoAssigner(len(self.auto_strips), config.behavior.auto_hold, config.behavior.ignore, clock)
+        self.slots = slots
         for index, auto in enumerate(self.auto_strips):
-            auto.slot = AutoSlot(self.assigner, index, lambda: self.state, self.claimed, self.refresh)
+            auto.slot = (
+                AutoSlot(self.assigner, index, lambda: self.state, self.claimed, self.refresh)
+                if slots is None
+                else slots.slot(self.controllers.index(auto))
+            )
         self.watches_processes = any(controller.launches for controller in self.controllers)
         if self.watches_processes:
             self.processes = processes()
@@ -165,7 +185,12 @@ class Mixer:
         self.refresh()
 
     def refresh(self) -> None:
-        for strip, app in zip(self.auto_strips, self.assigner.assign(self.state, self.claimed), strict=True):
+        apps = (
+            self.assigner.assign(self.state, self.claimed)
+            if self.slots is None
+            else [self.slots.app(self.controllers.index(auto)) for auto in self.auto_strips]
+        )
+        for strip, app in zip(self.auto_strips, apps, strict=True):
             strip.assign(app)
         for controller in self.controllers:
             controller.update(self.state)
@@ -185,30 +210,6 @@ class Mixer:
         if self._place():
             # what waited for the hand to let go
             self._watch_meters()
-
-    def auto_apps(self) -> tuple[dict[int, str], frozenset[int]]:
-        """The application of each `auto` strip on the device (by strip, from 0), and the strips pinned."""
-        apps: dict[int, str] = {}
-        pinned: set[int] = set()
-        for slot, (auto, app) in enumerate(zip(self.auto_strips, self.assigner.assigned, strict=True)):
-            position = self.flow.position(self.controllers.index(auto))
-            if position is not None and app is not None:
-                apps[position] = app
-                if slot in self.assigner.pinned:
-                    pinned.add(position)
-        return apps, frozenset(pinned)
-
-    def keep_auto_apps(self, apps: dict[int, str], pinned: frozenset[int]) -> None:
-        """
-        Gives the `auto` strips on the strips of the device that had one before the application they had (see
-        `auto_apps()`), so a new mixer for another strip doesn't shuffle them.
-        """
-        for slot, auto in enumerate(self.auto_strips):
-            position = self.flow.position(self.controllers.index(auto))
-            if position in apps:
-                self.assigner.assigned[slot] = apps[position]
-                if position in pinned:
-                    self.assigner.pinned.add(slot)
 
     @property
     def placement(self) -> Placement:

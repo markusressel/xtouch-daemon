@@ -112,13 +112,19 @@ async def test_the_strips_follow_the_states_and_auto_keeps_its_application(
     task = asyncio.create_task(daemon.run())
     await until(lambda: labels(surface) == ["Speaker", "Spotify", ""])
     first = daemon.mixer
-    first.assigner.toggle_pin(0)
+    # the encoder of slot 2 pins its application: a request to the slots
+    slot = first.auto_strips[0].slot
+    assert slot is not None
+    slot.toggle_pin()
+    assert daemon.slots is not None
+    assert daemon.slots.pins == {2: App("Spotify")}
+    assert slot.pinned
 
     processes.running.add("mumble")
     await until(lambda: labels(surface) == ["Speaker", "Spotify", "Mic"])
     assert daemon.mixer is not first
     # the auto strip of slot 2 keeps its application, and its pin
-    assert daemon.mixer.assigner.pinned == {0}
+    assert daemon.slots.pins == {2: App("Spotify")}
     processes.running.add("mygame")
     await until(lambda: labels(surface) == ["Game", "Spotify", "Mic"])
     assert daemon.slots is not None
@@ -318,3 +324,41 @@ def test_a_reload_carries_the_states_the_members_and_the_choices_over() -> None:
     engine.reconfigure(parse_config(SLOTS))
     assert engine.simulation.result.slots[1].candidate is None
     assert (deadline := engine.deadline()) is None or deadline >= 0
+
+
+def test_the_encoder_of_an_auto_slot_picks_and_pins_through_the_engine() -> None:
+    engine = SlotEngine(parse_config(SLOTS))
+    requests: list[int] = []
+    engine.on_request = lambda: requests.append(1)
+    two = AudioState(streams=(stream(1, "Spotify", "spotify"), stream(2, "mpv", "mpv-bin")))
+    slot = engine.slot(1)
+    # nothing to pick before the first step
+    slot.pick(1)
+    assert slot.position() is None
+    assert requests == []
+    engine.step(two, frozenset(), None, frozenset(), 0)
+    assert [engine.app(index) for index in (1, 2)] == ["Spotify", "mpv"]
+    assert engine.candidates() == [App("Spotify"), App("mpv (mpv-bin)")]
+    assert slot.position() == (0, 2)
+    # the next one: slot 2 gets mpv once, slot 3 the other application
+    slot.pick(1)
+    assert engine.picks == {2: App("mpv (mpv-bin)")}
+    engine.step(two, frozenset(), None, frozenset(), 0.1)
+    assert engine.picks == {}
+    assert [engine.app(index) for index in (1, 2)] == ["mpv", "Spotify"]
+    # pinned, a pick keeps the pin on the new application; a push again unpins
+    slot.toggle_pin()
+    slot.pick(-1)
+    assert engine.pins == {2: App("Spotify")}
+    slot.toggle_pin()
+    assert engine.pins == {}
+    assert len(requests) == 4
+    # a slot that shows no application: nothing to pin, and no position
+    dark = engine.slot(0)
+    dark.toggle_pin()
+    assert not dark.pinned
+    assert dark.position() is None
+    assert engine.app(0) is None
+    # an empty slot of auto picks from the end backwards
+    engine.slot(3).pick(-1)
+    assert engine.picks[4] == App("mpv (mpv-bin)")

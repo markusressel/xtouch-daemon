@@ -17,7 +17,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.slots import Shape, shape_of, showing
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import VoipState
-from xtouch_daemon.slots.inputs import App, Channel
+from xtouch_daemon.slots.inputs import App, Channel, Member, excluded, owner_of
 from xtouch_daemon.slots.model import DEFAULT, Scene
 from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
@@ -73,6 +73,10 @@ class SlotEngine:
         """The choices when the file was written last (or read)."""
         self.pins: dict[int, App | Channel] = {}
         """The members pinned to slots of `auto` (the `pick` encoder)."""
+        self.picks: dict[int, App] = {}
+        """The applications picked for slots of `auto` for the next step; then they keep their slots as members do."""
+        self.on_request: Callable[[], None] = lambda: None
+        """Called after a request of a slot's encoder, which should show at once."""
         self.observer = Observer()
         self.shape: Shape | None = None
         """What the strips of the mixer show; None before the first step (the sound server is not there yet)."""
@@ -135,6 +139,33 @@ class SlotEngine:
         else:
             self.pins[slot] = member
 
+    def pick(self, slot: int, app: App) -> None:
+        """Puts an application on a slot of `auto` at the next step (one another slot has moves on)."""
+        self.picks[slot] = app
+
+    def member(self, slot: int) -> Member | None:
+        """What a slot shows of a pool, None before the first step."""
+        result = self.simulation.result
+        return result.slots[slot].member if result is not None else None
+
+    def candidates(self) -> list[App]:
+        """What a slot of `auto` can pick: the applications without a slot of their own, in the order they started."""
+        scene = self.scene
+        return [
+            App(app)
+            for app in self.simulation.pools.playing
+            if not excluded(scene, app) and owner_of(scene, app) is None
+        ]
+
+    def app(self, index: int) -> str | None:
+        """The application of the `auto` strip of a slot (from 0), as the sound server names it; None for none."""
+        member = self.member(index + 1)
+        return self.observer.apps.get(member.name) if isinstance(member, App) else None
+
+    def slot(self, index: int) -> EngineSlot:
+        """Where the `pick` encoder of the slot (from 0) picks."""
+        return EngineSlot(self, index + 1)
+
     # -- steps ----------------------------------------------------------------------------------------------------
 
     def step(
@@ -152,7 +183,9 @@ class SlotEngine:
         observation = self.observer.observe(audio, processes, voip, now)
         before = self.simulation.states
         previous = self.simulation.result
-        result = self.simulation.step(observation, now, held, self.pins)
+        result = self.simulation.step(observation, now, held, self.picks | self.pins)
+        # a pick was asked for once: from now on its application keeps the slot as members do
+        self.picks = {}
         states = self.simulation.states
         assert states is not None
         self._log_states(before, states)
@@ -206,6 +239,47 @@ class SlotEngine:
         for slot in after.slots:
             if before is None or str(before.slots[slot]) != str(after.slots[slot]):
                 _LOGGER.debug(f"Slot {slot}: {'; '.join(after.why[slot])}")
+
+
+class EngineSlot:
+    """A slot of `auto` for the `pick` encoder of its strip: its requests go to the engine (see `PickSlot`)."""
+
+    def __init__(self, engine: SlotEngine, slot: int):
+        self.engine = engine
+        self.number = slot
+
+    @property
+    def pinned(self) -> bool:
+        return self.number in self.engine.pins
+
+    def position(self) -> tuple[int, int] | None:
+        candidates = self.engine.candidates()
+        member = self.engine.member(self.number)
+        return (candidates.index(member), len(candidates)) if isinstance(member, App) and member in candidates else None
+
+    def pick(self, steps: int) -> None:
+        candidates = self.engine.candidates()
+        if not candidates:
+            return
+        member = self.engine.member(self.number)
+        if isinstance(member, App) and member in candidates:
+            app = candidates[(candidates.index(member) + steps) % len(candidates)]
+        else:
+            app = candidates[0 if steps > 0 else -1]
+        if self.pinned:
+            # a pinned slot stays pinned, with the new application
+            self.engine.pin(self.number, app)
+        self.engine.pick(self.number, app)
+        self.engine.on_request()
+
+    def toggle_pin(self) -> None:
+        """Pins what the slot shows (an application or a channel), or unpins it."""
+        member = self.engine.member(self.number)
+        if self.pinned:
+            self.engine.pin(self.number, None)
+        elif isinstance(member, App | Channel):
+            self.engine.pin(self.number, member)
+        self.engine.on_request()
 
 
 def read_people(path: Path, now: float, wall_now: float) -> dict[str, float]:

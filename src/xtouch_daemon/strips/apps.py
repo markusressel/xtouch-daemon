@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Stream
@@ -198,6 +198,20 @@ class AppGroupStrip(AppStrip):
         return state.records_matching(self.patterns)
 
 
+class PickSlot(Protocol):
+    """Where the `pick` encoder of an `auto` strip picks and pins its application."""
+
+    @property
+    def pinned(self) -> bool: ...
+
+    def position(self) -> tuple[int, int] | None:
+        """Which of how many candidates the slot has, None for none of them."""
+        ...
+
+    def pick(self, steps: int) -> None: ...
+    def toggle_pin(self) -> None: ...
+
+
 class AutoStrip(AppStrip):
     """
     The streams of the application the `AutoAssigner` gave the strip, under its alias. Dark while it has none. With
@@ -219,8 +233,8 @@ class AutoStrip(AppStrip):
         super().__init__(strip, env, identity, look, min_volume, max_volume, encoder, controls)
         self.aliases = aliases
         self.app: str | None = None
-        self.slot: AutoSlot | None = None
-        """Its place in the `AutoAssigner`, for picking the application."""
+        self.slot: PickSlot | None = None
+        """Where it picks its application: its place in the `AutoAssigner`, or the slot of channels and states."""
 
     def make_knob(self, encoder: EncoderMode) -> Knob:
         return PickKnob(self) if encoder == "pick" else super().make_knob(encoder)

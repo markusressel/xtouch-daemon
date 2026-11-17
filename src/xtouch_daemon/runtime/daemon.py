@@ -171,7 +171,7 @@ class Daemon:
         self.layout_select = self._layout_select(config)
         self.desk = Desk(self.surface, self._chord(config), self._on_chord, capture_command)
         """The strips of the device and the hands on them, for every mixer."""
-        self.slots = SlotEngine(config, self._state_dir) if config.slots is not None else None
+        self.slots = self._slot_engine(config) if config.slots is not None else None
         """The slots of a configuration of channels, states and slots; None for one of strips and layouts."""
         self.desk.hands_free.append(self._wake_slots)
         self._slot_processes: tuple[float, frozenset[str]] | None = None
@@ -212,6 +212,7 @@ class Daemon:
             preview=self.previewing,
             processes=self._processes,
             desk=self.desk,
+            slots=self.slots,
         )
 
     def _remembered_layout(self, config: Config) -> str:
@@ -315,7 +316,7 @@ class Daemon:
         if config.slots is None:
             self.slots = None
         elif self.slots is None:
-            self.slots = SlotEngine(config, self._state_dir)
+            self.slots = self._slot_engine(config)
         else:
             # what the states, channels and members were carries over
             self.slots.reconfigure(config)
@@ -328,11 +329,8 @@ class Daemon:
     def _replace_mixer(self) -> None:
         """A new mixer for the configuration and the layout, on the same surface, sound server and broker."""
         state = self.mixer.state
-        # the auto strips that stay keep their applications (slots: another slot changed)
-        apps, pinned = self.mixer.auto_apps() if self.slots is not None else ({}, frozenset())
         self.mixer.close()
         self.mixer = self._new_mixer()
-        self.mixer.keep_auto_apps(apps, pinned)
         # the sound server reports again only once something changes
         self.mixer.on_state(state)
         self._start_mixer()
@@ -343,6 +341,12 @@ class Daemon:
             self._voip_task = None
         self.voip = self._build_voip(config)
         self._start_voip()
+
+    def _slot_engine(self, config: Config) -> SlotEngine:
+        engine = SlotEngine(config, self._state_dir)
+        # what the encoder of a slot picks shows at once
+        engine.on_request = self._step_slots
+        return engine
 
     def _build_voip(self, config: Config) -> VoipProvider | None:
         if config.voip is None:
@@ -463,6 +467,9 @@ class Daemon:
         changed = self.slots.step(self.mixer.state, self._slot_processes[1], voip, held, now)
         if changed:
             self._replace_mixer()
+        else:
+            # the applications of the auto strips
+            self.mixer.refresh()
         states = self.slots.simulation.states
         assert states is not None
         if mode is not None and states.mode != mode:

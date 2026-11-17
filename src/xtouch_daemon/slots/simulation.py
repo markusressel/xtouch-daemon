@@ -38,6 +38,8 @@ class Simulation:
         self.dwell = dwell
         self.result: Result | None = None
         self.states: States | None = None
+        self.pools = Observation()
+        """What the pools saw at the last step: the applications of `auto` with those it still holds."""
         self._changed: dict[int, float] = {}
         self._known: dict[str, float] = dict(known or {})
 
@@ -70,7 +72,7 @@ class Simulation:
         self.states = self.engine.update(observation, present, now)
         self._changed = {slot: since for slot, since in self._changed.items() if now - since < self.dwell}
         dwelling = set(self._changed)
-        pools = self.members.update(observation, now)
+        pools = self.pools = self.members.update(observation, now)
         for person in observation.people:
             # the order goes by name: an id lasts only while they are there
             self._known[person.name] = now
