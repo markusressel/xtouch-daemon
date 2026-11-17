@@ -357,13 +357,21 @@ device, not to a channel.
 7 = { select = { launch = ["mumble", "mumble://..."] }, when = "not call" }
 1 = { solo = "toggle:night", rec = "homeassistant" }
 2 = { fader = "homeassistant", id = "desk_fader" }       # number.xtouch_desk_fader_fader
+3 = [                                                    # by mode: the first whose when holds
+    { encoder = "homeassistant", id = "strip_3", when = "gaming" },
+    { select = { launch = ["obs"] } },
+]
 ```
 
 - A slot's controls can claim `fader`, `encoder` (turn and push), `select`, `rec` and `solo`; not Mute, which stays
   with what the slot shows.
 - Actions: `"homeassistant"` (a number for the fader or encoder, events for the buttons, and a select for their LED),
   `{ launch = [...], launch_when_running = ... }`, and the actions of the chord: `"cycle_modes"`, `"mode:<id>"`,
-  `"toggle:<state>"` (the LED shows the state or mode). A fader and an encoder only take `"homeassistant"`.
+  `"toggle:<state>"` (the LED shows the state or mode). `"toggle:<mode>"` picks the mode, and the next press gives
+  it back to the rules (`auto`); its LED is on while it is the mode. A fader and an encoder only take
+  `"homeassistant"`.
+- A slot has one table of controls or a list of them: the first whose `when` holds acts, the others don't (a
+  migrated layout per entry). The entries of a slot may share an `id`; another slot can't have it.
 - A claimed control wins over what the slot shows and owns its LED or ring; the presenter bound there is told which
   are taken. With the fader taken, the encoder of what the slot shows sets the volume, as with today's
   `fader = "homeassistant"`; with only the encoder taken, the fader stays the volume. Under a claimed Select the LED
@@ -769,6 +777,8 @@ mic before anyone comes); the meters of people on the dB scale like every other 
 | Claims could change under a finger; a release could go to another owner than the press. | Held slots keep their claims; `dispatch` is sticky and routes by control. |
 | Minor: untyped pins and members by display name; an `id` on controls without Home Assistant; an empty launch; `launch_when_running` in `[people]`; LEDs of claimed buttons with a `when`; the chord check outside the model; two homes for Home Assistant faders; LEDs under claims. | Step 4; errors; refused; one owner per LED; step 6; both stay, the slot's claim wins; stated. |
 | `bind()` lacked the meter point the `Desk` needs for its meters. | `bind(slot, presenter, meter_point)`. |
+| **Owner**: one table of controls per slot can't change with the mode (layouts with different controls on a strip). | A list per slot, the first whose `when` holds. |
+| **Owner**: `toggle:<mode>` had no meaning (modes have no override of their own). | Picks the mode, the next press back to `auto`. |
 
 ### Fifth review (the integration of the fourth, and actions of places)
 

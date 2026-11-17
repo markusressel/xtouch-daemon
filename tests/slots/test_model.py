@@ -99,13 +99,16 @@ def test_stacks_in_all_forms():
         ("[controls]\n1 = { fader = 'homeassistant', id = 'slot_2' }", "controls.1.id: slot_2 is reserved"),
         (
             "[controls]\n1 = { fader = 'homeassistant', id = 'knob' }\n2 = { encoder = 'homeassistant', id = 'knob' }",
-            "controls.2.id: knob is also the id of controls.1",
+            "controls.2.id: knob is also the id of controls of slot 1",
         ),
         ("[controls]\n9 = { fader = 'homeassistant' }", "controls.9: a slot is a number from 1 to 8"),
         ("[controls]\n1 = { when = 'call' }", "controls.1: claims nothing"),
+        ("[controls]\n1 = [{ rec = 'homeassistant' }, { when = 'call' }]", "controls.1[1]: claims nothing"),
+        ("[controls]\n1 = [{ rec = 'homeassistant' }, { rec = 'x' }]", "controls.1[1].rec: x is no action"),
+        ("[controls]\n1 = [{ rec = 'homeassistant', size = 3 }]", "controls.1.size: Extra inputs are not permitted"),
         ("[controls]\n1 = { fader = 'volume' }", "controls.1.fader: Input should be 'homeassistant'"),
         ("[controls]\n1 = { select = 'jump' }", "controls.1.select: jump is no action"),
-        ("[controls]\n1 = { solo = 'toggle:nope' }", "controls.1.solo: toggle:nope: no state nope"),
+        ("[controls]\n1 = { solo = 'toggle:nope' }", "controls.1.solo: toggle:nope: no state or mode nope"),
         ("[controls]\n1 = { solo = 'mode:call' }", "controls.1.solo: mode:call: no mode call"),
         ("[controls]\n1 = { rec = 'homeassistant', when = 'cal' }", 'controls.1.when: "cal": unknown state cal'),
         ("[controls]\n1 = { rec = 'homeassistant', when = 'call and' }", "controls.1.when: "),
@@ -171,9 +174,18 @@ def test_controls_of_slots():
 4 = { encoder = "homeassistant", id = "desk_knob" }
 7 = { select = { launch = ["mumble", "mumble://example.org"] }, when = "not call" }
 2 = { solo = "toggle:call", rec = "mode:gaming", select = "mode:default" }
+# by mode: the first that holds; both may name the same entities
+3 = [
+    { encoder = "homeassistant", id = "strip_3", when = "gaming" },
+    { fader = "homeassistant", encoder = "homeassistant", id = "strip_3" },
+]
+1 = { select = "toggle:gaming" }
 """
     )
-    assert read.controls[4].claimed == ("encoder",)
-    assert read.controls[7].select == Launch(launch=("mumble", "mumble://example.org"))
-    assert read.control_conditions[7].text == "not call"
-    assert read.controls[2].claimed == ("select", "rec", "solo")
+    assert read.controls[4][0].claimed == ("encoder",)
+    assert read.controls[7][0].select == Launch(launch=("mumble", "mumble://example.org"))
+    assert read.control_conditions[(7, 0)].text == "not call"
+    assert read.controls[2][0].claimed == ("select", "rec", "solo")
+    assert [controls.claimed for controls in read.controls[3]] == [("encoder",), ("fader", "encoder")]
+    assert read.control_conditions[(3, 0)].text == "gaming"
+    assert (3, 1) not in read.control_conditions

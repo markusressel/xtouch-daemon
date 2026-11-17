@@ -168,8 +168,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
     people = {key: value for key, value in data.get(PEOPLE, {}).items() if key not in PEOPLE_ONLY}
     check("people", {"type": "voip"} | people | {"person": "someone"})
     for slot in config.switching.chord:
-        controls = scene.controls.get(slot)
-        if controls is not None and controls.solo is not None:
+        if any(controls.solo is not None for controls in scene.controls.get(slot, ())):
             problems.append(f"controls.{slot}.solo: the Solo buttons of the chord can't be claimed (switching.chord)")
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))

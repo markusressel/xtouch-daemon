@@ -123,7 +123,10 @@ class Launch(_Section):
 
 
 class ControlsConfig(_Section):
-    """The controls of a slot that act whatever it shows (`[controls]`), while `when` holds."""
+    """
+    Controls of a slot that act whatever it shows (`[controls]`), while `when` holds; of a list of them per slot the
+    first whose `when` holds.
+    """
 
     fader: Literal["homeassistant"] | None = None
     encoder: Literal["homeassistant"] | None = None
@@ -182,7 +185,8 @@ class _File(BaseModel):
     people: PeopleConfig = PeopleConfig()
     state: dict[str, StateConfig] = {}
     slots: dict[str, str | list[str | dict[str, Any]]] = {}
-    controls: dict[str, ControlsConfig] = {}
+    controls: dict[str, dict[str, Any] | list[dict[str, Any]]] = {}
+    """Checked by `_parse_controls()`, so that problems name their place (`controls.4`, `controls.4[1]`)."""
 
 
 @dataclass(frozen=True)
@@ -209,10 +213,10 @@ class Scene:
     stacks: Mapping[int, tuple[Candidate, ...]]
     conditions: Mapping[str, Condition]
     """The conditions of composed states (`when`), by state."""
-    controls: Mapping[int, ControlsConfig] = field(default_factory=dict)
-    """The claimed controls by slot (1..8)."""
-    control_conditions: Mapping[int, Condition] = field(default_factory=dict)
-    """Their `when`, by slot."""
+    controls: Mapping[int, tuple[ControlsConfig, ...]] = field(default_factory=dict)
+    """The claimed controls by slot (1..8), in their order: the first whose `when` holds acts."""
+    control_conditions: Mapping[tuple[int, int], Condition] = field(default_factory=dict)
+    """Their `when`, by slot and index."""
 
     @classmethod
     def of(cls, data: Mapping[str, Any]) -> Scene:
@@ -257,7 +261,10 @@ class Scene:
         uses: list[tuple[str, Condition]] = [
             (f"state.{name}.when", condition) for name, condition in self.conditions.items()
         ]
-        uses += [(f"controls.{slot}.when", condition) for slot, condition in self.control_conditions.items()]
+        uses += [
+            (f"{_control_place(slot, index, len(self.controls[slot]))}.when", condition)
+            for (slot, index), condition in self.control_conditions.items()
+        ]
         uses += [
             (f"slots.{slot}[{index}]", candidate.when)
             for slot, stack in self.stacks.items()
@@ -393,66 +400,84 @@ def _check_ids(file: _File, problems: list[str]) -> None:
                 problems.append(f"{where}: {name} is also a {other}; channels, pools and states share their ids")
 
 
+def _control_place(slot: int, index: int, count: int) -> str:
+    """Where a control is in the file: `controls.4`, or `controls.4[1]` in a list."""
+    return f"controls.{slot}" if count == 1 else f"controls.{slot}[{index}]"
+
+
 def _parse_controls(
     file: _File, stacks: Mapping[int, tuple[Candidate, ...]], problems: list[str]
-) -> tuple[dict[int, ControlsConfig], dict[int, Condition]]:
+) -> tuple[dict[int, tuple[ControlsConfig, ...]], dict[tuple[int, int], Condition]]:
     """
     `[controls]` by slot, with their conditions. Their `id`s name entities like channel ids: in the same namespace,
-    each once; a candidate of a slot can't set the LED of a button the slot's controls claim.
+    each on one slot only (the controls of a slot may share one); a candidate of a slot can't set the LED of a button
+    one of the slot's controls claims.
     """
-    controls: dict[int, ControlsConfig] = {}
-    conditions: dict[int, Condition] = {}
-    seen: dict[str, str] = {}
+    controls: dict[int, tuple[ControlsConfig, ...]] = {}
+    conditions: dict[tuple[int, int], Condition] = {}
+    seen: dict[str, int] = {}
     taken = {*file.channel, *file.pool, *file.state, *BUILT_IN, DEFAULT}
-    for key, config in file.controls.items():
+    modes = {name for name, state in file.state.items() if state.mode} | {DEFAULT}
+    for key, value in file.controls.items():
         if not key.isdigit() or not 1 <= int(key) <= protocol.STRIPS:
             problems.append(f"controls.{key}: a slot is a number from 1 to {protocol.STRIPS}")
             continue
         slot = int(key)
-        where = f"controls.{slot}"
-        if not config.claimed:
-            problems.append(f"{where}: claims nothing (fader, encoder, select, rec, solo)")
-        for name in ("select", "rec", "solo"):
-            action = getattr(config, name)
-            if isinstance(action, str) and not CONTROL_ACTIONS.fullmatch(action):
-                problems.append(
-                    f"{where}.{name}: {action} is no action (homeassistant, cycle_modes, mode:<id>, toggle:<state>, "
-                    "or { launch = [...] })"
-                )
-            elif isinstance(action, str) and action.startswith(("mode:", "toggle:")):
-                state = action.partition(":")[2]
-                known = (
-                    file.state
-                    if action.startswith("toggle:")
-                    else {name for name, state_config in file.state.items() if state_config.mode} | {DEFAULT}
-                )
-                if state not in known:
+        raw = value if isinstance(value, list) else [value]
+        entries: list[ControlsConfig] = []
+        for index, data in enumerate(raw):
+            where = _control_place(slot, index, len(raw))
+            try:
+                config = ControlsConfig.model_validate(data)
+            except ValidationError as e:
+                problems.extend(f"{where}.{_message(error)}".replace(f"{where}.:", f"{where}:") for error in e.errors())
+                continue
+            entries.append(config)
+            if not config.claimed:
+                problems.append(f"{where}: claims nothing (fader, encoder, select, rec, solo)")
+            for name in ("select", "rec", "solo"):
+                action = getattr(config, name)
+                if isinstance(action, str) and not CONTROL_ACTIONS.fullmatch(action):
                     problems.append(
-                        f"{where}.{name}: {action}: no {'state' if action.startswith('toggle:') else 'mode'} {state}"
+                        f"{where}.{name}: {action} is no action (homeassistant, cycle_modes, mode:<id>, "
+                        "toggle:<state or mode>, or { launch = [...] })"
                     )
-        if config.when is not None:
-            condition = _condition(f"{where}.when", config.when, problems)
-            if condition is not None:
-                conditions[slot] = condition
-        name = config.id if config.id is not None else f"slot_{slot}"
-        if config.id is not None and "homeassistant" not in (getattr(config, control) for control in CONTROLS):
-            problems.append(f"{where}.id: names Home Assistant entities, but no control is for Home Assistant")
-        if config.id is not None:
-            if not _ID.fullmatch(name):
-                problems.append(f"{where}.id: {name}: an id is lower case letters, digits and _")
-            elif name in RESERVED or name.startswith(("state_", "slot_")):
-                problems.append(f"{where}.id: {name} is reserved")
-            elif name in taken:
-                problems.append(f"{where}.id: {name} is also a channel, pool or state; they share their ids")
-            other = seen.setdefault(name, where)
-            if other != where:
-                problems.append(f"{where}.id: {name} is also the id of {other}")
-        for index, candidate in enumerate(stacks.get(slot, ())):
-            for button in ("rec", "solo"):
-                if button in candidate.options and getattr(config, button) is not None:
-                    problems.append(f"slots.{slot}[{index}]: {button}: the slot's controls claim it ([controls])")
-        controls[slot] = config
+                elif isinstance(action, str) and action.startswith("mode:") and action[5:] not in modes:
+                    problems.append(f"{where}.{name}: {action}: no mode {action[5:]}")
+                elif isinstance(action, str) and action.startswith("toggle:") and action[7:] not in file.state:
+                    problems.append(f"{where}.{name}: {action}: no state or mode {action[7:]}")
+            if config.when is not None:
+                condition = _condition(f"{where}.when", config.when, problems)
+                if condition is not None:
+                    conditions[(slot, index)] = condition
+            if config.id is not None:
+                _check_control_id(where, slot, config, taken, seen, problems)
+            for position, candidate in enumerate(stacks.get(slot, ())):
+                for button in ("rec", "solo"):
+                    if button in candidate.options and getattr(config, button) is not None:
+                        problems.append(
+                            f"slots.{slot}[{position}]: {button}: the slot's controls claim it ([controls])"
+                        )
+        controls[slot] = tuple(entries)
     return controls, conditions
+
+
+def _check_control_id(
+    where: str, slot: int, config: ControlsConfig, taken: set[str], seen: dict[str, int], problems: list[str]
+) -> None:
+    name = config.id
+    assert name is not None
+    if "homeassistant" not in (getattr(config, control) for control in CONTROLS):
+        problems.append(f"{where}.id: names Home Assistant entities, but no control is for Home Assistant")
+    if not _ID.fullmatch(name):
+        problems.append(f"{where}.id: {name}: an id is lower case letters, digits and _")
+    elif name in RESERVED or name.startswith(("state_", "slot_")):
+        problems.append(f"{where}.id: {name} is reserved")
+    elif name in taken:
+        problems.append(f"{where}.id: {name} is also a channel, pool or state; they share their ids")
+    other = seen.setdefault(name, slot)
+    if other != slot:
+        problems.append(f"{where}.id: {name} is also the id of controls of slot {other}")
 
 
 def _check_loops(conditions: Mapping[str, Condition], problems: list[str]) -> None:
