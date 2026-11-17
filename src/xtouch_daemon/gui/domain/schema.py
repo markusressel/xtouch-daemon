@@ -17,10 +17,10 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from xtouch_daemon.config.base import Meanings
-from xtouch_daemon.config.legacy.model import LegacyConfig as Config
-from xtouch_daemon.config.legacy.strips import LEGACY_STRIP_MODELS as STRIP_MODELS
+from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.names import Presets
 from xtouch_daemon.config.presets import Kind as PresetKind
+from xtouch_daemon.config.strips import STRIP_MODELS
 from xtouch_daemon.config.values import ENCODERS, ColorName
 
 
@@ -62,8 +62,6 @@ class Option:
     """The options of each table of `TABLES`."""
     meanings: tuple[tuple[str, str], ...] = ()
     """What the choices mean (`Meanings` of the option), as pairs of the value and its meaning."""
-    whole_numbers: bool = False
-    """Whether a text of digits alone is a whole number (e.g. `strip = 3`), any other one a name."""
     presets: PresetKind | None = None
     """For a list of names that may have presets (`@browsers`): what its names are matched against."""
 
@@ -93,21 +91,11 @@ def describe(value: object) -> str:
     return "not set" if value is None else str(value)
 
 
-WHOLE_NUMBERS = object()
-"""The constraint of a text that is a whole number when it has only digits (`Option.whole_numbers`)."""
-
-
 def _unwrap(annotation: Any) -> tuple[Any, list[Any]]:
     """The type of an annotation without `None` and `Annotated`, and the constraints that came with them."""
     constraints: list[Any] = []
     if get_origin(annotation) in (Union, types.UnionType):
-        members = [arg for arg in get_args(annotation) if arg is not type(None)]
-        if len(members) == 2 and {_unwrap(member)[0] for member in members} == {int, str}:
-            # a number or a name (`strip` of an `inherit` strip): a text, whose digits are a number
-            (annotation,) = (member for member in members if _unwrap(member)[0] is str)
-            constraints.append(WHOLE_NUMBERS)
-        else:
-            (annotation,) = members
+        (annotation,) = [arg for arg in get_args(annotation) if arg is not type(None)]
     while get_origin(annotation) is Annotated:
         annotation, *metadata = get_args(annotation)
         for item in metadata:
@@ -158,8 +146,6 @@ def option(name: str, field: FieldInfo) -> Option:
     bounds: dict[str, Any] = {}
     for constraint in constraints:
         match constraint:
-            case _ if constraint is WHOLE_NUMBERS:
-                bounds["whole_numbers"] = True
             case Meanings(meanings=meanings):
                 bounds["meanings"] = tuple(meanings.items())
             case Presets(kind=preset_kind):
@@ -211,6 +197,16 @@ def sections() -> tuple[Section, ...]:
             help_text = " ".join((annotation.__doc__ or "").split())
             result.append(Section(name, annotation, optional, help_text))
     return tuple(result)
+
+
+SECTIONS: dict[str, Section] = {section.name: section for section in sections()}
+"""The sections with options of their own (`[device]`, `[behavior]`, `[mqtt]`), edited option by option."""
+
+RESTART_SECTIONS: dict[str, str | None] = {"device": "name", "mqtt": None}
+"""
+The sections a reload does not take, with the one option of them that matters (None: all of them): the daemon keeps
+the device it opened, and its configuration on a new `[mqtt]`.
+"""
 
 
 def strip_models() -> dict[str, type[BaseModel]]:

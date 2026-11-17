@@ -22,8 +22,8 @@ from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.broker import live_status, try_broker
 from xtouch_daemon.gui.domain.changes import Change, Scope
-from xtouch_daemon.gui.domain.drafts import SECTIONS, Validation
-from xtouch_daemon.gui.domain.schema import options
+from xtouch_daemon.gui.domain.schema import SECTIONS, options
+from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
 from xtouch_daemon.gui.qt.editor import Editor
@@ -95,7 +95,7 @@ class SectionPage(Page):
         """What the page says while the file has no such section."""
         return f"There is no [{self.section.name}] section in the file."
 
-    def _value(self, path: tuple[str | int, ...]) -> Any:
+    def _value(self, path: OptionPath) -> Any:
         # the rows are there also while the file has no such section
         return self.document.get(path) if self.document.has_section(self.section.name) else None
 
@@ -170,7 +170,7 @@ class MqttPage(SectionPage):
     def test(self) -> None:
         """Tries the settings in the editor (see `try_broker`)."""
         try:
-            config = MqttConfig.model_validate(self.document.data().get("mqtt") or {})
+            config = MqttConfig.model_validate(self.document.get(("mqtt",)) or {})
         except ValidationError:
             self.tested = Status("Fix the problems of the settings first.", Tone.BAD)
             self._show_test()

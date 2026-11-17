@@ -56,7 +56,6 @@ def test_a_new_zoom_takes_a_new_window_that_goes_on_where_this_one_was(
     assert window.zoom_button.text() == "100 %"
     window.document.set(("behavior", "encoder_step"), 3)
     window.editor.edited()
-    window.select(2)
     window.show_page("behavior")
 
     # the same zoom: nothing to do
@@ -70,7 +69,7 @@ def test_a_new_zoom_takes_a_new_window_that_goes_on_where_this_one_was(
     assert load_zoom() == 1.1
 
     session = window.session()
-    assert (session.selected, session.page, session.maximized) == (2, "behavior", False)
+    assert (session.page, session.maximized) == ("behavior", False)
     assert session.history is window.history
     ratio = window.devicePixelRatioF()
     assert session.geometry.width() == round(window.geometry().width() * ratio)
@@ -81,7 +80,7 @@ def test_a_new_zoom_takes_a_new_window_that_goes_on_where_this_one_was(
     assert after.history is window.history
     assert after.document.modified
     assert after.history.can_undo
-    assert (after.selected, after.current_page) == (2, "behavior")
+    assert after.current_page == "behavior"
 
 
 def test_zoom_keys_and_menu(qtbot: QtBot, window: MainWindow, isolated: Dialogs):

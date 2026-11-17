@@ -20,7 +20,6 @@ from pytestqt.qtbot import QtBot
 from tests.support.audio import output, source, stream
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.config.sections import MqttConfig
-from xtouch_daemon.gui.domain.schema import Option, strip_options
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -36,16 +35,23 @@ max_volume = 120
 [aliases]
 "WEBRTC VoiceEngine" = "Discord"
 
-[[strip]]
+[channel.out]
 type = "output"
 device = "speaker"
 label = "Speaker"
 color = "cyan"
 
-[[strip]]
+[channel.browser]
 type = "apps"
 match = ["brave"]
 label = "Browser"
+
+[state.call]
+voice_chat = true
+
+[slots]
+1 = "out"
+2 = ["browser if call", "auto"]
 """
 
 
@@ -119,12 +125,14 @@ async def unreachable_broker(config: MqttConfig) -> Status:
     return Status(f"Can't connect to {config.host}:{config.port}: Connection refused.", Tone.BAD, "Is it running?")
 
 
-def row_options(strip_type: str, name: str) -> Option:
-    return next(option for option in strip_options(strip_type) if option.name == name)
-
-
-def row(window: MainWindow, name: str, page: str = "strip") -> OptionRow:
+def row(window: MainWindow, name: str, page: str = "channels") -> OptionRow:
     return next(option_row for option_row in window.pages[page].rows if option_row.option.name == name)
+
+
+def show_channel(window: MainWindow, name: str) -> None:
+    """Shows the form of a channel on the page Channels."""
+    window.channels_page.select(("channel", name))
+    window.show_page("channels")
 
 
 def shows(widget: QWidget, parent: QWidget) -> bool:
@@ -200,28 +208,3 @@ def snapshot(window: MainWindow, first: StripState, device: bool = True) -> Snap
     assert saved is not None
     strips = (first, *(strip_state() for _ in range(7)))
     return Snapshot(fingerprint(saved), device, sound_server=True, mqtt=None, strips=strips)
-
-
-LAYOUT_CONFIG = (
-    CONFIG
-    + """
-[voip]
-provider = "demo"
-
-[[layout]]
-name = "gaming"
-apps = ["steam_app_"]
-
-[[layout.strip]]
-type = "inherit"
-
-[[layout.strip]]
-type = "voip"
-
-[[layout.strip]]
-type = "voip"
-
-[[layout]]
-name = "music"
-"""
-)

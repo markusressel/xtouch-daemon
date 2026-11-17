@@ -14,7 +14,6 @@ from pytestqt.qtbot import QtBot
 
 from tests.support.gui import (
     CONFIG,
-    LAYOUT_CONFIG,
     NO_MUMBLE,
     RUNNING,
     STATE,
@@ -27,7 +26,7 @@ from tests.support.gui import (
 from tests.support.instance import RecordingInstance
 from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.pages.sections import BrokerTest, MumbleInstaller
 from xtouch_daemon.gui.qt.theme.style import apply_theme
 from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
@@ -90,7 +89,7 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         mumble_installer: MumbleInstaller | None = None,
     ) -> MainWindow:
         # the window after a new zoom goes on with the document of the one before
-        document = session.history.document if session is not None else ConfigDocument.open(file)
+        document = session.history.document if session is not None else SlotsDocument.open(file)
         window = MainWindow(
             document,
             Service(systemctl),
@@ -122,9 +121,3 @@ def live_daemon(qapp: QApplication) -> Iterator[FakeLiveDaemon]:
         fake = FakeLiveDaemon(Path(directory) / "live.sock")
         yield fake
         fake.close()
-
-
-@pytest.fixture
-def layouts(make_window: MakeWindow, path: Path) -> MainWindow:
-    path.write_text(LAYOUT_CONFIG)
-    return make_window()

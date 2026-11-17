@@ -16,7 +16,18 @@ from PyQt6.QtWidgets import (
 )
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import NO_MUMBLE, FakeLiveDaemon, MakeWindow, click, row, shows, snapshot, strip_state, type_into
+from tests.support.gui import (
+    NO_MUMBLE,
+    FakeLiveDaemon,
+    MakeWindow,
+    buttons,
+    click,
+    row,
+    shows,
+    snapshot,
+    strip_state,
+    type_into,
+)
 from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
@@ -72,7 +83,8 @@ def test_aliases_are_edited(qtbot: QtBot, window: MainWindow):
 
     (add,) = [button for button in page.findChildren(QPushButton) if button.text() == "Add alias"]
     click(qtbot, add)
-    assert window.document.aliases == [("WEBRTC VoiceEngine", "Discord"), ("", "")]
+    # a line without a name stays in the window until it has one
+    assert window.document.get(("aliases",)) == {"WEBRTC VoiceEngine": "Discord"}
     new_name, new_alias = page.edits[1]
     assert new_name.property("problem") is True
     assert page.problem.text() == "'': the name of the application is missing"
@@ -83,11 +95,19 @@ def test_aliases_are_edited(qtbot: QtBot, window: MainWindow):
     menu.aboutToShow.emit()
     menu.actions()[0].trigger()
     type_into(qtbot, new_alias, "Browser")
-    assert window.document.aliases[1] == ("Brave", "Browser")
+    assert window.document.get(("aliases",)) == {"WEBRTC VoiceEngine": "Discord", "Brave": "Browser"}
+    type_into(qtbot, new_name, "WEBRTC VoiceEngine")
+    assert page.problem.text() == "'WEBRTC VoiceEngine': twice, the file keeps the first"
+    type_into(qtbot, new_name, "Brave")
 
     remove = [button for button in page.findChildren(QToolButton) if button.toolTip() == "Remove the alias"]
     click(qtbot, remove[0])
-    assert window.document.aliases == [("Brave", "Browser")]
+    assert window.document.get(("aliases",)) == {"Brave": "Browser"}
+    # the last one: no [aliases] left
+    remove = buttons(page, QToolButton, lambda button: button.toolTip() == "Remove the alias")
+    click(qtbot, remove[0])
+    assert not window.document.has_section("aliases")
+    window.editor.undo()
     # undo and redo show as many lines as there are aliases
     window.editor.undo()
     assert len(page.edits) == 2

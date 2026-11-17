@@ -109,17 +109,22 @@ class OptionRow(QWidget):
                 minimum = int(option.minimum or 0)
                 if option.default is None:
                     # one below the minimum is "not set", shown as text
-                    self._unset = minimum - 1
+                    self._unset: float = minimum - 1
                     minimum = self._unset
-                self.spin.setRange(minimum, int(option.maximum or 1_000_000))
+                self.spin.setRange(int(minimum), int(option.maximum or 1_000_000))
                 self.spin.valueChanged.connect(self._edit_number)
                 return self._left(self.spin)
             case Kind.NUMBER:
                 self.spin = QDoubleSpinBox(self)
                 self.spin.setDecimals(1)
                 self.spin.setSingleStep(0.5)
-                self.spin.setRange(option.minimum or 0, option.maximum or 1_000_000)
-                self.spin.valueChanged.connect(self._edit)
+                low = option.minimum or 0
+                if option.default is None:
+                    # a step below the minimum is "not set", shown as text
+                    self._unset = low - 0.5
+                    low = self._unset
+                self.spin.setRange(low, option.maximum or 1_000_000)
+                self.spin.valueChanged.connect(self._edit_number)
                 return self._left(self.spin)
             case Kind.SWITCH:
                 self.switch = Switch(self)
@@ -216,7 +221,7 @@ class OptionRow(QWidget):
         self._edit_text(value)
 
     def _edit_text(self, text: str) -> None:
-        self._edit(int(text) if self.option.whole_numbers and text.isdigit() else text)
+        self._edit(text)
 
     # -- showing and editing --------------------------------------------------------------------------------------
 
@@ -228,20 +233,19 @@ class OptionRow(QWidget):
         try:
             match self.option.kind:
                 case Kind.TEXT | Kind.SECRET | Kind.PATH:
-                    whole = self.option.whole_numbers and isinstance(value, int) and not isinstance(value, bool)
-                    self.line.setText(value if isinstance(value, str) else str(value) if whole else "")
+                    self.line.setText(value if isinstance(value, str) else "")
                     default = self._placeholder() if self._placeholder else self.option.default
                     self.line.setPlaceholderText("" if default is None else str(default))
                 case Kind.INTEGER | Kind.NUMBER:
                     # a value of another type shows the default; its problem says what is wrong
                     number = shown if isinstance(shown, int | float) else self.option.default
+                    if self.option.default is None:
+                        default = self._placeholder() if self._placeholder else "not set"
+                        self.spin.setSpecialValueText(f"default: {default}")
                     if isinstance(self.spin, QSpinBox):
-                        if self.option.default is None:
-                            default = self._placeholder() if self._placeholder else "not set"
-                            self.spin.setSpecialValueText(f"default: {default}")
-                        self.spin.setValue(self._unset if number is None else int(number))
+                        self.spin.setValue(int(self._unset) if number is None else int(number))
                     else:
-                        self.spin.setValue(float(number))
+                        self.spin.setValue(self._unset if number is None else float(number))
                 case Kind.SWITCH:
                     self.switch.setChecked(bool(shown))
                 case Kind.CHOICE:

@@ -12,14 +12,12 @@ class Scope(Enum):
 
     VALUE = "value"
     """One value, in place (`Change.path`): the field that made the change shows it already."""
-    STRIPS = "strips"
-    """The strips of the layout being edited: added, removed, moved, or of another type."""
+    CHANNELS = "channels"
+    """The channels: one was added, removed, renamed or duplicated."""
     SECTION = "section"
     """A section (`Change.path`, e.g. `("mqtt",)`) was added or removed."""
     ALIASES = "aliases"
     """The list of aliases."""
-    LAYOUTS = "layouts"
-    """The layouts: one was added, removed or moved, or another one is edited, so the strips are others too."""
     DOCUMENT = "document"
     """Anything: undo, redo, revert, an unknown option removed through the list of problems."""
     FILE = "file"
@@ -35,11 +33,6 @@ class Change:
     def touches(self, *scopes: Scope) -> bool:
         """Whether a view that shows what changes with `scopes` has to show the document again."""
         return self.scope in scopes or self.scope is Scope.DOCUMENT
-
-    @property
-    def strips(self) -> bool:
-        """Whether the strips may be others: added, moved, retyped, or those of another layout."""
-        return self.touches(Scope.STRIPS, Scope.LAYOUTS)
 
 
 EVERYTHING = Change()

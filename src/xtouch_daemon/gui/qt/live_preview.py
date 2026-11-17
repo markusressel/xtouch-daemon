@@ -5,7 +5,7 @@ every edit, and keeps the preview alive with a heartbeat.
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
-from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.live.messages import EndPreview, KeepPreview, Reply, StartPreview
 
@@ -23,7 +23,7 @@ class LivePreview(QObject):
 
     changed = pyqtSignal(arguments=[])
 
-    def __init__(self, live: LiveView, document: ConfigDocument):
+    def __init__(self, live: LiveView, document: SlotsDocument):
         super().__init__()
         self.live = live
         self.document = document
@@ -124,6 +124,6 @@ class LivePreview(QObject):
         elif reply.kind == "error":
             self.error = reply.message
         else:
-            # about something else, e.g. a switch of the layout
+            # about something else, e.g. a mode picked
             return
         self.changed.emit()

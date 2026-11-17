@@ -1,7 +1,6 @@
 """
-The main window. From the top: the file and the service; the strips as the device shows them, which is also where a
-strip is picked; then two tabs that keep apart what applies to one strip and what applies to all of them; and at the
-bottom the problems, undo and saving.
+The main window. From the top: the file and the service; a rail of the pages (Device, Channels, States, Settings) and
+the page; at the bottom the problems, undo and saving.
 """
 
 from collections.abc import Callable
@@ -19,36 +18,33 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QStackedWidget,
-    QTabWidget,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
+from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import Problem
 from xtouch_daemon.gui.domain import broker, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
-from xtouch_daemon.gui.domain.clipboard import Paste
-from xtouch_daemon.gui.domain.document import ConfigDocument
-from xtouch_daemon.gui.domain.drafts import SECTIONS, Validation
-from xtouch_daemon.gui.domain.flow import flow_rows
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
-from xtouch_daemon.gui.domain.looks import faces, looks
+from xtouch_daemon.gui.domain.schema import SECTIONS
 from xtouch_daemon.gui.domain.slots import slots_status
+from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
 from xtouch_daemon.gui.domain.status import Status, preview_status, sync_status
-from xtouch_daemon.gui.domain.voip import people_on_strips
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import flat_button, label, show_status
 from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
-from xtouch_daemon.gui.qt.pages.base import GLOBAL_PAGES, Page, page_title, set_text
-from xtouch_daemon.gui.qt.pages.layout import LayoutPage
+from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page, page_title, set_text
+from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
+from xtouch_daemon.gui.qt.pages.device import DevicePage
 from xtouch_daemon.gui.qt.pages.sections import (
     BrokerTest,
     BrokerTester,
@@ -57,15 +53,11 @@ from xtouch_daemon.gui.qt.pages.sections import (
     SectionPage,
     VoipPage,
 )
-from xtouch_daemon.gui.qt.pages.strip import StripPage
-from xtouch_daemon.gui.qt.preview.panel import Preview
-from xtouch_daemon.gui.qt.strip_list import StripList
-from xtouch_daemon.gui.qt.theme.icons import icon, refresh_icons, set_icon
+from xtouch_daemon.gui.qt.pages.states import StatesPage
+from xtouch_daemon.gui.qt.theme.icons import refresh_icons, set_icon
 from xtouch_daemon.gui.qt.theme.settings import (
     ZOOM_LEVELS,
-    load_preview_share,
     load_zoom,
-    save_preview_share,
     save_zoom,
     zoom_step,
     zoom_text,
@@ -73,13 +65,9 @@ from xtouch_daemon.gui.qt.theme.settings import (
 from xtouch_daemon.gui.qt.theme.style import apply_theme, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
 from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
-from xtouch_daemon.gui.qt.window.layout_bar import LayoutBar
-from xtouch_daemon.gui.qt.window.paste_dialog import ask_paste
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session
-from xtouch_daemon.gui.qt.window.splitter import EDITOR_MIN_HEIGHT, PreviewSplitter
-from xtouch_daemon.hardware import protocol
-from xtouch_daemon.live.messages import Reply, Snapshot, SwitchLayout
+from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.system import instance
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import (
@@ -90,13 +78,19 @@ from xtouch_daemon.system.systemd import (
 SERVICE_POLL_MS = 3000
 APPLY_GRACE_MS = 2000
 """How long a reload may take before the window says that the daemon did not take the file."""
-STRIP_TAB, GLOBAL_TAB, LAYOUT_TAB = 0, 1, 2
+RAIL = (
+    ("slots", "Device", "tune-vertical", "The device live, and what each slot shows when"),
+    ("channels", "Channels", "format-list-bulleted", "What a strip can control"),
+    ("states", "States", "toggle-switch-outline", "The states and modes that decide what slots show"),
+    ("settings", "Settings", "cog-outline", "The device, behavior, aliases, Home Assistant, the voice chat"),
+)
+"""The pages of the rail: name, title, icon, tip."""
 
 
 class MainWindow(QMainWindow):
     def __init__(
         self,
-        document: ConfigDocument,
+        document: SlotsDocument,
         service: Service,
         read_audio: Callable[[], AudioState],
         find_daemon: Callable[[], Instance | None] = instance.running,
@@ -116,15 +110,13 @@ class MainWindow(QMainWindow):
         self.rezoom: float | None = None
         """The zoom the next window gets: set when this one closes for a new zoom (see `Session`)."""
         self.editor = Editor(document, session.history if session is not None else None)
-        """The document, its history and validation, and the selected strip: what everything shows."""
+        """The document, its history and validation: what everything shows."""
         self.service = service
         self.find_daemon = find_daemon
         self.daemon: Instance | None = None
         self.audio = DISCONNECTED
-        self.preview_share = session.preview_share if session is not None else load_preview_share()
-        """The share of the height the preview has, None while it has not been dragged: then it has its own size."""
         self.setWindowTitle("X-Touch Extender")
-        self.resize(1000, 960)
+        self.resize(1100, 960)
         self.applying = QTimer(self)
         """Runs for a moment after a reload, while the daemon takes the file."""
         self.applying.setSingleShot(True)
@@ -132,9 +124,10 @@ class MainWindow(QMainWindow):
         self.applying.timeout.connect(self.refresh_preview)
         self.live = LiveView(live_socket or instance.socket_file(), self)
         self.live.changed.connect(lambda _: self.refresh_preview())
-        self.live.replied.connect(self._replied)
         self.live_preview = LivePreview(self.live, document)
         self.live_preview.changed.connect(self.refresh_preview)
+        self.shown = False
+        """Whether the window was shown: the first time the keys go to the strips."""
         self.resume_live_preview = session is not None and session.live_preview
         """Turns the live preview on once it can be: it was on in the window before the zoom."""
 
@@ -143,6 +136,9 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self._header())
+        middle = QHBoxLayout()
+        middle.setSpacing(0)
+        middle.addWidget(self._rail())
         body = QVBoxLayout()
         body.setContentsMargins(Space.XL, Space.L, Space.XL, 0)
         body.setSpacing(Space.S)
@@ -152,28 +148,9 @@ class MainWindow(QMainWindow):
         self.preview_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.preview_message.hide()
         body.addWidget(self.preview_message)
-        self.layout_bar = LayoutBar()
-        self.layout_bar.picked.connect(self.edit_layout)
-        self.layout_bar.add.connect(self.add_layout)
-        self.layout_bar.show_on_device.connect(self.show_layout_on_device)
-        self.layout_bar.show_layouts(self.document, self.live.snapshot)
-        body.addWidget(self.layout_bar)
-        self.strip_list = StripList()
-        self.strip_list.clicked.connect(self.select)
-        self.strip_list.add.connect(self.add_strip)
-        body.addWidget(self.strip_list)
-        self.splitter = PreviewSplitter()
-        self.splitter.addWidget(self._preview())
-        tabs = self._tabs()
-        tabs.setMinimumHeight(EDITOR_MIN_HEIGHT)
-        self.splitter.addWidget(tabs)
-        # a larger window gives the room to the editor, the preview keeps its size until the handle is dragged
-        self.splitter.setStretchFactor(0, 0)
-        self.splitter.setStretchFactor(1, 1)
-        self.splitter.splitterMoved.connect(self._preview_resized)
-        self.splitter.held.connect(self._handle_held)
-        body.addWidget(self.splitter, 1)
-        layout.addLayout(body, 1)
+        body.addWidget(self._pages(), 1)
+        middle.addLayout(body, 1)
+        layout.addLayout(middle, 1)
         layout.addWidget(self._footer())
         self.setCentralWidget(root)
 
@@ -199,50 +176,36 @@ class MainWindow(QMainWindow):
         self.loader.loaded.connect(self._audio_loaded)
         self.loader.failed.connect(self._audio_failed)
         self.editor.changed.connect(self._document_changed)
-        self.editor.selected.connect(self._selection_changed)
         self.load_audio()
         self.refresh_service()
         self._document_changed(EVERYTHING)
-        self.select(0 if session is None else session.selected)
+        self.show_page("slots")
         if session is not None:
             self._resume(session)
-        # the keys start on the strips (the arrows pick one), not on the first button of the header
-        self.preview.strips[self.selected].setFocus()
+        if document.notes:
+            self.status.setText(
+                "The file had strips and layouts: this is it with channels, states and slots, saved on Save. "
+                + " ".join(document.notes)
+            )
+
+    def showEvent(self, event: QShowEvent | None) -> None:
+        super().showEvent(event)
+        if not self.shown:
+            self.shown = True
+            # the keys start on the strips (the arrows pick one), not on the first button of the header
+            self.device_page.preview.strips[0].setFocus()
 
     @property
-    def document(self) -> ConfigDocument:
+    def document(self) -> SlotsDocument:
         return self.editor.document
 
     @property
-    def history(self) -> History:
+    def history(self) -> History[SlotsDocument]:
         return self.editor.history
 
     @property
     def validation(self) -> Validation:
         return self.editor.validation
-
-    @property
-    def selected(self) -> int:
-        return self.editor.selection
-
-    def showEvent(self, event: QShowEvent | None) -> None:
-        """Gives the preview its share of the height, now that the window has its size."""
-        super().showEvent(event)
-        if self.preview_share is not None:
-            self.splitter.share = self.preview_share
-
-    def _preview_resized(self) -> None:
-        """The handle was dragged: the share of the preview is kept for the next start (once it is let go)."""
-        self.preview_share = self.splitter.share
-
-    def _handle_held(self, held: bool) -> None:
-        """
-        While the handle is held, the strips scale their pictures; once it is let go, they are drawn sharp, and the
-        share of the preview is saved (not on every step of a drag, which would slow it down).
-        """
-        self.preview.hold(held)
-        if not held and self.preview_share is not None:
-            save_preview_share(self.preview_share)
 
     def _resume(self, session: Session) -> None:
         """Goes on where the window before the zoom left off."""
@@ -340,48 +303,42 @@ class MainWindow(QMainWindow):
         top.addWidget(self.refresh_audio)
         return top
 
-    def edit_layout(self, index: int | None) -> None:
-        """Shows the strips of another layout (an index of the layouts of the document, None for the default one)."""
-        self.editor.edit_layout(index)
+    def _rail(self) -> QWidget:
+        """The pages on the left, one at a time."""
+        rail = QWidget()
+        set_role(rail, "bar")
+        rail.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
+        layout = QVBoxLayout(rail)
+        layout.setContentsMargins(Space.S, Space.L, Space.S, Space.L)
+        layout.setSpacing(Space.XS)
+        self.rail = QButtonGroup(self)
+        self.rail_buttons: dict[str, QToolButton] = {}
+        for name, title, icon_name, tip in RAIL:
+            rail_button = QToolButton()
+            rail_button.setText(title)
+            set_icon(rail_button, icon_name)
+            rail_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+            rail_button.setCheckable(True)
+            rail_button.setAutoRaise(True)
+            rail_button.setToolTip(tip)
+            rail_button.setMinimumWidth(72)
+            rail_button.clicked.connect(lambda _=False, name=name: self.show_page(name))
+            self.rail.addButton(rail_button)
+            self.rail_buttons[name] = rail_button
+            layout.addWidget(rail_button)
+        layout.addStretch()
+        return rail
 
-    def add_layout(self, copy_strips: bool) -> None:
-        self.editor.add_layout(copy_strips)
-        self.show_page("layout")
-        self.status.setText(f"Added the layout {self.document.layout_name}. Name it on the page Layout.")
-
-    def show_layout_on_device(self) -> None:
-        name = self.document.layout_name
-        if self.live.send(SwitchLayout(name)):
-            self.status.setText(f"Asked the daemon to show the layout {name}.")
-
-    def _replied(self, reply: Reply) -> None:
-        if reply.kind == "layout" and not reply.ok:
-            self.status.setText(reply.message)
-
-    def _preview(self) -> Preview:
-        self.preview = Preview()
-        self.preview.clicked.connect(self.select)
-        self.preview.moved.connect(self._moved)
-        self.preview.configure.connect(self._configure)
-        self.preview.remove.connect(self.remove_strip)
-        self.preview.copy.connect(self.copy_strip)
-        self.preview.paste.connect(self.paste_strip)
-        # it scales itself to the space the handle below it gives it, centered
-        return self.preview
-
-    def _tabs(self) -> QTabWidget:
-        """What applies to the selected strip, and what applies to all of them, apart."""
-        self.tabs = QTabWidget()
-        self.tabs.setDocumentMode(True)
-
+    def _pages(self) -> QStackedWidget:
         def audio() -> AudioState:
             # the pages ask for the current one every time
             return self.audio
 
-        self.strip_page = StripPage(self.editor, audio, self.show_page, lambda: self.live.snapshot)
-        self.layout_page = LayoutPage(self.editor, audio)
-        self.pages: dict[str, Page] = {"strip": self.strip_page, "layout": self.layout_page}
-        for name in GLOBAL_PAGES:
+        self.device_page = DevicePage()
+        self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
+        self.states_page = StatesPage()
+        self.pages: dict[str, Page] = {"channels": self.channels_page}
+        for name in SETTINGS_PAGES:
             if name == "aliases":
                 self.pages[name] = AliasesPage(self.editor, audio)
             elif name == "mqtt":
@@ -392,46 +349,44 @@ class MainWindow(QMainWindow):
                 self.pages[name] = self.voip_page
             else:
                 self.pages[name] = SectionPage(name, self.editor, audio)
-        self.tabs.addTab(self._scroll(self.strip_page), icon("tune-vertical"), "Strip 1")
-        self.tabs.setTabToolTip(STRIP_TAB, "The options of the strip selected above: they apply to it alone")
+        self.stack = QStackedWidget()
+        self.stack.addWidget(self.device_page)
+        self.stack.addWidget(self._scroll(self.channels_page))
+        self.stack.addWidget(self.states_page)
+        self.stack.addWidget(self._settings())
+        return self.stack
 
+    def _settings(self) -> QWidget:
+        """The sections with options of their own, one at a time."""
         settings = QWidget()
-        layout = QVBoxLayout(settings)
-        layout.setContentsMargins(0, Space.M, 0, 0)
-        layout.addWidget(label("These settings apply to the daemon and to every strip.", "hint"))
-        pages = QHBoxLayout()
+        pages = QHBoxLayout(settings)
+        pages.setContentsMargins(0, Space.M, 0, 0)
         pages.setSpacing(16)
         nav = QVBoxLayout()
         nav.setSpacing(2)
         self.nav = QButtonGroup(self)
-        self.stack = QStackedWidget()
+        self.settings_stack = QStackedWidget()
         self.nav_buttons: dict[str, QPushButton] = {}
-        for name in GLOBAL_PAGES:
-            button = QPushButton(page_title(name))
-            set_role(button, "nav", "variant")
-            button.setCheckable(True)
-            button.setToolTip(f"[{name}] in the file")
-            button.clicked.connect(lambda _=False, name=name: self.show_page(name))
-            self.nav.addButton(button)
-            self.nav_buttons[name] = button
-            nav.addWidget(button)
-            self.stack.addWidget(self._scroll(self.pages[name]))
+        for name in SETTINGS_PAGES:
+            nav_button = QPushButton(page_title(name))
+            set_role(nav_button, "nav", "variant")
+            nav_button.setCheckable(True)
+            nav_button.setToolTip(f"[{name}] in the file")
+            nav_button.clicked.connect(lambda _=False, name=name: self.show_page(name))
+            self.nav.addButton(nav_button)
+            self.nav_buttons[name] = nav_button
+            nav.addWidget(nav_button)
+            self.settings_stack.addWidget(self._scroll(self.pages[name]))
         nav.addStretch()
         holder = QWidget()
         holder.setLayout(nav)
         nav.setContentsMargins(0, 0, 0, 0)
         # wide enough for the longest name with the padding of the style
-        holder.setMinimumWidth(max(button.sizeHint().width() for button in self.nav_buttons.values()) + 40)
+        holder.setMinimumWidth(max(nav_button.sizeHint().width() for nav_button in self.nav_buttons.values()) + 40)
         pages.addWidget(holder)
-        pages.addWidget(self.stack, 1)
-        layout.addLayout(pages, 1)
-        self.tabs.addTab(settings, icon("cog-outline"), "Global settings")
-        self.tabs.setTabToolTip(GLOBAL_TAB, "Behavior, aliases, the Home Assistant connection and the device")
-        self.tabs.addTab(self._scroll(self.layout_page), icon("view-dashboard-variant-outline"), "Layout")
-        self.tabs.setTabToolTip(LAYOUT_TAB, "The layout shown above: its name, and when the device switches to it")
-        self.nav_buttons[GLOBAL_PAGES[0]].setChecked(True)
-        self.tabs.currentChanged.connect(lambda _: self.refresh_preview())
-        return self.tabs
+        pages.addWidget(self.settings_stack, 1)
+        self.nav_buttons[SETTINGS_PAGES[0]].setChecked(True)
+        return settings
 
     @staticmethod
     def _scroll(page: QWidget) -> QScrollArea:
@@ -483,30 +438,19 @@ class MainWindow(QMainWindow):
 
     # -- showing --------------------------------------------------------------------------------------------------
 
-    def select(self, index: int) -> None:
-        """Shows the options of a strip."""
-        self.editor.select(index)
-        self.show_page("strip")
-
-    def _selection_changed(self, index: int) -> None:
-        """Another strip is selected: its options, in the form of its type (nothing is built or validated again)."""
-        self.strip_page.show_strip(index)
-        self.refresh_preview()
-
     def show_page(self, name: str) -> None:
-        """Shows the page of the selected strip ("strip"), of the layout ("layout"), or one of the global settings."""
-        if name not in ("strip", "layout"):
+        """Shows a page of the rail ("slots", "channels", "states", "settings"), or one of the settings."""
+        if name in SETTINGS_PAGES:
             self.nav_buttons[name].setChecked(True)
-            self.stack.setCurrentIndex(GLOBAL_PAGES.index(name))
-        self.tabs.setCurrentIndex({"strip": STRIP_TAB, "layout": LAYOUT_TAB}.get(name, GLOBAL_TAB))
+            self.settings_stack.setCurrentIndex(SETTINGS_PAGES.index(name))
+            name = "settings"
+        self.rail_buttons[name].setChecked(True)
+        self.stack.setCurrentIndex([entry[0] for entry in RAIL].index(name))
 
     @property
     def current_page(self) -> str:
-        if self.tabs.currentIndex() == STRIP_TAB:
-            return "strip"
-        if self.tabs.currentIndex() == LAYOUT_TAB:
-            return "layout"
-        return GLOBAL_PAGES[self.stack.currentIndex()]
+        name = RAIL[self.stack.currentIndex()][0]
+        return SETTINGS_PAGES[self.settings_stack.currentIndex()] if name == "settings" else name
 
     def _document_changed(self, change: Change) -> None:
         """The document changed (see `Change`): every view shows what changed for it, and the problems."""
@@ -529,28 +473,11 @@ class MainWindow(QMainWindow):
         self.refresh_preview()
 
     def refresh_preview(self) -> None:
-        """Shows the strips (live while the daemon tells what the device shows) and whether it runs the file."""
+        """Shows the device (live while the daemon tells what it shows) and whether it runs the file."""
         snapshot = self.live.snapshot
         self._show_live_preview(snapshot)
-        edited = tuple(self.document.strip_changed(index) for index in range(protocol.STRIPS))
-        strip_looks = looks(self.document, self.validation, self.audio)
-        selected = self.selected if self.tabs.currentIndex() == STRIP_TAB else None
+        self.device_page.show_live(snapshot)
         shows_document = previewed(snapshot, self.validation.config, self.live_preview.running)
-        # live only while the device shows the layout being edited
-        live_layout = (snapshot.layout or "default") if snapshot is not None else None
-        shown = snapshot if live_layout == self.document.layout_name else None
-        strips = [strip.values for strip in self.document.strips]
-        rows = flow_rows(strips, shown)
-        preview_faces = faces(strip_looks[: protocol.STRIPS], shown, edited, shows_document, rows)
-        self.preview.show_faces(preview_faces, selected)
-        people = people_on_strips(shown, len(strips))
-        self.strip_list.show_strips(strips, rows, strip_looks, self.selected, people)
-        self.layout_bar.show_layouts(self.document, self.live.snapshot)
-        look = strip_looks[self.selected]
-        title = f"Strip {self.selected + 1}" + (f" · {look.label}" if look.label else "")
-        if self.tabs.tabText(STRIP_TAB) != title:
-            # the same text again would lay out the tabs again
-            self.tabs.setTabText(STRIP_TAB, title)
         saved = self.document.saved_config
         device = saved.device.name if saved is not None else "the device"
         show_status(self.mode_pill, preview_status(self.daemon, snapshot, device))
@@ -569,7 +496,6 @@ class MainWindow(QMainWindow):
             snapshot,
             self.document.path,
             saved if self.document.exists else None,
-            sum(edited),
             self.document.modified,
             self.applying.isActive(),
             shows_document and self.document.modified,
@@ -610,7 +536,7 @@ class MainWindow(QMainWindow):
         for problem in problems:
             if problem.kind == "extra_forbidden":
                 action = QAction(f"{problem.location}: unknown option, click to remove it", self.problems_menu)
-                action.triggered.connect(lambda _=False, problem=problem: self._remove_option(problem))
+                action.triggered.connect(lambda _=False, problem=problem: self.editor.unset(problem.path))
             else:
                 action = QAction(str(problem) if problem.path else problem.message, self.problems_menu)
                 action.triggered.connect(lambda _=False, problem=problem: self.go_to(problem))
@@ -619,78 +545,35 @@ class MainWindow(QMainWindow):
     def go_to(self, problem: Problem) -> None:
         """Shows the page of the problem."""
         match problem.path:
-            case ("strip", int(index), *_):
-                self.select(index)
-            case ("layouts", str(name), *rest) if name in self.document.layout_names:
-                index = self.document.layout_names.index(name)
-                self.edit_layout(None if index == 0 else index - 1)
-                match rest:
-                    case ["strip", int(strip), *_]:
-                        self.select(strip)
-                    case _:
-                        self.show_page("layout")
-            case (str(name), *_) if name in self.pages:
+            case ("channel", str(name), *_):
+                self.channels_page.select(("channel", name))
+                self.show_page("channels")
+            case ("pool", "auto", *_):
+                self.channels_page.select(("pool", "auto"))
+                self.show_page("channels")
+            case ("people", *_):
+                self.channels_page.select(("people",))
+                self.show_page("channels")
+            case ("state", *_):
+                self.show_page("states")
+            case ("slots" | "controls", *_):
+                self.show_page("slots")
+            case (str(name), *_) if name in SECTIONS or name == "aliases":
                 self.show_page(name)
             case _:
-                # a problem of the whole configuration, e.g. homeassistant strips without [mqtt]
+                # a problem of the whole configuration, e.g. homeassistant channels without [mqtt]
                 for name in SECTIONS:
                     if f"[{name}]" in problem.message:
                         self.show_page(name)
-
-    def _remove_option(self, problem: Problem) -> None:
-        self.editor.unset(problem.path)
 
     def toggle_theme(self) -> None:
         dark = current_mode() == ThemeMode.DARK
         apply_theme(ThemeMode.LIGHT if dark else ThemeMode.DARK)
         # the icons are drawn in the colors of the theme
         refresh_icons(self)
-        self.tabs.setTabIcon(STRIP_TAB, icon("tune-vertical"))
-        self.tabs.setTabIcon(GLOBAL_TAB, icon("cog-outline"))
-        self.tabs.setTabIcon(LAYOUT_TAB, icon("view-dashboard-variant-outline"))
-        self.preview.update()
+        self.device_page.preview.update()
 
     # -- editing --------------------------------------------------------------------------------------------------
-
-    def _moved(self, source: int, target: int) -> None:
-        self.editor.move_strip(source, target)
-        self.status.setText(f"Moved strip {source + 1} to place {target + 1}.")
-
-    def _configure(self, index: int) -> None:
-        self.editor.configure_up_to(index)
-        self.show_page("strip")
-
-    def add_strip(self) -> None:
-        self.editor.add_strip()
-        self.show_page("strip")
-        self.status.setText(f"Added strip {self.selected + 1}, an auto strip.")
-
-    def remove_strip(self, index: int) -> None:
-        last = index == len(self.document.strips) - 1
-        self.editor.remove_strip(index)
-        self.select(index)
-        where = "" if last else ", its place is an auto strip now"
-        self.status.setText(f"Removed strip {index + 1}{where}. Ctrl+Z brings it back.")
-
-    def copy_strip(self, index: int) -> None:
-        copied = self.editor.copy_strip(index)
-        self.preview.can_paste = True
-        self.status.setText(f"Copied {copied}. Ctrl+V pastes it in the place of another strip, also of another layout.")
-
-    def paste_strip(self, index: int) -> None:
-        """Pastes the copied strip at `index`: asks whether to inherit it where an `inherit` strip could refer to it."""
-        copied = self.editor.copied
-        assert copied is not None, "nothing copied"
-        paste = Paste.COPY
-        if copied.can_inherit(self.document.layout_name, index):
-            choice = ask_paste(self, copied, f"strip {index + 1}")
-            if choice is None:
-                return
-            paste = choice
-        self.editor.paste_strip(index, paste)
-        self.show_page("strip")
-        how = "an inherit strip of" if paste is Paste.INHERIT else "a copy of"
-        self.status.setText(f"Strip {index + 1} is {how} {copied} now. Ctrl+Z undoes it.")
 
     def undo(self) -> None:
         if self.editor.undo():
@@ -731,8 +614,7 @@ class MainWindow(QMainWindow):
         self._audio_changed()
 
     def _audio_changed(self) -> None:
-        """What strips show and suggest depends on the devices and the applications of the sound server."""
-        self.strip_page.show_strip(self.selected)
+        """What the forms suggest depends on the devices and the applications of the sound server."""
         self.refresh_preview()
 
     # -- the service ----------------------------------------------------------------------------------------------
@@ -770,7 +652,7 @@ class MainWindow(QMainWindow):
         restart_sections = self.document.restart_sections
         try:
             self.document.save()
-        except OSError as e:
+        except (OSError, ConfigError) as e:
             QMessageBox.critical(self, "Saving failed", str(e))
             return False
         # the daemon loads the file (also one it is not told to reload: it watches the file during a preview)
@@ -820,7 +702,6 @@ class MainWindow(QMainWindow):
         geometry = self.normalGeometry() if self.isMaximized() else self.geometry()
         return Session(
             history=self.history,
-            selected=self.selected,
             page=self.current_page,
             geometry=QRect(
                 round(geometry.x() * ratio),
@@ -830,7 +711,6 @@ class MainWindow(QMainWindow):
             ),
             maximized=self.isMaximized(),
             audio=self.audio,
-            preview_share=self.preview_share,
             live_preview=self.live_preview.on,
         )
 

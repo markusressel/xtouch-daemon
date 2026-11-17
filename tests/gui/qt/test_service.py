@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
     QApplication,
     QLabel,
     QMessageBox,
-    QPushButton,
     QToolButton,
 )
 from pytestqt.qtbot import QtBot
@@ -27,10 +26,9 @@ from tests.support.gui import (
     Dialogs,
     FakeLiveDaemon,
     MakeWindow,
-    buttons,
     click,
     row,
-    row_options,
+    show_channel,
     snapshot,
     strip_state,
     type_into,
@@ -40,6 +38,7 @@ from tests.support.packaging import install_package
 from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.gui import qt
 from xtouch_daemon.gui.domain import docs
+from xtouch_daemon.gui.domain.channels import channel_options
 from xtouch_daemon.gui.domain.schema import Kind, Option
 from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
@@ -296,7 +295,7 @@ def test_restart_stands_out_when_the_daemon_runs_an_older_version(
 
 
 def test_a_new_window_starts_with_the_keys_on_the_strips(window: MainWindow):
-    assert window.focusWidget() is window.preview.strips[0]
+    assert window.focusWidget() is window.device_page.preview.strips[0]
 
 
 def test_keys_typed_into_a_new_window_do_not_press_the_service_button(window: MainWindow):
@@ -422,17 +421,17 @@ def test_a_new_file_can_be_saved_right_away(make_window: MakeWindow, tmp_path: P
     assert window.path_label.text().endswith("new file")
     assert window.save_button.isEnabled()
     assert window.save()
-    assert tomllib.loads((tmp_path / "new.toml").read_text())["strip"][0] == {"type": "auto", "color": "cyan"}
+    assert "slots" in tomllib.loads((tmp_path / "new.toml").read_text())
     assert window.status.text().startswith("Saved. The service reads")
 
 
 def test_revert_drops_the_changes(qtbot: QtBot, window: MainWindow):
-    window.document.remove_strip(0)
+    window.document.unset(("channel", "browser"))
     window.editor.edited()
 
     click(qtbot, window.revert_button)
 
-    assert len(window.document.strips) == 2
+    assert window.document.get(("channel", "browser", "label")) == "Browser"
     assert window.status.text() == "Reverted to the file. Ctrl+Z brings the changes back."
 
 
@@ -495,7 +494,7 @@ def test_run_gui_shows_the_window(path: Path, monkeypatch: pytest.MonkeyPatch, q
 
 
 def test_launch_is_a_list_of_the_parts_of_the_command(window: MainWindow):
-    window.select(1)
+    show_channel(window, "browser")
     launch = row(window, "launch")
 
     assert launch.chips.input.placeholderText() == (
@@ -507,62 +506,36 @@ def test_launch_is_a_list_of_the_parts_of_the_command(window: MainWindow):
     # a part per entry
     launch.chips.add("mumble")
     launch.chips.add("mumble://me@example.org/Gaming")
-    assert window.document.get(("strip", 1, "launch")) == ["mumble", "mumble://me@example.org/Gaming"]
-    assert window.document.validate().at("strip", 1) == []
+    assert window.document.get(("channel", "browser", "launch")) == ["mumble", "mumble://me@example.org/Gaming"]
+    assert window.document.validate().at("channel", "browser") == []
 
 
-def test_a_homeassistant_strip_has_its_id_as_placeholder(window: MainWindow):
-    window.document.add_section("mqtt")
-    window.document.set_strip_type(1, "homeassistant")
-    window.select(1)
-
-    assert row(window, "id").line.placeholderText() == "strip_2"
-    assert window.preview.strips[1].look.detail.startswith("entities of Home Assistant (strip_<position>)")
-
-
-def test_a_homeassistant_strip_leads_to_its_connection(qtbot: QtBot, window: MainWindow):
-    window.editor.set_strip_type(1, "homeassistant")
-    window.select(1)
-    (setup,) = buttons(window.strip_page, QPushButton, lambda button: button.text() == "Set up the connection")
-
-    click(qtbot, setup)
-    assert window.current_page == "mqtt"
-    # no strip is selected while the global settings show
-    assert not any(view.selected for view in window.preview.strips)
-
-    window.editor.add_section("mqtt")
-    window.document.set(("mqtt", "host"), "broker")
-    window.editor.edited()
-    window.select(1)
-    (settings,) = buttons(window.strip_page, QPushButton, lambda button: button.text() == "Connection settings")
-    form = window.strip_page.form
-    assert form is not None
-    assert form.connection is not None
-    assert "MQTT broker broker" in form.connection.text()
-    click(qtbot, settings)
-    assert window.current_page == "mqtt"
-
-
-def test_global_settings_are_apart_from_the_strips(qtbot: QtBot, window: MainWindow):
-    assert window.tabs.tabText(0) == "Strip 1 · Speaker"
-    assert window.tabs.tabText(1) == "Global settings"
+def test_the_rail_shows_one_page_at_a_time(qtbot: QtBot, window: MainWindow):
+    assert window.current_page == "slots"
+    assert [button.text() for button in window.rail_buttons.values()] == ["Device", "Channels", "States", "Settings"]
     assert [button.text() for button in window.nav_buttons.values()] == [
         "Behavior",
         "Aliases",
         "Home Assistant",
-        "Layouts",
+        "Modes and chord",
         "Voice chat",
         "Device",
     ]
+    click(qtbot, window.rail_buttons["settings"])
+    assert window.current_page == "behavior"
+    click(qtbot, window.rail_buttons["states"])
+    assert window.current_page == "states"
 
     click(qtbot, window.nav_buttons["device"])
     assert window.current_page == "device"
     # the page stays when the pages are built again
     window.editor.edited()
     assert window.current_page == "device"
-    window.tabs.setCurrentIndex(0)
-    assert window.current_page == "strip"
-    assert window.preview.strips[0].selected
+    click(qtbot, window.rail_buttons["slots"])
+    assert window.current_page == "slots"
+    # a strip of the device picks its slot
+    click(qtbot, window.device_page.preview.strips[1])
+    assert window.device_page.preview.strips[1].selected
 
 
 def test_faders_are_picked_with_buttons(qtbot: QtBot, window: MainWindow):
@@ -586,6 +559,7 @@ def test_faders_are_picked_with_buttons(qtbot: QtBot, window: MainWindow):
 
 
 def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):
+    show_channel(window, "out")
     # the help of the label has quotes but no tag, which Qt would show as plain text, entities and all
     (help_label,) = [
         widget for widget in row(window, "label").findChildren(QLabel) if "start of the device" in widget.text()
@@ -598,6 +572,7 @@ def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):
 
 
 def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
+    show_channel(window, "out")
     rec = row(window, "rec")
     assert not rec.meaning.isHidden()
     assert "<code>recording</code>: Lit while an application records" in rec.meaning.text()
@@ -611,7 +586,7 @@ def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
     assert encoder.combo.currentIndex() == -1
     assert "<code>balance</code>: Turn: the balance" in encoder.meaning.text()
     # a value that is no choice means nothing
-    window.document.set(("strip", 0, "rec"), "loud")
+    window.document.set(("channel", "out", "rec"), "loud")
     window.editor.edited()
     assert row(window, "rec").meaning.isHidden()
     assert row(window, "color").colors.swatches["off"].toolTip() == "off: No backlight."
@@ -619,18 +594,15 @@ def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
 
 
 def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
+    show_channel(window, "out")
     rec = row(window, "rec")
     assert "Default: <code>recording</code>." in rec.help.text()
     assert f'<a href="{docs.url("configuration/indicators/#indicators")}">Learn more</a>' in rec.help.text()
     assert rec.help.openExternalLinks()
     # an option without a section in the docs: its help says it all
     assert "Learn more" not in row(window, "meter").help.text()
-    # the strip type, and the pages of the global settings
-    output = docs.url(docs.STRIP_TYPES["output"])
-    assert [label for label in window.strip_page.findChildren(QLabel) if output in label.text()]
-    tips = {button.text(): button.toolTip() for button in window.strip_page.types.buttons()}
-    assert tips["Empty"] == "A dark strip that does nothing; its fader stays at the bottom."
-    for page in ("device", "behavior", "aliases", "mqtt"):
+    # the pages
+    for page in ("channels", "device", "behavior", "aliases", "mqtt"):
         link = docs.page_link(page)
         assert link is not None
         assert [label for label in window.pages[page].findChildren(QLabel) if link in label.text()], page
@@ -640,6 +612,7 @@ def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
 
 
 def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindow):
+    show_channel(window, "out")
     profiles = row(window, "profiles")
     tables: Tables = profiles.tables
     assert tables.values == []
@@ -667,23 +640,24 @@ def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindo
     completer.activated.emit("output:iec958-stereo")
     assert profiles.error.text() == ""
 
-    assert window.document.get(("strip", 0, "profiles")) == [
+    assert window.document.get(("channel", "out", "profiles")) == [
         {"label": "Analog", "profile": "output:analog-stereo"},
         {"label": "Digital", "profile": "output:iec958-stereo"},
     ]
     type_into(qtbot, tables.lines[1][0], "")
-    assert window.document.get(("strip", 0, "profiles"))[1] == {"profile": "output:iec958-stereo"}  # type: ignore[index]
+    assert window.document.get(("channel", "out", "profiles"))[1] == {"profile": "output:iec958-stereo"}  # type: ignore[index]
 
     tables.remove(1)
     assert profiles.error.text() == "at least two to switch between"
     tables.remove(0)
-    assert window.document.get(("strip", 0, "profiles")) is None
+    assert window.document.get(("channel", "out", "profiles")) is None
     assert profiles.error.text() == ""
 
 
 def test_profiles_of_the_file_are_shown_and_saved_as_tables(qtbot: QtBot, window: MainWindow):
+    show_channel(window, "out")
     window.document.set(
-        ("strip", 0, "profiles"),
+        ("channel", "out", "profiles"),
         [{"label": "Analog", "profile": "output:analog-stereo"}, {"label": "Digital", "profile": "Digital Output"}],
     )
     profiles = row(window, "profiles")
@@ -694,13 +668,13 @@ def test_profiles_of_the_file_are_shown_and_saved_as_tables(qtbot: QtBot, window
     ]
     assert 'label = "Digital"' in window.document.render()
     # something else than a list of tables shows none: its problem says what is wrong
-    window.document.set(("strip", 0, "profiles"), "analog")
+    window.document.set(("channel", "out", "profiles"), "analog")
     profiles.load()
     assert profiles.tables.values == []
 
 
 def test_tables_without_suggestions_have_no_menu(qtbot: QtBot):
-    columns = row_options("output", "profiles").columns
+    columns = next(option for option in channel_options("output") if option.name == "profiles").columns
     tables = Tables(columns, None)
     qtbot.addWidget(tables)
     tables.show_values([{"label": "Analog"}])
@@ -709,6 +683,7 @@ def test_tables_without_suggestions_have_no_menu(qtbot: QtBot):
 
 
 def test_an_unset_number_says_what_applies(qtbot: QtBot, window: MainWindow):
+    show_channel(window, "out")
     window.document.set(("behavior", "max_volume"), 120)
     maximum = row(window, "max_volume")
     maximum.load()
@@ -716,21 +691,22 @@ def test_an_unset_number_says_what_applies(qtbot: QtBot, window: MainWindow):
     assert maximum.spin.text() == "default: 120 (behavior)"
 
     maximum.spin.setValue(180)
-    assert window.document.get(("strip", 0, "max_volume")) == 180
+    assert window.document.get(("channel", "out", "max_volume")) == 180
     # back below the range: not set
     maximum.spin.setValue(-1)
-    assert window.document.get(("strip", 0, "max_volume")) is None
+    assert window.document.get(("channel", "out", "max_volume")) is None
     assert row(window, "min_volume").spin.text() == "default: 0"
 
 
 def test_numbers_of_tables_are_numbers(qtbot: QtBot, window: MainWindow):
+    show_channel(window, "out")
     tables: Tables = row(window, "profiles").tables
     click(qtbot, tables.add_button)
     type_into(qtbot, tables.lines[0][3], "200")
-    assert window.document.get(("strip", 0, "profiles")) == [{"max_volume": 200}]
+    assert window.document.get(("channel", "out", "profiles")) == [{"max_volume": 200}]
     # one that is none stays text: its problem says so
     type_into(qtbot, tables.lines[0][3], "lots")
-    assert window.document.get(("strip", 0, "profiles")) == [{"max_volume": "lots"}]
+    assert window.document.get(("channel", "out", "profiles")) == [{"max_volume": "lots"}]
 
 
 def test_a_switch_looks_different_on_and_off(qtbot: QtBot):

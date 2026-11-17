@@ -13,7 +13,7 @@ from PyQt6.QtNetwork import QLocalSocket
 from PyQt6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import Dialogs, FakeLiveDaemon, MakeWindow, click, row, strip_state, type_into
+from tests.support.gui import Dialogs, FakeLiveDaemon, MakeWindow, click, row, show_channel, strip_state, type_into
 from tests.support.instance import RecordingInstance
 from xtouch_daemon.gui.qt import live_preview as live_preview_module
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -96,6 +96,7 @@ def live_window(qtbot: QtBot, make_window: MakeWindow, previewing: PreviewingDae
     qtbot.waitUntil(lambda: bool(previewing.clients))
     previewing.send(snapshot(window))
     qtbot.waitUntil(lambda: window.preview_switch.isEnabled())
+    show_channel(window, "out")
     return window
 
 
@@ -145,17 +146,13 @@ def test_the_device_follows_the_editor_while_the_live_preview_is_on(
     assert 'label = "Boxes"' in text
     assert text.startswith("# my mixer")
     assert window.preview_pill.text() == "Previewing unsaved changes"
-    # picking another strip changes nothing: the daemon has it already
-    window.select(1)
+    # sending again changes nothing: the daemon has it already
     window.live_preview.send()
-    window.select(0)
     assert len(previewing.previews) == 1
 
-    # the daemon runs it: the edited strip is live, and still marked
+    # the daemon runs it
     previewing.send(snapshot(window, preview=True))
-    qtbot.waitUntil(lambda: window.preview.strips[0].face.live)
-    assert window.preview.strips[0].face.edited
-    assert "live preview" in window.preview.strips[0].toolTip()
+    qtbot.waitUntil(lambda: window.live.snapshot is not None and window.live.snapshot.preview)
     assert window.sync_label.text() == "The device runs the unsaved changes (live preview). Save to keep them."
     assert not window.grab().isNull()
 
@@ -209,7 +206,7 @@ def test_a_document_with_problems_is_not_previewed(qtbot: QtBot, make_window: Ma
     window = live_window(qtbot, make_window, previewing)
     switch_on(qtbot, window)
 
-    window.document.set(("strip", 0, "color"), "pink")
+    window.document.set(("channel", "out", "color"), "pink")
     window.editor.edited()
     # what the debounce does when its time is over
     window.live_preview.debounce.timeout.emit()
@@ -230,8 +227,9 @@ def test_saving_makes_the_preview_the_file(
     assert daemon.reloads == [1234]
     # the reload ends the preview, as the window expects: it stays on for the next change
     previewing.reply(Reply("ended", True, "the configuration file was loaded"))
-    # and an answer to a preview of before means nothing now
+    # and an answer to a preview of before means nothing now, nor one about something else
     previewing.reply(Reply("preview", True))
+    previewing.reply(Reply("mode", True, "gaming"))
     qtbot.wait(50)
     assert window.live_preview.on
     assert not window.live_preview.running

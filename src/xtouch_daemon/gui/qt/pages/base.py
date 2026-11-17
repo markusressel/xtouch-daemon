@@ -10,8 +10,7 @@ from PyQt6.QtWidgets import QFrame, QLabel, QLayout, QPushButton, QVBoxLayout, Q
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.changes import Change, Scope
-from xtouch_daemon.gui.domain.document import ConfigDocument
-from xtouch_daemon.gui.domain.drafts import Validation
+from xtouch_daemon.gui.domain.slots_document import OptionPath, SlotsDocument, Validation
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, label
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
@@ -21,21 +20,14 @@ from xtouch_daemon.gui.qt.theme.tokens import Space
 
 type Audio = Callable[[], AudioState]
 
-TYPE_TITLES = {"homeassistant": "Home Assistant", "voip": "VoIP"}
-PAGE_TITLES = {"mqtt": "Home Assistant", "switching": "Layouts", "voip": "Voice chat"}
-"""The names of the global settings for people: the MQTT broker is how Home Assistant is reached."""
-GLOBAL_PAGES = ("behavior", "aliases", "mqtt", "switching", "voip", "device")
-"""The global settings, the ones changed most often first: `[device]` is set once, if ever."""
-LAYOUT_TYPES = ("inherit",)
-"""The strip types only the strips of a `[[layout]]` have."""
+PAGE_TITLES = {"mqtt": "Home Assistant", "switching": "Modes and chord", "voip": "Voice chat"}
+"""The names of the settings for people: the MQTT broker is how Home Assistant is reached."""
+SETTINGS_PAGES = ("behavior", "aliases", "mqtt", "switching", "voip", "device")
+"""The settings, the ones changed most often first: `[device]` is set once, if ever."""
 
 
 def page_title(name: str) -> str:
     return PAGE_TITLES.get(name, name.capitalize())
-
-
-def type_title(strip_type: str) -> str:
-    return TYPE_TITLES.get(strip_type, strip_type.capitalize())
 
 
 def card() -> tuple[QFrame, QVBoxLayout]:
@@ -111,7 +103,7 @@ class Page(QWidget):
         self.problem.hide()
 
     @property
-    def document(self) -> ConfigDocument:
+    def document(self) -> SlotsDocument:
         return self.editor.document
 
     @property
@@ -128,7 +120,7 @@ class Page(QWidget):
     def _row(
         self,
         option: Any,
-        path: Callable[[str], tuple[str | int, ...]],
+        path: Callable[[str], OptionPath],
         suggest: Suggest | TableSuggest | None = None,
         placeholder: Callable[[], str] | None = None,
         link: str | None = None,
@@ -151,7 +143,7 @@ class Page(QWidget):
         (self.option_rows if rows is None else rows).append(option_row)
         return option_row
 
-    def _value(self, path: tuple[str | int, ...]) -> Any:
+    def _value(self, path: OptionPath) -> Any:
         return self.document.get(path)
 
     def _load_rows(self, rows: list[OptionRow]) -> None:

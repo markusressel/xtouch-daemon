@@ -18,10 +18,7 @@ SIZE = (1100, 1000)
 SELECTED = 2
 
 CONFIG = """\
-[behavior]
-auto_hold = 5
-
-[[strip]]
+[channel.out]
 type = "output"
 device = "alsa_output.pci-0000_11_00.4.*"
 color = "cyan"
@@ -30,47 +27,57 @@ profiles = [
   { label = "Speaker", profile = "output:iec958-stereo+input:analog-stereo", max_volume = 200 },
 ]
 
-[[strip]]
+[channel.buds]
 type = "output"
 device = ["bluez_output.*"]
 label = "Buds"
 color = "green"
 
-[[strip]]
+[channel.browser]
 type = "apps"
 match = ["@browsers"]
 label = "Browser"
 color = "blue"
 meter = true
 
-[[strip]]
+[channel.games]
 type = "apps"
 match = ["@games"]
 label = "Games"
 color = "red"
 
-[[strip]]
+[channel.voip]
 type = "apps"
 match = ["@voip"]
 label = "VoIP"
 color = "yellow"
 lit_when_idle = true
 
-[[strip]]
-type = "auto"
-color = "white"
-
-[[strip]]
+[channel.mic]
 type = "input"
 device = "alsa_input.pci-0000_11_00.4.analog-stereo"
 label = "Mic"
 color = "magenta"
 
-[[strip]]
+[channel.light]
 type = "homeassistant"
 id = "living_room"
 label = "Light"
 color = "yellow"
+
+[state.gaming]
+mode = true
+processes = ["@steam-games"]
+
+[slots]
+1 = "out"
+2 = "buds"
+3 = "browser"
+4 = ["games if gaming", "auto"]
+5 = "voip"
+6 = "auto"
+7 = "mic"
+8 = "light"
 
 [mqtt]
 host = "homeassistant.local"
@@ -98,7 +105,7 @@ def shoot(home: Path, out: Path) -> None:
     from PyQt6.QtWidgets import QApplication
 
     from xtouch_daemon.audio.model import AudioState, Card, Device, Direction, Profile, Stream
-    from xtouch_daemon.gui.domain.document import ConfigDocument
+    from xtouch_daemon.gui.domain.slots_document import SlotsDocument
     from xtouch_daemon.gui.qt.theme.style import apply_theme
     from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
     from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -173,7 +180,7 @@ def shoot(home: Path, out: Path) -> None:
         strip("yellow", ("Light", "65%"), 0.65, ring=8, ring_mode="spread"),
     )
 
-    document = ConfigDocument.open(path)
+    document = SlotsDocument.open(path)
     saved = document.saved_config
     assert saved is not None
     mqtt = MqttState("homeassistant.local:1883", "xtouch", connected=True, ready=True, error=None, entities=6)
@@ -202,14 +209,14 @@ def shoot(home: Path, out: Path) -> None:
     window.resize(*SIZE)
     window.show()
     wait(app, lambda: window.live.snapshot is not None and window.audio_label.text() != "Reading the sound server…")
-    window.select(SELECTED)
+    window.device_page.select(SELECTED)
     settle(app)
     # the file as it is on a machine of a user, not in the temporary directory
     window.path_label.setText(window.path_label.text().replace(str(path), "~/.config/xtouch-daemon/config.toml"))
 
     out.mkdir(parents=True, exist_ok=True)
     save(window.grab(), out / "gui.png")
-    save(window.preview.grab(), out / "device.png")
+    save(window.device_page.preview.grab(), out / "device.png")
     window.close()
     server.close()
 

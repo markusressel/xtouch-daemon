@@ -13,6 +13,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.names import Presets
 from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.slots.expressions import RESERVED, Condition, ExpressionError, parse
@@ -49,23 +50,33 @@ _ID = re.compile(r"[a-z0-9_]+")
 
 
 class _Section(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    # the docstrings of the fields are their descriptions, which the GUI shows as help
+    model_config = ConfigDict(extra="forbid", frozen=True, use_attribute_docstrings=True)
 
 
 class _Open(BaseModel):
-    # the options the prototype doesn't use (color, label, ...) are those of today's strips
-    model_config = ConfigDict(extra="allow", frozen=True)
+    # the options of the strip that shows it (color, label, ...) are checked as those of a strip
+    model_config = ConfigDict(extra="allow", frozen=True, use_attribute_docstrings=True)
+
+
+Streams = Annotated[tuple[str, ...], Presets(Kind.STREAMS)]
+"""Parts of names of applications, and presets of them (`@browsers`)."""
+Processes = Annotated[tuple[str, ...], Presets(Kind.PROCESSES)]
+"""Parts of names of processes, and presets of them (`@steam-games`)."""
 
 
 class ChannelConfig(_Open):
     type: Literal["output", "input", "apps", "homeassistant", "person"]
     tags: tuple[str, ...] = ()
+    """Words to group channels by, for the conditions of stacks (`present`) and the pools that take them."""
     in_auto: bool = True
-    match: tuple[str, ...] = ()
+    """Whether `auto` hands out an `apps` channel without a slot of its own, like an application."""
+    match: Streams = ()
     device: str | tuple[str, ...] | None = None
     choices: tuple[dict[str, Any], ...] = ()
     person: str | tuple[str, ...] | None = None
     absent_after: float | None = None
+    """Seconds the channel stays present after it had nothing to control any more; by default 3."""
 
     @model_validator(mode="after")
     def _of_its_type(self) -> ChannelConfig:
@@ -98,8 +109,11 @@ class ChannelConfig(_Open):
 
 class PoolConfig(_Open):
     channels: tuple[str, ...] = ()
-    exclude: tuple[str, ...] = ()
+    """The channels (ids or tags) the pool hands out; `auto` takes the applications without a channel."""
+    exclude: Streams = ()
+    """Applications it never takes; `auto` leaves out `speech-dispatcher`, the voice of screen readers, by default."""
     hold: float = 5.0
+    """Seconds a slot keeps an application after it stopped playing."""
 
 
 class PeopleConfig(_Open):
@@ -146,19 +160,33 @@ class ControlsConfig(_Section):
 
 class StateConfig(_Section):
     mode: bool = False
+    """Whether it is a mode: one mode is on at a time, the one with the highest priority whose sources are."""
     label: str | None = None
+    """What the LCDs show across the strips when the mode comes; by default the name."""
     priority: int = 0
-    apps: tuple[str, ...] = ()
-    recording: tuple[str, ...] = ()
+    """Of several modes whose sources are on, the one with the highest priority is the mode."""
+    apps: Streams = ()
+    """On while one of these applications plays."""
+    recording: Streams = ()
+    """On while one of these applications records (a microphone is open)."""
     voice_chat: bool = False
-    processes: tuple[str, ...] = ()
+    """On while you are in a channel of the voice chat."""
+    processes: Processes = ()
+    """On while a process of one of these names runs."""
     devices: tuple[str, ...] = ()
+    """On while one of these devices (outputs or inputs) is there."""
     channels: tuple[str, ...] = ()
+    """On while one of these channels is present."""
     homeassistant: bool = False
+    """On while its switch in Home Assistant is (needs [mqtt])."""
     when: str | None = None
+    """On while this expression of other states holds, e.g. `call and not gaming`; instead of sources."""
     delay_on: float = 0.0
+    """Seconds its sources must be on before it is."""
     delay_off: float | None = None
+    """Seconds it stays on after its sources went off; by default 3, for modes 10."""
     persist: bool = False
+    """Whether an override lasts until it is set back, rather than until the sources change."""
 
     @model_validator(mode="after")
     def _composed_or_sourced(self) -> StateConfig:

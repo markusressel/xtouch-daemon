@@ -34,35 +34,32 @@ def test_the_preview_says_whether_it_is_live():
 
 
 @pytest.mark.parametrize(
-    ("daemon", "live", "edited", "modified", "applying", "text", "tone"),
+    ("daemon", "live", "modified", "applying", "text", "tone"),
     [
-        (None, None, 0, False, False, "Nothing runs this file.", Tone.NEUTRAL),
-        (None, None, 0, True, False, "Nothing runs this file. There are unsaved changes.", Tone.NEUTRAL),
+        (None, None, False, False, "Nothing runs this file.", Tone.NEUTRAL),
+        (None, None, True, False, "Nothing runs this file. There are unsaved changes.", Tone.NEUTRAL),
         (
             Instance(42, Path("/other.toml"), systemd=False),
             None,
-            0,
             False,
             False,
             "The daemon reads /other.toml, not this file.",
             Tone.WARN,
         ),
-        (DAEMON, None, 0, False, False, "The daemon reads this file.", Tone.NEUTRAL),
-        (DAEMON, snapshot(), 0, False, False, "The device runs the saved file.", Tone.GOOD),
+        (DAEMON, None, False, False, "The daemon reads this file.", Tone.NEUTRAL),
+        (DAEMON, snapshot(), False, False, "The device runs the saved file.", Tone.GOOD),
         (
             DAEMON,
             snapshot(),
-            2,
             True,
             False,
-            "The device runs the saved file. 2 strips with unsaved changes show how they will look.",
+            "The device runs the saved file. There are unsaved changes.",
             Tone.GOOD,
         ),
-        (DAEMON, snapshot(config=fingerprint(OTHER)), 0, False, True, "Applying the saved file…", Tone.NEUTRAL),
+        (DAEMON, snapshot(config=fingerprint(OTHER)), False, True, "Applying the saved file…", Tone.NEUTRAL),
         (
             DAEMON,
             snapshot(config=fingerprint(OTHER)),
-            0,
             False,
             False,
             "The device does not run the saved file yet.",
@@ -71,31 +68,29 @@ def test_the_preview_says_whether_it_is_live():
     ],
 )
 def test_whether_the_device_runs_the_saved_file(
-    daemon: Instance | None, live: Snapshot | None, edited: int, modified: bool, applying: bool, text: str, tone: Tone
+    daemon: Instance | None, live: Snapshot | None, modified: bool, applying: bool, text: str, tone: Tone
 ):
-    status = sync_status(daemon, live, PATH, CONFIG, edited, modified, applying)
+    status = sync_status(daemon, live, PATH, CONFIG, modified, applying)
     assert (status.text, status.tone) == (text, tone)
 
 
 def test_a_saved_file_with_errors_is_not_what_the_device_runs():
-    assert sync_status(DAEMON, snapshot(), PATH, None, 0, False, False).tone == Tone.WARN
+    assert sync_status(DAEMON, snapshot(), PATH, None, False, False).tone == Tone.WARN
 
 
 def test_a_live_preview_is_not_the_saved_file():
     preview = dataclasses.replace(snapshot(config=fingerprint(OTHER)), preview=True)
 
     # of this window, with the document as it is
-    ours = sync_status(DAEMON, preview, PATH, CONFIG, 1, True, False, previewed=True)
+    ours = sync_status(DAEMON, preview, PATH, CONFIG, True, False, previewed=True)
     assert (ours.text, ours.tone) == (
         "The device runs the unsaved changes (live preview). Save to keep them.",
         Tone.WARN,
     )
     assert "brings back the saved file" in ours.tip
     # of another window, or of a version of the document before
-    other = sync_status(DAEMON, preview, PATH, CONFIG, 1, True, False)
-    assert other.text == (
-        "The device runs a live preview, not the saved file. 1 strip with unsaved changes show how they will look."
-    )
+    other = sync_status(DAEMON, preview, PATH, CONFIG, True, False)
+    assert other.text == ("The device runs a live preview, not the saved file. There are unsaved changes.")
     assert other.tone == Tone.WARN
 
 

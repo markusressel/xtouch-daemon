@@ -12,11 +12,12 @@ PAGES: dict[str, str] = {
     "behavior": "configuration/behavior/#behavior",
     "aliases": "configuration/behavior/#aliases",
     "mqtt": "home-assistant/#mqtt",
-    "layout": "configuration/slots/#migrating",
+    "channels": "configuration/slots/#channels",
+    "states": "configuration/slots/#states-and-modes",
     "switching": "configuration/slots/#controls-and-the-chord",
     "voip": "configuration/people/#voice-chat",
 }
-"""The global settings, by page."""
+"""The pages, and the settings by page."""
 
 GUIDES: dict[str, str] = {
     "mumble": "integrations/mumble/",
@@ -30,7 +31,6 @@ STRIP_TYPES: dict[str, str] = {
     "auto": "configuration/applications/#auto",
     "homeassistant": "home-assistant/#homeassistant-channels",
     "empty": "configuration/strips/#empty-slots",
-    "inherit": "configuration/slots/#migrating",
     "voip": "configuration/people/",
 }
 """The strip types."""
@@ -47,7 +47,6 @@ STRIP_OPTIONS: dict[str, str] = {
     "device": "configuration/devices/#several-devices",
     "profiles": "configuration/devices/#profiles",
     "choices": "configuration/devices/#choices",
-    "collapse": "configuration/slots/#migrating",
     "match": "configuration/applications/#apps-channels",
     "launch": "configuration/applications/#launching-the-application",
     "launch_when_running": "configuration/applications/#launching-the-application",
@@ -73,23 +72,13 @@ SECTION_OPTIONS: dict[str, dict[str, str]] = {
         "unity_at": "configuration/strips/#100-at-the-0-db-mark",
         "encoder_step": "configuration/encoders/#volume",
         "reset_volume": "configuration/encoders/#volume",
-        "auto_hold": "configuration/slots/#migrating",
-        "ignore": "configuration/slots/#migrating",
-        "collapse_hold": "configuration/slots/#migrating",
         "meter_point": "configuration/strips/#meters",
     },
     "mqtt": {
         "namespace": "home-assistant/#entities",
     },
-    "layout": {
-        "apps": "configuration/slots/#states-and-modes",
-        "processes": "configuration/slots/#states-and-modes",
-        "priority": "configuration/slots/#states-and-modes",
-        "meter_point": "configuration/strips/#meters",
-    },
     "switching": {
         "chord": "configuration/slots/#controls-and-the-chord",
-        "hold": "configuration/slots/#migrating",
     },
 }
 """The options of the sections, by section."""

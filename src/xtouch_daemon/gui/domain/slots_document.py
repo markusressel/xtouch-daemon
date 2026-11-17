@@ -22,6 +22,7 @@ from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import Problem, parse_config, slots_example_config
 from xtouch_daemon.config.migrate import migrate
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.gui.domain.schema import RESTART_SECTIONS, SECTIONS
 
 type OptionPath = tuple[str | int, ...]
 """Where an option is in the data of the file, e.g. `("channel", "mic", "label")` or `("slots", "3", 0)`."""
@@ -29,6 +30,8 @@ type OptionPath = tuple[str | int, ...]
 _WHERE = re.compile(r"^(?P<where>[A-Za-z0-9_.\[\]-]+)(?: \([^)]*\))?: (?P<message>.*)$")
 """A line of the errors of a file: `slots.3[0] (radio): ...` is about `slots.3[0]`."""
 _PART = re.compile(r"([^.\[\]]+)|\[(\d+)\]")
+_OPTION = re.compile(r"^(?P<option>[a-z_]+(?:\.[a-z0-9_]+)*): (?P<message>.*)$")
+"""An option in a problem of a channel or candidate: `profiles.1.label: ...`."""
 
 
 def path_of(where: str) -> OptionPath:
@@ -46,8 +49,15 @@ def problems_of(error: ConfigError) -> list[Problem]:
         if match is None:
             problems.append(Problem((), line, "invalid"))
         else:
+            path = path_of(match["where"])
             message = match["message"].removeprefix("Value error, ")
-            problems.append(Problem(path_of(match["where"]), message, "invalid"))
+            # the problem of an option of a channel or candidate: `channel.out: profiles.1.label: Field required`
+            option = _OPTION.match(message)
+            if option is not None:
+                path = (*path, *(int(part) if part.isdigit() else part for part in option["option"].split(".")))
+                message = option["message"]
+            kind = "extra_forbidden" if message == "Extra inputs are not permitted" else "invalid"
+            problems.append(Problem(path, message, kind))
     return problems
 
 
@@ -110,6 +120,8 @@ class SlotsDocument:
         self.values: dict[str, Any] = self._toml.unwrap()
         """The file as plain data, which the editor changes."""
         self._saved = copy.deepcopy(self.values) if not self.migrated else None
+        self.saved_config = self._config(text) if self.exists and not self.migrated else None
+        """The configuration of the file as it is on disk, None while there is none the daemon would take."""
 
     # -- options ----------------------------------------------------------------------------------------------------
 
@@ -139,7 +151,9 @@ class SlotsDocument:
                 del parent[key]
         else:
             parent.pop(key, None)
-        if len(path) > 1 and not parent:
+        # a section with options of its own stays (an optional one like [mqtt] is there or not, see
+        # `remove_section()`); an emptied channel, state or [state] goes
+        if len(path) > 1 and not parent and (len(path) > 2 or path[0] not in SECTIONS):
             self.unset(path[:-1])
 
     def rename(self, path: OptionPath, new: str) -> None:
@@ -160,6 +174,17 @@ class SlotsDocument:
         renamed = {new if key == path[-1] else key: value for key, value in parent.items()}
         parent.clear()
         parent.update(renamed)
+
+    def has_section(self, name: str) -> bool:
+        return name in self.values
+
+    def add_section(self, name: str) -> None:
+        """Adds a section (without options yet), e.g. `[mqtt]`."""
+        self.values.setdefault(name, {})
+
+    def remove_section(self, name: str) -> None:
+        """Removes a section with all its options."""
+        self.values.pop(name, None)
 
     def _parent(self, path: OptionPath, create: bool) -> Any:
         assert path, "an option path names an option"
@@ -185,6 +210,27 @@ class SlotsDocument:
         except ConfigError as e:
             return Validation(None, problems_of(e))
 
+    @property
+    def restart_sections(self) -> tuple[str, ...]:
+        """The sections that changed since the file was read or saved and that the daemon takes only with a restart."""
+        saved = self._saved or {}
+
+        def part(data: dict[str, Any], name: str, option: str | None) -> object:
+            section = data.get(name)
+            return section.get(option) if option is not None and isinstance(section, dict) else section
+
+        return tuple(
+            name
+            for name, option in RESTART_SECTIONS.items()
+            if part(self.values, name, option) != part(saved, name, option)
+        )
+
+    def _config(self, text: str) -> Config | None:
+        try:
+            return parse_config(text, str(self.path))
+        except ConfigError:
+            return None
+
     def render(self) -> str:
         """The TOML text of the data: the text that was read, with the changes."""
         _sync(self._toml, self.values, 0)
@@ -199,6 +245,7 @@ class SlotsDocument:
         self.exists = True
         self.migrated = False
         self._saved = copy.deepcopy(self.values)
+        self.saved_config = config
         return config
 
     def revert(self) -> None:

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from xtouch_daemon.config.legacy.model import LegacyConfig as Config
+from xtouch_daemon.config.model import Config
 from xtouch_daemon.live.messages import Snapshot, fingerprint
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import ServiceState
@@ -56,7 +56,6 @@ def sync_status(
     snapshot: Snapshot | None,
     path: Path,
     saved: Config | None,
-    edited_strips: int,
     modified: bool,
     applying: bool,
     previewed: bool = False,
@@ -71,13 +70,7 @@ def sync_status(
             Tone.WARN,
             "Turning the live preview off, or closing the window, brings back the saved file.",
         )
-    pending = ""
-    if modified:
-        pending = (
-            f" {edited_strips} strip{'' if edited_strips == 1 else 's'} with unsaved changes show how they will look."
-            if edited_strips
-            else " There are unsaved changes."
-        )
+    pending = " There are unsaved changes." if modified else ""
     if daemon is None:
         return Status(("Nothing runs this file." + pending).strip(), Tone.NEUTRAL)
     if path.resolve() != daemon.config:

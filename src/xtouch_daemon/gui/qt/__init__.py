@@ -11,7 +11,7 @@ from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtWidgets import QApplication
 
 from xtouch_daemon.audio.pulse import read_state
-from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.theme.settings import load_zoom
 from xtouch_daemon.gui.qt.theme.style import apply_theme, load_theme_mode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -49,7 +49,7 @@ def create_application() -> QApplication:
 
 def run_gui(path: Path) -> int:
     """Shows the window until it is closed; raises `ConfigError` for a file it can't edit."""
-    document = ConfigDocument.open(path)
+    document = SlotsDocument.open(path)
     own = os.environ.get(SCALE_FACTOR)
     session: Session | None = None
     while True:

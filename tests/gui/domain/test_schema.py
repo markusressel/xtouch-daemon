@@ -3,11 +3,8 @@ from typing import Annotated, Literal
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
-from xtouch_daemon.config.legacy.layout import LayoutConfig
-from xtouch_daemon.config.legacy.sections import LegacyBehaviorConfig as BehaviorConfig
-from xtouch_daemon.config.legacy.sections import LegacySwitchingConfig as SwitchingConfig
 from xtouch_daemon.config.presets import Kind as PresetKind
-from xtouch_daemon.config.sections import DeviceConfig, MqttConfig, VoipConfig
+from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
 from xtouch_daemon.gui.domain.schema import (
     STRIP_OPTION_ORDER,
     Kind,
@@ -20,6 +17,7 @@ from xtouch_daemon.gui.domain.schema import (
     strip_options,
     strip_type_help,
 )
+from xtouch_daemon.slots.model import PoolConfig, StateConfig
 
 
 def strip_option(strip_type: str, name: str) -> Option:
@@ -45,9 +43,6 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
         ("reset_volume", Kind.INTEGER),
         ("meters", Kind.SWITCH),
         ("meter_point", Kind.CHOICE),
-        ("auto_hold", Kind.NUMBER),
-        ("ignore", Kind.LIST),
-        ("collapse_hold", Kind.NUMBER),
     ]
     unity = options(BehaviorConfig)[1]
     assert (unity.default, unity.minimum, unity.maximum) == (77, 10, 95)
@@ -61,7 +56,7 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
 
 
 def test_every_strip_type_has_its_model_and_options():
-    assert list(strip_models()) == ["output", "input", "apps", "auto", "homeassistant", "empty", "inherit", "voip"]
+    assert list(strip_models()) == ["output", "input", "apps", "auto", "homeassistant", "empty", "voip"]
     # what the strip controls first, then its parts as the device has them, from the top down
     assert [o.name for o in strip_options("output")] == [
         "device",
@@ -258,7 +253,6 @@ def test_a_choice_says_what_its_value_means():
 def test_the_default_for_people():
     by_name = {o.name: o for o in options(BehaviorConfig)}
     assert by_name["meters"].default_text == "on"
-    assert by_name["ignore"].default_text == "speech-dispatcher"
     assert by_name["max_volume"].default_text == "130"
     # none: the help says what happens without it
     assert next(o for o in strip_options("output") if o.name == "min_volume").default_text == ""
@@ -271,9 +265,9 @@ def test_the_default_for_people():
 
 def test_lists_of_names_say_which_presets_they_take():
     assert strip_option("apps", "match").presets == PresetKind.STREAMS
-    assert next(item for item in options(BehaviorConfig) if item.name == "ignore").presets == PresetKind.STREAMS
-    layout = {item.name: item for item in options(LayoutConfig, skip=("strips",))}
-    assert layout["apps"].presets == PresetKind.STREAMS
-    assert layout["processes"].presets == PresetKind.PROCESSES
-    assert layout["processes"].kind == Kind.LIST
+    assert next(item for item in options(PoolConfig) if item.name == "exclude").presets == PresetKind.STREAMS
+    state = {item.name: item for item in options(StateConfig)}
+    assert state["apps"].presets == PresetKind.STREAMS
+    assert state["processes"].presets == PresetKind.PROCESSES
+    assert state["processes"].kind == Kind.LIST
     assert strip_option("output", "device").presets is None

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import FakeLiveDaemon, MakeWindow, row, snapshot, strip_state, type_into
+from tests.support.gui import FakeLiveDaemon, MakeWindow, snapshot, strip_state
 from tests.support.instance import RecordingInstance
 from xtouch_daemon.system.instance import Instance
 
@@ -26,28 +26,24 @@ def test_the_preview_shows_the_device_live(
         meter=6,
     )
     live_daemon.send(snapshot(window, first))
-    qtbot.waitUntil(lambda: window.preview.strips[0].face.live)
+    qtbot.waitUntil(lambda: window.device_page.preview.strips[0].face.live)
 
-    assert window.preview.strips[0].face.state == first
+    assert window.device_page.preview.strips[0].face.state == first
     assert window.mode_pill.text() == "Live"
     assert window.sync_label.text() == "The device runs the saved file."
     # Select flashes
-    assert window.preview.blinker.isActive()
-    blink = window.preview.blink
-    window.preview.blinker.timeout.emit()
-    assert window.preview.blink != blink
-    assert not window.preview.grab().isNull()
+    assert window.device_page.preview.blinker.isActive()
+    blink = window.device_page.preview.blink
+    window.device_page.preview.blinker.timeout.emit()
+    assert window.device_page.preview.blink != blink
+    assert not window.device_page.preview.grab().isNull()
 
-    # an edited strip shows how it will look, the others stay live
-    type_into(qtbot, row(window, "label").line, "Boxes")
-    face = window.preview.strips[0].face
-    assert (face.live, face.edited, face.state.text[0]) == (False, True, "Boxes")
-    assert window.preview.strips[1].face.live
-    assert not window.preview.blinker.isActive()
-    assert window.sync_label.text() == (
-        "The device runs the saved file. 1 strip with unsaved changes show how they will look."
-    )
-    assert not window.preview.grab().isNull()
+    # an edit: the device runs the file until it is saved
+    window.document.set(("channel", "out", "label"), "Boxes")
+    window.editor.edited()
+    assert window.device_page.preview.strips[0].face.live
+    assert window.sync_label.text() == "The device runs the saved file. There are unsaved changes."
+    assert not window.device_page.preview.grab().isNull()
 
     # saved: the daemon takes a moment
     assert window.save()
@@ -67,7 +63,7 @@ def test_the_preview_shows_the_device_live(
     live_daemon.close()
     qtbot.waitUntil(lambda: window.live.snapshot is None)
     assert window.mode_pill.text() == "File preview"
-    assert not window.preview.strips[0].face.live
+    assert not window.device_page.preview.strips[0].face.live
 
 
 def test_the_live_view_ends_with_the_daemon(qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon):

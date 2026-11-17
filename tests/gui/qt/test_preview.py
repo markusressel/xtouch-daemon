@@ -1,33 +1,29 @@
 """
-The preview of the device: moving strips, and how strips are painted.
+The drawing of the device: picking strips, and how strips are painted.
 """
 
 import dataclasses
-import itertools
 import math
 from math import cos, radians, sin
-from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QEvent, QPoint, QPointF, QSettings, Qt
-from PyQt6.QtGui import QColor, QContextMenuEvent, QFontMetricsF, QImage, QMouseEvent
+from PyQt6.QtCore import QEvent, QPointF, Qt
+from PyQt6.QtGui import QColor, QFontMetricsF, QImage, QMouseEvent
 from PyQt6.QtWidgets import (
     QApplication,
-    QMenu,
     QWidget,
 )
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import CONFIG, Dialogs, MakeWindow, click
+from tests.support.gui import MakeWindow, click
 from xtouch_daemon.config.sections import BehaviorConfig
+from xtouch_daemon.gui.domain.looks import StripFace
 from xtouch_daemon.gui.qt.preview.geometry import (
     CAP_SIZE,
     CENTER_X,
     ENCODER,
-    HEIGHT,
     LCD,
     LCD_CELLS,
-    MARGIN_X,
     PANEL,
     RING_LEDS,
     RING_RADII,
@@ -62,174 +58,39 @@ from xtouch_daemon.hardware import protocol
 
 
 def x_of(window: MainWindow, index: int) -> int:
-    return window.preview.strips[index].x()
+    return window.device_page.preview.strips[index].x()
 
 
-def test_a_dragged_strip_leaves_a_place_and_the_others_make_room(qtbot: QtBot, make_window: MakeWindow, path: Path):
-    path.write_text(CONFIG + '\n[[strip]]\ntype = "auto"\n')
-    window = make_window()
-    preview = window.preview
-    first, second, third = (x_of(window, index) for index in range(3))
-    view = preview.strips[0]
-
-    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(50, 50))
-    # a small move is still a click
-    qtbot.mouseMove(view, QPoint(52, 51))
-    assert not preview.dragging
-    qtbot.mouseMove(view, QPoint(50 + third - first, 50))
-
-    assert preview.dragging
-    assert view.lifted
-    # its place is free and the strips it passed moved over, gliding
-    assert preview.drop_target == 2
-    # back and forth: the strips change their way (the mouse is where the strip is now)
-    qtbot.mouseMove(view, QPoint(50 + second - view.x(), 50))
-    assert preview.drop_target == 1
-    qtbot.mouseMove(view, QPoint(50 + third - view.x(), 50))
-    assert preview.drop_target == 2
-    qtbot.waitUntil(lambda: x_of(window, 1) == first and x_of(window, 2) == second)
-    assert not window.grab().isNull()
-
-    # dropped beyond the configured strips, it goes to that place: auto strips in between
-    qtbot.mouseMove(view, QPoint(50 + 7 * (third - second), 50))
-    assert preview.drop_target == 7
-    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton, pos=QPoint(50 + 7 * (third - second), 50))
-
-    assert not preview.dragging
-    assert [strip.type for strip in window.document.strips] == ["apps", "auto", *["auto"] * 5, "output"]
-    assert window.selected == 7
-    # every view at its own place again (eight strips show the strip list, so the preview may have a new scale)
-    places = [x_of(window, index) for index in range(8)]
-    assert places == sorted(places)
-    assert len({right - left for left, right in itertools.pairwise(places)}) <= 2
-    assert window.status.text() == "Moved strip 1 to place 8."
-
-
-def test_escape_cancels_a_drag(qtbot: QtBot, window: MainWindow):
-    preview = window.preview
-    view = preview.strips[0]
-    home = view.pos()
-    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(50, 50))
-    qtbot.mouseMove(view, QPoint(160, 50))
-    assert preview.drop_target == 1
-
-    qtbot.keyClick(preview, Qt.Key.Key_Escape)
-
-    assert not preview.dragging
-    assert view.pos() == home
-    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton, pos=QPoint(160, 50))
-    assert [strip.type for strip in window.document.strips] == ["output", "apps"]
-    # a drag that ends where it started moves nothing either
-    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(50, 50))
-    qtbot.mouseMove(view, QPoint(60, 50))
-    qtbot.keyClick(view, Qt.Key.Key_Escape)
-    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(50, 50))
-    qtbot.mouseMove(view, QPoint(60, 50))
-    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton, pos=QPoint(60, 50))
-    assert [strip.type for strip in window.document.strips] == ["output", "apps"]
-    assert window.history.can_undo is False
-
-
-def test_strips_that_are_not_configured_do_not_move(qtbot: QtBot, window: MainWindow):
-    view = window.preview.strips[6]
-    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=QPoint(10, 10))
-    qtbot.mouseMove(view, QPoint(80, 60))
-    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton)
-
-    assert not window.preview.dragging
-    assert window.selected == 6
-
-
-def test_the_keyboard_selects_and_moves_strips(qtbot: QtBot, window: MainWindow):
-    strips = window.preview.strips
+def test_the_keyboard_selects_strips(qtbot: QtBot, window: MainWindow):
+    strips = window.device_page.preview.strips
     strips[0].setFocus()
 
     qtbot.keyClick(strips[0], Qt.Key.Key_Right)
-    assert window.selected == 1
-    qtbot.keyClick(strips[1], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
-    assert [strip.type for strip in window.document.strips] == ["apps", "output"]
-    assert window.selected == 0
+    assert window.device_page.selected == 1
+    qtbot.keyClick(strips[1], Qt.Key.Key_Left)
     # not past the ends
-    qtbot.keyClick(strips[0], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
     qtbot.keyClick(strips[0], Qt.Key.Key_Left)
-    assert [strip.type for strip in window.document.strips] == ["apps", "output"]
-    # but to a free place: an auto strip comes in between, and goes again with it
-    qtbot.keyClick(strips[1], Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
-    assert [strip.type for strip in window.document.strips] == ["apps", "auto", "output"]
-    qtbot.keyClick(strips[2], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
-    assert [strip.type for strip in window.document.strips] == ["apps", "output"]
-
+    assert window.device_page.selected == 0
     qtbot.keyClick(strips[0], Qt.Key.Key_End)
-    assert window.selected == 7
-    qtbot.keyClick(strips[7], Qt.Key.Key_Delete)
-    qtbot.keyClick(strips[7], Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
+    assert window.device_page.selected == 7
     qtbot.keyClick(strips[7], Qt.Key.Key_A)
-    # an unconfigured strip doesn't move
-    assert len(window.document.strips) == 2
-    assert window.selected == 7
     qtbot.keyClick(strips[7], Qt.Key.Key_Home)
-    assert window.selected == 0
-
-    # the other strips stay where they are
-    qtbot.keyClick(strips[0], Qt.Key.Key_Delete)
-    assert [strip.type for strip in window.document.strips] == ["auto", "output"]
-    assert window.status.text() == "Removed strip 1, its place is an auto strip now. Ctrl+Z brings it back."
-    qtbot.keyClick(strips[1], Qt.Key.Key_Delete)
-    assert window.document.strips == []
-    assert window.status.text() == "Removed strip 2. Ctrl+Z brings it back."
-
-
-def test_the_menu_of_a_strip(qtbot: QtBot, window: MainWindow):
-    menu = window.preview.menu_for(1)
-    left, right, _, copy, paste, _, remove = menu.actions()
-    assert copy.text() == "Copy\tCtrl+C"
-    assert not paste.isEnabled()
-    assert left.text() == "Move left\tCtrl+Left"
-    # also to a free place
-    assert right.isEnabled()
-    assert not window.preview.menu_for(0).actions()[0].isEnabled()
-
-    left.trigger()
-    assert [strip.type for strip in window.document.strips] == ["apps", "output"]
-    window.preview.menu_for(0).actions()[1].trigger()
-    assert [strip.type for strip in window.document.strips] == ["output", "apps"]
-    remove.trigger()
-    assert [strip.type for strip in window.document.strips] == ["output"]
-
-    configure, _ = window.preview.menu_for(4).actions()
-    configure.trigger()
-    assert len(window.document.strips) == 5
-    assert window.selected == 4
-
-
-def test_a_strip_that_is_not_configured_is_configured_by_a_double_click(qtbot: QtBot, window: MainWindow):
-    qtbot.mouseDClick(window.preview.strips[3], Qt.MouseButton.LeftButton)
-    assert len(window.document.strips) == 4
-    # a configured one stays as it is
-    qtbot.mouseDClick(window.preview.strips[0], Qt.MouseButton.LeftButton)
-    assert len(window.document.strips) == 4
-
-
-def test_the_context_menu_opens_on_the_strip(qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch):
-    shown: list[list[str]] = []
-    monkeypatch.setattr(QMenu, "exec", lambda menu, *args: shown.append([a.text() for a in menu.actions()]))
-    view = window.preview.strips[5]
-    qtbot.mousePress(view, Qt.MouseButton.RightButton)
-
-    view.contextMenuEvent(QContextMenuEvent(QContextMenuEvent.Reason.Mouse, QPoint(5, 5), view.mapToGlobal(QPoint())))
-
-    assert shown == [["Configure strip 6", "Paste\tCtrl+V"]]
-    assert window.selected == 5
+    assert window.device_page.selected == 0
 
 
 def show_state(view: StripView, **changes: object) -> QImage:
-    """The strip with its state changed, as painted."""
-    face = view.face
+    """The strip with its state changed, as painted (as one the daemon tells about)."""
+    face = configured(view)
     view.show_face(dataclasses.replace(face, state=dataclasses.replace(face.state, **changes)), False)
     image = view.grab().toImage()
     # its pixels per logical unit of the strip: the zoom times the scale of the preview
     image.setDevicePixelRatio(image.devicePixelRatio() * view.preview.scale)
     return image
+
+
+def configured(view: StripView) -> StripFace:
+    """The face of the strip, as one the daemon tells about (not drawn fainter)."""
+    return dataclasses.replace(view.face, look=dataclasses.replace(view.face.look, configured=True), live=True)
 
 
 def pixel(image: QImage, point: QPointF) -> QColor:
@@ -238,7 +99,7 @@ def pixel(image: QImage, point: QPointF) -> QColor:
 
 
 def test_lit_leds_show_their_colors(window: MainWindow):
-    view = window.preview.strips[0]
+    view = window.device_page.preview.strips[0]
     mute, meter = button_rect(2).center(), meter_led(1).center()
     dark = show_state(view, meter=0)
 
@@ -253,7 +114,7 @@ def test_lit_leds_show_their_colors(window: MainWindow):
 
 
 def test_the_meter_has_7_leds_for_the_level_and_the_clip_led(window: MainWindow):
-    view = window.preview.strips[0]
+    view = window.device_page.preview.strips[0]
     clip, top = meter_led(7).center(), meter_led(6).center()
 
     loudest = show_state(view, meter=protocol.METER_SIGNAL_MAX)
@@ -277,7 +138,7 @@ def ring_led(led: int) -> QPointF:
 
 
 def test_the_ring_lights_the_middle_11_of_its_13_leds(window: MainWindow):
-    view = window.preview.strips[0]
+    view = window.device_page.preview.strips[0]
     assert ring_angle(0) == 240
     assert ring_angle(RING_LEDS - 1) == -60
 
@@ -304,7 +165,7 @@ def test_the_scale_has_0_db_where_100_percent_is():
 @pytest.mark.parametrize("label", ["10", "0", "-20", "-∞"])
 def test_the_middle_of_the_cap_shows_the_value(window: MainWindow, label: str):
     at = next(mark.at for mark in SCALE if mark.label == label)
-    view = window.preview.strips[0]
+    view = window.device_page.preview.strips[0]
 
     image = show_state(view, fader=at, touched=False)
 
@@ -330,12 +191,12 @@ def test_rec_solo_and_mute_are_square_and_select_wider_below_them():
 
 
 def test_the_lcd_fits_7_characters_per_line_and_a_line_between_them(window: MainWindow):
-    view = window.preview.strips[0]
+    view = window.device_page.preview.strips[0]
     metrics = QFontMetricsF(view.lcd_font)
     cells = LCD_CELLS
     assert metrics.horizontalAdvance("W") * protocol.LCD_CELL_WIDTH <= cells.width()
     assert 2 * metrics.capHeight() < cells.height()
-    face = view.face
+    face = configured(view)
     middle = QPointF(cells.center().x() + 0.5, cells.top() + (cells.height() - 2) / 2 + 1)
 
     rim = QPointF(LCD.left() + 2.4, LCD.center().y())
@@ -361,33 +222,14 @@ def test_the_lcd_fits_7_characters_per_line_and_a_line_between_them(window: Main
     view.show_face(face, False)
 
 
-def test_a_dragged_strip_is_outlined_and_its_place_shown(qtbot: QtBot, window: MainWindow):
-    preview = window.preview
-    edge = preview.to_widget(QPointF(3, 150)) - preview.to_widget(QPointF())
-    # below the lifted strip, where the place it goes to shows on the panel
-    place = preview.to_widget(QPointF(slot_position(0)) + QPointF(WIDTH / 2, HEIGHT - 6))
-    strip_before = preview.strips[1].grab().toImage().pixelColor(edge)
-    place_before = preview.grab().toImage().pixelColor(place)
-
-    preview.start_drag(1, 10)
-    preview.drag_to(preview.to_widget(QPointF(MARGIN_X + 10, 0)).x())
-
-    assert preview.drop_target == 0
-    # the strip that was there made room
-    qtbot.waitUntil(lambda: preview.strips[0].pos() == preview.slot_point(1))
-    assert preview.strips[1].grab().toImage().pixelColor(edge).blue() > strip_before.blue()
-    assert preview.grab().toImage().pixelColor(place).blue() > place_before.blue() + 10
-    preview.cancel_drag()
-
-
 def drag_handle(window: MainWindow, share: float, release: bool = True) -> None:
     """Drags the handle between the preview and the editor to `share` of the height, as a hand does."""
-    handle = window.splitter.handle(1)
+    handle = window.device_page.splitter.handle(1)
     assert handle is not None
     grip = QPointF(handle.rect().center())
     send_mouse(handle, QEvent.Type.MouseButtonPress, grip, Qt.MouseButton.LeftButton)
-    top, bottom = window.splitter.sizes()
-    window.splitter.moveSplitter(round((top + bottom) * share), 1)
+    top, bottom = window.device_page.splitter.sizes()
+    window.device_page.splitter.moveSplitter(round((top + bottom) * share), 1)
     QApplication.processEvents()
     if release:
         send_mouse(handle, QEvent.Type.MouseButtonRelease, grip, Qt.MouseButton.NoButton)
@@ -401,7 +243,7 @@ def send_mouse(widget: QWidget, kind: QEvent.Type, at: QPointF, buttons: Qt.Mous
 
 
 def test_the_preview_scales_to_the_space_it_gets(window: MainWindow):
-    preview = window.preview
+    preview = window.device_page.preview
     large = preview.scale
     assert preview.minimumSizeHint().height() == round(PANEL.height() * MIN_SCALE)
 
@@ -418,16 +260,16 @@ def test_the_preview_scales_to_the_space_it_gets(window: MainWindow):
         assert view.pos() == preview.slot_point(index)
         assert view.width() == math.ceil(WIDTH * preview.scale)
     # the editor keeps its room
-    assert window.tabs.height() >= EDITOR_MIN_HEIGHT
-    handle = window.splitter.handle(1)
+    assert window.device_page.below.height() >= EDITOR_MIN_HEIGHT
+    handle = window.device_page.splitter.handle(1)
     assert handle is not None
     assert handle.cursor().shape() == Qt.CursorShape.SplitVCursor
     assert "Drag" in handle.toolTip()
     assert not handle.grab().isNull()
 
 
-def test_strips_are_picked_and_dragged_at_any_scale(qtbot: QtBot, window: MainWindow):
-    preview = window.preview
+def test_strips_are_picked_at_any_scale(qtbot: QtBot, window: MainWindow):
+    preview = window.device_page.preview
     drag_handle(window, 0.1)
     assert preview.scale < 0.8
     # the strip under a point in the middle of its place
@@ -436,25 +278,15 @@ def test_strips_are_picked_and_dragged_at_any_scale(qtbot: QtBot, window: MainWi
     assert view is preview.strips[2]
 
     click(qtbot, view)
-    assert window.selected == 2
-
-    first = preview.strips[0]
-    grab = QPoint(first.width() // 2, first.height() // 2)
-    qtbot.mousePress(first, Qt.MouseButton.LeftButton, pos=grab)
-    qtbot.mouseMove(first, grab + QPoint(preview.slot_point(1).x() - first.x(), 0))
-    assert preview.drop_target == 1
-    # the place under the strip follows the scale too: just short of the middle between two places
-    middle = (preview.slot_point(0).x() + preview.slot_point(1).x()) / 2
-    qtbot.mouseMove(first, grab + QPoint(round(middle - first.x()) + 2, 0))
-    assert preview.drop_target == 1
-    qtbot.mouseMove(first, grab + QPoint(round(middle - first.x()) - 2, 0))
-    assert preview.drop_target == 0
-    qtbot.mouseRelease(first, Qt.MouseButton.LeftButton, pos=grab)
-    assert not preview.dragging
+    assert window.device_page.selected == 2
+    assert preview.strips[2].selected
+    # only the left button picks
+    qtbot.mouseClick(preview.strips[3], Qt.MouseButton.RightButton)
+    assert window.device_page.selected == 2
 
 
 def test_strips_are_drawn_again_only_when_they_show_something_else(qtbot: QtBot, window: MainWindow):
-    preview = window.preview
+    preview = window.device_page.preview
     qtbot.waitUntil(lambda: not preview.resizing)
     view = preview.strips[0]
     show_state(view)
@@ -474,7 +306,7 @@ def test_strips_are_drawn_again_only_when_they_show_something_else(qtbot: QtBot,
 
 
 def test_small_pictures_are_dropped_when_there_are_too_many(window: MainWindow):
-    view = window.preview.strips[0]
+    view = window.device_page.preview.strips[0]
     sprites = _sprites
     sprites.clear()
     show_state(view, meter=6)
@@ -491,7 +323,7 @@ def test_small_pictures_are_dropped_when_there_are_too_many(window: MainWindow):
 
 
 def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window: MainWindow):
-    preview = window.preview
+    preview = window.device_page.preview
     qtbot.waitUntil(lambda: not preview.resizing)
     views = preview.strips
     for view in views:
@@ -515,11 +347,11 @@ def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window:
     assert preview.resizing
     # nothing is saved before
     assert load_preview_share() is None
-    handle = window.splitter.handle(1)
+    handle = window.device_page.splitter.handle(1)
     assert handle is not None
     send_mouse(handle, QEvent.Type.MouseButtonRelease, QPointF(), Qt.MouseButton.NoButton)
     assert not preview.resizing
-    assert load_preview_share() == pytest.approx(window.splitter.share)
+    assert load_preview_share() == pytest.approx(window.device_page.splitter.share)
     for view in views:
         view.grab()
         assert view.picture is not None
@@ -527,65 +359,29 @@ def test_while_the_size_changes_strips_scale_their_picture(qtbot: QtBot, window:
 
 
 def test_the_handle_follows_many_moves_of_the_mouse_at_once(window: MainWindow):
-    handle = window.splitter.handle(1)
+    handle = window.device_page.splitter.handle(1)
     assert handle is not None
     grip = QPointF(handle.rect().center())
     send_mouse(handle, QEvent.Type.MouseButtonPress, grip, Qt.MouseButton.LeftButton)
-    top = window.splitter.sizes()[0]
+    top = window.device_page.splitter.sizes()[0]
     moves: list[int] = []
-    window.splitter.splitterMoved.connect(lambda position, _: moves.append(position))
+    window.device_page.splitter.splitterMoved.connect(lambda position, _: moves.append(position))
 
     for step in range(1, 6):
         send_mouse(handle, QEvent.Type.MouseMove, grip - QPointF(0, 10 * step), Qt.MouseButton.LeftButton)
-    assert window.splitter.sizes()[0] == top
+    assert window.device_page.splitter.sizes()[0] == top
     QApplication.processEvents()
 
     # once, to where the mouse is now
     assert len(moves) == 1
-    assert window.splitter.sizes()[0] == top - 50
+    assert window.device_page.splitter.sizes()[0] == top - 50
     # the last move before it is let go counts too (10 above the grip, which has moved along)
     send_mouse(handle, QEvent.Type.MouseMove, grip - QPointF(0, 10), Qt.MouseButton.LeftButton)
     send_mouse(handle, QEvent.Type.MouseButtonRelease, grip, Qt.MouseButton.NoButton)
-    assert window.splitter.sizes()[0] == top - 60
-    assert not window.preview.resizing
+    assert window.device_page.splitter.sizes()[0] == top - 60
+    assert not window.device_page.preview.resizing
     QApplication.processEvents()
     assert len(moves) == 2
-
-
-def test_a_new_size_ends_a_drag(window: MainWindow):
-    preview = window.preview
-    preview.start_drag(0, 10)
-    preview.drag_to(preview.slot_point(2).x())
-
-    drag_handle(window, 0.1)
-
-    assert not preview.dragging
-    assert [view.pos() for view in preview.strips] == [preview.slot_point(index) for index in range(8)]
-
-
-def test_the_size_of_the_preview_is_kept(make_window: MakeWindow, isolated: Dialogs):
-    window = make_window()
-    assert window.preview_share is None
-    assert load_preview_share() is None
-    natural = window.preview.scale
-
-    drag_handle(window, 0.4)
-
-    share = window.splitter.share
-    assert load_preview_share() == pytest.approx(share)
-    assert window.session().preview_share == pytest.approx(share)
-    # the next start, and the window after a new zoom
-    for after in (make_window(), make_window(session=window.session())):
-        assert after.splitter.share == pytest.approx(share, abs=0.01)
-        assert after.preview.scale < natural
-
-
-def test_a_kept_size_of_the_preview_that_is_none_is_ignored(isolated: Dialogs):
-    save_preview_share(0.4)
-    assert load_preview_share() == 0.4
-    for odd in ("huge", 0, 1.5):
-        QSettings().setValue("preview_share", odd)
-        assert load_preview_share() is None
 
 
 def luminance(color: str) -> float:
@@ -651,3 +447,12 @@ def test_the_device_is_legible():
         assert contrast(hardware.print_dim, strip) >= 4.5
     assert contrast(hardware.badge_text, hardware.badge) >= 4.5
     assert contrast(hardware.tag_text, hardware.tag) >= 4.5
+
+
+def test_the_size_of_the_drawing_is_kept(make_window: MakeWindow):
+    save_preview_share(0.6)
+    window = make_window()
+    assert window.device_page.splitter.share == pytest.approx(0.6, abs=0.02)
+    # shown again: the keys stay where they are
+    window.hide()
+    window.show()

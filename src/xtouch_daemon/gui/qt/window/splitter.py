@@ -1,5 +1,5 @@
 """
-The splitter between the preview and the editor, with a grip on its handle.
+The splitter between the drawing of the device and the slots below it, with a grip on its handle.
 """
 
 from PyQt6.QtCore import QRectF, Qt, QTimer, pyqtSignal
@@ -10,7 +10,7 @@ from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.gui.qt.theme.tokens import Space
 
 EDITOR_MIN_HEIGHT = 160
-"""The editor below the preview keeps room for a few rows when the preview is dragged large."""
+"""What is below the drawing keeps room for a few rows when the drawing is dragged large."""
 GRIP = (36, 4)
 """The grip on the handle between the preview and the editor: a short bar that shows it can be dragged."""
 

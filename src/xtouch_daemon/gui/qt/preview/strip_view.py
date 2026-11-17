@@ -9,14 +9,12 @@ from math import cos, radians, sin
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import (
-    QPoint,
     QPointF,
     QRectF,
     Qt,
 )
 from PyQt6.QtGui import (
     QColor,
-    QContextMenuEvent,
     QFocusEvent,
     QFont,
     QFontDatabase,
@@ -30,9 +28,9 @@ from PyQt6.QtGui import (
     QPen,
     QRadialGradient,
 )
-from PyQt6.QtWidgets import QApplication, QWidget
+from PyQt6.QtWidgets import QWidget
 
-from xtouch_daemon.gui.domain.looks import StripFace, StripLook, faces, meter_leds, ring_leds
+from xtouch_daemon.gui.domain.looks import UNKNOWN, StripFace, StripLook, meter_leds, ring_leds
 from xtouch_daemon.gui.qt.preview.geometry import (
     BODY,
     CAP_AREA,
@@ -86,9 +84,6 @@ if TYPE_CHECKING:
 KIND_NAMES = {"homeassistant": "Home Assistant", "?": "no type"}
 
 
-LIFTED_OPACITY = 0.8
-
-
 UNCONFIGURED_OPACITY = 0.8
 """Strips after the configured ones are drawn fainter: their texts keep 4.6:1 (LCD) to 6.6:1 (printed)."""
 
@@ -100,12 +95,8 @@ class StripView(QWidget):
         super().__init__(preview)  # pyright: ignore[reportArgumentType]: PyQt's stub types the parent as Self
         self.preview = preview
         self.index = index
-        look = StripLook("auto", "auto", "", "white", configured=False, problems=0)
-        self.face = faces((look,), None, (False,))[0]
+        self.face = UNKNOWN
         self.selected = False
-        self.lifted = False
-        """Whether it is being dragged."""
-        self._press: QPoint | None = None
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
@@ -128,19 +119,9 @@ class StripView(QWidget):
         self.selected = selected
         look = face.look
         lines = [f"Strip {self.index + 1}: {KIND_NAMES.get(look.kind, look.kind)}"]
-        if not look.configured:
-            lines.append("Not configured, so an auto strip: double-click to configure it.")
         lines.append(look.detail)
-        if face.edited and face.live:
-            lines.append("Unsaved changes, live on the device (live preview).")
-        elif face.edited:
-            lines.append("Unsaved changes: it shows how it will look once saved.")
-        elif face.live:
+        if face.live:
             lines.append("Live: what the device shows right now.")
-        if look.problems:
-            lines.append(f"{look.problems} problem{'' if look.problems == 1 else 's'}")
-        if look.configured:
-            lines.append("Drag it (or Ctrl+Left/Right) to move it.")
         self.setToolTip("\n".join(lines))
         self.setAccessibleName(f"Strip {self.index + 1}")
         self.setAccessibleDescription(" ".join(lines[1:]))
@@ -158,9 +139,9 @@ class StripView(QWidget):
     def _lit(self, led: str) -> bool:
         return led == "on" or (led == "flash" and self.preview.blink)
 
-    def _printed_key(self) -> tuple[int, str, str, bool, bool]:
-        """What the printed parts depend on: the number, the type and its print, whether it is configured, lifted."""
-        return self.index, self.look.kind, self.look.printed, self.look.configured, self.lifted
+    def _printed_key(self) -> tuple[int, str, str, bool]:
+        """What the printed parts depend on: the number, the type and its print, whether it is configured."""
+        return self.index, self.look.kind, self.look.printed, self.look.configured
 
     def _shown_key(self) -> tuple[object, ...]:
         """
@@ -215,9 +196,6 @@ class StripView(QWidget):
         # drawn in logical units, at the scale of the preview; while the size changes, the picture of before is scaled
         painter.scale(scale, scale)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        # a lifted strip is see-through, so the place where it goes shows under it
-        opacity = LIFTED_OPACITY if self.lifted else 1.0
-        painter.setOpacity(opacity)
         picture.paint(painter)
 
     def _paint_picture(self, painter: QPainter, scale: float, ratio: float) -> None:
@@ -308,20 +286,16 @@ class StripView(QWidget):
             if self._lit(state.leds[name.lower()]):
                 self._paint_key(painter, button_rect(row), color, lit=True)
         painter.setOpacity(1)
-        if look.problems:
-            self._paint_badge(painter, QPointF(BODY.right() - 9, BODY.top() + 9), str(look.problems))
-        if face.edited:
-            self._paint_edited(painter, QPointF(BODY.left() + 9, BODY.top() + 9))
         if self.hasFocus():
             painter.setPen(QPen(QColor(current_colors().accent), 1.5, Qt.PenStyle.DotLine))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(BODY.adjusted(-2, -2, 2, 2), STRIP_RADIUS + 2, STRIP_RADIUS + 2)
 
     def _paint_body(self, painter: QPainter, body: QRectF) -> None:
-        """The part of the panel that is this strip, lighter while it is lifted."""
+        """The part of the panel that is this strip."""
         gradient = QLinearGradient(body.topLeft(), body.bottomLeft())
         top = QColor(HW.strip_top)
-        gradient.setColorAt(0, top.lighter(125) if self.lifted else top)
+        gradient.setColorAt(0, top)
         gradient.setColorAt(1, QColor(HW.strip_bottom))
         painter.setBrush(gradient)
         painter.setPen(Qt.PenStyle.NoPen)
@@ -329,12 +303,11 @@ class StripView(QWidget):
 
     def _paint_outline(self, painter: QPainter, body: QRectF) -> None:
         """
-        The outline of the strip: in the accent when it is selected or dragged, dashed with unsaved changes (in the
-        accent) or when it is not configured.
+        The outline of the strip: in the accent when it is selected, dashed when nobody tells what it shows.
         """
         painter.setBrush(Qt.BrushStyle.NoBrush)
         accent = QColor(current_colors().accent)
-        if self.selected or self.lifted:
+        if self.selected:
             # a soft glow around the outline, outside of the strip only
             outside = QPainterPath()
             outside.addRect(QRectF(0, 0, WIDTH, HEIGHT))
@@ -349,8 +322,6 @@ class StripView(QWidget):
                 painter.drawRoundedRect(body, STRIP_RADIUS, STRIP_RADIUS)
             painter.restore()
             pen = QPen(accent, 2)
-        elif self.face.edited:
-            pen = QPen(accent, 1.4, Qt.PenStyle.DashLine)
         elif not self.look.configured:
             pen = QPen(QColor(HW.print_dim), 1, Qt.PenStyle.DashLine)
         else:
@@ -566,58 +537,12 @@ class StripView(QWidget):
         painter.setPen(QColor(HW.tag_text))
         painter.drawText(STRIP_TAG, Qt.AlignmentFlag.AlignCenter, number)
 
-    def _paint_badge(self, painter: QPainter, center: QPointF, text: str) -> None:
-        """The number of problems of the strip."""
-        painter.setPen(QPen(QColor(HW.panel_bottom), 2))
-        painter.setBrush(QColor(HW.badge))
-        painter.drawEllipse(center, 9, 9)
-        font = QFont(self.font())
-        font.setPixelSize(11)
-        font.setWeight(QFont.Weight.Bold)
-        painter.setFont(font)
-        painter.setPen(QColor(HW.badge_text))
-        painter.drawText(QRectF(center.x() - 9, center.y() - 9, 18, 18), Qt.AlignmentFlag.AlignCenter, text)
-
-    def _paint_edited(self, painter: QPainter, center: QPointF) -> None:
-        # unsaved changes: a dot, like the marker of a modified file in an editor tab
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(current_colors().accent))
-        painter.drawEllipse(center, 4.5, 4.5)
-
     # -- input ----------------------------------------------------------------------------------------------------
 
     def mousePressEvent(self, event: QMouseEvent | None) -> None:
         assert event is not None
         if event.button() == Qt.MouseButton.LeftButton:
-            self._press = event.position().toPoint()
             self.preview.clicked.emit(self.index)
-
-    def mouseDoubleClickEvent(self, event: QMouseEvent | None) -> None:
-        if not self.look.configured:
-            self.preview.configure.emit(self.index)
-
-    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:
-        assert event is not None
-        point = event.position().toPoint()
-        if self.preview.dragging:
-            self.preview.drag_to(self.mapToParent(point).x())
-            return
-        if self._press is None or not self.look.configured:
-            return
-        if (point - self._press).manhattanLength() < QApplication.startDragDistance():
-            return
-        self.preview.start_drag(self.index, self._press.x() / self.preview.scale)
-        self.preview.drag_to(self.mapToParent(point).x())
-
-    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
-        self._press = None
-        if self.preview.dragging:
-            self.preview.drop()
-
-    def contextMenuEvent(self, event: QContextMenuEvent | None) -> None:
-        assert event is not None
-        self.preview.clicked.emit(self.index)
-        self.preview.menu_for(self.index).exec(event.globalPos())
 
     def keyPressEvent(self, event: QKeyEvent | None) -> None:
         assert event is not None
