@@ -313,3 +313,10 @@ async def test_a_capture_that_is_cancelled_again_while_it_ends_still_waits_for_i
     with pytest.raises(asyncio.CancelledError):
         await task
     assert child_processes() == set()
+
+
+async def test_a_capture_that_ended_already_is_only_waited_for():
+    process = await asyncio.create_subprocess_exec("true")
+    await process.wait()
+    await meter_module._end(process)  # pyright: ignore[reportPrivateUsage]
+    assert process.returncode == 0
