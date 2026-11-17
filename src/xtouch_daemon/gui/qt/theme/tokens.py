@@ -9,6 +9,17 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
+class Entity(StrEnum):
+    """
+    The things of the configuration that have a color of their own (`ThemeColors`): states (modes are states too),
+    channels (and what else a slot can show: pools, people), slots.
+    """
+
+    STATE = "state"
+    CHANNEL = "channel"
+    SLOT = "slot"
+
+
 class ThemeMode(StrEnum):
     DARK = "dark"
     LIGHT = "light"
@@ -87,12 +98,20 @@ class ThemeColors:
     tone_bad: str
     tone_neutral: str
     """The texts of the pills, 4.5:1 on their tinted backgrounds."""
+    state: str
+    channel: str
+    slot: str
+    """
+    The colors of the things the configuration is made of (see `Entity`), everywhere in the window: in the help, as
+    chips, on the rail. Hues of their own, apart from the tones (good, warning, bad) and the accent (what can be
+    clicked): 4.5:1 on every surface as text; chips have text in `text` on a tint of them.
+    """
 
 
 THEMES = {
     # One Dark. text on raised 10.2:1; text_muted 6.5 (raised) / 5.9 (sunken); control_border 3.3 (raised) / 4.0
     # (sunken) / 3.6 (surface); on_accent 8.0 on accent, 9.4 on accent_hover; error 5.2..6.3; placeholder 5.2 on
-    # sunken; the pill texts 4.9..6.4 on their tints
+    # sunken; the pill texts 4.9..6.4 on their tints; state, channel, slot 5.1..5.4 on raised, text 6.5 on their chips
     ThemeMode.DARK: ThemeColors(
         qt_theme="one_dark_two",
         surface="#282c34",
@@ -115,9 +134,13 @@ THEMES = {
         tone_warn="#e5c07b",
         tone_bad="#ef8891",
         tone_neutral="#b1b8c4",
+        state="#d48fe7",
+        channel="#56b6c2",
+        slot="#d19a66",
     ),
     # GitHub light. text_muted 5.7 (surface) / 6.1 (white); control_border 3.2 / 3.5; on_accent 5.2 on accent, 5.9
-    # on accent_hover; error 5.0, success 4.8, warning 4.6 on surface; the pill texts 4.9..6.5 on their tints
+    # on accent_hover; error 5.0, success 4.8, warning 4.6 on surface; the pill texts 4.9..6.5 on their tints; state,
+    # channel, slot 4.7 on surface, 5.0 on white, text 11 on their chips
     ThemeMode.LIGHT: ThemeColors(
         qt_theme="github_light",
         surface="#f6f8fa",
@@ -140,6 +163,9 @@ THEMES = {
         tone_warn="#7d4e00",
         tone_bad="#a40e26",
         tone_neutral="#59636e",
+        state="#8250df",
+        channel="#0f7b84",
+        slot="#bc4c00",
     ),
 }
 

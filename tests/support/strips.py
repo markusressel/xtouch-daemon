@@ -26,12 +26,19 @@ def strips_of(text: str) -> tuple[StripConfig, ...]:
     return tuple(adapter.validate_python(strip) for strip in tomllib.loads(text)["strip"])
 
 
-def build(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[str, str] | None = None) -> StripController:
-    """The controller of a strip of the configuration on `strip`, with the identity and look of its place."""
+def build(
+    config: StripConfig,
+    strip: Strip,
+    env: StripEnv,
+    aliases: dict[str, str] | None = None,
+    name: str | None = None,
+) -> StripController:
+    """
+    The controller of a strip of the configuration on `strip`, with the look of its place; `name` is its id (of the
+    channel), by default `strip_<position>`.
+    """
     position = strip.index + 1
-    identity = Identity(
-        getattr(config, "id", None) or f"strip_{position}", getattr(config, "label", None) or f"Strip {position}"
-    )
+    identity = Identity(name or f"strip_{position}", getattr(config, "label", None) or f"Strip {position}")
     return build_strip(config, strip, env, aliases or {}, identity, look_of(config))
 
 

@@ -347,9 +347,10 @@ SPEAKER = AudioState(outputs=(output("speaker", 50),))
 
 
 def audio_strip(surface: RecordingSurface, bridge: MqttBridge, config: str) -> VolumeStrip:
+    """The strip of the channel `lights`."""
     env = StripEnv(FakeBackend(), BehaviorConfig(encoder_step=5), bridge)
     (strip_config,) = strips_of(config)
-    controller = build(strip_config, surface.strips[0], env, {})
+    controller = build(strip_config, surface.strips[0], env, {}, "lights")
     assert isinstance(controller, VolumeStrip)
     return controller
 
@@ -368,9 +369,7 @@ running: list[asyncio.Task[None]] = []
 async def test_the_encoder_of_an_audio_strip_is_a_number_of_home_assistant(
     surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
 ) -> None:
-    strip = audio_strip(
-        surface, bridge, '[[strip]]\ntype = "output"\ndevice = "speaker"\nid = "lights"\nencoder = "homeassistant"\n'
-    )
+    strip = audio_strip(surface, bridge, '[[strip]]\ntype = "output"\ndevice = "speaker"\nencoder = "homeassistant"\n')
     strip.update(SPEAKER)
     # not there yet: the encoder does nothing
     strip.on_encoder(1)
@@ -404,9 +403,7 @@ async def test_the_encoder_of_an_audio_strip_is_a_number_of_home_assistant(
 async def test_with_the_fader_in_home_assistant_the_encoder_sets_the_volume(
     surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
 ) -> None:
-    strip = audio_strip(
-        surface, bridge, '[[strip]]\ntype = "output"\ndevice = "speaker"\nfader = "homeassistant"\nid = "lights"\n'
-    )
+    strip = audio_strip(surface, bridge, '[[strip]]\ntype = "output"\ndevice = "speaker"\nfader = "homeassistant"\n')
     backend = strip.env.backend
     assert isinstance(backend, FakeBackend)
     strip.update(SPEAKER)
@@ -443,7 +440,6 @@ host = "broker"
 
 [[strip]]
 type = "output"
-id = "out"
 choices = [{ label = "Phones", device = "phones" }, { label = "Speaker", device = "speaker" }, { device = "buds" }]
 """
 
@@ -453,7 +449,7 @@ async def test_the_choice_of_a_strip_is_a_select_in_home_assistant(
 ) -> None:
     (config,) = strips_of(CHOICES_CONFIG)
     backend = FakeBackend()
-    controller = build(config, surface.strips[0], StripEnv(backend, BehaviorConfig(), bridge), {})
+    controller = build(config, surface.strips[0], StripEnv(backend, BehaviorConfig(), bridge), {}, "out")
     state = AudioState(outputs=(output("phones"), output("speaker")), default_output="phones")
     controller.update(state)
     await bridge.set_entities(controller.entities)
@@ -497,7 +493,7 @@ async def test_a_new_mixer_publishes_the_choice_before_it_runs(
     """A new configuration on a connected bridge: the state of the choice goes out at once."""
     task = asyncio.create_task(bridge.run())
     await until(lambda: bridge.ready)
-    channel = CHOICES_CONFIG.replace("[[strip]]", "[channel.out]").replace('id = "out"\n', "")
+    channel = CHOICES_CONFIG.replace("[[strip]]", "[channel.out]")
     rig = Rig(surface, parse_config(channel + '[slots]\n1 = "out"\n[voip]\nprovider = "demo"\n'), bridge=bridge)
     rig.step(AudioState(outputs=(output("phones"),), default_output="phones"))
     await until(lambda: broker.last("homeassistant/select/xtouch/out_output/state") == "Phones")

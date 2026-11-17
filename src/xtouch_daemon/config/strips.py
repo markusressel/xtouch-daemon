@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import Model
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
-from xtouch_daemon.config.values import COLORS, ColorName, Label, Slug
+from xtouch_daemon.config.values import COLORS, ColorName, Label
 from xtouch_daemon.config.voip_strips import VoipStripConfig
 
 
@@ -23,15 +23,10 @@ class HomeAssistantStripConfig(Model):
     """A strip that belongs to Home Assistant: its parts are entities there, automations decide what they do."""
 
     type: Annotated[Literal["homeassistant"], STRIP_TYPE_MEANINGS]
-    id: Slug | None = None
-    """
-    Part of the entity IDs, e.g. "living_room" for `number.xtouch_living_room_fader`; by default `strip_<position>`,
-    so set it to keep the entities (and the automations that use them) when moving the strip.
-    """
     label: Label | None = None
-    """The top line of the LCD until Home Assistant sets one; also the start of the entity names."""
+    """The top line of the LCD until Home Assistant sets one. The names of the entities start with it."""
     color: Annotated[ColorName, COLORS] = "white"
-    """The LCD backlight until Home Assistant sets one."""
+    """The backlight of the LCD until Home Assistant sets one."""
 
 
 StripConfig = Annotated[

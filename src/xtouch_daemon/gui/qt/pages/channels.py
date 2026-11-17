@@ -56,6 +56,8 @@ class ChannelsPage(Page):
         side = QVBoxLayout()
         self.list = QListWidget()
         self.list.setMinimumWidth(160)
+        self.listed: list[tuple[OptionPath, str, str, str]] = []
+        """The lines of the list: (path, text, icon, tip)."""
         self.list.currentItemChanged.connect(self._picked)
         side.addWidget(self.list, 1)
         buttons = QHBoxLayout()
@@ -263,17 +265,23 @@ class ChannelsPage(Page):
             entries.append((("channel", name), text, kind.icon if kind else "help", kind.title if kind else "?"))
         entries.append((AUTO, "Auto\nthe next application, and the people", "auto-fix", "[pool.auto]"))
         entries.append((PEOPLE, "People\nthe look and order of the people", "account-group", "[people]"))
+        entries = [
+            (path, text + "  ⚠" if self.editor.validation.at(*path) else text, icon_name, tip)
+            for path, text, icon_name, tip in entries
+        ]
         self.list.blockSignals(True)
-        self.list.clear()
-        for path, text, icon_name, tip in entries:
-            item = QListWidgetItem(icon(icon_name), text)
-            item.setData(Qt.ItemDataRole.UserRole, path)
-            item.setToolTip(tip)
-            if self.editor.validation.at(*path):
-                item.setText(text + "  ⚠")
-            self.list.addItem(item)
+        if entries != self.listed:
+            # filled again only when a line changed: every fill lays out the list (and its scroll bar) again
+            self.listed = entries
+            self.list.clear()
+            for path, text, icon_name, tip in entries:
+                item = QListWidgetItem(icon(icon_name), text)
+                item.setData(Qt.ItemDataRole.UserRole, path)
+                item.setToolTip(tip)
+                self.list.addItem(item)
+        for index, (path, *_) in enumerate(entries):
             if path == self.selection:
-                self.list.setCurrentItem(item)
+                self.list.setCurrentRow(index)
         self.list.blockSignals(False)
 
     def _picked(self, item: QListWidgetItem | None) -> None:

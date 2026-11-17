@@ -57,6 +57,10 @@ The footer shows the file, whether the device runs it, the problems, and the but
 apply". The header has the switch of the [live preview](#live-preview), the state of the service with buttons to
 install, start, restart or stop it (see [The service](#the-service)), and what the sound server has.
 
+States, channels and slots have a color each, in the whole window: states (and modes) violet, channels (and what
+else a slot can show: pools, people) teal, slots orange. The icons of their pages on the rail, the chips of the
+slots, the state bar and the words and sections in the help (`[state.gaming]`, "the slot") have them.
+
 The menus have what is used now and then: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window
 Device, the dark or the light theme, the [zoom](#zoom)) and Help (this documentation).
 
@@ -149,8 +153,10 @@ On the page Slots:
 
 - **The state bar** lists the states and modes: ● on, ○ off, with the override in brackets. Its menu overrides a
   state (`auto`, `on`, `off`) or picks a mode (`pick`, `auto`), like Home Assistant or `xtouch-daemon mode`.
-- **A card per slot** lists its candidates in order, with their conditions as chips (`call`, `not gaming`; `always`
-  for none) and ▶ on the one the device shows. + adds `auto` at the end, the bin removes the candidate picked.
+- **A card per slot** lists its candidates as rules, read from the top like "if, else if, else": the first whose
+  condition holds wins. `when gaming → auto` shows `auto` while `gaming` is on, `otherwise → browser` below it
+  `browser` the rest of the time (`always` for a lone candidate without a condition). The states are violet chips
+  (`call`, `not gaming`), what the slot shows is teal (see [the colors](#the-window)), and ▶ marks the one the device shows. + adds `auto` at the end, the bin removes the candidate picked.
   Drag a candidate, or move it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
 - **The inspector** edits the candidate picked: what it shows (a channel, a pool, `-`), when (the condition as
   text), and the options of its place (look, and on `auto` the encoder and the volume range). It says why the slot
@@ -172,11 +178,11 @@ The forms come from the options of the configuration, so every option has a fiel
 cards in the order of the device, from top to bottom: what it controls, the encoder, the display, the buttons (Rec,
 Solo, Mute, Select), the fader and the meter, then those about slots (`tags`, `in_auto`, ...).
 
-The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip, which plays
-what the options do on the device, with a caption: the ring as the encoder turns and is pushed, the LCD while audio
+The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip, which shows
+what the options do on the device in a few steps (‹ and › go through them), each with a caption: the ring as the encoder turns and is pushed, the LCD while audio
 plays, while muted and with nothing to control, which LEDs light while audio plays, an application records or the
 strip is muted, and the volume at the bottom, at the 0 dB mark and at the top of the fader, with what the meter shows
-there. It follows the values in the form at once, saved or not.
+there. It follows the values in the form at once, saved or not, at the step shown.
 
 - switches for on/off options, numbers with their ranges, choices, color swatches, lists as chips, masked fields for
   secrets, and file pickers;
@@ -187,6 +193,7 @@ there. It follows the values in the form at once, saved or not.
   the other;
 - for choices, what the chosen value does (e.g. `recording` for the Rec LED), and each value says it as a tooltip in
   the list;
+- the mouse wheel scrolls the page, also over a number or a choice: it never changes a value;
 - the errors next to the options they belong to, with the same messages as `xtouch-daemon check-config`. The
   problems button in the footer lists them all; a click opens the page of the problem. An unknown option can be
   removed from there.
@@ -229,6 +236,8 @@ Closing the window with unsaved changes asks whether to save them.
   it did not change. The file is written in place, so a symlinked configuration stays one.
 - It reloads the running daemon when that reads the saved file: the service, or one started from a terminal or an
   IDE.
+- Without changes it is there too while the daemon runs another version of the file, e.g. one edited outside the
+  GUI: then it only reloads the daemon.
 - A changed `[device] name` is reloaded, but takes a restart to take effect. A changed `[mqtt]` section is not
   reloaded at all. In both cases the window offers "Restart the service" for the service; restart a daemon that runs
   elsewhere where it runs.

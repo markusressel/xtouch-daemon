@@ -244,15 +244,11 @@ STRIP_OPTION_ORDER = (
     "fader",
     "min_volume",
     "max_volume",
-    # and how Home Assistant knows it
-    "id",
 )
 """
 The order of the options of a strip in the GUI: what it controls first, then as the device shows the parts of a strip,
 from the top down. Not the order of the models, which is that of the configuration file.
 """
-STRIP_CONTROLS = {"homeassistant": "id"}
-"""The option that says what a strip controls, where it is one that other types have for something else."""
 
 
 def strip_options(strip_type: str) -> tuple[Option, ...]:
@@ -260,13 +256,12 @@ def strip_options(strip_type: str) -> tuple[Option, ...]:
     The options of a strip of the type, without `type` itself, and only the encoders it has, in the order of
     `STRIP_OPTION_ORDER`.
     """
-    first = STRIP_CONTROLS.get(strip_type)
     return tuple(
         sorted(
             (
                 dataclasses.replace(option, choices=ENCODERS[strip_type]) if option.name == "encoder" else option
                 for option in options(strip_models()[strip_type], skip=("type",))
             ),
-            key=lambda option: -1 if option.name == first else STRIP_OPTION_ORDER.index(option.name),
+            key=lambda option: STRIP_OPTION_ORDER.index(option.name),
         )
     )

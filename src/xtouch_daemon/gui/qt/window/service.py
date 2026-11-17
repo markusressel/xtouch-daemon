@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QMessageBox, QPushButton, QWidget
 
 from xtouch_daemon import installed_version
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, unit_status
-from xtouch_daemon.gui.qt.fields.basics import label, show_status
+from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, label, show_status
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.system.instance import Instance
@@ -44,7 +44,7 @@ class ServiceControls(QWidget):
         layout.addWidget(label("Service", "hint"))
         self.pill = label("…", "pill")
         layout.addWidget(self.pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.unit_label = label("", "hint")
+        self.unit_label = ElidedLabel("", "hint")
         """Which unit is in effect: the package's, or one in ~/.config and the program it starts."""
         layout.addWidget(self.unit_label)
         self.service_button = QPushButton()

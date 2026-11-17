@@ -6,8 +6,9 @@ buttons).
 from collections.abc import Callable
 from typing import Any
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFrame, QLabel, QLayout, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PyQt6.QtCore import QEvent, QObject, QSize, Qt
+from PyQt6.QtGui import QResizeEvent
+from PyQt6.QtWidgets import QFrame, QLabel, QLayout, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.changes import Change, Scope
@@ -56,6 +57,56 @@ def scrolled(widget: QWidget) -> QScrollArea:
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     scroll.setWidget(widget)
     return scroll
+
+
+class Sideways(QScrollArea):
+    """
+    A row of widgets that may grow (e.g. a button per state) and scrolls sideways where the page is too narrow for
+    it, so more of them never make the window wider. It is as tall as the row, and its scroll bar while it shows.
+    """
+
+    def __init__(self, widget: QWidget):
+        super().__init__()
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setWidget(widget)
+        widget.installEventFilter(self)
+        self.overflows = False
+        """Whether the row is wider than the room it has: the scroll bar shows."""
+
+    def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
+        assert event is not None
+        if event.type() == QEvent.Type.LayoutRequest:
+            # the row changed: maybe its height, maybe whether it fits
+            self._check()
+            self.updateGeometry()
+        return super().eventFilter(watched, event)
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        super().resizeEvent(event)
+        if self._check():
+            self.updateGeometry()
+
+    def _check(self) -> bool:
+        """Whether the row fits, now: True if that changed."""
+        widget = self.widget()
+        assert widget is not None
+        overflows = widget.minimumSizeHint().width() > self.width()
+        changed, self.overflows = overflows != self.overflows, overflows
+        return changed
+
+    def sizeHint(self) -> QSize:
+        widget = self.widget()
+        assert widget is not None
+        bar = self.horizontalScrollBar()
+        assert bar is not None
+        height = widget.sizeHint().height() + (bar.sizeHint().height() if self.overflows else 0)
+        return QSize(widget.sizeHint().width(), height)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(0, self.sizeHint().height())
 
 
 def button(icon: str, text: str, color: str | None = None, role: str = "") -> QPushButton:

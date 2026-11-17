@@ -110,9 +110,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Handles between the two panes of the pages Slots, Channels and States: the form of what is picked has most of the
   width at first, and each page keeps its share.
 - Previews of the controls in the GUI: the options of a channel are in cards by the part of the strip (encoder,
-  display, buttons, fader and meter), each with a drawing of that part that plays what the options do on the
-  device, with a caption, e.g. which LEDs light while an application records, or whether the meter stays up while
+  display, buttons, fader and meter), each with a drawing of that part that shows what the options do on the
+  device in a few steps (‹ and ›), each with a caption, e.g. which LEDs light while an application records, or whether the meter stays up while
   the fader goes down (`meter_point`).
+- Colors for states (violet), channels (teal) and slots (orange) in the whole GUI, in both themes: the icons of
+  their pages, the chips on the cards of the slots, the state bar, and the words and sections in the help.
+- Shorter help for the options, written for someone at the device: what changes there first, short sentences,
+  details behind "Learn more". The rules are in `AGENTS.md` (Writing help).
 - A menu bar in the GUI: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window Device, the theme,
   the zoom) and Help (the documentation).
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.
@@ -201,6 +205,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The GUI window jumped around when it opened and the first time a candidate of a slot was picked: the help of
+  every option showed as a window of its own for a moment, and the desktop made room for each. The window also
+  opens at a size the screen has room for, and the drawing of the device gets smaller (down to about a third), so
+  the window fits on smaller screens and at a larger zoom.
+- The GUI window grew wider while it was open: longer texts in the header and the footer (the path with
+  "unsaved changes", the status, the sound server) and more state buttons on the page Slots made it need more
+  width. Those texts now end in … where they don't fit (the whole text is the tooltip), and the state bar scrolls
+  sideways. Picking a candidate of a slot no longer builds its options again, and the cards of the slots and the
+  list of the channels are only built again when they change.
+- The list of a choice in the GUI was too short for two values and hid one: it now opens under the field, with
+  room for every value.
+- "Save and apply" in the GUI stayed off for a file changed outside the GUI, so the daemon could not be told to
+  take it: it is now on while the daemon runs another version of the file, and then only reloads it.
+- The mouse wheel over a number, a choice or a slider in the GUI changed its value while scrolling the page; it now
+  scrolls the page.
 - Selecting a strip in the GUI built its whole page again, so the options jumped around several times per click,
   and the live view laid out the window about 40 times a second. The pages are now built once and only take the
   new values; the options of a strip are in the order of the device, from the encoder down to the fader.

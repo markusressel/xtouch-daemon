@@ -83,11 +83,8 @@ def test_links_are_addresses_on_the_site():
     assert docs.strip_type_link("auto") == docs.url("configuration/applications/#auto")
     assert docs.strip_type_link("pipewire") is None
     assert docs.option_link("strip", "rec", "input") == docs.url("configuration/indicators/#indicators")
-    # the id of a homeassistant strip names all its entities, the one of an audio strip its fader or encoder
-    assert docs.option_link("strip", "id", "homeassistant") == docs.url("home-assistant/#entities")
-    assert docs.option_link("strip", "id", "output") == docs.url(
-        "home-assistant/#audio-strips-with-home-assistant-controls"
-    )
+    # a type may link an option elsewhere
+    assert docs.option_link("strip", "label", "voip") == docs.url("configuration/people/#strips-for-one-person")
     assert docs.option_link("strip", "meter", "output") is None
     assert docs.option_link("behavior", "unity_at") == docs.url("configuration/strips/#100-at-the-0-db-mark")
     assert docs.option_link("behavior", "meters") is None

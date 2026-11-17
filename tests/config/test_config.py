@@ -221,7 +221,7 @@ def test_the_mqtt_section_has_defaults():
     ("text", "message"),
     [
         (channel('type = "homeassistant"'), "channel.c: Home Assistant needs an [mqtt] section"),
-        (channel('type = "homeassistant"\nid = "Desk Lights"\n') + MQTT, "channel.c: id: String should match"),
+        (channel('type = "homeassistant"\nid = "desk"\n') + MQTT, "channel.c: id: a channel's id is its name, c"),
         (channel('type = "homeassistant"\nmeter = false\n') + MQTT, "channel.c: meter: Extra inputs"),
         (MQTT + 'password = "a"\npassword_env = "B"\n', "set only one of password, password_env"),
         (MQTT + "port = 0\n", "mqtt.port"),

@@ -22,38 +22,47 @@ class ProfileConfig(Model):
     """The top line of the LCD while the card is in this profile, e.g. "Phones" for the analog output."""
     profile: str
     """
-    The name (`output:iec958-stereo+input:analog-stereo`) or description of the profile (`xtouch-daemon list-devices`).
+    The profile, by its name (`output:iec958-stereo+input:analog-stereo`) or description. `xtouch-daemon
+    list-devices` lists them.
     """
     min_volume: Volume | None = None
-    """The volume of the fader at the bottom in this profile; by default the one of the strip."""
+    """The volume, in percent, with the fader at the bottom in this profile; by default that of the strip."""
     max_volume: Volume | None = None
-    """The volume of the fader at the top in this profile (e.g. 200 for weak speakers); by default the strip's."""
+    """
+    The volume, in percent, with the fader at the top in this profile; by default that of the strip. E.g. 200 for
+    weak speakers.
+    """
 
 
 class ChoiceConfig(Model):
     """One of the devices a strip switches between with Select, maybe in a profile of its sound card."""
 
     label: Label | None = None
-    """The top line of the LCD while this choice is active; by default the start of the device's description."""
+    """The top line of the LCD while this choice is active; by default the start of the description of the device."""
     device: str
     """
-    The node name (`xtouch-daemon list-devices`) or description of the device; `*` and `?` are wildcards, e.g.
+    The device, by its node name or description (`xtouch-daemon list-devices`). `*` and `?` are wildcards, e.g.
     `bluez_output.*` for the first Bluetooth headphones there are.
     """
     card: str | None = None
     """
-    The sound card whose `profile` the choice needs, by its name (`alsa_card.pci-0000_11_00.4`) or description
-    (`xtouch-daemon list-devices`); wildcards allowed.
+    The sound card whose `profile` the choice needs, by its name (`alsa_card.pci-0000_11_00.4`) or description.
+    Wildcards work.
     """
     profile: str | None = None
     """
-    The profile of `card` the device is in, by its name (`output:iec958-stereo+input:analog-stereo`) or
-    description. Select switches the card to it first, then the device of the choice becomes the default.
+    The profile of `card` for this choice, by its name or description. Select switches the card to it first, then
+    makes the device the default.
     """
     min_volume: Volume | None = None
-    """The volume of the fader at the bottom while this choice is active; by default the one of the strip."""
+    """
+    The volume, in percent, with the fader at the bottom while this choice is active; by default that of the strip.
+    """
     max_volume: Volume | None = None
-    """The volume of the fader at the top while this choice is active (e.g. 200 for weak speakers)."""
+    """
+    The volume, in percent, with the fader at the top while this choice is active; by default that of the strip.
+    E.g. 200 for weak speakers.
+    """
 
     @field_validator("device")
     @classmethod
@@ -80,31 +89,29 @@ class DeviceStripConfig(BaseStripConfig):
     type: Annotated[Literal["output", "input"], STRIP_TYPE_MEANINGS]
     device: tuple[str, ...] = ()
     """
-    The node name (`xtouch-daemon list-devices`) or description of the device; without it the default device. Several
-    (a list, or `*` wildcards like `bluez_output.*`): the strip shows the one of them that is the default, or else the
-    one shown last, and Select switches between those that are there.
+    The device, by its node name or description (`xtouch-daemon list-devices`); without it, the default device. With
+    several (a list, or wildcards like `bluez_output.*`), the strip shows the default one of them, and Select
+    switches between them.
     """
     label: Label | None = None
     """
-    The top line of the LCD; by default "Output" or "Input", or the start of the device's description. The label of
-    the active profile (`profiles`) comes first.
+    The top line of the LCD; by default "Output", "Input" or the start of the description of the device. The label
+    of the active profile comes first.
     """
     select: bool = True
     """
-    Whether the Select button makes the device the default (needs `device` or `choices`); with several devices, a
-    press on the default one switches to the next. Its LED is on while the device is the default.
+    Select makes the device the default; with several devices, it switches to the next one. Its LED is lit while the
+    device is the default. Needs `device` or `choices`.
     """
     choices: tuple[ChoiceConfig, ...] = ()
     """
-    The devices to switch between with Select, each maybe in a profile of its sound card, e.g. headphones on the
-    analog output, speakers on the digital one of the same card, and Bluetooth headphones. Select goes to the next
-    one that is there and makes it the default. Instead of `device` and `profiles`.
+    The devices Select switches between, each maybe in a profile of its sound card. E.g. headphones on the analog
+    output, speakers on the digital one, Bluetooth headphones. Instead of `device` and `profiles`.
     """
     profiles: tuple[ProfileConfig, ...] = ()
     """
-    Profiles of the device's sound card to switch between with the Rec button, e.g. analog and digital output. Its
-    LED is on for every profile but the first. Name `device` so that it matches the devices of every profile (e.g.
-    `alsa_output.pci-0000_11_00.4.*`): each profile has a device of its own. `choices` does the same with Select.
+    Profiles of the sound card that Rec switches between, e.g. analog and digital output. Its LED is lit for every
+    profile but the first. `device` must match the device of every profile, e.g. `alsa_output.pci-0000_11_00.4.*`.
     """
 
     @field_validator("device", mode="before")
@@ -168,8 +175,8 @@ class AppsStripConfig(BaseStripConfig, WithPresets):
     type: Annotated[Literal["apps"], STRIP_TYPE_MEANINGS]
     match: Annotated[StreamNames, Field(min_length=1)]
     """
-    Parts of the names or binaries of the applications (ignoring case), see `xtouch-daemon list-apps`, e.g. "brave",
-    or presets of well-known ones, e.g. `@browsers`, `@voip`, `@games`.
+    The applications, by a part of their name or program (any case), e.g. "brave", or presets like `@browsers`,
+    `@voip`, `@games`. `xtouch-daemon list-apps` lists them.
     """
     label: Label
     """The top line of the LCD, e.g. "VoIP"."""

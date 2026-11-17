@@ -20,18 +20,19 @@ in the order of the device from top to bottom, each in a card:
 | Display | `label`, `color`, `talking_color`, `lit_when_idle` | the LCD |
 | Buttons | `rec`, `solo`, `select` | Rec, Solo, Mute, Select |
 | Fader and meter | `fader`, `min_volume`, `max_volume`, `meter`, `meter_point` | the meter and the fader |
-| Slots | `id`, `absent_after`, `in_auto`, `tags` | none |
+| Slots | `absent_after`, `in_auto`, `tags` | none |
 
 The card of a part has a small drawing of that part on its left: the same drawing as the window Device (a `StripView`,
-cut to the part), so it looks exactly like the device. It plays a short scene in a loop, a frame every 1.2 s, with a
-caption under it that says what happens, e.g. for `rec = "recording"`:
+cut to the part), so it looks exactly like the device. It shows a short scene, a step at a time like pictures (‹ and ›,
+with "2 / 4" between them), with a caption under it that says what happens, e.g. for `rec = "recording"`:
 
 1. "Audio plays": Rec dark.
 2. "An application records": Rec lit.
 3. "Muted": Mute lit.
 
-The scene follows the values in the form at once (also unsaved ones, and the defaults of unset options), so changing
-an option shows its effect in the next frames.
+The scene follows the values in the form at once (also unsaved ones, and the defaults of unset options), and stays at
+the step shown, so changing an option shows its effect right there. (A first version played the steps in a loop: too
+fast to follow.)
 
 ### Scenes
 
@@ -50,13 +51,11 @@ an option shows its effect in the next frames.
 ## Parts
 
 - `gui/domain/demos.py` (no Qt): the groups (`GROUPS`), and `scene(part, strip_type, values, behavior)`, the frames
-  (`Frame`: a caption, a `StripState`, how long) from the resolved values. Tested without a window.
-- `gui/qt/preview/part_view.py`: `PartView`, a `StripView` cut to a part with a timer that steps through the frames
-  while it is visible.
+  (`Frame`: a caption and a `StripState`) from the resolved values. Tested without a window.
+- `gui/qt/preview/part_view.py`: `PartView`, a `StripView` cut to a part with ‹ and › to step through the frames.
 - `StripView` takes any `StripHost` (the `Preview` of the window Device, or a `PartView`).
 - `ChannelsPage` builds a card per group.
 
 ## Not now
 
 - Previews in the inspector of the page Slots (the options of a place). The same groups fit there.
-- Pausing the loops for people who don't want motion.

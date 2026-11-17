@@ -44,7 +44,6 @@ only `color` of them.
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
 | `encoder` | depends on the type | What the encoder does, see [Encoders](encoders.md). |
 | `fader` | `"volume"` | `"homeassistant"` hands the fader to Home Assistant, see [Encoders](encoders.md#fader-homeassistant). |
-| `id` | the channel's id | With `fader` or `encoder` in Home Assistant (or `choices`): part of the entity IDs, see [Home Assistant](../home-assistant.md#audio-strips-with-home-assistant-controls). |
 
 Device and application channels also have a `label`, see their pages. A candidate of a slot can change the look at
 that place: `{ show = "mic", color = "blue" }` (see [Slots](slots.md#slots)).

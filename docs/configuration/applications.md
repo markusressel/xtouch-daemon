@@ -17,7 +17,7 @@ All playback streams of a group of applications.
 | `launch_when_running` | `false` | Select starts `launch` also while the application runs. |
 
 They also have the [options of every audio channel](strips.md#options-of-every-audio-channel): `color`, `meter`,
-`rec`, `solo`, `min_volume`, `max_volume`, `fader`, `id`.
+`rec`, `solo`, `min_volume`, `max_volume`, `fader`.
 
 ```toml
 [channel.voip]

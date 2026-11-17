@@ -23,9 +23,8 @@ Indicator = Literal["off", "recording", "playing", "default", "muted"]
 INDICATORS = Meanings(
     {
         "off": "The LED stays dark.",
-        "recording": "Lit while an application records: from the input, from the monitor of the output (e.g. a "
-        "screen recorder), or on `apps` and `auto` strips, while the application records anything (e.g. Discord "
-        "using a microphone). Level meters don't count.",
+        "recording": "Lit while an application records from the device, e.g. a screen recorder from an output. On "
+        "`apps` and `auto` strips: while the application records anything. Level meters don't count.",
         "playing": "Lit while audio flows: the device runs, or a stream of the applications plays.",
         "default": "Lit while the device is the default output or input. Never on `apps` and `auto` strips.",
         "muted": "Lit while the strip is muted, like the Mute LED.",
@@ -42,10 +41,9 @@ ENCODER_MODES = Meanings(
         "`behavior.reset_volume`.",
         "balance": "Turn: the balance between left and right, 5 % per step. Push: centers it. Nothing on mono "
         "devices and streams.",
-        "pick": "Turn: picks the application of the strip among those without a strip of their own. Push: pins it, "
-        "so it stays after it stopped playing.",
-        "media": "Turn: seeks in the track of the applications' media player (MPRIS), 5 s per step. Push: plays or "
-        "pauses.",
+        "pick": "Turn: picks another application that has no strip of its own. Push: pins it, so it stays after it "
+        "stopped playing.",
+        "media": "Turn: seeks in the track of the media player, 5 s per step. Push: plays or pauses.",
         "homeassistant": "Turn: changes a number entity in Home Assistant (0..100), e.g. for the brightness of a "
         "light. Push: an event there. Needs `[mqtt]`.",
     }
@@ -56,11 +54,10 @@ MeterPoint = Literal["pre_fader", "post_fader"]
 
 METER_POINTS = Meanings(
     {
-        "pre_fader": "The level before the volume, like the channel meter of a hardware mixer: the meter keeps "
-        "showing the audio while the fader is down. Outputs also before their Mute. Applications and inputs go "
-        "silent when muted (PipeWire mutes them before anyone can listen), so their meter stays dark then.",
-        "post_fader": "The level after the volume and Mute: what goes out of the output, what the applications play, "
-        "what applications get from the input. Dark while muted.",
+        "pre_fader": "The level before the volume, like on a hardware mixer: the meter stays up while the fader is "
+        "down. A muted output still shows its level; muted applications and inputs go dark.",
+        "post_fader": "The level after the volume and Mute: what you hear, or what applications get from the input. "
+        "Dark while muted.",
     }
 )
 
@@ -155,12 +152,11 @@ Command = Annotated[tuple[str, ...], BeforeValidator(_split_command), AfterValid
 """A program and its arguments, run without a shell (`launch`)."""
 
 LAUNCH_HELP = (
-    "A command that Select starts while none of the strip's applications runs, as a list: the program, then its "
-    'arguments, e.g. `["mumble", "mumble://me@voice.example.org/Gaming"]`. Never through a shell. A single string is '
-    "split like a shell would (quotes), but nothing is expanded."
+    "A program that Select starts while none of the applications runs: the program, then each argument, e.g. "
+    '`["mumble", "mumble://me@voice.example.org/Gaming"]`. It runs without a shell, so nothing is expanded.'
 )
 """The help of `launch`, which several strip types have."""
 LAUNCH_WHEN_RUNNING_HELP = (
-    "Whether Select starts `launch` also while the application runs, e.g. a `mumble://` URL to connect a running "
-    "Mumble to the server. Otherwise Select does nothing then."
+    "Select starts `launch` also while the application runs, e.g. a `mumble://` URL that connects a running Mumble "
+    "to a server."
 )

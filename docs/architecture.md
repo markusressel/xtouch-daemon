@@ -169,7 +169,7 @@ itself does not import it.
   used now and then (the theme, the zoom) and the keys of the window.
 - **Previews of the controls.** `gui/domain/demos.py` groups the options of a channel by the part of the strip they
   are about and makes a short scene for each part from the values in the form (frames of a `StripState` with a
-  caption). `PartPreview` (`gui/qt/preview/part_view.py`) plays it in the same `StripView` as the window Device, cut to
+  caption). `PartPreview` (`gui/qt/preview/part_view.py`) shows its steps (‹ and ›) in the same `StripView` as the window Device, cut to
   the part; a `StripView` is drawn in any `StripHost`. See [Design: previews of the controls](design/control-previews.md).
 - **Undo instead of questions.** `History` (`gui/domain/history.py`) keeps the states of the document before every
   edit, so removing a channel or reverting the file asks nothing and Ctrl+Z brings it back. Typing into one option is one

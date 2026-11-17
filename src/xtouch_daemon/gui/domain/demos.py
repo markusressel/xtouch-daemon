@@ -33,15 +33,13 @@ PARTS: dict[Group, frozenset[str]] = {
     "display": frozenset({"label", "color", "talking_color", "lit_when_idle"}),
     "buttons": frozenset({"rec", "solo", "select"}),
     "fader": frozenset({"fader", "min_volume", "max_volume", "meter", "meter_point"}),
-    "slots": frozenset({"id", "absent_after", "in_auto", "tags"}),
+    "slots": frozenset({"absent_after", "in_auto", "tags"}),
 }
 """The options of each group but "controls", which has the rest (what the strip controls)."""
 
 PREVIEWED: frozenset[Group] = frozenset({"encoder", "display", "buttons", "fader"})
 """The groups about a part of the strip, which have a preview."""
 
-FRAME_SECONDS = 1.2
-"""How long a frame shows, unless it says otherwise."""
 LEVEL = 10
 """The level of the meter of audio that plays, of `protocol.METER_MAX`."""
 VOLUME = 60
@@ -65,7 +63,6 @@ class Frame:
     """What happens, e.g. "An application records"."""
     state: StripState
     """What the strip shows then."""
-    seconds: float = FRAME_SECONDS
 
 
 @dataclass(frozen=True)
@@ -146,7 +143,7 @@ def _encoder(strip: Strip) -> tuple[Frame, ...]:
             step = max(strip.behavior.encoder_step, 5)
             frames = [Frame("Plays", base)]
             for volume in range(VOLUME + step, VOLUME + 3 * step + 1, step):
-                frames.append(Frame(f"Turned right: {volume} %", strip.playing(volume), 0.6))
+                frames.append(Frame(f"Turned right: {volume} %", strip.playing(volume)))
             reset = strip.behavior.reset_volume
             frames.append(Frame(f"Pushed: back to {reset} %", strip.playing(reset)))
             return tuple(frames)
@@ -159,7 +156,7 @@ def _encoder(strip: Strip) -> tuple[Frame, ...]:
                 state = replace(
                     base, ring=RING_CENTER + offset, ring_mode="boost_cut", text=(strip.label, balance_text(balance))
                 )
-                frames.append(Frame(f"Turned right: {balance_text(balance)}", state, 0.6))
+                frames.append(Frame(f"Turned right: {balance_text(balance)}", state))
             centered = replace(base, ring=RING_CENTER, ring_mode="boost_cut", text=(strip.label, "center"))
             frames.append(Frame("Pushed: centered", centered))
             return tuple(frames)
@@ -169,7 +166,7 @@ def _encoder(strip: Strip) -> tuple[Frame, ...]:
             for index, app in enumerate(apps):
                 ring = ring_position(index / (len(apps) - 1))
                 state = replace(base, ring=ring, ring_mode="dot", text=(app, f"{VOLUME}%"))
-                frames.append(Frame(f"Turned: application {index + 1} of {len(apps)}", state, 0.8))
+                frames.append(Frame(f"Turned: application {index + 1} of {len(apps)}", state))
             pinned = replace(frames[-1].state, ring_mode="wrap")
             frames.append(Frame("Pushed: pinned, it stays after it stopped", pinned))
             return tuple(frames)
@@ -177,14 +174,14 @@ def _encoder(strip: Strip) -> tuple[Frame, ...]:
             frames = []
             for second, progress in ((30, 0.3), (35, 0.35), (40, 0.4)):
                 state = replace(base, ring=ring_position(progress), text=(strip.label, f"0:{second}"))
-                frames.append(Frame(f"Turned right: 5 s later in the track ({second} s)", state, 0.8))
+                frames.append(Frame(f"Turned right: 5 s later in the track ({second} s)", state))
             frames.append(Frame("Pushed: paused", replace(frames[-1].state, text=(strip.label, "paused"))))
             return tuple(frames)
         case _:
             frames = []
             for value in (40, 45, 50):
                 state = replace(base, ring=ring_position(value / 100), text=(strip.label, f"{value}%"))
-                frames.append(Frame(f"Turned: the number in Home Assistant is {value}", state, 0.8))
+                frames.append(Frame(f"Turned: the number in Home Assistant is {value}", state))
             frames.append(Frame("Pushed: an event in Home Assistant", frames[-1].state))
             return tuple(frames)
 
@@ -216,7 +213,7 @@ def _display(strip: Strip) -> tuple[Frame, ...]:
         Frame("Plays: label and volume", base),
         Frame("Fader moved: the new volume", strip.playing(72)),
         Frame("Muted", replace(base, text=(strip.label, "muted"))),
-        Frame(f"Nothing to control: {idle}", _idle(strip, base), 1.8),
+        Frame(f"Nothing to control: {idle}", _idle(strip, base)),
     )
 
 

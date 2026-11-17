@@ -48,11 +48,11 @@ from xtouch_daemon.gui.domain.slot_stacks import (
 from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import flat_button, label
+from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, label
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
-from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
-from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
@@ -74,6 +74,8 @@ class StackList(QListWidget):
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # picked on a tint: the chips of its row keep their colors
+        set_role(self, "stack")
 
     def order(self) -> list[int]:
         return [self.item(index).data(_INDEX) for index in range(self.count())]  # pyright: ignore[reportOptionalMemberAccess]
@@ -97,8 +99,8 @@ class StackList(QListWidget):
 
 
 def chip(text: str) -> QWidget:
-    """A part of a condition; `always` is no condition, so it is a hint."""
-    return label(text, "hint" if text == ALWAYS else "chip")
+    """A part of a condition, a chip of a state; `always` is no condition, so it is a hint."""
+    return label(text, "hint") if text == ALWAYS else entity_label(text, Entity.STATE, chip=True)
 
 
 def _clear(bar: QHBoxLayout) -> None:
@@ -106,6 +108,8 @@ def _clear(bar: QHBoxLayout) -> None:
     while (item := bar.takeAt(0)) is not None:
         widget = item.widget()
         assert widget is not None
+        # off the screen at once: deleted later, it would stay where it was until then
+        widget.hide()
         widget.deleteLater()
 
 
@@ -139,16 +143,18 @@ class SlotsPanel(Page):
         end = QShortcut(QKeySequence(Qt.Key.Key_Escape), self, context=Qt.ShortcutContext.WidgetWithChildrenShortcut)
         end.activated.connect(lambda: self.simulate(None))
         top = QHBoxLayout()
+        bars = QHBoxLayout()
         self.state_bar = QHBoxLayout()
         self.state_bar.setSpacing(Space.S)
         self.state_bar_row = row(self.state_bar)
-        top.addWidget(self.state_bar_row)
+        bars.addWidget(self.state_bar_row)
         self.what_if_bar = QHBoxLayout()
         self.what_if_bar.setSpacing(Space.S)
         self.what_if_row = row(self.what_if_bar)
         self.what_if_row.hide()
-        top.addWidget(self.what_if_row)
-        top.addStretch()
+        bars.addWidget(self.what_if_row)
+        bars.addStretch()
+        top.addWidget(Sideways(row(bars)), 1)
         self.simulate_button = button("flask-outline", "Simulate")
         set_role(self.simulate_button, "segment", "variant")
         self.simulate_button.setCheckable(True)
@@ -189,6 +195,8 @@ class SlotsPanel(Page):
         self.middle.addWidget(self.grid)
         self.lists: list[StackList] = []
         self.card_frames: list[QFrame] = []
+        self.card_contents: list[tuple[list[Row], int | None] | None] = [None] * protocol.STRIPS
+        """What each card shows: its candidates and the one the device shows."""
         for slot in range(1, protocol.STRIPS + 1):
             self._card(slot)
         self.cards.addStretch()
@@ -216,9 +224,12 @@ class SlotsPanel(Page):
         when.addWidget(self.when_edit, 1)
         inspector.addWidget(row(when))
         inspector.addWidget(self.problem)
-        self.place = QVBoxLayout()
-        inspector.addWidget(row(self.place))
+        self.place = Stack()
+        inspector.addWidget(self.place)
+        self.place_forms: dict[tuple[str, frozenset[str]], tuple[QWidget, list[OptionRow]]] = {}
+        """The forms of the options of a place, by strip type and the options it takes: built once, then reused."""
         self.place_rows: list[OptionRow] = []
+        """The rows of the form shown."""
         self.channel = label("", "hint", wrap=True)
         inspector.addWidget(self.channel)
         self.channel_button = button("pencil-outline", "Edit the channel")
@@ -237,7 +248,7 @@ class SlotsPanel(Page):
         layout.setContentsMargins(Space.M, Space.S, Space.M, Space.S)
         layout.setSpacing(Space.XS)
         header = QHBoxLayout()
-        header.addWidget(label(f"Slot {slot}"))
+        header.addWidget(entity_label(f"Slot {slot}", Entity.SLOT))
         header.addStretch()
         add = flat_button("plus", "Add a candidate (at the end; Ctrl+Up moves it up)")
         add.clicked.connect(lambda: self.add(slot))
@@ -281,6 +292,9 @@ class SlotsPanel(Page):
         self.state_buttons = {}
         for name in ordered(self.document.get(("state",), {})):
             state_button = QToolButton()
+            set_role(state_button, Entity.STATE.value, "entity")
+            # the label until the daemon tells the state (see `show_live`)
+            state_button.setText(str(self.document.get(("state", name, "label")) or name))
             state_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
             menu = QMenu(state_button)
             mode = bool(self.document.get(("state", name, "mode")))
@@ -300,29 +314,44 @@ class SlotsPanel(Page):
         live = self._views()
         for slot, stack in enumerate(self.lists, start=1):
             stack.blockSignals(True)
-            stack.clear()
             view = live.get(slot)
-            for index, candidate in enumerate(rows(self.document.values, slot)):
-                item = QListWidgetItem()
-                item.setData(_INDEX, index)
-                stack.addItem(item)
-                stack.setItemWidget(item, self._row_widget(candidate, view is not None and view.candidate == index))
-                item.setSizeHint(stack.itemWidget(item).sizeHint())  # pyright: ignore[reportOptionalMemberAccess]
-            if stack.count() == 0:
-                item = QListWidgetItem(f"{AUTO} (no entry)")
-                item.setFlags(Qt.ItemFlag.NoItemFlags)
-                stack.addItem(item)
+            candidates = rows(self.document.values, slot)
+            shown_candidate = view.candidate if view is not None else None
+            if self.card_contents[slot - 1] != (candidates, shown_candidate):
+                # built again only when a candidate or ▶ changed: every build lays out the card again
+                self.card_contents[slot - 1] = (candidates, shown_candidate)
+                self._fill_card(stack, candidates, shown_candidate)
             if slot == self.slot and self.candidate is not None and self.candidate < stack.count():
                 stack.setCurrentRow(self.candidate)
-            rows_height = sum(stack.sizeHintForRow(index) for index in range(stack.count()))
-            stack.setFixedHeight(rows_height + 2 * stack.frameWidth() + Space.XS)
+            elif slot != self.slot:
+                stack.setCurrentRow(-1)
             stack.blockSignals(False)
             problems = self.editor.validation.at("slots", str(slot)) + self.editor.validation.at("controls", str(slot))
             set_role(self.card_frames[slot - 1], bool(problems), "problem")
             self.card_frames[slot - 1].setToolTip("\n".join(str(problem) for problem in problems))
 
+    def _fill_card(self, stack: StackList, candidates: list[Row], shown: int | None) -> None:
+        stack.clear()
+        for index, candidate in enumerate(candidates):
+            item = QListWidgetItem()
+            item.setData(_INDEX, index)
+            stack.addItem(item)
+            stack.setItemWidget(item, self._row_widget(candidate, shown == index, index, len(candidates)))
+            item.setSizeHint(stack.itemWidget(item).sizeHint())  # pyright: ignore[reportOptionalMemberAccess]
+        if stack.count() == 0:
+            item = QListWidgetItem(f"{AUTO} (no entry)")
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            stack.addItem(item)
+        rows_height = sum(stack.sizeHintForRow(index) for index in range(stack.count()))
+        stack.setFixedHeight(rows_height + 2 * stack.frameWidth() + Space.XS)
+
     @staticmethod
-    def _row_widget(candidate: Row, shown: bool) -> QWidget:
+    def _row_widget(candidate: Row, shown: bool, index: int, count: int) -> QWidget:
+        """
+        A candidate as a rule, read from the top like if, else if, else: `when gaming → auto`, then
+        `otherwise → browser` for the last one without a condition. States and what it shows are chips in their colors
+        (see `Entity`).
+        """
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(Space.S, Space.XS, Space.S, Space.XS)
@@ -331,9 +360,19 @@ class SlotsPanel(Page):
         marker.setFixedWidth(14)
         marker.setToolTip("What the device shows" if shown else "")
         layout.addWidget(marker)
-        layout.addWidget(label(candidate.show))
-        for part in candidate.chips:
-            layout.addWidget(chip(part))
+        if candidate.chips == (ALWAYS,):
+            word = "otherwise" if index == count - 1 and count > 1 else ALWAYS
+            layout.addWidget(label(word, "hint"))
+        else:
+            layout.addWidget(label("when", "hint"))
+            for part in candidate.chips:
+                layout.addWidget(chip(part))
+        layout.addWidget(label("→", "hint"))
+        layout.addWidget(
+            label(candidate.show, "hint")
+            if candidate.show == EMPTY
+            else entity_label(candidate.show, Entity.CHANNEL, True)
+        )
         if candidate.options:
             layout.addWidget(label(", ".join(candidate.options), "hint"))
         layout.addStretch()
@@ -349,8 +388,7 @@ class SlotsPanel(Page):
         for widget in (self.show_box, self.when_edit, self.channel):
             widget.parentWidget().setVisible(self.candidate is not None)  # pyright: ignore[reportOptionalMemberAccess]
         self.channel.setVisible(self.candidate is not None)
-        for option_row in self.place_rows:
-            option_row.deleteLater()
+        self.place.setVisible(False)
         self.place_rows = []
         if self.candidate is None:
             set_text(self.title, f"Slot {self.slot}")
@@ -381,11 +419,10 @@ class SlotsPanel(Page):
             set_text(self.channel, "Nothing: the strip is dark." if candidate.show == EMPTY else "")
             strip = "auto" if candidate.show == AUTO else "voip" if candidate.show != EMPTY else None
         if strip is not None:
-            allowed = place_options(candidate.show)
-            for option in strip_options(strip):
-                if option.name in allowed:
-                    # at a place every option is optional: the channel has its own
-                    self._place_row(dataclasses.replace(option, required=False))
+            form, self.place_rows = self._place_form(strip, place_options(candidate.show))
+            self.place.show_part(form)
+            self.place.setVisible(True)
+            self._load_rows(self.place_rows)
         self.show_problems(self.editor.validation)
 
     def _channel_why(self, name: str) -> str:
@@ -400,24 +437,50 @@ class SlotsPanel(Page):
         if live is not None:
             set_text(self.why, why_slot(live, self.slot))
 
-    def _place_row(self, option: Option) -> None:
+    def _place_form(self, strip: str, allowed: frozenset[str]) -> tuple[QWidget, list[OptionRow]]:
+        """The form of the options of a place of `strip`, for the candidate picked."""
+        key = (strip, allowed)
+        if key not in self.place_forms:
+            form = QWidget()
+            layout = QVBoxLayout(form)
+            layout.setContentsMargins(0, 0, 0, 0)
+            # at a place every option is optional: the channel has its own
+            option_rows = [
+                self._place_row(dataclasses.replace(option, required=False))
+                for option in strip_options(strip)
+                if option.name in allowed
+            ]
+            for option_row in option_rows:
+                layout.addWidget(option_row)
+            self.place_forms[key] = form, option_rows
+        return self.place_forms[key]
+
+    def _place_row(self, option: Option) -> OptionRow:
+        """A row for an option of the place of the candidate picked, whichever it is when it is shown or edited."""
         name = option.name
-        slot, index = self.slot, self.candidate
-        assert index is not None
+
+        def get() -> Any:
+            assert self.candidate is not None
+            return rows(self.document.values, self.slot)[self.candidate].options.get(name)
 
         def put(value: Any) -> None:
-            stack = rows(self.document.values, slot)
-            candidate = stack[index]
+            assert self.candidate is not None
+            stack = rows(self.document.values, self.slot)
+            candidate = stack[self.candidate]
             options = {key: each for key, each in candidate.options.items() if key != name}
             if value is not None:
                 options[name] = value
-            stack[index] = Row(candidate.show, candidate.when, options)
-            self._put(slot, stack)
+            stack[self.candidate] = Row(candidate.show, candidate.when, options)
+            self._put(self.slot, stack)
 
-        option_row = OptionRow(option, lambda: rows(self.document.values, slot)[index].options.get(name), put)
-        option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, ("slots", str(slot), index, name))))
-        self.place_rows.append(option_row)
-        self.place.addWidget(option_row)
+        option_row = OptionRow(option, get, put)
+
+        def edited() -> None:
+            assert self.candidate is not None
+            self.editor.edited(Change(Scope.VALUE, ("slots", str(self.slot), self.candidate, name)))
+
+        option_row.edited.connect(edited)
+        return option_row
 
     def show_problems(self, validation: Validation) -> None:
         if self.candidate is None:

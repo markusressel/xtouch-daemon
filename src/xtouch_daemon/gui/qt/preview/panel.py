@@ -37,8 +37,8 @@ from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
 
-MIN_SCALE = 0.5
-"""The smallest the preview gets: half its size still shows the LEDs, faders and LCD colors."""
+MIN_SCALE = 0.35
+"""The smallest the preview gets: at about a third of its size it still shows the LEDs, faders and LCD colors."""
 SETTLE_MS = 150
 """
 How long after the last change of size the strips are drawn sharp again: meanwhile (e.g. while the handle above the

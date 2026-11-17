@@ -72,6 +72,21 @@ def offers_virtual_device(snapshot: Snapshot | None, hosting: bool) -> bool:
     return snapshot is not None and snapshot.virtual and not snapshot.device and not hosting
 
 
+def runs_older(daemon: Instance | None, snapshot: Snapshot | None, path: Path, saved: Config | None) -> bool:
+    """
+    Whether the daemon reads the file but runs another version of it, e.g. one changed outside the GUI or that it did
+    not take: "Save and apply" then reloads it, also without changes to save.
+    """
+    return (
+        daemon is not None
+        and path.resolve() == daemon.config
+        and snapshot is not None
+        and not snapshot.preview
+        and saved is not None
+        and snapshot.config != fingerprint(saved)
+    )
+
+
 def sync_status(
     daemon: Instance | None,
     snapshot: Snapshot | None,

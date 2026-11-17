@@ -74,11 +74,9 @@ def test_every_strip_type_has_its_model_and_options():
         "fader",
         "min_volume",
         "max_volume",
-        "id",
     ]
     assert [o.name for o in strip_options("apps")][:3] == ["match", "encoder", "label"]
-    # the id of a Home Assistant strip is what it controls
-    assert [o.name for o in strip_options("homeassistant")] == ["id", "label", "color"]
+    assert [o.name for o in strip_options("homeassistant")] == ["label", "color"]
     assert [o.name for o in strip_options("voip")] == [
         "person",
         "label",
@@ -105,8 +103,6 @@ def test_every_strip_type_has_its_model_and_options():
         _,
         fader,
         min_volume,
-        _,
-        _,
     ) = strip_options("input")
     assert (meter_point.kind, meter_point.default, meter_point.choices) == (
         Kind.CHOICE,

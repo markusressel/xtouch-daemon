@@ -56,3 +56,25 @@ just docs            # builds the documentation site (strict: broken links fail)
   runtime directory of the machine; a test that does so on purpose is marked `host`.
 - Type hints everywhere; `ruff` and `pyright` must pass.
 - Git: commit, but never push. The user pushes.
+
+## Writing help
+
+The help of an option is its attribute docstring (the GUI shows it under the field); what a value of a choice does is
+in its `Meanings`. Write them for someone who looks at the device, after
+the [Microsoft Writing Style Guide](https://learn.microsoft.com/en-us/style-guide/welcome/) (UI text), the
+[Google developer documentation style guide](https://developers.google.com/style) and ASD-STE100 (Simplified
+Technical English):
+
+- Start with what changes on the device (or in the window), as the user sees it: "The backlight of the LCD.", not
+  how the daemon does it. Then what the other values do, if that is not plain.
+- Short sentences (at most 20 words), one idea each, active voice, present tense. Two or three sentences in all.
+- A switch says what On does ("Select makes the device the default."); not "Whether ...". Off only if it is not
+  the opposite.
+- Numbers say their unit first: "Seconds ...", "The volume, in percent, ...".
+- Not the default: the GUI adds "Default: ..." itself. Only a default that depends on something else ("by default
+  `behavior.max_volume`").
+- One example at most, at the end, with "e.g.".
+- Edge cases, reasons and how it works go to the docs page the "Learn more" link opens.
+- The same word for the same thing, the words of the GUI: state, mode, channel, pool, slot, strip, candidate.
+  The GUI colors them (and their sections in `code`, e.g. `[state.gaming]`), so write them out.
+- Options, values, commands and sections in backticks.

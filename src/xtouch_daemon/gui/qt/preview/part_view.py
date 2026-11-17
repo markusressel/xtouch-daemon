@@ -1,17 +1,18 @@
 """
 A part of a strip (the encoder, the display, the buttons, or the fader and meter) drawn like the window Device draws
-it, playing a scene of `gui.domain.demos` in a loop with a caption: what the options of a form do on the device.
+it, with the steps of a scene of `gui.domain.demos` to go through like pictures (‹ and ›), each with a caption: what
+the options of a form do on the device.
 """
 
 from math import ceil
 
-from PyQt6.QtCore import QRectF, Qt, QTimer
-from PyQt6.QtGui import QHideEvent, QKeyEvent, QShowEvent
-from PyQt6.QtWidgets import QVBoxLayout, QWidget
+from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.demos import Frame, Part
 from xtouch_daemon.gui.domain.looks import StripFace, StripLook
-from xtouch_daemon.gui.qt.fields.basics import label
+from xtouch_daemon.gui.qt.fields.basics import flat_button, label
 from xtouch_daemon.gui.qt.preview.geometry import (
     BUTTON_TOP,
     BUTTON_X,
@@ -69,7 +70,7 @@ class PartDrawing(QWidget):
 
 
 class PartPreview(QWidget):
-    """The drawing of a part and the caption of the frame it shows; it plays while it is visible."""
+    """The drawing of a part, buttons to go through the steps of its scene, and the caption of the step shown."""
 
     def __init__(self, part: Part):
         super().__init__()
@@ -79,6 +80,18 @@ class PartPreview(QWidget):
         layout.setSpacing(Space.XS)
         self.drawing = PartDrawing(part)
         layout.addWidget(self.drawing, 0, Qt.AlignmentFlag.AlignHCenter)
+        steps = QHBoxLayout()
+        steps.setSpacing(Space.XS)
+        self.back = flat_button("chevron-left", "The step before")
+        self.back.clicked.connect(lambda: self.step(-1))
+        self.counter = label("", "hint")
+        self.next = flat_button("chevron-right", "The next step")
+        self.next.clicked.connect(lambda: self.step(1))
+        steps.addStretch()
+        for widget in (self.back, self.counter, self.next):
+            steps.addWidget(widget)
+        steps.addStretch()
+        layout.addLayout(steps)
         self.caption = label("", "hint", wrap=True)
         self.caption.setFixedWidth(CAPTION_WIDTH)
         self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
@@ -87,21 +100,16 @@ class PartPreview(QWidget):
         self.frames: tuple[Frame, ...] = ()
         self.index = 0
         """The frame shown."""
-        self.timer = QTimer(self)
-        self.timer.setSingleShot(True)
-        self.timer.timeout.connect(self.step)
 
     def play(self, frames: tuple[Frame, ...]) -> None:
-        """Plays `frames` from the first, unless they are the ones playing: then it goes on."""
-        if frames == self.frames:
-            return
+        """Shows `frames`, at the same step as before: a changed option shows its effect there."""
         self.frames = frames
-        self.index = 0
+        self.index = min(self.index, len(frames) - 1)
         self._show()
 
-    def step(self) -> None:
-        """The next frame, after the last one the first again."""
-        self.index = (self.index + 1) % len(self.frames)
+    def step(self, steps: int) -> None:
+        """A frame `steps` later (or earlier), round from the last to the first."""
+        self.index = (self.index + steps) % len(self.frames)
         self._show()
 
     def _show(self) -> None:
@@ -109,16 +117,6 @@ class PartPreview(QWidget):
         look = StripLook("preview", frame.state.text[0], "", frame.state.color, printed=" ")
         self.drawing.view.show_face(StripFace(look, frame.state, live=True, dimmed=frame.state.color == "off"), False)
         self.drawing.view.setToolTip("")
+        self.counter.setText(f"{self.index + 1} / {len(self.frames)}")
         self.caption.setText(frame.caption)
         self.setAccessibleDescription(frame.caption)
-        if self.isVisible():
-            self.timer.start(round(frame.seconds * 1000))
-
-    def showEvent(self, event: QShowEvent | None) -> None:
-        super().showEvent(event)
-        if self.frames:
-            self.timer.start(round(self.frames[self.index].seconds * 1000))
-
-    def hideEvent(self, event: QHideEvent | None) -> None:
-        super().hideEvent(event)
-        self.timer.stop()

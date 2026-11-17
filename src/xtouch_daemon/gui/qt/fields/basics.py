@@ -4,13 +4,15 @@ buttons.
 """
 
 import html
+import re
 from collections.abc import Callable, Mapping
 
-from PyQt6.QtCore import QStringListModel, Qt
-from PyQt6.QtGui import QAction
+from PyQt6.QtCore import QSize, QStringListModel, Qt
+from PyQt6.QtGui import QAction, QPainter, QPaintEvent
 from PyQt6.QtWidgets import (
     QCompleter,
     QLabel,
+    QLayout,
     QLineEdit,
     QMenu,
     QToolButton,
@@ -21,8 +23,8 @@ from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions
 from xtouch_daemon.gui.domain.status import Status
 from xtouch_daemon.gui.qt.theme.icons import set_icon
-from xtouch_daemon.gui.qt.theme.style import set_role
-from xtouch_daemon.gui.qt.theme.tokens import Radius
+from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
+from xtouch_daemon.gui.qt.theme.tokens import Entity, Radius
 
 type Suggest = Callable[[], tuple[Suggestion, ...]]
 """What the sound server has now for an option, asked for every time it is needed."""
@@ -52,6 +54,56 @@ def label(text: str, role: str = "", wrap: bool = False) -> QLabel:
     return widget
 
 
+class ElidedLabel(QLabel):
+    """
+    A line of text that changes while the window is open (a status, a path): it takes the room it gets and ends in …
+    where it does not fit, so a longer text never makes the window wider or a bar taller. Without a tip of its own
+    (`own_tip`), the tip is the whole text while it is cut.
+    """
+
+    def __init__(self, text: str = "", role: str = "", elide: Qt.TextElideMode = Qt.TextElideMode.ElideRight):
+        super().__init__(text)
+        if role:
+            set_role(self, role)
+        self.elide = elide
+        self.own_tip = False
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(0, super().minimumSizeHint().height())
+
+    def setToolTip(self, tip: str | None) -> None:
+        self.own_tip = bool(tip)
+        super().setToolTip(tip)
+
+    def paintEvent(self, event: QPaintEvent | None) -> None:
+        rect = self.contentsRect()
+        shown = self.fontMetrics().elidedText(self.text(), self.elide, rect.width())
+        if not self.own_tip:
+            super().setToolTip(self.text() if shown != self.text() else "")
+        style = self.style()
+        assert style is not None
+        style.drawItemText(
+            QPainter(self), rect, int(self.alignment()), self.palette(), self.isEnabled(), shown, self.foregroundRole()
+        )
+
+
+def entity_label(text: str, entity: Entity, chip: bool = False) -> QLabel:
+    """A state, a channel or a slot (or what stands for one) in its color; as a chip, on a tint of it."""
+    widget = label(text, "chip" if chip else "")
+    set_role(widget, entity.value, "entity")
+    return widget
+
+
+def discard(layout: QLayout, widget: QWidget) -> None:
+    """
+    Takes `widget` out of `layout` and off the screen at once: `deleteLater` alone leaves it there until the event
+    loop deletes it, so the layout would make room for the old widget and its replacement in between.
+    """
+    layout.removeWidget(widget)
+    widget.hide()
+    widget.deleteLater()
+
+
 def show_status(pill: QLabel, status: Status) -> None:
     """A status in a pill: its text, its tone as the color, and its tip."""
     pill.setText(status.text)
@@ -59,10 +111,45 @@ def show_status(pill: QLabel, status: Status) -> None:
     set_role(pill, status.tone.value, "tone")
 
 
+_ENTITY_WORDS = re.compile(r"\b(states?|modes?|channels?|pools?|slots?)\b", re.IGNORECASE)
+"""The words for the things of the configuration, in their colors in the help."""
+_ENTITY_CODE = re.compile(r"\[?(state|mode|channel|pool|people|slots?|controls)\b")
+"""Their sections and paths in `code`, e.g. `[state.gaming]` or `channel.out`."""
+_ENTITY_OF = {
+    "state": Entity.STATE,
+    "mode": Entity.STATE,
+    "channel": Entity.CHANNEL,
+    "pool": Entity.CHANNEL,
+    "people": Entity.CHANNEL,
+    "slot": Entity.SLOT,
+    "controls": Entity.SLOT,
+}
+
+
+def _entity(word: str) -> Entity:
+    word = word.lower()
+    return _ENTITY_OF[word if word in _ENTITY_OF else word.removesuffix("s")]
+
+
 def help_text(text: str) -> str:
-    """Help from a docstring, with `code` in a monospace font."""
-    parts = [html.escape(part) for part in text.split("`")]
-    return "".join(f"<code>{part}</code>" if i % 2 else part for i, part in enumerate(parts))
+    """
+    Help from a docstring, with `code` in a monospace font, and the states, channels and slots it is about in their
+    colors (see `Entity`): the words, and their sections in `code`.
+    """
+    colors = current_colors()
+
+    def colored(match: re.Match[str]) -> str:
+        return f'<span style="color: {getattr(colors, _entity(match[1]).value)}">{match[0]}</span>'
+
+    parts: list[str] = []
+    for index, part in enumerate(html.escape(part) for part in text.split("`")):
+        if not index % 2:
+            parts.append(_ENTITY_WORDS.sub(colored, part))
+        elif match := _ENTITY_CODE.match(part):
+            parts.append(f'<code style="color: {getattr(colors, _entity(match[1]).value)}">{part}</code>')
+        else:
+            parts.append(f"<code>{part}</code>")
+    return "".join(parts)
 
 
 LEARN_MORE = "Learn more"
@@ -79,10 +166,33 @@ def help_label(text: str, role: str, link: str | None = None) -> QLabel:
     A label with help from a docstring, and a link to the documentation, opened in the browser; always rich text, as
     Qt would show text without tags as it is.
     """
-    widget = label(help_html(text, link), role, wrap=True)
+    widget = label("", role, wrap=True)
     widget.setTextFormat(Qt.TextFormat.RichText)
     widget.setOpenExternalLinks(True)
+    set_help(widget, text, link)
     return widget
+
+
+_HELP_PROPERTY = "help_source"
+
+
+def set_help(widget: QLabel, text: str, link: str | None = None) -> None:
+    """
+    Shows help from a docstring (see `help_html`) in `widget`, and keeps it to draw it again in the colors of
+    another theme (see `refresh_help`). The same help again does nothing: it would lay out the window again.
+    """
+    if widget.property(_HELP_PROPERTY) == (text, link):
+        return
+    widget.setProperty(_HELP_PROPERTY, (text, link))
+    widget.setText(help_html(text, link))
+
+
+def refresh_help(root: QWidget) -> None:
+    """Draws the help in `root` (see `set_help`) again, in the colors of the theme applied since."""
+    for widget in root.findChildren(QLabel):
+        source = widget.property(_HELP_PROPERTY)
+        if source is not None:
+            widget.setText(help_html(*source))
 
 
 def flat_button(icon: str, tip: str, parent: QWidget | None = None) -> QToolButton:

@@ -14,6 +14,7 @@ from xtouch_daemon.gui.qt.theme.tokens import (
     CONTROL_HEIGHT,
     THEMES,
     TINT_ALPHA,
+    Entity,
     Radius,
     Space,
     ThemeColors,
@@ -82,6 +83,25 @@ def set_role(widget: QWidget, value: str | bool, name: str = "role") -> None:
     assert style is not None
     style.unpolish(widget)
     style.polish(widget)
+
+
+def _entities(c: ThemeColors) -> str:
+    """
+    The colors of the states, channels and slots (see `Entity`): a label in one (`entity`) has its color, a chip of
+    one (`role="chip"`, also a state's button) a tint of it with a line around it, and its text in `text`.
+    """
+    rules: list[str] = []
+    for entity in Entity:
+        color = getattr(c, entity.value)
+        rules.append(f'QLabel[entity="{entity}"] {{ color: {color}; }}')
+        rules.append(
+            f'QLabel[role="chip"][entity="{entity}"], QToolButton[entity="{entity}"] {{ color: {c.text}; '
+            f"background: {tint(color, 2 * TINT_ALPHA)}; border: 1px solid {color}; border-radius: {Radius.PILL}px; "
+            # as tall as the radius allows: Qt draws no round corners for a larger one
+            f"min-height: {2 * Radius.PILL - 2}px; padding: 0 {Space.S}px; }}"
+        )
+        rules.append(f'QToolButton[entity="{entity}"]:hover {{ background: {tint(color, 4 * TINT_ALPHA)}; }}')
+    return "\n".join(rules)
 
 
 def tint(color: str, alpha: int = TINT_ALPHA) -> str:
@@ -176,19 +196,23 @@ QSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:disabled, QSpinBox::up-arr
 QDoubleSpinBox::up-arrow:off {{ image: url({arrows["up-disabled"]}); }}
 QSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:disabled, QSpinBox::down-arrow:off,
 QDoubleSpinBox::down-arrow:off {{ image: url({arrows["down-disabled"]}); }}
-QComboBox {{ min-width: {Space.XXL * 5}px; padding-right: {Space.XL}px; }}
+/* a list under the field: the popup like a menu is too short for two choices and hides one */
+QComboBox {{ min-width: {Space.XXL * 5}px; padding-right: {Space.XL}px; combobox-popup: 0; }}
 QComboBox::drop-down {{ subcontrol-origin: border; subcontrol-position: center right; width: {Space.XL}px;
     border: none; }}
 QComboBox::down-arrow {{ image: url({arrows["down"]}); width: 10px; height: 6px; }}
 QComboBox::down-arrow:disabled {{ image: url({arrows["down-disabled"]}); }}
 QComboBox QAbstractItemView {{ background: {c.raised}; border: 1px solid {c.border}; padding: {Space.XS}px;
     selection-background-color: {c.accent_tint}; selection-color: {c.text}; outline: none; }}
+QComboBox QAbstractItemView::item {{ min-height: {Space.XL}px; padding: 0 {Space.S}px; }}
 QWidget[role="chips"] {{ background: {c.sunken}; border: 1px solid {c.control_border};
     border-radius: {Radius.MEDIUM}px; }}
 QWidget[role="chips"][problem="true"] {{ border-width: 2px; }}
 QWidget[role="chips"] QLineEdit {{ border: none; background: transparent; padding: {Space.XS}px 2px; }}
 QWidget[role="chip"] {{ background: {tint(c.accent, 2 * TINT_ALPHA)}; border-radius: {Radius.PILL}px; }}
 QLabel[role="chip"] {{ padding: 1px {Space.S}px; }}
+{_entities(c)}
+QListWidget[role="stack"]::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
 QWidget[role="chip"][variant="preset"] {{ background: transparent; border: 1px solid {c.accent}; }}
 
 QWidget[role="bar"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-top-width: 1px;

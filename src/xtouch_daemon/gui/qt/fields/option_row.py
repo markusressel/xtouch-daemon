@@ -31,6 +31,7 @@ from xtouch_daemon.gui.qt.fields.basics import (
     help_label,
     help_text,
     label,
+    set_help,
     suggestion_menu,
 )
 from xtouch_daemon.gui.qt.fields.chips import Chips
@@ -88,7 +89,9 @@ class OptionRow(QWidget):
         details.addWidget(self.meaning)
         help_parts = [option.help, f"Default: `{option.default_text}`." if option.default_text else ""]
         self.help = help_label(" ".join(part for part in help_parts if part), "help", link)
-        self.help.setVisible(bool(option.help or option.default_text or link))
+        if not (option.help or option.default_text or link):
+            # hidden only: shown before it is in the row, a widget without a parent is a window of its own
+            self.help.hide()
         details.addWidget(self.help)
         if option.kind == Kind.SECRET:
             details.addWidget(label("It is saved as plain text in the configuration file.", "help"))
@@ -290,7 +293,7 @@ class OptionRow(QWidget):
         if value is None and self._placeholder:
             value = self._placeholder()
         meaning = self.option.meaning(value)
-        self.meaning.setText(help_text(f"`{value}`: {meaning}") if meaning else "")
+        set_help(self.meaning, f"`{value}`: {meaning}" if meaning else "")
         self.meaning.setVisible(bool(meaning))
 
     def _edit_number(self, value: float) -> None:

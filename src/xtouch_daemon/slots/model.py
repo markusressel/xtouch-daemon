@@ -78,9 +78,9 @@ Processes = Annotated[tuple[str, ...], Presets(Kind.PROCESSES), _presets_of(Kind
 class ChannelConfig(_Open):
     type: Literal["output", "input", "apps", "homeassistant", "person"]
     tags: tuple[str, ...] = ()
-    """Words to group channels by, for the conditions of stacks (`present`) and the pools that take them."""
+    """Words that group channels, for the conditions of slots (`present`) and the pools that take them."""
     in_auto: bool = True
-    """Whether `auto` hands out an `apps` channel without a slot of its own, like an application."""
+    """`auto` hands out this `apps` channel, like an application, while no slot shows it."""
     match: Streams = ()
     device: str | tuple[str, ...] | None = None
     choices: tuple[dict[str, Any], ...] = ()
@@ -119,9 +119,12 @@ class ChannelConfig(_Open):
 
 class PoolConfig(_Open):
     channels: tuple[str, ...] = ()
-    """The channels (ids or tags) the pool hands out; `auto` takes the applications without a channel."""
+    """The channels the pool hands out, by id or tag. `auto` takes the applications without a channel."""
     exclude: Streams = ()
-    """Applications it never takes; `auto` leaves out `speech-dispatcher`, the voice of screen readers, by default."""
+    """
+    Applications the pool never takes. `auto` leaves out `speech-dispatcher` (the voice of screen readers) by
+    default.
+    """
     hold: float = 5.0
     """Seconds a slot keeps an application after it stopped playing."""
 
@@ -139,10 +142,7 @@ class PeopleConfig(_Open):
         return data
 
     order: tuple[str, ...] = ()
-    """
-    The order of the people from the right: names, or ids of `person` channels; before those learned (who was seen
-    first).
-    """
+    """The order of the people from the right, by name or `person` channel. Then the others, in the order they came."""
 
 
 class Launch(_Section):
@@ -172,15 +172,15 @@ class ControlsConfig(_Section):
 
 class StateConfig(_Section):
     mode: bool = False
-    """Whether it is a mode: one mode is on at a time, the one with the highest priority whose sources are."""
+    """It is a mode: one mode is on at a time, the one with the highest `priority` whose sources are on."""
     label: str | None = None
-    """What the LCDs show across the strips when the mode comes; by default the name."""
+    """What the LCDs show across the strips when the mode comes; by default its name."""
     priority: int = 0
-    """Of several modes whose sources are on, the one with the highest priority is the mode."""
+    """Of several modes whose sources are on, the one with the highest priority is on."""
     apps: Streams = ()
     """On while one of these applications plays."""
     recording: Streams = ()
-    """On while one of these applications records (a microphone is open)."""
+    """On while one of these applications records, e.g. with an open microphone."""
     voice_chat: bool = False
     """On while you are in a channel of the voice chat."""
     processes: Processes = ()
@@ -190,15 +190,15 @@ class StateConfig(_Section):
     channels: tuple[str, ...] = ()
     """On while one of these channels is present."""
     homeassistant: bool = False
-    """On while its switch in Home Assistant is (needs [mqtt])."""
+    """On while its switch in Home Assistant is on. Needs `[mqtt]`."""
     when: str | None = None
-    """On while this expression of other states holds, e.g. `call and not gaming`; instead of sources."""
+    """On while this condition of other states holds, e.g. `call and not gaming`. Instead of sources."""
     delay_on: float = 0.0
-    """Seconds its sources must be on before it is."""
+    """Seconds its sources must be on before the state is."""
     delay_off: float | None = None
-    """Seconds it stays on after its sources went off; by default 3, for modes 10."""
+    """Seconds the state stays on after its sources went off; by default 3, for modes 10."""
     persist: bool = False
-    """Whether an override lasts until it is set back, rather than until the sources change."""
+    """An override lasts until you set it back, not only until the sources change."""
 
     @model_validator(mode="after")
     def _composed_or_sourced(self) -> StateConfig:

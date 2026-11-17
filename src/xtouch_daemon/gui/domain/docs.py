@@ -42,7 +42,6 @@ STRIP_OPTIONS: dict[str, str] = {
     "max_volume": "configuration/strips/#volume-range",
     "encoder": "configuration/encoders/",
     "fader": "configuration/encoders/#fader-homeassistant",
-    "id": "home-assistant/#audio-strips-with-home-assistant-controls",
     "label": "configuration/strips/#labels",
     "device": "configuration/devices/#several-devices",
     "profiles": "configuration/devices/#profiles",
@@ -56,7 +55,6 @@ STRIP_OPTIONS: dict[str, str] = {
 """The options of the strips; `STRIP_TYPE_OPTIONS` overrides them for one type."""
 
 STRIP_TYPE_OPTIONS: dict[tuple[str, str], str] = {
-    ("homeassistant", "id"): "home-assistant/#entities",
     ("voip", "label"): "configuration/people/#strips-for-one-person",
 }
 

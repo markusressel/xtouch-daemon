@@ -7,17 +7,31 @@ bottom the problems, undo and saving.
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QEvent, QObject, QRect, QSignalBlocker, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QKeyEvent, QKeySequence, QShowEvent
+from PyQt6.QtCore import QEvent, QObject, QPointF, QRect, QSignalBlocker, Qt, QTimer, QUrl
+from PyQt6.QtGui import (
+    QAction,
+    QActionGroup,
+    QCloseEvent,
+    QDesktopServices,
+    QKeyEvent,
+    QKeySequence,
+    QShowEvent,
+    QWheelEvent,
+)
 from PyQt6.QtWidgets import (
+    QAbstractScrollArea,
+    QAbstractSlider,
+    QAbstractSpinBox,
     QApplication,
     QButtonGroup,
+    QComboBox,
     QDockWidget,
     QHBoxLayout,
     QMainWindow,
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollBar,
     QStackedWidget,
     QToolBar,
     QToolButton,
@@ -37,9 +51,9 @@ from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unava
 from xtouch_daemon.gui.domain.schema import SECTIONS
 from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
-from xtouch_daemon.gui.domain.status import Status, offers_virtual_device, preview_status, sync_status
+from xtouch_daemon.gui.domain.status import Status, offers_virtual_device, preview_status, runs_older, sync_status
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import flat_button, label, show_status
+from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
 from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
@@ -93,8 +107,17 @@ RAIL = (
     ("settings", "Settings", "cog-outline", "The device, behavior, aliases, Home Assistant, the voice chat"),
 )
 """The pages of the rail: name, title, icon, tip."""
+WINDOW_SIZE = (1280, 1000)
+"""The size of the window when it opens, where the screen has room for it."""
 DEVICE_HEIGHT = 380
 """The height of the window Device above the page, until it is made larger or smaller."""
+
+
+def _takes_wheel(widget: QObject | None) -> bool:
+    """Whether the wheel would change the value of `widget`: a number, a choice or a slider (not a scroll bar)."""
+    return isinstance(widget, QAbstractSpinBox | QComboBox) or (
+        isinstance(widget, QAbstractSlider) and not isinstance(widget, QScrollBar)
+    )
 
 
 class MainWindow(QMainWindow):
@@ -129,7 +152,9 @@ class MainWindow(QMainWindow):
         self.daemon: Instance | None = None
         self.audio = DISCONNECTED
         self.setWindowTitle("X-Touch Extender")
-        self.resize(1280, 1000)
+        # at most the room of the screen: a larger window is made smaller by the desktop right after it shows
+        room = self.screen().availableGeometry()  # pyright: ignore[reportOptionalMemberAccess]
+        self.resize(min(WINDOW_SIZE[0], room.width()), min(WINDOW_SIZE[1], room.height()))
         self.applying = QTimer(self)
         """Runs for a moment after a reload, while the daemon takes the file."""
         self.applying.setSingleShot(True)
@@ -237,7 +262,7 @@ class MainWindow(QMainWindow):
         titles = QVBoxLayout()
         titles.setSpacing(0)
         titles.addWidget(label("X-Touch Extender", "title"))
-        self.path_label = label("", "hint")
+        self.path_label = ElidedLabel("", "hint", Qt.TextElideMode.ElideMiddle)
         titles.addWidget(self.path_label)
         layout.addLayout(titles)
         layout.addStretch()
@@ -279,9 +304,9 @@ class MainWindow(QMainWindow):
         self.slots_pill = label("", "pill")
         """The mode of a daemon with channels, states and slots; its tip has the states and the slots."""
         top.addWidget(self.slots_pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.sync_label = label("", "hint", wrap=True)
+        self.sync_label = ElidedLabel("", "hint")
         top.addWidget(self.sync_label, 1)
-        self.audio_label = label("Reading the sound server…", "hint")
+        self.audio_label = ElidedLabel("Reading the sound server…", "hint")
         top.addWidget(self.audio_label)
         self.refresh_audio = flat_button("refresh", "Read the devices and applications of the sound server again")
         self.refresh_audio.clicked.connect(self.load_audio)
@@ -301,7 +326,8 @@ class MainWindow(QMainWindow):
         for name, title, icon_name, tip in RAIL:
             rail_button = QToolButton()
             rail_button.setText(title)
-            set_icon(rail_button, icon_name)
+            # the pages of the states, channels and slots in their colors, like everywhere in the window
+            set_icon(rail_button, icon_name, name.removesuffix("s") if name != "settings" else None)
             rail_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
             rail_button.setCheckable(True)
             rail_button.setAutoRaise(True)
@@ -482,7 +508,7 @@ class MainWindow(QMainWindow):
         self.problems_menu = QMenu(self.problems_button)
         self.problems_button.setMenu(self.problems_menu)
         layout.addWidget(self.problems_button)
-        self.status = label("", "hint", wrap=True)
+        self.status = ElidedLabel("", "hint")
         layout.addWidget(self.status, 1)
         self.restart_button = QPushButton("Restart the service")
         set_icon(self.restart_button, "restart")
@@ -537,9 +563,7 @@ class MainWindow(QMainWindow):
         modified = self.document.modified
         state = "new file" if not self.document.exists else "unsaved changes" if modified else "saved"
         self.path_label.setText(f"{self.document.path}  ·  {state}")
-        savable = self.validation.config is not None and (modified or not self.document.exists)
-        for widget in (self.save_button, self.save_action):
-            widget.setEnabled(savable)
+        self._show_savable()
         for widget in (self.revert_button, self.revert_action):
             widget.setEnabled(modified)
         for widget in (self.undo_button, self.undo_action):
@@ -583,6 +607,18 @@ class MainWindow(QMainWindow):
         )
         set_text(self.sync_label, sync.text)
         self.sync_label.setToolTip(sync.tip)
+        self._show_savable()
+
+    def _show_savable(self) -> None:
+        """
+        "Save and apply" while there is something to save, or the daemon runs another version of the file (e.g. one
+        changed outside the GUI): then it only reloads the daemon.
+        """
+        saved = self.document.saved_config if self.document.exists else None
+        stale = not self.applying.isActive() and runs_older(self.daemon, self.live.snapshot, self.document.path, saved)
+        savable = self.validation.config is not None and (self.document.modified or not self.document.exists or stale)
+        for widget in (self.save_button, self.save_action):
+            widget.setEnabled(savable)
 
     def _show_live_preview(self, snapshot: Snapshot | None) -> None:
         """The switch of the live preview (off while it can't be on), its pill, and what the daemon said."""
@@ -664,6 +700,7 @@ class MainWindow(QMainWindow):
         self.theme_actions[mode].setChecked(True)
         # the icons are drawn in the colors of the theme
         refresh_icons(self)
+        refresh_help(self)
         self.device_view.preview.update()
 
     # -- editing --------------------------------------------------------------------------------------------------
@@ -685,6 +722,29 @@ class MainWindow(QMainWindow):
         ):
             # kept from the text fields: the shortcuts of the window undo and redo
             event.ignore()
+            return True
+        if event.type() == QEvent.Type.Wheel and isinstance(event, QWheelEvent) and _takes_wheel(watched):
+            # the wheel scrolls the page under a field instead of changing its value by accident
+            assert isinstance(watched, QWidget)
+            area = watched.parentWidget()
+            while area is not None and not isinstance(area, QAbstractScrollArea):
+                area = area.parentWidget()
+            if area is not None:
+                viewport = area.viewport()
+                assert viewport is not None
+                QApplication.sendEvent(
+                    viewport,
+                    QWheelEvent(
+                        QPointF(watched.mapTo(viewport, event.position().toPoint())),
+                        event.globalPosition(),
+                        event.pixelDelta(),
+                        event.angleDelta(),
+                        event.buttons(),
+                        event.modifiers(),
+                        event.phase(),
+                        event.inverted(),
+                    ),
+                )
             return True
         return False
 
@@ -743,11 +803,13 @@ class MainWindow(QMainWindow):
             # nothing changed
             return True
         restart_sections = self.document.restart_sections
-        try:
-            self.document.save()
-        except (OSError, ConfigError) as e:
-            QMessageBox.critical(self, "Saving failed", str(e))
-            return False
+        if self.document.modified or not self.document.exists:
+            try:
+                self.document.save()
+            except (OSError, ConfigError) as e:
+                QMessageBox.critical(self, "Saving failed", str(e))
+                return False
+        # else the file is saved: the daemon runs another version of it and is only reloaded
         # the daemon loads the file (also one it is not told to reload: it watches the file during a preview)
         self.live_preview.saved()
         try:

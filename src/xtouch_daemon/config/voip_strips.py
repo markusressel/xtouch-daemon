@@ -38,26 +38,26 @@ class VoipStripConfig(Model):
     type: Annotated[Literal["voip"], STRIP_TYPE_MEANINGS]
     person: Annotated[tuple[str, ...], BeforeValidator(_one_or_more), AfterValidator(_person_names)] = ()
     """
-    The participant the strip always shows: their name in the voice chat, or several names of the same person (e.g.
-    "Alice" and "alice-phone"), ignoring case. While they are not there, the strip shows the name dark.
+    The participant the strip always shows: their name in the voice chat (any case), or several names of the same
+    person, e.g. "Alice" and "alice-phone". While they are away, the name shows dark.
     """
     label: Label | None = None
     """The top line of the LCD of a strip with `person`; by default the first name of `person`."""
     color: Annotated[ColorName, COLORS] = "white"
-    """The backlight of the LCD while a participant is there and does not talk."""
+    """The backlight of the LCD while the participant is there and quiet."""
     talking_color: Annotated[ColorName, COLORS] = "green"
-    """The backlight while the participant talks."""
+    """The backlight of the LCD while the participant talks."""
     meter: bool = True
-    """Whether the LED meter shows the participant's voice (if the provider tells it and `behavior.meters` is on)."""
+    """The LED meter shows the voice of the participant, if the voice chat tells it. Needs `behavior.meters`."""
     meter_point: Annotated[MeterPoint, METER_POINTS] | None = None
     """
-    Where the meter takes the voice: before the fader and Mute (a muted participant who talks lights it, without a
-    level: Mumble doesn't fetch their voice), or after them; by default `behavior.meter_point`.
+    Where the meter takes the voice: before the fader and Mute, or after them. Before, a muted participant who talks
+    lights it without a level. By default `behavior.meter_point`.
     """
     max_volume: Annotated[int, Field(ge=1, le=VOLUME_LIMIT)] | None = None
     """
-    The volume of a participant with the fader at the top, in percent; by default `behavior.max_volume`, so 100 % is
-    at the 0 dB mark like on the other strips. Above 100 % the voice is louder than Mumble plays it, and may clip.
+    The volume of the participant, in percent, with the fader at the top; by default `behavior.max_volume`. Above
+    100 % they are louder than Mumble plays them, and may clip.
     """
 
     @property

@@ -54,7 +54,6 @@ and its "Test connection" button tries settings before they are saved.
 | Option | Default | Meaning |
 |---|---|---|
 | `type` | required | `"homeassistant"`. |
-| `id` | the channel's id | Part of the entity IDs. Lower case letters, digits, `_`, at most 64 characters. |
 | `label` | none | The top line of the LCD until Home Assistant sets one, and the start of the entity names (the id without it). |
 | `color` | `"white"` | The LCD color until Home Assistant sets one. |
 
@@ -102,7 +101,7 @@ A control of a slot can belong to Home Assistant whatever the slot shows, with [
 
 ## Entities
 
-`<ns>` is `mqtt.namespace`, `<id>` the channel's (or control's) `id`:
+`<ns>` is `mqtt.namespace`, `<id>` the id of the channel (`desk` for `[channel.desk]`) or the `id` of the control:
 
 | Entity | What it is |
 |---|---|

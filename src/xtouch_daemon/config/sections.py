@@ -34,22 +34,21 @@ class DeviceConfig(Model):
     """The device the daemon drives."""
 
     name: str = "X-Touch-Ext"
-    """Part of the name of the extender's sound card, as `/proc/asound/cards` lists it."""
+    """A part of the name of the sound card of the extender, as `/proc/asound/cards` lists it."""
     virtual: bool = False
     """
-    Drive the virtual device instead (`xtouch-daemon virtual-device`, or the GUI's), for trying things without the
-    device. `xtouch-daemon run --virtual-device` does the same for one run. Changes with a restart.
+    Drives the virtual device instead, to try things without the device (`xtouch-daemon virtual-device`, or the
+    GUI's). Takes effect after a restart.
     """
     touch_required: bool = True
     """
-    Whether a fader changes a value only while the device reports a touch, so a fader moved by its motor does not
-    count. Off, every move counts, as on `touchless_faders`: e.g. pushing a fader from below with a fingertip, which
-    the touch sensor does not notice.
+    A fader changes its value only while you touch it, so a fader the motor moves changes nothing. Off, every move
+    counts, e.g. a fader pushed with a fingertip the sensor does not notice.
     """
     touchless_faders: tuple[FaderNumber, ...] = ()
     """
-    Faders whose touch sensor does not work, numbered from 1 on the left: a move counts as a touch, half a second
-    without a move as letting go. Without it such a fader goes back to its value after every move.
+    Faders whose touch sensor is broken, numbered from 1 on the left. A move counts as a touch, half a second
+    without a move as letting go.
     """
     startup: Annotated[Sequence, STARTUP_SEQUENCES] = "sweep"
     """How the strips light up after the device connects."""
@@ -62,30 +61,24 @@ class BehaviorConfig(WithPresets):
 
     max_volume: Annotated[int, Field(ge=100, le=VOLUME_LIMIT)] = 130
     """
-    The volume of a fader at the top, in percent: above 100 % the audio is amplified in software. Strips may have a
-    range of their own (`min_volume`, `max_volume`). 130 puts 100 % at the 0 dB mark of the device (see `unity_at`)
-    with the same slope above it as below, so the fader is linear over its whole travel.
+    The volume, in percent, with a fader at the top. Above 100 % the audio is amplified. With 130, 100 % is at the 0
+    dB mark of the device and the fader is linear (see `unity_at`).
     """
     unity_at: Annotated[int, Field(ge=10, le=95)] = 77
     """
-    Where on the fader 100 % is, in percent of its travel from the bottom; the X-Touch Extender marks 0 dB at about
-    77. Below that mark the fader goes up to 100 %, above it from 100 % to the `max_volume` of the strip, e.g. with
-    77 and 130 the top 23 % of the travel amplify by up to 30 %. Strips whose range ends at 100 % (or starts above
-    it) are not affected: their fader is linear from the bottom to the top.
+    Where 100 % is on the fader, in percent of its travel from the bottom; the device marks 0 dB at about 77. Above
+    the mark the fader goes on to `max_volume`. A strip whose range ends at 100 % stays linear.
     """
     encoder_step: Annotated[int, Field(ge=1, le=10)] = 1
-    """
-    Percent per step of an encoder: of the volume with the `volume` encoder, of the number with a `homeassistant`
-    one.
-    """
+    """Percent per step of an encoder: of the volume (`volume`), or of the number (`homeassistant`)."""
     reset_volume: Volume = 100
-    """The volume a push on a `volume` encoder sets, at most `max_volume` (and within the range of the strip)."""
+    """The volume a push on a `volume` encoder sets, within the range of the strip."""
     meters: bool = True
-    """Whether the LED meters show audio levels at all. Off, every meter stays dark; `meter` turns off a single one."""
+    """The LED meters show the level. Off, every meter stays dark; `meter` turns off a single one."""
     meter_point: Annotated[MeterPoint, METER_POINTS] = "pre_fader"
     """
     Where the meters take the level: before the volume and Mute of the strip, or after them. A channel or a place
-    may have its own (`meter_point`).
+    may have its own `meter_point`.
     """
 
     @model_validator(mode="after")
@@ -101,24 +94,22 @@ class MqttConfig(Model):
     host: str
     """The host name or address of the broker, e.g. "homeassistant.local" for the Mosquitto add-on."""
     port: Annotated[int, Field(ge=1, le=65535)] = 1883
-    """The port of the broker; 1883 is the usual one without TLS."""
+    """The port of the broker. 1883 is the usual one without TLS."""
     username: str | None = None
-    """The user to log in as; without it the daemon connects without logging in."""
+    """The user to log in as. Without it, the daemon connects without logging in."""
     password: SecretStr | None = None
-    """The password itself; `password_file` or `password_env` keep it out of the configuration."""
+    """The password. `password_file` or `password_env` keep it out of the configuration."""
     password_file: Path | None = None
-    """A file that holds the password (`~` is the home directory); surrounding whitespace is ignored."""
+    """A file with the password (`~` is your home directory). Whitespace around it is ignored."""
     password_env: str | None = None
     """
-    An environment variable that holds the password, e.g. set with `systemctl --user edit xtouch-daemon`
-    (`Environment=`).
+    An environment variable with the password, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`).
     """
     discovery_prefix: str = "homeassistant"
-    """The MQTT discovery prefix of Home Assistant; change it only if Home Assistant has another one."""
+    """The MQTT discovery prefix of Home Assistant. Change it only if Home Assistant uses another one."""
     namespace: Slug = "xtouch"
     """
-    Starts the entity IDs (`number.xtouch_strip_1_fader`) and is part of the topics. Lower case letters, digits,
-    `_`.
+    The start of the entity IDs (`number.xtouch_strip_1_fader`) and the topics: lower case letters, digits and `_`.
     """
     device_name: str = "X-Touch Extender"
     """The name of the device in Home Assistant."""
@@ -151,20 +142,19 @@ class SwitchingConfig(Model):
 
     chord: tuple[FaderNumber, ...] = (1, 8)
     """
-    The strips whose Solo buttons, held together, do `chord_action` (by default: the next mode), numbered from 1 on the
-    left; none for no chord. Solo does nothing on audio strips, on `homeassistant` strips Home Assistant still gets
-    the presses.
+    The strips whose Solo buttons, held together, do `chord_action`, numbered from 1 on the left; none for no chord.
+    Home Assistant still gets the presses of its strips.
     """
     banner: Annotated[float, Field(ge=0, le=10)] = 1.5
     """
-    Seconds the LCDs show the label of a new mode, and a slot that shows something else its new label and why; 0 for
+    Seconds the LCDs show the label of a new mode, and a slot that shows something else its new label and why. 0 for
     none.
     """
 
     chord_action: str = "cycle_modes"
     """
-    What the chord does, `cycle_modes`, `mode:<id>` or `toggle:<state or mode>`
-    (checked with the slots). In the file: `chord = { strips = [1, 8], action = "toggle:call" }`.
+    What the chord does: `cycle_modes` (the next mode), `mode:<id>` or `toggle:<state or mode>`. In the file: `chord
+    = { strips = [1, 8], action = "toggle:call" }`.
     """
 
     @model_validator(mode="before")
@@ -204,6 +194,6 @@ class VoipConfig(Model):
     """Where `voip` strips get the participants of the voice chat."""
 
     provider: Annotated[VoipProviderName, VOIP_PROVIDERS] = "bridge"
-    """Who tells the participants."""
+    """Who tells the daemon the participants of the voice chat."""
     participants: tuple[str, ...] = ("Alice", "Bob", "Carol", "Dave", "Eve")
     """The names of the participants of the `demo` provider."""

@@ -61,7 +61,6 @@ color = "magenta"
 
 [channel.light]
 type = "homeassistant"
-id = "living_room"
 label = "Light"
 color = "yellow"
 

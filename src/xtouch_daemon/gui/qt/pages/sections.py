@@ -27,7 +27,7 @@ from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import LEARN_MORE, Suggest, help_label, help_text, label, show_status
+from xtouch_daemon.gui.qt.fields.basics import LEARN_MORE, Suggest, help_label, label, set_help, show_status
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, page_title, row, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -165,7 +165,7 @@ class MqttPage(SectionPage):
         """How the daemon's connection is doing now (see `live_status`)."""
         status = live_status(snapshot)
         show_status(self.box.live_pill, status)
-        set_text(self.box.live_detail, help_text(status.tip))
+        set_help(self.box.live_detail, status.tip)
 
     def test(self) -> None:
         """Tries the settings in the editor (see `try_broker`)."""
@@ -292,7 +292,7 @@ class MumbleBox(QFrame):
 
     def show_state(self, live: Status, setup: mumble.Setup, result: Status | None, installing: bool) -> None:
         show_status(self.live_pill, live)
-        set_text(self.live_detail, help_text(live.tip))
+        set_help(self.live_detail, live.tip)
         self.install_button.setEnabled(setup.installable and not installing)
         self.install_button.setToolTip(install_hint(setup))
         steps = "".join(f"<li>{html.escape(step)}</li>" for step in install_steps(setup))
@@ -336,4 +336,4 @@ class ConnectionBox(QFrame):
         if status is not None:
             self.test_result.setText(status.text)
             set_role(self.test_result, {Tone.GOOD: "", Tone.BAD: "error"}.get(status.tone, "hint"))
-            self.test_hint.setText(help_text(status.tip))
+            set_help(self.test_hint, status.tip)
