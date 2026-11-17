@@ -95,6 +95,12 @@ class PoolConfig(_Open):
     `people` only: `"auto"` lets the people take slots of `auto`, from the right (next to the voice chat's strips),
     while the applications fill them from the left; neither moves when the other comes.
     """
+    order: tuple[str, ...] = ()
+    """
+    `people` with `share` only: the home slots of these people, the first on the rightmost slot where `auto` is the
+    first candidate, the next one left of it, and so on. Nothing is reserved: a slot is anyone's while its person is
+    not there. Without it, each person's home is the slot they had last.
+    """
 
 
 class StateConfig(_Section):
@@ -202,6 +208,8 @@ class Scene:
 
     def _check_references(self, problems: list[str]) -> None:
         for name, pool in self.pools.items():
+            if pool.order and (name != PEOPLE or pool.share != AUTO):
+                problems.append(f"pool.{name}.order: only for people that share the slots of auto")
             if pool.share is not None and (name != PEOPLE or pool.share != AUTO):
                 problems.append(f'pool.{name}.share: only people share, and only the slots of auto (share = "auto")')
         states = {*self.states, DEFAULT}

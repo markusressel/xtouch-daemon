@@ -2,9 +2,11 @@
 The slots over time: presence, states, the dwell time and held slots, as the daemon will run them.
 """
 
+from dataclasses import replace
+
 from tests.support.slots import EXAMPLE, example, scene, shows
 from xtouch_daemon.slots.inputs import Observation
-from xtouch_daemon.slots.simulation import Simulation
+from xtouch_daemon.slots.simulation import Simulation, ordered_homes
 from xtouch_daemon.slots.states import Override
 
 GAMING = Observation(processes=frozenset({"reaper"}))
@@ -99,3 +101,22 @@ def test_a_home_lasts_a_while():
     assert shows(simulation.step(Observation(voice_chat=True, people=("B",)), 20), [5, 6]) == ["people:B", "auto"]
     later = simulation.step(Observation(voice_chat=True, people=("B", "C", "A")), 2000)
     assert shows(later, [4, 5, 6]) == ["people:A", "people:B", "people:C"]
+
+
+def test_the_order_of_people_gives_them_homes_and_reserves_nothing():
+    read = scene(
+        EXAMPLE.read_text().replace(
+            '[pool.people]\ncolor = "yellow"', '[pool.people]\nshare = "auto"\norder = ["Bob", "Alice", "X", "Y", "Z"]'
+        )
+    )
+    simulation = Simulation(read)
+    talking = Observation(voice_chat=True)
+    # Alice alone: her home 5, slot 6 (Bob's) stays free for others
+    assert shows(simulation.step(replace(talking, people=("Alice",)), 0), [5, 6]) == ["people:Alice", "auto"]
+    assert shows(simulation.step(replace(talking, people=("Alice", "Bob", "Carol")), 2), [4, 5, 6]) == [
+        "people:Carol",
+        "people:Alice",
+        "people:Bob",
+    ]
+    # more names than slots where auto comes first (3-6): the rest have no home of their own
+    assert ordered_homes(read) == {"Bob": 6, "Alice": 5, "X": 4, "Y": 3}

@@ -23,7 +23,7 @@ SECTIONS = ("channel", "pool", "state", "slots")
 """The sections of the format of channels, states and slots; a file with one of them is in that format."""
 CHANNEL_ONLY = frozenset({"tags", "in_auto", "absent_after"})
 """Options of a channel that are about slots, not about its strip."""
-POOL_ONLY = frozenset({"channels", "exclude", "hold", "share"})
+POOL_ONLY = frozenset({"channels", "exclude", "hold", "share", "order"})
 """Options of a pool that are about its members, not about its strips."""
 EMPTY = "-"
 
