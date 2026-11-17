@@ -38,6 +38,7 @@ from xtouch_daemon.gui.domain.flow import flow_rows
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
 from xtouch_daemon.gui.domain.looks import faces, looks
+from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.status import Status, preview_status, sync_status
 from xtouch_daemon.gui.domain.voip import people_on_strips
 from xtouch_daemon.gui.qt.editor import Editor
@@ -327,6 +328,9 @@ class MainWindow(QMainWindow):
         self.mqtt_pill.setCursor(Qt.CursorShape.PointingHandCursor)
         self.mqtt_pill.mousePressEvent = lambda event: self.show_page("mqtt")  # type: ignore[method-assign]
         top.addWidget(self.mqtt_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.slots_pill = label("", "pill")
+        """The mode of a daemon with channels, states and slots; its tip has the states and the slots."""
+        top.addWidget(self.slots_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self.sync_label = label("", "hint", wrap=True)
         top.addWidget(self.sync_label, 1)
         self.audio_label = label("Reading the sound server…", "hint")
@@ -554,6 +558,10 @@ class MainWindow(QMainWindow):
         self.mqtt_pill.setVisible(mqtt is not None)
         if mqtt is not None:
             show_status(self.mqtt_pill, Status(mqtt.text, mqtt.tone, f"{mqtt.tip} Click for the settings."))
+        slots = slots_status(snapshot)
+        self.slots_pill.setVisible(slots is not None)
+        if slots is not None:
+            show_status(self.slots_pill, slots)
         self.mqtt_page.show_live(snapshot)
         self.voip_page.show_live(snapshot)
         sync = sync_status(

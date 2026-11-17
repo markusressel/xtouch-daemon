@@ -38,6 +38,8 @@ from xtouch_daemon.live.messages import (
     MqttState,
     Reply,
     Request,
+    SetMode,
+    SetOverride,
     Snapshot,
     StartPreview,
     SwitchLayout,
@@ -53,6 +55,7 @@ from xtouch_daemon.runtime.layouts import MANUAL, LayoutSwitcher, remember_layou
 from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.runtime.slots import BATCH as SLOTS_BATCH
 from xtouch_daemon.runtime.slots import PROCESS_INTERVAL, SlotEngine
+from xtouch_daemon.slots.states import Override
 from xtouch_daemon.strips.homeassistant import entity_ids
 from xtouch_daemon.system import instance, systemd
 from xtouch_daemon.system.processes import running_processes
@@ -443,6 +446,20 @@ class Daemon:
         self._step_slots()
         return Reply("layout", True, self.slots.mode)
 
+    def request_override(self, name: str, value: str) -> Reply:
+        """With slots: the override of a state that is no mode (`auto`, `on`, `off`)."""
+        if self.slots is None:
+            return Reply("override", False, "The configuration has no states (it has layouts)")
+        states = [state for state, config in self.slots.scene.states.items() if not config.mode]
+        if name not in states:
+            return Reply("override", False, f"There is no state {name} ({', '.join(states) or 'none'})")
+        if value not in Override:
+            return Reply("override", False, f"{value} is no override (auto, on, off)")
+        _LOGGER.info(f"State {name}: override {value} ({MANUAL})")
+        self.slots.set_override(name, Override(value))
+        self._step_slots()
+        return Reply("override", True, value)
+
     @staticmethod
     def _chord(config: Config) -> frozenset[int]:
         """The strips (from 0) whose Solo buttons together switch the layout or mode."""
@@ -533,6 +550,13 @@ class Daemon:
                 return None
             case SwitchLayout(layout=name):
                 return self.request_layout(name)
+            case SetMode(mode=name):
+                if self.slots is None:
+                    return Reply("mode", False, "The configuration has no modes (it has layouts)")
+                reply = self.request_mode(name)
+                return Reply("mode", reply.ok, reply.message)
+            case SetOverride(state=name, value=value):
+                return self.request_override(name, value)
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -739,6 +763,7 @@ class Daemon:
             layouts=self.switcher.names if self.slots is None else (*self.slots.modes, "auto"),
             voip=None if self.voip is None else voip_state(self.voip, self.mixer.voip_names),
             placement=self.mixer.placement,
+            slots=self.slots.view() if self.slots is not None else None,
         )
 
     def _status(self) -> str:

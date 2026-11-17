@@ -84,6 +84,9 @@ While the daemon runs with an `[mqtt]` section, a second pill tells how its conn
 "Home Assistant" while it is connected, otherwise what is wrong, e.g. "Home Assistant · not authorized" or
 "Home Assistant · refused". Its tooltip has the broker's own words and what to check; a click opens the settings.
 
+While the daemon runs a configuration of channels, states and slots, a third pill shows the mode ("Mode gaming",
+"Mode gaming · by hand"); its tooltip lists the states and what each slot shows. The GUI does not edit that format yet.
+
 The strips are live only while the device shows the layout picked above; the others show what the file would
 show. An `inherit` strip shows the strip of the default layout at its place.
 

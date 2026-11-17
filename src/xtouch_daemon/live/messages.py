@@ -15,7 +15,7 @@ VERSION = 1
 """Changes when a line means something else; a client ignores lines of another version."""
 
 
-FEATURES = ("preview", "layout")
+FEATURES = ("preview", "layout", "mode", "override")
 """The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 
 
@@ -82,6 +82,50 @@ class VoipState:
 
 
 @dataclass(frozen=True)
+class SlotView:
+    """What a slot shows (see `slots.resolver.Shown`) and why."""
+
+    slot: int
+    candidate: int | None
+    """The index of the candidate in the slot's stack, None for nothing at all."""
+    channel: str | None
+    pool: str | None
+    member: str | None
+    """The application (`app:<name>`), person (`person:<name>`) or channel a pool hands out."""
+    why: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class StateView:
+    """A state or mode."""
+
+    name: str
+    value: bool
+    mode: bool
+    """Whether it is a mode (picked with `SetMode`, not overridden)."""
+    since: str | None
+    """When it got its value, an ISO time; None before the first step."""
+    source: str | None
+    """What turned it on (`mumble runs`, `override`, ...), None while it is off."""
+    override: str
+    """`auto`, `on` or `off`."""
+
+
+@dataclass(frozen=True)
+class SlotsState:
+    """The slots of a configuration of channels, states and slots."""
+
+    mode: str
+    """The mode that is on (`default` without another one)."""
+    mode_pick: str | None
+    """The mode picked by hand, None while the rules decide."""
+    slots: tuple[SlotView, ...]
+    states: tuple[StateView, ...]
+    waiting: dict[str, tuple[str, ...]]
+    """Per pool, the members that got no slot."""
+
+
+@dataclass(frozen=True)
 class Snapshot:
     """The state of the daemon and of everything the device shows."""
 
@@ -116,6 +160,8 @@ class Snapshot:
     for a dark one; None for an older daemon, whose strips are where they are
     configured. It differs from 0..7 with `collapse` (see `placement.py`).
     """
+    slots: SlotsState | None = None
+    """The slots, states and mode of a configuration of channels, states and slots; None for one of layouts."""
 
 
 @dataclass(frozen=True)
@@ -149,9 +195,27 @@ class SwitchLayout:
     layout: str
 
 
-type Request = StartPreview | KeepPreview | EndPreview | SwitchLayout
+@dataclass(frozen=True)
+class SetMode:
+    """With slots: pick a mode, or `auto` for the rules. The daemon answers with a `Reply` of kind "mode"."""
 
-type ReplyKind = Literal["preview", "ended", "layout", "error"]
+    mode: str
+
+
+@dataclass(frozen=True)
+class SetOverride:
+    """
+    With slots: the override of a state that is no mode, `auto`, `on` or `off`. The daemon answers with a `Reply` of
+    kind "override".
+    """
+
+    state: str
+    value: str
+
+
+type Request = StartPreview | KeepPreview | EndPreview | SwitchLayout | SetMode | SetOverride
+
+type ReplyKind = Literal["preview", "ended", "layout", "mode", "override", "error"]
 
 
 @dataclass(frozen=True)
@@ -160,7 +224,8 @@ class Reply:
     An answer of the daemon, or news for a client. "preview": whether a `StartPreview` runs now (`message` says why
     not, e.g. the errors of the configuration, as `check-config` tells them). "ended": the preview of this client
     ended, `message` says why. "layout": whether a `SwitchLayout` was carried out (`message` is the layout shown
-    then, or why not). "error": a request could not be read, or is not allowed.
+    then, or why not); "mode" and "override" the same for `SetMode` and `SetOverride`. "error": a request could not
+    be read, or is not allowed.
     """
 
     kind: ReplyKind

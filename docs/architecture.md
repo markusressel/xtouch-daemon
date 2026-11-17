@@ -256,6 +256,11 @@ for as long as it runs:
   The daemon takes them only from processes of its own user (`SO_PEERCRED`: root can connect to a socket of mode
   0600), and a line of at most `MAX_REQUEST` (1 MiB): a longer one ends the connection. Otherwise the GUI changes the
   daemon through the configuration file and a reload. The state tells the `layout` shown and the `layouts` there are.
+- **Channels, states and slots.** With a configuration in that format the state has `slots` (`SlotsState`): the mode
+  and the one picked by hand, per slot the candidate, channel, pool, member and why, per state its value, `since`,
+  `source` and override, and per pool the members that wait. `{"request": "mode", "mode": "gaming"}` (or `auto`,
+  `"+1"`) picks a mode, `{"request": "override", "state": "call", "value": "on"}` (`auto`, `on`, `off`) overrides a
+  state; a daemon with layouts refuses both. `features` has `mode` and `override`.
 - **Never in the way.** Clients get only non-blocking writes. One that falls behind by more than `MAX_BUFFER` is
   dropped (it can connect again), and a socket that can't be made is logged: the daemon runs on without the live view.
   The server is not one of the parts of the daemon whose end stops it.
@@ -279,7 +284,7 @@ daemon side in `Daemon.preview()`):
   and only a document without problems.
 - **Replies the old GUI ignores, features the new one checks.** The daemon answers with lines without `version`
   (`{"reply": "preview", "ok": ..., "message": ...}`), which a GUI from before skips like lines of another version.
-  Snapshots tell `preview` (the daemon runs a preview, and `config` is its fingerprint) and `features` (`["preview"]`);
+  Snapshots tell `preview` (the daemon runs a preview, and `config` is its fingerprint) and `features` (`preview`, …);
   a daemon from before tells none and ignores requests, so the GUI keeps the switch off for it.
 - **Always back to the file.** The preview ends with `EndPreview`, when the connection of its client ends (the window
   closed or crashed), without a request for `PREVIEW_TIMEOUT` (10 s; the GUI sends `KeepPreview` every 3 s, so a

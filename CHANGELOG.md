@@ -21,7 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   With `[mqtt]`, Home Assistant gets `select.<ns>_mode` (instead of the layout select), a binary sensor per state
   (`since`, `source`, `override`), an override select per state, an input switch per state with
   `homeassistant = true`, `binary_sensor.<ns>_<channel>_shown` and `sensor.<ns>_slot_<n>` (what the slot shows,
-  with `label`, `kind`, `via` and `reason`).
+  with `label`, `kind`, `via` and `reason`). The live view tells the mode, the states and what each slot shows and
+  why, takes requests to pick a mode and to override a state, and the GUI shows the mode in a pill next to the
+  preview, with the states and slots in its tooltip.
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.
   `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
   `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` strips, `apps` and `processes` of layouts

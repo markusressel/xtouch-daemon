@@ -22,7 +22,7 @@ from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
 from xtouch_daemon.gui.qt.pages.sections import MumbleInstaller, SectionPage
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
-from xtouch_daemon.live.messages import MqttState, VoipState
+from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipState
 from xtouch_daemon.voip import mumble
 
 
@@ -280,3 +280,18 @@ def test_the_installer_runs_in_a_thread():
     installer._run()  # pyright: ignore[reportPrivateUsage]
     assert results == [Status("done", Tone.GOOD)]
     assert installer.setup() == NO_MUMBLE
+
+
+def test_the_mode_of_a_daemon_with_slots_shows_next_to_the_preview(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
+):
+    window = make_window(live_socket=live_daemon.path)
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    live_daemon.send(snapshot(window, strip_state()))
+    qtbot.waitUntil(lambda: window.live.snapshot is not None)
+    assert window.slots_pill.isHidden()
+    slots = SlotsState("gaming", None, (SlotView(1, 0, "game", None, None, ()),), (), {})
+    live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), slots=slots))
+    qtbot.waitUntil(lambda: window.slots_pill.text() == "Mode gaming")
+    assert not window.slots_pill.isHidden()
+    assert "slot 1: game" in window.slots_pill.toolTip()

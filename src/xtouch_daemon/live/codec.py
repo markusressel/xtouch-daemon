@@ -13,8 +13,13 @@ from xtouch_daemon.live.messages import (
     MqttState,
     Reply,
     Request,
+    SetMode,
+    SetOverride,
+    SlotsState,
+    SlotView,
     Snapshot,
     StartPreview,
+    StateView,
     StripState,
     SwitchLayout,
     VoipState,
@@ -69,6 +74,19 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
         tuple(data.get("layouts", ())),
         _voip(data.get("voip")),
         _placement(data.get("placement")),
+        _slots(data.get("slots")),
+    )
+
+
+def _slots(value: dict[str, Any] | None) -> SlotsState | None:
+    if value is None:
+        return None
+    return SlotsState(
+        value["mode"],
+        value["mode_pick"],
+        tuple(SlotView(**{**slot, "why": tuple(slot["why"])}) for slot in value["slots"]),
+        tuple(StateView(**state) for state in value["states"]),
+        {pool: tuple(members) for pool, members in value["waiting"].items()},
     )
 
 
@@ -100,6 +118,8 @@ _REQUEST_NAMES: dict[type, str] = {
     KeepPreview: "keep_preview",
     EndPreview: "end_preview",
     SwitchLayout: "layout",
+    SetMode: "mode",
+    SetOverride: "override",
 }
 
 
@@ -109,6 +129,10 @@ def encode_request(request: Request) -> bytes:
         data["config"] = request.config
     elif isinstance(request, SwitchLayout):
         data["layout"] = request.layout
+    elif isinstance(request, SetMode):
+        data["mode"] = request.mode
+    elif isinstance(request, SetOverride):
+        data |= {"state": request.state, "value": request.value}
     return json.dumps(data).encode() + b"\n"
 
 
@@ -127,5 +151,9 @@ def decode_request(line: bytes) -> Request:
             return EndPreview()
         case {"request": "layout", "layout": str(layout)}:
             return SwitchLayout(layout)
+        case {"request": "mode", "mode": str(mode)}:
+            return SetMode(mode)
+        case {"request": "override", "state": str(state), "value": str(value)}:
+            return SetOverride(state, value)
         case _:
             raise ValueError("unknown")

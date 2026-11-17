@@ -17,7 +17,6 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable, Coroutine
-from datetime import UTC, datetime
 from typing import Any
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
@@ -201,10 +200,7 @@ class SlotEntities:
         """When a state got its value (a time of the engine's clock), as an ISO time; the same for the same value."""
         key = (name, since)
         if key not in self._since:
-            clock, wall_clock = self.engine.clocks
-            self._since[key] = datetime.fromtimestamp(wall_clock() - (clock() - since), UTC).isoformat(
-                timespec="seconds"
-            )
+            self._since[key] = self.engine.wall_time(since)
         return self._since[key]
 
     def _send(self, entity: MQTTEntity, published: Published) -> None:

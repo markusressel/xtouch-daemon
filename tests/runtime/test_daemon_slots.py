@@ -18,7 +18,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
-from xtouch_daemon.live.messages import Reply, VoipState, fingerprint
+from xtouch_daemon.live.messages import Reply, SetMode, SetOverride, SlotView, StateView, VoipState, fingerprint
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.runtime.daemon import Daemon
@@ -442,3 +442,76 @@ async def test_the_slots_in_home_assistant(
     await until(lambda: len(broker.published) > count + 20)
     daemon.stop()
     await task
+
+
+async def test_the_live_view_shows_the_slots_and_sets_modes_and_overrides(
+    tmp_path: Path, surface: RecordingSurface
+) -> None:
+    path = tmp_path / "slots.toml"
+    path.write_text(SLOTS)
+    processes = Processes()
+    daemon = make(path, surface, processes)
+    assert daemon.slots is not None
+    assert daemon.snapshot().slots is None
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: labels(surface, 1) == ["Speaker"])
+    gui = object()
+
+    view = daemon.snapshot().slots
+    assert view is not None
+    assert (view.mode, view.mode_pick) == ("default", None)
+    assert view.slots[0] == SlotView(
+        1, 1, "out", None, None, ("game if gaming: doesn't hold (gaming is off)", "shows out")
+    )
+    assert view.slots[1].pool == "auto"
+    assert view.slots[1].member == "app:Spotify"
+    call = next(state for state in view.states if state.name == "call")
+    assert call == StateView("call", False, False, call.since, None, "auto")
+    assert next(state for state in view.states if state.name == "gaming").mode
+
+    assert daemon.on_request(gui, SetMode("gaming")) == Reply("mode", True, "gaming")
+    view = daemon.snapshot().slots
+    assert view is not None
+    assert (view.mode, view.mode_pick) == ("gaming", "gaming")
+    assert daemon.on_request(gui, SetMode("nope")) == Reply(
+        "mode", False, "There is no mode nope (auto, default, gaming)"
+    )
+    assert daemon.on_request(gui, SetMode("auto")) == Reply("mode", True, "default")
+
+    assert daemon.on_request(gui, SetOverride("call", "on")) == Reply("override", True, "on")
+    view = daemon.snapshot().slots
+    assert view is not None
+    assert next(state for state in view.states if state.name == "call").override == "on"
+    assert labels(surface)[2] == "Mic"
+    assert daemon.on_request(gui, SetOverride("gaming", "on")) == Reply(
+        "override", False, "There is no state gaming (call)"
+    )
+    assert daemon.on_request(gui, SetOverride("call", "maybe")) == Reply(
+        "override", False, "maybe is no override (auto, on, off)"
+    )
+    daemon.stop()
+    await task
+
+
+def test_modes_and_overrides_need_slots(tmp_path: Path, surface: RecordingSurface) -> None:
+    path = tmp_path / "layouts.toml"
+    path.write_text('[[strip]]\ntype = "empty"\n')
+    daemon = make(path, surface, Processes())
+    assert daemon.snapshot().slots is None
+    assert daemon.on_request(None, SetMode("gaming")) == Reply(
+        "mode", False, "The configuration has no modes (it has layouts)"
+    )
+    assert daemon.on_request(None, SetOverride("call", "on")) == Reply(
+        "override", False, "The configuration has no states (it has layouts)"
+    )
+
+
+def test_how_the_live_view_names_members() -> None:
+    from xtouch_daemon.runtime.slots import _member_text
+    from xtouch_daemon.slots.inputs import Channel, Person
+
+    assert _member_text(App("Spotify")) == "app:Spotify"
+    assert _member_text(Person("1", "Ann")) == "person:Ann"
+    assert _member_text(Person("1", "Ann", "ann")) == "ann"
+    assert _member_text(Channel("web")) == "web"
+    assert _member_text(None) is None

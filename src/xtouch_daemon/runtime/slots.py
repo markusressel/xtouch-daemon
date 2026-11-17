@@ -9,12 +9,13 @@ import json
 import logging
 import time
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.model import Config
-from xtouch_daemon.live.messages import VoipState
-from xtouch_daemon.slots.inputs import App, Channel, Member, excluded, owner_of
+from xtouch_daemon.live.messages import SlotsState, SlotView, StateView, VoipState
+from xtouch_daemon.slots.inputs import App, Channel, Member, Person, excluded, owner_of
 from xtouch_daemon.slots.model import DEFAULT, Scene
 from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
@@ -106,10 +107,44 @@ class SlotEngine:
         label = self.scene.states[mode].label if mode in self.scene.states else None
         return label or mode.capitalize()
 
-    @property
-    def clocks(self) -> tuple[Callable[[], float], Callable[[], float]]:
-        """The clock of the steps and the wall clock."""
-        return self._clocks
+    def wall_time(self, moment: float) -> str:
+        """A time of the clock of the steps (e.g. when a state got its value) as an ISO time of the wall clock."""
+        clock, wall_clock = self._clocks
+        return datetime.fromtimestamp(wall_clock() - (clock() - moment), UTC).isoformat(timespec="seconds")
+
+    def view(self) -> SlotsState | None:
+        """The slots, states and mode for the live view; None before the first step."""
+        result, states = self.simulation.result, self.simulation.states
+        if result is None or states is None:
+            return None
+        engine = self.simulation.engine
+        return SlotsState(
+            states.mode,
+            engine.mode_pick,
+            tuple(
+                SlotView(
+                    slot,
+                    shown.candidate,
+                    shown.channel,
+                    shown.pool,
+                    _member_text(shown.member),
+                    result.why[slot],
+                )
+                for slot, shown in result.slots.items()
+            ),
+            tuple(
+                StateView(
+                    name,
+                    self.value(name),
+                    name in self.scene.modes,
+                    self.wall_time(states.since[name]) if name in states.since else None,
+                    states.reasons.get(name) if self.value(name) else None,
+                    engine.overrides.get(name, Override.AUTO).value,
+                )
+                for name in self.scene.states
+            ),
+            {pool: tuple(_member_text(member) or "" for member in members) for pool, members in result.waiting.items()},
+        )
 
     def deadline(self) -> float | None:
         """When a delay or a dwell ends, if one is pending: then the slots need another step."""
@@ -353,3 +388,16 @@ def write_choices(path: Path, choices: Choices) -> None:
         {"overrides": {name: value.value for name, value in overrides.items()}, "mode": mode},
         "the overrides and the mode",
     )
+
+
+def _member_text(member: Member | None) -> str | None:
+    """How the live view names a member: `app:<name>`, `person:<name>`, or the channel."""
+    match member:
+        case App(name=name):
+            return f"app:{name}"
+        case Person(channel=None, name=name):
+            return f"person:{name}"
+        case Person(channel=str(channel)) | Channel(id=channel):
+            return channel
+        case _:
+            return None

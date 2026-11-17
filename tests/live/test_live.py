@@ -23,8 +23,13 @@ from xtouch_daemon.live.messages import (
     MqttState,
     Reply,
     Request,
+    SetMode,
+    SetOverride,
+    SlotsState,
+    SlotView,
     Snapshot,
     StartPreview,
+    StateView,
     StripState,
     SwitchLayout,
     VoipState,
@@ -120,6 +125,16 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     # with strips that moved
     placed = Snapshot("abc", True, False, None, snapshot.strips, placement=(0, 2, 3, 4, 5, 6, 7, None))
     assert decode(encode(placed)) == placed
+    # with slots
+    slots = SlotsState(
+        "gaming",
+        None,
+        (SlotView(1, 0, "out", None, None, ("shows out",)), SlotView(2, 1, None, "auto", "app:Spotify", ())),
+        (StateView("call", True, False, "2026-11-17T10:00:00+00:00", "mumble runs", "auto"),),
+        {"auto": ("app:mpv",)},
+    )
+    with_slots = Snapshot("abc", True, False, None, snapshot.strips, slots=slots)
+    assert decode(encode(with_slots)) == with_slots
     # an older daemon does not tell more than whether it is connected, nor its version
     older = line.replace(b',"mqtt_state":null', b"").replace(b',"daemon_version":null', b"")
     assert b"mqtt_state" not in older
@@ -244,7 +259,14 @@ async def test_without_a_socket_the_daemon_runs_on(
 
 
 def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
-    for request in (StartPreview('[[strip]]\ntype = "empty"\n'), KeepPreview(), EndPreview(), SwitchLayout("+1")):
+    for request in (
+        StartPreview('[[strip]]\ntype = "empty"\n'),
+        KeepPreview(),
+        EndPreview(),
+        SwitchLayout("+1"),
+        SetMode("gaming"),
+        SetOverride("call", "on"),
+    ):
         line = encode_request(request)
         assert line.count(b"\n") == 1
         assert decode_request(line) == request
