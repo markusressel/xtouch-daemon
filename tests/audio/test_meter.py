@@ -13,9 +13,12 @@ from xtouch_daemon.audio.meter import (
     CLIP_HOLD,
     GAIN_SETTLE,
     CaptureTarget,
+    Lit,
     Meter,
+    Peak,
     capture,
     capture_command,
+    leds_of,
     level_of,
     peak_of,
     scale_of,
@@ -41,6 +44,13 @@ def test_the_peak_is_the_loudest_sample_either_way():
     assert peak_of(samples(0.2) + b"\x00\x00") == pytest.approx(0.2)
     assert peak_of(b"") == 0.0
     assert peak_of(b"\x00") == 0.0
+
+
+def test_a_peak_is_shown_in_decibels_lit_leds_as_they_are():
+    assert leds_of(Peak(0.5)) == level_of(0.5)
+    assert leds_of(Lit(7)) == 7
+    assert leds_of(Lit(METER_MAX + 5)) == METER_MAX
+    assert leds_of(Lit(-1)) == 0
 
 
 def test_the_level_spreads_the_decibels_over_the_leds():

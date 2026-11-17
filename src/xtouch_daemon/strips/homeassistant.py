@@ -28,6 +28,7 @@ from haad_mqtt_autodiscovery.entity.number import MQTTNumber
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from haad_mqtt_autodiscovery.entity.text import MQTTText, MQTTTextPayload
 
+from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
@@ -357,7 +358,7 @@ class HomeAssistantStrip(StripController):
         self.fader_link.show()
         self.strip.set_ring(*self.encoder_link.ring())
 
-    def held_meter(self) -> int | None:
+    def held_meter(self) -> Lit | None:
         """
         The level of the meter entity: 0..100 % over the levels of the meter, 100 % lights all LEDs (the red one too),
         nothing while not connected.
@@ -365,7 +366,7 @@ class HomeAssistantStrip(StripController):
         percent = _value(self.meter_level.target_state)
         if not self.connected or percent is None:
             return None
-        return round(max(0.0, min(100.0, percent)) / 100 * METER_MAX)
+        return Lit(round(max(0.0, min(100.0, percent)) / 100 * METER_MAX))
 
     # -- the device -----------------------------------------------------------------------------------------------
 

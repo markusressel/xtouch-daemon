@@ -88,6 +88,33 @@ def level_of(peak: float) -> int:
 
 
 @dataclass(frozen=True)
+class Peak:
+    """A level of audio: the peak amplitude, 1.0 at full scale. The meter shows it in dB (`level_of()`)."""
+
+    amplitude: float
+
+
+@dataclass(frozen=True)
+class Lit:
+    """A level that is no audio (e.g. a percentage of Home Assistant): this many LEDs, 0..METER_MAX."""
+
+    leds: int
+
+
+type Reading = Peak | Lit
+"""
+What a strip's meter shows without a capture of its own (`StripController.held_meter()`): audio as `Peak`, so every
+source of audio reads on the same scale, anything else as `Lit`.
+"""
+
+
+def leds_of(reading: Reading) -> int:
+    if isinstance(reading, Peak):
+        return level_of(reading.amplitude)
+    return max(0, min(METER_MAX, reading.leds))
+
+
+@dataclass(frozen=True)
 class CaptureTarget:
     node: str | None
     """A node name, or the serial of a stream (the index PulseAudio tools show); None for the default output."""

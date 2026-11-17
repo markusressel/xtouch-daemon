@@ -10,7 +10,7 @@ from tests.support.audio import FakeBackend, output, stream
 from tests.support.hardware import RecordingSurface
 from tests.support.launch import FakeLauncher
 from tests.support.tasks import finish_tasks, settle
-from xtouch_daemon.audio.meter import CHUNK_BYTES, CaptureTarget
+from xtouch_daemon.audio.meter import CHUNK_BYTES, CaptureTarget, Lit
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Direction
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.model import Config
@@ -189,7 +189,7 @@ async def test_a_held_level_is_sent_again_and_again(
 ) -> None:
     monkeypatch.setattr(mixer_module, "METER_INTERVAL", 0.001)
     mixer.on_state(STATE)
-    monkeypatch.setattr(mixer.controllers[2], "held_meter", lambda: 7)
+    monkeypatch.setattr(mixer.controllers[2], "held_meter", lambda: Lit(7))
 
     task = asyncio.create_task(mixer.run())
     for _ in range(200):

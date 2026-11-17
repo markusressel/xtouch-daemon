@@ -10,7 +10,7 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.media import MediaPlayers
-from xtouch_daemon.audio.meter import CaptureTarget
+from xtouch_daemon.audio.meter import CaptureTarget, Reading
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import EncoderMode, Indicator
@@ -99,10 +99,11 @@ class StripController:
         """What the strip is, for the log: its label, or its type."""
         return f"strip {self.strip.index + 1}"
 
-    def held_meter(self) -> int | None:
+    def held_meter(self) -> Reading | None:
         """
-        A level the meter holds without audio (0..METER_MAX), e.g. one Home Assistant set; None for none. The device
-        lets a meter fall, so the mixer sends it again and again.
+        What the meter shows without a capture of its own: audio as a `Peak` (e.g. a participant of the voice chat),
+        anything else as `Lit` (e.g. a level Home Assistant set); None for nothing. The device lets a meter fall, so
+        the mixer sends it again and again.
         """
         return None
 

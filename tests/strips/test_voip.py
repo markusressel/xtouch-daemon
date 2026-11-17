@@ -7,7 +7,7 @@ import pytest
 from tests.support.hardware import RecordingSurface
 from tests.support.launch import FakeLauncher
 from tests.support.tasks import finish_tasks, settle
-from xtouch_daemon.audio.meter import level_of
+from xtouch_daemon.audio.meter import Lit, Peak
 from xtouch_daemon.audio.model import DISCONNECTED
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.hardware import protocol
@@ -148,8 +148,8 @@ async def test_a_strip_shows_its_participant(surface: RecordingSurface, env: Str
     # more participants than places: Select pages
     assert first.leds[Button.SELECT] == Led.ON
     assert (second.color, second.text, second.leds[Button.MUTE]) == (Color.CYAN, ["Bob", "muted"], Led.ON)
-    # on the scale of the other meters (dB): half of full scale (-6 dB) lights 11 LEDs, linear it was 7
-    assert ann.held_meter() == level_of(0.5) == 11
+    # audio: the mixer shows it in dB like the meters of streams
+    assert ann.held_meter() == Peak(0.5)
     assert bob.held_meter() is None
 
 
@@ -164,7 +164,7 @@ async def test_without_volumes_and_levels(surface: RecordingSurface, env: StripE
     assert surface.strips[0].fader == 0
     assert surface.strips[0].leds[Button.SELECT] == Led.OFF
     # a talking participant fills the meter, a silent one leaves it
-    assert ann.held_meter() == protocol.METER_MAX - 1
+    assert ann.held_meter() == Lit(protocol.METER_MAX - 1)
     assert bob.held_meter() is None
     ann.on_fader(0.5)
     ann.on_button(Button.MUTE, True)

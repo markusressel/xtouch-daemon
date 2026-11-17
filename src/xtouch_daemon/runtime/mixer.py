@@ -13,7 +13,7 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.media import MediaPlayers
-from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter
+from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter, leds_of
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.model import Config
@@ -283,8 +283,8 @@ class Mixer:
             await asyncio.sleep(METER_INTERVAL)
             for controller, meter in zip(self.controllers, self.meters, strict=True):
                 level = meter.take_level()
-                if level is None:
-                    level = controller.held_meter()
+                if level is None and (held := controller.held_meter()) is not None:
+                    level = leds_of(held)
                 if level is not None:
                     controller.strip.set_meter(level)
             tick += 1
