@@ -46,6 +46,8 @@ class Inputs:
     """Slots that keep what they show: held by a finger or a button, or within their dwell time."""
     pins: Mapping[int, str] = field(default_factory=dict)
     """Applications pinned to `auto` slots with the `pick` encoder."""
+    homes: Mapping[str, int] = field(default_factory=dict)
+    """The slot each person of `people` had last (for a while): they get it again when they come back."""
 
 
 @dataclass(frozen=True)
@@ -233,7 +235,20 @@ class _Resolver:
         for person in people:
             if person in assigned.values():
                 continue
-            free = [slot for slot in slots if slot not in assigned]
+            home = self.inputs.homes.get(person)
+            if (
+                home is not None
+                and home in self.inputs.fixed
+                and shown[home].pool == AUTO
+                and shown[home].member is None
+            ):
+                # their slot is empty but dwells (they left a moment ago): wait for it rather than take another
+                left.append(person)
+                continue
+            if home is not None and home in slots and home not in assigned and home not in keeping:
+                assigned[home] = person
+                continue
+            free: list[int] = [slot for slot in slots if slot not in assigned]
             # free before an application's (moving one now is worse than maybe later), then stable; the rightmost
             ranked = sorted(free, key=lambda s: (s not in keeping, shown[s].candidate == 0, s))
             slot = ranked[-1] if ranked else None

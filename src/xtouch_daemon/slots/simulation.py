@@ -6,12 +6,14 @@ the daemon will run, driven by observations at given times instead of the sound 
 from collections.abc import Mapping
 
 from xtouch_daemon.slots.inputs import Observation, PoolMembers, Presence
-from xtouch_daemon.slots.model import ABSENT_AFTER, Scene
+from xtouch_daemon.slots.model import ABSENT_AFTER, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import Inputs, Result, resolve
 from xtouch_daemon.slots.states import Override, StateEngine, States
 
 DWELL = 1.0
 """Seconds a slot keeps what it shows before it changes again."""
+HOME = 600.0
+"""Seconds a person who left keeps their slot for when they come back (if it is free then)."""
 
 
 class Simulation:
@@ -31,6 +33,8 @@ class Simulation:
         self.result: Result | None = None
         self.states: States | None = None
         self._changed: dict[int, float] = {}
+        self._homes: dict[str, tuple[int, float]] = {}
+        """The slot of each person of `people`, and when they were last on it."""
 
     def step(
         self,
@@ -48,8 +52,13 @@ class Simulation:
         self._changed = {slot: since for slot, since in self._changed.items() if now - since < self.dwell}
         dwelling = set(self._changed)
         pools = self.members.update(observation, now)
-        inputs = Inputs(self.states.values, present, pools, frozenset(held | dwelling), pins or {})
+        self._homes = {person: (slot, at) for person, (slot, at) in self._homes.items() if now - at < HOME}
+        homes = {person: slot for person, (slot, _) in self._homes.items()}
+        inputs = Inputs(self.states.values, present, pools, frozenset(held | dwelling), pins or {}, homes)
         result = resolve(self.scene, inputs, self.result)
+        for slot, shown in result.slots.items():
+            if shown.pool == PEOPLE and shown.member is not None:
+                self._homes[shown.member] = (slot, now)
         for slot, shown in result.slots.items():
             if self.result is not None and self.result.slots[slot] != shown:
                 self._changed[slot] = now
