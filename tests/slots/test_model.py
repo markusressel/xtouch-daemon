@@ -115,6 +115,15 @@ def test_stacks_in_all_forms():
             "slots.1[0]: rec: the slot's controls claim it ([controls])",
         ),
         ("[people]\nlaunch = ['mumble']", "people: Value error, launch: the strips of people have none"),
+        ("[people]\nlaunch_when_running = true", "people: Value error, launch: the strips of people have none"),
+        (
+            "[controls]\n1 = { select = { launch = [] } }",
+            "controls.1.select.Launch.launch: Tuple should have at least 1",
+        ),
+        (
+            "[controls]\n1 = { select = { launch = ['x'] }, id = 'knob' }",
+            "controls.1.id: names Home Assistant entities",
+        ),
         ("[state.out]\nprocesses = ['x']", "state.out: out is also a channel; channels, pools and states share"),
         ("[state.both]\nwhen = 'call'\napps = ['x']", "state.both: Value error, when is not together with"),
         ("[state.loop]\nwhen = 'present'", 'state.loop.when: "present": present is only for candidates'),

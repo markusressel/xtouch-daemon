@@ -189,8 +189,9 @@ class _Resolver:
             assigned: dict[int, str] = {}
             if pool == AUTO:
                 for slot, member in self.inputs.pins.items():
-                    if member in with_slot:
-                        # a channel pinned while it had no slot, and has one now: it shows there
+                    if member in with_slot or member in held:
+                        # a channel pinned while it had no slot, and has one now, or a member a held slot shows:
+                        # it shows there (the pin takes effect once that slot is let go)
                         self.why[slot].append(f"pin {member}: on another slot")
                     elif slot in slots:
                         assigned[slot] = member

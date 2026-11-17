@@ -366,9 +366,14 @@ device, not to a channel.
   `"toggle:<state>"` (the LED shows the state or mode). A fader and an encoder only take `"homeassistant"`.
 - A claimed control wins over what the slot shows and owns its LED or ring; the presenter bound there is told which
   are taken. With the fader taken, the encoder of what the slot shows sets the volume, as with today's
-  `fader = "homeassistant"`. A candidate of the slot can't set the LED (`rec`, `solo`) of a claimed button.
+  `fader = "homeassistant"`; with only the encoder taken, the fader stays the volume. Under a claimed Select the LED
+  is the launch's. A candidate of the slot can't set the LED (`rec`, `solo`) of a claimed button, also while the
+  claim's `when` doesn't hold: one owner per LED in the file.
+- A channel's own `fader`/`encoder = "homeassistant"` (entities by channel id, moving with the channel) stays; a
+  claim of the slot wins over it while it holds.
 - `when` (states only, no `present`): while it doesn't hold, the controls go back to what the slot shows. Starting
-  Mumble on slot 7 outside a call leaves VoIP's own Select alone in a call.
+  Mumble on slot 7 outside a call leaves VoIP's own Select alone in a call. Nothing changes under a finger: a held
+  slot keeps its claims until it is let go, and a release goes to whoever got the press.
 - Controls don't touch the resolver: they don't hold a slot, people and channels sit there as anywhere. The Solo
   buttons of the chord can't be claimed.
 - Their entities are `*.xtouch_slot_<n>_*`, or `*.xtouch_<id>_*` with `id`: registered once per configuration,
@@ -602,10 +607,12 @@ Each step keeps the daemon working and the tests green:
 2. `Desk` out of `Mixer`, for both formats: touch and held buttons survive a new mixer. See [Step 2](#step-2-the-desk).
 3. Controllers get their look, identity and entity ids from outside (the old format from its strips).
 4. `SlotEngine` with pins, overrides and persistence, carried over a reload; the prototype takes the applications of
-   `auto` from the result.
+   `auto` from the result. Pins hold a typed member (application or channel, like `Person`), people go by the
+   participant's id.
 5. The slots natively: `ChannelSet`, `Members`, `Places`, `Controls`, `Binder` on the `Desk`; `Shape` and the
    rebuilding go; entities per channel and per slot's controls.
-6. Home Assistant: states, overrides, the mode (replaces the layout select), the slots.
+6. Home Assistant: states, overrides, the mode (replaces the layout select), the slots. The chord gets its new form,
+   and its check against `[controls]` moves into `Scene.of()` (now in `config/slots.py`).
 7. The live view: the snapshot and requests above; the GUI shows them read-only.
 8. `migrate-config`, `check-config`, `init-config`, the docs; an old file fails with a pointer to `migrate-config`.
 9. The old format and its runtime go.
@@ -615,10 +622,13 @@ Each step keeps the daemon working and the tests green:
 
 - `Presenter`: what the `Desk` calls of a controller (today's `StripController`): `strip`, the `on_*` handlers,
   `meter_targets`, `is_playing`, `target_gain`, `held_meter`, `close`, and `taken_controls` (step 5).
-- The `Desk` API: `bind(slot, presenter | None)`, `held_slots()` (slots from 1), `dispatch(event)`. A presenter bound
-  to a slot a finger is on gets `on_touch(True)` at once, so it knows (in the old format a layout switch rebinds
-  under a finger; in the new one a held slot doesn't change). Until step 9 the old format binds the controllers of
-  its mixer through the `Flow` (`strip_at`).
+- The `Desk` API: `bind(slot, presenter | None, meter_point)`, `held_slots()` (slots from 1), `dispatch(event)`. A
+  presenter bound to a slot a finger is on gets `on_touch(True)` at once, so it knows (in the old format a layout
+  switch rebinds under a finger; in the new one a held slot doesn't change).
+- `dispatch` routes by slot and control (fader, encoder, each button) to an owner: the bound presenter, or a claim
+  (a hook that stays empty until step 5 brings `[controls]`). It is sticky: a release (button up, fader let go,
+  encoder push up) goes to whoever got the press, even if `bind()` changed in between.
+- Until step 9 the old format binds the controllers of its mixer through the `Flow` (`strip_at`).
 - The `Desk` owns the meters from step 2 on: it runs the meter loop for the presenters bound now.
 - The `Desk` also keeps the chord's held Solo buttons and the flashes and banners of the slots.
 - The GUI's live preview uses the same `Desk`: touch and held buttons carry over its start and end.
@@ -750,6 +760,15 @@ people from the right, applications from the left (they don't push each other ar
 mic before anyone comes); the meters of people on the dB scale like every other meter.
 
 ## Review log
+
+### Sixth review (the integration of the fifth)
+
+| Finding | Decision |
+|---|---|
+| A pinned member a held slot shows went to its pin's slot too: one stream on two strips. | A pin waits while a held slot shows its member. |
+| Claims could change under a finger; a release could go to another owner than the press. | Held slots keep their claims; `dispatch` is sticky and routes by control. |
+| Minor: untyped pins and members by display name; an `id` on controls without Home Assistant; an empty launch; `launch_when_running` in `[people]`; LEDs of claimed buttons with a `when`; the chord check outside the model; two homes for Home Assistant faders; LEDs under claims. | Step 4; errors; refused; one owner per LED; step 6; both stay, the slot's claim wins; stated. |
+| `bind()` lacked the meter point the `Desk` needs for its meters. | `bind(slot, presenter, meter_point)`. |
 
 ### Fifth review (the integration of the fourth, and actions of places)
 

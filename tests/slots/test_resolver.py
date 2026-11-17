@@ -273,6 +273,17 @@ def test_people_leave_pinned_slots_to_applications():
     assert shows(result, [1, 8]) == ["browser", "people:Bob"]
 
 
+def test_a_pin_waits_while_a_held_slot_shows_its_member():
+    """mpv, pinned to 5, moved to 3 while 5 had a channel; 3 is held: mpv doesn't show on 5 too."""
+    text = '[slots]\n5 = ["out if call", "auto"]\n1 = "-"\n2 = "-"\n'
+    mpv = Observation(playing=("mpv",))
+    before = run(text, "call", observation=mpv, pins={5: "mpv"})
+    assert shows(before, [3, 5]) == ["auto:mpv", "out"]
+    after = run(text, previous=before, observation=mpv, pins={5: "mpv"}, fixed=frozenset({3}))
+    assert shows(after, [3, 5]) == ["auto:mpv", "auto"]
+    assert "pin mpv: on another slot" in after.why[5]
+
+
 def test_people_and_applications_are_told_apart_from_channels():
     """Someone called browser in the voice chat is no channel, nor is an application called out."""
     result = run('[slots]\n1 = "-"\n', observation=Observation(playing=("out", "firefox"), people=("browser",)))

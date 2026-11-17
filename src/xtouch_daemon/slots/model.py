@@ -8,9 +8,9 @@ import difflib
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.presets import Kind, expand
@@ -106,7 +106,7 @@ class PeopleConfig(_Open):
     @model_validator(mode="before")
     @classmethod
     def _no_launch(cls, data: Any) -> Any:
-        if isinstance(data, Mapping) and "launch" in data:
+        if isinstance(data, Mapping) and ("launch" in data or "launch_when_running" in data):
             raise ValueError("launch: the strips of people have none; a launch is a control of a slot ([controls])")
         return data
 
@@ -118,7 +118,7 @@ class PeopleConfig(_Open):
 
 
 class Launch(_Section):
-    launch: tuple[str, ...]
+    launch: Annotated[tuple[str, ...], Field(min_length=1)]
     launch_when_running: bool = False
 
 
@@ -435,6 +435,8 @@ def _parse_controls(
             if condition is not None:
                 conditions[slot] = condition
         name = config.id if config.id is not None else f"slot_{slot}"
+        if config.id is not None and "homeassistant" not in (getattr(config, control) for control in CONTROLS):
+            problems.append(f"{where}.id: names Home Assistant entities, but no control is for Home Assistant")
         if config.id is not None:
             if not _ID.fullmatch(name):
                 problems.append(f"{where}.id: {name}: an id is lower case letters, digits and _")
