@@ -1,5 +1,5 @@
 """
-The strips of layouts: `inherit` (a strip of another layout) and `voip` (the participants of a voice chat).
+The strips of the voice chat (`voip`): the participants of a voice chat.
 """
 
 from collections.abc import Mapping
@@ -11,31 +11,13 @@ from xtouch_daemon.config.base import Model
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
 from xtouch_daemon.config.values import (
     COLORS,
-    MAX_STRIPS,
     METER_POINTS,
     VOLUME_LIMIT,
     ColorName,
     Command,
     Label,
     MeterPoint,
-    Slug,
 )
-
-
-class InheritStripConfig(Model):
-    """
-    A strip of another layout (or of its own), with all its options: by default the strip of the default layout at
-    this place.
-    """
-
-    type: Annotated[Literal["inherit"], STRIP_TYPE_MEANINGS]
-    layout: Slug | None = None
-    """The `name` of the layout of the strip; by default the default layout (the top-level `[[strip]]` list)."""
-    strip: Annotated[int, Field(ge=1, le=MAX_STRIPS)] | Slug | None = None
-    """
-    The strip in that layout: its position in the layout's list (from 1), or its `id`; by default the strip at this
-    place.
-    """
 
 
 def _one_or_more(value: object) -> object:

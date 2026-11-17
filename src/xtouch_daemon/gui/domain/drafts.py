@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from xtouch_daemon.config.files import Problem
-from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.legacy.model import LegacyConfig as Config
 from xtouch_daemon.gui.domain.schema import Section, sections
 
 SECTIONS: dict[str, Section] = {section.name: section for section in sections()}

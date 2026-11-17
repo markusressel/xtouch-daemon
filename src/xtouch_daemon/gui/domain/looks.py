@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from xtouch_daemon.audio.model import AudioState, Device, Direction
-from xtouch_daemon.config.strips import STRIP_TYPES
+from xtouch_daemon.config.legacy.strips import LEGACY_STRIP_TYPES as STRIP_TYPES
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.drafts import Validation
 from xtouch_daemon.gui.domain.flow import FlowRow

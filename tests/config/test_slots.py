@@ -70,20 +70,16 @@ def test_the_strips_of_every_candidate_and_member():
     assert config.slots.person("Bo").model_dump()["color"] == "yellow"
     # people share auto in every configuration: the voice chat with its defaults
     assert config.voip is not None
-    assert config.behavior.auto_hold == 2
-    assert "beep" in config.behavior.ignore
-    assert "radio" in config.behavior.ignore
-    assert "firefox" in config.behavior.ignore
     # each channel on its own, for its controller
     assert config.slots.channels["out"].type == "output"
     assert config.slots.channels["alice"].model_dump()["person"] == ("Alice",)
     assert config.slots.channels["radio"].model_dump()["color"] == "white"
 
 
-def test_nothing_ignored_without_apps_channels():
-    config = parse_config('[channel.out]\ntype = "output"\n[slots]\n1 = ["out", "-"]\n2 = "-"\n3 = "-"\n')
-    assert config.slots is not None
-    assert config.slots.ignored() == ()
+def test_auto_never_takes_screen_readers_unless_exclude_says_otherwise():
+    assert parse_config("").slots.scene.pools["auto"].exclude == ("speech-dispatcher",)
+    config = parse_config('[pool.auto]\nexclude = ["beep"]\n')
+    assert config.slots.scene.pools["auto"].exclude == ("beep",)
 
 
 @pytest.mark.parametrize(
@@ -98,6 +94,16 @@ def test_nothing_ignored_without_apps_channels():
             "channel.out: volume: Extra inputs are not permitted",
         ),
         (CHANNELS + '[slots]\n1 = [{ show = "out", color = "pink" }]\n', "slots.1[0]: color: Input should be"),
+        (
+            CHANNELS.replace('label = "Out"', 'label = "Out"\nmin_volume = 90\nmax_volume = 80') + "[slots]\n",
+            "channel.out: min_volume (90) is not below max_volume (80)",
+        ),
+        ("[behavior]\nauto_hold = 2\n", "behavior.auto_hold: gone with strips and layouts, see hold of [pool.auto]"),
+        ("[switching]\nhold = 2\n", "switching.hold: gone with strips and layouts, see delay_off of each mode"),
+        (
+            '[slots]\n1 = [{ show = "auto", min_volume = 50, max_volume = 40 }]\n',
+            "slots.1[0]: min_volume (50) is not below max_volume (40)",
+        ),
         ('[channel.app]\ntype = "apps"\nmatch = ["x"]\n[slots]\n1 = "app"\n', "channel.app: label: Field required"),
         ('[slots]\n1 = "nothing"\n', "slots.1[0]: nothing is no channel or pool"),
         ('[device]\nname = 3\n[slots]\n1 = "auto"\n', "device.name"),
@@ -134,3 +140,12 @@ def test_the_chord_as_a_table():
     # without an action: the next mode
     config = parse_config('[switching]\nchord = { strips = [2, 3] }\n[slots]\n1 = "auto"\n')
     assert (config.switching.chord, config.switching.chord_action) == ((2, 3), "cycle_modes")
+
+
+def test_the_meter_point_of_a_channel_is_its_own_or_the_one_of_behavior():
+    config = parse_config(
+        '[behavior]\nmeter_point = "post_fader"\n'
+        '[channel.out]\ntype = "output"\n[channel.mic]\ntype = "input"\nmeter_point = "pre_fader"\n'
+    )
+    assert config.meter_point(config.slots.channels["out"]) == "post_fader"
+    assert config.meter_point(config.slots.channels["mic"]) == "pre_fader"

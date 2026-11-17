@@ -4,7 +4,7 @@ from typing import assert_never
 
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
-from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
+from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.hardware.protocol import Button
@@ -36,7 +36,7 @@ def strip_identity(config: StripConfig, position: int) -> Identity:
 def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
     """The look of a strip of strips and layouts; `meter_point` is the one its layout gives it."""
     match config:
-        case EmptyStripConfig() | InheritStripConfig():
+        case EmptyStripConfig():
             return Look(meter=False)
         case HomeAssistantStripConfig():
             return Look(config.label, config.color, meter=False)
@@ -74,12 +74,10 @@ def build_strip(
 ) -> StripController:
     """
     The controller of a strip, with its identity and look (see `strip_identity()` and `look_of()`). `seat` is where a
-    `voip` strip sits among those of its layout (see `Mixer`); `inherit` strips are resolved by `Config.all_strips()`
-    already.
+    `voip` strip sits among those of its layout (see `Mixer`).
     """
     if isinstance(config, EmptyStripConfig):
         return EmptyStrip(strip, env, identity, look)
-    assert not isinstance(config, InheritStripConfig), "all_strips() resolves inherit strips"
     if isinstance(config, VoipStripConfig):
         assert seat is not None, "the mixer seats voip strips"
         return VoipStrip(strip, env, identity, look, seat, config)

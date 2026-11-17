@@ -7,8 +7,8 @@ from collections.abc import Callable
 from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from xtouch_daemon.audio.model import Direction
+from xtouch_daemon.config.legacy.strips import LEGACY_STRIP_TYPES as STRIP_TYPES
 from xtouch_daemon.config.sections import BehaviorConfig
-from xtouch_daemon.config.strips import STRIP_TYPES
 from xtouch_daemon.config.values import DEFAULT_LAYOUT, default_encoder
 from xtouch_daemon.gui.domain import docs, inherit, sources
 from xtouch_daemon.gui.domain.changes import Change

@@ -54,7 +54,7 @@ def strip_for(app_matches: Any, config: Config) -> str:
         if channel.type == "apps" and app_matches(channel.streams):
             label = getattr(config.slots.channels.get(name), "label", None)
             return f"channel {name}" + (f" ({label})" if label else "")
-    excluded = (*config.behavior.ignore, *presets.expand(scene.pools[AUTO].exclude, presets.Kind.STREAMS))
+    excluded = presets.expand(scene.pools[AUTO].exclude, presets.Kind.STREAMS)
     if any(app_matches((pattern,)) for pattern in excluded):
         return "ignored"
     if any(candidate.show == AUTO for stack in scene.stacks.values() for candidate in stack):

@@ -7,7 +7,7 @@ import pytest
 from tests.support.config import legacy, legacy_errors_of
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig
-from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.legacy.model import LegacyConfig
 from xtouch_daemon.config.sections import BehaviorConfig
 
 PRESETS_CONFIG = """\
@@ -92,7 +92,7 @@ def test_a_preset_in_a_list_it_is_not_for_says_where_it_fits(monkeypatch: pytest
 
 def test_a_strip_given_as_a_model_keeps_its_presets():
     strip = AppsStripConfig(type="apps", match=("@voip",), label="VoIP")
-    config = Config.model_validate({"strip": [strip]})
+    config = LegacyConfig.model_validate({"strip": [strip]})
     (again,) = config.strips
     assert isinstance(again, AppsStripConfig)
     assert again.written("match") == ("@voip",)

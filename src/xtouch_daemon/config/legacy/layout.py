@@ -6,8 +6,8 @@ from typing import Annotated
 
 from pydantic import Field
 
+from xtouch_daemon.config.legacy.strips import LegacyStripConfig
 from xtouch_daemon.config.names import ProcessNames, StreamNames, WithPresets
-from xtouch_daemon.config.strips import StripConfig
 from xtouch_daemon.config.values import MAX_STRIPS, METER_POINTS, LayoutLabel, MeterPoint, Slug
 
 
@@ -38,7 +38,7 @@ class LayoutConfig(WithPresets):
     Where the meters of the layout's strips take the level, unless a strip has its own `meter_point`; by default
     `behavior.meter_point`.
     """
-    strips: Annotated[tuple[StripConfig, ...], Field(alias="strip", max_length=MAX_STRIPS)] = ()
+    strips: Annotated[tuple[LegacyStripConfig, ...], Field(alias="strip", max_length=MAX_STRIPS)] = ()
     """Up to 8 strips from the left (more with `collapse`), as the top-level ones; missing ones are `auto`."""
 
     @property

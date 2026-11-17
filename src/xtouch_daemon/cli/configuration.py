@@ -14,7 +14,7 @@ from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path, example_config, slots_example_config
-from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
+from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.migrate import migrate
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
@@ -46,9 +46,6 @@ def describe_strip(config: StripConfig, name: str, meter_point: MeterPoint = "pr
             return f"{label}Home Assistant, entities *.*_{name}_* ({config.color})"
         case EmptyStripConfig():
             return "empty"
-        case InheritStripConfig(layout=layout, strip=strip):
-            where = f"layout {layout}" if layout is not None else "the default layout"
-            return f"strip {strip} of {where}" if strip is not None else f"the strip of {where} at this place"
         case VoipStripConfig():
             launch = f", select launches {shlex.join(config.launch)} while it is not there" if config.launch else ""
             collapse = ", collapses" if config.collapse else ""

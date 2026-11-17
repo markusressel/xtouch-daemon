@@ -53,8 +53,10 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
   `switching.banner` seconds.
 
-`[pool.auto]` has `hold` (seconds a slot keeps an application after it stopped playing) and `exclude` (applications
-it never takes); `[people]` the look of the strips of people (`color`, `talking_color`, ...).
+`[pool.auto]` has `hold` (seconds a slot keeps an application after it stopped playing, 5 by default) and `exclude`
+(applications it never takes, by default `speech-dispatcher`, the voice of screen readers); `[people]` the look of
+the strips of people (`color`, `talking_color`, ...). They replace `behavior.auto_hold` and `behavior.ignore`; a file
+with those, `behavior.collapse_hold` or `switching.hold` says what took their place.
 
 ## States and modes
 

@@ -19,8 +19,9 @@ from xtouch_daemon.config.files import (
     problems_of,
     slots_example_config,
 )
-from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
-from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.layout_strips import VoipStripConfig
+from xtouch_daemon.config.legacy.model import LegacyConfig
+from xtouch_daemon.config.legacy.strips import LEGACY_STRIP_MODELS, LEGACY_STRIP_TYPES, InheritStripConfig
 from xtouch_daemon.config.sections import DeviceConfig, VoipConfig
 from xtouch_daemon.config.strips import STRIP_MODELS, STRIP_TYPES, EmptyStripConfig, HomeAssistantStripConfig
 from xtouch_daemon.config.values import color_of
@@ -49,12 +50,12 @@ def test_strips_that_are_not_configured_are_auto():
     strips = legacy(FULL).all_strips()
     assert len(strips) == 8
     assert strips[4:] == (AutoStripConfig(type="auto"),) * 4
-    assert len(Config().all_strips()) == 8
+    assert len(LegacyConfig().all_strips()) == 8
 
 
 def test_an_empty_file_is_the_defaults():
     config = legacy("")
-    assert config == Config()
+    assert config == LegacyConfig()
     assert config.device.name == "X-Touch-Ext"
     assert config.behavior.max_volume == 130
 
@@ -114,7 +115,7 @@ def test_a_list_at_the_top_level_names_its_position():
 
 def test_problems_name_the_place_in_the_toml_data():
     with pytest.raises(ValidationError) as error:
-        Config.model_validate({"aliases": {"output": "too long"}, "strip": [{"type": "apps", "match": ["x"]}]})
+        LegacyConfig.model_validate({"aliases": {"output": "too long"}, "strip": [{"type": "apps", "match": ["x"]}]})
 
     assert [(problem.path, problem.kind) for problem in problems_of(error.value)] == [
         # an alias for an application named like a strip type is not a strip type
@@ -131,10 +132,12 @@ def test_the_strip_types_are_the_ones_of_the_models():
         AutoStripConfig,
         HomeAssistantStripConfig,
         EmptyStripConfig,
-        InheritStripConfig,
         VoipStripConfig,
     ) == STRIP_MODELS
-    assert STRIP_TYPES == ("output", "input", "apps", "auto", "homeassistant", "empty", "inherit", "voip")
+    assert STRIP_TYPES == ("output", "input", "apps", "auto", "homeassistant", "empty", "voip")
+    # the old format also has inherit
+    assert (*STRIP_MODELS[:5], InheritStripConfig, VoipStripConfig) == LEGACY_STRIP_MODELS
+    assert LEGACY_STRIP_TYPES == ("output", "input", "apps", "auto", "homeassistant", "empty", "inherit", "voip")
 
 
 def test_the_docstrings_of_the_options_are_their_descriptions():

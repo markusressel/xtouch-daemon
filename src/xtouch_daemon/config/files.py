@@ -13,11 +13,19 @@ from pydantic import (
 )
 
 from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.legacy.strips import LEGACY_STRIP_TYPES
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.slots import setup, split
-from xtouch_daemon.config.strips import STRIP_TYPES
 
 APP_NAME = "xtouch-daemon"
+
+REPLACED = {
+    ("behavior", "auto_hold"): "hold of [pool.auto]",
+    ("behavior", "ignore"): "exclude of [pool.auto]",
+    ("behavior", "collapse_hold"): "absent_after of a channel",
+    ("switching", "hold"): "delay_off of each mode",
+}
+"""Options of strips and layouts, and what channels, states and slots have instead."""
 
 
 def default_config_path() -> Path:
@@ -67,7 +75,7 @@ def problems_of(error: ValidationError) -> list[Problem]:
         # the type of a strip follows its position in the path of its errors (`strip.2.apps.label`), but is not part
         # of the TOML data
         path = tuple(
-            part for i, part in enumerate(loc) if not (i and isinstance(loc[i - 1], int) and part in STRIP_TYPES)
+            part for i, part in enumerate(loc) if not (i and isinstance(loc[i - 1], int) and part in LEGACY_STRIP_TYPES)
         )
         # pydantic puts "Value error, " before the messages of the validators here
         problems.append(Problem(path, item["msg"].removeprefix("Value error, "), item["type"]))
@@ -84,6 +92,13 @@ def parse_config(text: str, source: str = "config") -> Config:
             f"{source} has strips and layouts, which are gone: `xtouch-daemon migrate-config` writes it as channels, "
             "states and slots"
         )
+    replaced = [
+        f"  {section}.{option}: gone with strips and layouts, see {instead}"
+        for (section, option), instead in REPLACED.items()
+        if option in data.get(section, {})
+    ]
+    if replaced:
+        raise ConfigError(f"{source} has errors:\n" + "\n".join(replaced))
     rest, slots = split(data)
     try:
         config = Config.model_validate(rest)

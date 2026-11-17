@@ -29,7 +29,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `xtouch-daemon mode` lists and picks the modes (`layout` still works and says so). See the new page Channels,
   states and slots. The daemon runs only this format: it refuses a file with strips and layouts and points to
   `migrate-config` (the GUI still edits the old format for now), and a file without `[slots]` shows `auto` on every
-  slot.
+  slot. `behavior.auto_hold`, `behavior.ignore`, `behavior.collapse_hold` and `switching.hold` are errors that name
+  what replaced them; `[pool.auto] exclude` leaves out `speech-dispatcher` by default, as `behavior.ignore` did, and
+  `min_volume` and `max_volume` of channels and `auto` slots are checked.
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.
   `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
   `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` strips, `apps` and `processes` of layouts

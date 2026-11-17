@@ -6,7 +6,7 @@ the window says about it.
 
 from pathlib import Path
 
-from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.legacy.model import LegacyConfig as Config
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.live.messages import Snapshot, fingerprint
 from xtouch_daemon.system.instance import Instance

@@ -17,8 +17,8 @@ from pydantic import ValidationError
 from tomlkit.items import InlineTable, Table
 
 from xtouch_daemon.config.base import ConfigError
-from xtouch_daemon.config.inheritance import Inheritance
-from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.legacy.inheritance import Inheritance
+from xtouch_daemon.config.legacy.model import LegacyConfig
 from xtouch_daemon.config.slots import SECTIONS
 from xtouch_daemon.config.values import DEFAULT_LAYOUT
 from xtouch_daemon.hardware import protocol
@@ -59,7 +59,7 @@ class _Place:
 
 
 class _Migrator:
-    def __init__(self, data: Mapping[str, Any], config: Config):
+    def __init__(self, data: Mapping[str, Any], config: LegacyConfig):
         self.data = data
         self.config = config
         self.notes: list[str] = []
@@ -238,7 +238,7 @@ def _metered(place: _Place, meter_point: str | None, migrator: _Migrator) -> _Pl
     return _Place(place.show, {**place.options, "meter_point": meter_point}, place.controls, place.present)
 
 
-def read_legacy(text: str, source: str = "config") -> tuple[dict[str, Any], Config]:
+def read_legacy(text: str, source: str = "config") -> tuple[dict[str, Any], LegacyConfig]:
     """The data of a file with strips and layouts, and its configuration; ConfigError for another one."""
     from xtouch_daemon.config.files import problems_of
 
@@ -249,7 +249,7 @@ def read_legacy(text: str, source: str = "config") -> tuple[dict[str, Any], Conf
     if any(section in data for section in SECTIONS):
         raise ConfigError(f"{source} has channels, states and slots already")
     try:
-        return data, Config.model_validate(data)
+        return data, LegacyConfig.model_validate(data)
     except ValidationError as e:
         problems = "\n".join(f"  {problem}" for problem in problems_of(e))
         raise ConfigError(f"{source} has errors:\n{problems}") from e
@@ -303,7 +303,7 @@ def _inline(controls: Mapping[str, Any], when: str | None) -> InlineTable:
 def _render(
     text: str,
     data: Mapping[str, Any],
-    config: Config,
+    config: LegacyConfig,
     migrator: _Migrator,
     slots: Mapping[str, Any],
     controls: Mapping[str, Any],

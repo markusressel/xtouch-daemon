@@ -5,7 +5,7 @@ Like `Config` resolves them, from the values as typed; what can't be resolved is
 
 from typing import Any
 
-from xtouch_daemon.config.inheritance import INHERIT_LIMIT
+from xtouch_daemon.config.legacy.inheritance import INHERIT_LIMIT
 from xtouch_daemon.config.values import DEFAULT_LAYOUT
 from xtouch_daemon.gui.domain.document import ConfigDocument
 from xtouch_daemon.gui.domain.sources import Suggestion

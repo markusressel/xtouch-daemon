@@ -3,10 +3,10 @@ Resolving the `inherit` strips of layouts: which strip of which layout each one 
 """
 
 from xtouch_daemon.config.audio_strips import AutoStripConfig
-from xtouch_daemon.config.layout import LayoutConfig
-from xtouch_daemon.config.layout_strips import InheritStripConfig
+from xtouch_daemon.config.legacy.layout import LayoutConfig
+from xtouch_daemon.config.legacy.strips import InheritStripConfig, LegacyStripConfig
 from xtouch_daemon.config.strip import BaseStripConfig
-from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.strips import HomeAssistantStripConfig
 from xtouch_daemon.hardware import protocol
 
 INHERIT_LIMIT = 8
@@ -27,7 +27,7 @@ class Inheritance:
         layout, position = entry
         return (f"layout[{layout}].strip" if layout else "strip") + f"[{position + 1}]"
 
-    def _strip(self, entry: _Entry) -> StripConfig:
+    def _strip(self, entry: _Entry) -> LegacyStripConfig:
         return self.layouts[entry[0]].strips[entry[1]]
 
     def _enter(self, entry: _Entry, chain: tuple[_Entry, ...]) -> tuple[_Entry, ...]:
@@ -78,7 +78,7 @@ class Inheritance:
             current = self._target(current)
         return current
 
-    def resolve(self, entry: _Entry, chain: tuple[_Entry, ...] = (), lands: int | None = None) -> StripConfig:
+    def resolve(self, entry: _Entry, chain: tuple[_Entry, ...] = (), lands: int | None = None) -> LegacyStripConfig:
         """The strip of the entry, with the strips `inherit` ones refer to; `lands` is the place it lands on."""
         strip = self._strip(entry)
         _, position = entry

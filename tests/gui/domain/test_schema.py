@@ -3,9 +3,11 @@ from typing import Annotated, Literal
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
-from xtouch_daemon.config.layout import LayoutConfig
+from xtouch_daemon.config.legacy.layout import LayoutConfig
+from xtouch_daemon.config.legacy.sections import LegacyBehaviorConfig as BehaviorConfig
+from xtouch_daemon.config.legacy.sections import LegacySwitchingConfig as SwitchingConfig
 from xtouch_daemon.config.presets import Kind as PresetKind
-from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
+from xtouch_daemon.config.sections import DeviceConfig, MqttConfig, VoipConfig
 from xtouch_daemon.gui.domain.schema import (
     STRIP_OPTION_ORDER,
     Kind,

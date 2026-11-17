@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import Model
-from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
-from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS, BaseStripConfig, refuse_collapse
+from xtouch_daemon.config.layout_strips import VoipStripConfig
+from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS, refuse_collapse
 from xtouch_daemon.config.values import COLORS, ColorName, Label, Slug
 
 
@@ -50,7 +50,6 @@ StripConfig = Annotated[
     | AutoStripConfig
     | HomeAssistantStripConfig
     | EmptyStripConfig
-    | InheritStripConfig
     | VoipStripConfig,
     Field(discriminator="type"),
 ]
@@ -58,12 +57,7 @@ STRIP_MODELS: tuple[type[BaseModel], ...] = get_args(get_args(StripConfig)[0])
 """The models of the strip types."""
 
 
-def collapses(strip: StripConfig) -> bool:
-    """Whether the strip gives its place to the ones after it while it has nothing to control (`collapse`)."""
-    return isinstance(strip, BaseStripConfig | VoipStripConfig) and strip.collapse
-
-
 STRIP_TYPES: tuple[str, ...] = tuple(
     name for model in STRIP_MODELS for name in get_args(model.model_fields["type"].annotation)
 )
-"""The values of `type` of a strip: output, input, apps, auto, homeassistant, empty, inherit, voip."""
+"""The values of `type` of a strip: output, input, apps, auto, homeassistant, empty, voip."""

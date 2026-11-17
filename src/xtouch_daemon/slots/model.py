@@ -22,6 +22,8 @@ PEOPLE = "people"
 """The people in the voice chat: no pool and no candidate, they share the slots of `auto`."""
 DEFAULT = "default"
 BUILT_IN = (AUTO, PEOPLE)
+AUTO_EXCLUDE = ("speech-dispatcher",)
+"""What `auto` never takes unless `[pool.auto] exclude` says otherwise: the voice of screen readers."""
 
 STATE_DELAY_OFF = 3.0
 """Seconds a state stays on after its sources stopped (`behavior.state_delay_off`)."""
@@ -228,7 +230,10 @@ class Scene:
             file = _File.model_validate(data)
         except ValidationError as e:
             raise ConfigError("\n".join(_message(error) for error in e.errors())) from e
-        pools = {AUTO: PoolConfig(), **file.pool}
+        auto = file.pool.get(AUTO, PoolConfig())
+        if "exclude" not in auto.model_fields_set:
+            auto = auto.model_copy(update={"exclude": AUTO_EXCLUDE})
+        pools = {**file.pool, AUTO: auto}
         problems: list[str] = []
         _check_ids(file, problems)
         conditions = _parse_conditions(file.state, problems)

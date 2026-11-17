@@ -12,7 +12,6 @@ from pydantic import TypeAdapter, ValidationError
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.model import Config
-from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
@@ -49,15 +48,6 @@ class SlotsSetup:
     def person(self, name: str) -> StripConfig:
         """The strip of a person without a channel (checked with a made-up name when the file is loaded)."""
         return _STRIP.validate_python({"type": "voip"} | dict(self.people) | {"person": name})
-
-    def ignored(self) -> tuple[str, ...]:
-        """
-        What the `auto` strips never take one by one: `exclude`, and the applications of every `apps` channel (one
-        that has no slot goes into `auto` as a whole, as the strip of the channel).
-        """
-        parts = [*self.scene.pools[AUTO].exclude]
-        parts += [part for channel in self.scene.channels.values() if channel.type == "apps" for part in channel.match]
-        return expand(tuple(parts), Kind.STREAMS)
 
 
 def split(data: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
@@ -133,6 +123,15 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                     # the person channels that share its slots, as themselves
                     for member in (name for name, channel in scene.channels.items() if channel.type == "person"):
                         add((slot, index, member), f"{where} ({member})", channel_strip(member))
+    # the volume ranges: of each channel, and of the places of auto (the only ones with a range of their own)
+    ranged = [(f"channel.{name}", strip) for name, strip in own_strips.items()]
+    ranged += [(f"slots.{slot}[{index}]", strip) for (slot, index, member), strip in strips.items() if member is None]
+    for where, strip in ranged:
+        if isinstance(strip, BaseStripConfig):
+            for part, bottom, top in strip.volume_ranges(config.behavior):
+                if bottom >= top:
+                    place = f"{where}.{part}" if part else where
+                    problems.append(f"{place}: min_volume ({bottom}) is not below max_volume ({top})")
     people = {key: value for key, value in data.get(PEOPLE, {}).items() if key not in PEOPLE_ONLY}
     check("people", {"type": "voip"} | people | {"person": "someone"})
     if config.mqtt is None:
@@ -149,14 +148,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))
     # people share the slots of auto in every configuration: the section has defaults for everything
-    voip = config.voip or VoipConfig()
-    behavior = config.behavior.model_copy(
-        update={
-            "auto_hold": scene.pools[AUTO].hold,
-            "ignore": (*config.behavior.ignore, *SlotsSetup(scene, data, strips, people).ignored()),
-        }
-    )
-    result = config.model_copy(update={"voip": voip, "behavior": behavior})
+    result = config.model_copy(update={"voip": config.voip or VoipConfig()})
     channel_strips = {name: strip for name, strip in own_strips.items() if strip is not None}
     result._slots = SlotsSetup(scene, data, strips, people, channel_strips)
     return result

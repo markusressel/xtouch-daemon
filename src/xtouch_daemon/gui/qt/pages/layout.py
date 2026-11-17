@@ -6,7 +6,7 @@ from typing import Any
 
 from PyQt6.QtWidgets import QHBoxLayout, QWidget
 
-from xtouch_daemon.config.layout import LayoutConfig
+from xtouch_daemon.config.legacy.layout import LayoutConfig
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.drafts import Validation

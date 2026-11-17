@@ -15,7 +15,7 @@ from pydantic import ValidationError
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import Problem, example_config, problems_of
-from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.legacy.model import LegacyConfig as Config
 from xtouch_daemon.config.values import DEFAULT_LAYOUT
 from xtouch_daemon.gui.domain.clipboard import CopiedStrip, Paste
 from xtouch_daemon.gui.domain.drafts import (

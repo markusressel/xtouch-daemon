@@ -16,7 +16,7 @@ from pydantic import (
 )
 
 from xtouch_daemon.config.base import ConfigError, Meanings, Model
-from xtouch_daemon.config.names import StreamNames, WithPresets
+from xtouch_daemon.config.names import WithPresets
 from xtouch_daemon.config.values import (
     METER_POINTS,
     SHUTDOWN_SEQUENCES,
@@ -82,21 +82,6 @@ class BehaviorConfig(WithPresets):
     Where the meters take the level: before the volume and Mute of the strip, or after them. A `[[layout]]` or a strip
     may have its own (`meter_point`).
     """
-    auto_hold: Annotated[float, Field(ge=0)] = 5.0
-    """
-    Seconds an `auto` strip keeps an application after it stopped playing, so a music player does not jump to
-    another strip between two tracks.
-    """
-    ignore: StreamNames = ("speech-dispatcher",)
-    """
-    Applications that `auto` strips never take: parts of the name or binary, ignoring case, e.g. "notification" for
-    notification sounds, or presets like `@games`.
-    """
-    collapse_hold: Annotated[float, Field(ge=0)] = 3.0
-    """
-    Seconds a strip with `collapse` keeps its fader after it has nothing to control anymore, before the strips after
-    it move up. It comes back at once.
-    """
 
     @model_validator(mode="after")
     def _reset_within_reach(self) -> BehaviorConfig:
@@ -159,11 +144,6 @@ class MqttConfig(Model):
 class SwitchingConfig(Model):
     """How the daemon switches between layouts (`[[layout]]`)."""
 
-    hold: Annotated[float, Field(ge=0)] = 10.0
-    """
-    Seconds a layout stays after its rule stopped matching (`apps`, `processes`), e.g. while a game loads the next
-    level.
-    """
     chord: tuple[FaderNumber, ...] = (1, 8)
     """
     The strips whose Solo buttons, held together, switch to the next layout, numbered from 1 on the left; none for no

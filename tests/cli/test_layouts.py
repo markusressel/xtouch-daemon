@@ -16,7 +16,6 @@ from tests.support.strips import strips_of
 from xtouch_daemon import cli
 from xtouch_daemon.cli import layouts as layout_commands
 from xtouch_daemon.cli.configuration import describe_strip
-from xtouch_daemon.config.layout_strips import InheritStripConfig
 from xtouch_daemon.live.codec import decode_request, encode, encode_reply
 from xtouch_daemon.live.messages import FEATURES, Reply, Request, SetMode, SlotsState, Snapshot, StateView, SwitchLayout
 
@@ -169,8 +168,6 @@ def test_check_config_shows_what_select_launches() -> None:
         describe_strip(other, "ann")
         == "'Mum' Ann in the voice chat, dark while away (white, talking: green, collapses)"
     )
-    assert describe_strip(InheritStripConfig(type="inherit", layout="a", strip=2), "x") == "strip 2 of layout a"
-    assert describe_strip(InheritStripConfig(type="inherit"), "x") == "the strip of the default layout at this place"
 
 
 SLOTS = SlotsState(
