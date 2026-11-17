@@ -63,6 +63,8 @@ class FakeClient:
         self.queue: asyncio.Queue[Message | None] = asyncio.Queue()
         self.connected = False
         self.fail_publish = False
+        self.unsubscribe_gate: asyncio.Event | None = None
+        """Holds unsubscribes until it is set, like a broker that is slow to acknowledge."""
 
     async def __aenter__(self) -> Self:
         if self.broker.refuse:
@@ -99,4 +101,6 @@ class FakeClient:
             self.queue.put_nowait(Message(topic, self.broker.retained[topic].encode(), retain=True))
 
     async def unsubscribe(self, topic: str) -> None:
+        if self.unsubscribe_gate is not None:
+            await self.unsubscribe_gate.wait()
         self.subscriptions.discard(topic)

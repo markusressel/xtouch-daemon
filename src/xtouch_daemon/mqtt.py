@@ -78,6 +78,9 @@ class MqttBridge:
         self._handlers: dict[str, Callable[[str, bool], Any]] = {}
         self._available = False
         self._sync_token: str | None = None
+        self._entities_lock = asyncio.Lock()
+        self._updates: set[asyncio.Task[None]] = set()
+        """The changes of the entities under way (see `set_entities()`)."""
         self.ready = False
         """Connected, and the retained states are in: what the entities show is what Home Assistant set."""
         self.error: str | None = None
@@ -134,6 +137,25 @@ class MqttBridge:
 
     async def set_entities(
         self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str] = frozenset(), preview: bool = False
+    ) -> None:
+        """
+        `_set_entities()` one at a time, each to its end: a mixer that is replaced meanwhile (its task cancelled) must
+        not cut its unsubscribes short (aiomqtt loses track of their acknowledgements and logs errors), and the next
+        one starts from what the broker has.
+        """
+        task = asyncio.create_task(self._set_entities_in_turn(entities, keep, preview), name="mqtt entities")
+        self._updates.add(task)
+        task.add_done_callback(self._updates.discard)
+        await asyncio.shield(task)
+
+    async def _set_entities_in_turn(
+        self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str], preview: bool
+    ) -> None:
+        async with self._entities_lock:
+            await self._set_entities(entities, keep, preview)
+
+    async def _set_entities(
+        self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str], preview: bool
     ) -> None:
         """
         The entities of the configuration, with the state each gets while it has none (None: no default). Entities
@@ -225,6 +247,9 @@ class MqttBridge:
 
     async def close(self) -> None:
         """Marks the entities unavailable (the broker would only do so later, by the last will)."""
+        for task in list(self._updates):
+            task.cancel()
+        await asyncio.gather(*self._updates, return_exceptions=True)
         if self._client is not None:
             with contextlib.suppress(aiomqtt.MqttError):
                 await self._client.publish(self.availability_topic, OFFLINE, retain=True)

@@ -11,7 +11,7 @@ from haad_mqtt_autodiscovery.entity.number import MQTTNumber
 from haad_mqtt_autodiscovery.entity.switch import MQTTSwitch
 
 from tests.support.mqtt import FakeBroker
-from tests.support.tasks import finish_tasks
+from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.sections import MqttConfig
@@ -368,3 +368,44 @@ def test_a_password_that_is_not_there_stops_the_bridge(tmp_path: Path, monkeypat
 def test_the_password_is_not_shown() -> None:
     assert "secret" not in repr(CONFIG)
     assert "secret" not in str(CONFIG.model_dump())
+
+
+async def test_changes_of_the_entities_run_one_at_a_time_and_to_their_end(
+    bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    """A mixer replaced while it changes the entities (a reload, a slot): its unsubscribes are not cut short."""
+    first, second, third = number("a"), number("b"), number("c")
+    await bridge.set_entities({first: "0"})
+    task = await start(bridge)
+    client = broker.connected[0]
+    client.unsubscribe_gate = asyncio.Event()
+    replaced = asyncio.create_task(bridge.set_entities({second: "0"}))
+    await settle()
+    replaced.cancel()
+    following = asyncio.create_task(bridge.set_entities({third: "0"}))
+    await settle()
+    # the cancelled one still unsubscribes, the next waits for it
+    assert not following.done()
+    client.unsubscribe_gate.set()
+    await following
+    with pytest.raises(asyncio.CancelledError):
+        await replaced
+    assert first.command_topic not in client.subscriptions
+    assert second.command_topic not in client.subscriptions
+    assert third.command_topic in client.subscriptions
+    assert "homeassistant/number/xtouch/b/config" not in broker.retained
+    task.cancel()
+    await finish_tasks()
+
+
+async def test_closing_ends_the_changes_under_way(bridge: MqttBridge, broker: FakeBroker) -> None:
+    await bridge.set_entities({number("a"): "0"})
+    task = await start(bridge)
+    broker.connected[0].unsubscribe_gate = asyncio.Event()
+    change = asyncio.create_task(bridge.set_entities({number("b"): "0"}))
+    await settle()
+    await bridge.close()
+    with pytest.raises(asyncio.CancelledError):
+        await change
+    task.cancel()
+    await finish_tasks()
