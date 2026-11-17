@@ -2,9 +2,9 @@
 The whole configuration, and the checks across its sections (layout names, inheritance, strip counts).
 """
 
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 
 from xtouch_daemon.config.audio_strips import AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import Model
@@ -16,6 +16,9 @@ from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig, collapses
 from xtouch_daemon.config.values import DEFAULT_LAYOUT, MAX_STRIPS, Label, MeterPoint
 from xtouch_daemon.hardware import protocol
+
+if TYPE_CHECKING:
+    from xtouch_daemon.config.slots import SlotsSetup
 
 
 class Config(Model):
@@ -38,6 +41,15 @@ class Config(Model):
     """The participants of the voice chat, for `voip` strips: without the section, they use its defaults (`bridge`)."""
     layouts: Annotated[tuple[LayoutConfig, ...], Field(alias="layout")] = ()
     """More sets of strips to switch to; the top-level strips are the layout `default`."""
+    _slots: SlotsSetup | None = PrivateAttr(default=None)
+
+    @property
+    def slots(self) -> SlotsSetup | None:
+        """
+        The channels, states and slots of a file in that format (the prototype of
+        docs/design/channels-states-slots.md), None for one with strips and layouts.
+        """
+        return self._slots
 
     @model_validator(mode="after")
     def _layouts(self) -> Config:

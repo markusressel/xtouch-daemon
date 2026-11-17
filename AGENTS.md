@@ -13,7 +13,7 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 | `src/xtouch_daemon/strips/` | Strip controllers (`output`/`input`, `apps`, `auto`, `homeassistant`, `empty`, `voip`). |
 | `src/xtouch_daemon/slots/` | Prototype of `docs/design/channels-states-slots.md` (channels, pools, states, slots and their resolver), pure and not used by the daemon yet; `xtouch-daemon simulate` and `observe` drive it. |
 | `src/xtouch_daemon/mqtt.py` | `MqttBridge`: the MQTT connection for Home Assistant (discovery, retained states, availability). |
-| `src/xtouch_daemon/runtime/` | The running daemon: lifecycle (`daemon`: signals, reload, shutdown, sd_notify), `mixer` (feeds states and events to the controllers), `placement` (strips that collapse), `layouts` (switching and rules). |
+| `src/xtouch_daemon/runtime/` | The running daemon: lifecycle (`daemon`: signals, reload, shutdown, sd_notify), `mixer` (feeds states and events to the controllers), `placement` (strips that collapse), `layouts` (switching and rules), `slots` (the prototype of channels, states and slots on the device). |
 | `src/xtouch_daemon/system/` | The system around it: `instance` (runtime file), `systemd` (incl. controlling the user service), `processes` (`/proc`), `launch` (starting a strip's `launch` detached from the daemon; tests use `FakeLauncher`, `conftest.no_launches` makes a real start fail). |
 | `src/xtouch_daemon/live/` | The live view of the device for the GUI over a Unix socket: `messages`, `codec`, `server`. |
 | `src/xtouch_daemon/cli/` | The CLI, one module per topic; `cli/__init__.py` puts the commands together. |

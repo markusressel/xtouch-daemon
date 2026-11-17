@@ -19,6 +19,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import DEFAULT_LAYOUT, MeterPoint, default_encoder
 from xtouch_daemon.hardware import protocol
+from xtouch_daemon.slots.outcomes import outcomes, table
 
 
 def describe_strip(config: StripConfig, number: int, meter_point: MeterPoint = "pre_fader") -> str:
@@ -86,6 +87,10 @@ def check_config(config_path: Path | None) -> None:
     config = load_or_fail(config_path)
     source = str(path) if path.exists() else "No configuration file, the defaults"
     click.echo(f"{source}: valid")
+    if config.slots is not None:
+        click.echo("Channels, states and slots (a prototype): what the slots show")
+        click.echo(table(outcomes(config.slots.scene)))
+        return
     _describe_strips(config)
     for layout in config.layouts:
         click.echo(f"Layout {layout.name}{f' ({layout.label})' if layout.label else ''}{describe_rules(layout)}:")

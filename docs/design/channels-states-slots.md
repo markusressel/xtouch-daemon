@@ -588,8 +588,18 @@ What building it showed:
   Also: `present` in a state's `when` is an error now, composed states have no delays of their own, `simulate`
   checks its options, and `--table` no longer shows composed states apart from what they name.
 
-Next: replay a day of real observations (`observe`, then `simulate --replay`), a review of the code and its
-scenarios, then the daemon, the format of the real configuration, the GUI and the migration.
+**On the device**: the daemon runs a file in this format (`xtouch-daemon run -c slots.toml`). The resolver runs
+every 0.2 s (that is the batching) on what the sound server, the processes and the voice chat of the daemon show.
+When the strip of a slot changes (another channel, a pool instead of a channel) the daemon builds a new mixer from
+today's strip types, as for a layout switch; the members of `auto` and `people` are handed out by its `auto` and
+`voip` strips, and the `auto` strips that stay keep their applications and pins. Apps channels never go into `auto`
+one application at a time, only as a whole. The mode takes the place of the layout: `xtouch-daemon layout gaming`,
+the GUI and the chord pick a mode, `layout auto` gives it back to the rules; the banner names a new mode. Not yet:
+Home Assistant (no entities for states and modes, no `select.xtouch_mode`), overrides of states, keeping overrides
+and picks across restarts, the GUI (it can't edit the format), and the `pick` encoder pins the strip's application,
+not the resolver's member.
+
+Next: try it on the device, then the format of the real configuration, the GUI and the migration.
 
 ## Review log
 

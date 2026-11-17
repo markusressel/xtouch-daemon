@@ -14,6 +14,7 @@ from pydantic import (
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.slots import setup, split
 from xtouch_daemon.config.strips import STRIP_TYPES
 
 APP_NAME = "xtouch-daemon"
@@ -72,10 +73,18 @@ def parse_config(text: str, source: str = "config") -> Config:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"{source} is not valid TOML: {e}") from e
+    rest, slots = split(data)
     try:
-        return Config.model_validate(data)
+        config = Config.model_validate(rest)
     except ValidationError as e:
         problems = "\n".join(f"  {problem}" for problem in problems_of(e))
+        raise ConfigError(f"{source} has errors:\n{problems}") from e
+    if slots is None:
+        return config
+    try:
+        return setup(config, slots)
+    except ConfigError as e:
+        problems = "\n".join(f"  {line}" for line in str(e).splitlines())
         raise ConfigError(f"{source} has errors:\n{problems}") from e
 
 

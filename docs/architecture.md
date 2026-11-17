@@ -46,6 +46,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `runtime/mixer.py` | `Mixer`: the controllers of one layout of a configuration, fed with every state and every event, and the meter ticker. |
 | `runtime/placement.py` | `place()` and `Flow`: which strip of the configuration each strip of the device shows, for strips that collapse. See [Collapsing strips](#collapsing-strips). |
 | `runtime/layouts.py` | `LayoutSwitcher`: which layout the device shows, chosen by hand or by the rules (`apps`, `processes`, `hold`). |
+| `runtime/slots.py`, `config/slots.py` | Prototype: a file of channels, states and slots on the device. `config/slots` builds and checks the strip of every candidate when the file is loaded; `SlotRunner` steps a `Simulation` every 0.2 s, and the daemon builds a new mixer for the strips of the result when one of them changes (the `auto` strips keep their applications). Modes take the place of layouts: switching layouts by hand picks a mode. |
 | `system/processes.py` | The processes that run, from `/proc`, for the rules of the layouts and `launch_when_running`. |
 | `system/launch.py` | `Launcher`: starts the command of a strip's `launch` detached from the daemon (a transient systemd user service); `LaunchButton`: when Select launches, and its LED. See [Design: launching applications](design/launch.md). |
 | `system/instance.py` | The running daemon for other processes: its runtime file (process, configuration file) and where its live view is served. |

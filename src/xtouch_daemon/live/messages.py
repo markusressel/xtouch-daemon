@@ -175,5 +175,6 @@ def fingerprint(config: Config) -> str:
     def plain(value: Any) -> Any:
         return value.get_secret_value() if isinstance(value, SecretStr) else str(value)
 
-    data = json.dumps(config.model_dump(), default=plain, sort_keys=True)
+    slots = config.slots.data if config.slots is not None else None
+    data = json.dumps([config.model_dump(), slots], default=plain, sort_keys=True)
     return hashlib.sha256(data.encode()).hexdigest()[:16]

@@ -11,7 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Prototype of channels, states and slots (`docs/design/channels-states-slots.md`), the planned successor of
   layouts, `inherit` and `collapse`: `xtouch-daemon simulate` shows what the slots of a configuration in that
   format show in given states, and why; `xtouch-daemon observe` records what plays and runs, and
-  `simulate --replay` replays such a recording through a configuration. The daemon doesn't use it yet.
+  `simulate --replay` replays such a recording through a configuration. The daemon runs a file in that format too
+  (`[channel.*]`, `[state.*]`, `[slots]` instead of strips and layouts), for trying it on the device: a slot gets a
+  new strip when what it shows changes, layout switches by hand pick a mode, and `check-config` prints its table.
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.
   `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
   `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` strips, `apps` and `processes` of layouts

@@ -188,6 +188,41 @@ class Mixer:
         return self.flow.update(absent, busy)
 
     @property
+    def held_strips(self) -> frozenset[int]:
+        """The strips of the device (from 0) under a finger, with a button held, or whose touchless fader just moved."""
+        return frozenset(
+            {
+                *self._touched,
+                *(strip for strip, _ in self._held),
+                *(index for index, strip in enumerate(self.surface.strips) if strip.held),
+            }
+        )
+
+    def auto_apps(self) -> tuple[dict[int, str], frozenset[int]]:
+        """The application of each `auto` strip on the device (by strip, from 0), and the strips pinned."""
+        apps: dict[int, str] = {}
+        pinned: set[int] = set()
+        for slot, (auto, app) in enumerate(zip(self.auto_strips, self.assigner.assigned, strict=True)):
+            position = self.flow.position(self.controllers.index(auto))
+            if position is not None and app is not None:
+                apps[position] = app
+                if slot in self.assigner.pinned:
+                    pinned.add(position)
+        return apps, frozenset(pinned)
+
+    def keep_auto_apps(self, apps: dict[int, str], pinned: frozenset[int]) -> None:
+        """
+        Gives the `auto` strips on the strips of the device that had one before the application they had (see
+        `auto_apps()`), so a new mixer for another strip doesn't shuffle them.
+        """
+        for slot, auto in enumerate(self.auto_strips):
+            position = self.flow.position(self.controllers.index(auto))
+            if position in apps:
+                self.assigner.assigned[slot] = apps[position]
+                if position in pinned:
+                    self.assigner.pinned.add(slot)
+
+    @property
     def placement(self) -> Placement:
         """For each strip of the device, the place of the strip of the configuration it shows."""
         return self.flow.placement

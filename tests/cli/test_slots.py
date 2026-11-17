@@ -124,3 +124,10 @@ def test_an_absent_pool_of_channels(tmp_path: Path):
     )
     assert invoke("simulate", str(config)).output.startswith("1  a\n")
     assert invoke("simulate", str(config), "--absent", "both").output.startswith("1  -\n")
+
+
+def test_check_config_shows_the_table_of_slots():
+    result = invoke("check-config", "-c", str(EXAMPLE))
+    assert result.exit_code == 0
+    assert "Channels, states and slots (a prototype): what the slots show" in result.output
+    assert "gaming and call" in result.output
