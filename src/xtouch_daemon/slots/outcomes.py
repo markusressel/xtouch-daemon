@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from xtouch_daemon.slots.inputs import Observation
-from xtouch_daemon.slots.model import AUTO, DEFAULT, PEOPLE, Scene
+from xtouch_daemon.slots.model import AUTO, DEFAULT, Scene
 from xtouch_daemon.slots.resolver import SLOTS, Inputs, resolve
 from xtouch_daemon.slots.states import composed_order
 
@@ -106,20 +106,17 @@ def states_for(scene: Scene, mode: str, on: Iterable[str]) -> dict[str, bool]:
 
 def _outcome(scene: Scene, mode: str, on: set[str], flipped: set[str]) -> tuple[str, ...]:
     values = states_for(scene, mode, on)
-    # channels and pools of channels are present, auto and people empty, unless the combination says otherwise
-    gone = {channel for name in flipped if name not in (AUTO, PEOPLE) for channel in _channels_of(scene, name)}
+    # channels and pools of channels are present, auto empty, unless the combination says otherwise
+    gone = {channel for name in flipped if name != AUTO for channel in _channels_of(scene, name)}
     present = frozenset(name for name in scene.channels if name not in gone)
-    observation = Observation(
-        playing=("an application",) if AUTO in flipped else (),
-        people=("someone",) if PEOPLE in flipped else (),
-    )
+    observation = Observation(playing=("an application",) if AUTO in flipped else ())
     result = resolve(scene, Inputs(values, present, observation))
     return tuple(shown.pool or shown.channel or "-" for shown in result.slots.values())
 
 
 def _label(scene: Scene, mode: str, on: tuple[str, ...], flipped: tuple[str, ...]) -> str:
     states = " and ".join(([] if mode == DEFAULT else [mode]) + list(on))
-    changes = [f"{name} {'present' if name in (AUTO, PEOPLE) else 'absent'}" for name in flipped]
+    changes = [f"{name} {'present' if name == AUTO else 'absent'}" for name in flipped]
     return ", ".join(([states] if states else []) + changes) or DEFAULT
 
 

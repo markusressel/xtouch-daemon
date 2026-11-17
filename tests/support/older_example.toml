@@ -1,5 +1,6 @@
-# The example of the design before the live test: people in a slot of their own while gaming, VoIP while gaming,
-# a call that waits 2 s and stays 30 s. The tests of those features use it; the design has the current one.
+# The example of the design before the live test, without a slot for people (they share auto now): slot 2 dark
+# while gaming, VoIP while gaming, a call that waits 2 s and stays 30 s. The tests of those features use it; the
+# design has the current one.
 
 [channel.out]
 type = "output"
@@ -47,7 +48,7 @@ device = "alsa_input.pci-0000_11_00.4.analog-stereo"
 label = "Mic"
 color = "red"
 
-[pool.people]
+[people]
 color = "yellow"
 
 [state.gaming]
@@ -64,6 +65,6 @@ delay_off = 30
 
 [slots]
 1 = ["game if gaming", "out"]
-2 = ["people if gaming and present", "browser"]
+2 = ["- if gaming", "browser"]
 7 = ["voip if call or gaming", "auto"]
 8 = ["mic if call", "auto"]

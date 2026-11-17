@@ -19,18 +19,21 @@ from xtouch_daemon.config.strips import StripConfig
 from xtouch_daemon.slots.model import AUTO, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS, Result
 
-SECTIONS = ("channel", "pool", "state", "slots")
+SECTIONS = ("channel", "pool", "people", "state", "slots")
 """The sections of the format of channels, states and slots; a file with one of them is in that format."""
 CHANNEL_ONLY = frozenset({"tags", "in_auto", "absent_after"})
 """Options of a channel that are about slots, not about its strip."""
-POOL_ONLY = frozenset({"channels", "exclude", "hold", "share", "order"})
+POOL_ONLY = frozenset({"channels", "exclude", "hold"})
 """Options of a pool that are about its members, not about its strips."""
+PEOPLE_ONLY = frozenset({"order"})
+"""Options of `[people]` that are not about their strips."""
 EMPTY = "-"
 
 type Shape = tuple[tuple[int | None, str | None, str | None, str | None], ...]
 """
-Per slot, what decides its strip: the candidate, its pool, its channel and the person of `people` (each person has
-a strip of their own, so they stay where the resolver put them; the applications of `auto` go to its strips).
+Per slot, what decides its strip: the candidate, its pool (`people` for a person on a slot of `auto`), its channel
+and the person without a channel (each person has a strip of their own, so they stay where the resolver put them;
+the applications of `auto` go to its strips).
 """
 
 _STRIP = TypeAdapter[StripConfig](StripConfig)
@@ -42,7 +45,12 @@ def shape_of(result: Result) -> Shape:
     (its members go to the strips of the mixer), or nothing.
     """
     return tuple(
-        (shown.candidate, shown.pool, shown.channel, shown.member if shown.pool == PEOPLE else None)
+        (
+            shown.candidate,
+            shown.pool,
+            shown.channel,
+            shown.member if shown.pool == PEOPLE and not shown.channel else None,
+        )
         for shown in result.slots.values()
     )
 
@@ -55,9 +63,9 @@ class SlotsSetup:
     data: Mapping[str, Any]
     """The sections of the format, as in the file."""
     strips: Mapping[tuple[int, int, str | None], StripConfig]
-    """By slot, candidate and channel (None for a pool of applications or people, and for `-`)."""
+    """By slot, candidate and channel (None for a pool of applications, and for `-`)."""
     people: Mapping[str, Any] = field(default_factory=dict)
-    """The look of the strips of people (the options of `[pool.people]`)."""
+    """The look of the strips of people (the options of `[people]`)."""
 
     def strips_of(self, shape: Shape) -> tuple[StripConfig, ...]:
         return tuple(
@@ -70,7 +78,7 @@ class SlotsSetup:
         )
 
     def person(self, name: str) -> StripConfig:
-        """The strip of a person of `people` (checked with a made-up name when the file is loaded)."""
+        """The strip of a person without a channel (checked with a made-up name when the file is loaded)."""
         return _STRIP.validate_python({"type": "voip"} | dict(self.people) | {"person": name})
 
     def ignored(self) -> tuple[str, ...]:
@@ -141,34 +149,28 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 look = {key: value for key, value in pools.get(candidate.show, {}).items() if key not in POOL_ONLY}
                 if candidate.show == AUTO:
                     add((slot, index, None), where, {"type": "auto"} | look | own)
-                elif candidate.show == PEOPLE:
-                    add((slot, index, None), where, {"type": "voip"} | look | own)
                 else:
                     add((slot, index, None), where, {"type": "empty"})
                 # a pool hands out channels: `auto` the apps channels without a slot, the others their own; a channel
-                # keeps its own look, the pool's only fills in what the channel leaves open
+                # looks and works as the channel, the pool's look only fills in what the channel leaves open (the
+                # options of the place are for applications without a channel)
                 members = (
                     [name for name, channel in scene.channels.items() if channel.type == "apps"]
                     if candidate.show == AUTO
-                    else []
-                    if candidate.show == PEOPLE
                     else scene.members_of(scene.pools[candidate.show].channels)
                 )
                 for member in members:
-                    add((slot, index, member), f"{where} ({member})", look | channel_strip(member) | own)
-    people = {key: value for key, value in pools.get(PEOPLE, {}).items() if key not in POOL_ONLY}
-    check("pool.people", {"type": "voip"} | people | {"person": "someone"})
+                    add((slot, index, member), f"{where} ({member})", look | channel_strip(member))
+                if candidate.show == AUTO:
+                    # the person channels that share its slots, as themselves
+                    for member in (name for name, channel in scene.channels.items() if channel.type == "person"):
+                        add((slot, index, member), f"{where} ({member})", channel_strip(member))
+    people = {key: value for key, value in data.get(PEOPLE, {}).items() if key not in PEOPLE_ONLY}
+    check("people", {"type": "voip"} | people | {"person": "someone"})
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))
-    voip = config.voip
-    uses_voip = (
-        any(strip.type == "voip" for strip in strips.values())
-        or scene.pools[PEOPLE].share is not None
-        or any(state.voice_chat for state in scene.states.values())
-    )
-    if voip is None and uses_voip:
-        # as for voip strips: the section has defaults for everything (people in auto slots, a voice_chat source)
-        voip = VoipConfig()
+    # people share the slots of auto in every configuration: the section has defaults for everything
+    voip = config.voip or VoipConfig()
     behavior = config.behavior.model_copy(
         update={
             "auto_hold": scene.pools[AUTO].hold,

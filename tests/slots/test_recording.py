@@ -138,13 +138,19 @@ def test_a_replay_tells_changes_flaps_and_time_on():
     ]
     report = replay(older(), log)
     texts = [event.text for event in report.events]
-    assert texts[:4] == ["gaming on (reaper runs)", "default off", "slot 1: out -> game", "slot 7: auto -> voip"]
+    assert texts[:5] == [
+        "gaming on (reaper runs)",
+        "default off",
+        "slot 1: out -> game",
+        "slot 2: browser -> -",
+        "slot 7: auto -> voip",
+    ]
     # gaming ends 10 s after reaper (its delay_off), at 22 s: slot 1 goes back within a minute
     assert "slot 1: game -> out" in texts
     assert [flap.text for flap in report.flaps][:1] == ["slot 1: game and back to out"]
     assert report.changes[1] == 4
     assert report.on_time["gaming"] == 12 + 70
-    assert report.summary()[0] == f"0.1 h replayed, {sum(report.changes.values())} slot changes, 4 flaps"
+    assert report.summary()[0] == f"0.1 h replayed, {sum(report.changes.values())} slot changes, 6 flaps"
     assert "gaming on for 82 s" in report.summary()
     assert replay(older(), [(0.0, Observation(processes=frozenset({"reaper"}))), (600.0, Observation())]).summary()[
         2:
@@ -176,4 +182,5 @@ def test_a_short_excursion_after_a_long_time_is_a_flap():
             (3610.0, Observation(people=("Bob",), processes=frozenset({"reaper"}))),
         ],
     )
-    assert [flap.text for flap in report.flaps] == ["slot 2: browser and back to people:Bob"]
+    # Bob shares the slots of auto: the rightmost one that has auto first
+    assert [flap.text for flap in report.flaps] == ["slot 6: auto and back to people:Bob"]

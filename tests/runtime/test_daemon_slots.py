@@ -228,13 +228,12 @@ async def test_the_processes_are_scanned_every_few_seconds(
     await settle()
 
 
-SHARED = SLOTS.replace("[pool.auto]\nhold = 0\n", '[pool.auto]\nhold = 0\n\n[pool.people]\nshare = "auto"\n')
 VOICE = VoipState("bridge", True, "mumble", "Lobby", 1, ("Bob",))
 
 
 def test_the_order_of_people_lasts_across_a_restart(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     people = tmp_path / "state" / "people.json"
-    config = parse_config(SHARED)
+    config = parse_config(SLOTS)
     runner = SlotRunner(config, people, clock=lambda: 100.0, wall_clock=lambda: 1100.0)
     runner.step(STATE, frozenset(), VOICE, frozenset(), 100)
     assert json.loads(people.read_text()) == [["Bob", 1100.0]]

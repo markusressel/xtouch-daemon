@@ -18,7 +18,7 @@ def test_the_table_in_the_design_is_the_one_of_its_example():
 
 
 def test_what_the_stacks_ask_about():
-    assert dimensions(older()) == (("call",), ("people",))
+    assert dimensions(older()) == (("call",), ())
     assert dimensions(example()) == (("call",), ())
 
 

@@ -35,7 +35,7 @@ def shows(result: Result, slots: Iterable[int] = range(1, 9)) -> list[str]:
 
 
 OLDER = Path(__file__).with_name("older_example.toml")
-"""The example of the design before the live test: people in slot 2 while gaming, `call` waits 2 s."""
+"""The example of the design before the live test: slot 2 dark while gaming, `call` waits 2 s."""
 
 
 def older() -> Scene:

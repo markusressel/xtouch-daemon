@@ -34,14 +34,16 @@ That makes simple wishes hard:
 | Concept | Answers | Edited on |
 |---|---|---|
 | **Channel** | What a strip controls: a device, applications, a person in the voice chat, a Home Assistant strip. | Channels page |
-| **Pool** | Which one of several a strip takes: whatever plays and has no slot (`auto`, which people in the voice chat share), the next present channel of a list. | Channels page |
+| **Pool** | Which one of several a strip takes: whatever plays and has no slot (`auto`), the next present channel of a list. | Channels page |
+| **People** | The people in the voice chat: they share the slots of `auto`, from the right, in an order that is learned. | Channels page |
 | **State** | When something matters: a named on/off condition, live, with a manual override. A **mode** is a state that excludes the other modes (today's layouts). | States page |
 | **Slot** | Where: one of the 8 strips of the device, with a stack of candidates (channels or pools, each with a condition). | Device page |
 
 ### Names
 
-Channels, pools and states share one namespace: an id is lower case letters, digits and `_`, unique across all
-three. `auto`, `people` and `default` are built in. Reserved: `and`, `or`, `not`, `if`, `present`, `none`, `mode`,
+Channels, pools, states and the `id`s of places share one namespace: an id is lower case letters, digits and `_`,
+unique across all four (a place `id` names Home Assistant entities like a channel id does). `auto`, `people` and
+`default` are built in. Reserved: `and`, `or`, `not`, `if`, `present`, `none`, `mode`,
 and ids starting with `state_` or `slot_` (they would collide with the entity IDs in Home Assistant). The sigils stay
 those of today: `@name` a [preset](../configuration/presets.md), `#name` a tag.
 
@@ -127,7 +129,6 @@ A pool gives each slot that shows it one **member** that no other slot shows.
 | Pool | Members, in this order |
 |---|---|
 | `auto` (built in) | **Whatever plays and has no slot**: `apps` channels with `in_auto` that are present and not shown (each as a whole: its label, volume, entities, as in DAW banking), and applications that play and no channel matches. In the order they started playing. A member stays one for `hold` seconds after it stopped (today's `auto_hold`). |
-| `people` (built in) | People in the voice chat who have no `person` channel. They are not a candidate of their own: they **share the slots of `auto`**, from the right (next to the voice chat's strips), while the applications fill them from the left; an application moves only when the people need its slot (to a free one, else it waits). Like a channel, a person stays a member `absent_after` after they left, so a reconnect moves nothing. The people sit as a block from the right **in their order**, for muscle memory of who sits where: `order = ["MPhone", ...]`, then the others in the order they were first seen (kept 30 days, across restarts, in `~/.local/state/xtouch-daemon/people.json`). Slots where `auto` is the first candidate go first. Someone earlier in the order who comes moves those after them one slot to the left (a newcomer comes last and moves no one); no slot is kept empty for someone who is away. |
 | `[pool.<id>] channels = [...]` | The present channels of the list (ids, `"#tag"`) that are not shown by a candidate of their own, in the list's order. |
 
 ```toml
@@ -136,28 +137,52 @@ color = "white"
 hold = 5                     # today's behavior.auto_hold
 exclude = ["speech-dispatcher", "notification"]   # never these: today's behavior.ignore
 
-[pool.people]
-color = "yellow"
-talking_color = "green"
-order = ["Alice", "Bob"]      # then the others in the order they were first seen
-
 [pool.media]
 channels = ["#media"]
 ```
 
-- The options of `[pool.auto]` and `[pool.people]` are those of today's `auto` and `voip` strips (`[pool.people]`
-  gives the strips of people their look, and `order`); a pool of channels has none (its members bring their own).
+- The options of `[pool.auto]` are those of today's `auto` strips; a pool of channels has none (its members bring
+  their own).
 - **Presence of a pool**, for `if present`, counts its members before slots are assigned: `auto` is present while
-  anything plays that is not excluded or someone without a `person` channel is in the voice chat, a pool of channels
-  while one of them is present. Conditions stay independent of the result.
+  anything plays that is not excluded, or anyone is in the voice chat (people take its slots; counted before the
+  slots are assigned, so also someone whose `person` channel has a slot of its own); a pool of channels while one of
+  them is present. Conditions stay independent of the result.
 - **Members keep their slot** in `auto`, so applications don't hop around (people keep their order instead). A pool of
   channels fills **by its order** instead (the first present channel gets the first slot), which is what `collapse`
   does today: Buds coming back takes its place, the others move on.
-- **No paging**: more people than free `auto` slots wait, like applications. Select does what it does on the member
-  (makes a device the default, launches).
-- **Pick** (the `pick` encoder of `auto` slots), as today: turning picks the slot's member among those without a
-  slot (`2/5`); a push pins it, and it stays on the slot after it stopped playing, until the next push (`pinned`,
-  `auto`). A pin beats the pool's order.
+- Select does what it does on the member (makes a device the default, launches).
+- **Pick** (the `pick` encoder of `auto` slots), as today: turning picks the slot's member among the applications
+  without a slot (`2/5`; people are not picked); a push pins it, and it stays on the slot after it stopped playing,
+  until the next push (`pinned`, `auto`). A pin beats the pool's order, and people don't take a pinned slot. The
+  resolver keeps the pins: the encoder only asks for one.
+
+### People
+
+The people in the voice chat are not a pool of their own and no candidate: they **share the slots of `auto`**.
+
+```toml
+[people]
+color = "yellow"
+talking_color = "green"
+order = ["Alice", "Bob"]      # then the others in the order they were first seen
+```
+
+- `[people]` has the look of their strips (today's options of `voip` strips: `color`, `talking_color`, `meter`,
+  `meter_point`, `max_volume`) and `order`.
+- The members: everyone in the voice chat who has no `person` channel, and the `person` channels (with `in_auto`,
+  default `true`) that are present and have no slot of their own, each as itself (its label, look and entities).
+  Like a channel, a person stays a member `absent_after` after they left, so a reconnect moves nothing.
+- They take slots of `auto` from the right (next to the voice chat's strips), while the applications fill them from
+  the left; an application moves only when the people need its slot (to a free one, else it waits). They sit as a
+  block **in their order**, for muscle memory of who sits where: `order` (names, or ids of `person` channels), then
+  the others in the order they were first seen (kept 30 days, across restarts, in
+  `~/.local/state/xtouch-daemon/people.json`). Slots where `auto` is the first candidate go first. Someone earlier in
+  the order who comes moves those after them one slot to the left (a newcomer comes last and moves no one); no slot
+  is kept empty for someone who is away.
+- People don't take a slot that is pinned, or whose `auto` candidate has control options (an `encoder`, a `fader`,
+  `launch`, an `id`): those belong to applications. More people than slots wait, like applications; there is no
+  paging.
+- Members are told apart by the voice chat's id of the participant; `order` and the learned order go by name.
 
 ### States: when something matters
 
@@ -254,10 +279,13 @@ candidates, top first.
   - on any candidate, what it looks like here: `label`, `color`, `lit_when_idle`, `rec`, `solo`, `meter`,
     `meter_point`;
   - on an `auto` candidate also what a strip of today's `auto` type has (the strips of people take theirs from
-    `[pool.people]`): `encoder`, `fader`, `min_volume`,
-    `max_volume`, `launch`, `launch_when_running`, `talking_color`, and `id`, which names the Home Assistant entities
-    of this place (with `encoder` or `fader = "homeassistant"`). A channel's entities belong to the channel, so
-    these are not for channel candidates.
+    `[people]`): `encoder`, `fader`, `min_volume`,
+    `max_volume`, `launch`, `launch_when_running`, and `id`, which names the Home Assistant entities of this place
+    (with `encoder` or `fader = "homeassistant"`). A channel's entities belong to the channel, so these are not for
+    channel candidates.
+  - The options of a place apply to the applications without a channel it shows. A channel it shows as a member
+    (an `apps` channel without a slot) looks and works as the channel; the pool's look only fills in what the
+    channel leaves open. People look as `[people]` says.
 
   ```toml
   4 = [{ show = "auto", encoder = "homeassistant", id = "desk_knob" }]
@@ -280,9 +308,10 @@ members only, the previous result.
    to their next candidate that holds. Repeat until nothing changes. A pool candidate always takes its slot in this
    step (pools are not contested). It ends: a slot only ever goes down its stack.
 3. **Pools.** The members are computed now (the `auto` pool needs to know which channels have a slot) and handed
-   out: the people take the slots of `auto` from the right, in their order; a member of `auto` keeps the slot it had
-   if that slot still shows the pool and no person needs it; pinned members go to their slots; the others go to the
-   remaining slots of the pool left to right, in the pool's order (a pool of channels: all by its order). Members left
+   out: the people take the slots of `auto` from the right, in their order (not pinned slots, nor places with control
+   options, see [People](#people)); pinned members go to their slots; a member of `auto` keeps the slot it had if
+   that slot still shows the pool and no person took it; the others go to the remaining slots of the pool left to
+   right, in the pool's order (a pool of channels: all by its order). Members left
    over **wait**. A slot of a pool without a member for it is dark. The pools of channels go first, then the people,
    then `auto`: a slot meant for a channel gets it before `auto` takes it as a whole. A pin of a channel that has a
    slot of its own now is dropped (one channel, one slot).
@@ -328,10 +357,10 @@ per resolution with the changes and the reasons: `7: auto:Spotify -> voip (call:
 
 | Entity | What |
 |---|---|
-| The entities of a channel (`number.xtouch_<id>_fader`, `select.xtouch_<id>_output`, ...) | As today's strips, named by the channel id. They stay available while the channel is not shown; the buttons of a `homeassistant` channel send events only while it is shown. |
-| The entities of a place (`id` of a pool candidate) | As today's `auto` strips with Home Assistant controls. |
+| The entities of a channel (`number.xtouch_<id>_fader`, `select.xtouch_<id>_output`, ...) | As today's strips, named by the channel id, registered once per configuration: they stay available (and keep their state) while the channel is not shown or moves to another slot; the buttons of a `homeassistant` channel send events only while it is shown. |
+| The entities of a place (`id` of an `auto` candidate) | As today's `auto` strips with Home Assistant controls, registered once per configuration. |
 | `binary_sensor.xtouch_<id>_shown` | Whether the channel is on a slot. |
-| `sensor.xtouch_slot_<n>` | What slot n shows: a channel id, `auto:<application>`, `people:<name>`, or `none`. Attributes `label`, `kind` (`channel`, `pool`, `none`), `reason`. |
+| `sensor.xtouch_slot_<n>` | What slot n shows: a channel id (also one `auto` hands out), `app:<application>`, `person:<name>`, or `none`. Attributes `label`, `kind` (`channel`, `app`, `person`, `none`), `via` (the candidate: a channel or pool id), `reason`. |
 | `binary_sensor.xtouch_state_<id>` | The state. Attributes `since`, `source` (which source turned it on), `override`. |
 | `select.xtouch_state_<id>` | The override: `auto`, `on`, `off`. |
 | `switch.xtouch_state_<id>_input` | Only for `homeassistant = true`: what Home Assistant feeds into the state. |
@@ -384,9 +413,8 @@ encoder = "balance"
 [pool.auto]
 color = "white"
 
-[pool.people]
+[people]                    # they take auto slots from the right (next to VoIP), applications from the left
 color = "yellow"
-share = "auto"              # people take auto slots from the right (next to VoIP), applications from the left
 
 [state.gaming]
 mode = true
@@ -420,7 +448,7 @@ gaming           game  browser  auto  auto  auto
 gaming and call  game  browser  auto  voip  mic
 ```
 
-- People share the auto slots (`share = "auto"`, which the prototype still needs; it goes, see the decisions): they
+- People share the auto slots: they
   sit as a block from the right, next to VoIP, in their order (`order`, then the order they were first seen in);
   applications fill the auto slots from the left. A person takes the slot of an application only if no auto slot is
   free, and the application moves to a free one or waits.
@@ -507,16 +535,45 @@ type = "input"              # the default input
 
 ## The daemon
 
-- `StateEngine` (new, `runtime/states.py`): evaluates the states from the playback and capture streams, the voice
-  chat, the process list (polled while a state needs it), the devices, Home Assistant inputs and the overrides, with
-  the delays and the baseline at the start; resolves the modes; publishes to the live view and MQTT.
-- `SlotResolver` (replaces `runtime/placement.py`): the steps of [The resolver](#the-resolver) and
-  [Stability](#stability). Pure: inputs and the previous result in, the 8 slots and a trace (why and why not) out.
-- Channel controllers live as long as the configuration, not as long as a layout: a mode switch rebinds them to
-  slots (`VirtualStrip`, as the `Flow` does today) and rebuilds nothing. Strips and layouts go: the slots are the
-  only way the daemon places controllers (the prototype still builds a mixer of today's strips per result).
-- `check-config` prints channels, pools, states with their sources, per slot its stack, the outcome table, and the
-  warnings above. `list-apps` says per application which channel, pool or slot has it.
+Slots replace strips and layouts in the daemon (no translation into today's strips): what lives as long as the
+daemon, the configuration or a member, and a binder that changes only the slots whose result changed.
+
+| Part | Lives as long as | What |
+|---|---|---|
+| `Desk` (`runtime/desk.py`) | the daemon | The 8 strips of the device: the touch, buttons and touchless faders (`held_slots()`), the events to the presenter bound to each slot, the meters of the bound presenters, banners and flashes. Replaces `Mixer` and `Flow`. |
+| `SlotEngine` (`runtime/slots.py`) | the daemon | The `StateEngine`, presence, the members of the pools, the resolver with dwell, pins and the order of the people; keeps overrides, the mode pick and the people across restarts; wakes at the deadlines of the delays (no polling). A reload carries the run state over by state, channel and member id. Replaces `SlotRunner` and `LayoutSwitcher`. |
+| `ChannelSet` (`runtime/channels.py`) | the configuration (diffed by id on reload) | One controller per channel, with its own `VirtualStrip`, and its entities, registered once. |
+| `Members` (`runtime/members.py`) | a member | A controller per application of `auto` (today's `AutoStrip` without `AutoSlot`) and per person (today's `voip` strip with a participant id, without `VoipSeats`): made when it becomes a member, closed when its `hold` or `absent_after` ends; it moves between slots unchanged. |
+| `Places` (`runtime/places.py`) | the configuration | The options of `auto` candidates: their look, and their controls (`id` entities, `launch`, the `pick` encoder) around the application they show. |
+| `Binder` (`runtime/binder.py`) | the daemon | Compares a result with the one before and binds only the slots that changed (`VirtualStrip.bind`); unbinds what is no longer shown; the flashes and their reason. A controller gets its look (label, color, `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`) when it is bound, its identity is its channel or member. |
+| Home Assistant (`runtime/homeassistant.py`) | the configuration | The entities of states, overrides, the mode and the slots. |
+| Live view | | A snapshot of the slots (per slot the candidate, channel, pool, member and why), the states (value, since, source, override), the mode and who waits; requests `SetMode` and `SetOverride`. |
+
+- Goes away: `Mixer`, `placement.py`, `layouts.py`, `AutoAssigner`/`AutoSlot`, `VoipSeats`, `Shape`/`DARK`/`showing`,
+  `config/strips` (the `[[strip]]` types), the layouts, `inheritance`, and handing the applications of `apps`
+  channels to `behavior.ignore`.
+- The resolver alone decides which member shows where; the encoder's pick and pins are requests to the `SlotEngine`.
+- Times come from the loop's clock (`loop.time()`).
+- `check-config` prints channels, pools, people, states with their sources, per slot its stack, the outcome table,
+  and the warnings above. `list-apps` says per application which channel, pool or slot has it.
+
+### The order of the work
+
+Each step keeps the daemon working and the tests green:
+
+1. The format: `[people]`, no `people` candidate, people skip pins and places with controls, `person` channels in
+   the block, the presence of `auto`, place ids in the namespace, `talking_color` only for people.
+2. `Desk` out of `Mixer`, for both formats: touch and held buttons survive a new mixer.
+3. Controllers get their look, identity and entity ids from outside (the old format from its strips).
+4. `SlotEngine` with pins, overrides and persistence, carried over a reload; the prototype takes the applications of
+   `auto` from the result.
+5. The slots natively: `ChannelSet`, `Members`, `Places`, `Binder` on the `Desk`; `Shape` and the rebuilding go;
+   entities per channel.
+6. Home Assistant: states, overrides, the mode (replaces the layout select), the slots.
+7. The live view: the snapshot and requests above; the GUI shows them read-only.
+8. `migrate-config`, `check-config`, `init-config`, the docs; an old file fails with a pointer to `migrate-config`.
+9. The old format and its runtime go.
+10. The GUI edits the new format.
 
 ## Migration
 
@@ -527,7 +584,7 @@ type = "input"              # the default input
 | A strip | A channel and a candidate in the slot of its position. Its id: its `id`; for a strip with Home Assistant entities `strip_<position>` (so `select.xtouch_strip_1_output` keeps working), with a suggestion to rename it; else its label in lower case, else `<type>_<n>`. |
 | `homeassistant` strips that share entities across layouts | One channel. |
 | An `auto` strip | `auto`; its options that differ from those of the other `auto` strips become options of the place. Candidates the same as the slot's fallback are dropped. |
-| A `voip` strip | Without `person`: an `auto` candidate, its look goes to `[pool.people]`. With `person`: a `person` channel. |
+| A `voip` strip | Without `person`: an `auto` candidate, its look goes to `[people]`; people now fill `auto` slots from the right, so their strips move (the report says so); `label` and paging go. With `person`: a `person` channel. A `launch` goes to that `auto` candidate (decision 6). |
 | An `empty` strip | `"-"`. |
 | A `[[layout]]` | A `[state.<name>] mode = true` with its rules, label and priority; each of its strips a candidate `if <name>` above the default one of that slot. |
 | `meter_point` of a layout | `meter_point` on the places of its candidates. |
@@ -537,6 +594,8 @@ type = "input"              # the default input
 | `behavior.collapse_hold` | `behavior.absent_after`. |
 | `switching.hold` | `delay_off` of each mode. |
 | `switching.chord = [1, 8]` | `chord = { strips = [1, 8], action = "cycle_modes" }`. |
+| The remembered layout (`layout_file`) | The kept override of the mode. |
+| Strips with the same `strip_<n>` entities in several layouts that control different things | Separate channels; the report names the entities that are renamed. |
 | `select.xtouch_layout`, `xtouch-daemon layout` | `select.xtouch_mode`, `xtouch-daemon mode`; the old command fails with a pointer, the report names the entity for automations. |
 
 No compatibility reading of the old format: an old file fails `check-config` with a pointer to `migrate-config`.
@@ -626,6 +685,13 @@ The prototype ran on the author's device (the example above). Decided then:
    the device.
 4. **One format.** The old one goes: no reading of it, `migrate-config` writes the new one
    ([Migration](#migration)). The GUI, the docs and `init-config` move to the new format.
+5. **`person` channels without a slot join the people** as themselves (`in_auto` to opt out), like `apps` channels
+   join `auto`.
+6. **Starting the voice chat** is the `launch` of the place the VoIP channel leaves when it is hidden:
+   `7 = ["voip if call", { show = "auto", launch = ["mumble", "mumble://..."] }]`; the strips of people have none.
+   Open: actions that belong to a place rather than to a channel (a button or a push of the encoder that does
+   something whatever the slot shows), see the fifth review.
+7. **`[people]`**, not `[pool.people]`: people are no pool any more.
 
 Found on the device and changed in the prototype: `call` on at once and off after 5 s (a delay showed VoIP and Mic
 after the people, a long one hid leaving); people in a learned order instead of fixed home slots (no empty slots);
@@ -633,6 +699,22 @@ people from the right, applications from the left (they don't push each other ar
 mic before anyone comes); the meters of people on the dB scale like every other meter.
 
 ## Review log
+
+### Fourth review (architecture, after the live test)
+
+| Finding | Decision |
+|---|---|
+| **Blocker**: entities were named by strip (`strip_<n>`) and went away with a channel's slot; place options overrode a channel's controls and `id`. | Entities per channel and place id, registered once per configuration; place ids in the namespace; place options only for applications without a channel. |
+| **Blocker**: the mixer handed out the applications of `auto` itself, in its own order, next to the resolver; pins never reached the resolver. | The resolver alone; pick and pins are requests to the `SlotEngine`. |
+| Touch and held buttons died with each new mixer. | The `Desk` lives as long as the daemon. |
+| People on places with controls, people and pins. | People skip pinned slots and places with control options; pick only lists applications. |
+| The presence of `auto` didn't count people. | It does. |
+| `person` channels without a slot vanished. | They join the people (decision 5). |
+| Leftovers of `share` and the `people` candidate. | Gone; `[people]`. |
+| A reload lost the run state. | The `SlotEngine` outlives the configuration. |
+| Controllers had their place built in; the live view counted strips by layout. | Look and identity when bound; a snapshot of slots and states. |
+| The voice chat's `launch` had no home. | A launch on the place VoIP leaves (decision 6). |
+| Minor: clocks, people by name, `sensor.xtouch_slot_<n>`, migration rows, polling, entity churn of the prototype. | `loop.time()`, ids for members, the sensor's format, the rows, deadlines; the native runtime ends the churn. |
 
 ### First review (DAW, Linux desktop and Home Assistant user)
 

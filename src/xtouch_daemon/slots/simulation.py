@@ -6,7 +6,7 @@ the daemon will run, driven by observations at given times instead of the sound 
 from collections.abc import Mapping
 
 from xtouch_daemon.slots.inputs import Observation, PoolMembers, Presence
-from xtouch_daemon.slots.model import ABSENT_AFTER, PEOPLE, Scene
+from xtouch_daemon.slots.model import ABSENT_AFTER, Scene
 from xtouch_daemon.slots.resolver import Inputs, Result, resolve
 from xtouch_daemon.slots.states import Override, StateEngine, States
 
@@ -70,7 +70,7 @@ class Simulation:
     @property
     def order(self) -> tuple[str, ...]:
         """The order of the people: `[pool.people] order`, then the others in the order they were first seen."""
-        configured = self.scene.pools[PEOPLE].order
+        configured = self.scene.people.order
         return (*configured, *(person for person in self._known if person not in configured))
 
     @property

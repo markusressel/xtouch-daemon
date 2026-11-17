@@ -26,7 +26,7 @@ def test_the_slots_and_why():
         "1  out",
         "     game if gaming: doesn't hold (gaming is off)",
         "2  browser",
-        "     people if gaming and present: doesn't hold (gaming is off, present: no)",
+        "     - if gaming: doesn't hold (gaming is off)",
         "3  auto:mpv",
         "4  auto:spotify",
     ]
@@ -38,8 +38,11 @@ def test_who_waits():
     result = invoke("simulate", str(OLDER), *(arg for app in "abcdefg" for arg in ("--playing", app)))
     assert result.output.splitlines()[-1] == "waiting for a slot of auto: g"
     result = invoke("simulate", str(OLDER), "--mode", "gaming", "--person", "Bob", "--person", "Al")
-    assert "2  people:Bob" in result.output
-    assert result.output.splitlines()[-1] == "waiting for a slot of people: Al"
+    # people share the slots of auto from the right, in the order they came
+    assert "6  people:Bob" in result.output
+    assert "5  people:Al" in result.output
+    crowd = invoke("simulate", str(OLDER), *(arg for name in "ABCDEFG" for arg in ("--person", name)))
+    assert crowd.output.splitlines()[-1] == "waiting for a slot of people: G"
 
 
 def test_the_table():
@@ -78,7 +81,7 @@ def test_a_replay(tmp_path: Path):
     assert result.exit_code == 0
     output = result.output.splitlines()
     assert output[0].endswith("  gaming on (reaper runs)")
-    assert "0.0 h replayed, 4 slot changes, 2 flaps" in output
+    assert "0.0 h replayed, 6 slot changes, 3 flaps" in output
     assert "gaming on for 12 s" in output
     assert output[-1].endswith(": slot 7: voip and back to auto")
 

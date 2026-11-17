@@ -1,6 +1,6 @@
 """
-The configuration of channels, pools, states and slots, and its checks: `Scene.of()` reads the sections
-`[channel.*]`, `[pool.*]`, `[state.*]` and `[slots]` of a file (other sections are not its business).
+The configuration of channels, pools, people, states and slots, and its checks: `Scene.of()` reads the sections
+`[channel.*]`, `[pool.*]`, `[people]`, `[state.*]` and `[slots]` of a file (other sections are not its business).
 """
 
 import difflib
@@ -18,8 +18,9 @@ from xtouch_daemon.slots.expressions import RESERVED, Condition, ExpressionError
 
 AUTO = "auto"
 PEOPLE = "people"
+"""The people in the voice chat: no pool and no candidate, they share the slots of `auto`."""
 DEFAULT = "default"
-BUILT_IN_POOLS = (AUTO, PEOPLE)
+BUILT_IN = (AUTO, PEOPLE)
 
 STATE_DELAY_OFF = 3.0
 """Seconds a state stays on after its sources stopped (`behavior.state_delay_off`)."""
@@ -30,10 +31,11 @@ ABSENT_AFTER = 3.0
 
 LOOK_OPTIONS = frozenset({"label", "color", "lit_when_idle", "rec", "solo", "meter", "meter_point"})
 """Options of a place that change only how a candidate looks there."""
-CONTROL_OPTIONS = frozenset(
-    {"encoder", "fader", "min_volume", "max_volume", "launch", "launch_when_running", "talking_color", "id"}
-)
-"""Options of a place for a pool candidate only: a channel's controls and entities belong to the channel."""
+CONTROL_OPTIONS = frozenset({"encoder", "fader", "min_volume", "max_volume", "launch", "launch_when_running", "id"})
+"""
+Options of a place for a pool candidate only: a channel's controls and entities belong to the channel. People
+don't take a place that has one.
+"""
 
 _ID = re.compile(r"[a-z0-9_]+")
 
@@ -90,14 +92,15 @@ class PoolConfig(_Open):
     channels: tuple[str, ...] = ()
     exclude: tuple[str, ...] = ()
     hold: float = 5.0
-    share: str | None = None
-    """
-    `people` only: `"auto"` lets the people take slots of `auto`, from the right (next to the voice chat's strips),
-    while the applications fill them from the left; neither moves when the other comes.
-    """
+
+
+class PeopleConfig(_Open):
+    """`[people]`: the look of their strips (the options of today's `voip` strips) and their order."""
+
     order: tuple[str, ...] = ()
     """
-    `people` with `share` only: the order of the people from the right, before those learned (who was seen first).
+    The order of the people from the right: names, or ids of `person` channels; before those learned (who was seen
+    first).
     """
 
 
@@ -141,6 +144,7 @@ class _File(BaseModel):
 
     channel: dict[str, ChannelConfig] = {}
     pool: dict[str, PoolConfig] = {}
+    people: PeopleConfig = PeopleConfig()
     state: dict[str, StateConfig] = {}
     slots: dict[str, str | list[str | dict[str, Any]]] = {}
 
@@ -164,6 +168,7 @@ class Scene:
 
     channels: Mapping[str, ChannelConfig]
     pools: Mapping[str, PoolConfig]
+    people: PeopleConfig
     states: Mapping[str, StateConfig]
     stacks: Mapping[int, tuple[Candidate, ...]]
     conditions: Mapping[str, Condition]
@@ -176,12 +181,13 @@ class Scene:
             file = _File.model_validate(data)
         except ValidationError as e:
             raise ConfigError("\n".join(_message(error) for error in e.errors())) from e
-        pools = {AUTO: PoolConfig(), PEOPLE: PoolConfig(), **file.pool}
+        pools = {AUTO: PoolConfig(), **file.pool}
         problems: list[str] = []
         _check_ids(file, problems)
         conditions = _parse_conditions(file.state, problems)
         stacks = _parse_stacks(file.slots, file.channel, pools, problems)
-        scene = cls(file.channel, pools, file.state, stacks, conditions)
+        _check_place_ids(file, stacks, problems)
+        scene = cls(file.channel, pools, file.people, file.state, stacks, conditions)
         scene._check_references(problems)
         if not problems:
             _check_loops(conditions, problems)
@@ -205,11 +211,6 @@ class Scene:
         return tuple(result)
 
     def _check_references(self, problems: list[str]) -> None:
-        for name, pool in self.pools.items():
-            if pool.order and (name != PEOPLE or pool.share != AUTO):
-                problems.append(f"pool.{name}.order: only for people that share the slots of auto")
-            if pool.share is not None and (name != PEOPLE or pool.share != AUTO):
-                problems.append(f'pool.{name}.share: only people share, and only the slots of auto (share = "auto")')
         states = {*self.states, DEFAULT}
         known = {*self.channels, *self.pools}
         tags = {tag for channel in self.channels.values() for tag in channel.tags}
@@ -310,6 +311,9 @@ def _candidate(
         if condition is not None and None in condition.presence:
             problems.append(f'{where}: "{condition.text}": present of - (nothing) means nothing')
         return Candidate(None, condition)
+    if show == PEOPLE:
+        problems.append(f"{where}: people is no candidate: the people share the slots of auto (see [people])")
+        return None
     if show not in channels and show not in pools:
         problems.append(f"{where}: {show} is no channel or pool")
         return None
@@ -330,11 +334,33 @@ def _check_ids(file: _File, problems: list[str]) -> None:
                 problems.append(f"{where}: an id is lower case letters, digits and _")
             elif name in RESERVED or name == DEFAULT or name.startswith(("state_", "slot_")):
                 problems.append(f"{where}: {name} is reserved")
-            elif section != "pool" and name in BUILT_IN_POOLS:
+            elif name == PEOPLE:
+                problems.append(f"{where}: people is built in: [people]")
+            elif section != "pool" and name == AUTO:
                 problems.append(f"{where}: {name} is a built-in pool")
             other = seen.setdefault(name, section)
             if other != section:
                 problems.append(f"{where}: {name} is also a {other}; channels, pools and states share their ids")
+
+
+def _check_place_ids(file: _File, stacks: Mapping[int, tuple[Candidate, ...]], problems: list[str]) -> None:
+    """The `id`s of places name entities like channel ids: in the same namespace, each once."""
+    seen: dict[str, str] = {}
+    taken = {*file.channel, *file.pool, *file.state, *BUILT_IN, DEFAULT}
+    for slot, stack in sorted(stacks.items()):
+        for index, candidate in enumerate(stack):
+            name = candidate.options.get("id")
+            if name is None:
+                continue
+            where = f"slots.{slot}[{index}]"
+            name = str(name)
+            if not _ID.fullmatch(name):
+                problems.append(f"{where}: id {name}: an id is lower case letters, digits and _")
+            elif name in taken:
+                problems.append(f"{where}: id {name} is also a channel, pool or state; they share their ids")
+            other = seen.setdefault(name, where)
+            if other != where:
+                problems.append(f"{where}: id {name} is also the id of {other}")
 
 
 def _check_loops(conditions: Mapping[str, Condition], problems: list[str]) -> None:

@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
 from xtouch_daemon.config.presets import Kind, expand
-from xtouch_daemon.slots.model import AUTO, PEOPLE, ChannelConfig, Scene
+from xtouch_daemon.slots.model import AUTO, ChannelConfig, Scene
 from xtouch_daemon.slots.timing import Delayed
 
 
@@ -78,22 +78,35 @@ def present_now(channel: ChannelConfig, observation: Observation) -> bool:
             return True
 
 
-def people_without_channel(scene: Scene, observation: Observation) -> tuple[str, ...]:
-    """The people in the voice chat that no `person` channel has: the members of the pool `people`."""
-    names = {person.lower() for channel in scene.channels.values() for person in channel.people}
-    return tuple(person for person in observation.people if person.lower() not in names)
+def person_channel_of(scene: Scene, person: str) -> str | None:
+    """The `person` channel of someone in the voice chat, None for none."""
+    name = person.lower()
+    return next((key for key, channel in scene.channels.items() if name in (p.lower() for p in channel.people)), None)
+
+
+def people_of(scene: Scene, observation: Observation, present: frozenset[str], with_slot: set[str]) -> list[str]:
+    """
+    The people that share the slots of `auto`, in the order they came: who has no `person` channel by name, and the
+    `person` channels with `in_auto` that are present and have no slot of their own by channel id.
+    """
+    members: dict[str, None] = {}
+    for person in observation.people:
+        channel = person_channel_of(scene, person)
+        if channel is None:
+            members[person] = None
+        elif scene.channels[channel].in_auto and channel in present and channel not in with_slot:
+            members[channel] = None
+    return list(members)
 
 
 def pool_present(scene: Scene, pool: str, observation: Observation, present: frozenset[str]) -> bool:
     """
     Whether a pool has members, counted before slots are assigned (so conditions never depend on the result):
-    `auto` while anything plays that it may take, `people` while someone has no `person` channel, a pool of
+    `auto` while anything plays that it may take or anyone is in the voice chat (people share its slots), a pool of
     channels while one of them is present.
     """
     if pool == AUTO:
-        return any(not excluded(scene, app) for app in observation.playing)
-    if pool == PEOPLE:
-        return bool(people_without_channel(scene, observation))
+        return bool(observation.people) or any(not excluded(scene, app) for app in observation.playing)
     return any(channel in present for channel in scene.members_of(scene.pools[pool].channels))
 
 

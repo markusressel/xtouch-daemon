@@ -45,7 +45,11 @@ color = "white"
 
 
 def test_the_strips_of_every_candidate_and_member():
-    config = parse_config(CHANNELS + '[slots]\n1 = ["out", "-"]\n2 = "web"\n3 = "people"\n4 = "alice"\n')
+    config = parse_config(
+        CHANNELS
+        + '[people]\ncolor = "yellow"\norder = ["Bo"]\n'
+        + '[slots]\n1 = ["out", "-"]\n2 = "web"\n3 = [{ show = "auto", color = "red" }]\n4 = "alice"\n'
+    )
     assert config.slots is not None
     strips = config.slots.strips
     assert strips[(1, 0, "out")].type == "output"
@@ -58,9 +62,14 @@ def test_the_strips_of_every_candidate_and_member():
     assert strips[(5, 0, "browser")].type == "apps"
     # a channel keeps its own color in a pool
     assert strips[(5, 0, "browser")].model_dump()["color"] == "magenta"
-    assert strips[(3, 0, None)].type == "voip"
+    # the options of a place are for applications without a channel: a channel looks as itself there
+    assert strips[(3, 0, None)].model_dump()["color"] == "red"
+    assert strips[(3, 0, "radio")].model_dump()["color"] == "white"
+    # people on auto slots: a person channel as itself, the others with the look of [people]
     assert strips[(4, 0, "alice")].model_dump()["person"] == ("Alice",)
-    # voip strips without [voip]: its defaults
+    assert strips[(3, 0, "alice")].model_dump()["color"] == "green"
+    assert config.slots.person("Bo").model_dump()["color"] == "yellow"
+    # people share auto in every configuration: the voice chat with its defaults
     assert config.voip is not None
     assert config.behavior.auto_hold == 2
     assert "beep" in config.behavior.ignore
@@ -68,16 +77,22 @@ def test_the_strips_of_every_candidate_and_member():
     assert "firefox" in config.behavior.ignore
     shown = showing(
         config,
-        ((0, None, "out", None), (0, "web", "radio", None), (0, "people", None, "Bo"), *[(None, None, None, None)] * 5),
+        (
+            (0, None, "out", None),
+            (0, "web", "radio", None),
+            (0, "people", None, "Bo"),
+            (0, "people", "alice", None),
+            *[(None, None, None, None)] * 4,
+        ),
     )
-    assert [strip.type for strip in shown.strips[:4]] == ["output", "apps", "voip", "empty"]
+    assert [strip.type for strip in shown.strips[:5]] == ["output", "apps", "voip", "voip", "empty"]
     assert shown.strips[2].model_dump()["person"] == ("Bo",)
+    assert shown.strips[3].model_dump()["person"] == ("Alice",)
 
 
-def test_without_people_no_voip_section():
+def test_nothing_ignored_without_apps_channels():
     config = parse_config('[channel.out]\ntype = "output"\n[slots]\n1 = ["out", "-"]\n2 = "-"\n3 = "-"\n')
     assert config.slots is not None
-    assert config.voip is None
     assert config.slots.ignored() == ()
 
 
@@ -93,15 +108,10 @@ def test_without_people_no_voip_section():
         ('[channel.app]\ntype = "apps"\nmatch = ["x"]\n[slots]\n1 = "app"\n', "channel.app: label: Field required"),
         ('[slots]\n1 = "nothing"\n', "slots.1[0]: nothing is no channel or pool"),
         ('[device]\nname = 3\n[slots]\n1 = "auto"\n', "device.name"),
+        ('[people]\ncolor = "pink"\n[slots]\n', "people: color: Input should be"),
     ],
 )
 def test_problems(text: str, problem: str):
     with pytest.raises(ConfigError) as error:
         parse_config(text, "slots.toml")
     assert problem in str(error.value)
-
-
-def test_people_in_auto_slots_and_voice_chat_states_need_the_voice_chat():
-    plain = '[channel.out]\ntype = "output"\n[slots]\n1 = ["out", "-"]\n2 = "-"\n3 = "-"\n'
-    assert parse_config(plain + '[pool.people]\nshare = "auto"\n').voip is not None
-    assert parse_config(plain + "[state.call]\nvoice_chat = true\n").voip is not None

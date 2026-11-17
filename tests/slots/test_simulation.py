@@ -14,13 +14,13 @@ JOINED = Observation(processes=frozenset({"reaper"}), people=("Bob",), voice_cha
 
 
 def test_joining_mumble_while_gaming_changes_each_slot_once():
-    """The third review: slot 2 at once, slot 8 after the delay_on of call, each once."""
+    """The third review: Bob on an auto slot at once, the Mic after the delay_on of call, each once."""
     simulation = Simulation(older())
-    assert shows(simulation.step(GAMING, 0), [2, 8]) == ["browser", "auto"]
-    assert shows(simulation.step(JOINED, 10), [2, 8]) == ["people:Bob", "auto"]
-    assert simulation.deadline() == 11  # the dwell of slot 2 (call is due at 12)
-    assert shows(simulation.step(JOINED, 11), [2, 8]) == ["people:Bob", "auto"]
-    assert shows(simulation.step(JOINED, 12), [2, 8]) == ["people:Bob", "mic"]
+    assert shows(simulation.step(GAMING, 0), [6, 8]) == ["auto", "auto"]
+    assert shows(simulation.step(JOINED, 10), [6, 8]) == ["people:Bob", "auto"]
+    assert simulation.deadline() == 11  # the dwell of slot 6 (call is due at 12)
+    assert shows(simulation.step(JOINED, 11), [6, 8]) == ["people:Bob", "auto"]
+    assert shows(simulation.step(JOINED, 12), [6, 8]) == ["people:Bob", "mic"]
     assert simulation.states is not None
     assert simulation.states.reasons["call"] == "in a voice chat"
 
@@ -47,15 +47,15 @@ def test_overrides_and_picks_kept_from_before():
 
 
 def test_a_reconnect_in_the_voice_chat_moves_nothing():
-    """Bob is gone for half a second (Mumble reconnects): slot 2 stays on him, like a channel within absent_after."""
+    """Bob is gone for half a second (Mumble reconnects): slot 6 stays on him, like a channel within absent_after."""
     simulation = Simulation(older())
     simulation.step(JOINED, 0)
-    assert shows(simulation.step(GAMING, 20), [2]) == ["people:Bob"]
-    assert shows(simulation.step(JOINED, 20.5), [2]) == ["people:Bob"]
+    assert shows(simulation.step(GAMING, 20), [6]) == ["people:Bob"]
+    assert shows(simulation.step(JOINED, 20.5), [6]) == ["people:Bob"]
     # gone for good: after absent_after
     simulation.step(GAMING, 30)
     assert simulation.deadline() == 33
-    assert shows(simulation.step(GAMING, 33), [2]) == ["browser"]
+    assert shows(simulation.step(GAMING, 33), [6]) == ["auto"]
 
 
 def test_auto_holds_an_application_that_stopped():
@@ -70,9 +70,7 @@ def test_auto_holds_an_application_that_stopped():
 
 
 def test_the_order_of_people_is_configured_then_learned():
-    read = scene(
-        OLDER.read_text().replace('[pool.people]\ncolor = "yellow"', '[pool.people]\nshare = "auto"\norder = ["Bob"]')
-    )
+    read = scene(OLDER.read_text().replace("[people]\n", '[people]\norder = ["Bob"]\n'))
     simulation = Simulation(read, known={"Old": -1e9, "Carol": 0.0})
     talking = Observation(voice_chat=True)
     simulation.step(replace(talking, people=("Dave",)), 1)

@@ -53,9 +53,8 @@ encoder = "balance"
 [pool.auto]
 color = "white"
 
-[pool.people]
+[people]                    # they take auto slots from the right (next to VoIP), applications from the left
 color = "yellow"
-share = "auto"              # people take auto slots from the right (next to VoIP), applications from the left
 
 [state.gaming]
 mode = true
