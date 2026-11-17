@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `sensor.<ns>_slot_<n>` (what the slot shows, with `label`, `kind`, `via` and `reason`). The live view tells the
   mode, the states and what each slot shows and why, and takes requests to pick a mode and to override a state; the
   GUI shows the mode in a pill next to the preview, with the states and slots in its tooltip.
-  The GUI edits this format: a rail with the pages Device (the device live; below it the states, to override or pick, and a card per slot
+  The GUI edits this format: a rail with the pages Slots (the states, to override or pick, and a card per slot
   with its candidates, their conditions as chips and ▶ on the one shown, to add, remove, drag or move with
   Ctrl+Up/Down; the inspector edits what a candidate shows, when and the options of its place, says where else its
   channel is used, and lists the controls of the slot; above it the why line: why the slot shows what it does,
@@ -103,16 +103,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   removes one that overrides the package's ("Use the packaged unit"), and highlights Restart when the daemon runs
   another version than the one installed, e.g. after an upgrade.
 - The live view tells the version of the daemon.
-- A handle between the strips and the editor of the GUI: dragging it scales the strips, and the size is kept.
-  The strips keep pictures of themselves, so they draw about ten times faster while it is dragged, also while
-  the live view moves their meters and faders; they are drawn sharp once it is let go.
+- The GUI's window Device shows the device on every page: docked above the page at first, at any side, or as a
+  window of its own (e.g. on another screen), kept for the next start; View → Device closes and opens it. The
+  strips keep pictures of themselves, so they draw about ten times faster while it changes size, also while the
+  live view moves their meters and faders; they are drawn sharp once the size stays.
+- Handles between the two panes of the pages Slots, Channels and States: the form of what is picked has most of the
+  width at first, and each page keeps its share.
+- A menu bar in the GUI: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window Device, the theme,
+  the zoom) and Help (the documentation).
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.
 - The strips of the GUI look like the device: the ring has 13 LEDs, the LCD is a negative display (the backlight
   shines around a dark panel and through its characters and the line between its two lines), the meter has 8 LEDs next to the buttons (REC, SOLO and MUTE square, SELECT wider), whose names are printed under them,
   and the faders are longer, with the dB scale of the device: the middle of the cap marks the value, -∞ at the
   bottom, 0 dB at 77 % of the travel and +10 dB at the top.
   The meter lights its LEDs for a level as the device does (7 for the loudest audio, the red CLIP LED when it clips).
-- GUI zoom, 67..300 %: Ctrl++ / Ctrl+= larger, Ctrl+- smaller, Ctrl+0 100 %, and a button in the header. It scales
+- GUI zoom, 67..300 %: Ctrl++ / Ctrl+= larger, Ctrl+- smaller, Ctrl+0 100 %, and View → Zoom. It scales
   the whole window, the strips too, and is kept for the next start.
 - `number.<ns>_<id>_meter` on `homeassistant` strips: Home Assistant sets the LED meter, 0..100 %, and the daemon
   holds the level.

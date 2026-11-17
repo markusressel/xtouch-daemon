@@ -1,5 +1,5 @@
 """
-Simulate on the page Device: what the slots would show with other modes, states and presence (a what-if), from the
+Simulate on the page Slots: what the slots would show with other modes, states and presence (a what-if), from the
 resolver alone; nothing goes to the daemon. The grid of distinct outcomes picks such what-ifs.
 """
 

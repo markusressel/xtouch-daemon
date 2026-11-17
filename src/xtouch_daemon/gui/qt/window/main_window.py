@@ -1,23 +1,25 @@
 """
-The main window. From the top: the file and the service; a rail of the pages (Device, Channels, States, Settings) and
-the page; at the bottom the problems, undo and saving.
+The main window. From the top: the menus; the file and the service; a rail of the pages (Slots, Channels, States,
+Settings), the window Device (docked above the page at first, or anywhere else, or on its own) and the page; at the
+bottom the problems, undo and saving.
 """
 
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QEvent, QObject, QRect, QSignalBlocker, Qt, QTimer
-from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent, QKeySequence, QShortcut, QShowEvent
+from PyQt6.QtCore import QEvent, QObject, QRect, QSignalBlocker, Qt, QTimer, QUrl
+from PyQt6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QKeyEvent, QKeySequence, QShowEvent
 from PyQt6.QtWidgets import (
     QApplication,
     QButtonGroup,
+    QDockWidget,
     QHBoxLayout,
     QMainWindow,
     QMenu,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QStackedWidget,
+    QToolBar,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -26,7 +28,7 @@ from PyQt6.QtWidgets import (
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import Problem
-from xtouch_daemon.gui.domain import broker, sources
+from xtouch_daemon.gui.domain import broker, docs, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
@@ -42,9 +44,8 @@ from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
-from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page, page_title, set_text
+from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page, page_title, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
-from xtouch_daemon.gui.qt.pages.device import DevicePage
 from xtouch_daemon.gui.qt.pages.sections import (
     BrokerTest,
     BrokerTester,
@@ -58,7 +59,9 @@ from xtouch_daemon.gui.qt.pages.states import StatesPage
 from xtouch_daemon.gui.qt.theme.icons import refresh_icons, set_icon
 from xtouch_daemon.gui.qt.theme.settings import (
     ZOOM_LEVELS,
+    load_window_state,
     load_zoom,
+    save_window_state,
     save_zoom,
     zoom_step,
     zoom_text,
@@ -67,8 +70,10 @@ from xtouch_daemon.gui.qt.theme.style import apply_theme, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice
 from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
+from xtouch_daemon.gui.qt.window.device_view import DeviceView
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session
+from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.simulator.server import AlreadyServed
 from xtouch_daemon.system import instance
@@ -82,12 +87,14 @@ SERVICE_POLL_MS = 3000
 APPLY_GRACE_MS = 2000
 """How long a reload may take before the window says that the daemon did not take the file."""
 RAIL = (
-    ("slots", "Device", "tune-vertical", "The device live, and what each slot shows when"),
+    ("slots", "Slots", "tune-vertical", "What each slot shows when"),
     ("channels", "Channels", "format-list-bulleted", "What a strip can control"),
     ("states", "States", "toggle-switch-outline", "The states and modes that decide what slots show"),
     ("settings", "Settings", "cog-outline", "The device, behavior, aliases, Home Assistant, the voice chat"),
 )
 """The pages of the rail: name, title, icon, tip."""
+DEVICE_HEIGHT = 380
+"""The height of the window Device above the page, until it is made larger or smaller."""
 
 
 class MainWindow(QMainWindow):
@@ -122,7 +129,7 @@ class MainWindow(QMainWindow):
         self.daemon: Instance | None = None
         self.audio = DISCONNECTED
         self.setWindowTitle("X-Touch Extender")
-        self.resize(1100, 960)
+        self.resize(1280, 1000)
         self.applying = QTimer(self)
         """Runs for a moment after a reload, while the daemon takes the file."""
         self.applying.setSingleShot(True)
@@ -141,14 +148,7 @@ class MainWindow(QMainWindow):
         """Turns the live preview on once it can be: it was on in the window before the zoom."""
 
         root = QWidget()
-        layout = QVBoxLayout(root)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addWidget(self._header())
-        middle = QHBoxLayout()
-        middle.setSpacing(0)
-        middle.addWidget(self._rail())
-        body = QVBoxLayout()
+        body = QVBoxLayout(root)
         body.setContentsMargins(Space.XL, Space.L, Space.XL, 0)
         body.setSpacing(Space.S)
         body.addLayout(self._preview_status())
@@ -158,22 +158,21 @@ class MainWindow(QMainWindow):
         self.preview_message.hide()
         body.addWidget(self.preview_message)
         body.addWidget(self._pages(), 1)
-        middle.addLayout(body, 1)
-        layout.addLayout(middle, 1)
-        layout.addWidget(self._footer())
         self.setCentralWidget(root)
-
-        QShortcut(QKeySequence.StandardKey.Save, self, self.save)
-        QShortcut(QKeySequence.StandardKey.Undo, self, self.undo)
-        QShortcut(QKeySequence.StandardKey.Redo, self, self.redo)
-        # Ctrl++ (on keyboards with a + key) and Ctrl+= (where + is Shift+=)
-        for keys, action in (
-            (QKeySequence.StandardKey.ZoomIn, self.zoom_in),
-            (QKeySequence("Ctrl+="), self.zoom_in),
-            (QKeySequence.StandardKey.ZoomOut, self.zoom_out),
-            (QKeySequence("Ctrl+0"), self.zoom_reset),
-        ):
-            QShortcut(keys, self, action)
+        # the header, the rail and the footer reach across the window, the docks are between them
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._bar("header", self._header()))
+        self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self._bar("rail", self._rail()))
+        self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self._bar("footer", self._footer()))
+        self.device_dock = self._device_dock()
+        self._menus()
+        # the menus of the window list its docks and bars: the menu View has the dock, the bars always show
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
+        state = load_window_state()
+        if state is not None:
+            self.restoreState(state)
+        else:
+            # most of the height is for the page
+            self.resizeDocks([self.device_dock], [DEVICE_HEIGHT], Qt.Orientation.Vertical)
         app = QApplication.instance()
         assert app is not None
         # the document's undo, also while a text field has the focus: its own would leave the document behind
@@ -197,7 +196,7 @@ class MainWindow(QMainWindow):
         if not self.shown:
             self.shown = True
             # the keys start on the strips (the arrows pick one), not on the first button of the header
-            self.device_page.preview.strips[0].setFocus()
+            self.device_view.preview.strips[0].setFocus()
 
     @property
     def document(self) -> SlotsDocument:
@@ -248,26 +247,6 @@ class MainWindow(QMainWindow):
         # the status line comes later, with the footer
         self.service_controls.told.connect(lambda text: self.status.setText(text))
         layout.addWidget(self.service_controls)
-        layout.addSpacing(8)
-        self.zoom_button = QToolButton()
-        self.zoom_button.setText(zoom_text(self.zoom))
-        self.zoom_button.setToolTip("Zoom: Ctrl++ larger, Ctrl+- smaller, Ctrl+0 100 %")
-        self.zoom_button.setAutoRaise(True)
-        self.zoom_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.zoom_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        set_role(self.zoom_button, "flat", "variant")
-        zooms = QMenu(self.zoom_button)
-        for level in ZOOM_LEVELS:
-            action = zooms.addAction(zoom_text(level))
-            assert action is not None
-            action.setCheckable(True)
-            action.setChecked(level == self.zoom)
-            action.triggered.connect(lambda _=False, level=level: self.zoom_to(level))
-        self.zoom_button.setMenu(zooms)
-        layout.addWidget(self.zoom_button)
-        self.theme_button = flat_button("theme-light-dark", "Switch between the dark and the light theme")
-        self.theme_button.clicked.connect(self.toggle_theme)
-        layout.addWidget(self.theme_button)
         return header
 
     def _live_preview_switch(self, layout: QHBoxLayout) -> None:
@@ -340,9 +319,12 @@ class MainWindow(QMainWindow):
             # the pages ask for the current one every time
             return self.audio
 
-        slots = SlotsPanel(self.editor, audio, lambda: self.live.snapshot, self.live.send, self.show_channel)
-        self.device_page = DevicePage(slots)
-        self.device_page.close_virtual_device.connect(self.close_virtual_device)
+        self.slots_page = slots = SlotsPanel(
+            self.editor, audio, lambda: self.live.snapshot, self.live.send, self.show_channel
+        )
+        self.device_view = DeviceView(slots)
+        self.device_view.close_virtual_device.connect(self.close_virtual_device)
+        self.device_view.picked.connect(self.show_slot)
         self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
         self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
         self.pages: dict[str, Page] = {"slots": slots, "channels": self.channels_page, "states": self.states_page}
@@ -358,9 +340,9 @@ class MainWindow(QMainWindow):
             else:
                 self.pages[name] = SectionPage(name, self.editor, audio)
         self.stack = QStackedWidget()
-        self.stack.addWidget(self.device_page)
-        self.stack.addWidget(self._scroll(self.channels_page))
-        self.stack.addWidget(self._scroll(self.states_page))
+        self.stack.addWidget(slots)
+        self.stack.addWidget(self.channels_page)
+        self.stack.addWidget(self.states_page)
         self.stack.addWidget(self._settings())
         return self.stack
 
@@ -384,7 +366,7 @@ class MainWindow(QMainWindow):
             self.nav.addButton(nav_button)
             self.nav_buttons[name] = nav_button
             nav.addWidget(nav_button)
-            self.settings_stack.addWidget(self._scroll(self.pages[name]))
+            self.settings_stack.addWidget(scrolled(self.pages[name]))
         nav.addStretch()
         holder = QWidget()
         holder.setLayout(nav)
@@ -396,13 +378,95 @@ class MainWindow(QMainWindow):
         self.nav_buttons[SETTINGS_PAGES[0]].setChecked(True)
         return settings
 
-    @staticmethod
-    def _scroll(page: QWidget) -> QScrollArea:
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setWidget(page)
-        return scroll
+    def _bar(self, name: str, content: QWidget) -> QToolBar:
+        """A bar of the window that stays where it is: the header, the rail or the footer."""
+        bar = QToolBar(name)
+        bar.setObjectName(name)
+        bar.setMovable(False)
+        bar.setFloatable(False)
+        bar.toggleViewAction().setVisible(False)  # pyright: ignore[reportOptionalMemberAccess]
+        bar.addWidget(content)
+        return bar
+
+    def _device_dock(self) -> QDockWidget:
+        """The window Device: above the page at first; it can go to any side, or be a window of its own."""
+        dock = QDockWidget("Device", self)
+        dock.setObjectName("device")
+        dock.setWidget(self.device_view)
+        self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
+        return dock
+
+    def _menus(self) -> None:
+        """The menus: what is used now and then, with the keys of what is used often."""
+        bar = self.menuBar()
+        assert bar is not None
+
+        def action(
+            menu: QMenu, text: str, slot: Callable[[], object], *keys: QKeySequence.StandardKey | str
+        ) -> QAction:
+            entry = menu.addAction(text)
+            assert entry is not None
+            entry.triggered.connect(lambda _=False: slot())
+            entry.setShortcuts(
+                [
+                    sequence
+                    for key in keys
+                    for sequence in (QKeySequence.keyBindings(key) if not isinstance(key, str) else [QKeySequence(key)])
+                ]
+            )
+            return entry
+
+        file = bar.addMenu("&File")
+        assert file is not None
+        self.save_action = action(file, "&Save and apply", self.save, QKeySequence.StandardKey.Save)
+        self.revert_action = action(file, "&Revert", self.revert)
+        file.addSeparator()
+        action(file, "&Quit", self.close, QKeySequence.StandardKey.Quit)
+        edit = bar.addMenu("&Edit")
+        assert edit is not None
+        self.undo_action = action(edit, "&Undo", self.undo, QKeySequence.StandardKey.Undo)
+        self.redo_action = action(edit, "&Redo", self.redo, QKeySequence.StandardKey.Redo)
+        view = bar.addMenu("&View")
+        assert view is not None
+        device = self.device_dock.toggleViewAction()
+        assert device is not None
+        device.setText("&Device")
+        device.setToolTip("The window with the device: what it shows right now, or what Simulate shows")
+        view.addAction(device)
+        view.addSeparator()
+        theme = view.addMenu("&Theme")
+        assert theme is not None
+        themes = QActionGroup(self)
+        self.theme_actions: dict[ThemeMode, QAction] = {}
+        for mode in ThemeMode:
+            entry = action(theme, mode.value.capitalize(), lambda mode=mode: self.set_theme(mode))
+            entry.setCheckable(True)
+            entry.setChecked(mode == current_mode())
+            themes.addAction(entry)
+            self.theme_actions[mode] = entry
+        zoom = view.addMenu("&Zoom")
+        assert zoom is not None
+        # Ctrl++ on keyboards with a + key, Ctrl+= where + is Shift+=
+        action(zoom, "Zoom &in", self.zoom_in, QKeySequence.StandardKey.ZoomIn, "Ctrl+=")
+        action(zoom, "Zoom &out", self.zoom_out, QKeySequence.StandardKey.ZoomOut)
+        action(zoom, "&Actual size", self.zoom_reset, "Ctrl+0")
+        zoom.addSeparator()
+        zooms = QActionGroup(self)
+        self.zoom_actions: dict[float, QAction] = {}
+        for level in ZOOM_LEVELS:
+            entry = action(zoom, zoom_text(level), lambda level=level: self.zoom_to(level))
+            entry.setCheckable(True)
+            entry.setChecked(level == self.zoom)
+            zooms.addAction(entry)
+            self.zoom_actions[level] = entry
+        help_menu = bar.addMenu("&Help")
+        assert help_menu is not None
+        action(
+            help_menu,
+            "&Documentation",
+            lambda: QDesktopServices.openUrl(QUrl(docs.DOCS_URL)),
+            QKeySequence.StandardKey.HelpContents,
+        )
 
     def _footer(self) -> QWidget:
         footer = QWidget()
@@ -473,10 +537,15 @@ class MainWindow(QMainWindow):
         modified = self.document.modified
         state = "new file" if not self.document.exists else "unsaved changes" if modified else "saved"
         self.path_label.setText(f"{self.document.path}  ·  {state}")
-        self.save_button.setEnabled(self.validation.config is not None and (modified or not self.document.exists))
-        self.revert_button.setEnabled(modified)
-        self.undo_button.setEnabled(self.history.can_undo)
-        self.redo_button.setEnabled(self.history.can_redo)
+        savable = self.validation.config is not None and (modified or not self.document.exists)
+        for widget in (self.save_button, self.save_action):
+            widget.setEnabled(savable)
+        for widget in (self.revert_button, self.revert_action):
+            widget.setEnabled(modified)
+        for widget in (self.undo_button, self.undo_action):
+            widget.setEnabled(self.history.can_undo)
+        for widget in (self.redo_button, self.redo_action):
+            widget.setEnabled(self.history.can_redo)
         self.live_preview.document_changed()
         self.refresh_preview()
 
@@ -484,7 +553,7 @@ class MainWindow(QMainWindow):
         """Shows the device (live while the daemon tells what it shows) and whether it runs the file."""
         snapshot = self.live.snapshot
         self._show_live_preview(snapshot)
-        self.device_page.show_live(snapshot)
+        self.device_view.show_live(snapshot)
         shows_document = previewed(snapshot, self.validation.config, self.live_preview.running)
         saved = self.document.saved_config
         device = saved.device.name if saved is not None else "the device"
@@ -554,6 +623,11 @@ class MainWindow(QMainWindow):
                 action.triggered.connect(lambda _=False, problem=problem: self.go_to(problem))
             self.problems_menu.addAction(action)
 
+    def show_slot(self, slot: int) -> None:
+        """The slot (1 for the leftmost one) on the page Slots, with the candidate the device shows."""
+        self.slots_page.select_slot(slot)
+        self.show_page("slots")
+
     def show_channel(self, name: str) -> None:
         self.channels_page.select(("channel", name))
         self.show_page("channels")
@@ -573,11 +647,8 @@ class MainWindow(QMainWindow):
             case ("state", str(name), *_):
                 self.states_page.select(name)
                 self.show_page("states")
-            case ("slots" | "controls", str(slot), *_) if slot.isdigit() and 1 <= int(slot) <= len(
-                self.device_page.preview.strips
-            ):
-                self.device_page.select(int(slot) - 1)
-                self.show_page("slots")
+            case ("slots" | "controls", str(slot), *_) if slot.isdigit() and 1 <= int(slot) <= protocol.STRIPS:
+                self.device_view.select(int(slot) - 1)
             case ("slots" | "controls", *_):
                 self.show_page("slots")
             case (str(name), *_) if name in SECTIONS or name == "aliases":
@@ -588,12 +659,12 @@ class MainWindow(QMainWindow):
                     if f"[{name}]" in problem.message:
                         self.show_page(name)
 
-    def toggle_theme(self) -> None:
-        dark = current_mode() == ThemeMode.DARK
-        apply_theme(ThemeMode.LIGHT if dark else ThemeMode.DARK)
+    def set_theme(self, mode: ThemeMode) -> None:
+        apply_theme(mode)
+        self.theme_actions[mode].setChecked(True)
         # the icons are drawn in the colors of the theme
         refresh_icons(self)
-        self.device_page.preview.update()
+        self.device_view.preview.update()
 
     # -- editing --------------------------------------------------------------------------------------------------
 
@@ -750,8 +821,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Virtual device", str(e))
             return
         self.hosted = hosted
-        self.device_page.host(hosted)
-        self.show_page("slots")
+        self.device_view.host(hosted)
+        self.device_dock.show()
+        self.device_dock.raise_()
         self.refresh_preview()
 
     def close_virtual_device(self) -> None:
@@ -761,7 +833,7 @@ class MainWindow(QMainWindow):
         self.hosted.stop()
         self.hosted.deleteLater()
         self.hosted = None
-        self.device_page.host(None)
+        self.device_view.host(None)
         self.refresh_preview()
 
     def closeEvent(self, event: QCloseEvent | None) -> None:
@@ -785,6 +857,7 @@ class MainWindow(QMainWindow):
         # previews again (see `Session`)
         self.live_preview.set_on(False)
         self.close_virtual_device()
+        save_window_state(bytes(self.saveState()))
         app = QApplication.instance()
         assert app is not None
         app.removeEventFilter(self)

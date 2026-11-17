@@ -21,10 +21,11 @@ from xtouch_daemon.gui.domain.voip import participants
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
-from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, row, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Snapshot
 
 AUTO = ("pool", "auto")
@@ -44,16 +45,14 @@ class ChannelsPage(Page):
         self.layout_.addWidget(row(header))
         self.layout_.addWidget(
             help_label(
-                "What a strip can control. Slots show them (see Device), states can depend on them.",
+                "What a strip can control. Slots show them (see Slots), states can depend on them.",
                 "hint",
                 docs.page_link("channels"),
             )
         )
-        body = QHBoxLayout()
-        body.setSpacing(Space.L)
         side = QVBoxLayout()
         self.list = QListWidget()
-        self.list.setMinimumWidth(240)
+        self.list.setMinimumWidth(160)
         self.list.currentItemChanged.connect(self._picked)
         side.addWidget(self.list, 1)
         buttons = QHBoxLayout()
@@ -73,7 +72,6 @@ class ChannelsPage(Page):
             buttons.addWidget(widget)
         buttons.addStretch()
         side.addLayout(buttons)
-        body.addLayout(side)
         self.inspector = QVBoxLayout()
         self.inspector.setSpacing(Space.M)
         title = QHBoxLayout()
@@ -92,8 +90,11 @@ class ChannelsPage(Page):
         self.forms = Stack()
         self.inspector.addWidget(self.forms)
         self.inspector.addStretch()
-        body.addLayout(self.inspector, 1)
-        self.layout_.addWidget(row(body), 1)
+        inspector = QWidget()
+        inspector.setLayout(self.inspector)
+        self.inspector.setContentsMargins(0, 0, Space.S, 0)
+        self.splitter = PaneSplitter("channels", row(side), scrolled(inspector))
+        self.layout_.addWidget(self.splitter, 1)
         self.form_rows: dict[str, list[OptionRow]] = {}
         self.form_widgets: dict[str, QWidget] = {}
         for kind in CHANNEL_TYPES:

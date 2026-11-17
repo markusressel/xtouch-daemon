@@ -269,24 +269,27 @@ def test_the_pill_offers_the_virtual_device_while_the_daemon_waits_for_it(
     qtbot.waitUntil(lambda: window.mode_pill.text().endswith("Open it"))
     assert window.mode_pill.cursor().shape() == Qt.CursorShape.PointingHandCursor
 
+    window.device_dock.hide()
     qtbot.mouseClick(window.mode_pill, Qt.MouseButton.LeftButton)
     assert window.hosted is not None
     assert path.exists()
-    assert window.device_page.preview.hand is window.hosted
-    assert window.device_page.virtual_bar is not None
+    # the window Device shows it, also after it was closed
+    assert window.device_dock.isVisible()
+    assert window.device_view.preview.hand is window.hosted
+    assert window.device_view.virtual_bar is not None
     assert window.mode_pill.text() == "Live · virtual device opening"
     # nothing more to offer
     qtbot.mouseClick(window.mode_pill, Qt.MouseButton.LeftButton)
 
     close = [
         button
-        for button in window.device_page.virtual_bar.findChildren(type(window.save_button))
+        for button in window.device_view.virtual_bar.findChildren(type(window.save_button))
         if button.text() == "Close"
     ]
     close[0].click()
     assert window.hosted is None
     assert not path.exists()
-    assert window.device_page.preview.hand is None
+    assert window.device_view.preview.hand is None
     window.close_virtual_device()
 
     # another one runs already

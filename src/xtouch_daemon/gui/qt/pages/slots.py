@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QDropEvent, QKeyEvent
+from PyQt6.QtGui import QDropEvent, QKeyEvent, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -50,9 +50,10 @@ from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import flat_button, label
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
-from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
 from xtouch_daemon.slots.model import AUTO
@@ -135,6 +136,8 @@ class SlotsPanel(Page):
         self.simulation: SlotsState | None = None
         """The slots of `what_if`."""
         self.layout_.setContentsMargins(0, Space.S, 0, 0)
+        end = QShortcut(QKeySequence(Qt.Key.Key_Escape), self, context=Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        end.activated.connect(lambda: self.simulate(None))
         top = QHBoxLayout()
         self.state_bar = QHBoxLayout()
         self.state_bar.setSpacing(Space.S)
@@ -164,8 +167,6 @@ class SlotsPanel(Page):
         top.addWidget(self.grid_button)
         self.layout_.addWidget(row(top))
         self.state_buttons: dict[str, QToolButton] = {}
-        body = QHBoxLayout()
-        body.setSpacing(Space.L)
         cards = QWidget()
         self.cards = QVBoxLayout(cards)
         self.cards.setSpacing(Space.S)
@@ -186,7 +187,6 @@ class SlotsPanel(Page):
         self.middle = QStackedWidget()
         self.middle.addWidget(self.card_scroll)
         self.middle.addWidget(self.grid)
-        body.addWidget(self.middle, 1)
         self.lists: list[StackList] = []
         self.card_frames: list[QFrame] = []
         for slot in range(1, protocol.STRIPS + 1):
@@ -227,15 +227,9 @@ class SlotsPanel(Page):
         self.controls = label("", "hint", wrap=True)
         inspector.addWidget(self.controls)
         inspector.addStretch()
-        # the options of a place need more room than the space under the drawing has
-        self.inspector_scroll = QScrollArea()
-        self.inspector_scroll.setWidgetResizable(True)
-        self.inspector_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.inspector_scroll.setWidget(self.inspector)
-        self.inspector_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.inspector_scroll.setFixedWidth(560)
-        body.addWidget(self.inspector_scroll)
-        self.layout_.addWidget(row(body), 1)
+        self.inspector_scroll = scrolled(self.inspector)
+        self.splitter = PaneSplitter("slots", self.middle, self.inspector_scroll)
+        self.layout_.addWidget(self.splitter, 1)
         self._show()
 
     def _card(self, slot: int) -> None:

@@ -79,8 +79,6 @@ class Preview(QWidget):
         self.settle.setSingleShot(True)
         self.settle.setInterval(SETTLE_MS)
         self.settle.timeout.connect(self._settled)
-        self.held = False
-        """Whether the handle that sizes the preview is held."""
         self.strips: list[StripView] = [StripView(self, index) for index in range(protocol.STRIPS)]
         self.blink = True
         """Whether flashing LEDs are lit right now."""
@@ -123,17 +121,7 @@ class Preview(QWidget):
     @property
     def resizing(self) -> bool:
         """Whether the size is changing: then strips scale the pictures they have."""
-        return self.held or self.settle.isActive()
-
-    def hold(self, held: bool) -> None:
-        """
-        The handle that sizes the preview is held (or let go): until it is let go, strips scale their pictures, also
-        when the hand rests for a moment; then they are drawn sharp at once.
-        """
-        self.held = held
-        if not held:
-            self.settle.stop()
-            self._settled()
+        return self.settle.isActive()
 
     def _settled(self) -> None:
         for view in self.strips:

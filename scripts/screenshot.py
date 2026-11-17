@@ -209,14 +209,14 @@ def shoot(home: Path, out: Path) -> None:
     window.resize(*SIZE)
     window.show()
     wait(app, lambda: window.live.snapshot is not None and window.audio_label.text() != "Reading the sound server…")
-    window.device_page.select(SELECTED)
+    window.device_view.select(SELECTED)
     settle(app)
     # the file as it is on a machine of a user, not in the temporary directory
     window.path_label.setText(window.path_label.text().replace(str(path), "~/.config/xtouch-daemon/config.toml"))
 
     out.mkdir(parents=True, exist_ok=True)
     save(window.grab(), out / "gui.png")
-    save(window.device_page.preview.grab(), out / "device.png")
+    save(window.device_view.preview.grab(), out / "device.png")
     window.close()
     server.close()
 

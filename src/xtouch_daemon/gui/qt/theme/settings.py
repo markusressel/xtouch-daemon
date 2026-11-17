@@ -1,5 +1,5 @@
 """
-What the window remembers of its look: the zoom, and the share of the height the preview has.
+What the window remembers of its look: the zoom, the shares of the panes of the pages, and where its docks are.
 """
 
 from PyQt6.QtCore import QSettings
@@ -23,17 +23,19 @@ def save_zoom(zoom: float) -> None:
     QSettings().setValue(_ZOOM_KEY, zoom)
 
 
-# -- the size of the preview ---------------------------------------------------------------------------------------
-
-_PREVIEW_SHARE_KEY = "preview_share"
+# -- the panes of the pages ---------------------------------------------------------------------------------------
 
 
-def load_preview_share() -> float | None:
+def _split_key(name: str) -> str:
+    return f"split/{name}"
+
+
+def load_split(name: str) -> float | None:
     """
-    The share of the height the preview had last, next to the editor below it (0..1), or None while it has not been
+    The share of the width the left pane of the page `name` had last (0..1), or None while its handle has not been
     dragged (or for a value that is not one).
     """
-    value = QSettings().value(_PREVIEW_SHARE_KEY)
+    value = QSettings().value(_split_key(name))
     try:
         share = float(value)  # pyright: ignore[reportArgumentType]
     except TypeError, ValueError:
@@ -41,8 +43,23 @@ def load_preview_share() -> float | None:
     return share if 0 < share < 1 else None
 
 
-def save_preview_share(share: float) -> None:
-    QSettings().setValue(_PREVIEW_SHARE_KEY, share)
+def save_split(name: str, share: float) -> None:
+    QSettings().setValue(_split_key(name), share)
+
+
+# -- the window ---------------------------------------------------------------------------------------------------
+
+_WINDOW_KEY = "window_state"
+
+
+def load_window_state() -> bytes | None:
+    """Where the docks of the window were (`QMainWindow.saveState()`), None at first."""
+    value = QSettings().value(_WINDOW_KEY)
+    return bytes(value) if isinstance(value, bytes | bytearray) else None
+
+
+def save_window_state(state: bytes) -> None:
+    QSettings().setValue(_WINDOW_KEY, state)
 
 
 def zoom_step(zoom: float, steps: int) -> float:

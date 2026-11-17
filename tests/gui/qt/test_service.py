@@ -295,7 +295,7 @@ def test_restart_stands_out_when_the_daemon_runs_an_older_version(
 
 
 def test_a_new_window_starts_with_the_keys_on_the_strips(window: MainWindow):
-    assert window.focusWidget() is window.device_page.preview.strips[0]
+    assert window.focusWidget() is window.device_view.preview.strips[0]
 
 
 def test_keys_typed_into_a_new_window_do_not_press_the_service_button(window: MainWindow):
@@ -462,11 +462,14 @@ def test_closing_without_changes_does_not_ask(window: MainWindow, isolated: Dial
 
 
 def test_the_theme_switches_and_is_remembered(qtbot: QtBot, window: MainWindow):
-    click(qtbot, window.theme_button)
+    # in the menu View
+    assert window.theme_actions[ThemeMode.DARK].isChecked()
+    window.theme_actions[ThemeMode.LIGHT].trigger()
     assert current_mode() == ThemeMode.LIGHT
     assert load_theme_mode() == ThemeMode.LIGHT
+    assert not window.theme_actions[ThemeMode.DARK].isChecked()
 
-    click(qtbot, window.theme_button)
+    window.theme_actions[ThemeMode.DARK].trigger()
     assert load_theme_mode() == ThemeMode.DARK
     QSettings().setValue("theme", "purple")
     assert load_theme_mode() == ThemeMode.DARK
@@ -512,7 +515,7 @@ def test_launch_is_a_list_of_the_parts_of_the_command(window: MainWindow):
 
 def test_the_rail_shows_one_page_at_a_time(qtbot: QtBot, window: MainWindow):
     assert window.current_page == "slots"
-    assert [button.text() for button in window.rail_buttons.values()] == ["Device", "Channels", "States", "Settings"]
+    assert [button.text() for button in window.rail_buttons.values()] == ["Slots", "Channels", "States", "Settings"]
     assert [button.text() for button in window.nav_buttons.values()] == [
         "Behavior",
         "Aliases",
@@ -534,8 +537,8 @@ def test_the_rail_shows_one_page_at_a_time(qtbot: QtBot, window: MainWindow):
     click(qtbot, window.rail_buttons["slots"])
     assert window.current_page == "slots"
     # a strip of the device picks its slot
-    click(qtbot, window.device_page.preview.strips[1])
-    assert window.device_page.preview.strips[1].selected
+    click(qtbot, window.device_view.preview.strips[1])
+    assert window.device_view.preview.strips[1].selected
 
 
 def test_faders_are_picked_with_buttons(qtbot: QtBot, window: MainWindow):

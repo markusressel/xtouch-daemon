@@ -7,9 +7,8 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QSettings, Qt
-from PyQt6.QtWidgets import (
-    QApplication,
-)
+from PyQt6.QtGui import QKeySequence
+from PyQt6.QtWidgets import QApplication, QMenu
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import Dialogs, MakeWindow
@@ -53,7 +52,7 @@ def test_a_new_zoom_takes_a_new_window_that_goes_on_where_this_one_was(
     qtbot: QtBot, make_window: MakeWindow, isolated: Dialogs
 ):
     window = make_window()
-    assert window.zoom_button.text() == "100 %"
+    assert window.zoom_actions[1.0].isChecked()
     window.document.set(("behavior", "encoder_step"), 3)
     window.editor.edited()
     window.show_page("behavior")
@@ -76,7 +75,7 @@ def test_a_new_zoom_takes_a_new_window_that_goes_on_where_this_one_was(
 
     after = make_window(session=session)
     assert after.zoom == 1.1
-    assert after.zoom_button.text() == "110 %"
+    assert after.zoom_actions[1.1].isChecked()
     assert after.history is window.history
     assert after.document.modified
     assert after.history.can_undo
@@ -89,13 +88,17 @@ def test_zoom_keys_and_menu(qtbot: QtBot, window: MainWindow, isolated: Dialogs)
     window.zoom_out()
     window.zoom_in()
     window.zoom_reset()
-    menu = window.zoom_button.menu()
-    assert menu is not None
-    actions = menu.actions()
+    actions = list(window.zoom_actions.values())
     assert [action.text() for action in actions][:3] == ["67 %", "75 %", "80 %"]
     assert [action.isChecked() for action in actions].index(True) == ZOOM_LEVELS.index(1.0)
     actions[-1].trigger()
     assert zooms == [0.9, 1.1, 1.0, 3.0]
+    # the keys are on the entries of the menu View, Zoom
+    menu = actions[0].parent()
+    assert isinstance(menu, QMenu)
+    keys = {action.text(): action.shortcuts() for action in menu.actions()}
+    assert QKeySequence("Ctrl+=") in keys["Zoom &in"]
+    assert keys["&Actual size"] == [QKeySequence("Ctrl+0")]
 
 
 def test_a_maximized_window_stays_maximized(make_window: MakeWindow, isolated: Dialogs):

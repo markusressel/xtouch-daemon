@@ -169,7 +169,7 @@ $ xtouch-daemon why browser
 browser: on 4; not 8 (on slot 4 (tie, to the left))
 ```
 
-The GUI shows the same above the inspector of a slot on the page Device.
+The GUI shows the same above the inspector of a slot on the page Slots.
 
 ## `mumble-plugin`
 

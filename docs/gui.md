@@ -4,7 +4,7 @@
 
 It edits [channels, states and slots](configuration/slots.md).
 
-![The GUI: the device at the top, the slots and the inspector of slot 3 below](images/gui.png)
+![The GUI: the window Device at the top, the slots and the inspector of slot 3 below](images/gui.png)
 
 ## Install and start
 
@@ -30,7 +30,7 @@ Without the extra, `xtouch-daemon gui` says how to install it.
 
 The rail on the left has four pages:
 
-- **Device:** the device as it is right now, and below it the [slots](#the-slots).
+- **Slots:** what each slot shows when, see [The slots](#the-slots).
 - **Channels:** the channels of the file, `[pool.auto]` and `[people]`. Add (by type), Duplicate and Remove; the id
   can be renamed. Each says where it is used (`slot 2`, `pool games`, `state call`).
 - **States:** the modes first, then the other states: their sources or `when`, delays and `persist`, what the daemon
@@ -40,16 +40,25 @@ The rail on the left has four pages:
   `[voip]` (as "Voice chat") and `[device]`. "Voice chat" also tells whether Mumble is connected, lists the steps of
   its setup, and installs the [Mumble plugin](integrations/mumble.md) with "Install Mumble plugin".
 
+Slots, Channels and States have a list or the slots on the left and what is picked on the right. The handle between
+them (the short upright bar) gives either side more room; each page keeps its share for the next start.
+
+The window **Device** shows the device on every page, above the page at first. Its title bar moves it to another side
+of the window, or out of it as a window of its own (e.g. on another screen); View → Device closes and opens it. The
+GUI keeps where it is for the next start. Clicking a strip of it (or Left, Right, Home, End) shows its slot on the
+page Slots.
+
 The drawing of the device shows the encoder with its ring of 13 LEDs (Mackie Control lights the middle 11), the LCD
 (the backlight in the strip's color shines around a dark panel and through its characters, as on the device), the
 meter next to Rec, Solo, Mute and Select, and the fader with its dB scale: the middle of the cap marks the value, -∞
-at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`). What each slot shows is printed under its LCD. The
-handle under the drawing (the short bar) makes it larger or smaller; the GUI keeps the size for the next start.
+at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`). What each slot shows is printed under its LCD.
 
 The footer shows the file, whether the device runs it, the problems, and the buttons Undo, Redo, Revert and "Save and
 apply". The header has the switch of the [live preview](#live-preview), the state of the service with buttons to
-install, start, restart or stop it (see [The service](#the-service)), what the sound server has, the zoom, and a
-switch between the dark and the light theme.
+install, start, restart or stop it (see [The service](#the-service)), and what the sound server has.
+
+The menus have what is used now and then: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window
+Device, the dark or the light theme, the [zoom](#zoom)) and Help (this documentation).
 
 ## The service
 
@@ -68,8 +77,8 @@ package (`/usr/lib/systemd/user/xtouch-daemon.service`), or "from" and the progr
 
 ## Zoom
 
-Ctrl++ (or Ctrl+=) makes the whole window larger, Ctrl+- smaller, Ctrl+0 goes back to 100 %; the zoom button in the
-header ("100 %") has the levels from 67 % to 300 %. The GUI keeps the zoom for the next start, like the theme.
+Ctrl++ (or Ctrl+=) makes the whole window larger, Ctrl+- smaller, Ctrl+0 goes back to 100 %; View → Zoom has the
+levels from 67 % to 300 %. The GUI keeps the zoom for the next start, like the theme.
 
 Qt scales a window only when it opens, so a new zoom opens the window again at the new size: unsaved changes, undo,
 the selected slot and the page stay. The zoom is on top of a `QT_SCALE_FACTOR` of the environment.
@@ -136,7 +145,7 @@ daemon from before the live preview (restart it to run the installed version).
 
 ## The slots
 
-Under the drawing of the page Device:
+On the page Slots:
 
 - **The state bar** lists the states and modes: ● on, ○ off, with the override in brackets. Its menu overrides a
   state (`auto`, `on`, `off`) or picks a mode (`pick`, `auto`), like Home Assistant or `xtouch-daemon mode`.
@@ -148,11 +157,11 @@ Under the drawing of the page Device:
   shows what it shows (the same as `xtouch-daemon why 2`), which channel the candidate shows, where else that is
   used and where it is now, with "Edit the channel" to its page; below, the controls of the slot (`[controls]`).
 
-Clicking a strip of the drawing (or Left, Right, Home, End) picks its card, with the candidate it shows.
+Clicking a strip in the window Device (or Left, Right, Home, End) picks its card, with the candidate it shows.
 
 **Simulate** shows what the slots would show in another mode, with other states on, or with channels absent (`auto
-plays`: an application plays): a frame goes around the drawing, a bar of what-ifs replaces the state bar, and the
-drawing, the cards and the why line follow it. Nothing is sent to the daemon. Esc, or Simulate again, ends it.
+plays`: an application plays): a frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar,
+and the drawing, the cards and the why line follow it. Nothing is sent to the daemon. Esc, or Simulate again, ends it.
 
 **Grid** lists every combination that shows something else, like the table of `xtouch-daemon check-config`. A click
 on a row simulates it, a click on a cell also picks the card of its slot.

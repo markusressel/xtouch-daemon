@@ -15,7 +15,7 @@ from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsStat
 
 
 def panel(window: MainWindow) -> SlotsPanel:
-    return window.device_page.slots
+    return window.slots_page
 
 
 def texts(stack: StackList) -> list[str]:
@@ -50,7 +50,7 @@ def test_the_cards_show_the_stacks(window: MainWindow):
     assert page.title.text() == "Slot 1"
     assert page.controls.text() == "No controls of its own."
 
-    window.device_page.select(1)
+    window.device_view.select(1)
     assert (page.slot, page.candidate) == (2, 0)
     assert page.title.text() == "Slot 2 · candidate 1"
     assert page.show_box.currentText() == "browser"
@@ -78,7 +78,7 @@ def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
     assert texts(page.lists[1]) == ["browser call", "▶ auto always"]
     assert page.state_buttons["call"].text() == "● call"
     page.show_live(live)
-    window.device_page.select(1)
+    window.device_view.select(1)
     assert page.candidate == 1
     assert page.why.text() == "Slot 2: shows 1"
     page.lists[1].setCurrentRow(0)
@@ -218,7 +218,7 @@ def test_controls_of_a_slot_are_listed(window: MainWindow):
 
 def test_simulate_shows_what_the_slots_would_show(qtbot: QtBot, window: MainWindow):
     page = panel(window)
-    device = window.device_page
+    device = window.device_view
     window.document.set(("state", "gaming"), {"mode": True, "processes": ["steam"]})
     window.document.set(("slots", "3"), ["browser if gaming", "-"])
     window.editor.edited()

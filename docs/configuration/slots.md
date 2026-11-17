@@ -49,7 +49,7 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - `-` is nothing: the slot is dark.
 - The table form `{ show = ..., when = ..., ... }` takes options of the look at this place (`label`, `color`,
   `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`); on `auto` also `encoder`, `min_volume` and `max_volume`.
-- The GUI's page Device simulates other modes and states (Simulate) and lists every combination that shows
+- The GUI's page Slots simulates other modes and states (Simulate) and lists every combination that shows
   something else (Grid), like the table of `check-config`.
 - `xtouch-daemon why 2` says why slot 2 shows what it shows, `xtouch-daemon why voip` where the channel is and
   why.

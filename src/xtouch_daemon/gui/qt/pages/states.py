@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from xtouch_daemon.gui.domain import docs
@@ -27,10 +28,11 @@ from xtouch_daemon.gui.domain.sources import patterns
 from xtouch_daemon.gui.domain.states import OVERRIDES, describe_live, live_state, ordered, state_uses
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, help_label, label
-from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, Snapshot
 from xtouch_daemon.slots.model import StateConfig
 
@@ -66,11 +68,9 @@ class StatesPage(Page):
                 docs.page_link("states"),
             )
         )
-        body = QHBoxLayout()
-        body.setSpacing(Space.L)
         side = QVBoxLayout()
         self.list = QListWidget()
-        self.list.setMinimumWidth(240)
+        self.list.setMinimumWidth(160)
         self.list.currentItemChanged.connect(self._picked)
         side.addWidget(self.list, 1)
         buttons = QHBoxLayout()
@@ -87,7 +87,6 @@ class StatesPage(Page):
         buttons.addWidget(self.remove_button)
         buttons.addStretch()
         side.addLayout(buttons)
-        body.addLayout(side)
         inspector = QVBoxLayout()
         inspector.setSpacing(Space.M)
         title = QHBoxLayout()
@@ -130,8 +129,11 @@ class StatesPage(Page):
         self.empty = label("No states yet: Add makes one.", "hint")
         inspector.addWidget(self.empty)
         inspector.addStretch()
-        body.addLayout(inspector, 1)
-        self.layout_.addWidget(row(body), 1)
+        pane = QWidget()
+        pane.setLayout(inspector)
+        inspector.setContentsMargins(0, 0, Space.S, 0)
+        self.splitter = PaneSplitter("states", row(side), scrolled(pane))
+        self.layout_.addWidget(self.splitter, 1)
         self._show()
 
     @property

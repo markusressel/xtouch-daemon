@@ -6,7 +6,8 @@ buttons).
 from collections.abc import Callable
 from typing import Any
 
-from PyQt6.QtWidgets import QFrame, QLabel, QLayout, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QFrame, QLabel, QLayout, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.changes import Change, Scope
@@ -45,6 +46,16 @@ def row(layout: QLayout) -> QWidget:
     holder = QWidget()
     holder.setLayout(layout)
     return holder
+
+
+def scrolled(widget: QWidget) -> QScrollArea:
+    """`widget` in an area that scrolls up and down when it is taller than the room it has."""
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    scroll.setWidget(widget)
+    return scroll
 
 
 def button(icon: str, text: str, color: str | None = None, role: str = "") -> QPushButton:

@@ -193,6 +193,11 @@ QWidget[role="chip"][variant="preset"] {{ background: transparent; border: 1px s
 
 QWidget[role="bar"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-top-width: 1px;
     border-bottom-width: 1px; }}
+QToolBar {{ background: {c.chrome}; border: none; padding: 0; spacing: 0; }}
+QMenuBar {{ background: {c.chrome}; border-bottom: 1px solid {c.border}; }}
+QMenuBar::item {{ background: transparent; padding: {Space.XS}px {Space.M}px; border-radius: {Radius.SMALL}px; }}
+QMenuBar::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
+QDockWidget::title {{ background: {c.chrome}; padding: {Space.XS}px {Space.M}px; }}
 QFrame[role="card"] {{ background: {c.raised}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px; }}
 QFrame[role="card"] QLabel {{ background: transparent; border: none; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: {c.surface}; border: none; }}

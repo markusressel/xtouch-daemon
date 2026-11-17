@@ -1,5 +1,5 @@
 """
-The stacks of the slots as the page Device edits them: the candidates of a slot (what it shows, its condition and
+The stacks of the slots as the page Slots edits them: the candidates of a slot (what it shows, its condition and
 the options of the place), changed one at a time and written back in the form the stack had (a string, a list of
 strings, tables where a candidate has options).
 """

@@ -158,17 +158,22 @@ itself does not import it.
   would show, `looks` how the live view draws each strip, `status` whether the device runs the saved file, `sources`
   turns sound server snapshots into suggestions, `apply()` decides between reload, restart and "the daemon does not
   run". `gui/qt` only shows that and passes edits back.
-- **Pages by what they edit.** A rail on the left has the pages: Device (the drawing of the device, live, and below
-  it the slots: a card per slot with its stack, an inspector for the candidate picked, why it shows, Simulate and the
-  Grid), Channels, States and Settings (`[device]`, `[behavior]`, `[aliases]`, `[mqtt]` as "Home Assistant",
-  `[voip]`). A click on a strip of the drawing picks its slot.
+- **Pages by what they edit.** A rail on the left has the pages: Slots (a card per slot with its stack, an inspector
+  for the candidate picked, why it shows, Simulate and the Grid), Channels, States and Settings (`[device]`,
+  `[behavior]`, `[aliases]`, `[mqtt]` as "Home Assistant", `[voip]`). Slots, Channels and States are two panes with a
+  `PaneSplitter` (`gui/qt/window/splitter.py`) between them, which keeps its share in `QSettings`.
+- **The device on every page.** The drawing of the device (`DeviceView`, `gui/qt/window/device_view.py`) is a
+  `QDockWidget`: docked above the page at first, at any side, or a window of its own; `QMainWindow.saveState()` keeps
+  where it is. The header, the rail and the footer are fixed `QToolBar`s, so they reach across the window and the
+  dock sits between them. A click on a strip of the drawing picks its slot on the page Slots. The menus hold what is
+  used now and then (the theme, the zoom) and the keys of the window.
 - **Undo instead of questions.** `History` (`gui/domain/history.py`) keeps the states of the document before every
   edit, so removing a channel or reverting the file asks nothing and Ctrl+Z brings it back. Typing into one option is one
   step. Ctrl+Z undoes in the document also while a text field has the focus.
 - **Forms from the models.** `gui/domain/schema.py` reads the options of every section and channel type from the pydantic models:
   the type picks the widget (switch, number, choice, color swatches, list chips, masked secret, file), the attribute
   docstrings become the help, `Field` constraints the ranges, and `Meanings` next to a choice (`config/values.py`, e.g.
-  `INDICATORS`) say what each value does; `Presets` on a list of names (`StreamNames`, `ProcessNames`) makes it
+  `INDICATORS`) say what each value does; `Presets` on a list of names (`StreamNames`) makes it
   suggest the presets of its kind. A new option or channel type needs no GUI code; a test fails for an option
   without help or a value without a meaning. `gui/domain/docs.py` holds the "Learn more" links into this site, and a
   test checks each against the headings of `docs/`.

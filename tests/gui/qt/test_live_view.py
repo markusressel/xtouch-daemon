@@ -26,24 +26,24 @@ def test_the_preview_shows_the_device_live(
         meter=6,
     )
     live_daemon.send(snapshot(window, first))
-    qtbot.waitUntil(lambda: window.device_page.preview.strips[0].face.live)
+    qtbot.waitUntil(lambda: window.device_view.preview.strips[0].face.live)
 
-    assert window.device_page.preview.strips[0].face.state == first
+    assert window.device_view.preview.strips[0].face.state == first
     assert window.mode_pill.text() == "Live"
     assert window.sync_label.text() == "The device runs the saved file."
     # Select flashes
-    assert window.device_page.preview.blinker.isActive()
-    blink = window.device_page.preview.blink
-    window.device_page.preview.blinker.timeout.emit()
-    assert window.device_page.preview.blink != blink
-    assert not window.device_page.preview.grab().isNull()
+    assert window.device_view.preview.blinker.isActive()
+    blink = window.device_view.preview.blink
+    window.device_view.preview.blinker.timeout.emit()
+    assert window.device_view.preview.blink != blink
+    assert not window.device_view.preview.grab().isNull()
 
     # an edit: the device runs the file until it is saved
     window.document.set(("channel", "out", "label"), "Boxes")
     window.editor.edited()
-    assert window.device_page.preview.strips[0].face.live
+    assert window.device_view.preview.strips[0].face.live
     assert window.sync_label.text() == "The device runs the saved file. There are unsaved changes."
-    assert not window.device_page.preview.grab().isNull()
+    assert not window.device_view.preview.grab().isNull()
 
     # saved: the daemon takes a moment
     assert window.save()
@@ -63,7 +63,7 @@ def test_the_preview_shows_the_device_live(
     live_daemon.close()
     qtbot.waitUntil(lambda: window.live.snapshot is None)
     assert window.mode_pill.text() == "File preview"
-    assert not window.device_page.preview.strips[0].face.live
+    assert not window.device_view.preview.strips[0].face.live
 
 
 def test_the_live_view_ends_with_the_daemon(qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon):
