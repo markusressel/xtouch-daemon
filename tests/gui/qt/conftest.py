@@ -87,6 +87,7 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         test_broker: BrokerTest = unreachable_broker,
         session: Session | None = None,
         mumble_installer: MumbleInstaller | None = None,
+        virtual_socket: Path | None = None,
     ) -> MainWindow:
         # the window after a new zoom goes on with the document of the one before
         document = session.history.document if session is not None else SlotsDocument.open(file)
@@ -100,6 +101,7 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
             session,
             # nothing of this machine: no plugin, no Mumble
             mumble_installer or MumbleInstaller(no_install, lambda: NO_MUMBLE),
+            virtual_socket,
         )
         qtbot.addWidget(window)
         window.show()

@@ -5,8 +5,9 @@ the encoder with its ring, the LCD, the buttons, the meter and the fader with it
 
 from dataclasses import dataclass
 from math import cos, radians, sin
+from typing import Literal
 
-from PyQt6.QtCore import QPoint, QPointF, QRectF, QSizeF
+from PyQt6.QtCore import QLineF, QPoint, QPointF, QRectF, QSizeF
 
 from xtouch_daemon.hardware import protocol
 
@@ -139,6 +140,28 @@ def travel_y(fraction: float) -> float:
     """Where the middle of the cap is for a fader at `fraction` (0 at the bottom, 1 at the top)."""
     top, bottom = TRAVEL
     return bottom - fraction * (bottom - top)
+
+
+def fraction_at(y: float) -> float:
+    """The fader position (0..1) for the middle of the cap at `y`: `travel_y()` the other way round."""
+    top, bottom = TRAVEL
+    return min(1.0, max(0.0, (bottom - y) / (bottom - top)))
+
+
+type Part = Literal["encoder", "fader"] | int
+"""A part of a strip the mouse can take: the encoder, the fader, or a button (its row)."""
+
+
+def part_at(point: QPointF) -> Part | None:
+    """What is at `point` of a strip: the encoder with its ring, a button, the fader (anywhere along its slot)."""
+    if QLineF(point, ENCODER).length() <= RING_RADII[1]:
+        return "encoder"
+    for row in range(SELECT_ROW + 1):
+        if button_rect(row).contains(point):
+            return row
+    if abs(point.x() - CENTER_X) <= CAP_SIZE.width() / 2 and SLOT.top() <= point.y() <= SLOT.bottom():
+        return "fader"
+    return None
 
 
 def button_rect(row: int) -> QRectF:

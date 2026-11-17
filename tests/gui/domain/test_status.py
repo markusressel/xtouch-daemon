@@ -4,7 +4,15 @@ from pathlib import Path
 import pytest
 
 from xtouch_daemon.config.files import parse_config
-from xtouch_daemon.gui.domain.status import Status, Tone, outdated, preview_status, sync_status, unit_status
+from xtouch_daemon.gui.domain.status import (
+    Status,
+    Tone,
+    offers_virtual_device,
+    outdated,
+    preview_status,
+    sync_status,
+    unit_status,
+)
 from xtouch_daemon.live.messages import Snapshot, fingerprint
 from xtouch_daemon.system import systemd
 from xtouch_daemon.system.instance import Instance
@@ -31,6 +39,28 @@ def test_the_preview_says_whether_it_is_live():
     assert alone.tip.startswith("The daemon is not running")
     # a daemon from before the live view
     assert "process 42" in preview_status(DAEMON, None, "X-Touch-Ext").tip
+
+
+@pytest.mark.parametrize(
+    ("device", "hosting", "text", "tone", "offered"),
+    [
+        (True, True, "Live · virtual device", Tone.GOOD, False),
+        (True, False, "Live · virtual device", Tone.GOOD, False),
+        (False, True, "Live · virtual device opening", Tone.NEUTRAL, False),
+        (False, False, "Live · virtual device not running · Open it", Tone.WARN, True),
+    ],
+)
+def test_the_virtual_device_is_offered_while_the_daemon_waits_for_it(
+    device: bool, hosting: bool, text: str, tone: Tone, offered: bool
+):
+    live = dataclasses.replace(snapshot(device=device), virtual=True)
+
+    status = preview_status(DAEMON, live, "X-Touch-Ext", hosting=hosting)
+
+    assert (status.text, status.tone) == (text, tone)
+    assert offers_virtual_device(live, hosting) == offered
+    assert ("mouse" in status.tip) == ((device and hosting) or offered)
+    assert not offers_virtual_device(snapshot(device=False), hosting=False)
 
 
 @pytest.mark.parametrize(

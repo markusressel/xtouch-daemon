@@ -1,10 +1,11 @@
 """
 The page Device: the device as it is right now (the live view of the daemon), and below it what each slot shows when.
+While the GUI hosts the virtual device, a bar above the drawing has what the mouse can't do on it.
 """
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut, QShowEvent
-from PyQt6.QtWidgets import QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QPushButton, QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.looks import device_faces
 from xtouch_daemon.gui.domain.simulate import simulated_faces
@@ -12,15 +13,20 @@ from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Preview
 from xtouch_daemon.gui.qt.theme.settings import load_preview_share, save_preview_share
 from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDeviceBar
 from xtouch_daemon.gui.qt.window.splitter import EDITOR_MIN_HEIGHT, PreviewSplitter
 from xtouch_daemon.live.messages import Snapshot
 
 
 class DevicePage(QWidget):
+    close_virtual_device = pyqtSignal(arguments=[])
+    """The bar of the hosted virtual device was told to close it."""
+
     def __init__(self, slots: SlotsPanel) -> None:
         super().__init__()
-        layout = QVBoxLayout(self)
+        self.page_layout = layout = QVBoxLayout(self)
         layout.setContentsMargins(0, Space.S, 0, 0)
+        self.virtual_bar: VirtualDeviceBar | None = None
         self.preview = Preview()
         self.preview.clicked.connect(self.select)
         self.slots = slots
@@ -73,6 +79,19 @@ class DevicePage(QWidget):
             faces = device_faces(snapshot)
         self.preview.show_faces(faces, self.selected, simulating=simulation is not None)
         self.slots.show_live(snapshot)
+
+    def host(self, hosted: HostedDevice | None) -> None:
+        """The GUI hosts the virtual device (None: not any more): its bar, and the mouse as a hand on it."""
+        if self.virtual_bar is not None:
+            self.virtual_bar.deleteLater()
+            self.virtual_bar = None
+        self.preview.hand = hosted
+        if hosted is not None:
+            close = QPushButton("Close")
+            close.setToolTip("Closes the virtual device: for the daemon, it is unplugged.")
+            close.clicked.connect(self.close_virtual_device.emit)
+            self.virtual_bar = VirtualDeviceBar(hosted, close)
+            self.page_layout.insertWidget(0, self.virtual_bar)
 
     def select(self, index: int) -> None:
         """A strip of the drawing was picked: the card of its slot too."""

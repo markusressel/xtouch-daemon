@@ -35,7 +35,7 @@ from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unava
 from xtouch_daemon.gui.domain.schema import SECTIONS
 from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
-from xtouch_daemon.gui.domain.status import Status, preview_status, sync_status
+from xtouch_daemon.gui.domain.status import Status, offers_virtual_device, preview_status, sync_status
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import flat_button, label, show_status
 from xtouch_daemon.gui.qt.fields.controls import Switch
@@ -65,10 +65,12 @@ from xtouch_daemon.gui.qt.theme.settings import (
 )
 from xtouch_daemon.gui.qt.theme.style import apply_theme, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
+from xtouch_daemon.gui.qt.virtual_device import HostedDevice
 from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.live.messages import Snapshot
+from xtouch_daemon.simulator.server import AlreadyServed
 from xtouch_daemon.system import instance
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import (
@@ -99,10 +101,13 @@ class MainWindow(QMainWindow):
         try_broker: BrokerTest = broker.try_broker,
         session: Session | None = None,
         mumble_installer: MumbleInstaller | None = None,
+        virtual_socket: Path | None = None,
     ):
         """
         `live_socket` is where the daemon serves its live view, by default `instance.socket_file()`. `try_broker` tries
         the settings of the [mqtt] section, `mumble_installer` sets up the Mumble plugin (page of [voip]).
+        `virtual_socket` is where the virtual device waits for the daemon when the GUI hosts it, by default
+        `instance.virtual_device_socket_file()`.
         """
         super().__init__()
         self.try_broker = try_broker
@@ -123,6 +128,9 @@ class MainWindow(QMainWindow):
         self.applying.setSingleShot(True)
         self.applying.setInterval(APPLY_GRACE_MS)
         self.applying.timeout.connect(self.refresh_preview)
+        self.virtual_socket = virtual_socket or instance.virtual_device_socket_file()
+        self.hosted: HostedDevice | None = None
+        """The virtual device while the GUI hosts it (see `open_virtual_device()`)."""
         self.live = LiveView(live_socket or instance.socket_file(), self)
         self.live.changed.connect(lambda _: self.refresh_preview())
         self.live_preview = LivePreview(self.live, document)
@@ -284,6 +292,8 @@ class MainWindow(QMainWindow):
         """What the preview shows (live or the file), the connection to Home Assistant, and the sound server."""
         top = QHBoxLayout()
         self.mode_pill = label("", "pill")
+        """Live or the file; while the daemon waits for the virtual device, a click opens it."""
+        self.mode_pill.mousePressEvent = lambda event: self._mode_clicked()  # type: ignore[method-assign]
         top.addWidget(self.mode_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self.preview_pill = label("", "pill")
         """Whether the device runs the unsaved changes (the live preview)."""
@@ -337,6 +347,7 @@ class MainWindow(QMainWindow):
 
         slots = SlotsPanel(self.editor, audio, lambda: self.live.snapshot, self.live.send, self.show_channel)
         self.device_page = DevicePage(slots)
+        self.device_page.close_virtual_device.connect(self.close_virtual_device)
         self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
         self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
         self.pages: dict[str, Page] = {"slots": slots, "channels": self.channels_page, "states": self.states_page}
@@ -482,7 +493,10 @@ class MainWindow(QMainWindow):
         shows_document = previewed(snapshot, self.validation.config, self.live_preview.running)
         saved = self.document.saved_config
         device = saved.device.name if saved is not None else "the device"
-        show_status(self.mode_pill, preview_status(self.daemon, snapshot, device))
+        hosting = self.hosted is not None
+        show_status(self.mode_pill, preview_status(self.daemon, snapshot, device, hosting))
+        offered = offers_virtual_device(snapshot, hosting)
+        self.mode_pill.setCursor(Qt.CursorShape.PointingHandCursor if offered else Qt.CursorShape.ArrowCursor)
         mqtt = header_status(snapshot)
         self.mqtt_pill.setVisible(mqtt is not None)
         if mqtt is not None:
@@ -727,6 +741,34 @@ class MainWindow(QMainWindow):
             live_preview=self.live_preview.on,
         )
 
+    def _mode_clicked(self) -> None:
+        if offers_virtual_device(self.live.snapshot, self.hosted is not None):
+            self.open_virtual_device()
+
+    def open_virtual_device(self) -> None:
+        """Hosts the virtual device, for a daemon that waits for it: the mouse on the drawing is a hand on it."""
+        hosted = HostedDevice(self.virtual_socket, self)
+        try:
+            hosted.start()
+        except (AlreadyServed, OSError) as e:
+            hosted.deleteLater()
+            QMessageBox.warning(self, "Virtual device", str(e))
+            return
+        self.hosted = hosted
+        self.device_page.host(hosted)
+        self.show_page("slots")
+        self.refresh_preview()
+
+    def close_virtual_device(self) -> None:
+        """Unplugs the hosted virtual device and closes it."""
+        if self.hosted is None:
+            return
+        self.hosted.stop()
+        self.hosted.deleteLater()
+        self.hosted = None
+        self.device_page.host(None)
+        self.refresh_preview()
+
     def closeEvent(self, event: QCloseEvent | None) -> None:
         assert event is not None
         if self.document.modified and self.rezoom is None:
@@ -747,6 +789,7 @@ class MainWindow(QMainWindow):
         # back to the file (the daemon would notice the closed connection too); after a new zoom the next window
         # previews again (see `Session`)
         self.live_preview.set_on(False)
+        self.close_virtual_device()
         app = QApplication.instance()
         assert app is not None
         app.removeEventFilter(self)

@@ -606,6 +606,7 @@ class Daemon:
             features=FEATURES,
             voip=voip_state(self.voip),
             slots=self.slots.view(),
+            virtual=isinstance(self.surface.port, SocketPort),
         )
 
     def _status(self) -> str:

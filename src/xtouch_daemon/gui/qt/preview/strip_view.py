@@ -27,6 +27,7 @@ from PyQt6.QtGui import (
     QPaintEvent,
     QPen,
     QRadialGradient,
+    QWheelEvent,
 )
 from PyQt6.QtWidgets import QWidget
 
@@ -51,8 +52,11 @@ from xtouch_daemon.gui.qt.preview.geometry import (
     SLOT,
     STRIP_TAG,
     WIDTH,
+    Part,
     button_rect,
+    fraction_at,
     meter_led,
+    part_at,
     ring_led,
     travel_y,
 )
@@ -77,6 +81,7 @@ from xtouch_daemon.gui.qt.preview.painting import (
 from xtouch_daemon.gui.qt.theme.style import current_colors, current_mode
 from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS
 from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Button
 
 if TYPE_CHECKING:
     from xtouch_daemon.gui.qt.preview.panel import Preview
@@ -109,6 +114,8 @@ class StripView(QWidget):
         """The picture of the strip without what moves all the time, drawn again when it shows something else."""
         self.picture: _Picture | None = None
         """The picture of the whole strip: the one of what it shows, with what moves over it."""
+        self.held: tuple[Part, bool] | None = None
+        """The part the mouse holds on a device it is a hand on, and whether a hand does it (no Alt), None for none."""
 
     @property
     def look(self) -> StripLook:
@@ -541,8 +548,53 @@ class StripView(QWidget):
 
     def mousePressEvent(self, event: QMouseEvent | None) -> None:
         assert event is not None
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.preview.clicked.emit(self.index)
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        self.preview.clicked.emit(self.index)
+        hand = self.preview.hand
+        point = event.position() / self.preview.scale
+        part = part_at(point)
+        if hand is None or part is None:
+            return
+        # with Alt the fader moves without a touch, like the device moving it by itself
+        touching = not event.modifiers() & Qt.KeyboardModifier.AltModifier
+        self.held = (part, touching)
+        match part:
+            case "fader":
+                if touching:
+                    hand.touch(self.index, True)
+                hand.move(self.index, fraction_at(point.y()), hand=touching)
+            case "encoder":
+                hand.push(self.index, True)
+            case row:
+                hand.press(self.index, list(Button)[row], True)
+
+    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:
+        assert event is not None
+        if self.preview.hand is not None and self.held is not None and self.held[0] == "fader":
+            self.preview.hand.move(self.index, fraction_at(event.position().y() / self.preview.scale), self.held[1])
+
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
+        held, self.held = self.held, None
+        hand = self.preview.hand
+        if hand is None or held is None:
+            return
+        match held[0]:
+            case "fader":
+                hand.touch(self.index, False)
+            case "encoder":
+                hand.push(self.index, False)
+            case row:
+                hand.press(self.index, list(Button)[row], False)
+
+    def wheelEvent(self, event: QWheelEvent | None) -> None:
+        """On a device the mouse is a hand on, the wheel turns the encoder (a notch is a step)."""
+        assert event is not None
+        steps = event.angleDelta().y() // 120
+        if self.preview.hand is None or not steps:
+            event.ignore()
+            return
+        self.preview.hand.turn(self.index, steps)
 
     def keyPressEvent(self, event: QKeyEvent | None) -> None:
         assert event is not None

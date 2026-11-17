@@ -59,7 +59,7 @@ class VirtualDevice:
         """Plugged in: the socket takes a host. AlreadyServed if another virtual device has it."""
         if self._server is not None:
             return
-        if _listening(self.path):
+        if listening(self.path):
             raise AlreadyServed(f"a virtual device already runs at {self.path}")
         self.path.unlink(missing_ok=True)
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -114,7 +114,7 @@ class VirtualDevice:
             writer.close()
 
 
-def _listening(path: Path) -> bool:
+def listening(path: Path) -> bool:
     """Whether something accepts connections at the Unix socket `path`."""
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe, contextlib.suppress(OSError):
         probe.connect(str(path))

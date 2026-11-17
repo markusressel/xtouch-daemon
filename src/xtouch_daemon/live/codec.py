@@ -71,6 +71,7 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
         tuple(data.get("features", ())),
         _voip(data.get("voip")),
         _slots(data.get("slots")),
+        bool(data.get("virtual", False)),
     )
 
 

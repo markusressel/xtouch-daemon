@@ -20,7 +20,7 @@ from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
-from xtouch_daemon.runtime.daemon import Daemon
+from xtouch_daemon.runtime.daemon import Daemon, device_surface
 
 
 async def test_the_daemon_runs_until_it_is_stopped_and_leaves_the_surface_dark(
@@ -293,3 +293,14 @@ async def test_the_media_players_follow_while_the_daemon_runs_and_go_to_every_mi
     assert daemon.mixer.channels["speaker"].env.players is players
     daemon.stop()
     await task
+
+
+def test_the_live_view_tells_whether_the_device_is_the_virtual_one(config_path: Path) -> None:
+    config = parse_config(config_path.read_text())
+    real = Daemon(config, FakeBackend(), RecordingSurface(), config_path, capture_command=QUIET)
+    virtual = Daemon(
+        config, FakeBackend(), device_surface("X-Touch-Ext", virtual=True), config_path, capture_command=QUIET
+    )
+
+    assert not real.snapshot().virtual
+    assert virtual.snapshot().virtual

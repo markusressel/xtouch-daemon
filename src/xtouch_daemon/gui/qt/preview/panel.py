@@ -7,6 +7,7 @@ they stay sharp at any size and zoom.
 """
 
 from math import ceil
+from typing import Protocol
 
 from PyQt6.QtCore import (
     QPoint,
@@ -34,6 +35,7 @@ from xtouch_daemon.gui.qt.preview.painting import HW, PANEL_RADIUS
 from xtouch_daemon.gui.qt.preview.strip_view import StripView
 from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import Button
 
 MIN_SCALE = 0.5
 """The smallest the preview gets: half its size still shows the LEDs, faders and LCD colors."""
@@ -44,6 +46,20 @@ editor is dragged) their printed parts are the picture of before, scaled, which 
 """
 BLINK_MS = 400
 """How fast a flashing LED blinks."""
+
+
+class Hand(Protocol):
+    """What the mouse does on a device it plays a hand on (the virtual device the GUI hosts), strips from 0."""
+
+    def touch(self, strip: int, touched: bool) -> None: ...
+
+    def move(self, strip: int, fraction: float, hand: bool = True) -> None: ...
+
+    def press(self, strip: int, button: Button, pressed: bool) -> None: ...
+
+    def turn(self, strip: int, steps: int) -> None: ...
+
+    def push(self, strip: int, pressed: bool) -> None: ...
 
 
 class Preview(QWidget):
@@ -73,6 +89,8 @@ class Preview(QWidget):
         self.blinker.timeout.connect(self._blink)
         self.simulating = False
         """Whether the strips show a simulation, not the device: then the panel has a frame in the accent color."""
+        self.hand: Hand | None = None
+        """The device the mouse is a hand on (the hosted virtual device), None for none: a click only selects."""
 
     def sizeHint(self) -> QSize:
         return QSize(ceil(PANEL.width()), ceil(PANEL.height()))

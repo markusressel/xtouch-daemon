@@ -27,8 +27,24 @@ class Status:
     tip: str = ""
 
 
-def preview_status(daemon: Instance | None, snapshot: Snapshot | None, device_name: str) -> Status:
-    """Whether the preview shows the device live or only the file, and why."""
+def preview_status(
+    daemon: Instance | None, snapshot: Snapshot | None, device_name: str, hosting: bool = False
+) -> Status:
+    """
+    Whether the preview shows the device live or only the file, and why. `hosting`: the GUI hosts the virtual device.
+    """
+    if snapshot is not None and snapshot.virtual:
+        if snapshot.device:
+            tip = "The mouse on the strips is a hand on it." if hosting else "It runs elsewhere (`virtual-device`)."
+            return Status("Live · virtual device", Tone.GOOD, f"The strips show what the virtual device shows. {tip}")
+        if hosting:
+            return Status("Live · virtual device opening", Tone.NEUTRAL, "The daemon finds it within seconds.")
+        return Status(
+            "Live · virtual device not running · Open it",
+            Tone.WARN,
+            "The daemon drives the virtual device, which does not run: click to open it here, with the mouse on its "
+            "strips (or run `xtouch-daemon virtual-device`).",
+        )
     if snapshot is not None:
         if not snapshot.device:
             return Status(
@@ -49,6 +65,11 @@ def preview_status(daemon: Instance | None, snapshot: Snapshot | None, device_na
         f"No live view from the daemon (process {daemon.pid}); a restart of a daemon started before the live view "
         "existed gives one. The strips show what the configuration would show.",
     )
+
+
+def offers_virtual_device(snapshot: Snapshot | None, hosting: bool) -> bool:
+    """Whether the GUI offers to open the virtual device: the daemon waits for it, and it doesn't run."""
+    return snapshot is not None and snapshot.virtual and not snapshot.device and not hosting
 
 
 def sync_status(

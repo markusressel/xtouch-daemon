@@ -147,6 +147,8 @@ class Snapshot:
     """The voice chat, None without `[voip]` (or for an older daemon)."""
     slots: SlotsState | None = None
     """The slots, states and mode; None for an older daemon."""
+    virtual: bool = False
+    """Whether the device is the virtual one (`run --virtual-device`), which the GUI can host."""
 
 
 @dataclass(frozen=True)
