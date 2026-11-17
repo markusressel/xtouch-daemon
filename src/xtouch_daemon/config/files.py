@@ -26,7 +26,13 @@ def default_config_path() -> Path:
 
 
 def example_config() -> str:
+    """The example with strips and layouts (the GUI's new file, and the defaults without a file)."""
     return resources.files("xtouch_daemon").joinpath("config.example.toml").read_text(encoding="utf-8")
+
+
+def slots_example_config() -> str:
+    """The example with channels, states and slots (`init-config`)."""
+    return resources.files("xtouch_daemon").joinpath("slots.example.toml").read_text(encoding="utf-8")
 
 
 @dataclass(frozen=True)

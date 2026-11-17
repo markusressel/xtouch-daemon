@@ -1,0 +1,32 @@
+# xtouch-daemon configuration: channels, states and slots
+#
+# `xtouch-daemon check-config` checks it and shows what each slot shows when; apply changes with
+# `systemctl --user reload xtouch-daemon`. The docs: Configuration > Channels, states and slots.
+#
+# A channel is something a strip controls (a device, a group of applications, a person, Home Assistant); a slot is
+# a strip of the device, and shows the first of its candidates whose condition holds; a state (in a call, gaming)
+# is what those conditions ask about. Slots without candidates show `auto`: the next application that plays, and
+# the people of the voice chat (from the right).
+
+[channel.out]
+type = "output"             # the default output
+
+[channel.mic]
+type = "input"              # the default input
+
+[slots]
+7 = "mic"
+8 = "out"                   # the main output on the right, as in a DAW; slots 1 to 6 are auto
+
+# [channel.voip]             # the voice chat as one strip
+# type = "apps"
+# match = ["@voip"]
+# label = "VoIP"
+#
+# [state.call]               # in a call, for slots like 6 = ["voip if call", "auto"]
+# voice_chat = true          # Mumble with the plugin; for Discord: recording = ["discord"]
+# delay_off = 5
+#
+# [state.gaming]             # a mode: while a game from Steam runs
+# mode = true
+# processes = ["@steam-games"]

@@ -26,6 +26,7 @@ def test_check_config_shows_what_each_strip_does(config_file: Path) -> None:
             f"  {number}. the next application that plays (white, rec: recording, solo: off, encoder: pick)"
             for number in range(7, 9)
         ],
+        "Strips and layouts go away: `xtouch-daemon migrate-config` writes this file as channels, states and slots",
     ]
 
 
@@ -62,7 +63,76 @@ def test_init_config_writes_the_example(config_home: Path) -> None:
 
     assert result.exit_code == 0
     assert f"Wrote {config_home}" in result.output
-    assert invoke("check-config").output.startswith(f"{config_home}: valid")
+    output = invoke("check-config").output
+    assert output.startswith(f"{config_home}: valid")
+    assert "what the slots show" in output
+
+
+def test_init_config_with_strips(tmp_path: Path) -> None:
+    path = tmp_path / "strips.toml"
+    assert invoke("init-config", "--strips", str(path)).exit_code == 0
+    assert "[[strip]]" in path.read_text()
+
+
+def test_migrate_config_writes_the_new_file_next_to_the_old_one(tmp_path: Path) -> None:
+    path = tmp_path / "config.toml"
+    path.write_text(OLD)
+    result = invoke("migrate-config", "-c", str(path))
+    new = tmp_path / "config.slots.toml"
+    assert result.output.splitlines() == [
+        f"Wrote {new}",
+        "  - strip 2: collapse: speaker_2 stays on its slot while present, auto otherwise (nothing shifts; a pool of "
+        "channels fills slots in order)",
+        "  - The layouts are modes: select.<namespace>_mode replaces select.<namespace>_layout in Home Assistant "
+        "(change automations that use it); the layout kept for the next start is not carried over",
+        f"Check it with: xtouch-daemon check-config -c {new}",
+    ]
+    assert path.read_text() == OLD
+    assert "what the slots show" in invoke("check-config", "-c", str(new)).output
+    # once more: the new file is there
+    again = CliRunner().invoke(cli.main, ["migrate-config", "-c", str(path)])
+    assert "exists already (--force overwrites it)" in again.output
+    assert invoke("migrate-config", "-c", str(path), "--force").exit_code == 0
+    other = tmp_path / "other.toml"
+    assert invoke("migrate-config", "-c", str(path), "-o", str(other)).exit_code == 0
+    assert other.read_text() == new.read_text()
+
+
+def test_migrate_config_in_place_keeps_the_old_file(tmp_path: Path) -> None:
+    path = tmp_path / "config.toml"
+    path.write_text(OLD)
+    result = invoke("migrate-config", "-c", str(path), "--in-place")
+    assert result.output.startswith(f"Kept the old file as {tmp_path / 'config.layouts.toml'}\nWrote {path}\n")
+    assert (tmp_path / "config.layouts.toml").read_text() == OLD
+    assert "[slots]" in path.read_text()
+    # the old file is there already; a file of slots can't be migrated
+    path.write_text(OLD)
+    assert (
+        "config.layouts.toml exists already"
+        in CliRunner().invoke(cli.main, ["migrate-config", "-c", str(path), "--in-place"]).output
+    )
+    migrated = CliRunner().invoke(cli.main, ["migrate-config", "-c", str(tmp_path / "config.slots.toml")])
+    assert "does not exist" in migrated.output
+    invoke("migrate-config", "-c", str(path))
+    again = CliRunner().invoke(cli.main, ["migrate-config", "-c", str(tmp_path / "config.slots.toml")])
+    assert "has channels, states and slots already" in again.output
+    both = CliRunner().invoke(cli.main, ["migrate-config", "-c", str(path), "--in-place", "-o", "x.toml"])
+    assert "--output or --in-place, not both" in both.output
+
+
+OLD = """[[strip]]
+type = "output"
+label = "Speaker"
+
+[[strip]]
+type = "output"
+device = "buds"
+label = "Speaker"
+collapse = true
+
+[[layout]]
+name = "gaming"
+"""
 
 
 def test_init_config_does_not_overwrite_without_force(config_file: Path) -> None:

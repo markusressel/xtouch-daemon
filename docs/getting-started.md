@@ -77,6 +77,10 @@ xtouch-daemon list-apps       # the applications that play now, and which strip 
 xtouch-daemon check-config    # validates the file and shows what each strip does
 ```
 
+`init-config` writes the format of [channels, states and slots](configuration/slots.md), which replaces the strips
+and layouts below; `init-config --strips` writes the example with strips, which the GUI edits for now, and
+`migrate-config` turns such a file into the new format.
+
 Up to eight `[[strip]]` sections, from the left. For example:
 
 ```toml

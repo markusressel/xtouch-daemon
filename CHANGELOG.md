@@ -23,7 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `homeassistant = true`, `binary_sensor.<ns>_<channel>_shown` and `sensor.<ns>_slot_<n>` (what the slot shows,
   with `label`, `kind`, `via` and `reason`). The live view tells the mode, the states and what each slot shows and
   why, takes requests to pick a mode and to override a state, and the GUI shows the mode in a pill next to the
-  preview, with the states and slots in its tooltip.
+  preview, with the states and slots in its tooltip. `xtouch-daemon migrate-config` writes a file with strips and
+  layouts in that format and lists what needs a look (renamed entities, resolved `inherit` strips, strips without a
+  slot); `check-config` points old files to it. `init-config` writes the new format (`--strips` the old example),
+  `xtouch-daemon mode` lists and picks the modes (`layout` still works and says so). See the new page Channels,
+  states and slots.
 - Presets: named groups of well-known applications for the lists that match applications by name, e.g.
   `match = ["@browsers"]` or `processes = ["@steam-games"]`, next to names of one's own. `@browsers`, `@voip`,
   `@steam-games`, `@games`, `@music` and `@video` work in `match` of `apps` strips, `apps` and `processes` of layouts

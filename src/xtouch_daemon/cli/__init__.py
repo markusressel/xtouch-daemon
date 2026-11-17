@@ -6,10 +6,10 @@ module has the commands of one topic; `main` puts them together.
 import click
 
 from xtouch_daemon import __version__
-from xtouch_daemon.cli.configuration import check_config, init_config
+from xtouch_daemon.cli.configuration import check_config, init_config, migrate_config
 from xtouch_daemon.cli.daemon import run, test
 from xtouch_daemon.cli.editor import gui
-from xtouch_daemon.cli.layouts import layout
+from xtouch_daemon.cli.layouts import layout, mode
 from xtouch_daemon.cli.mumble import mumble_plugin
 from xtouch_daemon.cli.service import install_service
 from xtouch_daemon.cli.slots import observe, simulate
@@ -30,6 +30,8 @@ for command in (
     layout,
     list_apps,
     list_devices,
+    migrate_config,
+    mode,
     mumble_plugin,
     observe,
     run,

@@ -70,7 +70,19 @@ its layout or `[behavior]`, see [Meters](configuration/strips.md#meters)) says `
 strips end with `The device shows the first 8 of them that don't collapse.`
 
 A file with errors names the place of each one, e.g. `strip[3].label: String should have at most 7 characters`, and
-the command fails.
+the command fails. A file with strips and layouts ends with a pointer to [`migrate-config`](#migrate-config); one
+with [channels, states and slots](configuration/slots.md) shows the table of what its slots show in which states.
+
+## `migrate-config`
+
+```shell
+xtouch-daemon migrate-config [-c FILE] [-o OUT | --in-place] [-f]
+```
+
+Writes a file with strips and layouts as [channels, states and slots](configuration/slots.md#migrating): to
+`<name>.slots.toml` next to it, to `OUT`, or with `--in-place` over the file, keeping the old one as
+`<name>.layouts.toml`. Sections that stay keep their comments. It lists what needs a look, e.g. entities in Home
+Assistant that got another id. An existing output stays, unless `-f` (`--force`) overwrites it.
 
 ## `init-config`
 
@@ -78,8 +90,9 @@ the command fails.
 xtouch-daemon init-config [PATH] [-f]
 ```
 
-Writes the example configuration to `~/.config/xtouch-daemon/config.toml`, or to `PATH`. An existing file stays,
-unless `-f` (`--force`) overwrites it.
+Writes the example configuration with [channels, states and slots](configuration/slots.md) to
+`~/.config/xtouch-daemon/config.toml`, or to `PATH`; `--strips` the one with strips and layouts (which the GUI
+edits). An existing file stays, unless `-f` (`--force`) overwrites it.
 
 ## `list-devices`
 
@@ -144,6 +157,17 @@ order of the file (after the last one comes `default`). The choice stays until a
 starts or stops matching. A layout chosen by hand also comes back after a restart of the daemon (see
 [Switching](configuration/layouts.md#switching)). It talks to the daemon over its live view socket, so it needs a
 running daemon; the command fails when there is none, or no layout of that name.
+
+## `mode`
+
+```shell
+xtouch-daemon mode [NAME | auto | --next | --previous]
+```
+
+With [channels, states and slots](configuration/slots.md): without arguments it prints the modes of the running
+daemon, marks the one that is on, and says whether it was picked by hand. `mode gaming` picks the mode `gaming`,
+`--next` and `--previous` the one after or before it, `auto` lets the rules decide again. It replaces `layout`,
+which still picks modes and says so.
 
 ## `mumble-plugin`
 

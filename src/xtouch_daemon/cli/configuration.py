@@ -12,9 +12,11 @@ import click
 from xtouch_daemon.cli.options import CONFIG_OPTION, load_or_fail
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
-from xtouch_daemon.config.files import default_config_path, example_config
+from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.files import default_config_path, example_config, slots_example_config
 from xtouch_daemon.config.layout import LayoutConfig
 from xtouch_daemon.config.layout_strips import InheritStripConfig, VoipStripConfig
+from xtouch_daemon.config.migrate import migrate
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import DEFAULT_LAYOUT, MeterPoint, default_encoder
@@ -95,6 +97,9 @@ def check_config(config_path: Path | None) -> None:
     for layout in config.layouts:
         click.echo(f"Layout {layout.name}{f' ({layout.label})' if layout.label else ''}{describe_rules(layout)}:")
         _describe_strips(config, layout.name)
+    click.echo(
+        "Strips and layouts go away: `xtouch-daemon migrate-config` writes this file as channels, states and slots"
+    )
 
 
 def _describe_strips(config: Config, layout: str = DEFAULT_LAYOUT) -> None:
@@ -126,11 +131,50 @@ def _any_of(entries: tuple[str, ...], kind: presets.Kind) -> str:
 @click.command("init-config")
 @click.argument("path", type=click.Path(path_type=Path, dir_okay=False), required=False)
 @click.option("-f", "--force", is_flag=True, help="Overwrite an existing file.")
-def init_config(path: Path | None, force: bool) -> None:
+@click.option(
+    "--strips", is_flag=True, help="The example with strips and layouts (for the GUI, which edits only those)."
+)
+def init_config(path: Path | None, force: bool, strips: bool) -> None:
     """Write the example configuration (to the default path, or PATH)."""
     path = path or default_config_path()
     if path.exists() and not force:
         raise click.ClickException(f"{path} exists already (--force overwrites it)")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(example_config(), encoding="utf-8")
+    path.write_text(example_config() if strips else slots_example_config(), encoding="utf-8")
     click.echo(f"Wrote {path}. Edit it, then check it with: xtouch-daemon check-config")
+
+
+@click.command("migrate-config")
+@CONFIG_OPTION
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path, dir_okay=False),
+    help="Where to write the new file [default: next to it, <name>.slots.toml].",
+)
+@click.option("--in-place", is_flag=True, help="Replace the file; the old one stays as <name>.layouts.toml.")
+@click.option("-f", "--force", is_flag=True, help="Overwrite an existing output file.")
+def migrate_config(config_path: Path | None, output: Path | None, in_place: bool, force: bool) -> None:
+    """Write a file with strips and layouts as channels, states and slots, and tell what changed."""
+    path = config_path or default_config_path()
+    if output is not None and in_place:
+        raise click.ClickException("--output or --in-place, not both")
+    try:
+        migration = migrate(path.read_text(encoding="utf-8"), str(path))
+    except FileNotFoundError:
+        raise click.ClickException(f"{path} does not exist") from None
+    except ConfigError as e:
+        raise click.ClickException(str(e)) from e
+    backup = path.with_name(f"{path.stem}.layouts{path.suffix}")
+    target = path if in_place else output or path.with_name(f"{path.stem}.slots{path.suffix}")
+    for existing in (backup if in_place else target,):
+        if existing.exists() and not force:
+            raise click.ClickException(f"{existing} exists already (--force overwrites it)")
+    if in_place:
+        backup.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+        click.echo(f"Kept the old file as {backup}")
+    target.write_text(migration.text, encoding="utf-8")
+    click.echo(f"Wrote {target}")
+    for note in migration.notes:
+        click.echo(f"  - {note}")
+    click.echo(f"Check it with: xtouch-daemon check-config -c {target}")

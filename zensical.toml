@@ -30,6 +30,7 @@ nav = [
     { "LEDs" = "configuration/indicators.md" },
     { "Layouts" = "configuration/layouts.md" },
     { "Collapsing strips" = "configuration/collapsing.md" },
+    { "Channels, states and slots" = "configuration/slots.md" },
   ] },
   { "Home Assistant" = "home-assistant.md" },
   { "Mumble" = "integrations/mumble.md" },
