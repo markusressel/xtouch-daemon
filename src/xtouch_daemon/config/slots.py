@@ -91,6 +91,15 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
             options["type"] = "voip"
         return options
 
+    for name, channel in channels.items():
+        if "collapse" in channel:
+            problems.append(
+                f'channel.{name}: collapse: gone with layouts; "{name} if present" in a slot shows it only then'
+            )
+        if channel.get("type") == "person" and ("launch" in channel or "launch_when_running" in channel):
+            problems.append(
+                f"channel.{name}: launch: the strips of people have none; a launch is a control of a slot ([controls])"
+            )
     # each channel on its own first: its problems once, not on every slot
     own_strips = {name: check(f"channel.{name}", channel_strip(name)) for name in scene.channels}
     broken = {name for name, strip in own_strips.items() if strip is None}

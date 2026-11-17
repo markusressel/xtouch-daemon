@@ -12,7 +12,7 @@ from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.strips import StripConfig
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.hardware.strip import Strip
-from xtouch_daemon.strips import build_strip, look_of, strip_identity
+from xtouch_daemon.strips import build_strip, look_of
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv
 from xtouch_daemon.strips.device import DeviceStrip
 
@@ -28,7 +28,11 @@ def strips_of(text: str) -> tuple[StripConfig, ...]:
 
 def build(config: StripConfig, strip: Strip, env: StripEnv, aliases: dict[str, str] | None = None) -> StripController:
     """The controller of a strip of the configuration on `strip`, with the identity and look of its place."""
-    return build_strip(config, strip, env, aliases or {}, strip_identity(config, strip.index), look_of(config))
+    position = strip.index + 1
+    identity = Identity(
+        getattr(config, "id", None) or f"strip_{position}", getattr(config, "label", None) or f"Strip {position}"
+    )
+    return build_strip(config, strip, env, aliases or {}, identity, look_of(config))
 
 
 def make(

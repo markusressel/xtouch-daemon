@@ -1,25 +1,22 @@
 import asyncio
-import dataclasses
 from collections.abc import AsyncIterator
 
 import pytest
 
 from tests.support.hardware import RecordingSurface
-from tests.support.launch import FakeLauncher
 from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon.audio.meter import CaptureTarget, Lit, Peak
 from xtouch_daemon.audio.model import DISCONNECTED
 from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
-from xtouch_daemon.strips import look_of, strip_identity
-from xtouch_daemon.strips import voip as voip_module
-from xtouch_daemon.strips.base import StripEnv
-from xtouch_daemon.strips.voip import VoipSeat, VoipSeats, VoipStrip
-from xtouch_daemon.system.launch import LaunchButton
+from xtouch_daemon.strips import look_of
+from xtouch_daemon.strips.base import Identity, StripEnv
+from xtouch_daemon.strips.voip import VoipStrip
 from xtouch_daemon.voip import Capability, Participant, VoipProvider
 
 CONFIG = VoipStripConfig(type="voip", color="cyan", talking_color="green", max_volume=200)
+ID = Identity("ann", "Ann")
 
 
 class FakeProvider(VoipProvider):
@@ -60,92 +57,42 @@ def provider() -> FakeProvider:
 
 
 def make(
-    surface: RecordingSurface,
-    env: StripEnv,
-    provider: VoipProvider,
-    *configs: VoipStripConfig,
-    launch: LaunchButton | None = None,
-) -> tuple[VoipSeats, list[VoipStrip], list[int]]:
-    """`voip` strips of these configurations (by default two of the group) on the first strips of the surface."""
-    configs = configs or (CONFIG, CONFIG)
-    refreshed: list[int] = []
-    strips: list[VoipStrip] = []
-
-    def refresh() -> None:
-        refreshed.append(1)
-        for strip in strips:
-            strip.show()
-
-    seats = VoipSeats(provider, [config.person for config in configs], refresh)
-    strips += [
-        VoipStrip(
-            surface.strips[seat],
-            env,
-            strip_identity(config, seat),
-            look_of(config),
-            VoipSeat(seats, seat, launch),
-            config,
-        )
-        for seat, config in enumerate(configs)
+    surface: RecordingSurface, env: StripEnv, provider: VoipProvider, *configs: VoipStripConfig
+) -> list[VoipStrip]:
+    """Strips of people with these configurations (by default Annabelle and Bob) on the first strips of the surface."""
+    configs = configs or (fixed("Annabelle"), fixed("Bob"))
+    return [
+        VoipStrip(surface.strips[index], env, ID, look_of(config), provider, config)
+        for index, config in enumerate(configs)
     ]
-    return seats, strips, refreshed
 
 
 def fixed(*names: str, **options: object) -> VoipStripConfig:
     return CONFIG.model_copy(update={"person": names, **options})
 
 
-def test_the_pages_of_a_group(provider: FakeProvider):
-    seats = VoipSeats(provider, [(), ()])
-    assert seats.pages == 2
-    assert [seats.participant(seat) for seat in (0, 1)] == list(PEOPLE[:2])
-    assert seats.next_page() == "pg 2/2"
-    assert [seats.participant(seat) for seat in (0, 1)] == [PEOPLE[2], None]
-    assert seats.next_page() == "pg 1/2"
-    seats.page = 1
-    provider.update(PEOPLE[:1])
-    # fewer participants: the page wraps
-    assert seats.pages == 1
-    assert seats.participant(0) == PEOPLE[0]
-    assert VoipSeats(FakeProvider(), [(), (), ()]).pages == 1
-
-
-def test_the_group_is_the_strips_without_a_person(provider: FakeProvider):
-    # not next to each other: the group fills its strips in order with the people without a strip of their own
-    seats = VoipSeats(provider, [(), ("bob",), ()])
-    assert seats.group == (0, 2)
-    assert [seats.participant(seat) for seat in range(3)] == [PEOPLE[0], PEOPLE[1], PEOPLE[2]]
-    assert seats.pages == 1
-    assert seats.fixed(1)
-    assert not seats.fixed(0)
-    # only fixed strips: one page, nothing to page
-    assert VoipSeats(provider, [("carol",)]).pages == 1
-
-
-def test_a_person_has_names_ignoring_case(provider: FakeProvider):
-    seats = VoipSeats(provider, [("Carol", "carol-phone"), ()])
-    assert seats.participant(0) == PEOPLE[2]
-    assert seats.participant(1) == PEOPLE[0]
+async def test_a_person_has_names_ignoring_case(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
+    (carol,) = make(surface, env, provider, fixed("Carol", "carol-phone"))
+    assert carol.participant == PEOPLE[2]
     phone = Participant("4", "CAROL-PHONE")
     provider.update((phone, *PEOPLE))
-    # the first one of the names in the order of the provider; the other one goes to the group
-    assert seats.participant(0) == phone
-    assert [seats.participant(1), seats.pages] == [PEOPLE[0], 3]
+    # the first one of the names in the order of the provider
+    assert carol.participant == phone
+    provider.update(PEOPLE[:2])
+    assert carol.participant is None
     # no wildcards, no parts of a name
-    assert VoipSeats(provider, [("caro",)]).participant(0) is None
+    (caro,) = make(surface, env, provider, fixed("caro"))
+    provider.update(PEOPLE)
+    assert caro.participant is None
 
 
-def test_the_seats_follow_the_provider(provider: FakeProvider):
-    seats = VoipSeats(provider, [("bob",), ()])
-    assert seats.participant(1) == PEOPLE[0]
-    provider.update(PEOPLE[1:])
-    assert seats.participant(1) == PEOPLE[2]
-    provider.update(PEOPLE[2:])
-    assert seats.participant(0) is None
+def test_a_strip_of_the_voice_chat_shows_a_person(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
+    with pytest.raises(AssertionError, match="shows a person"):
+        make(surface, env, provider, CONFIG)
 
 
 async def test_a_strip_shows_its_participant(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
-    _, (ann, bob), _ = make(surface, env, provider)
+    ann, bob = make(surface, env, provider)
     ann.update(DISCONNECTED)
     bob.update(DISCONNECTED)
     await settle()
@@ -153,8 +100,8 @@ async def test_a_strip_shows_its_participant(surface: RecordingSurface, env: Str
     assert (first.color, first.text, first.leds[Button.MUTE]) == (Color.GREEN, ["Annabel", "100%"], Led.OFF)
     # 100 % at the 0 dB mark (`behavior.unity_at`), as on the other strips
     assert first.fader == protocol.fader_value(0.77)
-    # more participants than places: Select pages
-    assert first.leds[Button.SELECT] == Led.ON
+    # Select does nothing on the strip of a person
+    assert first.leds[Button.SELECT] == Led.OFF
     assert (second.color, second.text, second.leds[Button.MUTE]) == (Color.CYAN, ["Bob", "muted"], Led.ON)
     # audio: the mixer shows it in dB like the meters of streams
     assert ann.held_meter("pre_fader") == Peak(0.5)
@@ -170,7 +117,7 @@ async def test_the_meter_takes_the_voice_before_or_after_the_fader(
             Participant("2", "Bob", talking=True, muted=True, level=0.0, pre_fader_level=0.0),
         )
     )
-    _, (ann, bob), _ = make(surface, env, provider)
+    ann, bob = make(surface, env, provider, fixed("Ann"), fixed("Bob"))
     assert ann.held_meter("pre_fader") == Peak(0.6)
     assert ann.held_meter("post_fader") == Peak(0.3)
     # the voice chat doesn't get the voice of a muted participant: before the fader they light it while they talk
@@ -185,7 +132,7 @@ async def test_the_meter_takes_the_voice_before_or_after_the_fader(
 async def test_without_volumes_and_levels(surface: RecordingSurface, env: StripEnv):
     provider = FakeProvider(frozenset())
     provider.update((Participant("1", "Ann", talking=True), Participant("2", "Bob")))
-    _, (ann, bob), _ = make(surface, env, provider)
+    ann, bob = make(surface, env, provider, fixed("Ann"), fixed("Bob"))
     ann.update(DISCONNECTED)
     bob.update(DISCONNECTED)
     assert surface.strips[0].text == ["Ann", "talks"]
@@ -201,26 +148,13 @@ async def test_without_volumes_and_levels(surface: RecordingSurface, env: StripE
     assert provider.commands == []
 
 
-async def test_an_empty_place_is_dark(surface: RecordingSurface, env: StripEnv):
-    provider = FakeProvider()
-    _, (empty, _), _ = make(surface, env, provider)
-    empty.update(DISCONNECTED)
-    strip = surface.strips[0]
-    assert (strip.color, strip.text, strip.fader) == (Color.BLACK, ["", ""], 0)
-    assert empty.held_meter("pre_fader") is None
-    empty.on_fader(0.7)
-    empty.on_button(Button.MUTE, True)
-    await settle()
-    assert provider.commands == []
-
-
 async def test_the_meter_can_be_off(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
-    _, (ann, _), _ = make(surface, env, provider, CONFIG.model_copy(update={"meter": False}), CONFIG)
+    (ann,) = make(surface, env, provider, fixed("Annabelle", meter=False))
     assert ann.held_meter("pre_fader") is None
 
 
 async def test_the_fader_sets_the_volume(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
-    _, (ann, _), _ = make(surface, env, provider)
+    ann, _ = make(surface, env, provider)
     ann.update(DISCONNECTED)
     surface.strips[0].touch(True)
     ann.on_touch(True)
@@ -245,7 +179,7 @@ async def test_the_fader_sets_the_volume(surface: RecordingSurface, env: StripEn
 
 
 async def test_mute_toggles_the_participant(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
-    _, (ann, bob), _ = make(surface, env, provider)
+    ann, bob = make(surface, env, provider)
     ann.on_button(Button.MUTE, True)
     ann.on_button(Button.MUTE, False)
     bob.on_button(Button.MUTE, True)
@@ -254,123 +188,12 @@ async def test_mute_toggles_the_participant(surface: RecordingSurface, env: Stri
     assert provider.commands == [("muted", "1", True), ("muted", "2", False)]
 
 
-async def test_select_shows_the_next_page(
-    surface: RecordingSurface, env: StripEnv, provider: FakeProvider, monkeypatch: pytest.MonkeyPatch
-):
-    monkeypatch.setattr(voip_module, "NOTICE_TIME", 0.01)
-    seats, (ann, bob), refreshed = make(surface, env, provider)
-    bob.on_button(Button.SELECT, True)
-    bob.on_button(Button.SELECT, False)
-    assert seats.page == 1
-    assert refreshed == [1]
-    ann.update(DISCONNECTED)
-    assert surface.strips[0].text == ["Carol", "150%"]
-    assert surface.strips[1].text == ["", "pg 2/2"]
-    # a second press while the page shows
-    bob.on_button(Button.SELECT, True)
-    assert surface.strips[1].text[1] == "pg 1/2"
-    await asyncio.sleep(0.05)
-    assert surface.strips[1].text == ["Bob", "muted"]
-    bob.on_button(Button.SELECT, True)
-    bob.close()
-    ann.close()
-
-
-# -- launch -------------------------------------------------------------------------------------------------------
-
-MUMBLE = ("mumble", "mumble://markus@voice.example.org/Gaming")
-
-
-def launching(
-    surface: RecordingSurface, env: StripEnv, provider: VoipProvider, *processes: str
-) -> tuple[FakeLauncher, list[VoipStrip]]:
-    launcher = FakeLauncher()
-    config = CONFIG.model_copy(update={"launch": MUMBLE})
-    button = LaunchButton(MUMBLE, launcher, "Strip 1")
-    env = dataclasses.replace(env, processes=lambda: frozenset(processes))
-    _, strips, _ = make(surface, env, provider, config, config, launch=button)
-    return launcher, strips
-
-
-async def test_select_launches_the_voice_chat_while_it_is_not_there(surface: RecordingSurface, env: StripEnv):
-    launcher, (first, second) = launching(surface, env, FakeProvider())
-    assert first.launches
-    first.update(DISCONNECTED)
-    assert surface.strips[0].leds[Button.SELECT] == Led.OFF
-
-    first.on_button(Button.SELECT, True)
-    # the places launch together: once
-    second.on_button(Button.SELECT, True)
-
-    assert len(launcher.spawned) == 1
-    assert launcher.spawned[0][-2:] == list(MUMBLE)
-    assert surface.strips[0].leds[Button.SELECT] == Led.FLASH
-    assert surface.strips[1].leds[Button.SELECT] == Led.FLASH
-    # no page notice
-    assert surface.strips[0].text[1] == ""
-
-
-async def test_a_voice_chat_that_is_there_pages_on_select(
-    surface: RecordingSurface, env: StripEnv, provider: FakeProvider
-):
-    # the plugin reports it
-    launcher, (first, _) = launching(surface, env, provider)
-    first.on_button(Button.SELECT, True)
-    assert launcher.spawned == []
-    assert first.notice == "pg 2/2"
-    assert surface.strips[0].leds[Button.SELECT] == Led.ON
-
-
-async def test_the_program_of_launch_counts_as_the_voice_chat(surface: RecordingSurface, env: StripEnv):
-    # Mumble runs without the plugin
-    launcher, (first, _) = launching(surface, env, FakeProvider(), "mumble")
-    first.on_button(Button.SELECT, True)
-    assert launcher.spawned == []
-    assert first.notice == "pg 1/1"
-
-
-async def test_a_launch_that_fails_shows_nothing(surface: RecordingSurface, env: StripEnv):
-    launcher, (first, _) = launching(surface, env, FakeProvider())
-    launcher.missing.add("mumble")
-    first.on_button(Button.SELECT, True)
-    assert surface.strips[0].leds[Button.SELECT] == Led.OFF
-    assert first.notice is None
-
-
-async def test_a_place_without_a_participant_shows_the_label(
-    surface: RecordingSurface, env: StripEnv, provider: FakeProvider
-):
-    seats, strips, _ = make(surface, env, provider)
-    seats.next_page()
-    assert [strip.title for strip in strips] == ["Carol", "voip"]
-
-
-async def test_the_strips_of_a_person_launch_too(surface: RecordingSurface, env: StripEnv):
-    launcher = FakeLauncher()
-    button = LaunchButton(MUMBLE, launcher, "Strip 1")
-    config = CONFIG.model_copy(update={"launch": MUMBLE, "person": ("carol",)})
-    _, (carol,), _ = make(surface, env, FakeProvider(), config, launch=button)
-    carol.on_button(Button.SELECT, True)
-    assert len(launcher.spawned) == 1
-    assert surface.strips[0].leds[Button.SELECT] == Led.FLASH
-
-
-# -- strips of one person -----------------------------------------------------------------------------------------
-
-
 async def test_a_strip_of_a_person(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
-    _, (carol, group), _ = make(surface, env, provider, fixed("carol", label="Mum"), CONFIG)
+    (carol,) = make(surface, env, provider, fixed("carol", label="Mum"))
     carol.update(DISCONNECTED)
-    group.update(DISCONNECTED)
     assert surface.strips[0].text == ["Mum", "150%"]
     assert carol.title == "Mum"
-    # the group has the two others, on one strip: two pages
-    assert surface.strips[1].text == ["Annabel", "100%"]
-    assert surface.strips[1].leds[Button.SELECT] == Led.ON
-    # Select on the strip of a person pages nothing
-    assert surface.strips[0].leds[Button.SELECT] == Led.OFF
     carol.on_button(Button.SELECT, True)
-    assert carol.notice is None
     carol.on_fader(0.25)
     carol.on_button(Button.MUTE, True)
     await settle()
@@ -378,7 +201,7 @@ async def test_a_strip_of_a_person(surface: RecordingSurface, env: StripEnv, pro
 
 
 async def test_a_person_who_is_away(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
-    _, (dave, _), _ = make(surface, env, provider, fixed("Dave"), CONFIG)
+    (dave,) = make(surface, env, provider, fixed("Dave"))
     dave.update(DISCONNECTED)
     strip = surface.strips[0]
     # the name stays, dark, with the fader down
@@ -400,7 +223,7 @@ async def test_a_person_who_is_away(surface: RecordingSurface, env: StripEnv, pr
 def test_the_volume_range_is_the_one_of_the_other_strips_by_default(
     surface: RecordingSurface, env: StripEnv, provider: FakeProvider
 ):
-    config = VoipStripConfig(type="voip")
+    config = VoipStripConfig(type="voip", person=("Ann",))
     assert config.max_volume is None
-    _, (strip,), _ = make(surface, env, provider, config)
+    (strip,) = make(surface, env, provider, config)
     assert strip.max_volume == env.behavior.max_volume

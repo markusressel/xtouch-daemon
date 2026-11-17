@@ -14,7 +14,7 @@ from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.strips.apps import AppGroupStrip, AutoAssigner, AutoSlot, AutoStrip
+from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
 from xtouch_daemon.strips.base import Look, StripController, StripEnv
 
 BROWSERS = ("brave", "firefox")
@@ -264,96 +264,27 @@ class Clock:
         return self.now
 
 
-def test_playing_applications_fill_the_auto_strips_in_the_order_they_started() -> None:
-    assigner = AutoAssigner(2, hold=5, ignore=())
+class ListSlot:
+    """A slot that picks among a list of applications (a `PickSlot`), as the slots engine does."""
 
-    assigned = assigner.assign(state(stream(5, "Spotify"), stream(2, "Brave"), stream(9, "Steam")))
+    def __init__(self, strip: AutoStrip, apps: list[str]):
+        self.strip = strip
+        self.apps = apps
+        self.pinned = False
 
-    assert assigned == ["Brave", "Spotify"]
+    def position(self) -> tuple[int, int] | None:
+        app = self.strip.app
+        return (self.apps.index(app), len(self.apps)) if app in self.apps else None
 
+    def pick(self, steps: int) -> None:
+        if not self.apps:
+            return
+        app = self.strip.app
+        index = self.apps.index(app) + steps if app in self.apps else (0 if steps > 0 else -1)
+        self.strip.assign(self.apps[index % len(self.apps)])
 
-def test_paused_ignored_and_claimed_applications_get_no_auto_strip() -> None:
-    assigner = AutoAssigner(4, hold=5, ignore=("speech-dispatcher",))
-
-    assigned = assigner.assign(
-        state(
-            stream(1, "Brave", corked=True),
-            stream(2, "speech-dispatcher-espeak", "sd_espeak"),
-            stream(3, "Firefox", "firefox"),
-            stream(4, "Spotify", "spotify"),
-            stream(5, "Spotify", "spotify"),
-        ),
-        claimed=(BROWSERS,),
-    )
-
-    assert assigned == ["Spotify", None, None, None]
-
-
-def test_an_application_keeps_its_strip_for_the_hold_time_after_it_stopped() -> None:
-    clock = Clock()
-    assigner = AutoAssigner(1, hold=5, ignore=(), clock=clock)
-    assigner.assign(state(stream(1, "Spotify")))
-
-    clock.now = 4
-    assert assigner.assign(state(stream(2, "Brave"))) == ["Spotify"]
-    # it plays again in time: it stays
-    clock.now = 8
-    assert assigner.assign(state(stream(3, "Spotify"))) == ["Spotify"]
-    clock.now = 9
-    assert assigner.assign(state()) == ["Spotify"]
-    clock.now = 14
-    assert assigner.assign(state(stream(2, "Brave"))) == ["Brave"]
-
-
-def test_a_slot_picks_among_the_applications_without_a_strip_of_their_own() -> None:
-    assigner = AutoAssigner(2, hold=5, ignore=("speech",))
-    playing = state(
-        stream(1, "Spotify", "spotify"),
-        stream(2, "Brave", "brave"),
-        stream(3, "mpv", "mpv", corked=True),
-        stream(4, "speech", "sd"),
-        stream(5, "Steam", "steam"),
-    )
-    assert assigner.assign(playing, claimed=(BROWSERS,)) == ["Spotify", "Steam"]
-    # paused ones too
-    assert assigner.candidates(playing, claimed=(BROWSERS,)) == ["Spotify", "mpv", "Steam"]
-
-    assigner.pick(0, 1, playing, claimed=(BROWSERS,))
-    assert assigner.assigned == ["mpv", "Steam"]
-    # one another slot has: they swap
-    assigner.pick(0, 1, playing, claimed=(BROWSERS,))
-    assert assigner.assigned == ["Steam", "mpv"]
-    # around
-    assigner.pick(1, 2, playing, claimed=(BROWSERS,))
-    assert assigner.assigned == ["Steam", "Spotify"]
-    # nothing to pick
-    assigner.pick(1, 1, state(), claimed=(BROWSERS,))
-    assert assigner.assigned == ["Steam", "Spotify"]
-
-
-def test_an_empty_slot_picks_the_first_or_the_last() -> None:
-    assigner = AutoAssigner(2, hold=5, ignore=())
-    playing = state(stream(1, "Spotify", corked=True), stream(2, "mpv", corked=True))
-    assigner.pick(0, 1, playing)
-    assigner.pick(1, -1, playing)
-    assert assigner.assigned == ["Spotify", "mpv"]
-
-
-def test_a_pinned_slot_keeps_its_application() -> None:
-    clock = Clock()
-    assigner = AutoAssigner(1, hold=5, ignore=(), clock=clock)
-    # an empty slot can't be pinned
-    assigner.toggle_pin(0)
-    assert assigner.pinned == set()
-    assigner.assign(state(stream(1, "Spotify")))
-    assigner.toggle_pin(0)
-
-    clock.now = 100
-    assert assigner.assign(state(stream(2, "Brave"))) == ["Spotify"]
-    assigner.toggle_pin(0)
-    assert assigner.assign(state(stream(2, "Brave"))) == ["Spotify"]
-    clock.now = 106
-    assert assigner.assign(state(stream(2, "Brave"))) == ["Brave"]
+    def toggle_pin(self) -> None:
+        self.pinned = not self.pinned
 
 
 async def test_the_pick_knob_waits_for_its_slot(surface: RecordingSurface, env: StripEnv) -> None:
@@ -366,9 +297,8 @@ async def test_the_pick_knob_waits_for_its_slot(surface: RecordingSurface, env: 
 
 async def test_a_single_application_is_at_the_start_of_the_ring(surface: RecordingSurface, env: StripEnv) -> None:
     strip = AutoStrip(surface.strips[0], env, ID, {}, Look(), encoder="pick")
-    assigner = AutoAssigner(1, hold=5, ignore=())
     playing = state(stream(1, "Spotify"))
-    strip.slot = AutoSlot(assigner, 0, lambda: playing, (), lambda: strip.assign(assigner.assign(playing)[0]))
+    strip.slot = ListSlot(strip, ["Spotify"])
     strip.slot.pick(1)
     strip.update(playing)
     assert surface.strips[0].ring == (1, RingMode.DOT)
@@ -376,9 +306,8 @@ async def test_a_single_application_is_at_the_start_of_the_ring(surface: Recordi
 
 async def test_the_pick_knob_says_which_one_and_whether_pinned(surface: RecordingSurface, env: StripEnv) -> None:
     strip = AutoStrip(surface.strips[0], env, ID, {}, Look(), encoder="pick")
-    assigner = AutoAssigner(1, hold=5, ignore=())
     playing = state(stream(1, "Spotify"), stream(2, "Discord"))
-    strip.slot = AutoSlot(assigner, 0, lambda: playing, (), lambda: strip.update(playing))
+    strip.slot = ListSlot(strip, ["Spotify", "Discord"])
     strip.update(playing)
     text = surface.strips[0].text
 
@@ -392,15 +321,11 @@ async def test_the_pick_knob_says_which_one_and_whether_pinned(surface: Recordin
     assert text[1] == "auto"
 
     # nothing to pick: nothing to say
-    strip.slot = AutoSlot(assigner, 0, lambda: state(), (), lambda: None)
+    strip.slot = ListSlot(strip, [])
     strip._end_notice()
     strip.on_encoder(1)
     assert strip.notice is None
     strip.close()
-
-
-def test_without_auto_strips_nothing_is_assigned() -> None:
-    assert AutoAssigner(0, hold=5, ignore=()).assign(state(stream(1))) == []
 
 
 @pytest.mark.parametrize("behavior", [BehaviorConfig(max_volume=100)])

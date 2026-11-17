@@ -1,14 +1,7 @@
 """
-`voip` strips: the participants of the voice chat, one per strip, from the provider of `[voip]`. A strip with `person`
-always shows that person (dark while they are not there). The other `voip` strips of a layout are its group: they
-show the participants without a strip of their own, in the order of the provider and of the strips; with more
-participants than strips, Select on any of them shows the next page of them, as the bank buttons of a DAW do.
+The strip of a person of the voice chat, from the provider of `[voip]`: a `person` channel, or someone who shares the
+`auto` slots (dark with their name while they are not there).
 """
-
-import asyncio
-import math
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
 
 from xtouch_daemon.audio.meter import Lit, Peak, Reading
 from xtouch_daemon.audio.model import AudioState
@@ -18,7 +11,6 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips.base import (
-    NOTICE_TIME,
     Identity,
     Look,
     StripController,
@@ -26,128 +18,38 @@ from xtouch_daemon.strips.base import (
     fader_position,
     fader_volume,
 )
-from xtouch_daemon.system.launch import LaunchButton
 from xtouch_daemon.voip.provider import Capability, Participant, VoipProvider
 
 
-@dataclass(frozen=True)
-class _Assignment:
-    """Who the strips show, for one snapshot of the provider."""
-
-    fixed: dict[int, Participant]
-    """The participant of each seat with `person` whose person is there."""
-    rest: tuple[Participant, ...]
-    """The participants without a strip of their own, for the group."""
-
-
-class VoipSeats:
-    """
-    The `voip` strips of a layout (its seats, in the order of the configuration), who each of them shows, and which
-    page of the participants the group shows.
-    """
-
-    def __init__(
-        self, provider: VoipProvider, persons: Sequence[tuple[str, ...]], refresh: Callable[[], None] = lambda: None
-    ):
-        """`persons` are the `person` names of each seat, none for the seats of the group."""
-        self.provider = provider
-        self.persons = tuple(frozenset(name.casefold() for name in names) for names in persons)
-        self.group = tuple(seat for seat, names in enumerate(self.persons) if not names)
-        """The seats of the group, in order."""
-        self.page = 0
-        self.refresh = refresh
-        """Shows the strips again, after the page changed."""
-        self._assigned: tuple[tuple[Participant, ...], _Assignment] | None = None
-        """The assignment of the last snapshot of the provider."""
-
-    def _assignment(self) -> _Assignment:
-        participants = self.provider.participants
-        if self._assigned is not None and self._assigned[0] is participants:
-            return self._assigned[1]
-        fixed: dict[int, Participant] = {}
-        taken: set[str] = set()
-        for seat, names in enumerate(self.persons):
-            found = next(
-                (each for each in participants if each.name.casefold() in names and each.id not in taken), None
-            )
-            if found is not None:
-                fixed[seat] = found
-                taken.add(found.id)
-        assignment = _Assignment(fixed, tuple(each for each in participants if each.id not in taken))
-        self._assigned = (participants, assignment)
-        return assignment
-
-    def fixed(self, seat: int) -> bool:
-        """Whether the seat has a `person`."""
-        return bool(self.persons[seat])
-
-    @property
-    def pages(self) -> int:
-        """The pages of the group."""
-        if not self.group:
-            return 1
-        return max(1, math.ceil(len(self._assignment().rest) / len(self.group)))
-
-    def participant(self, seat: int) -> Participant | None:
-        """Who the seat shows: its person, or for a seat of the group, who it shows on the current page."""
-        assignment = self._assignment()
-        if self.fixed(seat):
-            return assignment.fixed.get(seat)
-        index = self.page % self.pages * len(self.group) + self.group.index(seat)
-        return assignment.rest[index] if index < len(assignment.rest) else None
-
-    def next_page(self) -> str:
-        """Shows the next page of the group (after the last one the first), and says which, e.g. "pg 2/3"."""
-        self.page = (self.page % self.pages + 1) % self.pages
-        self.refresh()
-        return f"pg {self.page + 1}/{self.pages}"
-
-
-@dataclass(frozen=True)
-class VoipSeat:
-    """Where a `voip` strip sits: the seats of its layout, its own among them, and what its Select starts."""
-
-    seats: VoipSeats
-    seat: int
-    launch: LaunchButton | None = None
-    """Shared by the `voip` strips of the layout with the same command (`launch`), so a press starts it once."""
-
-
 class VoipStrip(StripController):
-    """
-    A seat of the `voip` strips: the fader sets the participant's volume, Mute mutes them, Select pages the group (or
-    starts the voice chat, with `launch`).
-    """
+    """A person of the voice chat: the fader sets their volume, Mute mutes them."""
 
     def __init__(
-        self, strip: Strip, env: StripEnv, identity: Identity, look: Look, seat: VoipSeat, config: VoipStripConfig
+        self,
+        strip: Strip,
+        env: StripEnv,
+        identity: Identity,
+        look: Look,
+        provider: VoipProvider,
+        config: VoipStripConfig,
     ):
         """`config` tells what the look doesn't: the color while talking, the volume range, `person`."""
+        assert config.person, "a strip of the voice chat shows a person"
         super().__init__(strip, env, identity, look)
-        self.seats = seat.seats
-        self.seat = seat.seat
-        self.launch = seat.launch
+        self.provider = provider
+        self.names = frozenset(name.casefold() for name in config.person)
+        """The names of the person, ignoring case."""
         self.name = config.title
-        """The top line of a strip with `person`, "" for one of the group."""
+        """The top line: the label, else the first name."""
         self.talking_color = color_of(config.talking_color)
         self.max_volume = env.behavior.max_volume if config.max_volume is None else config.max_volume
-        self.notice: str | None = None
-        self._notice_timer: asyncio.TimerHandle | None = None
         self._wanted: int | None = None
         """The volume the fader set last, shown until the provider reports one."""
 
     @property
-    def provider(self) -> VoipProvider:
-        return self.seats.provider
-
-    @property
-    def fixed(self) -> bool:
-        """Whether the strip shows one person (`person`) rather than one of the group."""
-        return self.seats.fixed(self.seat)
-
-    @property
     def participant(self) -> Participant | None:
-        return self.seats.participant(self.seat)
+        """The first participant with one of the names, in the order of the provider."""
+        return next((each for each in self.provider.participants if each.name.casefold() in self.names), None)
 
     def can(self, capability: Capability) -> bool:
         return capability in self.provider.capabilities
@@ -156,39 +58,25 @@ class VoipStrip(StripController):
         self.show()
 
     @property
-    def launches(self) -> bool:
-        return self.launch is not None
-
-    @property
-    def runs(self) -> bool:
-        """Whether the voice chat is there: its plugin reports it (also while nobody talks), or its program runs."""
-        return self.provider.connected or (self.launch is not None and self.launch.program_runs(self.env.processes()))
-
-    @property
     def title(self) -> str:
-        if self.fixed:
-            return self.name
-        person = self.participant
-        return person.name if person is not None else "voip"
+        return self.name
 
     def show(self) -> None:
         person = self.participant
-        paging = not self.fixed and self.seats.pages > 1
-        launching = self.launch is not None and self.launch.launching(self.runs)
-        self.strip.set_led(Button.SELECT, Led.FLASH if launching else Led.ON if paging else Led.OFF)
+        self.strip.set_led(Button.SELECT, Led.OFF)
         self.strip.set_led(Button.REC, Led.OFF)
         self.strip.set_led(Button.SOLO, Led.OFF)
         self.strip.set_ring(0)
         if person is None:
-            # dark; a strip with `person` keeps the name, like a device that is not there
+            # dark with the name, like a device that is not there
             self.strip.set_color(Color.BLACK)
             self.strip.set_text(0, self.name)
-            self.strip.set_text(1, self.notice or ("away" if self.fixed else ""))
+            self.strip.set_text(1, "away")
             self.strip.set_led(Button.MUTE, Led.OFF)
             self.strip.park()
             return
         self.strip.set_color(self.talking_color if person.talking else self.color)
-        self.strip.set_text(0, self.name or person.name)
+        self.strip.set_text(0, self.name)
         self.strip.set_led(Button.MUTE, Led.ON if person.muted else Led.OFF)
         if self._wanted == person.volume:
             self._wanted = None
@@ -197,9 +85,7 @@ class VoipStrip(StripController):
             self.strip.set_fader(fader_position(volume, 0, self.max_volume, self.env.behavior.unity_at))
         else:
             self.strip.park()
-        if self.notice is not None:
-            bottom = self.notice
-        elif person.muted:
+        if person.muted:
             bottom = "muted"
         elif self.can(Capability.VOLUME):
             bottom = f"{volume}%"
@@ -247,38 +133,6 @@ class VoipStrip(StripController):
     def on_button(self, button: Button, pressed: bool) -> None:
         if not pressed:
             return
-        match button:
-            case Button.SELECT:
-                self._select()
-            case Button.MUTE:
-                person = self.participant
-                if person is not None and self.can(Capability.MUTE):
-                    self.run_command(self.provider.change_muted(person.id, not person.muted), f"mute {person.name}")
-            case _:
-                pass
-
-    def _select(self) -> None:
-        """Launches the voice chat while it is not there (with `launch`); otherwise a strip of the group pages."""
-        if self.launch is not None and not self.runs:
-            if self.launch.press(False):
-                self.seats.refresh()
-        elif not self.fixed:
-            self.notify(self.seats.next_page())
-
-    def notify(self, text: str) -> None:
-        """Shows `text` on the second line for NOTICE_TIME, e.g. the page."""
-        if self._notice_timer is not None:
-            self._notice_timer.cancel()
-        self.notice = text
-        self._notice_timer = asyncio.get_running_loop().call_later(NOTICE_TIME, self._end_notice)
-        self.show()
-
-    def _end_notice(self) -> None:
-        self._notice_timer = None
-        self.notice = None
-        self.show()
-
-    def close(self) -> None:
-        super().close()
-        if self._notice_timer is not None:
-            self._notice_timer.cancel()
+        person = self.participant
+        if button == Button.MUTE and person is not None and self.can(Capability.MUTE):
+            self.run_command(self.provider.change_muted(person.id, not person.muted), f"mute {person.name}")

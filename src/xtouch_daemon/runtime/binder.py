@@ -15,7 +15,6 @@ from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.audio_strips import AutoStripConfig
-from xtouch_daemon.config.layout_strips import VoipStripConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import StripConfig
@@ -32,7 +31,7 @@ from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.strips import EmptyStrip, build_strip, look_of
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
-from xtouch_daemon.strips.voip import VoipSeat, VoipSeats, VoipStrip
+from xtouch_daemon.strips.voip import VoipStrip
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.system.processes import running_processes
 from xtouch_daemon.voip.provider import VoipProvider
@@ -147,12 +146,9 @@ class SlotMixer:
         view = VirtualStrip(self.surface, next(self._numbers))
         if strip is None:
             return EmptyStrip(view, self.env, identity, Look(meter=False))
-        seat = None
-        if isinstance(strip, VoipStripConfig):
-            seat = VoipSeat(VoipSeats(self.voip, [strip.person], self.refresh), 0)
         if (place := place_of(strip)) is not None:
             self.places[key] = place
-        return build_strip(strip, view, self.env, self.config.aliases, identity, self._look(strip), seat)
+        return build_strip(strip, view, self.env, self.config.aliases, identity, self._look(strip), self.voip)
 
     def _look(self, strip: StripConfig) -> Look:
         return look_of(strip, self.config.meter_point(strip))

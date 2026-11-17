@@ -13,8 +13,9 @@ from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
 from xtouch_daemon.strips.device import ChoiceStrip, DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
-from xtouch_daemon.strips.voip import VoipSeat, VoipStrip
+from xtouch_daemon.strips.voip import VoipStrip
 from xtouch_daemon.system.launch import LaunchButton
+from xtouch_daemon.voip.provider import VoipProvider
 
 
 class EmptyStrip(StripController):
@@ -22,15 +23,6 @@ class EmptyStrip(StripController):
 
     def update(self, state: AudioState) -> None:
         self.strip.reset()
-
-
-def strip_identity(config: StripConfig, position: int) -> Identity:
-    """
-    The identity of a strip of strips and layouts, by its place in the configuration (from 0): its `id`, else
-    `strip_<n>`; its label, else "Strip <n>".
-    """
-    strip_id = getattr(config, "id", None) or f"strip_{position + 1}"
-    return Identity(strip_id, getattr(config, "label", None) or f"Strip {position + 1}")
 
 
 def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
@@ -70,17 +62,17 @@ def build_strip(
     aliases: dict[str, str],
     identity: Identity,
     look: Look,
-    seat: VoipSeat | None = None,
+    voip: VoipProvider | None = None,
 ) -> StripController:
     """
-    The controller of a strip, with its identity and look (see `strip_identity()` and `look_of()`). `seat` is where a
-    `voip` strip sits among those of its layout (see `Mixer`).
+    The controller of a strip, with its identity and look (see `look_of()`); `voip` is the voice chat of the strips
+    of people.
     """
     if isinstance(config, EmptyStripConfig):
         return EmptyStrip(strip, env, identity, look)
     if isinstance(config, VoipStripConfig):
-        assert seat is not None, "the mixer seats voip strips"
-        return VoipStrip(strip, env, identity, look, seat, config)
+        assert voip is not None, "the strips of people need the voice chat"
+        return VoipStrip(strip, env, identity, look, voip, config)
     if isinstance(config, HomeAssistantStripConfig):
         assert env.bridge is not None, "the configuration has no homeassistant strips without [mqtt]"
         return HomeAssistantStrip(strip, env, env.bridge, identity, look)

@@ -98,6 +98,14 @@ def test_auto_never_takes_screen_readers_unless_exclude_says_otherwise():
             CHANNELS.replace('label = "Out"', 'label = "Out"\nmin_volume = 90\nmax_volume = 80') + "[slots]\n",
             "channel.out: min_volume (90) is not below max_volume (80)",
         ),
+        (
+            '[channel.ann]\ntype = "person"\nperson = "Ann"\nlaunch = ["mumble"]\n',
+            "channel.ann: launch: the strips of people have none",
+        ),
+        (
+            '[channel.ann]\ntype = "person"\nperson = "Ann"\ncollapse = true\n',
+            'channel.ann: collapse: gone with layouts; "ann if present" in a slot shows it only then',
+        ),
         ("[behavior]\nauto_hold = 2\n", "behavior.auto_hold: gone with strips and layouts, see hold of [pool.auto]"),
         ("[switching]\nhold = 2\n", "switching.hold: gone with strips and layouts, see delay_off of each mode"),
         (
