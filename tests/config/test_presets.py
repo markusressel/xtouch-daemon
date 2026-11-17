@@ -44,10 +44,10 @@ def test_an_unknown_preset_lists_the_known_ones():
 
 
 def test_a_preset_in_a_list_it_is_not_for_says_where_it_can_be_used():
-    with pytest.raises(ValueError, match=re.escape("@toys is not for `processes` of layouts; use it in `match` of ")):
+    with pytest.raises(ValueError, match=re.escape("@toys is not for `processes` of states; use it in `match` of ")):
         presets.expand(("@toys",), Kind.PROCESSES, STREAMS_ONLY)
     with pytest.raises(
-        ValueError, match=re.escape("@daemons is not for `match` of apps strips, `apps` of layouts and")
+        ValueError, match=re.escape("@daemons is not for `match` of apps channels, `apps` of states and")
     ):
         presets.expand(("@daemons",), Kind.STREAMS, STREAMS_ONLY)
 

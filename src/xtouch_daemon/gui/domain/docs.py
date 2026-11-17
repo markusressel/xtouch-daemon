@@ -12,9 +12,9 @@ PAGES: dict[str, str] = {
     "behavior": "configuration/behavior/#behavior",
     "aliases": "configuration/behavior/#aliases",
     "mqtt": "home-assistant/#mqtt",
-    "layout": "configuration/layouts/",
-    "switching": "configuration/layouts/#switching",
-    "voip": "configuration/layouts/#voice-chat",
+    "layout": "configuration/slots/#migrating",
+    "switching": "configuration/slots/#controls-and-the-chord",
+    "voip": "configuration/people/#voice-chat",
 }
 """The global settings, by page."""
 
@@ -26,12 +26,12 @@ GUIDES: dict[str, str] = {
 STRIP_TYPES: dict[str, str] = {
     "output": "configuration/devices/",
     "input": "configuration/devices/",
-    "apps": "configuration/applications/#apps-strips",
-    "auto": "configuration/applications/#auto-strips",
+    "apps": "configuration/applications/#apps-channels",
+    "auto": "configuration/applications/#auto",
     "homeassistant": "home-assistant/#homeassistant-strips",
-    "empty": "configuration/strips/#empty-strips",
-    "inherit": "configuration/layouts/#inherit-strips",
-    "voip": "configuration/layouts/#voip-strips",
+    "empty": "configuration/strips/#empty-slots",
+    "inherit": "configuration/slots/#migrating",
+    "voip": "configuration/people/",
 }
 """The strip types."""
 
@@ -47,18 +47,18 @@ STRIP_OPTIONS: dict[str, str] = {
     "device": "configuration/devices/#several-devices",
     "profiles": "configuration/devices/#profiles",
     "choices": "configuration/devices/#choices",
-    "collapse": "configuration/collapsing/",
-    "match": "configuration/applications/#apps-strips",
+    "collapse": "configuration/slots/#migrating",
+    "match": "configuration/applications/#apps-channels",
     "launch": "configuration/applications/#launching-the-application",
     "launch_when_running": "configuration/applications/#launching-the-application",
-    "person": "configuration/layouts/#strips-for-one-person",
+    "person": "configuration/people/#strips-for-one-person",
     "meter_point": "configuration/strips/#meters",
 }
 """The options of the strips; `STRIP_TYPE_OPTIONS` overrides them for one type."""
 
 STRIP_TYPE_OPTIONS: dict[tuple[str, str], str] = {
     ("homeassistant", "id"): "home-assistant/#entities",
-    ("voip", "label"): "configuration/layouts/#strips-for-one-person",
+    ("voip", "label"): "configuration/people/#strips-for-one-person",
 }
 
 SECTION_OPTIONS: dict[str, dict[str, str]] = {
@@ -73,23 +73,23 @@ SECTION_OPTIONS: dict[str, dict[str, str]] = {
         "unity_at": "configuration/strips/#100-at-the-0-db-mark",
         "encoder_step": "configuration/encoders/#volume",
         "reset_volume": "configuration/encoders/#volume",
-        "auto_hold": "configuration/applications/#auto-strips",
-        "ignore": "configuration/applications/#auto-strips",
-        "collapse_hold": "configuration/collapsing/#when-a-strip-has-nothing-to-control",
+        "auto_hold": "configuration/slots/#migrating",
+        "ignore": "configuration/slots/#migrating",
+        "collapse_hold": "configuration/slots/#migrating",
         "meter_point": "configuration/strips/#meters",
     },
     "mqtt": {
         "namespace": "home-assistant/#entities",
     },
     "layout": {
-        "apps": "configuration/layouts/#rules",
-        "processes": "configuration/layouts/#rules",
-        "priority": "configuration/layouts/#rules",
+        "apps": "configuration/slots/#states-and-modes",
+        "processes": "configuration/slots/#states-and-modes",
+        "priority": "configuration/slots/#states-and-modes",
         "meter_point": "configuration/strips/#meters",
     },
     "switching": {
-        "chord": "configuration/layouts/#switching",
-        "hold": "configuration/layouts/#rules",
+        "chord": "configuration/slots/#controls-and-the-chord",
+        "hold": "configuration/slots/#migrating",
     },
 }
 """The options of the sections, by section."""

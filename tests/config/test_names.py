@@ -84,8 +84,8 @@ def test_a_preset_in_a_list_it_is_not_for_says_where_it_fits(monkeypatch: pytest
     monkeypatch.setattr(presets, "PRESETS", {"toys": presets.Preset("toys", "Toys", streams=("rattle",))})
     message = legacy_errors_of('[[layout]]\nname = "x"\nprocesses = ["@toys"]\napps = ["@toys"]')
     assert (
-        "layout[1].processes: @toys is not for `processes` of layouts; use it in `match` of apps strips, `apps` of "
-        "layouts and `behavior.ignore`" in message
+        "layout[1].processes: @toys is not for `processes` of states; use it in `match` of apps channels, `apps` of "
+        "states and `exclude` of `[pool.auto]`" in message
     )
     assert "layout[1].apps" not in message
 

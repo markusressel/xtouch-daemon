@@ -5,30 +5,30 @@ or the way games show up. Write it with an `@` in the lists that match applicati
 own:
 
 ```toml
-[[strip]]
+[channel.browser]
 type = "apps"
 label = "Browser"
 match = ["@browsers"]
 
-[[strip]]
+[channel.voip]
 type = "apps"
 label = "VoIP"
 match = ["@voip", "my-voice-app"]
 
-[[layout]]
-name = "gaming"
+[state.gaming]
+mode = true
 processes = ["@steam-games"]    # while any game from Steam runs
 ```
 
 Presets work in:
 
-- `match` of [`apps` strips](applications.md#apps-strips), `apps` of [layouts](layouts.md#rules) and
-  [`behavior.ignore`](behavior.md#behavior): they match the names and binaries of the applications' streams.
-- `processes` of [layouts](layouts.md#rules): they match the names of processes.
+- `match` of [`apps` channels](applications.md#apps-channels), `apps` of [states](slots.md#states-and-modes) and
+  `exclude` of [`[pool.auto]`](applications.md#auto): they match the names and binaries of the applications' streams.
+- `processes` of [states](slots.md#states-and-modes): they match the names of processes.
 
 A preset stands for different names in each: e.g. `@steam-games` is the streams of Windows games (`.exe`) in
 `match`, and Steam's `reaper` process in `processes`. Its names match like the ones you write, as parts of the
-name, ignoring case. On an `apps` strip with `launch`, the processes of its presets count as the application
+name, ignoring case. On an `apps` channel with `launch`, the processes of its presets count as the application
 running. An unknown preset is an error that lists the known ones; a preset that can't be used in a list says where it
 can.
 
@@ -38,7 +38,7 @@ applications that play, and the [GUI](../gui.md) suggests the presets that fit e
 ## The presets
 
 <!-- presets: start -->
-| Preset | What | Streams (`match`, `apps`, `ignore`) | Processes (`processes`) |
+| Preset | What | Streams (`match`, `apps`, `exclude`) | Processes (`processes`) |
 |---|---|---|---|
 | `@browsers` | Web browsers | `firefox`, `librewolf`, `floorp`, `waterfox`, `zen-bin`, `chromium`, `chrome`, `brave`, `vivaldi`, `opera`, `msedge`, `epiphany`, `falkon` | `firefox`, `librewolf`, `floorp`, `waterfox`, `zen-bin`, `chromium`, `brave`, `vivaldi`, `opera`, `msedge`, `epiphany`, `falkon` |
 | `@voip` | Voice and video chats | `discord`, `vesktop`, `webrtc voiceengine`, `mumble`, `teamspeak`, `ts3client`, `signal`, `element-desktop`, `zoom`, `slack`, `telegram`, `jitsi`, `teams-for-linux` | `discord`, `vesktop`, `mumble`, `teamspeak`, `ts3client`, `signal`, `element-desktop`, `zoom`, `slack`, `telegram`, `jitsi`, `teams-for-linux` |

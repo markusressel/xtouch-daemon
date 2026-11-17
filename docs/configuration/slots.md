@@ -1,9 +1,9 @@
 # Channels, states and slots
 
-The successor of strips and layouts (see the [design](../design/channels-states-slots.md) for every detail). Instead
-of whole sets of strips to switch between, each strip of the device (a **slot**) has a short list of what it can
-show, and **states** (in a call, gaming) decide which. A slot changes only when what it shows changes; the others
-stay as they are.
+What the device shows: **channels** are what a strip can control (an output, a group of applications, a person),
+each strip of the device (a **slot**) has a short list of the channels it can show, and **states** (in a call,
+gaming) decide which. A slot changes only when what it shows changes; the others stay as they are. The
+[design](../design/channels-states-slots.md) has every detail.
 
 `xtouch-daemon init-config` writes a small example; `xtouch-daemon migrate-config` writes a file with strips and
 layouts in this format (see [Migrating](#migrating)). `xtouch-daemon check-config` shows a table of what each slot
@@ -11,7 +11,7 @@ shows in which states.
 
 ## Channels
 
-A channel is something a strip controls, with the options of the strip types of today:
+A channel is something a strip controls, with the options of its type (see [Channels](strips.md)):
 
 ```toml
 [channel.out]
@@ -24,7 +24,7 @@ match = ["@voip"]
 label = "VoIP"
 
 [channel.ann]
-type = "person"             # someone of the voice chat
+type = "person"             # someone of the voice chat, see People
 person = ["Ann", "ann-phone"]
 
 [channel.lamp]
@@ -53,7 +53,7 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
   `switching.banner` seconds.
 
-`[pool.auto]` has `hold` (seconds a slot keeps an application after it stopped playing, 5 by default) and `exclude`
+`auto` and the people are on the [People](people.md) page as well. `[pool.auto]` has `hold` (seconds a slot keeps an application after it stopped playing, 5 by default) and `exclude`
 (applications it never takes, by default `speech-dispatcher`, the voice of screen readers); `[people]` the look of
 the strips of people (`color`, `talking_color`, ...). They replace `behavior.auto_hold` and `behavior.ignore`; a file
 with those, `behavior.collapse_hold` or `switching.hold` says what took their place.
@@ -75,7 +75,15 @@ processes = ["@steam-games"]
 A state is on while any of its sources is: `apps` (playing), `recording`, `voice_chat`, `processes`, `devices`,
 `channels`, `homeassistant` (a switch in Home Assistant), or `when` (an expression of other states). `delay_on` and
 `delay_off` smooth it. Modes are states with `mode = true`: the one with the highest `priority` whose sources are
-on is the mode.
+on is the mode, else `default`. When the mode changes, the LCDs show its `label` across the strips for
+`switching.banner` seconds.
+
+`apps` and `processes` take parts of names, ignoring case, and [presets](presets.md). For games from Steam,
+`processes = ["@steam-games"]` is on while any game runs, native or with Proton: Steam starts every game through its
+`reaper` process, which is what the preset stands for. Proton games play as `<Game>.exe` (e.g. "Planet
+Crafter.exe"), which `apps = ["@games"]` catches once they make a sound. Don't use `steam` (the client runs all the
+time) or `.exe` in `processes` (Wine's helpers, like `explorer.exe`, run for other Windows programs too).
+`ps -eo comm,args` while a game runs shows the names to use for others. Kernel threads don't count.
 
 Every state can be overridden (`on`, `off`, `auto`) from Home Assistant, the GUI's live view or a button; the
 override lasts until its sources change (`persist = true`: until it is set back). A mode picked by hand
@@ -93,9 +101,13 @@ another one.
 6 = { fader = "homeassistant", id = "desk" }                    # the fader is number.xtouch_desk_fader
 ```
 
-Actions: `homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, or `{ launch = [...] }`. The Solo
-buttons of `switching.chord` pressed together cycle the modes, or do another action:
-`chord = { strips = [1, 8], action = "toggle:call" }`.
+Actions: `homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, or `{ launch = [...] }` (see
+[Launching the application](applications.md#launching-the-application)).
+
+| Option of `[switching]` | Default | Meaning |
+|---|---|---|
+| `chord` | `[1, 8]` | The slots (from 1 on the left) whose Solo buttons, held together, cycle the modes; `[]` for no chord. `chord = { strips = [1, 8], action = "toggle:call" }` does another action. |
+| `banner` | `1.5` | Seconds the LCDs show the label of a new mode, and a slot that shows something else its new label and why; `0` for none. |
 
 ## Home Assistant
 
@@ -117,3 +129,16 @@ strips without `person` the people of `auto` (their look goes to `[people]`), `l
 strips `[controls]`. A strip with `collapse` stays on its slot while present (`"<id> if present"`, then `auto`):
 nothing shifts any more. The command lists what needs a look: renamed entities, ids named after entities, resolved
 `inherit` strips, strips without a slot.
+
+The daemon refuses a file with `[[strip]]` or `[[layout]]` and points to the command. What else changed:
+
+| Strips and layouts | Channels, states and slots |
+|---|---|
+| `[[layout]]` with `apps`, `processes`, `priority` | `[state.<name>] mode = true` with the same sources |
+| `inherit` strips | the channel itself, as a candidate of another slot |
+| `collapse`, `behavior.collapse_hold` | `"<id> if present"`, `absent_after` of the channel |
+| `behavior.auto_hold`, `behavior.ignore` | `hold` and `exclude` of `[pool.auto]` |
+| `switching.hold` | `delay_off` of each mode |
+| `voip` strips of the group | the people of `auto` ([People](people.md)) |
+| `launch` on a `voip` strip | `[controls]` of its slot |
+| `select.xtouch_layout`, `xtouch-daemon layout` | `select.xtouch_mode`, `xtouch-daemon mode` |

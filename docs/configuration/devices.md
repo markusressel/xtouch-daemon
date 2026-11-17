@@ -1,6 +1,6 @@
-# Devices: `output` and `input` strips
+# Devices: `output` and `input` channels
 
-A device strip controls an output (a sink) or an input (a source): one device, one of several, or whatever is the
+A device channel controls an output (a sink) or an input (a source): one device, one of several, or whatever is the
 default. With [`choices`](#choices), Select switches between several devices, each maybe in a profile of its sound
 card.
 
@@ -12,20 +12,19 @@ card.
 | `select` | `true` | Whether Select makes the device the default. Needs `device` or `choices`. |
 | `choices` | none | The devices Select switches between, each maybe in a profile of its card, see [below](#choices). Instead of `device` and `profiles`. |
 | `profiles` | none | Profiles of the device's sound card that Rec switches between, see [below](#profiles). |
-| `collapse` | `false` | Whether the strip gives its fader to the strips after it while none of its devices is there, see [Collapsing strips](collapsing.md). |
 | `encoder` | `"balance"` | `balance` or `volume`, see [Encoders](encoders.md). |
 
-They also have the [options of every audio strip](strips.md#options-of-every-audio-strip): `color`, `meter`, `rec`,
+They also have the [options of every audio channel](strips.md#options-of-every-audio-channel): `color`, `meter`, `rec`,
 `solo`, `min_volume`, `max_volume`.
 
 ```toml
-[[strip]]
+[channel.out]
 type = "output"
 device = "alsa_output.pci-0000_11_00.4.analog-stereo"
 label = "Speaker"
 color = "cyan"
 
-[[strip]]
+[channel.mic]
 type = "input"          # the default input
 label = "Mic"
 color = "red"
@@ -67,12 +66,12 @@ stays the same across restarts.
 are case-sensitive.
 
 ```toml
-[[strip]]
+[channel.phones]
 type = "output"
 device = ["bluez_output.*"]   # whichever Bluetooth headphones are connected
 color = "green"
 
-[[strip]]
+[channel.main]
 type = "output"
 device = ["alsa_output.usb-Focusrite*", "alsa_output.pci-0000_11_00.4.analog-stereo"]
 label = "Main"
@@ -90,30 +89,30 @@ sound card, speakers on its digital output, and Bluetooth headphones. Select goe
 card to the profile it needs first:
 
 ```toml
-[[strip]]
+[channel.out]
 type = "output"
 color = "cyan"
 
-[[strip.choices]]
+[[channel.out.choices]]
 label = "Phones"
 device = "alsa_output.pci-0000_11_00.4.analog-stereo"
 card = "alsa_card.pci-0000_11_00.4"
 profile = "output:analog-stereo+input:analog-stereo"
 
-[[strip.choices]]
+[[channel.out.choices]]
 label = "Speaker"
 device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
 card = "alsa_card.pci-0000_11_00.4"
 profile = "output:iec958-stereo+input:analog-stereo"
 max_volume = 200
 
-[[strip.choices]]
+[[channel.out.choices]]
 label = "Buds"
 device = "bluez_output.*"
 ```
 
 A choice on one line is a TOML inline table: `{ label = "Buds", device = "bluez_output.*" }` in
-`choices = [...]`. An inline table can't span several lines, so the `[[strip.choices]]` tables above are easier
+`choices = [...]`. An inline table can't span several lines, so the `[[channel.out.choices]]` tables above are easier
 to read for long ones.
 
 | Option | Default | Meaning |
@@ -145,8 +144,8 @@ will call it (usually `alsa_output.<card>.<profile output>`, e.g. `iec958-stereo
 - Two choices on the same card in the same profile only switch the default.
 - Fader, Mute and the encoder act on the device of the choice shown; its range is the choice's `min_volume` and
   `max_volume`, else the strip's.
-- While none of the choices is there, the strip is dark and shows `off`; with [`collapse`](collapsing.md) it gives
-  its fader to the next strips.
+- While none of the choices is there, the strip is dark and shows `off`; `"out if present"` in a slot shows
+  something else then.
 - With [`[mqtt]`](../home-assistant.md#choices), Home Assistant has a select for the choice.
 
 At least two choices, and not together with `device` or `profiles`; `select = false` does not go with them either.
@@ -159,7 +158,7 @@ profile has a device of its own, so name `device` with a wildcard that matches a
 switches the card to the next one (see [Choices](#choices) for the same with Select):
 
 ```toml
-[[strip]]
+[channel.out]
 type = "output"
 device = "alsa_output.pci-0000_11_00.4.*"   # the analog and the digital output of the card
 profiles = [

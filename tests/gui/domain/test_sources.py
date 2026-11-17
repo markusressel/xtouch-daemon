@@ -109,5 +109,5 @@ def test_a_tip_for_names_and_presets_that_do_not_fit(monkeypatch: pytest.MonkeyP
     assert preset_tip("brave", PresetKind.STREAMS) == ""
     assert preset_tip("@nope", PresetKind.STREAMS) == ""
     monkeypatch.setattr(presets, "PRESETS", {"toys": Preset("toys", "Toys", streams=("rattle",))})
-    assert preset_tip("@toys", PresetKind.PROCESSES) == "Toys: not for `processes` of layouts"
+    assert preset_tip("@toys", PresetKind.PROCESSES) == "Toys: not for `processes` of states"
     assert preset_suggestions(PresetKind.PROCESSES) == ()

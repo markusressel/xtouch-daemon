@@ -24,8 +24,8 @@ class Kind(StrEnum):
 
 
 WHERE: dict[Kind, str] = {
-    Kind.STREAMS: "`match` of apps strips, `apps` of layouts and `behavior.ignore`",
-    Kind.PROCESSES: "`processes` of layouts",
+    Kind.STREAMS: "`match` of apps channels, `apps` of states and `exclude` of `[pool.auto]`",
+    Kind.PROCESSES: "`processes` of states",
 }
 """The lists of each kind, for people."""
 
@@ -274,7 +274,7 @@ def markdown_table() -> str:
     The presets as the table of docs/configuration/presets.md, and what to know about them below it (a test keeps the
     page in line with it).
     """
-    lines = ["| Preset | What | Streams (`match`, `apps`, `ignore`) | Processes (`processes`) |", "|---|---|---|---|"]
+    lines = ["| Preset | What | Streams (`match`, `apps`, `exclude`) | Processes (`processes`) |", "|---|---|---|---|"]
     for preset in PRESETS.values():
         cells = [
             ", ".join(f"`{name}`" for name in names) if names is not None else "-"

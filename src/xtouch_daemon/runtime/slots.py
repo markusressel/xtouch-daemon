@@ -31,7 +31,7 @@ CHOICES_FILE_NAME = "slots.json"
 BATCH = 0.1
 """Changes are resolved together this long after the first one (a game starts several streams and a process)."""
 PROCESS_INTERVAL = 2.0
-"""How often the processes are scanned for the states, as for the rules of layouts."""
+"""How often the processes are scanned for the states."""
 
 type Choices = tuple[Mapping[str, Override], str | None]
 """What was chosen by hand: the overrides of states, and the mode picked (None for the rules)."""

@@ -64,28 +64,26 @@ What it can't do:
 
 | Option | Default | Meaning |
 |---|---|---|
-| `max_volume` | `130` | The volume of a fader at the top, 100..200 percent. Above 100 % the audio is amplified in software. 130 puts 100 % at the 0 dB mark of the device with one slope over the whole travel; 100 puts it at the top. Strips may have their own [range](strips.md#volume-range). |
+| `max_volume` | `130` | The volume of a fader at the top, 100..200 percent. Above 100 % the audio is amplified in software. 130 puts 100 % at the 0 dB mark of the device with one slope over the whole travel; 100 puts it at the top. Channels may have their own [range](strips.md#volume-range). |
 | `unity_at` | `77` | Where on the fader 100 % is, 10..95 percent of the travel; the device marks 0 dB at about 77. For strips whose range goes above 100 %, see [100 % at the 0 dB mark](strips.md#100-at-the-0-db-mark). |
-| `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` [encoder](encoders.md) and by the encoders of `homeassistant` strips. |
-| `reset_volume` | `100` | The volume a push on a `volume` encoder sets, 0..200, at most `max_volume`. It stays within the range of the strip. |
-| `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a strip turns off a single one. |
-| `meter_point` | `"pre_fader"` | Where the meters take the level: `"pre_fader"` before the volume and Mute of each strip, `"post_fader"` after them. A [layout](layouts.md) or a strip may have its own, see [Meters](strips.md#meters). |
-| `auto_hold` | `5` | Seconds an `auto` strip keeps an application after it stopped playing. |
-| `ignore` | `["speech-dispatcher"]` | Applications `auto` strips never take: parts of the name or binary, ignoring case, or [presets](presets.md) like `"@games"`. |
-| `collapse_hold` | `3` | Seconds a strip with [`collapse`](collapsing.md) keeps its fader after it has nothing to control anymore, before the strips after it move. It comes back at once. |
+| `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` [encoder](encoders.md) and by the encoders of `homeassistant` channels. |
+| `reset_volume` | `100` | The volume a push on a `volume` encoder sets, 0..200, at most `max_volume`. It stays within the range of the channel. |
+| `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a channel turns off a single one. |
+| `meter_point` | `"pre_fader"` | Where the meters take the level: `"pre_fader"` before the volume and Mute of each strip, `"post_fader"` after them. A channel or a place in a slot may have its own, see [Meters](strips.md#meters). |
+
+How long `auto` keeps an application and which ones it never takes are `hold` and `exclude` of
+[`[pool.auto]`](applications.md#auto).
 
 ```toml
 [behavior]
 max_volume = 150
 encoder_step = 2
 reset_volume = 100
-auto_hold = 10
-ignore = ["speech-dispatcher", "notification"]
 ```
 
 ## `[aliases]`
 
-The name to show on an `auto` strip for an application, at most 7 characters of ASCII:
+The name to show on an `auto` slot for an application, at most 7 characters of ASCII:
 
 ```toml
 [aliases]

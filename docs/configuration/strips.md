@@ -1,45 +1,53 @@
-# Strips
+# Channels
 
-Each `[[strip]]` section configures one strip of the device, from the left. Up to eight, or more with
-[`collapse`](collapsing.md). Strips that are not configured are `auto` strips.
+Each `[channel.<id>]` section is something a strip of the device can control; [slots](slots.md#slots) say which
+strip shows it when. The id names it in slots, conditions and the entities in Home Assistant: lower case letters,
+digits and `_`.
 
 ```toml
-[[strip]]
+[channel.mic]
 type = "input"
 label = "Mic"
 color = "red"
 ```
 
-`type` picks what the strip controls:
+`type` picks what the channel controls:
 
 | `type` | Page |
 |---|---|
 | `output`, `input` | [Devices](devices.md) |
-| `apps`, `auto` | [Applications](applications.md) |
+| `apps` | [Applications](applications.md) |
+| `person` | [People and the voice chat](people.md) |
 | `homeassistant` | [Home Assistant](../home-assistant.md) |
-| `empty` | [below](#empty-strips) |
 
-## Options of every audio strip
+The strips of `auto` (the next application that plays) and empty slots (`-`) are no channels: they are written in
+the [slots](slots.md#slots).
 
-These options apply to `output`, `input`, `apps` and `auto` strips. `homeassistant` strips have only `color` of them,
-`empty` strips none.
+Options about slots rather than the strip: `tags` (names to group channels under), `in_auto = false` (an `apps` or
+`person` channel without a slot stays out of `auto`) and `absent_after` (seconds the channel stays present after it
+had nothing to control, for `if present`).
+
+## Options of every audio channel
+
+These options apply to `output`, `input` and `apps` channels, and to `auto` in a slot. `homeassistant` channels have
+only `color` of them.
 
 | Option | Default | Meaning |
 |---|---|---|
 | `color` | `"white"` | The LCD backlight: `off` (no backlight), `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`. Dark while the strip has nothing to control, unless `lit_when_idle` is on. |
 | `lit_when_idle` | `false` | Whether the LCD keeps its backlight while the strip has nothing to control: no application of an `apps` group plays, the device is not there, an `auto` strip has no application. The fader stays down all the same. |
 | `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). |
-| `meter_point` | the layout's, else `behavior.meter_point` | Where the meter takes the level: `"pre_fader"` before the volume and Mute of the strip, `"post_fader"` after them, see [Meters](#meters). |
+| `meter_point` | `behavior.meter_point` | Where the meter takes the level: `"pre_fader"` before the volume and Mute of the strip, `"post_fader"` after them, see [Meters](#meters). |
 | `rec` | `"recording"` | What the LED of the Rec button shows: `recording`, `playing`, `default`, `muted` or `off`, see [LEDs](indicators.md). |
 | `solo` | `"off"` | What the LED of the Solo button shows, the same values, see [LEDs](indicators.md). |
 | `min_volume` | `0` | The volume of the fader at the bottom, 0..200 percent. |
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
 | `encoder` | depends on the type | What the encoder does, see [Encoders](encoders.md). |
 | `fader` | `"volume"` | `"homeassistant"` hands the fader to Home Assistant, see [Encoders](encoders.md#fader-homeassistant). |
-| `id` | `"strip_<position>"` | With `fader` or `encoder` in Home Assistant (or `choices`): part of the entity IDs, see [Home Assistant](../home-assistant.md#audio-strips-with-home-assistant-controls). The position is the one in the list, not on the device. |
-| `collapse` | `false` | Whether the strip gives its fader to the strips after it while it has nothing to control, see [Collapsing strips](collapsing.md). |
+| `id` | the channel's id | With `fader` or `encoder` in Home Assistant (or `choices`): part of the entity IDs, see [Home Assistant](../home-assistant.md#audio-strips-with-home-assistant-controls). |
 
-Device and application strips also have a `label`, see their pages.
+Device and application channels also have a `label`, see their pages. A candidate of a slot can change the look at
+that place: `{ show = "mic", color = "blue" }` (see [Slots](slots.md#slots)).
 
 ## Labels
 
@@ -53,6 +61,7 @@ Where the label comes from:
 | `output`, `input` | The label of the active [profile](devices.md#profiles), else `label`. Without both: the start of the device's description with `device`, `"Output"`/`"Input"` without it. |
 | `apps` | `label` (required). |
 | `auto` | The alias of the application from [`[aliases]`](behavior.md#aliases), or its name. |
+| `person` | `label`, else the first name of `person`; people of `auto` show their name. |
 | `homeassistant` | What Home Assistant sets, until then `label`. |
 
 ## Volume range
@@ -61,7 +70,7 @@ The fader covers `min_volume` at the bottom to `max_volume` at the top. The enco
 example, speakers that need amplification:
 
 ```toml
-[[strip]]
+[channel.desk]
 type = "output"
 device = "alsa_output.usb-Generic_USB_Audio-00.analog-stereo"
 label = "Desk"
@@ -71,8 +80,8 @@ max_volume = 200
 
 - Above 100 % the sound server amplifies the audio in software.
 - `min_volume` must be below `max_volume`. Without `max_volume` the top is `behavior.max_volume`.
-- [Profiles](devices.md#profiles) of a device strip can have a range of their own.
-- `homeassistant` strips have no range: Home Assistant decides what their fader means.
+- [Profiles](devices.md#profiles) and [choices](devices.md#choices) of a device can have a range of their own.
+- `homeassistant` channels have no range: Home Assistant decides what their fader means.
 
 ### 100 % at the 0 dB mark
 
@@ -104,7 +113,7 @@ top. The GUI shows the option in "Global settings", "Behavior".
 | Encoder | What `encoder` says, see [Encoders](encoders.md). |
 | Mute | Toggles mute. Its LED is on while muted. |
 | Rec, Solo | Their LEDs are [indicators](indicators.md). The buttons do nothing, except Rec with [profiles](devices.md#profiles). |
-| Select | On device strips: makes the device the default. On application and `voip` strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. |
+| Select | On device strips: makes the device the default. On application strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. [`[controls]`](slots.md#controls-and-the-chord) can give it another action. |
 | LCD | Top: the label. Bottom: the volume, or `muted`, `idle`, `off`. The backlight in `color`, dark while the strip has nothing to control. |
 | Ring | What the encoder controls. |
 | Meter | The level of what the strip controls, see [Meters](#meters). |
@@ -133,17 +142,16 @@ What each strip type can show:
 | `output` | Before its volume and Mute, as PipeWire's monitor of the output has it. | Its monitor times its volume, nothing while muted. |
 | `apps`, `auto` | The streams' audio divided by their volume, so the fader doesn't move the meter. **While muted the meter stays dark:** PipeWire applies the volume and Mute inside the stream, before anything else can listen, so the audio of a muted stream is gone. | The streams as they play. |
 | `input` | The input divided by its volume. Dark while muted, as above. | The input as applications get it. |
-| `voip` | The voice before the participant's volume (the plugin's fader). Muted, Mumble doesn't fetch their voice: the meter lights while they talk, without a level. A plugin that tells no level before the volume shows the one after it. | The voice after their volume, dark while muted. |
+| `person`, people | The voice before the participant's volume (the plugin's fader). Muted, Mumble doesn't fetch their voice: the meter lights while they talk, without a level. A plugin that tells no level before the volume shows the one after it. | The voice after their volume, dark while muted. |
 | `homeassistant` | The meter entity, see [Home Assistant](../home-assistant.md). | |
 
-The first strip that sets it wins: the strip's `meter_point`, then the one of its [layout](layouts.md), then
-`behavior.meter_point`.
+The first that sets it wins: the `meter_point` of the place in a slot, the channel's, then `behavior.meter_point`.
 
 ```toml
 [behavior]
 meter_point = "pre_fader"     # every strip ...
 
-[[strip]]
+[channel.out]
 type = "output"
 meter_point = "post_fader"    # ... but this one: what goes out of the speakers
 ```
@@ -152,12 +160,11 @@ A level divided by the volume is exact while the volume stays. While the fader m
 volume by a few hundredths of a second: for 0.3 s after a change the meter divides by the loudest of the volumes
 since, so a fader pulled down does not light the red LED; the meter shows too low for a moment instead.
 
-## Empty strips
+## Empty slots
 
 ```toml
-[[strip]]
-type = "empty"
+[slots]
+4 = ["game if gaming", "-"]   # dark while not gaming
 ```
 
-A dark strip that does nothing. Its fader stays at the bottom. It has no options besides `type`; it never
-[collapses](collapsing.md), since it is there to keep its place.
+`-` in a slot is a dark strip that does nothing. Its fader stays at the bottom.

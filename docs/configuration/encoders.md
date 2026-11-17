@@ -12,38 +12,37 @@ the LCD shows the exact value for 2 seconds instead of the volume; moving the fa
 | `media` | Seeks in the track of the applications' media player, 5 s per step. | Plays or pauses. | How far the track is, lit from the left; blinking while paused, dark while stopped. | Where the track is (`1:05`); `playing` or `paused`. |
 | `homeassistant` | Changes a number entity in Home Assistant. | An event in Home Assistant. | The number. | The number (`42%`). |
 
-Which strip types have which modes, the default first:
+Which channel types have which modes, the default first:
 
-| Strip type | Encoder modes |
+| Channel type | Encoder modes |
 |---|---|
 | `output`, `input` | `balance`, `volume`, `homeassistant` |
 | `apps` | `media`, `volume`, `balance`, `homeassistant` |
-| `auto` | `pick`, `media`, `volume`, `balance`, `homeassistant` |
+| `auto` (a place in a slot) | `pick`, `media`, `volume`, `balance`, `homeassistant` |
 
-A mode that the strip type does not have is an error, e.g.
-`strip[2]: encoder: pick is not for apps strips (media, volume, balance, homeassistant)`. With
+A mode that the type does not have is an error, e.g.
+`channel.web: encoder: pick is not for apps strips (media, volume, balance, homeassistant)`. With
 [`fader = "homeassistant"`](#fader-homeassistant) the default is `volume`, and it is the only mode.
-`xtouch-daemon check-config` shows the encoder of every strip.
+`xtouch-daemon check-config` shows the encoder of every channel.
 
-`homeassistant` strips have no `encoder` option: their encoder is a Home Assistant entity, see
+`homeassistant` channels have no `encoder` option: their encoder is a Home Assistant entity, see
 [Home Assistant](../home-assistant.md#entities).
 
 ```toml
-[[strip]]
+[channel.out]
 type = "output"
 label = "Speaker"
 encoder = "volume"   # fine steps instead of the balance
 
-[[strip]]
-type = "auto"
-encoder = "pick"     # the default for auto strips
+[slots]
+5 = [{ show = "auto", encoder = "media" }]   # pick is the default for auto
 ```
 
 ## `volume`
 
 Fine steps of the volume. One step is `behavior.encoder_step` percent (1 by default), and the fader follows. A push
 sets `behavior.reset_volume` (100 % by default). Both stay within the [volume range](strips.md#volume-range) of the
-strip.
+channel.
 
 ## `balance`
 
@@ -55,16 +54,16 @@ does nothing.
 
 ## `pick`
 
-For `auto` strips. Turning the encoder picks the strip's application among those without a strip of their own,
-paused ones too. One that another `auto` strip has swaps with it. It works on a strip without an application too.
+For `auto`. Turning the encoder picks the slot's application among those without a channel of their own, paused
+ones too. One that another `auto` slot has swaps with it. It works on a slot without an application too.
 
-A push pins the application: it stays on the strip after it stopped playing, until the next push. The ring shows which
-of the candidates the strip has, as a dot; while pinned, it is lit up to there. The LCD shows which one of how many
+A push pins the application: it stays on the slot after it stopped playing, until the next push. The ring shows which
+of the candidates the slot has, as a dot; while pinned, it is lit up to there. The LCD shows which one of how many
 (`2/5`) after a turn, and `pinned` or `auto` (picked by itself again) after a push.
 
 ## `media`
 
-The default for `apps` strips. The encoder controls the media player of the strip's applications: Spotify, a browser,
+The default for `apps` channels. The encoder controls the media player of the strip's applications: Spotify, a browser,
 mpv with mpv-mpris, anything that speaks [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/) on the
 session bus. Turning seeks 5 seconds per step, a push plays or pauses. The ring fills up from the left with how far the track
 is, also while the strip is idle (e.g. paused). It blinks (0.5 s on, 0.5 s off) while the track is paused and is
@@ -78,8 +77,8 @@ come first. Applications without a player leave the encoder without a function.
 A paused player keeps the strip active, also after its streams are gone: browsers end the stream of a paused video
 a few seconds after the pause, and the strip would go dark with it. It stays lit with its fader at the volume, and
 the ring blinks; a move of the fader sets the volume the stream gets when it plays again. The strip goes dark when
-the player is stopped or closed. On an `auto` strip this lasts as long as the strip keeps the application
-(`behavior.auto_hold`).
+the player is stopped or closed. On an `auto` slot this lasts as long as the slot keeps the application
+(`hold` of `[pool.auto]`).
 
 `xtouch-daemon` needs the D-Bus session bus for this, which a systemd user service has. Without it the daemon logs
 `No media players: the session bus is not reachable (...)` once and keeps trying.
@@ -93,10 +92,9 @@ is idle too. An automation in Home Assistant decides what the number does, see
 [Home Assistant](../home-assistant.md#audio-strips-with-home-assistant-controls).
 
 ```toml
-[[strip]]
+[channel.desk]
 type = "output"
-device = "alsa_output.usb-*"
-id = "desk"                  # number.xtouch_desk_encoder
+device = "alsa_output.usb-*"  # number.xtouch_desk_encoder
 encoder = "homeassistant"
 ```
 
@@ -107,10 +105,9 @@ The other way round: the fader belongs to Home Assistant (`number.<ns>_<id>_fade
 [`[mqtt]`](../home-assistant.md#mqtt) section.
 
 ```toml
-[[strip]]
+[channel.music]
 type = "apps"
 match = ["spotify"]
 label = "Music"
-id = "music"
-fader = "homeassistant"      # encoder: volume
+fader = "homeassistant"      # number.xtouch_music_fader; encoder: volume
 ```

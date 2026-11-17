@@ -82,7 +82,7 @@ def test_links_are_addresses_on_the_site():
     assert docs.DOCS_URL == "https://markusressel.github.io/xtouch-daemon/"
     assert docs.page_link("mqtt") == "https://markusressel.github.io/xtouch-daemon/home-assistant/#mqtt"
     assert docs.page_link("strips") is None
-    assert docs.strip_type_link("auto") == docs.url("configuration/applications/#auto-strips")
+    assert docs.strip_type_link("auto") == docs.url("configuration/applications/#auto")
     assert docs.strip_type_link("pipewire") is None
     assert docs.option_link("strip", "rec", "input") == docs.url("configuration/indicators/#indicators")
     # the id of a homeassistant strip names all its entities, the one of an audio strip its fader or encoder

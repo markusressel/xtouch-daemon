@@ -30,7 +30,7 @@ The Rec and Solo LEDs are indicators; their buttons do nothing (except Rec with 
 | `solo` | `"off"` |
 
 ```toml
-[[strip]]
+[channel.mic]
 type = "input"
 label = "Mic"
 rec = "recording"   # the default: lit while an application uses the microphone
