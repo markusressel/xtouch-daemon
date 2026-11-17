@@ -6,7 +6,7 @@ like a damped spring. `VirtualStrip` is a strip that waits off the device (see `
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
@@ -15,6 +15,13 @@ if TYPE_CHECKING:
     from xtouch_daemon.hardware.surface import Surface
 
 _LOGGER = logging.getLogger(__name__)
+
+type Claimable = Literal["fader", "encoder", "select", "rec", "solo"]
+"""
+What the controls of a slot (`[controls]`) can take of a strip of the device: the fader, the encoder with its ring,
+and the buttons with their LEDs; not Mute, which stays with what the strip shows.
+"""
+CLAIMABLE_BUTTONS: dict[Button, Claimable] = {Button.REC: "rec", Button.SOLO: "solo", Button.SELECT: "select"}
 
 FADER_TICK = 0.01
 FADER_SMOOTH_TIME = 0.1
@@ -254,14 +261,21 @@ class Strip:
             protocol.ring(self.index, *self.ring),
         ]
 
-    def show_from(self, other: Strip) -> None:
-        """Shows what `other` shows (see `VirtualStrip`): its LCD, LEDs and ring; the fader glides to its value."""
+    def show_from(self, other: Strip, skip: frozenset[Claimable] = frozenset()) -> None:
+        """
+        Shows what `other` shows (see `VirtualStrip`): its LCD, LEDs and ring; the fader glides to its value. Not the
+        parts in `skip`: a claim shows those.
+        """
         self.set_color(other.color)
         for line, text in enumerate(other.text):
             self.set_text(line, text)
         for button, state in other.leds.items():
-            self.set_led(button, state)
-        self.set_ring(*other.ring)
+            if CLAIMABLE_BUTTONS.get(button) not in skip:
+                self.set_led(button, state)
+        if "encoder" not in skip:
+            self.set_ring(*other.ring)
+        if "fader" in skip:
+            return
         if other.fader is None or other.fader == 0:
             self.park()
         else:
@@ -281,18 +295,34 @@ class VirtualStrip(Strip):
         # its own messages never go to the device: those of `target` do
         self.shown = False
         self.target: Strip | None = None
+        self.masked: frozenset[Claimable] = frozenset()
+        """The parts a claim shows on the strip of the device: kept here, but not passed on."""
 
     def bind(self, target: Strip | None) -> None:
         """Puts it on the strip of the device (None: on none), which then shows what it shows."""
         self.target = target
         if target is not None:
-            target.show_from(self)
+            target.show_from(self, self.masked)
+
+    def mask(self, parts: frozenset[Claimable]) -> None:
+        """Lets a claim show these parts; those it gives back show what this strip shows again."""
+        freed = self.masked - parts
+        self.masked = parts
+        if self.target is None:
+            return
+        for button, state in self.leds.items():
+            if CLAIMABLE_BUTTONS.get(button) in freed:
+                self.target.set_led(button, state)
+        if "encoder" in freed:
+            self.target.set_ring(*self.ring)
+        if "fader" in freed and self.fader is not None:
+            self.target.set_fader(protocol.fader_fraction(self.fader))
 
     # what it shows is kept as `Strip` keeps it, but sent to `target` only (its index may be beyond the device's)
 
     def set_led(self, button: Button, state: Led) -> None:
         self.leds[button] = state
-        if self.target is not None:
+        if self.target is not None and CLAIMABLE_BUTTONS.get(button) not in self.masked:
             self.target.set_led(button, state)
 
     def set_text(self, line: int, text: str) -> None:
@@ -302,7 +332,7 @@ class VirtualStrip(Strip):
 
     def set_ring(self, position: int, mode: RingMode = RingMode.DOT) -> None:
         self.ring = (position, mode)
-        if self.target is not None:
+        if self.target is not None and "encoder" not in self.masked:
             self.target.set_ring(position, mode)
 
     def set_color(self, color: Color) -> None:
@@ -312,7 +342,7 @@ class VirtualStrip(Strip):
 
     def set_fader(self, fraction: float, slow: bool = False) -> None:
         self.fader = protocol.fader_value(fraction)
-        if self.target is not None:
+        if self.target is not None and "fader" not in self.masked:
             self.target.set_fader(fraction, slow)
 
     def set_meter(self, level: int) -> None:

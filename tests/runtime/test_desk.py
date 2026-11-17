@@ -16,6 +16,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.values import MeterPoint
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import METER_MAX, Button
+from xtouch_daemon.hardware.strip import Claimable
 from xtouch_daemon.runtime import desk as desk_module
 from xtouch_daemon.runtime.desk import Desk
 
@@ -59,6 +60,50 @@ class Recorder:
     def held_meter(self, point: MeterPoint) -> Reading | None:
         self.points.append(point)
         return self.held
+
+
+class Claimer(Recorder):
+    """A claim that records what it got."""
+
+    def __init__(self, *taken: Claimable) -> None:
+        super().__init__()
+        self.taken = frozenset(taken)
+
+
+def test_a_claim_gets_the_controls_it_takes(surface: RecordingSurface) -> None:
+    desk = Desk(surface)
+    presenter, claim = Recorder(), Claimer("encoder", "select")
+    desk.bind(0, presenter)
+    desk.claim(0, claim)
+    desk.claim(0, claim)
+    surface.on_event(protocol.EncoderTurned(0, 1))
+    surface.on_event(protocol.EncoderPressed(0, True))
+    surface.on_event(protocol.ButtonPressed(0, Button.SELECT, True))
+    surface.on_event(protocol.ButtonPressed(0, Button.MUTE, True))
+    surface.on_event(protocol.FaderMoved(0, protocol.fader_value(0.5)))
+    # the claim goes while Select is held: its release goes to the claim all the same
+    desk.claim(0, None)
+    surface.on_event(protocol.ButtonPressed(0, Button.SELECT, False))
+    surface.on_event(protocol.EncoderPressed(0, False))
+    surface.on_event(protocol.EncoderTurned(0, -1))
+    assert claim.events == [("encoder", 1), ("push", True), ("SELECT", True), ("SELECT", False), ("push", False)]
+    assert presenter.events == [("MUTE", True), ("fader", 0.5), ("encoder", -1)]
+
+
+def test_a_fader_under_a_finger_goes_over_to_a_claim_and_back(surface: RecordingSurface) -> None:
+    desk = Desk(surface)
+    presenter, claim, other = Recorder(), Claimer("fader"), Recorder()
+    desk.bind(0, presenter)
+    surface.on_event(protocol.FaderTouched(0, True))
+    desk.claim(0, claim)
+    # another presenter: the fader stays the claim's
+    desk.bind(0, other)
+    surface.on_event(protocol.FaderMoved(0, protocol.fader_value(0.25)))
+    desk.claim(0, None)
+    surface.on_event(protocol.FaderTouched(0, False))
+    assert presenter.events == [("touch", True), ("touch", False)]
+    assert claim.events == [("touch", True), ("fader", 0.25), ("touch", False)]
+    assert other.events == [("touch", True), ("touch", False)]
 
 
 def test_the_events_of_a_strip_go_to_its_presenter(surface: RecordingSurface) -> None:

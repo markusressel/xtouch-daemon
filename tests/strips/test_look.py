@@ -45,3 +45,19 @@ async def test_an_apps_strip_takes_the_label_of_its_look(surface: RecordingSurfa
     strip.set_look(Look("Tunes"))
     strip.update(AudioState())
     assert surface.strips[0].text[0] == "Tunes"
+
+
+async def test_with_the_fader_taken_the_encoder_sets_the_volume(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = make(surface, env, label="Out")
+    strip.set_place("balance", None, None)
+    strip.set_taken(frozenset({"fader"}))
+    assert isinstance(strip.knob, VolumeKnob)
+    # both taken: the encoder is not its own anyway
+    strip.set_taken(frozenset({"fader", "encoder"}))
+    assert isinstance(strip.knob, BalanceKnob)
+    knob = strip.knob
+    strip.set_taken(frozenset({"encoder", "fader", "select"}))
+    assert strip.knob is knob
+    strip.set_taken(frozenset())
+    assert isinstance(strip.knob, BalanceKnob)
+    assert strip.taken == frozenset()

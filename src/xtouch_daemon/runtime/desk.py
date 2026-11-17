@@ -15,6 +15,7 @@ from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.values import MeterPoint
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable
 from xtouch_daemon.hardware.surface import Surface
 
 type Control = Button | None
@@ -26,14 +27,29 @@ METER_INTERVAL = 0.1
 """How often the meters show the peak since the last time (the device lets them fall in between)."""
 
 
-class Presenter(Protocol):
-    """What the desk hands the events of a strip of the device to (today's strip controllers)."""
+class Hands(Protocol):
+    """What handles the events of a strip of the device: a presenter, or a claim."""
 
     def on_fader(self, fraction: float) -> None: ...
     def on_touch(self, touched: bool) -> None: ...
     def on_button(self, button: Button, pressed: bool) -> None: ...
     def on_encoder(self, steps: int) -> None: ...
     def on_encoder_press(self, pressed: bool) -> None: ...
+
+
+class Claim(Hands, Protocol):
+    """
+    Controls of a strip of the device that act whatever it shows (`[controls]` of a slot): the events of the
+    controls it `takes` go to it, not to the presenter.
+    """
+
+    @property
+    def taken(self) -> frozenset[Claimable]: ...
+
+
+class Presenter(Hands, Protocol):
+    """What the desk hands the events of a strip of the device to (today's strip controllers)."""
+
     def meter_targets(self, state: AudioState) -> set[CaptureTarget]: ...
     def is_playing(self, target: CaptureTarget, state: AudioState) -> bool: ...
     def target_gain(self, target: CaptureTarget, state: AudioState) -> float | None: ...
@@ -61,11 +77,13 @@ class Desk:
         self.hands_free: list[Callable[[], None]] = []
         self.presenters: list[Presenter | None] = [None] * len(surface.strips)
         """The presenter bound to each strip of the device."""
+        self.claims: list[Claim | None] = [None] * len(surface.strips)
+        """The claim on each strip of the device: its controls go to it (see `claim()`)."""
         self._touched: set[int] = set()
         """The faders of the device (from 0) a finger is on."""
         self._held: set[tuple[int, Control]] = set()
         """The buttons of the device held down: the strip (from 0) and the button, None for the encoder."""
-        self._pressed: dict[Key, Presenter | None] = {}
+        self._pressed: dict[Key, Hands | None] = {}
         """Who got each press and touch not let go yet: they get its release."""
         self._held_solos: set[int] = set()
         self.state: AudioState = DISCONNECTED
@@ -95,12 +113,36 @@ class Desk:
         if self.presenters[strip] is presenter:
             return
         self.presenters[strip] = presenter
-        if strip in self._touched:
-            if (before := self._pressed.get((strip, FADER))) is not None:
-                before.on_touch(False)
-            self._pressed[(strip, FADER)] = presenter
-            if presenter is not None:
-                presenter.on_touch(True)
+        self._hand_over_fader(strip)
+
+    def claim(self, strip: int, claim: Claim | None) -> None:
+        """
+        Puts a claim on a strip of the device (from 0), None takes it away: the controls it takes go to it, the others
+        to the presenter. A fader under a finger goes over as on `bind()`.
+        """
+        if self.claims[strip] is claim:
+            return
+        self.claims[strip] = claim
+        self._hand_over_fader(strip)
+
+    def _owner(self, strip: int, control: Claimable) -> Hands | None:
+        """Who gets the events of a control of a strip now: its claim if it takes it, else the presenter."""
+        claim = self.claims[strip]
+        return claim if claim is not None and control in claim.taken else self.presenters[strip]
+
+    def _hand_over_fader(self, strip: int) -> None:
+        """The fader under a finger goes to its owner now: the one that had the touch lets go, the new one gets it."""
+        if strip not in self._touched:
+            return
+        before = self._pressed.get((strip, FADER))
+        owner = self._owner(strip, "fader")
+        if before is owner:
+            return
+        if before is not None:
+            before.on_touch(False)
+        self._pressed[(strip, FADER)] = owner
+        if owner is not None:
+            owner.on_touch(True)
 
     def unbind(self, presenters: Sequence[Presenter]) -> None:
         """Takes these presenters off the device (a mixer that goes): their strips show nothing until bound again."""
@@ -127,34 +169,39 @@ class Desk:
         released = self._follow_hands(event)
         match event:
             case protocol.FaderMoved(strip=strip, value=value):
-                if (presenter := self.presenters[strip]) is not None:
-                    presenter.on_fader(protocol.fader_fraction(value))
+                if (owner := self._owner(strip, "fader")) is not None:
+                    owner.on_fader(protocol.fader_fraction(value))
             case protocol.FaderTouched(strip=strip, touched=touched):
-                if (presenter := self._press((strip, FADER), touched)) is not None:
-                    presenter.on_touch(touched)
+                if (owner := self._press((strip, FADER), "fader", touched)) is not None:
+                    owner.on_touch(touched)
             case protocol.ButtonPressed(strip=strip, button=button, pressed=pressed):
-                if (presenter := self._press((strip, button), pressed)) is not None:
-                    presenter.on_button(button, pressed)
+                control = CLAIMABLE_BUTTONS.get(button)
+                if (owner := self._press((strip, button), control, pressed)) is not None:
+                    owner.on_button(button, pressed)
                 if button == Button.SOLO:
                     self._follow_chord(strip, pressed)
             case protocol.EncoderTurned(strip=strip, steps=steps):
-                if (presenter := self.presenters[strip]) is not None:
-                    presenter.on_encoder(steps)
+                if (owner := self._owner(strip, "encoder")) is not None:
+                    owner.on_encoder(steps)
             case protocol.EncoderPressed(strip=strip, pressed=pressed):
-                if (presenter := self._press((strip, None), pressed)) is not None:
-                    presenter.on_encoder_press(pressed)
+                if (owner := self._press((strip, None), "encoder", pressed)) is not None:
+                    owner.on_encoder_press(pressed)
             case _ as unreachable:
                 assert_never(unreachable)
         if released and not (self._touched or self._held):
             for listener in list(self.hands_free):
                 listener()
 
-    def _press(self, key: Key, down: bool) -> Presenter | None:
-        """Who gets a press (the presenter bound now) or its release (who got the press)."""
+    def _press(self, key: Key, control: Claimable | None, down: bool) -> Hands | None:
+        """
+        Who gets a press (the owner of the control now; None for one no claim can take) or its release (who got the
+        press).
+        """
+        owner = self._owner(key[0], control) if control is not None else self.presenters[key[0]]
         if down:
-            presenter = self._pressed[key] = self.presenters[key[0]]
-            return presenter
-        return self._pressed.pop(key, self.presenters[key[0]])
+            self._pressed[key] = owner
+            return owner
+        return self._pressed.pop(key, owner)
 
     def _follow_hands(self, event: protocol.StripEvent) -> bool:
         """Which faders are touched and which buttons held; True for a release."""

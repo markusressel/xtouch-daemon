@@ -15,7 +15,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import ColorName, EncoderMode, Indicator, MeterPoint, color_of
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.hardware.strip import Strip
+from xtouch_daemon.hardware.strip import Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips.knobs import BalanceKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
 from xtouch_daemon.system.launch import Launcher
@@ -90,11 +90,17 @@ class StripController:
         self.env = env
         self.identity = identity
         self.look = look
+        self.taken: frozenset[Claimable] = frozenset()
+        """The controls of its strip the controls of the slot claim (`[controls]`): their events go there."""
         self._tasks: set[asyncio.Task[None]] = set()
 
     def set_look(self, look: Look) -> None:
         """Another look (the strip it is on now has other options); shows at the next `update()`."""
         self.look = look
+
+    def set_taken(self, taken: frozenset[Claimable]) -> None:
+        """The controls of the slot claim these controls of the strip it is on (none when it leaves the slot)."""
+        self.taken = taken
 
     @property
     def color(self) -> Color:
@@ -267,6 +273,8 @@ class VolumeStrip(StripController):
         self.notice: str | None = None
         """Shown on the second line instead of the volume for a moment (`notify`)."""
         self._notice_timer: asyncio.TimerHandle | None = None
+        self.encoder_mode: EncoderMode = encoder
+        """What the encoder does by the configuration; while the fader is taken, it sets the volume (see `knob`)."""
         self.knob = self.make_knob(encoder)
 
     def set_look(self, look: Look) -> None:
@@ -275,10 +283,26 @@ class VolumeStrip(StripController):
 
     def set_place(self, encoder: EncoderMode, min_volume: int | None, max_volume: int | None) -> None:
         """What the encoder does and the volume range: those of the place the strip is on now."""
-        self.knob.close()
-        self.knob = self.make_knob(encoder)
+        self.encoder_mode = encoder
         self.min_volume = min_volume
         self.max_volume = max_volume
+        self._make_knob()
+
+    def set_taken(self, taken: frozenset[Claimable]) -> None:
+        """With the fader taken (and not the encoder), the encoder sets the volume, as with a Home Assistant fader."""
+        before = self._knob_mode()
+        super().set_taken(taken)
+        if self._knob_mode() != before:
+            self._make_knob()
+
+    def _knob_mode(self) -> EncoderMode:
+        if "fader" in self.taken and "encoder" not in self.taken:
+            return "volume"
+        return self.encoder_mode
+
+    def _make_knob(self) -> None:
+        self.knob.close()
+        self.knob = self.make_knob(self._knob_mode())
 
     @property
     def indicators(self) -> dict[Button, Indicator]:

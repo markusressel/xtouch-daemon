@@ -10,7 +10,7 @@ from tests.support.hardware import RecordingSurface
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.hardware.strip import FADER_SMOOTH_TIME, FADER_TICK, Strip, smooth_damp
+from xtouch_daemon.hardware.strip import FADER_SMOOTH_TIME, FADER_TICK, Strip, VirtualStrip, smooth_damp
 
 
 def test_unchanged_leds_texts_rings_and_colors_are_not_sent_again(surface: RecordingSurface) -> None:
@@ -191,3 +191,36 @@ def test_the_spring_does_not_overshoot() -> None:
     for _ in range(100):
         position, velocity = smooth_damp(position, velocity, 1000.0, FADER_SMOOTH_TIME, FADER_TICK)
         assert position <= 1000.0
+
+
+async def test_a_virtual_strip_leaves_the_parts_a_claim_shows_alone() -> None:
+    surface = RecordingSurface()
+    device = surface.strips[0]
+    view = VirtualStrip(surface, 9)
+    view.set_led(Button.SELECT, Led.ON)
+    view.set_led(Button.MUTE, Led.ON)
+    view.set_ring(5, RingMode.WRAP)
+    view.set_fader(0.5)
+    view.mask(frozenset({"select", "encoder", "fader"}))
+    device.set_ring(2)
+    view.bind(device)
+    assert device.leds[Button.SELECT] == Led.OFF
+    assert device.leds[Button.MUTE] == Led.ON
+    assert device.ring == (2, RingMode.DOT)
+    assert device.fader is None
+    view.set_led(Button.SELECT, Led.FLASH)
+    view.set_ring(7, RingMode.WRAP)
+    view.set_fader(0.75)
+    assert device.leds[Button.SELECT] == Led.OFF
+    assert device.ring == (2, RingMode.DOT)
+    # the claim gives the parts back: they show what the strip shows
+    view.mask(frozenset({"select"}))
+    assert device.ring == (7, RingMode.WRAP)
+    assert device.fader == protocol.fader_value(0.75)
+    assert device.leds[Button.SELECT] == Led.OFF
+    view.mask(frozenset())
+    assert device.leds[Button.SELECT] == Led.FLASH
+    # off the device: nothing to give back
+    view.bind(None)
+    view.mask(frozenset({"fader"}))
+    view.mask(frozenset())
