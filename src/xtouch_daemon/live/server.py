@@ -32,34 +32,29 @@ nothing without a limit.
 """
 
 
-METER_FALL = 0.15
-"""
-Seconds per level in which a meter falls when it is not sent again, about as fast as on the device (which lets it fall
-by itself, see `Strip.set_meter()`).
-"""
-
-
 def _color_name(color: Color) -> str:
     return "off" if color == Color.BLACK else color.name.lower()
 
 
 def strip_states(surface: Surface, now: float) -> tuple[StripState, ...]:
-    """What the strips of the surface show at `now` (`time.monotonic()`)."""
+    """What the strips of the device show at `now` (`time.monotonic()`): the surface's mirror of it."""
+    mirror = surface.mirror
+    mirror.advance(now)
     states: list[StripState] = []
-    for strip in surface.strips:
-        position, mode = strip.ring
-        level, at = strip.meter
-        fader = strip.position if strip.position is not None else strip.fader
+    for index, strip in enumerate(mirror.strips):
+        position, mode, _ = strip.ring
+        top, bottom = mirror.text(index)
         states.append(
             StripState(
                 color=_color_name(strip.color),
-                text=strip.shown_text,
+                text=(top.rstrip(), bottom.rstrip()),
                 leds={button.name.lower(): _led_name(strip.leds[button]) for button in Button},
                 ring=position,
                 ring_mode=mode.name.lower(),
-                fader=None if fader is None else round(fader / protocol.FADER_MAX, 4),
-                touched=strip.touched,
-                meter=max(0, level - int((now - at) / METER_FALL)),
+                fader=round(strip.fader / protocol.FADER_MAX, 4) if strip.known else None,
+                # the surface's touch: on a fader without a working sensor a move is one
+                touched=surface.strips[index].touched,
+                meter=mirror.meter(index),
             )
         )
     return tuple(states)

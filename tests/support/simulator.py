@@ -53,9 +53,10 @@ class MemoryPort:
         if not self.plugged:
             raise LookupError(f"{self.name} is not connected")
         self.transport = MemoryTransport(self, on_data, on_closed)
-        hello = self.device.power_cycle() if self._fresh else self.device.hello()
+        if self._fresh:
+            # switched on: it asks for a host, and its faders go down
+            asyncio.get_running_loop().call_soon(self.send, self.device.power_cycle())
         self._fresh = False
-        asyncio.get_running_loop().call_soon(self.send, hello)
         return self.transport, "memory"
 
     def send(self, data: bytes) -> None:

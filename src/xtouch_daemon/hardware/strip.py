@@ -6,7 +6,6 @@ like a damped spring. `VirtualStrip` is the strip of a channel, on a slot of the
 
 import asyncio
 import logging
-import time
 from typing import TYPE_CHECKING, Literal
 
 from xtouch_daemon.hardware import protocol
@@ -94,8 +93,6 @@ class Strip:
         """When to send the target again (see FADER_CONFIRM_DELAYS)."""
         self.held = False
         """Moved without a touch, waiting for one (see TOUCH_GRACE): the motor keeps still like for a touch."""
-        self.meter: tuple[int, float] = (0, 0.0)
-        """The level the meter was set to last, and when (`time.monotonic()`), for the live view of the GUI."""
         self.overlay: tuple[str, str] | None = None
         """What the LCD shows instead of `text` for a moment (see `Surface.banner()`), None for nothing."""
 
@@ -185,7 +182,6 @@ class Strip:
         Lights the meter up to 0..METER_MAX. Not shown again after a connect: the device lets it fall by itself, a
         level is held by sending it again.
         """
-        self.meter = (level, time.monotonic())
         self._send(protocol.meter(self.index, level))
 
     @property
@@ -346,6 +342,5 @@ class VirtualStrip(Strip):
             self.target.set_fader(fraction, slow)
 
     def set_meter(self, level: int) -> None:
-        self.meter = (level, time.monotonic())
         if self.target is not None:
             self.target.set_meter(level)

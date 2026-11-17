@@ -17,6 +17,7 @@ class RecordingSurface(Surface):
 
     def send(self, message: bytes) -> None:
         self.sent.append(message)
+        super().send(message)
 
     async def run(self) -> None:
         # never looks for the real device, which may be plugged in where the tests run

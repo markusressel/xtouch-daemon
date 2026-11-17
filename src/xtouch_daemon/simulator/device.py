@@ -18,6 +18,9 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import (
     Button,
     Color,
+    EncoderPressed,
+    FaderMoved,
+    FaderTouched,
     LcdColors,
     LcdText,
     Led,
@@ -61,6 +64,11 @@ class SimulatedStrip:
     touch_due: float | None = None
     """When the touch of a hand that moves the fader is reported, None for none coming."""
     pushed: bool = False
+    known: bool = True
+    """
+    Whether the fader's position is known: a mirror doesn't know it after a connect, until the host moved the motor or
+    the device reported a move.
+    """
 
     def meter_at_time(self, now: float) -> int:
         return max(0, self.meter - int((now - self.meter_at) / METER_FALL))
@@ -77,6 +85,7 @@ class SimulatedDevice:
         self.version = 0
         """Counts the changes, for frontends to paint again."""
         self._parser = MessageParser()
+        self._observed = MessageParser()
         self._now = 0.0
 
     # -- what the host sends ----------------------------------------------------------------------------------------
@@ -90,6 +99,7 @@ class SimulatedDevice:
                     self.strips[strip].target = value
                     self.strips[strip].moving = True
                     self.strips[strip].reporting = False
+                    self.strips[strip].known = True
                 case LedSet(strip=strip, button=button, state=state):
                     self.strips[strip].leds[button] = state
                 case RingSet(strip=strip, position=position, mode=mode, center=center):
@@ -105,6 +115,35 @@ class SimulatedDevice:
                     # a message the device does not use
                     continue
             self.version += 1
+
+    def observe(self, data: bytes, now: float) -> None:
+        """
+        Takes bytes the device sent, for a mirror of a real device (see `Surface.mirror`): where a hand moved a
+        fader, its touch, an encoder held down.
+        """
+        self.advance(now)
+        for message in self._observed.feed(data):
+            match protocol.decode(message):
+                case FaderMoved(strip=strip, value=value):
+                    state = self.strips[strip]
+                    state.fader, state.moving, state.known = float(value), False, True
+                case FaderTouched(strip=strip, touched=touched):
+                    # let go, the motor goes to the strip's value
+                    self.strips[strip].touched = touched
+                    self.strips[strip].moving = not touched
+                case EncoderPressed(strip=strip, pressed=pressed):
+                    self.strips[strip].pushed = pressed
+                case _:
+                    # buttons and the device's query change nothing it shows: the host answers them
+                    continue
+            self.version += 1
+
+    def forget_faders(self) -> None:
+        """A mirror that (again) doesn't know where the faders are: e.g. after a connect, see `known`."""
+        for strip in self.strips:
+            strip.known = False
+            strip.moving = False
+        self.version += 1
 
     def _write(self, offset: int, text: str) -> None:
         """Characters from `offset` on, across the two lines like the device (past the end they are lost)."""

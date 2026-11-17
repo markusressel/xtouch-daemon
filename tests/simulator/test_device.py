@@ -112,3 +112,29 @@ def test_switched_off_and_on():
     # the host takes over again: its motor moves are not reported
     device.receive(protocol.fader(0, 0x1000), now=2.0)
     assert device.advance(3.0) == b""
+
+
+def test_a_mirror_takes_what_the_device_reported():
+    mirror = SimulatedDevice()
+    mirror.forget_faders()
+    assert not mirror.strips[1].known
+
+    before = mirror.version
+    mirror.observe(
+        protocol.fader_touched(1, True)
+        + protocol.fader_moved(1, 4092)
+        + protocol.encoder_pressed(2, True)
+        + protocol.button(3, Button.MUTE, True)
+        + protocol.host_query(SERIAL, b"\x00\x00\x00\x00"),
+        now=1.0,
+    )
+    assert mirror.version > before
+    assert mirror.strips[1].known
+    assert (mirror.strips[1].fader, mirror.strips[1].touched) == (4092, True)
+    assert mirror.strips[2].pushed
+
+    # let go, the motor goes back to the value the host set
+    mirror.receive(protocol.fader(1, 8192), now=1.0)
+    mirror.observe(protocol.fader_touched(1, False), now=1.0)
+    mirror.advance(1.0 + MOTOR_SECONDS)
+    assert mirror.strips[1].fader == 8192

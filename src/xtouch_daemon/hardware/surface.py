@@ -6,6 +6,7 @@ faders that are touched or move by themselves, and the startup and shutdown sequ
 import asyncio
 import logging
 import math
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import FADER_TICK, Strip
 from xtouch_daemon.hardware.transport import AlsaPort, Port, Transport
+from xtouch_daemon.simulator.device import SimulatedDevice
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -103,6 +105,13 @@ class Surface:
         TOUCHLESS_LET_GO as letting go.
         """
         self.strips = [Strip(self, index) for index in range(protocol.STRIPS)]
+        self.mirror = SimulatedDevice()
+        """
+        What the device shows, as far as the surface knows (for the live view): everything it sent, also while the
+        device is away (what it will show once it is there), and what the device reported (moves, touches), with the
+        motors and the meters moving over time (`time.monotonic()`).
+        """
+        self.mirror.forget_faders()
         self.on_event: EventHandler = lambda event: None
         self.on_connection: ConnectionHandler = lambda connected: None
         self._unconfirmed: dict[int, tuple[int, asyncio.TimerHandle]] = {}
@@ -175,6 +184,7 @@ class Surface:
     # -- sending ------------------------------------------------------------------------------------------------
 
     def send(self, message: bytes) -> None:
+        self.mirror.receive(message, time.monotonic())
         if self._midi is not None:
             self._midi.write(message)
 
@@ -313,6 +323,7 @@ class Surface:
         self._disconnected.clear()
         self._connected_at = asyncio.get_running_loop().time()
         self._parser = protocol.MessageParser()
+        self.mirror.forget_faders()
         _LOGGER.info(f"Connected to {self.device_name} at {path}")
         # the startup sequence: dark at first, then from the left one strip after the other lights up
         for strip in self.strips:
@@ -345,6 +356,7 @@ class Surface:
         self.on_connection(False)
 
     def _on_data(self, data: bytes) -> None:
+        self.mirror.observe(data, time.monotonic())
         for message in self._parser.feed(data):
             event = protocol.decode(message)
             if event is None:

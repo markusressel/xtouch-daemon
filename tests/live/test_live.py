@@ -12,7 +12,8 @@ import pytest
 from tests.support.hardware import RecordingSurface
 from tests.support.tasks import finish_tasks
 from xtouch_daemon.config.files import parse_config
-from xtouch_daemon.hardware import strip as strip_module
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.live import server as server_module
 from xtouch_daemon.live.codec import decode, decode_message, decode_request, encode, encode_reply, encode_request
@@ -34,7 +35,8 @@ from xtouch_daemon.live.messages import (
     VoipState,
     fingerprint,
 )
-from xtouch_daemon.live.server import INTERVAL, MAX_BUFFER, METER_FALL, LiveServer, peer_uid, strip_states
+from xtouch_daemon.live.server import INTERVAL, MAX_BUFFER, LiveServer, peer_uid, strip_states
+from xtouch_daemon.simulator.device import METER_FALL
 
 
 @pytest.fixture
@@ -66,6 +68,7 @@ async def serve(server: LiveServer) -> asyncio.Task[None]:
 
 
 def test_a_strip_is_described_as_the_device_shows_it(surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(surface_module.time, "monotonic", lambda: 100.0)
     strip = surface.strips[2]
     strip.set_color(Color.CYAN)
     strip.set_text(0, "Speaker")
@@ -73,8 +76,7 @@ def test_a_strip_is_described_as_the_device_shows_it(surface: RecordingSurface, 
     strip.set_led(Button.MUTE, Led.ON)
     strip.set_led(Button.SELECT, Led.FLASH)
     strip.set_ring(7, RingMode.WRAP)
-    strip.fader = 8191
-    monkeypatch.setattr(strip_module.time, "monotonic", lambda: 100.0)
+    surface.send(protocol.fader(2, 8191))
     strip.set_meter(10)
     monkeypatch.undo()
 
@@ -97,12 +99,10 @@ def test_a_strip_is_described_as_the_device_shows_it(surface: RecordingSurface, 
     assert strip_states(surface, 1000.0)[2].meter == 0
 
 
-async def test_the_fader_is_where_the_motor_put_it(surface: RecordingSurface):
-    strip = surface.strips[0]
-    strip.set_fader(1.0)
-    strip.moved_by_hand(4095)
+async def test_the_fader_is_where_a_hand_put_it(surface: RecordingSurface):
+    surface._on_data(protocol.fader_moved(0, 4092))
 
-    assert strip_states(surface, 0.0)[0].fader == round(4095 / 16383, 4)
+    assert strip_states(surface, 0.0)[0].fader == round(4092 / 16383, 4)
 
 
 def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):

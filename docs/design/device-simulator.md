@@ -101,7 +101,9 @@ A `changed` callback (or a version counter) tells frontends to repaint.
 
 The `Surface` keeps a `SimulatedDevice` as the mirror of the device: every byte it sends goes into it (also while
 the device is away: then it is what the device will show once it is there), and what the device sends goes in too
-(`observe()`: fader moves, touches, encoder pushes; a host query after switching on clears what the device lost). The
+(`observe()`: fader moves, touches, encoder pushes). The device's query after switching on changes nothing: the
+`Surface` shows everything again on each connect, and after one the mirror doesn't know where the faders are until
+the motor moved them or the device reported a move (`forget_faders()`). The
 live view's strips are the mirror's state (`strip_states()`), so the GUI shows what reached the device, banners and
 flashes included, with the motor and the meters moving as the model moves them. The `Surface` keeps its own record of
 what each strip shows only where it needs it to send (the strips' values and looks).
@@ -146,9 +148,9 @@ Each step is a commit with its tests, docs and CHANGELOG entry; the daemon works
 
 1. **Protocol** (done): the decoders of the messages to the device and the encoders of those from it.
 2. **Model** (done): `SimulatedDevice` with its state, the input, the motor and meter over time, and the faults.
-3. **Transport**: `Port`, `AlsaPort`, `SocketPort`; `Surface(port=...)`; `[device] virtual`, `run --virtual-device`;
+3. **Transport** (done): `Port`, `AlsaPort`, `SocketPort`; `Surface(port=...)`; `[device] virtual`, `run --virtual-device`;
    the in-memory transport and the test fixture; end-to-end tests of the `Surface`.
-4. **Mirror**: the `Surface` feeds its `SimulatedDevice`, `strip_states()` reads it; the GUI's drawing shows it.
+4. **Mirror** (done): the `Surface` feeds its `SimulatedDevice`, `strip_states()` reads it; the GUI's drawing shows it.
 5. **Server and CLI**: `simulator/server.py`, `xtouch-daemon virtual-device`; a test of the daemon against the
    server over a real socket (connect, unplug, reconnect, a second client refused).
 6. **GUI**: hosting the virtual device, the mouse on the drawing, the toolbar, the offer in the pill; GUI tests.
