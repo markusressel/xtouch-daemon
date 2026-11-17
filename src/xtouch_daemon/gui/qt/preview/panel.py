@@ -145,6 +145,9 @@ class Preview(QWidget):
         for view in self.strips:
             view.update()
 
+    def pick(self, index: int) -> None:
+        self.clicked.emit(index)
+
     def key(self, index: int, event: QKeyEvent) -> bool:
         """A key for the strip that has the focus: the arrows, Home and End select. False for other keys."""
         key = event.key()

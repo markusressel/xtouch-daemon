@@ -109,6 +109,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   live view moves their meters and faders; they are drawn sharp once the size stays.
 - Handles between the two panes of the pages Slots, Channels and States: the form of what is picked has most of the
   width at first, and each page keeps its share.
+- Previews of the controls in the GUI: the options of a channel are in cards by the part of the strip (encoder,
+  display, buttons, fader and meter), each with a drawing of that part that plays what the options do on the
+  device, with a caption, e.g. which LEDs light while an application records, or whether the meter stays up while
+  the fader goes down (`meter_point`).
 - A menu bar in the GUI: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window Device, the theme,
   the zoom) and Help (the documentation).
 - "Stop" in the header of the GUI while the service runs: stops it, but leaves it enabled.

@@ -169,8 +169,14 @@ on a row simulates it, a click on a cell also picks the card of its slot.
 ## Editing options
 
 The forms come from the options of the configuration, so every option has a field. The options of a channel are in
-the order of the device, from top to bottom: what it controls, the encoder, the LCD, the meter, the buttons (Rec,
-Solo, Mute, Select), the fader and its volume range, then those about slots (`tags`, `in_auto`, ...).
+cards in the order of the device, from top to bottom: what it controls, the encoder, the display, the buttons (Rec,
+Solo, Mute, Select), the fader and the meter, then those about slots (`tags`, `in_auto`, ...).
+
+The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip, which plays
+what the options do on the device, with a caption: the ring as the encoder turns and is pushed, the LCD while audio
+plays, while muted and with nothing to control, which LEDs light while audio plays, an application records or the
+strip is muted, and the volume at the bottom, at the 0 dB mark and at the top of the fader, with what the meter shows
+there. It follows the values in the form at once, saved or not.
 
 - switches for on/off options, numbers with their ranges, choices, color swatches, lists as chips, masked fields for
   secrets, and file pickers;

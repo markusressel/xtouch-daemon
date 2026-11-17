@@ -167,6 +167,10 @@ itself does not import it.
   where it is. The header, the rail and the footer are fixed `QToolBar`s, so they reach across the window and the
   dock sits between them. A click on a strip of the drawing picks its slot on the page Slots. The menus hold what is
   used now and then (the theme, the zoom) and the keys of the window.
+- **Previews of the controls.** `gui/domain/demos.py` groups the options of a channel by the part of the strip they
+  are about and makes a short scene for each part from the values in the form (frames of a `StripState` with a
+  caption). `PartPreview` (`gui/qt/preview/part_view.py`) plays it in the same `StripView` as the window Device, cut to
+  the part; a `StripView` is drawn in any `StripHost`. See [Design: previews of the controls](design/control-previews.md).
 - **Undo instead of questions.** `History` (`gui/domain/history.py`) keeps the states of the document before every
   edit, so removing a channel or reverting the file asks nothing and Ctrl+Z brings it back. Typing into one option is one
   step. Ctrl+Z undoes in the document also while a text field has the focus.

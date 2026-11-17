@@ -44,6 +44,7 @@ nav = [
   { "Design: presets" = "design/presets.md" },
   { "Design: channels, states and slots" = "design/channels-states-slots.md" },
   { "Design: a simulated device" = "design/device-simulator.md" },
+  { "Design: previews of the controls" = "design/control-previews.md" },
   { "Changelog" = "https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" },
 ]
 

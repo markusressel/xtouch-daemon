@@ -6,7 +6,7 @@ the mouse and keys on it.
 import dataclasses
 from itertools import pairwise
 from math import cos, radians, sin
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from PyQt6.QtCore import (
     QPointF,
@@ -84,7 +84,7 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
 
 if TYPE_CHECKING:
-    from xtouch_daemon.gui.qt.preview.panel import Preview
+    from xtouch_daemon.gui.qt.preview.panel import Hand
 
 KIND_NAMES = {"homeassistant": "Home Assistant", "?": "no type"}
 
@@ -93,10 +93,29 @@ UNCONFIGURED_OPACITY = 0.8
 """Strips after the configured ones are drawn fainter: their texts keep 4.6:1 (LCD) to 6.6:1 (printed)."""
 
 
+class StripHost(Protocol):
+    """What a strip is drawn in: the `Preview` of the window Device, or a `PartPreview` of a form."""
+
+    scale: float
+    """Pixels (at the zoom of the window) per logical unit of the strip."""
+    blink: bool
+    """Whether flashing LEDs are lit right now."""
+    hand: Hand | None
+    """The device the mouse is a hand on, None for none: a click only selects."""
+
+    @property
+    def resizing(self) -> bool: ...
+
+    def pick(self, index: int) -> None:
+        """The strip at `index` was clicked."""
+
+    def key(self, index: int, event: QKeyEvent) -> bool: ...
+
+
 class StripView(QWidget):
     """One strip of the device."""
 
-    def __init__(self, preview: Preview, index: int):
+    def __init__(self, preview: StripHost, index: int):
         super().__init__(preview)  # pyright: ignore[reportArgumentType]: PyQt's stub types the parent as Self
         self.preview = preview
         self.index = index
@@ -550,7 +569,7 @@ class StripView(QWidget):
         assert event is not None
         if event.button() != Qt.MouseButton.LeftButton:
             return
-        self.preview.clicked.emit(self.index)
+        self.preview.pick(self.index)
         hand = self.preview.hand
         point = event.position() / self.preview.scale
         part = part_at(point)

@@ -11,10 +11,12 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QMenu, QVBoxLayout, QWidget
 
 from xtouch_daemon.audio.model import Direction
+from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, channel_options, people_options, pool_options, uses
+from xtouch_daemon.gui.domain.demos import GROUPS, PREVIEWED, Part, Strip, group_of, scene
 from xtouch_daemon.gui.domain.schema import Option
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.voip import participants
@@ -22,6 +24,7 @@ from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, row, scrolled, set_text
+from xtouch_daemon.gui.qt.preview.part_view import PartPreview
 from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -97,6 +100,12 @@ class ChannelsPage(Page):
         self.layout_.addWidget(self.splitter, 1)
         self.form_rows: dict[str, list[OptionRow]] = {}
         self.form_widgets: dict[str, QWidget] = {}
+        self.form_previews: dict[str, dict[Part, PartPreview]] = {}
+        """The previews of the parts of each form."""
+        self.form_values: dict[str, Callable[[], dict[str, Any]]] = {}
+        """The values of the options of each form, unset ones at their defaults."""
+        self.form_strips: dict[str, str] = {}
+        """The strip type of each form."""
         for kind in CHANNEL_TYPES:
             self._form(kind, channel_options(kind), lambda name: (*self.selection, name), kind)
         self._form("auto", pool_options(), lambda name: (*AUTO, name), "auto")
@@ -106,22 +115,54 @@ class ChannelsPage(Page):
     # -- building -------------------------------------------------------------------------------------------------
 
     def _form(self, key: str, form_options: tuple[Option, ...], path: Callable[[str], OptionPath], strip: str) -> None:
-        frame, layout = card()
+        """
+        The form of a type of channel (or of auto or people): a card per group of its options, in the order of the
+        device, those about a part of the strip with a preview of what they do there.
+        """
+        form = QWidget()
+        cards = QVBoxLayout(form)
+        cards.setContentsMargins(0, 0, 0, 0)
+        cards.setSpacing(Space.M)
         rows: list[OptionRow] = []
+        previews: dict[Part, PartPreview] = {}
         suggest, table_suggest, placeholders = self._helpers(strip)
-        for option in form_options:
-            layout.addWidget(
-                self._row(
-                    option,
-                    path,
-                    table_suggest.get(option.name) or suggest.get(option.name),
-                    placeholders.get(option.name),
-                    docs.option_link("strip", option.name, strip),
-                    rows,
+        for group, title in GROUPS:
+            options = [option for option in form_options if group_of(option.name) == group]
+            if not options:
+                continue
+            frame, layout = card()
+            layout.addWidget(label(title, "section"))
+            body = QHBoxLayout()
+            body.setSpacing(Space.L)
+            if group in PREVIEWED:
+                part: Part = group  # pyright: ignore[reportAssignmentType]: PREVIEWED holds parts only
+                previews[part] = PartPreview(part)
+                body.addWidget(previews[part], 0, Qt.AlignmentFlag.AlignTop)
+            fields = QVBoxLayout()
+            for option in options:
+                fields.addWidget(
+                    self._row(
+                        option,
+                        path,
+                        table_suggest.get(option.name) or suggest.get(option.name),
+                        placeholders.get(option.name),
+                        docs.option_link("strip", option.name, strip),
+                        rows,
+                    )
                 )
-            )
+            body.addLayout(fields, 1)
+            layout.addLayout(body)
+            cards.addWidget(frame)
         self.form_rows[key] = rows
-        self.form_widgets[key] = frame
+        self.form_widgets[key] = form
+        self.form_previews[key] = previews
+        self.form_values[key] = lambda: {option.name: self._resolved(path, option) for option in form_options}
+        self.form_strips[key] = strip
+
+    def _resolved(self, path: Callable[[str], OptionPath], option: Option) -> Any:
+        """The value of an option in the document, or its default."""
+        value = self.document.get(path(option.name))
+        return option.default if value is None else value
 
     def _helpers(self, strip: str) -> tuple[dict[str, Suggest], dict[str, TableSuggest], dict[str, Callable[[], str]]]:
         """Suggestions and placeholders of the options of a strip type."""
@@ -172,6 +213,15 @@ class ChannelsPage(Page):
             self._show()
         else:
             self._show_list()
+            self._show_previews()
+
+    def _show_previews(self) -> None:
+        """The previews of the form show what its values do."""
+        key = self._form_key()
+        config = self.editor.validation.config
+        strip = Strip(self.form_strips[key], self.form_values[key](), config.behavior if config else BehaviorConfig())
+        for part, preview in self.form_previews[key].items():
+            preview.play(scene(part, strip))
 
     def select(self, selection: OptionPath) -> None:
         """Shows a channel (`("channel", <id>)`), `AUTO` or `PEOPLE`."""
@@ -199,6 +249,7 @@ class ChannelsPage(Page):
         self.used.setVisible(key != "people")
         self.forms.show_part(self.form_widgets[key])
         self._load_rows(self.rows)
+        self._show_previews()
         self.show_problems(self.editor.validation)
 
     def _show_list(self) -> None:
