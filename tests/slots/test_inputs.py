@@ -111,5 +111,8 @@ def test_pools_are_present_before_slots_are_assigned():
     assert pool_present(read, "auto", Observation(playing=("discord", "firefox")), frozenset())
     # people share the slots of auto: anyone in the voice chat (before the slots are assigned)
     assert pool_present(read, "auto", Observation(people=("Alice",)), frozenset())
+    # not someone whose person channel never goes into auto
+    hidden = scene('[channel.alice]\ntype = "person"\nperson = "Alice"\nin_auto = false\n')
+    assert not pool_present(hidden, "auto", Observation(people=("Alice",)), frozenset())
     assert not pool_present(read, "media", Observation(), frozenset({"out"}))
     assert pool_present(read, "media", Observation(), frozenset({"browser"}))

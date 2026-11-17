@@ -19,7 +19,7 @@ from xtouch_daemon.config.strips import StripConfig
 from xtouch_daemon.slots.model import AUTO, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS, Result
 
-SECTIONS = ("channel", "pool", "people", "state", "slots")
+SECTIONS = ("channel", "pool", "people", "state", "slots", "controls")
 """The sections of the format of channels, states and slots; a file with one of them is in that format."""
 CHANNEL_ONLY = frozenset({"tags", "in_auto", "absent_after"})
 """Options of a channel that are about slots, not about its strip."""
@@ -167,6 +167,10 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                         add((slot, index, member), f"{where} ({member})", channel_strip(member))
     people = {key: value for key, value in data.get(PEOPLE, {}).items() if key not in PEOPLE_ONLY}
     check("people", {"type": "voip"} | people | {"person": "someone"})
+    for slot in config.switching.chord:
+        controls = scene.controls.get(slot)
+        if controls is not None and controls.solo is not None:
+            problems.append(f"controls.{slot}.solo: the Solo buttons of the chord can't be claimed (switching.chord)")
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))
     # people share the slots of auto in every configuration: the section has defaults for everything

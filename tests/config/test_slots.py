@@ -109,6 +109,10 @@ def test_nothing_ignored_without_apps_channels():
         ('[slots]\n1 = "nothing"\n', "slots.1[0]: nothing is no channel or pool"),
         ('[device]\nname = 3\n[slots]\n1 = "auto"\n', "device.name"),
         ('[people]\ncolor = "pink"\n[slots]\n', "people: color: Input should be"),
+        (
+            '[controls]\n8 = { solo = "cycle_modes" }\n',
+            "controls.8.solo: the Solo buttons of the chord can't be claimed",
+        ),
     ],
 )
 def test_problems(text: str, problem: str):

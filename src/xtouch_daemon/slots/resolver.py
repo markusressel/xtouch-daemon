@@ -7,8 +7,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.slots.inputs import Observation, excluded, owner_of, people_of, pool_present
-from xtouch_daemon.slots.model import AUTO, CONTROL_OPTIONS, PEOPLE, Candidate, Scene
+from xtouch_daemon.slots.inputs import Observation, Person, excluded, owner_of, people_of, pool_present
+from xtouch_daemon.slots.model import AUTO, PEOPLE, Candidate, Scene
 
 SLOTS = range(1, protocol.STRIPS + 1)
 
@@ -167,15 +167,20 @@ class _Resolver:
         for pool in order:
             if pool == AUTO:
                 # before auto hands out its members: the people take some of its slots
-                held_people = {s.member for slot, s in shown.items() if s.pool == PEOPLE and slot in self.inputs.fixed}
+                held_people = {
+                    Person(s.member, s.channel)
+                    for slot, s in shown.items()
+                    if s.pool == PEOPLE and slot in self.inputs.fixed and s.member is not None
+                }
                 people = people_of(self.scene, self.inputs.observation, self.inputs.present, with_slot)
-                left = self._share(shown, tuple(person for person in people if person not in held_people))
+                left = self._share(shown, tuple(person for person in people if person not in held_people), with_slot)
                 if left:
-                    waiting[PEOPLE] = left
+                    waiting[PEOPLE] = tuple(person.key for person in left)
                 with_slot.update(s.channel for s in shown.values() if s.pool == PEOPLE and s.channel is not None)
             slots = sorted(slot for slot, s in shown.items() if s.pool == pool and slot not in self.inputs.fixed)
             held = {s.member for slot, s in shown.items() if s.pool == pool and slot in self.inputs.fixed}
-            members = [member for member in self._members(pool, with_slot) if member not in held]
+            channel_of = self._members(pool, with_slot)
+            members = [member for member in channel_of if member not in held]
             if not slots:
                 # applications and people wait for a slot; channels of a pool without one are just not shown
                 if members and pool == AUTO:
@@ -190,8 +195,9 @@ class _Resolver:
                     elif slot in slots:
                         assigned[slot] = member
                         if member not in members:
-                            # a pin stays after its application stopped playing
+                            # a pin stays after its application (or channel) stopped playing
                             members.append(member)
+                            channel_of[member] = member if member in self.scene.channels else None
             if pool == AUTO and self.previous is not None:
                 for slot in slots:
                     before = self.previous.slots.get(slot)
@@ -211,35 +217,33 @@ class _Resolver:
                 waiting[pool] = tuple(free)
             for slot in slots:
                 member = assigned.get(slot)
-                channel = member if member in self.scene.channels else None
+                channel = channel_of[member] if member is not None else None
                 shown[slot] = Shown(shown[slot].candidate, channel=channel, pool=pool, member=member)
                 if channel is not None:
                     # a channel one pool gave a slot is not a member of the next one
                     with_slot.add(channel)
         return waiting
 
-    def _share(self, shown: dict[int, Shown], people: tuple[str, ...]) -> tuple[str, ...]:
+    def _share(self, shown: dict[int, Shown], people: tuple[Person, ...], with_slot: set[str]) -> tuple[Person, ...]:
         """
         Puts the people on slots of `auto`, as a block from the right (next to the voice chat's strips) in their order
         (`Inputs.order`: the configured one, then who was seen first; others after them). Slots where `auto` is the
-        first candidate go first: nothing above takes them over. Pinned slots and places with controls are the
-        applications'. Someone earlier in the order who comes moves those after them one slot to the left; an
-        application whose slot the block needs goes to a free one or waits, like the people the slots don't suffice
-        for. A `person` channel goes by its id and its names.
+        first candidate go first: nothing above takes them over. Pinned slots are the applications'. Someone earlier
+        in the order who comes moves those after them one slot to the left; an application whose slot the block needs
+        goes to a free one or waits, like the people the slots don't suffice for. A `person` channel goes by its id
+        and its names.
         """
+        # a pin of a channel that has a slot of its own now is dropped: it keeps nobody out
+        pinned = {slot for slot, member in self.inputs.pins.items() if member not in with_slot}
         slots = [
-            slot
-            for slot, s in shown.items()
-            if s.pool == AUTO
-            and slot not in self.inputs.fixed
-            and slot not in self.inputs.pins
-            and not CONTROL_OPTIONS & set(self.scene.stacks[slot][s.candidate or 0].options)
+            slot for slot, s in shown.items() if s.pool == AUTO and slot not in self.inputs.fixed and slot not in pinned
         ]
         rank = {name.lower(): index for index, name in enumerate(self.inputs.order)}
 
-        def rank_of(person: str) -> int:
-            channel = self.scene.channels.get(person)
-            names = (person, *channel.people) if channel is not None else (person,)
+        def rank_of(person: Person) -> int:
+            names = (
+                (person.key,) if person.channel is None else (person.key, *self.scene.channels[person.channel].people)
+            )
             return min((rank[name.lower()] for name in names if name.lower() in rank), default=len(rank))
 
         ordered = sorted(people, key=lambda person: (rank_of(person), people.index(person)))
@@ -248,28 +252,28 @@ class _Resolver:
         for slot, person in zip(targets, ordered, strict=False):
             before = self.previous.slots.get(slot) if self.previous is not None else None
             if before is not None and before.pool == AUTO and before.member is not None:
-                self.why[slot].append(f"{before}: gives way to {person}")
-            channel = person if person in self.scene.channels else None
-            shown[slot] = Shown(shown[slot].candidate, channel=channel, pool=PEOPLE, member=person)
-            self.why[slot].append(f"auto: shared with people, {person}")
+                self.why[slot].append(f"{before}: gives way to {person.key}")
+            shown[slot] = Shown(shown[slot].candidate, channel=person.channel, pool=PEOPLE, member=person.key)
+            self.why[slot].append(f"auto: shared with people, {person.key}")
         return tuple(ordered[len(targets) :])
 
-    def _members(self, pool: str, with_slot: set[str]) -> list[str]:
+    def _members(self, pool: str, with_slot: set[str]) -> dict[str, str | None]:
+        """The members of a pool in their order, each with its channel (None for an application without one)."""
         observation = self.inputs.observation
         if pool == AUTO:
-            members: dict[str, None] = {}
+            members: dict[str, str | None] = {}
             for app in observation.playing:
                 if excluded(self.scene, app):
                     continue
                 owner = owner_of(self.scene, app)
                 if owner is None:
-                    members[app] = None
+                    members.setdefault(app, None)
                 elif owner not in with_slot:
                     # a channel without a slot goes in as a whole: one owner per stream
-                    members[owner] = None
-            return list(members)
-        return [
-            channel
+                    members[owner] = owner
+            return members
+        return {
+            channel: channel
             for channel in self.scene.members_of(self.scene.pools[pool].channels)
             if channel in self.inputs.present and channel not in with_slot
-        ]
+        }

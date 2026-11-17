@@ -1,6 +1,7 @@
 """
-The configuration of channels, pools, people, states and slots, and its checks: `Scene.of()` reads the sections
-`[channel.*]`, `[pool.*]`, `[people]`, `[state.*]` and `[slots]` of a file (other sections are not its business).
+The configuration of channels, pools, people, states, slots and controls, and its checks: `Scene.of()` reads the
+sections `[channel.*]`, `[pool.*]`, `[people]`, `[state.*]`, `[slots]` and `[controls]` of a file (other sections
+are not its business).
 """
 
 import difflib
@@ -31,11 +32,16 @@ ABSENT_AFTER = 3.0
 
 LOOK_OPTIONS = frozenset({"label", "color", "lit_when_idle", "rec", "solo", "meter", "meter_point"})
 """Options of a place that change only how a candidate looks there."""
-CONTROL_OPTIONS = frozenset({"encoder", "fader", "min_volume", "max_volume", "launch", "launch_when_running", "id"})
+APP_OPTIONS = frozenset({"encoder", "min_volume", "max_volume"})
 """
-Options of a place for a pool candidate only: a channel's controls and entities belong to the channel. People
-don't take a place that has one.
+Options of an `auto` place for the applications without a channel it shows (an `encoder` that acts on the
+application: `pick`, `media`, `volume`, `balance`); a channel's controls belong to the channel, the controls that
+belong to the slot whatever it shows are in `[controls]`.
 """
+CONTROLS = ("fader", "encoder", "select", "rec", "solo")
+"""What `[controls]` can claim of a slot (not Mute: it stays with what the slot shows)."""
+CONTROL_ACTIONS = re.compile(r"homeassistant|cycle_modes|mode:[a-z0-9_]+|toggle:[a-z0-9_]+")
+"""The actions of a claimed button that are text; a launch is a table."""
 
 _ID = re.compile(r"[a-z0-9_]+")
 
@@ -97,11 +103,40 @@ class PoolConfig(_Open):
 class PeopleConfig(_Open):
     """`[people]`: the look of their strips (the options of today's `voip` strips) and their order."""
 
+    @model_validator(mode="before")
+    @classmethod
+    def _no_launch(cls, data: Any) -> Any:
+        if isinstance(data, Mapping) and "launch" in data:
+            raise ValueError("launch: the strips of people have none; a launch is a control of a slot ([controls])")
+        return data
+
     order: tuple[str, ...] = ()
     """
     The order of the people from the right: names, or ids of `person` channels; before those learned (who was seen
     first).
     """
+
+
+class Launch(_Section):
+    launch: tuple[str, ...]
+    launch_when_running: bool = False
+
+
+class ControlsConfig(_Section):
+    """The controls of a slot that act whatever it shows (`[controls]`), while `when` holds."""
+
+    fader: Literal["homeassistant"] | None = None
+    encoder: Literal["homeassistant"] | None = None
+    select: str | Launch | None = None
+    rec: str | Launch | None = None
+    solo: str | Launch | None = None
+    when: str | None = None
+    id: str | None = None
+    """Names the Home Assistant entities of the slot's controls; by default `slot_<n>`."""
+
+    @property
+    def claimed(self) -> tuple[str, ...]:
+        return tuple(name for name in CONTROLS if getattr(self, name) is not None)
 
 
 class StateConfig(_Section):
@@ -147,6 +182,7 @@ class _File(BaseModel):
     people: PeopleConfig = PeopleConfig()
     state: dict[str, StateConfig] = {}
     slots: dict[str, str | list[str | dict[str, Any]]] = {}
+    controls: dict[str, ControlsConfig] = {}
 
 
 @dataclass(frozen=True)
@@ -173,6 +209,10 @@ class Scene:
     stacks: Mapping[int, tuple[Candidate, ...]]
     conditions: Mapping[str, Condition]
     """The conditions of composed states (`when`), by state."""
+    controls: Mapping[int, ControlsConfig] = field(default_factory=dict)
+    """The claimed controls by slot (1..8)."""
+    control_conditions: Mapping[int, Condition] = field(default_factory=dict)
+    """Their `when`, by slot."""
 
     @classmethod
     def of(cls, data: Mapping[str, Any]) -> Scene:
@@ -186,8 +226,8 @@ class Scene:
         _check_ids(file, problems)
         conditions = _parse_conditions(file.state, problems)
         stacks = _parse_stacks(file.slots, file.channel, pools, problems)
-        _check_place_ids(file, stacks, problems)
-        scene = cls(file.channel, pools, file.people, file.state, stacks, conditions)
+        controls, control_conditions = _parse_controls(file, stacks, problems)
+        scene = cls(file.channel, pools, file.people, file.state, stacks, conditions, controls, control_conditions)
         scene._check_references(problems)
         if not problems:
             _check_loops(conditions, problems)
@@ -217,6 +257,7 @@ class Scene:
         uses: list[tuple[str, Condition]] = [
             (f"state.{name}.when", condition) for name, condition in self.conditions.items()
         ]
+        uses += [(f"controls.{slot}.when", condition) for slot, condition in self.control_conditions.items()]
         uses += [
             (f"slots.{slot}[{index}]", candidate.when)
             for slot, stack in self.stacks.items()
@@ -233,6 +274,8 @@ class Scene:
                     f'{where}: "{condition.text}": present is only for candidates of slots, a state '
                     "takes channels with its source channels"
                 )
+            if where.startswith("controls.") and condition.presence:
+                problems.append(f'{where}: "{condition.text}": present is only for candidates of slots')
         lists = [(f"pool.{name}.channels", pool.channels) for name, pool in self.pools.items()]
         lists += [(f"state.{name}.channels", state.channels) for name, state in self.states.items()]
         for where, entries in lists:
@@ -317,10 +360,17 @@ def _candidate(
     if show not in channels and show not in pools:
         problems.append(f"{where}: {show} is no channel or pool")
         return None
-    allowed = LOOK_OPTIONS | (CONTROL_OPTIONS if show in pools else frozenset())
+    allowed = LOOK_OPTIONS | (APP_OPTIONS if show == AUTO else frozenset())
     for option in sorted(set(options) - allowed):
-        why = " (it belongs to the channel)" if option in CONTROL_OPTIONS else ""
+        if option in APP_OPTIONS:
+            why = " (it belongs to the channel)"
+        elif option in {*CONTROLS, "launch", "launch_when_running", "id"}:
+            why = " (a control of the slot: [controls])"
+        else:
+            why = ""
         problems.append(f"{where}: {option} is no option of a place for {show}{why}")
+    if options.get("encoder") == "homeassistant":
+        problems.append(f'{where}: encoder = "homeassistant" is a control of the slot: [controls]')
     return Candidate(show, condition, options)
 
 
@@ -343,24 +393,64 @@ def _check_ids(file: _File, problems: list[str]) -> None:
                 problems.append(f"{where}: {name} is also a {other}; channels, pools and states share their ids")
 
 
-def _check_place_ids(file: _File, stacks: Mapping[int, tuple[Candidate, ...]], problems: list[str]) -> None:
-    """The `id`s of places name entities like channel ids: in the same namespace, each once."""
+def _parse_controls(
+    file: _File, stacks: Mapping[int, tuple[Candidate, ...]], problems: list[str]
+) -> tuple[dict[int, ControlsConfig], dict[int, Condition]]:
+    """
+    `[controls]` by slot, with their conditions. Their `id`s name entities like channel ids: in the same namespace,
+    each once; a candidate of a slot can't set the LED of a button the slot's controls claim.
+    """
+    controls: dict[int, ControlsConfig] = {}
+    conditions: dict[int, Condition] = {}
     seen: dict[str, str] = {}
     taken = {*file.channel, *file.pool, *file.state, *BUILT_IN, DEFAULT}
-    for slot, stack in sorted(stacks.items()):
-        for index, candidate in enumerate(stack):
-            name = candidate.options.get("id")
-            if name is None:
-                continue
-            where = f"slots.{slot}[{index}]"
-            name = str(name)
+    for key, config in file.controls.items():
+        if not key.isdigit() or not 1 <= int(key) <= protocol.STRIPS:
+            problems.append(f"controls.{key}: a slot is a number from 1 to {protocol.STRIPS}")
+            continue
+        slot = int(key)
+        where = f"controls.{slot}"
+        if not config.claimed:
+            problems.append(f"{where}: claims nothing (fader, encoder, select, rec, solo)")
+        for name in ("select", "rec", "solo"):
+            action = getattr(config, name)
+            if isinstance(action, str) and not CONTROL_ACTIONS.fullmatch(action):
+                problems.append(
+                    f"{where}.{name}: {action} is no action (homeassistant, cycle_modes, mode:<id>, toggle:<state>, "
+                    "or { launch = [...] })"
+                )
+            elif isinstance(action, str) and action.startswith(("mode:", "toggle:")):
+                state = action.partition(":")[2]
+                known = (
+                    file.state
+                    if action.startswith("toggle:")
+                    else {name for name, state_config in file.state.items() if state_config.mode} | {DEFAULT}
+                )
+                if state not in known:
+                    problems.append(
+                        f"{where}.{name}: {action}: no {'state' if action.startswith('toggle:') else 'mode'} {state}"
+                    )
+        if config.when is not None:
+            condition = _condition(f"{where}.when", config.when, problems)
+            if condition is not None:
+                conditions[slot] = condition
+        name = config.id if config.id is not None else f"slot_{slot}"
+        if config.id is not None:
             if not _ID.fullmatch(name):
-                problems.append(f"{where}: id {name}: an id is lower case letters, digits and _")
+                problems.append(f"{where}.id: {name}: an id is lower case letters, digits and _")
+            elif name in RESERVED or name.startswith(("state_", "slot_")):
+                problems.append(f"{where}.id: {name} is reserved")
             elif name in taken:
-                problems.append(f"{where}: id {name} is also a channel, pool or state; they share their ids")
+                problems.append(f"{where}.id: {name} is also a channel, pool or state; they share their ids")
             other = seen.setdefault(name, where)
             if other != where:
-                problems.append(f"{where}: id {name} is also the id of {other}")
+                problems.append(f"{where}.id: {name} is also the id of {other}")
+        for index, candidate in enumerate(stacks.get(slot, ())):
+            for button in ("rec", "solo"):
+                if button in candidate.options and getattr(config, button) is not None:
+                    problems.append(f"slots.{slot}[{index}]: {button}: the slot's controls claim it ([controls])")
+        controls[slot] = config
+    return controls, conditions
 
 
 def _check_loops(conditions: Mapping[str, Condition], problems: list[str]) -> None:

@@ -84,18 +84,26 @@ def person_channel_of(scene: Scene, person: str) -> str | None:
     return next((key for key, channel in scene.channels.items() if name in (p.lower() for p in channel.people)), None)
 
 
-def people_of(scene: Scene, observation: Observation, present: frozenset[str], with_slot: set[str]) -> list[str]:
+@dataclass(frozen=True)
+class Person:
+    """Someone who shares the slots of `auto`: by name, or a `person` channel (`channel`) by its id."""
+
+    key: str
+    channel: str | None = None
+
+
+def people_of(scene: Scene, observation: Observation, present: frozenset[str], with_slot: set[str]) -> list[Person]:
     """
-    The people that share the slots of `auto`, in the order they came: who has no `person` channel by name, and the
-    `person` channels with `in_auto` that are present and have no slot of their own by channel id.
+    The people that share the slots of `auto`, in the order they came: who has no `person` channel, and the
+    `person` channels with `in_auto` that are present and have no slot of their own.
     """
-    members: dict[str, None] = {}
-    for person in observation.people:
-        channel = person_channel_of(scene, person)
+    members: dict[Person, None] = {}
+    for name in observation.people:
+        channel = person_channel_of(scene, name)
         if channel is None:
-            members[person] = None
+            members[Person(name)] = None
         elif scene.channels[channel].in_auto and channel in present and channel not in with_slot:
-            members[channel] = None
+            members[Person(channel, channel)] = None
     return list(members)
 
 
@@ -106,7 +114,10 @@ def pool_present(scene: Scene, pool: str, observation: Observation, present: fro
     channels while one of them is present.
     """
     if pool == AUTO:
-        return bool(observation.people) or any(not excluded(scene, app) for app in observation.playing)
+        people = (person_channel_of(scene, name) for name in observation.people)
+        return any(channel is None or scene.channels[channel].in_auto for channel in people) or any(
+            not excluded(scene, app) for app in observation.playing
+        )
     return any(channel in present for channel in scene.members_of(scene.pools[pool].channels))
 
 

@@ -265,10 +265,20 @@ def test_a_pool_of_channels_gets_its_channel_before_auto_takes_it():
     assert shows(result, [1, 2]) == ["media:spotify", "auto"]
 
 
-def test_people_leave_pinned_slots_and_places_with_controls_to_applications():
-    text = '[slots]\n7 = [{ show = "auto", encoder = "homeassistant", id = "knob" }]\n'
-    result = run(text, observation=Observation(people=("Bob", "Carol")), pins={8: "mpv"})
-    assert shows(result, [5, 6, 7, 8]) == ["people:Carol", "people:Bob", "auto", "auto:mpv"]
+def test_people_leave_pinned_slots_to_applications():
+    result = run("", observation=Observation(people=("Bob", "Carol")), pins={8: "mpv"})
+    assert shows(result, [6, 7, 8]) == ["people:Carol", "people:Bob", "auto:mpv"]
+    # a pin of a channel that has a slot of its own keeps nobody out
+    result = run('[slots]\n1 = "browser"\n', observation=Observation(people=("Bob",)), pins={8: "browser"})
+    assert shows(result, [1, 8]) == ["browser", "people:Bob"]
+
+
+def test_people_and_applications_are_told_apart_from_channels():
+    """Someone called browser in the voice chat is no channel, nor is an application called out."""
+    result = run('[slots]\n1 = "-"\n', observation=Observation(playing=("out", "firefox"), people=("browser",)))
+    assert result.slots[8] == Shown(0, pool="people", member="browser")
+    assert result.slots[2] == Shown(0, pool="auto", member="out")
+    assert result.slots[3] == Shown(0, channel="browser", pool="auto", member="browser")
 
 
 def test_people_share_the_auto_slots_as_a_block_from_the_right_in_their_order():

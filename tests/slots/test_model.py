@@ -6,7 +6,7 @@ import pytest
 
 from tests.support.slots import example, scene
 from xtouch_daemon.config.base import ConfigError
-from xtouch_daemon.slots.model import AUTO, Candidate, ChannelConfig
+from xtouch_daemon.slots.model import AUTO, Candidate, ChannelConfig, Launch
 
 CHANNELS = """
 [channel.out]
@@ -50,14 +50,14 @@ def test_stacks_in_all_forms():
 1 = "out"
 2 = ["-"]
 3 = ["- if call", "spotify"]
-4 = [{ show = "auto", when = "call", encoder = "homeassistant", id = "knob" }, { show = "spotify", color = "red" }]
+4 = [{ show = "auto", when = "call", encoder = "pick", max_volume = 150 }, { show = "spotify", color = "red" }]
 """
     )
     # a channel can lose its slot, a condition can fail: those stacks end in auto
     assert [str(c) for c in read.stacks[1]] == ["out", "auto"]
     assert [str(c) for c in read.stacks[2]] == ["-"]
     assert [str(c) for c in read.stacks[3]] == ["- if call", "spotify", "auto"]
-    assert read.stacks[4][0].options == {"encoder": "homeassistant", "id": "knob"}
+    assert read.stacks[4][0].options == {"encoder": "pick", "max_volume": 150}
     assert read.stacks[4][1].options == {"color": "red"}
 
 
@@ -92,12 +92,29 @@ def test_stacks_in_all_forms():
             "[slots]\n1 = [{ show = 'auto', talking_color = 'red' }]",
             "slots.1[0]: talking_color is no option of a place",
         ),
-        ("[slots]\n1 = [{ show = 'auto', id = 'out' }]", "slots.1[0]: id out is also a channel, pool or state"),
-        ("[slots]\n1 = [{ show = 'auto', id = 'Knob' }]", "slots.1[0]: id Knob: an id is lower case letters"),
+        ("[slots]\n1 = [{ show = 'auto', id = 'knob' }]", "slots.1[0]: id is no option of a place for auto (a control"),
+        ("[slots]\n1 = [{ show = 'auto', encoder = 'homeassistant' }]", 'encoder = "homeassistant" is a control of'),
+        ("[controls]\n1 = { fader = 'homeassistant', id = 'out' }", "controls.1.id: out is also a channel, pool or"),
+        ("[controls]\n1 = { fader = 'homeassistant', id = 'Knob' }", "controls.1.id: Knob: an id is lower case"),
+        ("[controls]\n1 = { fader = 'homeassistant', id = 'slot_2' }", "controls.1.id: slot_2 is reserved"),
         (
-            "[slots]\n1 = [{ show = 'auto', id = 'knob' }]\n2 = [{ show = 'auto', id = 'knob' }]",
-            "slots.2[0]: id knob is also the id of slots.1[0]",
+            "[controls]\n1 = { fader = 'homeassistant', id = 'knob' }\n2 = { encoder = 'homeassistant', id = 'knob' }",
+            "controls.2.id: knob is also the id of controls.1",
         ),
+        ("[controls]\n9 = { fader = 'homeassistant' }", "controls.9: a slot is a number from 1 to 8"),
+        ("[controls]\n1 = { when = 'call' }", "controls.1: claims nothing"),
+        ("[controls]\n1 = { fader = 'volume' }", "controls.1.fader: Input should be 'homeassistant'"),
+        ("[controls]\n1 = { select = 'jump' }", "controls.1.select: jump is no action"),
+        ("[controls]\n1 = { solo = 'toggle:nope' }", "controls.1.solo: toggle:nope: no state nope"),
+        ("[controls]\n1 = { solo = 'mode:call' }", "controls.1.solo: mode:call: no mode call"),
+        ("[controls]\n1 = { rec = 'homeassistant', when = 'cal' }", 'controls.1.when: "cal": unknown state cal'),
+        ("[controls]\n1 = { rec = 'homeassistant', when = 'call and' }", "controls.1.when: "),
+        ("[controls]\n1 = { rec = 'homeassistant', when = 'present(out)' }", "present is only for candidates"),
+        (
+            "[controls]\n1 = { rec = 'homeassistant' }\n[slots]\n1 = [{ show = 'out', rec = 'mute' }]",
+            "slots.1[0]: rec: the slot's controls claim it ([controls])",
+        ),
+        ("[people]\nlaunch = ['mumble']", "people: Value error, launch: the strips of people have none"),
         ("[state.out]\nprocesses = ['x']", "state.out: out is also a channel; channels, pools and states share"),
         ("[state.both]\nwhen = 'call'\napps = ['x']", "state.both: Value error, when is not together with"),
         ("[state.loop]\nwhen = 'present'", 'state.loop.when: "present": present is only for candidates'),
@@ -135,3 +152,19 @@ def test_the_devices_and_people_of_channels():
     assert ChannelConfig(type="person", person="Al").people == ("Al",)
     assert ChannelConfig(type="person", person=("Al", "Bo")).people == ("Al", "Bo")
     assert ChannelConfig(type="output").people == ()
+
+
+def test_controls_of_slots():
+    read = scene(
+        CHANNELS
+        + """
+[controls]
+4 = { encoder = "homeassistant", id = "desk_knob" }
+7 = { select = { launch = ["mumble", "mumble://example.org"] }, when = "not call" }
+2 = { solo = "toggle:call", rec = "mode:gaming", select = "mode:default" }
+"""
+    )
+    assert read.controls[4].claimed == ("encoder",)
+    assert read.controls[7].select == Launch(launch=("mumble", "mumble://example.org"))
+    assert read.control_conditions[7].text == "not call"
+    assert read.controls[2].claimed == ("select", "rec", "solo")
