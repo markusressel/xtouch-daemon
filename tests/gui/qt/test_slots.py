@@ -33,7 +33,10 @@ def texts(stack: StackList) -> list[str]:
 
 
 def snapshot(candidates: tuple[int | None, ...], pick: str | None = None, call: bool = True) -> Snapshot:
-    views = tuple(SlotView(slot, candidate, None, None, None, ()) for slot, candidate in enumerate(candidates, 1))
+    views = tuple(
+        SlotView(slot, candidate, None, None, None, (f"shows {candidate}",))
+        for slot, candidate in enumerate(candidates, 1)
+    )
     states = (StateView("call", call, False, None, "mumble runs" if call else None, "auto"),)
     slots = SlotsState("default", pick, views, states, {})
     return Snapshot("x", True, sound_server=True, mqtt=None, strips=(), slots=slots)
@@ -77,6 +80,9 @@ def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
     page.show_live(live)
     window.device_page.select(1)
     assert page.candidate == 1
+    assert page.why.text() == "Slot 2: shows 1"
+    page.lists[1].setCurrentRow(0)
+    assert page.channel.text().endswith("\nNow browser: on no slot, and no slot asks for it")
 
     menu = page.state_buttons["call"].menu()
     assert menu is not None
@@ -95,8 +101,10 @@ def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
     page.show_live(live)
     assert page.state_buttons["gaming"].text() == "gaming (picked)"
     assert page.state_buttons["call"].text() == "○ call"
+    page.snapshot = lambda: None
     page.show_live(None)
     assert page.state_buttons["call"].text() == "call"
+    assert page.why.isHidden()
 
 
 def test_candidates_are_added_moved_changed_and_removed(qtbot: QtBot, window: MainWindow):

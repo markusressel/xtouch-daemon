@@ -9,6 +9,7 @@
 | [`xtouch-daemon list-apps`](#list-apps) | Lists the applications that play, and which strip takes each one. |
 | [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the device. |
 | [`xtouch-daemon mode`](#mode) | Shows the running daemon's mode, or picks another one. |
+| [`xtouch-daemon why`](#why) | Says why a slot shows what it shows, or where a channel is and why. |
 | [`xtouch-daemon mumble-plugin`](#mumble-plugin) | Shows, builds or installs the Mumble plugin of `voip` strips. |
 | [`xtouch-daemon install-service`](#install-service) | Sets the daemon up as a systemd user service. |
 | [`xtouch-daemon gui`](#gui) | Edits the configuration in a window. |
@@ -148,6 +149,25 @@ Without arguments it prints the [modes](configuration/slots.md#states-and-modes)
 one that is on, and says whether it was picked by hand. `mode gaming` picks the mode `gaming`, `--next` and
 `--previous` the one after or before it, `auto` lets the rules decide again. It talks to the daemon over its live
 view socket, so it needs a running daemon. It replaces `layout`, which now only points to it.
+
+## `why`
+
+```shell
+xtouch-daemon why SLOT | CHANNEL
+```
+
+Asks the running daemon why a slot (its number, 1 for the leftmost one) shows what it shows: why not each candidate
+above, and what it shows. For a channel (its id) it tells on which slots it is and why not on the others that ask
+for it:
+
+```
+$ xtouch-daemon why 2
+Slot 2: voip if call: doesn't hold (call is off); shows auto:app:firefox
+$ xtouch-daemon why browser
+browser: on 4; not 8 (on slot 4 (tie, to the left))
+```
+
+The GUI shows the same above the inspector of a slot on the page Device.
 
 ## `mumble-plugin`
 

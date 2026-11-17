@@ -15,7 +15,7 @@ from tests.support.strips import strips_of
 from xtouch_daemon import cli
 from xtouch_daemon.cli.configuration import describe_strip
 from xtouch_daemon.live.codec import decode_request, encode, encode_reply
-from xtouch_daemon.live.messages import Reply, Request, SetMode, SlotsState, Snapshot, StateView
+from xtouch_daemon.live.messages import Reply, Request, SetMode, SlotsState, SlotView, Snapshot, StateView
 
 
 def test_layout_points_to_mode() -> None:
@@ -126,6 +126,17 @@ def test_mode_by_hand_and_errors(live_socket: Path) -> None:
     live_socket.unlink()
     fake = FakeModes(live_socket, None)
     assert "older than this program, restart it" in CliRunner().invoke(cli.main, ["mode"]).output
+    fake.close()
+
+
+def test_why_asks_the_daemon(live_socket: Path) -> None:
+    views = (SlotView(1, 0, "out", None, None, ("shows out",)),)
+    fake = FakeModes(live_socket, dataclasses.replace(SLOTS, slots=views))
+    assert invoke("why", "1").output.strip() == "Slot 1: shows out"
+    fake.close()
+    live_socket.unlink()
+    fake = FakeModes(live_socket, dataclasses.replace(SLOTS, slots=views))
+    assert invoke("why", "out").output.strip() == "out: on 1"
     fake.close()
 
 

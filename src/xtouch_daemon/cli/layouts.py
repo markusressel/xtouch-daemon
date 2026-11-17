@@ -1,5 +1,6 @@
 """
-Picking the mode of the running daemon (`mode`), over the socket of its live view; `layout` points to it.
+Picking the mode of the running daemon (`mode`) and asking it why a slot or channel shows what it does (`why`), over
+the socket of its live view; `layout` points to `mode`.
 """
 
 import socket
@@ -9,7 +10,8 @@ from typing import BinaryIO
 import click
 
 from xtouch_daemon.live.codec import decode_message, encode_request
-from xtouch_daemon.live.messages import Reply, SetMode, Snapshot
+from xtouch_daemon.live.messages import Reply, SetMode, SlotsState, Snapshot
+from xtouch_daemon.slots.why import why as explain
 from xtouch_daemon.system import instance
 
 TIMEOUT = 3.0
@@ -29,6 +31,17 @@ def _live_lines(lines: BinaryIO) -> Iterator[Snapshot | Reply]:
 def layout(args: tuple[str, ...]) -> None:
     """Layouts are gone: `mode` lists and picks the modes."""
     raise click.ClickException("layouts are gone: `xtouch-daemon mode` lists and picks the modes")
+
+
+def _slots(messages: Iterator[Snapshot | Reply]) -> SlotsState:
+    """The slots of the first snapshot of the daemon."""
+    try:
+        current = next(message for message in messages if isinstance(message, Snapshot))
+    except (StopIteration, TimeoutError) as e:
+        raise click.ClickException("the daemon did not answer") from e
+    if current.slots is None:
+        raise click.ClickException("the daemon is older than this program, restart it")
+    return current.slots
 
 
 def _connect() -> socket.socket:
@@ -53,13 +66,7 @@ def mode(name: str | None, step: str | None) -> None:
     """
     with _connect() as sock, sock.makefile("rb") as lines:
         messages = _live_lines(lines)
-        try:
-            current = next(message for message in messages if isinstance(message, Snapshot))
-        except (StopIteration, TimeoutError) as e:
-            raise click.ClickException("the daemon did not answer") from e
-        slots = current.slots
-        if slots is None:
-            raise click.ClickException("the daemon is older than this program, restart it")
+        slots = _slots(messages)
         if name is None and step is None:
             modes = ("default", *(state.name for state in slots.states if state.mode))
             for each in modes:
@@ -74,3 +81,14 @@ def mode(name: str | None, step: str | None) -> None:
         if not reply.ok:
             raise click.ClickException(reply.message)
         click.echo(f"Mode {reply.message}")
+
+
+@click.command()
+@click.argument("target")
+def why(target: str) -> None:
+    """
+    Why the running daemon shows on slot TARGET (a number, 1 for the leftmost one) what it shows, or why the
+    channel TARGET (its id) is where it is.
+    """
+    with _connect() as sock, sock.makefile("rb") as lines:
+        click.echo(explain(_slots(_live_lines(lines)), target))

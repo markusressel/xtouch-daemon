@@ -36,7 +36,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   The GUI edits this format: a rail with the pages Device (the device live; below it the states, to override or pick, and a card per slot
   with its candidates, their conditions as chips and ▶ on the one shown, to add, remove, drag or move with
   Ctrl+Up/Down; the inspector edits what a candidate shows, when and the options of its place, says where else its
-  channel is used, and lists the controls of the slot), Channels (the channels, `[pool.auto]`
+  channel is used, and lists the controls of the slot; above it the why line: why the slot shows what it does,
+  which `xtouch-daemon why <slot or channel>` tells too), Channels (the channels, `[pool.auto]`
   and `[people]`, with Add, Duplicate and Remove, and where each is used), States (modes first, their sources,
   delays and where they are used, what the daemon says about each, an override or a mode picked) and Settings; it opens a file with
   strips and layouts migrated, to save in the new format. Problems lead to their channel, state or setting.

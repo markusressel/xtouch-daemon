@@ -50,6 +50,7 @@ from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotView, Snapshot
 from xtouch_daemon.slots.model import AUTO
+from xtouch_daemon.slots.why import why_channel, why_slot
 
 _INDEX = Qt.ItemDataRole.UserRole
 
@@ -134,6 +135,9 @@ class SlotsPanel(Page):
         self.inspector, inspector = card()
         self.title = label("", "section")
         inspector.addWidget(self.title)
+        self.why = label("", "hint", wrap=True)
+        """Why the slot shows what it shows (`xtouch-daemon why <slot>`), while the daemon tells it."""
+        inspector.addWidget(self.why)
         what = QHBoxLayout()
         what.addWidget(label("Shows"))
         self.show_box = QComboBox()
@@ -280,6 +284,7 @@ class SlotsPanel(Page):
         stack = rows(self.document.values, self.slot)
         if self.candidate is not None and self.candidate >= len(stack):
             self.candidate = len(stack) - 1 if stack else None
+        self._show_why()
         controls = controls_text(self.document.values, self.slot)
         set_text(self.controls, "Controls: " + "; ".join(controls) if controls else "No controls of its own.")
         for widget in (self.show_box, self.when_edit, self.channel):
@@ -309,7 +314,8 @@ class SlotsPanel(Page):
             set_text(
                 self.channel,
                 f"Channel {candidate.show} ({kind.title if kind else '?'}). "
-                + (f"Also used in: {', '.join(elsewhere)}." if elsewhere else "Used nowhere else."),
+                + (f"Also used in: {', '.join(elsewhere)}." if elsewhere else "Used nowhere else.")
+                + self._channel_why(candidate.show),
             )
             strip = kind.strip if kind else None
         else:
@@ -322,6 +328,19 @@ class SlotsPanel(Page):
                     # at a place every option is optional: the channel has its own
                     self._place_row(dataclasses.replace(option, required=False))
         self.show_problems(self.editor.validation)
+
+    def _channel_why(self, name: str) -> str:
+        snapshot = self.snapshot()
+        if snapshot is None or snapshot.slots is None:
+            return ""
+        return f"\nNow {why_channel(snapshot.slots, name)}"
+
+    def _show_why(self) -> None:
+        snapshot = self.snapshot()
+        live = snapshot.slots if snapshot is not None else None
+        self.why.setVisible(live is not None)
+        if live is not None:
+            set_text(self.why, why_slot(live, self.slot))
 
     def _place_row(self, option: Option) -> None:
         name = option.name
@@ -377,6 +396,7 @@ class SlotsPanel(Page):
             state_button.setText(f"{dot}{self.document.get(('state', name, 'label')) or name}{override}")
             state_button.setToolTip(f"{name}: {state.source or 'off'}" if state is not None else name)
         self._show_cards()
+        self._show_why()
 
     @staticmethod
     def _live_slots(snapshot: Snapshot | None) -> dict[int, SlotView]:
