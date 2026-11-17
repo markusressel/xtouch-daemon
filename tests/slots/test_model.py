@@ -38,7 +38,8 @@ def test_the_example_reads():
     # a stack that ends in a pool can't run out, a slot without an entry is auto
     assert [str(candidate) for candidate in read.stacks[7]] == ["voip if call", "auto"]
     assert read.stacks[4][0].options == {"rec": "recording"}
-    assert read.stacks[3] == (Candidate(AUTO),)
+    assert read.stacks[3][0].show == "game"
+    assert read.stacks[5] == (Candidate(AUTO),)
     assert read.channels["out"].devices[2] == "bluez_output.*"
 
 

@@ -69,8 +69,9 @@ delay_on = 0               # voice_chat and recording have no blips to swallow
 delay_off = 5               # VoIP and Mic stay through a reconnect, not much longer
 
 [slots]
-1 = ["game if gaming", "out"]
+1 = "out"                       # always the speaker/phones/buds
 2 = "browser"
+3 = ["game if gaming", "auto"]  # the game next to the browser
 4 = [{ show = "auto", rec = "recording" }]
 7 = ["voip if call", "auto"]
 8 = ["mic if call", "auto"]

@@ -269,8 +269,9 @@ candidates, top first.
 
 ```toml
 [slots]
-1 = ["game if gaming", "out"]
-2 = "browser"               # a single candidate: the same as ["browser"]
+1 = "out"                   # a single candidate: the same as ["out"]
+2 = "browser"
+3 = ["game if gaming", "auto"]
 7 = ["voip if call", "auto"]
 8 = ["mic if call", "auto"]
 ```
@@ -474,8 +475,9 @@ delay_on = 0               # voice_chat and recording have no blips to swallow
 delay_off = 5               # VoIP and Mic stay through a reconnect, not much longer
 
 [slots]
-1 = ["game if gaming", "out"]
+1 = "out"                       # always the speaker/phones/buds
 2 = "browser"
+3 = ["game if gaming", "auto"]  # the game next to the browser
 4 = [{ show = "auto", rec = "recording" }]
 7 = ["voip if call", "auto"]
 8 = ["mic if call", "auto"]
@@ -486,11 +488,11 @@ What it shows, as `xtouch-daemon simulate docs/design/channels-states-slots.toml
 and presence the stacks ask about that changes something.
 
 ```
-when             1     2        3-6   7     8
-default          out   browser  auto  auto  auto
-call             out   browser  auto  voip  mic
-gaming           game  browser  auto  auto  auto
-gaming and call  game  browser  auto  voip  mic
+when             1    2        3     4-6   7     8
+default          out  browser  auto  auto  auto  auto
+call             out  browser  auto  auto  voip  mic
+gaming           out  browser  game  auto  auto  auto
+gaming and call  out  browser  game  auto  voip  mic
 ```
 
 - People share the auto slots: they
