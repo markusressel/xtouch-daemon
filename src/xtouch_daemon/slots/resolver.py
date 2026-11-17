@@ -46,8 +46,8 @@ class Inputs:
     """Slots that keep what they show: held by a finger or a button, or within their dwell time."""
     pins: Mapping[int, str] = field(default_factory=dict)
     """Applications pinned to `auto` slots with the `pick` encoder."""
-    homes: Mapping[str, int] = field(default_factory=dict)
-    """The slot each person of `people` had last (for a while): they get it again when they come back."""
+    order: tuple[str, ...] = ()
+    """The order of the people who share the slots of `auto` (see `_share()`)."""
 
 
 @dataclass(frozen=True)
@@ -164,7 +164,7 @@ class _Resolver:
         for pool in order:
             if pool == AUTO and self.scene.pools[PEOPLE].share == AUTO and PEOPLE in waiting:
                 # before auto hands out its members: the people that got no slot of their own take some of its slots
-                left = self._share(shown, waiting.pop(PEOPLE), with_slot)
+                left = self._share(shown, waiting.pop(PEOPLE))
                 if left:
                     waiting[PEOPLE] = left
             slots = sorted(slot for slot, s in shown.items() if s.pool == pool and slot not in self.inputs.fixed)
@@ -212,56 +212,26 @@ class _Resolver:
                     with_slot.add(channel)
         return waiting
 
-    def _share(self, shown: dict[int, Shown], people: tuple[str, ...], with_slot: set[str]) -> tuple[str, ...]:
+    def _share(self, shown: dict[int, Shown], people: tuple[str, ...]) -> tuple[str, ...]:
         """
-        Puts people on slots of `auto`: each keeps the slot it had, a new one takes the rightmost slot whose
-        application doesn't keep it (the applications fill from the left), else the rightmost one left. Slots where
-        `auto` is the first candidate go first: nothing above takes them over, so the person needn't move again
-        (e.g. when the delay of `call` ends and its strips come). The people that find none wait.
+        Puts the people that have no slot of their own on slots of `auto`, as a block from the right (next to the
+        voice chat's strips) in their order (`Inputs.order`: the configured one, then who was seen first; others
+        after them). Slots where `auto` is the first candidate go first: nothing above takes them over. Someone
+        earlier in the order who comes moves those after them one slot to the left; an application whose slot the
+        block needs goes to a free one or waits, like the people the slots don't suffice for.
         """
-        slots = sorted(slot for slot, s in shown.items() if s.pool == AUTO and slot not in self.inputs.fixed)
-        members = set(self._members(AUTO, with_slot))
-        keeping: set[int] = set()
-        assigned: dict[int, str] = {}
-        for slot in slots:
+        slots = [slot for slot, s in shown.items() if s.pool == AUTO and slot not in self.inputs.fixed]
+        rank = {name: index for index, name in enumerate(self.inputs.order)}
+        ordered = sorted(people, key=lambda person: (rank.get(person, len(rank)), people.index(person)))
+        # the rightmost slots nothing takes over first, then the others from the right
+        targets = sorted(slots, key=lambda slot: (shown[slot].candidate == 0, slot), reverse=True)
+        for slot, person in zip(targets, ordered, strict=False):
             before = self.previous.slots.get(slot) if self.previous is not None else None
-            if before is None:
-                continue
-            if before.pool == PEOPLE and before.member in people and before.member not in assigned.values():
-                assigned[slot] = before.member
-            elif (before.pool == AUTO and before.member in members) or slot in self.inputs.pins:
-                keeping.add(slot)
-        left: list[str] = []
-        for person in people:
-            if person in assigned.values():
-                continue
-            home = self.inputs.homes.get(person)
-            if (
-                home is not None
-                and home in self.inputs.fixed
-                and shown[home].pool == AUTO
-                and shown[home].member is None
-            ):
-                # their slot is empty but dwells (they left a moment ago): wait for it rather than take another
-                left.append(person)
-                continue
-            if home is not None and home in slots and home not in assigned and home not in keeping:
-                assigned[home] = person
-                continue
-            free: list[int] = [slot for slot in slots if slot not in assigned]
-            # free before an application's (moving one now is worse than maybe later), then stable; the rightmost
-            ranked = sorted(free, key=lambda s: (s not in keeping, shown[s].candidate == 0, s))
-            slot = ranked[-1] if ranked else None
-            if slot is None:
-                left.append(person)
-                continue
-            assigned[slot] = person
-            if slot in keeping:
-                self.why[slot].append(f"{shown[slot]}: gives way to {person}")
-        for slot, person in assigned.items():
+            if before is not None and before.pool == AUTO and before.member is not None:
+                self.why[slot].append(f"{before}: gives way to {person}")
             shown[slot] = Shown(shown[slot].candidate, pool=PEOPLE, member=person)
             self.why[slot].append(f"auto: shared with people, {person}")
-        return tuple(left)
+        return tuple(ordered[len(targets) :])
 
     def _members(self, pool: str, with_slot: set[str]) -> list[str]:
         observation = self.inputs.observation

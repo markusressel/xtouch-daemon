@@ -5,7 +5,7 @@ of the reviews of the design are here by name.
 
 from tests.support.slots import example, scene, shows, states
 from xtouch_daemon.slots.inputs import Observation
-from xtouch_daemon.slots.model import AUTO, PEOPLE
+from xtouch_daemon.slots.model import PEOPLE
 from xtouch_daemon.slots.resolver import Inputs, Result, Shown, resolve
 
 SCENE = """
@@ -256,34 +256,6 @@ def test_a_pool_of_channels_gets_its_channel_before_auto_takes_it():
     assert shows(result, [1, 2]) == ["media:spotify", "auto"]
 
 
-def test_people_share_the_auto_slots_from_the_right_and_nobody_moves():
-    """Applications fill auto from the left, people from the right (next to VoIP): coming and going moves no one."""
-    read = scene(SCENE + '[pool.people]\nshare = "auto"\n[slots]\n1 = "out"\n2 = "browser"\n7 = "voip"\n8 = "-"\n')
-    present = ALL
-
-    def step(previous: Result | None, playing: tuple[str, ...], people: tuple[str, ...]) -> Result:
-        return resolve(read, Inputs(states(read), present, Observation(playing=playing, people=people)), previous)
-
-    first = step(None, ("mpv",), ())
-    assert shows(first, [3, 4, 5, 6]) == ["auto:mpv", "auto", "auto", "auto"]
-    bob = step(first, ("mpv",), ("Bob",))
-    assert shows(bob, [3, 4, 5, 6]) == ["auto:mpv", "auto", "auto", "people:Bob"]
-    carol = step(bob, ("mpv", "vlc"), ("Bob", "Carol"))
-    assert shows(carol, [3, 4, 5, 6]) == ["auto:mpv", "auto:vlc", "people:Carol", "people:Bob"]
-    # full: Dave takes the rightmost slot left, vlc gives way and waits
-    dave = step(carol, ("mpv", "vlc"), ("Bob", "Carol", "Dave"))
-    assert shows(dave, [3, 4, 5, 6]) == ["auto:mpv", "people:Dave", "people:Carol", "people:Bob"]
-    assert dave.waiting == {AUTO: ("vlc",)}
-    assert "auto: gives way to Dave" in dave.why[4]
-    # Bob leaves: vlc gets his slot, nobody else moves
-    gone = step(dave, ("mpv", "vlc"), ("Carol", "Dave"))
-    assert shows(gone, [3, 4, 5, 6]) == ["auto:mpv", "people:Dave", "people:Carol", "auto:vlc"]
-    # five people for four slots: one waits
-    crowd = step(None, (), ("A", "B", "C", "D", "E"))
-    assert shows(crowd, [3, 4, 5, 6]) == ["people:D", "people:C", "people:B", "people:A"]
-    assert crowd.waiting == {PEOPLE: ("E",)}
-
-
 def test_people_of_their_own_slots_first_then_auto_slots():
     read = scene(
         SCENE
@@ -293,14 +265,35 @@ def test_people_of_their_own_slots_first_then_auto_slots():
     assert shows(result, [1, 8]) == ["people:Bob", "people:Carol"]
 
 
-def test_people_take_the_auto_slots_nothing_takes_over_first():
-    """At a start the voice chat is there before call (its delay_on): the person must not take slot 8, mic's."""
+def test_people_share_the_auto_slots_as_a_block_from_the_right_in_their_order():
+    """Applications fill auto from the left, people from the right (next to VoIP) in their order."""
     slots = '[slots]\n1 = "out"\n2 = "browser"\n7 = ["voip if call", "auto"]\n8 = ["out if call", "auto"]\n'
     read = scene(SCENE + '[pool.people]\nshare = "auto"\n' + slots)
-    playing = ("a", "b", "c", "d")
-    before = resolve(read, Inputs(states(read), ALL, Observation(people=("Bob",))))
-    assert shows(before, [6, 7, 8]) == ["people:Bob", "auto", "auto"]
-    # 3-6 full of applications that keep their slots: the free slot 8 first, then the rightmost stable one
-    full = resolve(read, Inputs(states(read), ALL, Observation(playing=playing)))
-    joined = resolve(read, Inputs(states(read), ALL, Observation(playing=playing, people=("Bob", "Carol"))), full)
-    assert shows(joined, [6, 7, 8]) == ["auto:d", "people:Carol", "people:Bob"]
+
+    def step(previous: Result | None, playing: tuple[str, ...], people: tuple[str, ...], order: tuple[str, ...] = ()):
+        observation = Observation(playing=playing, people=people)
+        return resolve(read, Inputs(states(read), ALL, observation, order=order), previous)
+
+    order = ("Bob", "Carol", "Dave")
+    first = step(None, ("mpv",), ("Carol",), order)
+    # slots 3-6 have auto first: Carol on 6, not on 8 (out while call is on)
+    assert shows(first, [3, 4, 5, 6, 7, 8]) == ["auto:mpv", "auto", "auto", "people:Carol", "auto", "auto"]
+    # Bob comes first in the order: Carol moves one to the left
+    bob = step(first, ("mpv", "vlc"), ("Carol", "Bob"), order)
+    assert shows(bob, [3, 4, 5, 6]) == ["auto:mpv", "auto:vlc", "people:Carol", "people:Bob"]
+    # the block needs vlc's slot: it goes to a free one (7, auto while call is off)
+    dave = step(bob, ("mpv", "vlc"), ("Carol", "Bob", "Dave"), order)
+    assert shows(dave, [3, 4, 5, 6, 7]) == ["auto:mpv", "people:Dave", "people:Carol", "people:Bob", "auto:vlc"]
+    assert "auto:vlc: gives way to Dave" in dave.why[4]
+    # someone not in the order comes after those who are; more people than slots wait (then slots 7 and 8)
+    crowd = step(None, (), ("Eve", "Dave", "A", "B", "C", "D"), order)
+    assert shows(crowd, [3, 4, 5, 6, 7, 8]) == [
+        "people:B",
+        "people:A",
+        "people:Eve",
+        "people:Dave",
+        "people:D",
+        "people:C",
+    ]
+    many = step(None, (), tuple("ABCDEFG"))
+    assert many.waiting == {PEOPLE: ("G",)}

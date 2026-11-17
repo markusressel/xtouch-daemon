@@ -20,15 +20,15 @@ from xtouch_daemon.live.messages import VoipState
 from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
-from xtouch_daemon.slots.simulation import Homes, Simulation
+from xtouch_daemon.slots.simulation import Known, Simulation
 from xtouch_daemon.slots.states import States
 
 _LOGGER = logging.getLogger(__name__)
 
 DARK: Shape = ((None, None, None, None),) * protocol.STRIPS
 """Every slot dark: before the first step."""
-HOMES_FILE_NAME = "people-slots.json"
-"""The file of the home slots of people, in the state directory of the daemon."""
+PEOPLE_FILE_NAME = "people.json"
+"""The file of the order of the people, in the state directory of the daemon."""
 INTERVAL = 0.2
 """How often the slots are resolved: also the batching of changes that come together (a game starts)."""
 PROCESS_INTERVAL = 2.0
@@ -41,23 +41,23 @@ class SlotRunner:
     def __init__(
         self,
         config: Config,
-        homes_file: Path | None = None,
+        people_file: Path | None = None,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
     ):
         """
-        `homes_file` keeps the home slots of the people across restarts (None: nowhere). `clock` is the clock of
+        `people_file` keeps the order of the people across restarts (None: nowhere). `clock` is the clock of
         `step()`, `wall_clock` the one of the file.
         """
         assert config.slots is not None, "only for a configuration of slots"
         self.config = config
         self.scene = config.slots.scene
-        self.homes_file = homes_file
+        self.people_file = people_file
         self._clocks = (clock, wall_clock)
-        homes = read_homes(homes_file, clock(), wall_clock()) if homes_file is not None else {}
-        self.simulation = Simulation(self.scene, homes=homes)
-        self._kept: tuple[dict[str, int], tuple[str, ...]] = ({}, ())
-        """The homes and the people present when the homes were written last."""
+        known = read_people(people_file, clock(), wall_clock()) if people_file is not None else {}
+        self.simulation = Simulation(self.scene, known=known)
+        self._kept: tuple[tuple[str, ...], tuple[str, ...]] = ((), ())
+        """The people known and those present when the file was written last."""
         self.observer = Observer()
         self.shape: Shape | None = None
         """What the strips of the mixer show; None before the first step (the sound server is not there yet)."""
@@ -99,7 +99,7 @@ class SlotRunner:
         states = self.simulation.states
         assert states is not None
         self._log_states(before, states)
-        self._keep_homes(observation.people)
+        self._keep_people(observation.people)
         shape = shape_of(result)
         if shape == self.shape:
             return False
@@ -107,15 +107,15 @@ class SlotRunner:
         self.shape = shape
         return True
 
-    def _keep_homes(self, people: tuple[str, ...]) -> None:
-        """Writes the homes when one changed or someone came or went (then they were last seen)."""
-        homes = self.simulation.homes
-        kept = ({person: slot for person, (slot, _) in homes.items()}, people)
-        if self.homes_file is None or kept == self._kept:
+    def _keep_people(self, people: tuple[str, ...]) -> None:
+        """Writes the people known when someone came or went (then they were last seen)."""
+        known = self.simulation.known
+        kept = (tuple(known), people)
+        if self.people_file is None or kept == self._kept:
             return
         self._kept = kept
         clock, wall_clock = self._clocks
-        write_homes(self.homes_file, homes, clock(), wall_clock())
+        write_people(self.people_file, known, clock(), wall_clock())
 
     def pick_mode(self, mode: str | None) -> None:
         """A mode by hand (`default` too), None for the rules."""
@@ -145,26 +145,26 @@ class SlotRunner:
                 _LOGGER.debug(f"Slot {slot}: {'; '.join(after.why[slot])}")
 
 
-def read_homes(path: Path, now: float, wall_now: float) -> dict[str, tuple[int, float]]:
-    """The homes `write_homes()` kept, at times of the clock that says `now` (empty without a readable file)."""
+def read_people(path: Path, now: float, wall_now: float) -> dict[str, float]:
+    """The people `write_people()` kept, at times of the clock that says `now` (none without a readable file)."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return {}
     except (OSError, ValueError) as e:
-        _LOGGER.warning(f"Can't read the slots of the people from {path}: {e}")
+        _LOGGER.warning(f"Can't read the order of the people from {path}: {e}")
         return {}
-    return {str(person): (int(slot), now - (wall_now - float(at))) for person, (slot, at) in data.items()}
+    return {str(person): now - (wall_now - float(at)) for person, at in data}
 
 
-def write_homes(path: Path, homes: Homes, now: float, wall_now: float) -> None:
-    """Keeps the homes for the next start, with wall-clock times. A file that can't be written is logged."""
-    data = {person: [slot, round(wall_now - (now - at), 1)] for person, (slot, at) in homes.items()}
+def write_people(path: Path, known: Known, now: float, wall_now: float) -> None:
+    """Keeps the people known for the next start, in their order, with wall-clock times. Errors are logged."""
+    data = [[person, round(wall_now - (now - at), 1)] for person, at in known.items()]
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         # whole or not at all
         temporary = path.with_name(f".{path.name}.tmp")
-        temporary.write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
+        temporary.write_text(json.dumps(data) + "\n", encoding="utf-8")
         temporary.replace(path)
     except OSError as e:
-        _LOGGER.warning(f"Can't keep the slots of the people in {path}: {e}")
+        _LOGGER.warning(f"Can't keep the order of the people in {path}: {e}")

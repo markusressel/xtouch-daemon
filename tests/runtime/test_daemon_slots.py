@@ -232,24 +232,23 @@ SHARED = SLOTS.replace("[pool.auto]\nhold = 0\n", '[pool.auto]\nhold = 0\n\n[poo
 VOICE = VoipState("bridge", True, "mumble", "Lobby", 1, ("Bob",))
 
 
-def test_the_homes_of_people_last_across_a_restart(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-    homes = tmp_path / "state" / "people-slots.json"
+def test_the_order_of_people_lasts_across_a_restart(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    people = tmp_path / "state" / "people.json"
     config = parse_config(SHARED)
-    now = [100.0]
-    runner = SlotRunner(config, homes, clock=lambda: now[0], wall_clock=lambda: now[0] + 1000)
+    runner = SlotRunner(config, people, clock=lambda: 100.0, wall_clock=lambda: 1100.0)
     runner.step(STATE, frozenset(), VOICE, frozenset(), 100)
-    assert json.loads(homes.read_text()) == {"Bob": [8, 1100.0]}
-    written = homes.stat().st_mtime_ns
+    assert json.loads(people.read_text()) == [["Bob", 1100.0]]
+    written = people.stat().st_mtime_ns
     runner.step(STATE, frozenset(), VOICE, frozenset(), 100.2)
-    assert homes.stat().st_mtime_ns == written  # nothing changed
-    # a restart: the clock of the steps starts anew, the home is as old as it was
-    again = SlotRunner(config, homes, clock=lambda: 5.0, wall_clock=lambda: 1200.0)
-    assert again.simulation.homes == {"Bob": (8, 5.0 - 100)}
+    assert people.stat().st_mtime_ns == written  # nothing changed
+    # a restart: the clock of the steps starts anew, Bob was seen as long ago as he was
+    again = SlotRunner(config, people, clock=lambda: 5.0, wall_clock=lambda: 1200.0)
+    assert again.simulation.known == {"Bob": 5.0 - 100}
     # files that can't be read or written
-    homes.write_text("{")
-    assert SlotRunner(config, homes).simulation.homes == {}
+    people.write_text("{")
+    assert SlotRunner(config, people).simulation.known == {}
     blocked = tmp_path / "file"
     blocked.write_text("")
-    SlotRunner(config, blocked / "people-slots.json").step(STATE, frozenset(), VOICE, frozenset(), 1)
-    assert "Can't read the slots of the people" in caplog.text
-    assert "Can't keep the slots of the people" in caplog.text
+    SlotRunner(config, blocked / "people.json").step(STATE, frozenset(), VOICE, frozenset(), 1)
+    assert "Can't read the order of the people" in caplog.text
+    assert "Can't keep the order of the people" in caplog.text

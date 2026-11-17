@@ -47,8 +47,8 @@ from xtouch_daemon.live.server import LiveServer, strip_states
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.layouts import MANUAL, LayoutSwitcher, remember_layout, remembered_layout
 from xtouch_daemon.runtime.mixer import Mixer
-from xtouch_daemon.runtime.slots import HOMES_FILE_NAME, PROCESS_INTERVAL, SlotRunner
 from xtouch_daemon.runtime.slots import INTERVAL as SLOTS_INTERVAL
+from xtouch_daemon.runtime.slots import PEOPLE_FILE_NAME, PROCESS_INTERVAL, SlotRunner
 from xtouch_daemon.strips.homeassistant import entity_ids
 from xtouch_daemon.system import instance, systemd
 from xtouch_daemon.system.processes import running_processes
@@ -177,12 +177,12 @@ class Daemon:
         self._voip_task: asyncio.Task[None] | None = None
         self._processes = processes
         self._layout_file = layout_file
-        self._homes_file = layout_file.with_name(HOMES_FILE_NAME) if layout_file is not None else None
-        """Where the slots of people are kept (see `runtime.slots`): next to the layout, the daemon's state."""
+        self._people_file = layout_file.with_name(PEOPLE_FILE_NAME) if layout_file is not None else None
+        """Where the order of the people is kept (see `runtime.slots`): next to the layout, the daemon's state."""
         self.switcher = LayoutSwitcher(config, self._switched, active=self._remembered_layout(config))
         self.layout_select = self._layout_select(config)
         self._held_solos: set[int] = set()
-        self.slots = SlotRunner(config, self._homes_file) if config.slots is not None else None
+        self.slots = SlotRunner(config, self._people_file) if config.slots is not None else None
         """The slots of a configuration of channels, states and slots; None for one of strips and layouts."""
         self._slot_processes: tuple[float, frozenset[str]] | None = None
         """When the processes were scanned for the states of the slots last, and what ran."""
@@ -322,7 +322,7 @@ class Daemon:
         self.config = config
         self.switcher = LayoutSwitcher(config, self._switched, active=self.switcher.active)
         self.layout_select = self._layout_select(config)
-        self.slots = SlotRunner(config, self._homes_file) if config.slots is not None else None
+        self.slots = SlotRunner(config, self._people_file) if config.slots is not None else None
         if self.slots is not None and self.mixer.state.connected:
             # the slots of the new configuration right away (a new mixer), not dark until the next step
             self._step_slots()

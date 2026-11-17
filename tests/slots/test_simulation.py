@@ -6,7 +6,7 @@ from dataclasses import replace
 
 from tests.support.slots import EXAMPLE, example, scene, shows
 from xtouch_daemon.slots.inputs import Observation
-from xtouch_daemon.slots.simulation import Simulation, ordered_homes
+from xtouch_daemon.slots.simulation import Simulation
 from xtouch_daemon.slots.states import Override
 
 GAMING = Observation(processes=frozenset({"reaper"}))
@@ -69,54 +69,15 @@ def test_auto_holds_an_application_that_stopped():
     assert shows(simulation.step(Observation(), 15.3), [3]) == ["auto"]
 
 
-def test_a_person_who_comes_back_gets_their_slot_again():
-    """MPhone leaves the channel and comes back: no gap between them and VoIP, also within the dwell of the slot."""
+def test_the_order_of_people_is_configured_then_learned():
     read = scene(
-        EXAMPLE.read_text()
-        .replace('[pool.people]\ncolor = "yellow"', '[pool.people]\ncolor = "yellow"\nshare = "auto"')
-        .replace('2 = ["people if gaming and present", "browser"]', '2 = "browser"')
+        EXAMPLE.read_text().replace('[pool.people]\ncolor = "yellow"', '[pool.people]\nshare = "auto"\norder = ["Bob"]')
     )
-    for back in (3.6, 4.3, 30.0):
-        simulation = Simulation(read)
-        talking = Observation(voice_chat=True, people=("MPhone",))
-        assert shows(simulation.step(talking, 0), [6]) == ["people:MPhone"]
-        t = 5.0
-        while t < 5 + back:
-            simulation.step(Observation(voice_chat=True), t)
-            t = round(t + 0.2, 1)
-        result = simulation.step(talking, t)
-        while t < 5 + back + 2:
-            t = round(t + 0.2, 1)
-            result = simulation.step(talking, t)
-        assert shows(result, [3, 4, 5, 6]) == ["auto", "auto", "auto", "people:MPhone"], back
-
-
-def test_a_home_lasts_a_while():
-    read = scene(EXAMPLE.read_text().replace('[pool.people]\ncolor = "yellow"', '[pool.people]\nshare = "auto"'))
-    simulation = Simulation(read)
-    simulation.step(Observation(voice_chat=True, people=("A",)), 0)
-    simulation.step(Observation(voice_chat=True, people=("A", "B")), 1)
-    simulation.step(Observation(voice_chat=True, people=("B",)), 10)
-    # A's slot 6 is free; B stays on 5. A comes back much later: their home is gone, the rightmost free slot
-    assert shows(simulation.step(Observation(voice_chat=True, people=("B",)), 20), [5, 6]) == ["people:B", "auto"]
-    later = simulation.step(Observation(voice_chat=True, people=("B", "C", "A")), 2000)
-    assert shows(later, [4, 5, 6]) == ["people:A", "people:B", "people:C"]
-
-
-def test_the_order_of_people_gives_them_homes_and_reserves_nothing():
-    read = scene(
-        EXAMPLE.read_text().replace(
-            '[pool.people]\ncolor = "yellow"', '[pool.people]\nshare = "auto"\norder = ["Bob", "Alice", "X", "Y", "Z"]'
-        )
-    )
-    simulation = Simulation(read)
+    simulation = Simulation(read, known={"Old": -1e9, "Carol": 0.0})
     talking = Observation(voice_chat=True)
-    # Alice alone: her home 5, slot 6 (Bob's) stays free for others
-    assert shows(simulation.step(replace(talking, people=("Alice",)), 0), [5, 6]) == ["people:Alice", "auto"]
-    assert shows(simulation.step(replace(talking, people=("Alice", "Bob", "Carol")), 2), [4, 5, 6]) == [
-        "people:Carol",
-        "people:Alice",
-        "people:Bob",
-    ]
-    # more names than slots where auto comes first (3-6): the rest have no home of their own
-    assert ordered_homes(read) == {"Bob": 6, "Alice": 5, "X": 4, "Y": 3}
+    simulation.step(replace(talking, people=("Dave",)), 1)
+    # Old was not seen for too long; Bob is configured, the others in the order they were seen first
+    assert simulation.order == ("Bob", "Carol", "Dave")
+    assert list(simulation.known) == ["Carol", "Dave"]
+    result = simulation.step(replace(talking, people=("Dave", "Bob", "Carol")), 2)
+    assert shows(result, [4, 5, 6]) == ["people:Dave", "people:Carol", "people:Bob"]

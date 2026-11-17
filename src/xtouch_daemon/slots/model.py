@@ -97,9 +97,7 @@ class PoolConfig(_Open):
     """
     order: tuple[str, ...] = ()
     """
-    `people` with `share` only: the home slots of these people, the first on the rightmost slot where `auto` is the
-    first candidate, the next one left of it, and so on. Nothing is reserved: a slot is anyone's while its person is
-    not there. Without it, each person's home is the slot they had last.
+    `people` with `share` only: the order of the people from the right, before those learned (who was seen first).
     """
 
 

@@ -6,23 +6,17 @@ the daemon will run, driven by observations at given times instead of the sound 
 from collections.abc import Mapping
 
 from xtouch_daemon.slots.inputs import Observation, PoolMembers, Presence
-from xtouch_daemon.slots.model import ABSENT_AFTER, AUTO, PEOPLE, Scene
+from xtouch_daemon.slots.model import ABSENT_AFTER, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import Inputs, Result, resolve
 from xtouch_daemon.slots.states import Override, StateEngine, States
 
 DWELL = 1.0
 """Seconds a slot keeps what it shows before it changes again."""
-HOME = 30 * 24 * 3600.0
-"""Seconds a person who left keeps their slot as their home, for when they come back (if it is free then)."""
+KNOWN = 30 * 24 * 3600.0
+"""Seconds the order of the people keeps someone who was not there."""
 
-type Homes = Mapping[str, tuple[int, float]]
-"""Per person of `people`, their home slot and when they were last on it."""
-
-
-def ordered_homes(scene: Scene) -> dict[str, int]:
-    """The homes of `[pool.people] order`: from the rightmost slot where `auto` is the first candidate, leftwards."""
-    stable = sorted((slot for slot, stack in scene.stacks.items() if stack[0].show == AUTO), reverse=True)
-    return dict(zip(scene.pools[PEOPLE].order, stable, strict=False))
+type Known = Mapping[str, float]
+"""The people seen in the voice chat, in the order they were first seen, and when last."""
 
 
 class Simulation:
@@ -33,9 +27,9 @@ class Simulation:
         mode_pick: str | None = None,
         absent_after: float = ABSENT_AFTER,
         dwell: float = DWELL,
-        homes: Homes | None = None,
+        known: Known | None = None,
     ):
-        """`homes` are those learned before (a restart), at times of this simulation's clock."""
+        """`known` are the people seen before (a restart), at times of this simulation's clock."""
         self.scene = scene
         self.presence = Presence(scene, absent_after)
         self.members = PoolMembers(scene, absent_after)
@@ -44,9 +38,7 @@ class Simulation:
         self.result: Result | None = None
         self.states: States | None = None
         self._changed: dict[int, float] = {}
-        self._homes: dict[str, tuple[int, float]] = dict(homes or {})
-        """The slot of each person of `people`, and when they were last on it."""
-        self._ordered = ordered_homes(scene)
+        self._known: dict[str, float] = dict(known or {})
 
     def step(
         self,
@@ -64,14 +56,11 @@ class Simulation:
         self._changed = {slot: since for slot, since in self._changed.items() if now - since < self.dwell}
         dwelling = set(self._changed)
         pools = self.members.update(observation, now)
-        self._homes = {person: (slot, at) for person, (slot, at) in self._homes.items() if now - at < HOME}
-        # the order of the configuration over what was learned
-        homes = {person: slot for person, (slot, _) in self._homes.items()} | self._ordered
-        inputs = Inputs(self.states.values, present, pools, frozenset(held | dwelling), pins or {}, homes)
+        for person in observation.people:
+            self._known[person] = now
+        self._known = {person: at for person, at in self._known.items() if now - at < KNOWN}
+        inputs = Inputs(self.states.values, present, pools, frozenset(held | dwelling), pins or {}, self.order)
         result = resolve(self.scene, inputs, self.result)
-        for slot, shown in result.slots.items():
-            if shown.pool == PEOPLE and shown.member is not None:
-                self._homes[shown.member] = (slot, now)
         for slot, shown in result.slots.items():
             if self.result is not None and self.result.slots[slot] != shown:
                 self._changed[slot] = now
@@ -79,9 +68,15 @@ class Simulation:
         return result
 
     @property
-    def homes(self) -> Homes:
-        """The learned homes (to keep them across a restart)."""
-        return dict(self._homes)
+    def order(self) -> tuple[str, ...]:
+        """The order of the people: `[pool.people] order`, then the others in the order they were first seen."""
+        configured = self.scene.pools[PEOPLE].order
+        return (*configured, *(person for person in self._known if person not in configured))
+
+    @property
+    def known(self) -> Known:
+        """The people seen (to keep them across a restart)."""
+        return dict(self._known)
 
     def deadline(self) -> float | None:
         """When a delay or a dwell ends, if one is pending: then the slots need another step."""
