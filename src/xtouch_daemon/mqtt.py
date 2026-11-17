@@ -12,7 +12,7 @@ import contextlib
 import json
 import logging
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from typing import Any, Protocol, Self
 
 import aiomqtt
@@ -123,6 +123,15 @@ class MqttBridge:
         self._watchers.pop(entity.unique_id, None)
         self._command_watchers.pop(entity.unique_id, None)
 
+    def bind(self, entities: Iterable[MQTTEntity]) -> None:
+        """
+        Lets the entities publish through the bridge: at once when a mixer is made, whose strips publish their state
+        (e.g. the choice of an output) before `set_entities()` runs.
+        """
+        for entity in entities:
+            entity.discovery_prefix = self.config.discovery_prefix
+            entity.bind_manager(self)
+
     async def set_entities(
         self, entities: Mapping[MQTTEntity, str | None], keep: frozenset[str] = frozenset(), preview: bool = False
     ) -> None:
@@ -139,9 +148,7 @@ class MqttBridge:
         """
         previous = self._entities
         self._entities = {entity.unique_id: (entity, default) for entity, default in entities.items()}
-        for entity, _ in self._entities.values():
-            entity.discovery_prefix = self.config.discovery_prefix
-            entity.bind_manager(self)
+        self.bind(entities)
         committed = self._committed
         if not preview:
             self._committed = set(self._entities) | keep

@@ -115,6 +115,8 @@ class Mixer:
             entity: default for controller in self.controllers for entity, default in controller.entities.items()
         }
         """The entities of the strips in Home Assistant, for the MQTT bridge."""
+        if bridge is not None:
+            bridge.bind(self.entities)
         if voip is not None:
             voip.subscribe(self.refresh)
 

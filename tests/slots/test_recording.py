@@ -58,8 +58,11 @@ def test_an_observation_of_the_readings_keeps_the_order_applications_started_in(
     # one that stopped and starts again is new
     assert observer.observe(audio("mpv"), frozenset(), None, 2).playing == ("mpv",)
     assert observer.observe(audio("spotify", "mpv"), frozenset(), None, 3).playing == ("mpv", "spotify")
+    # alone in a channel is a voice chat too, connected without a channel is not
     alone = VoipState("bridge", True, "mumble", "Lobby", 0)
-    assert not observer.observe(audio(), frozenset(), alone, 4).voice_chat
+    assert observer.observe(audio(), frozenset(), alone, 4).voice_chat
+    nowhere = VoipState("bridge", True, "mumble", None, 0)
+    assert not observer.observe(audio(), frozenset(), nowhere, 5).voice_chat
 
 
 def test_names_of_streams_and_processes():

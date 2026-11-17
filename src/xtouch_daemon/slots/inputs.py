@@ -20,7 +20,7 @@ class Observation:
     recording: tuple[str, ...] = ()
     """The applications with a capture stream."""
     voice_chat: bool = False
-    """Whether the voice chat reports a channel with at least one other person."""
+    """Whether the voice chat reports that you are in a channel, also alone (you intend to talk)."""
     people: tuple[str, ...] = ()
     """The people in the voice chat, in the provider's order."""
     processes: frozenset[str] = frozenset()

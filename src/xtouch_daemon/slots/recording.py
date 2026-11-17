@@ -41,7 +41,7 @@ class Observer:
         return Observation(
             playing=tuple(sorted(set(names), key=lambda name: (self.started[name], name))),
             recording=tuple(sorted({stream_name(c.app, c.binary) for c in audio.captures if c.recording})),
-            voice_chat=voip is not None and voip.connected and voip.participants > 0,
+            voice_chat=voip is not None and voip.connected and bool(voip.channel),
             people=voip.names if voip is not None else (),
             processes=processes,
             devices=frozenset(device for device in devices if device),

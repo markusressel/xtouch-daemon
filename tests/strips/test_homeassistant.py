@@ -15,6 +15,7 @@ from xtouch_daemon.config.sections import BehaviorConfig, MqttConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.mqtt import MqttBridge
+from xtouch_daemon.runtime.mixer import Mixer
 from xtouch_daemon.strips import build_strip
 from xtouch_daemon.strips import homeassistant as homeassistant_module
 from xtouch_daemon.strips.base import StripEnv, VolumeStrip
@@ -494,5 +495,19 @@ async def test_the_choice_of_a_strip_is_a_select_in_home_assistant(
     controller.update(AudioState(outputs=state.outputs, default_output="phones"))
     await until(lambda: broker.last(f"{select}/state") == "Phones")
     controller.close()
+    task.cancel()
+    await finish_tasks()
+
+
+async def test_a_new_mixer_publishes_the_choice_before_it_runs(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    """A layout switch (or a slot getting the output) on a connected bridge: the state goes out at once."""
+    task = asyncio.create_task(bridge.run())
+    await until(lambda: bridge.ready)
+    mixer = Mixer(surface, FakeBackend(), parse_config(CHOICES_CONFIG), capture_command="true", bridge=bridge)
+    mixer.on_state(AudioState(outputs=(output("phones"),), default_output="phones"))
+    await until(lambda: broker.last("homeassistant/select/xtouch/out_output/state") == "Phones")
+    mixer.close()
     task.cancel()
     await finish_tasks()

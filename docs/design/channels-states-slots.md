@@ -184,7 +184,7 @@ homeassistant = true        # Home Assistant feeds it: switch.xtouch_state_night
 |---|---|
 | `apps` | One of these applications has a playback stream (playing or paused). Names and presets as `match`. |
 | `recording` | One of these applications has a capture stream. Not for Mumble: it keeps its capture stream open while connected, even alone; use `voice_chat`. |
-| `voice_chat` | The voice chat reports that you are in a channel with at least one other person. |
+| `voice_chat` | The voice chat reports that you are in a channel, also alone: joining one says you mean to talk (the mic shows before anyone comes, and the `people` pool covers who comes). |
 | `processes` | A process of one of these names runs (polled every 2 s while any state uses it). |
 | `devices` | A device (output or input) that matches is there. |
 | `channels` | One of these channels is present: ids, or `"#tag"`. |
