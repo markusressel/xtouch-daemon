@@ -2,12 +2,13 @@
 
 ## `xtouch-daemon test`: the device answers its inputs
 
-After the sweep the test only logs what happens on the device, which stays dark. Instead, every strip should answer
-its own controls, so each output of the device and each of its values can be shown by hand and compared with the
-drawing of the GUI (the twin): the meter follows the fader, the buttons step their LEDs through off, on and
-flashing, the encoder steps the ring position, the ring mode and the LCD color, and the LCD names the strip and the
-last input. Design: [`docs/development/design/interactive-test.md`](docs/development/design/interactive-test.md)
-(with open questions: moving the faders on request, an inverted LCD line, the GUI showing the test).
+After the sweep `xtouch-daemon test` only logs what happens on the device, which stays dark, and it needs the daemon
+stopped. Extend it: after the sweep every strip answers its own controls, so each output of the device and each of
+its values can be shown by hand. The meter follows the fader, the buttons step their LEDs through off, on and
+flashing, the encoder steps the ring position, the ring mode, the LCD color and the motor fader, and the LCD names
+the strip and the last input. The daemon can run the same test, started from the GUI (a button next to Play and Try)
+or by the command, so the GUI draws its twin of the device next to it. Design:
+[`docs/development/design/interactive-test.md`](docs/development/design/interactive-test.md).
 
 ## GUI: notice changes of the configuration file on disk
 
