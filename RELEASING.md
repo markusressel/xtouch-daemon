@@ -104,6 +104,10 @@ directly, the next release overwrites them.
 Publishing is deliberately manual (`packaging/aur/publish.sh`): an AUR SSH key grants push access to every package of
 the account, and a PKGBUILD runs code on users' machines, so the key is not stored in GitHub.
 
+A pull request that changes `packaging/`, `pyproject.toml`, `uv.lock` or the Release workflow runs the workflow too,
+for the version in `pyproject.toml`: it builds the tarballs and builds, installs and runs both AUR packages, but
+creates no release. So does a run by hand (`gh workflow run release.yml --ref <branch>`).
+
 To create the AUR packages the first time, nothing has to be done on the AUR website: the first push of `publish.sh`
 creates them.
 

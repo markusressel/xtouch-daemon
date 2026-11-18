@@ -3,11 +3,21 @@ name: Release
 # For a tag X.Y.Z: builds the release tarballs with packaging/build-release.sh, test-builds and installs the AUR
 # packages from them in an Arch Linux container, and attaches the tarballs to the GitHub release of the tag.
 # The AUR packages are published by the maintainer with packaging/aur/publish.sh (see RELEASING.md).
+# A pull request that changes the packaging, and a run by hand, do the same for the version in pyproject.toml, without
+# the release.
 
 on:
   push:
     tags:
       - '*.*.*'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packaging/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,6 +26,8 @@ jobs:
   build:
     name: Build the release tarballs
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     defaults:
       run:
         working-directory: xtouch-daemon
@@ -32,23 +44,30 @@ jobs:
           ref: ${{ steps.pin.outputs.rev }}
           path: haad-mqtt-autodiscovery
       - uses: astral-sh/setup-uv@v6
-      - name: Check that the tag is the version of the project
+      - name: The version of the project, which a tag must be
+        id: version
         run: |
           version="$(sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml)"
-          if [ "${version}" != "${GITHUB_REF_NAME}" ]; then
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${version}" != "${GITHUB_REF_NAME}" ]; then
             echo "::error::tag ${GITHUB_REF_NAME} but pyproject.toml has version ${version}"
             exit 1
           fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
       - name: Build
         run: packaging/build-release.sh dist
+      # pulsectl loads libpulse on import; Arch's package depends on it (libpulse)
+      - name: Install libpulse
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpulse0
       - name: Smoke test
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           root="$(mktemp -d)"
-          tar -xzf "dist/xtouch-daemon-${GITHUB_REF_NAME}-x86_64.tar.gz" -C "${root}"
+          tar -xzf "dist/xtouch-daemon-${VERSION}-x86_64.tar.gz" -C "${root}"
           cd /
-          "${root}/xtouch-daemon-${GITHUB_REF_NAME}-x86_64/usr/bin/xtouch-daemon" --version
-          "${root}/xtouch-daemon-${GITHUB_REF_NAME}-x86_64/usr/bin/xtouch-daemon" check-config \
-            -c "${root}/xtouch-daemon-${GITHUB_REF_NAME}-x86_64/usr/share/xtouch-daemon/config.example.toml"
+          "${root}/xtouch-daemon-${VERSION}-x86_64/usr/bin/xtouch-daemon" --version
+          "${root}/xtouch-daemon-${VERSION}-x86_64/usr/bin/xtouch-daemon" check-config \
+            -c "${root}/xtouch-daemon-${VERSION}-x86_64/usr/share/xtouch-daemon/config.example.toml"
       - uses: actions/upload-artifact@v4
         with:
           name: release
@@ -60,6 +79,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     container: archlinux:base-devel
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
     steps:
       - name: Install the dependencies
         run: pacman -Syu --noconfirm --needed git pacman-contrib libpulse pipewire python python-pyqt6 qt6-base
@@ -77,11 +98,11 @@ jobs:
           for pkg in xtouch-daemon-bin xtouch-daemon-gui-bin; do
             mkdir -p "/build/${pkg}"
             cp "packaging/aur/${pkg}/PKGBUILD" "/build/${pkg}/"
-            sed -i "s/^pkgver=.*/pkgver=${GITHUB_REF_NAME}/; s/^pkgrel=.*/pkgrel=1/" "/build/${pkg}/PKGBUILD"
+            sed -i "s/^pkgver=.*/pkgver=${VERSION}/; s/^pkgrel=.*/pkgrel=1/" "/build/${pkg}/PKGBUILD"
           done
           # makepkg takes a source file it finds next to the PKGBUILD instead of downloading it
-          cp dist/xtouch-daemon-"${GITHUB_REF_NAME}"-x86_64.tar.gz /build/xtouch-daemon-bin/
-          cp dist/xtouch-daemon-gui-"${GITHUB_REF_NAME}"-any.tar.gz /build/xtouch-daemon-gui-bin/
+          cp dist/xtouch-daemon-"${VERSION}"-x86_64.tar.gz /build/xtouch-daemon-bin/
+          cp dist/xtouch-daemon-gui-"${VERSION}"-any.tar.gz /build/xtouch-daemon-gui-bin/
           chown -R builder:builder /build
           for pkg in xtouch-daemon-bin xtouch-daemon-gui-bin; do
             su builder -c "cd /build/${pkg} && updpkgsums && makepkg --printsrcinfo > .SRCINFO && makepkg --force --nodeps --noconfirm"
@@ -99,6 +120,7 @@ jobs:
   release:
     name: Attach the tarballs to the GitHub release
     needs: [build, aur]
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
       contents: write
