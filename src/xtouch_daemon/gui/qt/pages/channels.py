@@ -17,8 +17,9 @@ from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, channel_options, pool_options, uses
 from xtouch_daemon.gui.domain.demos import GROUPS, PREVIEWED, Part, Strip, group_of, scene
-from xtouch_daemon.gui.domain.schema import Option
+from xtouch_daemon.gui.domain.schema import Option, options
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
+from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.voip import participants
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label
@@ -32,7 +33,7 @@ from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Snapshot
-from xtouch_daemon.slots.model import BUILT_IN
+from xtouch_daemon.slots.model import BUILT_IN, PoolConfig
 
 APPS = ("pool", "apps")
 PEOPLE = ("pool", "people")
@@ -40,6 +41,8 @@ AUTO = ("pool", "auto")
 HEADER_CHANNELS = ("header", "channels")
 HEADER_POOLS = ("header", "pools")
 """The titles of the two groups of the list: they are no channels or pools."""
+CUSTOM_POOL = "pool.custom"
+"""The key of the form of a pool of your own: a list of channels."""
 POOLS = tuple(("pool", name) for name, *_ in BUILT_IN_POOLS)
 """The built-in pools: their options and look."""
 _ID = re.compile(r"[a-z0-9_]+")
@@ -96,6 +99,11 @@ class ChannelsPage(Page):
         self.device_menus = {
             direction: menu.addMenu(f"{direction.value.capitalize()} from the sound server") for direction in DIRECTIONS
         }
+        menu.addSeparator()
+        pool_action = menu.addAction(icon("format-list-bulleted"), "Pool of channels")
+        assert pool_action is not None
+        pool_action.setToolTip("Hands the first present channel of a list to the first slot, the next one to the next")
+        pool_action.triggered.connect(lambda _=False: self.add_pool())
         menu.aboutToShow.connect(self._list_devices)
         self.add_button.setMenu(menu)
         self.duplicate_button = button("content-copy", "Duplicate")
@@ -142,6 +150,7 @@ class ChannelsPage(Page):
         for pool, *_ in BUILT_IN_POOLS:
             strip = "voip" if pool == "people" else "auto"
             self._form(f"pool.{pool}", pool_options(pool), lambda name, pool=pool: ("pool", pool, name), strip)
+        self._form(CUSTOM_POOL, options(PoolConfig), lambda name: (*self.selection, name), "auto")
         self._show()
 
     # -- building -------------------------------------------------------------------------------------------------
@@ -202,6 +211,7 @@ class ChannelsPage(Page):
             "match": lambda: sources.patterns(self.audio()),
             "exclude": lambda: sources.patterns(self.audio()),
             "person": lambda: participants(self.snapshot()),
+            "channels": self._channel_suggestions,
         }
         table_suggest: dict[str, TableSuggest] = {}
         placeholders: dict[str, Callable[[], str]] = {
@@ -223,6 +233,12 @@ class ChannelsPage(Page):
             placeholders["device"] = lambda: f"none: the default {strip}"
         return suggest, table_suggest, placeholders
 
+    def _channel_suggestions(self) -> tuple[Suggestion, ...]:
+        """What a pool of channels can list: the channels by id, and the tags (`#tag`) of the channels."""
+        found = [Suggestion(name, str(channel.get("type"))) for name, channel in self.channels.items()]
+        tags = sorted({tag for channel in self.channels.values() for tag in channel.get("tags", ())})
+        return (*found, *(Suggestion(f"#{tag}", "every channel with this tag") for tag in tags))
+
     # -- showing --------------------------------------------------------------------------------------------------
 
     @property
@@ -232,11 +248,18 @@ class ChannelsPage(Page):
     def _form_key(self) -> str:
         if self.selection in POOLS:
             return f"pool.{self.selection[1]}"
+        if self.selection[0] == "pool":
+            return CUSTOM_POOL
         return str(self.document.get((*self.selection, "type"), "apps"))
 
     @property
     def channels(self) -> dict[str, Any]:
         return self.document.get(("channel",), {})
+
+    @property
+    def custom_pools(self) -> dict[str, Any]:
+        """The pools of channels of the file (`[pool.<id>]` that is no built-in one)."""
+        return {name: pool for name, pool in self.document.get(("pool",), {}).items() if name not in BUILT_IN}
 
     def show_document(self, change: Change) -> None:
         if change.touches(Scope.CHANNELS):
@@ -259,7 +282,8 @@ class ChannelsPage(Page):
         self._show()
 
     def _show(self) -> None:
-        if self.selection not in POOLS and self.selection[1] not in self.channels:
+        kind, name = self.selection[:2]
+        if self.selection not in POOLS and name not in (self.channels if kind == "channel" else self.custom_pools):
             self.selection = POOLS[0]
         self._show_list()
         self.start.setVisible(not self.channels)
@@ -269,12 +293,16 @@ class ChannelsPage(Page):
             kind = CHANNEL_TYPES[key]
             set_text(self.title, kind.title)
             self.id_edit.setText(str(self.selection[1]))
-        else:
+        elif self.selection in POOLS:
             title = next(title for name, title, *_ in BUILT_IN_POOLS if name == self.selection[1])
             set_text(self.title, f"{title}: [pool.{self.selection[1]}]")
-        self.id_edit.setVisible(is_channel)
+        else:
+            set_text(self.title, "Pool of channels")
+            self.id_edit.setText(str(self.selection[1]))
+        yours = self.selection not in POOLS
+        self.id_edit.setVisible(yours)
         self.duplicate_button.setEnabled(is_channel)
-        self.remove_button.setEnabled(is_channel)
+        self.remove_button.setEnabled(yours)
         where = uses(self.document.values, str(self.selection[-1]))
         set_text(self.used, f"Used by: {', '.join(where)}" if where else "Not used by a slot, pool or state yet.")
         self.forms.show_part(self.form_widgets[key])
@@ -302,6 +330,9 @@ class ChannelsPage(Page):
         entries.append((HEADER_POOLS, "Pools: a member for each slot that names them", "", ""))
         for pool, title, icon_name, what in BUILT_IN_POOLS:
             entries.append((("pool", pool), f"{title}\n{what}", icon_name, f"[pool.{pool}]"))
+        for name, pool in self.custom_pools.items():
+            channels = ", ".join(str(channel) for channel in pool.get("channels", ())) or "no channels yet"
+            entries.append((("pool", name), f"{name}\n{channels}", "format-list-bulleted", f"[pool.{name}]"))
         entries = [
             (path, text + "  ⚠" if path[0] != "header" and self.editor.validation.at(*path) else text, icon_name, tip)
             for path, text, icon_name, tip in entries
@@ -374,17 +405,27 @@ class ChannelsPage(Page):
     def duplicate(self) -> None:
         self.select(("channel", self.editor.duplicate_channel(str(self.selection[1]))))
 
+    def add_pool(self) -> None:
+        self.select(("pool", self.editor.add_pool()))
+
     def remove(self) -> None:
-        self.editor.remove_channel(str(self.selection[1]))
+        if self.selection[0] == "pool":
+            self.editor.remove_pool(str(self.selection[1]))
+        else:
+            self.editor.remove_channel(str(self.selection[1]))
 
     def _rename(self) -> None:
         name = str(self.selection[1])
         new = self.id_edit.text()
         if new == name:
             return
-        if not _ID.fullmatch(new) or new in self.channels or new in BUILT_IN:
+        if not _ID.fullmatch(new) or new in self.channels or new in self.custom_pools or new in BUILT_IN:
             set_role(self.id_edit, True, "problem")
             self.id_edit.setToolTip(f"{new!r} can't be the id: lowercase letters, digits and _, and not taken")
+            return
+        if self.selection[0] == "pool":
+            self.selection = ("pool", new)
+            self.editor.rename_pool(name, new)
             return
         self.selection = ("channel", new)
         self.editor.rename_channel(name, new)

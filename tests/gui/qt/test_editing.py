@@ -100,6 +100,8 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
         "",
         "Output from the sound server",
         "Input from the sound server",
+        "",
+        "Pool of channels",
     ]
     menu.actions()[1].trigger()
     assert page.selection == ("channel", "input")

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- GUI: Channels has "Pool of channels" in its Add menu; the pools of channels of the file are listed under "Pools",
+  with a form for their channels (ids and `#tags`) and side, and can be renamed and removed.
 - Documentation: a "Concepts" page (channels, slots, states, pools, and the words that look alike, such as `apps`,
   `auto` and `device`); the start page and the README explain the model with an example and say what a pool is.
 - The GUI helps a first configuration: without a daemon the drawing shows what the file shows in the default

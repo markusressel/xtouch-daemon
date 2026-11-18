@@ -12,6 +12,7 @@ from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, free_id
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.slots_document import OptionPath, SlotsDocument, Validation
+from xtouch_daemon.slots.model import BUILT_IN
 
 
 class Editor(QObject):
@@ -65,6 +66,24 @@ class Editor(QObject):
 
     def remove_channel(self, name: str) -> None:
         self.document.unset(("channel", name))
+        self.edited(Change(Scope.CHANNELS))
+
+    def add_pool(self) -> str:
+        """Adds a pool of channels, with an id after `pool`; returns the id."""
+        pools: dict[str, Any] = self.document.get(("pool",), {})
+        name = free_id({*pools, *BUILT_IN}, "pool")
+        self.document.set(("pool", name), {"channels": []})
+        self.edited(Change(Scope.CHANNELS))
+        return name
+
+    def remove_pool(self, name: str) -> None:
+        self.document.unset(("pool", name))
+        self.edited(Change(Scope.CHANNELS))
+
+    def rename_pool(self, name: str, new: str) -> None:
+        """Another id for a pool of channels; the stacks that name it follow."""
+        self.document.rename(("pool", name), new)
+        self.document.rename_references(name, new)
         self.edited(Change(Scope.CHANNELS))
 
     def rename_channel(self, name: str, new: str) -> None:
