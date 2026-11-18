@@ -70,6 +70,7 @@ nav = [
         { "States and modes" = "development/design/slots/states.md" },
         { "Slots" = "development/design/slots/slots.md" },
         { "Where the people sit" = "development/design/slots/people.md" },
+        { "Pools of your own" = "development/design/slots/pools-of-your-own.md" },
         { "In the daemon" = "development/design/slots/daemon.md" },
       ] },
       { "Try changes and situations" = "development/design/try-and-simulate.md" },

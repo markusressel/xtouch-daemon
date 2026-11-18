@@ -10,6 +10,7 @@ The pages of this design:
 - [States and modes](states.md): when something matters;
 - [Slots](slots.md): where it shows, the resolver, the controls of a slot;
 - [Where the people sit](people.md): the pools `people`, `apps` and `auto`, with use cases;
+- [Pools of your own](pools-of-your-own.md): proposed, pools of applications and of people that the user defines;
 - [In the daemon](daemon.md): the runtime, Home Assistant, the commands, the GUI.
 
 ## Why
