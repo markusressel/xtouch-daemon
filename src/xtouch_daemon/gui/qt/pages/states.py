@@ -6,6 +6,7 @@ is used.
 
 import re
 from collections.abc import Callable
+from html import escape
 from typing import Any
 
 from PyQt6.QtCore import Qt
@@ -469,12 +470,9 @@ class StatesPage(Page):
         assert name is not None
         state: dict[str, Any] = self.states.get(name) or {}  # pyright: ignore[reportAssignmentType]
         dropped = [source for source in SOURCES if source in state] if composed else ["when"] * ("when" in state)
-        if dropped:
-            what = ", ".join(SOURCES[source].lower() for source in dropped) if composed else "the condition"
-            question = f"A state is on either by its sources or by a condition. Remove {what}?"
-            if QMessageBox.question(self, "On while", question) != QMessageBox.StandardButton.Yes:
-                self._arrange()
-                return
+        if dropped and not self._confirm_switch(composed, state, dropped):
+            self._arrange()
+            return
         self.composed[name] = composed
         self.added = set()
         for option in dropped:
@@ -485,6 +483,31 @@ class StatesPage(Page):
             self._arrange()
         if composed:
             self.when_edit.setFocus()
+
+    def _confirm_switch(self, composed: bool, state: dict[str, Any], dropped: list[str]) -> bool:
+        """
+        Whether to switch between sources and a condition: a state is on by one or the other, so what the state had
+        the other way goes.
+        """
+        if composed:
+            title = "Condition instead of sources"
+            items = "".join(f"<li>{SOURCES[source]}</li>" for source in dropped)
+            text = (
+                "A state follows its sources or a condition, not both. A condition removes its sources:"
+                f"<ul>{items}</ul>"
+            )
+        else:
+            title = "Sources instead of a condition"
+            text = (
+                "A state follows its sources or a condition, not both. Sources remove its condition "
+                f"<code>{escape(str(state['when']))}</code>."
+            )
+        box = QMessageBox(QMessageBox.Icon.Question, title, text, parent=self)
+        box.setTextFormat(Qt.TextFormat.RichText)
+        switch = box.addButton("Remove and switch", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        return box.clickedButton() is switch
 
     def _add_source(self, source: str) -> None:
         name = self.selection
