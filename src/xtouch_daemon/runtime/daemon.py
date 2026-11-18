@@ -35,6 +35,7 @@ from xtouch_daemon.live.messages import (
     EndPreview,
     KeepPreview,
     MqttState,
+    Play,
     Reply,
     Request,
     SetMode,
@@ -51,6 +52,8 @@ from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.runtime.homeassistant import SlotEntities
 from xtouch_daemon.runtime.slots import BATCH as SLOTS_BATCH
 from xtouch_daemon.runtime.slots import PROCESS_INTERVAL, SlotEngine
+from xtouch_daemon.slots.model import DEFAULT
+from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.states import Override
 from xtouch_daemon.system import instance, systemd
 from xtouch_daemon.system.processes import running_processes
@@ -367,17 +370,18 @@ class Daemon:
         now = time.monotonic()
         if self._slot_processes is None or now - self._slot_processes[0] >= PROCESS_INTERVAL:
             self._slot_processes = (now, self._processes())
-        mode = self.slots.mode if self.slots.simulation.states is not None else None
+        mode = self.slots.mode if self.slots.active.states is not None else None
         held = self.desk.held_slots()
         result = self.slots.step(self.mixer.state, self._slot_processes[1], voip_state(self.voip), held, now)
-        states = self.slots.simulation.states
+        states = self.slots.active.states
         assert states is not None
         seconds = self.config.switching.banner
         new_mode = mode is not None and states.mode != mode
         # a new mode shows its banner instead of a flash per slot
         self.mixer.apply(result, 0.0 if new_mode else seconds)
         self.mixer.refresh()
-        if self.slot_entities is not None:
+        if self.slot_entities is not None and self.slots.situation is None:
+            # Home Assistant never sees a situation the GUI tries
             self.slot_entities.update(result)
         if new_mode and seconds > 0:
             self.surface.banner(self.slots.mode_label(states.mode), states.reasons.get(states.mode, ""), seconds)
@@ -392,8 +396,8 @@ class Daemon:
     def on_request(self, client: object, request: Request) -> Reply | None:
         """A request of a client of the live view (the user's own, `LiveServer` checks that)."""
         match request:
-            case StartPreview(config=text):
-                return self.preview(client, text)
+            case StartPreview(config=text, situation=situation):
+                return self.preview(client, text, situation)
             case KeepPreview():
                 if client is self._previewer:
                     self._preview_seen = asyncio.get_running_loop().time()
@@ -406,6 +410,9 @@ class Daemon:
                 return self.request_mode(name)
             case SetOverride(state=name, value=value):
                 return self.request_override(name, value)
+            case Play(event=event):
+                self.surface.play(event)
+                return None
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -414,16 +421,19 @@ class Daemon:
         if client is self._previewer:
             self._back_to_file("the GUI went away")
 
-    def preview(self, client: object, text: str) -> Reply:
+    def preview(self, client: object, text: str | None, situation: Situation | None = None) -> Reply:
         """
-        Runs the configuration `text` (TOML) of `client` instead of the file, like a reload but without the file,
-        which is never written. One with errors is not used: the reply tells them, and what runs keeps running. A
-        second client takes the preview over, and the first one is told.
+        Runs the configuration `text` (TOML; None: the file's) of `client` instead of the file, like a reload but
+        without the file, which is never written; with a `situation`, the slots show that situation instead of the
+        real one (see `SlotEngine.simulate`). One with errors is not used: the reply tells them, and what runs keeps
+        running. A second client takes the preview over, and the first one is told.
         """
         try:
-            config = parse_config(text, "The previewed configuration")
+            config = self.file_config if text is None else parse_config(text, "The previewed configuration")
         except ConfigError as e:
             return Reply("preview", False, str(e))
+        if situation is not None and situation.mode not in (DEFAULT, *config.slots.scene.modes):
+            return Reply("preview", False, f"No mode {situation.mode} in the configuration.")
         if config.mqtt != self.config.mqtt:
             return Reply(
                 "preview",
@@ -439,9 +449,15 @@ class Daemon:
             _LOGGER.info("Previewing a configuration of the GUI, the file stays as it is")
             self._watchdog = asyncio.create_task(self._watch_preview(), name="preview watch")
         changed = fingerprint(config) != fingerprint(self.config)
+        simulated = situation != self.slots.situation
+        if simulated:
+            _LOGGER.info(f"Showing the situation {situation} of the GUI" if situation else "Showing the real situation")
+            self.slots.simulate(situation)
         if previous is None or changed:
             _LOGGER.debug("Running the previewed configuration")
             self._use(config)
+        elif simulated and self.mixer.state.connected:
+            self._step_slots()
         if previous is None:
             systemd.notify(self._status())
         if (config.device.name, config.device.virtual) != (
@@ -457,6 +473,8 @@ class Daemon:
         if previewer is None:
             return False
         self._previewer = None
+        # the real situation again: what runs next steps the real slots
+        self.slots.simulate(None)
         watchdog, self._watchdog = self._watchdog, None
         if watchdog is not None and watchdog is not asyncio.current_task():
             watchdog.cancel()
@@ -607,6 +625,7 @@ class Daemon:
             voip=voip_state(self.voip),
             slots=self.slots.view(),
             virtual=isinstance(self.surface.port, SocketPort),
+            simulated=self.slots.situation is not None,
         )
 
     def _status(self) -> str:

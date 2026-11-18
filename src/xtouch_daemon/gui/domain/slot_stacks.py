@@ -177,6 +177,19 @@ def is_pool(values: Mapping[str, Any], show: str) -> bool:
     return show in BUILT_IN or show in values.get("pool", {})
 
 
+def member_text(member: str, devices: Mapping[str, str]) -> str:
+    """
+    A member a pool hands out, as the card names it: `app:firefox` is `firefox`, `person:Alice` `Alice`,
+    `device:<node name>` the description of the device (`devices`: node name to description), a channel its id.
+    """
+    kind, _, name = member.partition(":")
+    if not name:
+        return member
+    if kind == "device":
+        return devices.get(name, name)
+    return name
+
+
 def free_words(values: Mapping[str, Any], name: str) -> str:
     """
     The condition a pool without one has, as a chip: a member that no slot has yet, e.g. `app without a slot` (not

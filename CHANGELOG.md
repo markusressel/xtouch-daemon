@@ -138,7 +138,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   app without a slot → apps` (an outlined chip), and a tiny LCD after each candidate has the color its strip gets (its
   own, the channel's or the pool's). A slot whose pools have no member left ends its rail in "nothing to show: the strip
   is dark" instead of marking the last pool as shown; `xtouch-daemon why` says `shows nothing: people has none left` and
-  `simulate` `- (dark: people has none left)`.
+  `simulate` `- (dark: people has none left)`. The chip of the pool shown names its member (`apps · firefox`), its
+  tooltip who waits; cards grow and shrink smoothly.
 - Three built-in pools: `apps` (the applications that play and have no slot), `people` (the people of the voice
   chat) and `auto` (both, sharing its slots, people first). A slot says where people sit:
   `5 = ["people", "apps"]` is a person, else the next application; a pool with no member for a slot hands it to the
@@ -149,6 +150,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `present(auto)` holds while either does. `check-config` notes candidates that never show and people that can
   sit nowhere, `xtouch-daemon why people` tells who sits where and who waits, and the GUI's Simulate takes a
   number of people in the call and of applications that play. See `docs/design/people-slots.md`.
+- Select and Play above the drawing of the device in the GUI. Select: dragging a strip moves its slot (candidates and
+  controls) to another place, the others glide aside, as do Ctrl+Left/Right and the context menu. Play: the mouse is a
+  hand on the device, on the virtual device the GUI hosts or on the device of a running daemon, which takes a new
+  live-view request `play` as if the device sent the event. "Try without a device" starts a daemon with the virtual
+  device and opens it in the window while no daemon runs.
+- Simulate on the device: with "Try on the device" on, the GUI's Simulate runs on the device too (real or virtual),
+  with its delays and dwells, real applications, people and devices as stand-ins first and made-up ones for the rest,
+  and Play works on it. The switch is there while Simulate is open, the pill says "On the device · simulated", and
+  Home Assistant never sees the situation. `StartPreview` takes a `situation` and no `config` (the file's), snapshots
+  tell `simulated`. See `docs/design/try-and-simulate.md`.
 - A built-in pool `devices`: the outputs and inputs no channel has (a USB headset, Bluetooth speakers), on the slots
   that name `devices`, each as the `output` or `input` strip of that device. A channel without `device` has the
   default device of its direction. `[pool.devices]` takes `from` (left by default), `exclude` (node names or

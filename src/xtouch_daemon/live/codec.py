@@ -6,11 +6,13 @@ import json
 from dataclasses import asdict
 from typing import Any
 
+from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import (
     VERSION,
     EndPreview,
     KeepPreview,
     MqttState,
+    Play,
     Reply,
     Request,
     SetMode,
@@ -23,6 +25,7 @@ from xtouch_daemon.live.messages import (
     StripState,
     VoipState,
 )
+from xtouch_daemon.slots.outcomes import Situation
 
 
 def encode(snapshot: Snapshot) -> bytes:
@@ -72,6 +75,7 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
         _voip(data.get("voip")),
         _slots(data.get("slots")),
         bool(data.get("virtual", False)),
+        bool(data.get("simulated", False)),
     )
 
 
@@ -111,17 +115,40 @@ _REQUEST_NAMES: dict[type, str] = {
     EndPreview: "end_preview",
     SetMode: "mode",
     SetOverride: "override",
+    Play: "play",
 }
+
+_EVENTS: dict[str, type] = {
+    "fader_moved": protocol.FaderMoved,
+    "fader_touched": protocol.FaderTouched,
+    "button_pressed": protocol.ButtonPressed,
+    "encoder_turned": protocol.EncoderTurned,
+    "encoder_pressed": protocol.EncoderPressed,
+}
+"""The events a `Play` carries, by their names on the wire."""
+_EVENT_NAMES = {kind: name for name, kind in _EVENTS.items()}
 
 
 def encode_request(request: Request) -> bytes:
-    data = {"request": _REQUEST_NAMES[type(request)]}
+    data: dict[str, Any] = {"request": _REQUEST_NAMES[type(request)]}
     if isinstance(request, StartPreview):
         data["config"] = request.config
+        if request.situation is not None:
+            situation = request.situation
+            data["situation"] = {
+                "mode": situation.mode,
+                "on": sorted(situation.on),
+                "flipped": sorted(situation.flipped),
+                "people": situation.people,
+                "apps": situation.apps,
+                "devices": situation.devices,
+            }
     elif isinstance(request, SetMode):
         data["mode"] = request.mode
     elif isinstance(request, SetOverride):
         data |= {"state": request.state, "value": request.value}
+    elif isinstance(request, Play):
+        data |= {"event": _EVENT_NAMES[type(request.event)]} | asdict(request.event)
     return json.dumps(data).encode() + b"\n"
 
 
@@ -132,8 +159,9 @@ def decode_request(line: bytes) -> Request:
     except json.JSONDecodeError as e:
         raise ValueError(f"not JSON ({e})") from e
     match data:
-        case {"request": "preview", "config": str(config)}:
-            return StartPreview(config)
+        case {"request": "preview", "config": str() | None as config}:
+            situation = data.get("situation")
+            return StartPreview(config, None if situation is None else _situation(situation))
         case {"request": "keep_preview"}:
             return KeepPreview()
         case {"request": "end_preview"}:
@@ -142,5 +170,42 @@ def decode_request(line: bytes) -> Request:
             return SetMode(mode)
         case {"request": "override", "state": str(state), "value": str(value)}:
             return SetOverride(state, value)
+        case {"request": "play", "event": str(name), "strip": int(strip)} if name in _EVENTS:
+            if not 0 <= strip < protocol.STRIPS:
+                raise ValueError(f"no strip {strip}")
+            return Play(_play_event(name, strip, data))
         case _:
             raise ValueError("unknown")
+
+
+def _situation(value: Any) -> Situation:
+    """The situation of a `StartPreview`. Raises ValueError for one that doesn't fit."""
+    match value:
+        case {
+            "mode": str(mode),
+            "on": [*on],
+            "flipped": [*flipped],
+            "people": int(people),
+            "apps": int(apps),
+            "devices": int(devices),
+        } if all(isinstance(name, str) for name in [*on, *flipped]) and min(people, apps, devices) >= 0:
+            return Situation(mode, frozenset(on), frozenset(flipped), people, apps, devices)
+        case _:
+            raise ValueError("not a situation")
+
+
+def _play_event(name: str, strip: int, data: dict[str, Any]) -> protocol.StripEvent:
+    """The event of a `Play` request. Raises ValueError for one that doesn't fit."""
+    match name, data:
+        case "fader_moved", {"value": int(value)} if 0 <= value <= protocol.FADER_MAX:
+            return protocol.FaderMoved(strip, value)
+        case "fader_touched", {"touched": bool(touched)}:
+            return protocol.FaderTouched(strip, touched)
+        case "button_pressed", {"button": int(button), "pressed": bool(pressed)} if button in set(protocol.Button):
+            return protocol.ButtonPressed(strip, protocol.Button(button), pressed)
+        case "encoder_turned", {"steps": int(steps)}:
+            return protocol.EncoderTurned(strip, steps)
+        case "encoder_pressed", {"pressed": bool(pressed)}:
+            return protocol.EncoderPressed(strip, pressed)
+        case _:
+            raise ValueError(f"not a {name} event")

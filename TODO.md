@@ -1,10 +1,5 @@
 # TODO
 
-## A simulated device
-
-After the migration to channels, states and slots: a simulated X-Touch Extender for development without the device,
-in the GUI and in end-to-end tests. The plan is in `docs/design/device-simulator.md`.
-
 ## GUI: notice changes of the configuration file on disk
 
 The GUI reads the file once when it opens and never again. If the file changes while the GUI is open (an editor, a
@@ -20,14 +15,6 @@ script, `init-config`), "Save and apply" writes the GUI's old version over those
 - The live preview: a reload while it runs sends the new document (the daemon ends a preview when the file changes,
   see `live/`; check how that interacts).
 
-
-## Mumble Disconnects
-Mumble disconnected a moment ago, and the faders for it
-  disappeared completely, even though mumble played
-  "disconnected" sounds, is that expected? I don't think it
-  should be, because that means i cannot change the volume of
-  the connection sounds.
-
 ## The Game strip starts at 0 %
 
 The strip of the `game` channel starts at 0 % when a game starts, even though its volume was set to something else
@@ -42,3 +29,27 @@ before. Two possible causes, not checked yet:
 
 Next time a game starts: `pactl list sink-inputs` shows its `application.name` and the volume it starts with. If
 PipeWire doesn't restore it, remember the volume per game ourselves.
+
+## Does the "Grid" view really add anything of value?
+
+I feel like it is not helpful, and we should probably remove it. Is there a reason to keep it that makes sense?
+
+## Sidebar buttons
+
+Can we make our main sidebar collapsable into just icons? that
+  would probably save some space. Or we make it a floating menu bar
+  instead, then we wouldn't waste so many empty space below the 4
+  buttons on it, but we would need to ensure no content is
+  displayed below it. And it might make more sense to have it next
+  to what the selection shows, not next to the device preview,
+  since that is always there anyway. And the configuration view
+  should also become a window that can be dragged. I don't want to
+  turn this into an IDE, but maybe sidebars like in IntelliJ would
+  help again here?!
+
+## Documentation per Version/Commit/Release
+
+can our documentation show different git states? so we can show
+  the documentation for different versions/tags/commits or the
+  repo? If not we should add that.
+

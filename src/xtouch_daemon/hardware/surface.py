@@ -420,6 +420,16 @@ class Surface:
         if strip.fader is not None:
             self.glide(strip)
 
+    def play(self, event: protocol.StripEvent) -> None:
+        """
+        An event of a hand from elsewhere (the GUI's, see `live.Play`), taken as if the device sent it: a fader is
+        touched before it moves, so the motor doesn't fight the hand, and goes to its new value once let go. Nothing
+        while no device is connected.
+        """
+        if self._midi is None:
+            return
+        self._handle(event)
+
     def _handle(self, event: protocol.StripEvent) -> None:
         strip = self.strips[event.strip]
         if not isinstance(event, protocol.FaderMoved):

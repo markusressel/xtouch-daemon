@@ -4,32 +4,26 @@ resolver alone; nothing goes to the daemon. The grid of distinct outcomes picks 
 """
 
 import dataclasses
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from xtouch_daemon.config.slots import SlotsSetup
 from xtouch_daemon.gui.domain.looks import DARK, StripFace, StripLook
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import SlotsState, SlotView, StateView
 from xtouch_daemon.slots.model import AUTO, BUILT_IN, DEFAULT
-from xtouch_daemon.slots.outcomes import Outcome, dimensions, simulate, states_for
+from xtouch_daemon.slots.outcomes import Outcome, Situation, dimensions, simulate, states_for
 
 SIMULATED = "what if"
 """The source of a state that is on in a simulation."""
 
 
 @dataclass(frozen=True)
-class WhatIf:
-    mode: str = DEFAULT
-    on: frozenset[str] = field(default_factory=frozenset[str])
-    """The states that are on."""
-    flipped: frozenset[str] = field(default_factory=frozenset[str])
-    """The channels and pools that are absent; the built-in pools: present (`auto`: an application plays)."""
-    people: int = 0
-    """The people in the voice chat (a call)."""
-    apps: int = 0
-    """The applications that play."""
-    devices: int = 0
-    """The outputs and inputs without a channel."""
+class WhatIf(Situation):
+    """
+    What Simulate shows: the mode, the states that are on, the channels and pools `flipped` (absent; the built-in
+    pools: present, `auto`: an application plays), so many people in the call, applications that play and outputs
+    and inputs without a channel. The daemon can run it too (`live.StartPreview`).
+    """
 
     @classmethod
     def of(cls, outcome: Outcome) -> WhatIf:
@@ -93,7 +87,8 @@ def simulated(setup: SlotsSetup, what_if: WhatIf) -> SlotsState:
         StateView(name, values[name], config.mode, None, SIMULATED if values[name] else None, "auto")
         for name, config in scene.states.items()
     )
-    return SlotsState(what_if.mode, None, views, states, {})
+    waiting = {pool: tuple(str(member) for member in members) for pool, members in result.waiting.items()}
+    return SlotsState(what_if.mode, None, views, states, waiting)
 
 
 def simulated_faces(setup: SlotsSetup, slots: SlotsState) -> tuple[StripFace, ...]:

@@ -256,6 +256,10 @@ for as long as it runs:
   `source` and override, and per pool the members that wait. `{"request": "mode", "mode": "gaming"}` (or `auto`,
   `"+1"`) picks a mode, `{"request": "override", "state": "call", "value": "on"}` (`auto`, `on`, `off`) overrides a
   state. `features` has `mode` and `override`.
+- **A hand from the GUI.** `{"request": "play", "event": "fader_moved", "strip": 2, "value": 8000}` (also
+  `fader_touched` with `touched`, `button_pressed` with `button` (its note) and `pressed`, `encoder_turned` with
+  `steps`, `encoder_pressed` with `pressed`) is taken by the `Surface` as if the device sent it (`Surface.play()`),
+  while a device is connected. No answer. `features` has `play`.
 - **Never in the way.** Clients get only non-blocking writes. One that falls behind by more than `MAX_BUFFER` is
   dropped (it can connect again), and a socket that can't be made is logged: the daemon runs on without the live view.
   The server is not one of the parts of the daemon whose end stops it.
@@ -303,6 +307,14 @@ daemon side in `Daemon.preview()`):
 - **States and modes too.** A preview is a whole configuration: the daemon runs it like a reload, carrying the
   states, overrides and the mode picked over by id, and the mode select in Home Assistant gets the modes of the
   preview.
+- **A situation too.** `StartPreview` may carry a `situation` (the what-if of Simulate, `slots.outcomes.Situation`),
+  and its `config` may be None (the file's). The `SlotEngine` runs it in a second `Simulation` (`what_if`) that starts
+  where the real one is: the states are overrides, the mode is picked, and the sound server and voice chat seen are
+  made for it (`Situation.observation`: real stand-ins first, made-up ones for the rest). `engine.active` is what the
+  mixer and the live view use; the real `Simulation` waits, takes the requests (the chord, Home Assistant, overrides),
+  and is what Home Assistant sees: its slot sensors are not updated during a situation. Nothing of it is written
+  (`slots.json`, `people.json`). Snapshots tell `simulated`; the feature is `situation`. It ends with the preview. See
+  [Design: try changes and situations on the device](design/try-and-simulate.md).
 
 ## Channels, states and slots
 

@@ -5,12 +5,12 @@ that changes what the slots show, as `check-config`, `simulate --table` and the 
 
 import itertools
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from xtouch_daemon.slots.inputs import Attendee, Observation, SoundDevice
+from xtouch_daemon.slots.inputs import Attendee, Observation, SoundDevice, devices_of, owner_of
 from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, DEFAULT, DEVICES, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS, Inputs, Result, resolve
-from xtouch_daemon.slots.states import composed_order
+from xtouch_daemon.slots.states import Override, composed_order
 
 
 @dataclass(frozen=True)
@@ -171,6 +171,85 @@ def simulate(
         sound_devices=tuple(SoundDevice(f"device_{n}", f"Device {n}", "output") for n in range(1, devices + 1)),
     )
     return resolve(scene, Inputs(values, present, observation, order=names))
+
+
+@dataclass(frozen=True)
+class Situation:
+    """
+    A what-if the daemon runs on the device (see `docs/design/try-and-simulate.md`): the mode, the states that are on,
+    the channels and pools `flipped` (as in `simulate()`), and so many people, applications and devices.
+    """
+
+    mode: str = DEFAULT
+    on: frozenset[str] = field(default_factory=frozenset[str])
+    flipped: frozenset[str] = field(default_factory=frozenset[str])
+    people: int = 0
+    apps: int = 0
+    devices: int = 0
+
+    def choices(self, scene: Scene) -> tuple[dict[str, Override], str]:
+        """
+        The overrides and the mode picked that make the states and the mode those of the situation; composed states
+        follow the states they name.
+        """
+        composed = set(composed_order(scene))
+        overrides = {
+            name: Override.ON if name in self.on else Override.OFF
+            for name, state in scene.states.items()
+            if not state.mode and name not in composed
+        }
+        return overrides, self.mode
+
+    def observation(self, scene: Scene, real: Observation) -> Observation:
+        """
+        What the sound server and the voice chat would show in the situation: a present channel has something to
+        control, an absent one nothing; the pools get stand-ins, real ones first (`real`: what is there now, so their
+        strips have audio behind them), then made-up ones.
+        """
+        flipped = set(self.flipped)
+        gone = {channel for name in flipped if name not in BUILT_IN for channel in _channels_of(scene, name)}
+        playing: list[str] = []
+        devices: set[str] = set()
+        people: list[Attendee] = []
+        for name, channel in scene.channels.items():
+            if name in gone:
+                continue
+            match channel.type:
+                case "apps" if channel.streams:
+                    playing.append(channel.streams[0])
+                case "output" | "input":
+                    devices.update(channel.devices)
+                case "person" if channel.people:
+                    people.append(Attendee(channel.people[0], channel.people[0]))
+        apps = max(self.apps, len(SLOTS) if APPS in flipped else 1 if AUTO in flipped else 0)
+        count = max(self.people, len(SLOTS) if PEOPLE in flipped else 0)
+        sounds = max(self.devices, len(SLOTS) if DEVICES in flipped else 0)
+        real_apps = [app for app in real.playing if owner_of(scene, app) is None]
+        made_up_apps = (f"App {n}" for n in itertools.count(1))
+        playing += itertools.islice(itertools.chain(real_apps, made_up_apps), apps)
+        # people of `person` channels are there as the situation says, not as stand-ins
+        named = {
+            name.lower() for channel in scene.channels.values() if channel.type == "person" for name in channel.people
+        }
+        real_people = [person for person in real.people if person.name.lower() not in named]
+        made_up_people = (
+            Attendee(name, name)
+            for name in itertools.chain(PEOPLE_NAMES, (f"Person {n}" for n in itertools.count(len(PEOPLE_NAMES) + 1)))
+            if name.lower() not in named and name not in {person.name for person in real_people}
+        )
+        stand_ins = list(itertools.islice(itertools.chain(real_people, made_up_people), count))
+        real_devices = [SoundDevice(device.name, str(device), device.direction) for device in devices_of(scene, real)]
+        made_up_devices = (SoundDevice(f"device_{n}", f"Device {n}", "output") for n in itertools.count(1))
+        sound_devices = list(itertools.islice(itertools.chain(real_devices, made_up_devices), sounds))
+        people += stand_ins
+        return Observation(
+            playing=tuple(playing),
+            voice_chat=bool(people),
+            people=tuple(people),
+            devices=frozenset(devices),
+            sound_devices=tuple(sound_devices),
+            defaults=real.defaults,
+        )
 
 
 def _outcome(scene: Scene, mode: str, on: set[str], flipped: set[str]) -> tuple[str, ...]:

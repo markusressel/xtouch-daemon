@@ -21,6 +21,7 @@ from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import Problem, example_config, parse_config
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.gui.domain.schema import RESTART_SECTIONS, SECTIONS
+from xtouch_daemon.hardware import protocol
 
 type OptionPath = tuple[str | int, ...]
 """Where an option is in the data of the file, e.g. `("channel", "mic", "label")` or `("slots", "3", 0)`."""
@@ -166,6 +167,22 @@ class SlotsDocument:
         renamed = {new if key == path[-1] else key: value for key, value in parent.items()}
         parent.clear()
         parent.update(renamed)
+
+    def move_slot(self, source: int, target: int) -> None:
+        """
+        Moves slot `source` (1 for the leftmost one) to `target`, the slots between make room: its stack of
+        candidates (`[slots]`) and its controls (`[controls]`) go along, as when its strip is dragged on the device.
+        """
+        order = list(range(1, protocol.STRIPS + 1))
+        order.insert(target - 1, order.pop(source - 1))
+        for section in ("slots", "controls"):
+            table = self.values.get(section)
+            if not isinstance(table, dict):
+                continue
+            slots = {slot: table.pop(str(slot)) for slot in order if str(slot) in table}
+            for place, slot in enumerate(order, start=1):
+                if slot in slots:
+                    table[str(place)] = slots[slot]
 
     def has_section(self, name: str) -> bool:
         return name in self.values

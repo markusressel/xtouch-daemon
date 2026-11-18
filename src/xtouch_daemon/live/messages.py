@@ -10,12 +10,14 @@ from typing import Any, Literal
 from pydantic import SecretStr
 
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.hardware.protocol import StripEvent
+from xtouch_daemon.slots.outcomes import Situation
 
 VERSION = 1
 """Changes when a line means something else; a client ignores lines of another version."""
 
 
-FEATURES = ("preview", "mode", "override")
+FEATURES = ("preview", "mode", "override", "play", "situation")
 """The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 
 
@@ -149,17 +151,22 @@ class Snapshot:
     """The slots, states and mode; None for an older daemon."""
     virtual: bool = False
     """Whether the device is the virtual one (`run --virtual-device`), which the GUI can host."""
+    simulated: bool = False
+    """Whether the device shows a situation of the preview (`StartPreview.situation`): `slots` are its slots then."""
 
 
 @dataclass(frozen=True)
 class StartPreview:
     """
-    Run this configuration (the whole TOML text) instead of the file, without writing the file. The daemon answers
-    with a `Reply` of kind "preview"; sent again, the device follows. The preview ends with `EndPreview`, with the
-    connection, without a request for `daemon.PREVIEW_TIMEOUT` (see `KeepPreview`), and when the file is loaded again.
+    Run this configuration (the whole TOML text, None: the file's) instead of the file, without writing the file,
+    and with a `situation` the slots of that situation instead of the real ones (see
+    `docs/design/try-and-simulate.md`). The daemon answers with a `Reply` of kind "preview"; sent again, the device
+    follows. The preview ends with `EndPreview`, with the connection, without a request for `daemon.PREVIEW_TIMEOUT`
+    (see `KeepPreview`), and when the file is loaded again.
     """
 
-    config: str
+    config: str | None
+    situation: Situation | None = None
 
 
 @dataclass(frozen=True)
@@ -190,7 +197,17 @@ class SetOverride:
     value: str
 
 
-type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride
+@dataclass(frozen=True)
+class Play:
+    """
+    A hand on the device from the GUI (the mouse on the drawing in Play): the daemon takes `event` as if the device
+    sent it, so the mixer acts, and a motorized fader follows once let go. No answer.
+    """
+
+    event: StripEvent
+
+
+type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride | Play
 
 type ReplyKind = Literal["preview", "ended", "mode", "override", "error"]
 

@@ -171,7 +171,7 @@ class SlotMixer:
         flashes its label and why for `flash` seconds (0: not at all). The controls of the slots claim what their
         `when` says (see `runtime.controls`).
         """
-        states = self.engine.simulation.states
+        states = self.engine.active.states
         self.controls.apply(states.values if states is not None else {})
         for slot, shown in result.slots.items():
             key = key_of(slot, shown)
@@ -289,7 +289,7 @@ class SlotMixer:
     def _close_gone(self) -> None:
         """Closes the controllers of members that show nowhere and are no members any more."""
         shown = {key for key, _ in self.bound.values()}
-        pools = self.engine.simulation.pools
+        pools = self.engine.active.pools
         alive = (
             {("app", app) for app in pools.playing}
             | {("person", person.id) for person in pools.people}

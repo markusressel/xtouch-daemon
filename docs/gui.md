@@ -110,14 +110,34 @@ opens it in the window (see [below](#the-virtual-device)).
 A third pill shows the mode ("Mode gaming", "Mode gaming · by hand"); its tooltip lists the states and what each slot
 shows.
 
+## Select and Play
+
+A bar above the drawing of the device switches what the mouse does on it:
+
+- **Select:** a click picks a strip, and with it its slot on the page Slots. Dragging a strip moves its slot to
+  another place: the strip lifts out of the row, the others glide aside, and a dashed place shows where it goes;
+  Escape puts it back. Ctrl+Left/Right and the context menu (Move left, Move right) do the same. A slot takes its
+  candidates (`[slots]`) and its controls (`[controls]`) along, the slots in between make room; Ctrl+Z moves it back.
+  Comments above the slots in the file stay where they are.
+- **Play:** the mouse is a hand on the device:
+  - a fader: press to touch it, drag to move it, release to let go; Alt-drag moves it without a touch, like the
+    device moving it by itself (the daemon puts it back);
+  - a button: held while the mouse button is down;
+  - an encoder: the wheel turns it, a click pushes it.
+
+Play works on the virtual device the window hosts, and on the device of a running daemon: then the daemon takes what
+the mouse does as if the device sent it, so the mixer acts and a motorized fader follows once it is let go. The fader
+under the mouse is drawn there at once. Play is off while Simulate shows only the drawing (it works when Simulate runs on
+the device, see [Try on the device](#try-on-the-device)), without a daemon (or with one of another user, or too old to
+take it) and while the device is not connected; its tooltip says why.
+
+While no daemon runs, "Try without a device" starts one with the virtual device on this file (saved first if it is
+new) and opens the device in the window, in Play: to set everything up and try it before there is a device. That
+daemon ends with the window.
+
 ## The virtual device
 
-While the window hosts the virtual device, the mouse on the drawing is a hand on it:
-
-- a fader: press to touch it, drag to move it, release to let go; Alt-drag moves it without a touch, like the device
-  moving it by itself (the daemon puts it back);
-- a button: held while the mouse button is down;
-- an encoder: the wheel turns it, a click pushes it.
+While the window hosts the virtual device, Play is on (see [Select and Play](#select-and-play)).
 
 A bar above the drawing unplugs it and plugs it in again, switches it off and on (the faders go down by themselves,
 as on the device), and breaks the touch sensor of faders ("Broken touch"), to try `touchless_faders`. "Close" closes
@@ -148,6 +168,14 @@ next changes until it is turned off or the window closes; a new window starts wi
   with a restart. A configuration with problems is not sent at all: the pill says "Paused: problems" until they are
   fixed.
 - **Channels, states and slots** are all part of it: a stack changed in the editor shows on the device as it is.
+- **Simulate on the device:** while Simulate is open on the page Slots, the switch is there too (also without unsaved
+  changes), and turned on, the device shows the what-if of Simulate instead of what really happens, with the changes
+  if there are any: the states and the mode it sets, its channels present or absent, and its people, applications and
+  devices (real ones first, so their faders move real audio; made-up ones for the rest, `App 1`, `Device 1`). Delays
+  and dwells apply as they really do. The drawing shows the device then, the cards the daemon's slots and why, Play
+  works, and the pill says "On the device · simulated". Ending Simulate (Esc) shows what really happens again. Home
+  Assistant never sees it: its slot and state sensors stay as they really are, and nothing of it is kept. With the
+  switch off, Simulate only draws; its bar says "Only in the drawing".
 - **One window at a time:** a second window that turns it on takes over, and the first one's switch goes off.
 - **Home Assistant:** channels the changes do not have keep their entities in Home Assistant (with their state; only
   nothing drives them), so they are as before once the file runs again. Entities of channels only the changes had are
@@ -173,14 +201,16 @@ On the page Slots:
   candidates are dimmed with why they did not win (`✗ browser doesn't play`, `✗ browser is on slot 3`); below it, dimmed
   more: not reached. When none of them has anything to show (e.g. the last is a pool with no member left), all are
   dimmed with why (`✗ no person without a slot`) and the rail ends in a row of its own, "nothing to show: the strip is
-  dark", which is the one shown. Conditions are outlined chips, what the slot shows a filled one. The states are violet
-  (`call`, `not gaming`, one per `or`). `present` is spelled out in an olive chip (green in the light theme), in what it
-  means for the type of the channel or pool: `browser if present` reads `when browser plays → browser`, `mic if present`
-  `mic is connected`, `mum if present` `mum is in the voice chat`, `present(people)` `someone is in the voice chat`.
-  What the slot shows is teal (see [the colors](#the-window)), and the green node is on the row that shows (on `people`
-  while a person sits there, also when `apps` is above it). Options of the strip in that slot only follow as in the file
-  (`color = white, rec = recording`). + adds `auto` at the end, the bin removes the candidate picked. Drag a candidate,
-  or move it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
+  dark", which is the one shown. On the one shown, the chip of a pool names what it hands out there (`apps · firefox`,
+  `people · Alice`), and its tooltip who else waits for a slot. A card that gets a line more or less grows or shrinks
+  smoothly. Conditions are outlined chips, what the slot shows a filled one. The states are violet (`call`, `not
+  gaming`, one per `or`). `present` is spelled out in an olive chip (green in the light theme), in what it means for the
+  type of the channel or pool: `browser if present` reads `when browser plays → browser`, `mic if present` `mic is
+  connected`, `mum if present` `mum is in the voice chat`, `present(people)` `someone is in the voice chat`. What the
+  slot shows is teal (see [the colors](#the-window)), and the green node is on the row that shows (on `people` while a
+  person sits there, also when `apps` is above it). Options of the strip in that slot only follow as in the file (`color
+  = white, rec = recording`). + adds `auto` at the end, the bin removes the candidate picked. Drag a candidate, or move
+  it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
 - **The inspector** edits the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or
   `auto`, `-`), when (the
   [condition](configuration/slots.md#conditions):
@@ -195,7 +225,8 @@ Clicking a strip in the window Device (or Left, Right, Home, End) picks its card
 **Simulate** shows what the slots would show in another mode, with other states on, with channels absent (`auto
 plays`: an application plays; `people fill`, `apps fill`: as many as there are slots), or with so many people in the
 call and applications that play (the two counts; the strips show their names): a frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar,
-and the drawing, the cards and the why line follow it. Nothing is sent to the daemon. Esc, or Simulate again, ends it.
+and the drawing, the cards and the why line follow it. With "Try on the device" on, the device shows it too (see
+[Try on the device](#try-on-the-device)); else nothing is sent to the daemon. Esc, or Simulate again, ends it.
 
 **Grid** lists every combination that shows something else, like the table of `xtouch-daemon check-config`. A click
 on a row simulates it, a click on a cell also picks the card of its slot.

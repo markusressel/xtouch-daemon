@@ -9,7 +9,7 @@ import dataclasses
 from collections.abc import Callable, Mapping
 from typing import Any, Literal
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QPointF, QRectF, Qt, QVariantAnimation, pyqtSignal
 from PyQt6.QtGui import QColor, QDropEvent, QKeyEvent, QKeySequence, QPainter, QPaintEvent, QPen, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -47,6 +47,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     free_words,
     is_pool,
     lcd_colors,
+    member_text,
     place_options,
     pool_text,
     readable,
@@ -64,7 +65,7 @@ from xtouch_daemon.gui.qt.fields.controls import LcdBadge
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
-from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS, Entity, Space
+from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS, Entity, Motion, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
@@ -88,6 +89,27 @@ class StackList(QListWidget):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         # picked on a tint: the chips of its row keep their colors
         set_role(self, "stack")
+        self.resize_animation = QVariantAnimation(self)
+        self.resize_animation.setDuration(Motion.RESIZE)
+        self.resize_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.resize_animation.valueChanged.connect(lambda height: self.setFixedHeight(int(height)))
+
+    def grow_to(self, height: int) -> None:
+        """
+        Grows or shrinks to `height` (its rows) smoothly, so a card that gets a line more or less doesn't jump; at
+        once while it is not shown yet.
+        """
+        animation = self.resize_animation
+        target = animation.endValue() if animation.state() == QAbstractAnimation.State.Running else self.height()
+        if target == height:
+            return
+        animation.stop()
+        if not self.isVisible():
+            self.setFixedHeight(height)
+            return
+        animation.setStartValue(self.height())
+        animation.setEndValue(height)
+        animation.start()
 
     def order(self) -> list[int]:
         # without the end of a dark slot (see `_fill_card`), which is no candidate
@@ -256,7 +278,10 @@ class SlotsPanel(Page):
         self.what_if: WhatIf | None = None
         """What Simulate shows, None while the cards show what the daemon tells."""
         self.simulation: SlotsState | None = None
-        """The slots of `what_if`."""
+        """The slots of `what_if`, as the GUI resolves them."""
+        self.on_device = False
+        """Whether the device shows `what_if` (Try on the device): then the cards show the daemon's slots."""
+        self.device_note = label("", "hint")
         self.layout_.setContentsMargins(0, Space.S, 0, 0)
         end = QShortcut(QKeySequence(Qt.Key.Key_Escape), self, context=Qt.ShortcutContext.WidgetWithChildrenShortcut)
         end.activated.connect(lambda: self.simulate(None))
@@ -271,6 +296,8 @@ class SlotsPanel(Page):
         self.what_if_row = row(self.what_if_bar)
         self.what_if_row.hide()
         bars.addWidget(self.what_if_row)
+        bars.addWidget(self.device_note)
+        self.device_note.hide()
         bars.addStretch()
         top.addWidget(Sideways(row(bars)), 1)
         self.simulate_button = button("flask-outline", "Simulate")
@@ -313,7 +340,9 @@ class SlotsPanel(Page):
         self.middle.addWidget(self.grid)
         self.lists: list[StackList] = []
         self.card_frames: list[QFrame] = []
-        self.card_contents: list[tuple[list[Row], int | None, dict[int, str], bool] | None] = [None] * protocol.STRIPS
+        self.card_contents: list[tuple[list[Row], int | None, dict[int, str], bool, tuple[str, str] | None] | None] = [
+            None
+        ] * protocol.STRIPS
         """What each card shows: its candidates, the one the device shows, and why those above it did not win."""
         for slot in range(1, protocol.STRIPS + 1):
             self._card(slot)
@@ -438,16 +467,18 @@ class SlotsPanel(Page):
             view = live.get(slot)
             candidates = rows(self.document.values, slot)
             shown_candidate = view.candidate if view is not None else None
+            member = self._member(view)
             # a pool with nothing to hand out (or no candidate at all): none of them shows, the strip is dark
             dark = view is not None and (view.candidate is None or (view.pool is not None and view.member is None))
             if dark:
                 shown_candidate = None
             reached = len(candidates) if dark else shown_candidate
             why = reasons(candidates, reached, view.why if view is not None else (), self.document.values)
-            if self.card_contents[slot - 1] != (candidates, shown_candidate, why, dark):
+            contents = (candidates, shown_candidate, why, dark, member)
+            if self.card_contents[slot - 1] != contents:
                 # built again only when a candidate, the one shown or a reason changed: every build lays out the card
-                self.card_contents[slot - 1] = (candidates, shown_candidate, why, dark)
-                self._fill_card(stack, candidates, shown_candidate, why, dark)
+                self.card_contents[slot - 1] = contents
+                self._fill_card(stack, candidates, shown_candidate, why, dark, member)
             if slot == self.slot and self.candidate is not None and self.candidate < stack.count():
                 stack.setCurrentRow(self.candidate)
             elif slot != self.slot:
@@ -457,12 +488,35 @@ class SlotsPanel(Page):
             set_role(self.card_frames[slot - 1], bool(problems), "problem")
             self.card_frames[slot - 1].setToolTip("\n".join(str(problem) for problem in problems))
 
+    def _member(self, view: SlotView | None) -> tuple[str, str] | None:
+        """
+        What the pool of the candidate shown hands out on the slot of `view`, in words, and who else of its kind waits
+        for a slot (`Waiting: mpv, Spotify.`); None for a channel, a dark slot or while nothing tells.
+        """
+        if view is None or view.pool is None or view.member is None:
+            return None
+        audio = self.audio()
+        devices = {device.name: device.description for device in (*audio.outputs, *audio.inputs)}
+        slots = self.shown_slots()
+        kind = view.member.partition(":")[0]
+        pool = {"app": APPS, "person": PEOPLE, "device": DEVICES}.get(kind, view.pool)
+        waiting = slots.waiting.get(pool, ()) if slots is not None else ()
+        names = ", ".join(member_text(other, devices) for other in waiting)
+        return member_text(view.member, devices), f"Waiting: {names}." if names else ""
+
     def _fill_card(
-        self, stack: StackList, candidates: list[Row], shown: int | None, why: dict[int, str], dark: bool = False
+        self,
+        stack: StackList,
+        candidates: list[Row],
+        shown: int | None,
+        why: dict[int, str],
+        dark: bool = False,
+        member: tuple[str, str] | None = None,
     ) -> None:
         """
         The candidates of a slot on its rail; `dark`: none of them has anything to show, so the rail ends in a row
-        of its own, the dark strip, which is the one shown.
+        of its own, the dark strip, which is the one shown. `member`: what the pool of the one shown hands out, and
+        who else waits for a slot (see `_member`).
         """
         stack.clear()
         count = len(candidates) + dark
@@ -477,7 +531,15 @@ class SlotsPanel(Page):
                 state = ""
             else:
                 state = "shown" if index == shown else "unreached"
-            widget = self._row_widget(candidate, state, index, count, self.document.values, why.get(index, ""))
+            widget = self._row_widget(
+                candidate,
+                state,
+                index,
+                count,
+                self.document.values,
+                why.get(index, ""),
+                member if state == "shown" else None,
+            )
             stack.setItemWidget(item, widget)
             item.setSizeHint(stack.itemWidget(item).sizeHint())  # pyright: ignore[reportOptionalMemberAccess]
         if dark and candidates:
@@ -497,7 +559,7 @@ class SlotsPanel(Page):
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             stack.addItem(item)
         rows_height = sum(stack.sizeHintForRow(index) for index in range(stack.count()))
-        stack.setFixedHeight(rows_height + 2 * stack.frameWidth() + Space.XS)
+        stack.grow_to(rows_height + 2 * stack.frameWidth() + Space.XS)
 
     @staticmethod
     def _row_widget(
@@ -507,13 +569,15 @@ class SlotsPanel(Page):
         count: int,
         values: Mapping[str, Any],
         reason: str = "",
+        member: tuple[str, str] | None = None,
     ) -> QWidget:
         """
         A candidate as a rule, read from the top like if, else if, else: `when gaming → auto`, then
         `otherwise → browser` for the last one without a condition, `when (app without a slot) → apps` for a pool
         without one (it shows only while it has a member no other slot has). States and what it shows are chips
-        in their colors (see `Entity`).
-        On the rail of its card (see `CandidateRow`), with why it did not win (`reason`).
+        in their colors (see `Entity`). On the rail of its card (see `CandidateRow`), with why it did not win
+        (`reason`). On the one shown, the chip of a pool names what it hands out (`member`: `apps · firefox`), its
+        tooltip who waits.
         """
         widget = CandidateRow(index, count, state, reason)
         layout = widget.rule
@@ -534,11 +598,15 @@ class SlotsPanel(Page):
                     layout.addWidget(label("or", "hint"))
                 layout.addWidget(chip(part, candidate.show, values))
         layout.addWidget(label("→", "hint"))
-        layout.addWidget(
-            label(candidate.show, "hint")
-            if candidate.show == EMPTY
-            else entity_label(candidate.show, Entity.CHANNEL, True)
-        )
+        if candidate.show == EMPTY:
+            layout.addWidget(label(candidate.show, "hint"))
+        elif member is not None:
+            name, waiting = member
+            shows = entity_label(f"{candidate.show} · {name}", Entity.CHANNEL, True)
+            shows.setToolTip(f"{candidate.show} hands out {name} here. " + (waiting or "Nobody else waits for a slot."))
+            layout.addWidget(shows)
+        else:
+            layout.addWidget(entity_label(candidate.show, Entity.CHANNEL, True))
         for color, where in lcd_colors(values, candidate):
             if color in LCD_COLORS:
                 layout.addWidget(LcdBadge(color, f"{color}: {where}"))
@@ -691,11 +759,28 @@ class SlotsPanel(Page):
             option_row.show_problems(validation.at("slots", str(self.slot), self.candidate, option_row.option.name))
 
     def shown_slots(self, snapshot: Snapshot | None = None) -> SlotsState | None:
-        """What the cards show: the simulation, else what the daemon tells."""
-        if self.simulation is not None:
-            return self.simulation
+        """What the cards show: the simulation (the daemon's while it runs it on the device), else what it tells."""
         snapshot = snapshot if snapshot is not None else self.snapshot()
+        if self.simulation is not None and not (self.on_device and snapshot is not None and snapshot.slots):
+            return self.simulation
         return snapshot.slots if snapshot is not None else None
+
+    def show_on_device(self, on_device: bool, possible: bool) -> None:
+        """
+        Whether the device shows the situation of Simulate (Try on the device), and whether it could (a daemon that
+        takes it runs): the note in the bar of Simulate.
+        """
+        if on_device != self.on_device:
+            # the daemon's slots instead of the GUI's, or back
+            self.shown_live = None
+        self.on_device = on_device
+        if on_device:
+            note = "On the device"
+        elif possible:
+            note = "Only in the drawing: Try on the device shows it on the device"
+        else:
+            note = "Only in the drawing"
+        self.device_note.setText(note)
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         """The states in the bar, and the dot on the candidates the device shows (or would), when they changed."""
@@ -739,6 +824,7 @@ class SlotsPanel(Page):
         self.simulate_button.setChecked(self.simulation is not None)
         self.state_bar_row.setVisible(self.simulation is None)
         self.what_if_row.setVisible(self.simulation is not None)
+        self.device_note.setVisible(self.simulation is not None)
         if config is not None and what_if is not None:
             self._show_what_if_bar(Inputs.of(config.slots), what_if)
         self.shown_live = None

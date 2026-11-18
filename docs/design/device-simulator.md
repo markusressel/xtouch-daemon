@@ -1,7 +1,8 @@
 # A simulated device
 
-Status: in progress (2026-11-17); the migration to channels, states and slots
-([channels-states-slots.md](channels-states-slots.md), steps 1-10) is finished.
+Status: built (2026-11-17). Extended 2026-11-18: Select and Play above the drawing, Play also on the device of a
+running daemon (the live-view request `play`), and "Try without a device", which starts a daemon with the virtual
+device from the GUI (see the decisions below).
 
 ## Why
 
@@ -163,3 +164,8 @@ Each step is a commit with its tests, docs and CHANGELOG entry; the daemon works
   `xtouch-daemon run --virtual-device` overrides it.
 - The GUI offers the virtual device but doesn't start it: while the daemon waits for a device that isn't connected,
   the pill "X-Touch-Ext not connected" has "Open the virtual device". Nothing starts without a click.
+- (2026-11-18) The mouse on the drawing is a hand only in Play; Select (the default) picks and moves slots. Play also
+  works on the device of a running daemon through the live view (`live.Play`, `Surface.play()`), so the GUI is a
+  remote control for the real device too. While no daemon runs, "Try without a device" starts one with the virtual
+  device on the file and hosts it: a demo for people without the device. It is the one thing the GUI starts by
+  itself, and only on that click; it ends with the window.

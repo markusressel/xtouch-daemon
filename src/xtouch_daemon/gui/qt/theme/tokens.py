@@ -52,6 +52,13 @@ class Radius:
     """Chips: half their height, so they are round at the ends."""
 
 
+class Motion:
+    """How long things take to change: short enough not to wait for, long enough to follow (as on Android)."""
+
+    RESIZE = 200
+    """A card that grows or shrinks, in ms."""
+
+
 CONTROL_HEIGHT = 32
 """The height of buttons, fields and choices (incl. the border), so a row of them lines up."""
 

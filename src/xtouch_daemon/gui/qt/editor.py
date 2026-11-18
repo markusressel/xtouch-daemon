@@ -88,6 +88,11 @@ class Editor(QObject):
         self.document.rename(("state", name), new)
         self.edited(Change(Scope.STATES))
 
+    def move_slot(self, source: int, target: int) -> None:
+        """Moves a slot with its candidates and controls; the slots between make room (see `move_slot`)."""
+        self.document.move_slot(source, target)
+        self.edited()
+
     # -- history and the file -------------------------------------------------------------------------------------
 
     def undo(self) -> bool:

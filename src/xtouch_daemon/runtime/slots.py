@@ -17,6 +17,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.live.messages import SlotsState, SlotView, StateView, VoipState
 from xtouch_daemon.slots.inputs import App, Channel, Device, Member, Person, excluded, owner_of
 from xtouch_daemon.slots.model import DEFAULT, Scene
+from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.simulation import Known, Simulation
@@ -75,6 +76,33 @@ class SlotEngine:
         self.observer = Observer()
         self.homeassistant: frozenset[str] = frozenset()
         """The states whose input in Home Assistant is on (`homeassistant = true`, see `runtime.homeassistant`)."""
+        self.situation: Situation | None = None
+        """The what-if the GUI tries on the device (see `simulate()`), None for reality."""
+        self.what_if: Simulation | None = None
+        """The slots of `situation` over time, next to the real ones (`simulation`), which wait meanwhile."""
+
+    @property
+    def active(self) -> Simulation:
+        """What the device shows: the situation's slots while one runs, else the real ones."""
+        return self.what_if if self.what_if is not None else self.simulation
+
+    def simulate(self, situation: Situation | None) -> None:
+        """
+        Runs a situation instead of reality from the next step on (None: reality again), in a `Simulation` of its own
+        that starts where the real one is: its states are overrides, its mode the one picked, what the sound server
+        and the voice chat show is made for it (`Situation.observation`). Nothing of it is kept or told to Home
+        Assistant. See `docs/design/try-and-simulate.md`.
+        """
+        self.situation = situation
+        if situation is None:
+            self.what_if = None
+            return
+        if self.what_if is None:
+            self.what_if = Simulation(self.scene)
+            self.what_if.carry(self.simulation)
+        overrides, mode = situation.choices(self.scene)
+        self.what_if.engine.overrides = overrides
+        self.what_if.engine.mode_pick = mode
 
     def reconfigure(self, config: Config) -> None:
         """Goes on with another configuration (a reload): states, channels, members and choices carry over by id."""
@@ -83,12 +111,17 @@ class SlotEngine:
         self.scene = config.slots.scene
         self.simulation = Simulation(self.scene)
         self.simulation.carry(before)
+        if self.what_if is not None:
+            what_if, self.what_if = self.what_if, Simulation(self.scene)
+            self.what_if.carry(what_if)
+            self.simulate(self.situation)
         self.pins = {slot: member for slot, member in self.pins.items() if slot in self.scene.stacks}
         self._keep_choices()
 
     @property
     def mode(self) -> str:
-        states = self.simulation.states
+        """The mode the device shows (of the situation while one runs)."""
+        states = self.active.states
         return states.mode if states is not None else DEFAULT
 
     @property
@@ -112,10 +145,11 @@ class SlotEngine:
 
     def view(self) -> SlotsState | None:
         """The slots, states and mode for the live view; None before the first step."""
-        result, states = self.simulation.result, self.simulation.states
+        active = self.active
+        result, states = active.result, active.states
         if result is None or states is None:
             return None
-        engine = self.simulation.engine
+        engine = active.engine
         return SlotsState(
             states.mode,
             engine.mode_pick,
@@ -146,7 +180,7 @@ class SlotEngine:
 
     def deadline(self) -> float | None:
         """When a delay or a dwell ends, if one is pending: then the slots need another step."""
-        return self.simulation.deadline()
+        return self.active.deadline()
 
     # -- requests -------------------------------------------------------------------------------------------------
 
@@ -163,8 +197,8 @@ class SlotEngine:
     # -- the actions of buttons in [controls] (see `runtime.controls`): they show at once -------------------------
 
     def value(self, name: str) -> bool:
-        """Whether a state is on, or a mode is the mode; False before the first step."""
-        states = self.simulation.states
+        """Whether a state is on, or a mode is the mode (in the situation while one runs); False before a step."""
+        states = self.active.states
         return states is not None and (states.mode == name if name in self.modes else states.values.get(name, False))
 
     def cycle_modes(self) -> None:
@@ -189,7 +223,10 @@ class SlotEngine:
             _LOGGER.info(f"Mode {'auto' if back else name} (a control)")
             self.pick_mode(None if back else name)
         else:
-            value = Override.AUTO if name in engine.overrides else Override.OFF if self.value(name) else Override.ON
+            # the real value: a situation that runs doesn't change what the override does
+            states = self.simulation.states
+            on = states is not None and states.values.get(name, False)
+            value = Override.AUTO if name in engine.overrides else Override.OFF if on else Override.ON
             _LOGGER.info(f"State {name}: override {value} (a control)")
             self.set_override(name, value)
         self.on_request()
@@ -207,7 +244,7 @@ class SlotEngine:
 
     def member(self, slot: int) -> Member | None:
         """What a slot shows of a pool, None before the first step."""
-        result = self.simulation.result
+        result = self.active.result
         return result.slots[slot].member if result is not None else None
 
     def candidates(self) -> list[App]:
@@ -215,7 +252,7 @@ class SlotEngine:
         scene = self.scene
         return [
             App(app)
-            for app in self.simulation.pools.playing
+            for app in self.active.pools.playing
             if not excluded(scene, app) and owner_of(scene, app) is None
         ]
 
@@ -235,6 +272,15 @@ class SlotEngine:
     ) -> Result:
         """Resolves the slots with what the system shows at `now`; `held` are the slots (from 1) under a finger."""
         observation = self.observer.observe(audio, processes, voip, now, self.homeassistant)
+        if self.what_if is not None and self.situation is not None:
+            # reality waits; nothing of the situation is kept
+            what_if = self.what_if
+            before, previous = what_if.states, what_if.result
+            result = what_if.step(self.situation.observation(self.scene, observation), now, held)
+            assert what_if.states is not None
+            self._log_states(before, what_if.states)
+            self._log_slots(previous, result)
+            return result
         before = self.simulation.states
         previous = self.simulation.result
         result = self.simulation.step(observation, now, held, self.picks | self.pins)

@@ -72,6 +72,34 @@ def offers_virtual_device(snapshot: Snapshot | None, hosting: bool) -> bool:
     return snapshot is not None and snapshot.virtual and not snapshot.device and not hosting
 
 
+PLAY = "play"
+"""The feature of the daemon (`Snapshot.features`) that a hand from the GUI needs."""
+
+
+def play_unavailable(snapshot: Snapshot | None, owned: bool, hosting: bool, simulating: bool) -> str | None:
+    """
+    Why the mouse can't be a hand on the device, None when it can: on the virtual device the GUI hosts, or on the
+    device of a daemon of this user that takes `Play` and has it connected. `simulating`: Simulate shows only the
+    drawing (it is not on the device), with no device to play on.
+    """
+    if simulating:
+        return (
+            "Simulate shows what the slots would show, only in the drawing: turn on Try on the device to play it on "
+            "the device, or end it (Esc)."
+        )
+    if hosting:
+        return None
+    if snapshot is None:
+        return "No daemon runs: Try it without a device, or start the service."
+    if not owned:
+        return "The daemon runs as another user."
+    if PLAY not in snapshot.features:
+        return "The daemon that runs is too old to be played from here: restart it to run the installed version."
+    if not snapshot.device:
+        return "The device is not connected."
+    return None
+
+
 def runs_older(daemon: Instance | None, snapshot: Snapshot | None, path: Path, saved: Config | None) -> bool:
     """
     Whether the daemon reads the file but runs another version of it, e.g. one changed outside the GUI or that it did
@@ -97,13 +125,37 @@ def changes_status(
     previewed: bool = False,
     trying: bool = False,
     problems: bool = False,
+    simulated: bool = False,
 ) -> Status:
     """
     The pill next to Save and apply: whether the device runs the saved file, the unsaved changes (the live preview,
     "Try on the device"), or neither, in a few words, the rest in its tip. `applying` is true for a moment after a
     reload, which takes the daemon a moment; `previewed`: the device runs the document as it is; `trying`: the live
-    preview is on; `problems`: the document has some, so it does not go to the device.
+    preview is on; `problems`: the document has some, so it does not go to the device; `simulated`: the device shows
+    the situation of Simulate.
     """
+    status = _changes_status(daemon, snapshot, path, saved, modified, applying, previewed, trying, problems)
+    if not simulated:
+        return status
+    if status.text == "Sending to the device…":
+        return status
+    tip = "The device shows what Simulate shows, not what really happens: ending it (Esc) shows that again."
+    if previewed:
+        return Status(f"{status.text} · simulated", status.tone, f"{status.tip} {tip}")
+    return Status("On the device · simulated", Tone.WARN, f"{tip} {status.tip}".strip())
+
+
+def _changes_status(
+    daemon: Instance | None,
+    snapshot: Snapshot | None,
+    path: Path,
+    saved: Config | None,
+    modified: bool,
+    applying: bool,
+    previewed: bool,
+    trying: bool,
+    problems: bool,
+) -> Status:
     if previewed:
         return Status(
             "On the device, not saved",

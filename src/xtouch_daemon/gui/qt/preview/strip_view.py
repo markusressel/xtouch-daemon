@@ -9,12 +9,14 @@ from math import cos, radians, sin
 from typing import TYPE_CHECKING, Protocol
 
 from PyQt6.QtCore import (
+    QPoint,
     QPointF,
     QRectF,
     Qt,
 )
 from PyQt6.QtGui import (
     QColor,
+    QContextMenuEvent,
     QFocusEvent,
     QFont,
     QFontDatabase,
@@ -29,7 +31,7 @@ from PyQt6.QtGui import (
     QRadialGradient,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 
 from xtouch_daemon.gui.domain.looks import UNKNOWN, StripFace, StripLook, meter_leds, ring_leds
 from xtouch_daemon.gui.qt.preview.geometry import (
@@ -93,6 +95,27 @@ UNCONFIGURED_OPACITY = 0.8
 """Strips after the configured ones are drawn fainter: their texts keep 4.6:1 (LCD) to 6.6:1 (printed)."""
 
 
+DRAG_DISTANCE = QApplication.startDragDistance
+"""How far the mouse moves before a press is a drag, not a click (the desktop's setting)."""
+LIFTED_OPACITY = 0.8
+"""A dragged strip is see-through, so the place where it goes shows under it."""
+
+
+class Mover(Protocol):
+    """What moves strips by dragging them (the `Preview` in Select)."""
+
+    @property
+    def dragging(self) -> bool: ...
+
+    def start_drag(self, source: int, grab: float) -> None: ...
+
+    def drag_to(self, x: int) -> None: ...
+
+    def drop(self) -> None: ...
+
+    def menu_for(self, index: int) -> QMenu: ...
+
+
 class StripHost(Protocol):
     """What a strip is drawn in: the `Preview` of the window Device, or a `PartPreview` of a form."""
 
@@ -100,8 +123,16 @@ class StripHost(Protocol):
     """Pixels (at the zoom of the window) per logical unit of the strip."""
     blink: bool
     """Whether flashing LEDs are lit right now."""
-    hand: Hand | None
-    """The device the mouse is a hand on, None for none: a click only selects."""
+
+    @property
+    def hand(self) -> Hand | None:
+        """The device the mouse is a hand on, None for none: a click only selects."""
+        ...
+
+    @property
+    def mover(self) -> Mover | None:
+        """What moves the strip when it is dragged, None where strips stay put."""
+        ...
 
     @property
     def resizing(self) -> bool: ...
@@ -135,6 +166,12 @@ class StripView(QWidget):
         """The picture of the whole strip: the one of what it shows, with what moves over it."""
         self.held: tuple[Part, bool] | None = None
         """The part the mouse holds on a device it is a hand on, and whether a hand does it (no Alt), None for none."""
+        self.lifted = False
+        """Whether it is being dragged."""
+        self.dragged_fader: float | None = None
+        """Where the mouse holds the fader in Play (0..1), drawn there until it is let go; None while it doesn't."""
+        self._press: QPoint | None = None
+        """Where the mouse was pressed, to tell a drag from a click."""
 
     @property
     def look(self) -> StripLook:
@@ -165,9 +202,9 @@ class StripView(QWidget):
     def _lit(self, led: str) -> bool:
         return led == "on" or (led == "flash" and self.preview.blink)
 
-    def _printed_key(self) -> tuple[int, str, str, bool]:
-        """What the printed parts depend on: the number, the type and its print, whether it is configured."""
-        return self.index, self.look.kind, self.look.printed, self.look.configured
+    def _printed_key(self) -> tuple[int, str, str, bool, bool]:
+        """What the printed parts depend on: the number, the type and its print, whether it is configured, lifted."""
+        return self.index, self.look.kind, self.look.printed, self.look.configured, self.lifted
 
     def _shown_key(self) -> tuple[object, ...]:
         """
@@ -191,11 +228,15 @@ class StripView(QWidget):
         the daemon leaves it, while not known yet), and the accent around it while it is touched.
         """
         state = self.face.state
+        fader = 0.0 if state.fader is None else state.fader
+        if self.dragged_fader is not None:
+            # under the mouse at once: the device (or the daemon) tells where it is only a moment later
+            fader = self.dragged_fader
         return (
             ring_leds(state.ring, state.ring_mode),
             meter_leds(state.meter),
-            0.0 if state.fader is None else state.fader,
-            current_colors().accent if state.touched else None,
+            fader,
+            current_colors().accent if state.touched or self.dragged_fader is not None else None,
         )
 
     def _current(self, picture: _Picture | None, key: object, scale: float, ratio: float) -> bool:
@@ -221,6 +262,8 @@ class StripView(QWidget):
         assert picture is not None
         # drawn in logical units, at the scale of the preview; while the size changes, the picture of before is scaled
         painter.scale(scale, scale)
+        if self.lifted:
+            painter.setOpacity(LIFTED_OPACITY)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         picture.paint(painter)
 
@@ -318,10 +361,10 @@ class StripView(QWidget):
             painter.drawRoundedRect(BODY.adjusted(-2, -2, 2, 2), STRIP_RADIUS + 2, STRIP_RADIUS + 2)
 
     def _paint_body(self, painter: QPainter, body: QRectF) -> None:
-        """The part of the panel that is this strip."""
+        """The part of the panel that is this strip, lighter while it is lifted."""
         gradient = QLinearGradient(body.topLeft(), body.bottomLeft())
         top = QColor(HW.strip_top)
-        gradient.setColorAt(0, top)
+        gradient.setColorAt(0, top.lighter(125) if self.lifted else top)
         gradient.setColorAt(1, QColor(HW.strip_bottom))
         painter.setBrush(gradient)
         painter.setPen(Qt.PenStyle.NoPen)
@@ -329,11 +372,11 @@ class StripView(QWidget):
 
     def _paint_outline(self, painter: QPainter, body: QRectF) -> None:
         """
-        The outline of the strip: in the accent when it is selected, dashed when nobody tells what it shows.
+        The outline of the strip: in the accent when it is selected or dragged, dashed when nobody tells what it shows.
         """
         painter.setBrush(Qt.BrushStyle.NoBrush)
         accent = QColor(current_colors().accent)
-        if self.selected:
+        if self.selected or self.lifted:
             # a soft glow around the outline, outside of the strip only
             outside = QPainterPath()
             outside.addRect(QRectF(0, 0, WIDTH, HEIGHT))
@@ -570,6 +613,8 @@ class StripView(QWidget):
         if event.button() != Qt.MouseButton.LeftButton:
             return
         self.preview.pick(self.index)
+        if self.preview.mover is not None:
+            self._press = event.position().toPoint()
         hand = self.preview.hand
         point = event.position() / self.preview.scale
         part = part_at(point)
@@ -582,7 +627,9 @@ class StripView(QWidget):
             case "fader":
                 if touching:
                     hand.touch(self.index, True)
-                hand.move(self.index, fraction_at(point.y()), hand=touching)
+                self.dragged_fader = fraction_at(point.y())
+                hand.move(self.index, self.dragged_fader, hand=touching)
+                self.update()
             case "encoder":
                 hand.push(self.index, True)
             case row:
@@ -590,10 +637,25 @@ class StripView(QWidget):
 
     def mouseMoveEvent(self, event: QMouseEvent | None) -> None:
         assert event is not None
+        mover = self.preview.mover
+        if mover is not None:
+            point = event.position().toPoint()
+            if mover.dragging:
+                mover.drag_to(self.mapToParent(point).x())
+            elif self._press is not None and (point - self._press).manhattanLength() >= DRAG_DISTANCE():
+                mover.start_drag(self.index, self._press.x() / self.preview.scale)
+                mover.drag_to(self.mapToParent(point).x())
+            return
         if self.preview.hand is not None and self.held is not None and self.held[0] == "fader":
-            self.preview.hand.move(self.index, fraction_at(event.position().y() / self.preview.scale), self.held[1])
+            self.dragged_fader = fraction_at(event.position().y() / self.preview.scale)
+            self.preview.hand.move(self.index, self.dragged_fader, self.held[1])
+            self.update()
 
     def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
+        self._press = None
+        mover = self.preview.mover
+        if mover is not None and mover.dragging:
+            mover.drop()
         held, self.held = self.held, None
         hand = self.preview.hand
         if hand is None or held is None:
@@ -601,6 +663,8 @@ class StripView(QWidget):
         match held[0]:
             case "fader":
                 hand.touch(self.index, False)
+                self.dragged_fader = None
+                self.update()
             case "encoder":
                 hand.push(self.index, False)
             case row:
@@ -614,6 +678,15 @@ class StripView(QWidget):
             event.ignore()
             return
         self.preview.hand.turn(self.index, steps)
+
+    def contextMenuEvent(self, a0: QContextMenuEvent | None) -> None:
+        assert a0 is not None
+        mover = self.preview.mover
+        if mover is None:
+            a0.ignore()
+            return
+        self.preview.pick(self.index)
+        mover.menu_for(self.index).exec(a0.globalPos())
 
     def keyPressEvent(self, event: QKeyEvent | None) -> None:
         assert event is not None

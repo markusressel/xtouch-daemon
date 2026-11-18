@@ -4,10 +4,11 @@ Settings), the window Device (docked above the page at first, or anywhere else, 
 bottom the problems, undo and saving.
 """
 
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QEvent, QObject, QPointF, QRect, QSignalBlocker, Qt, QTimer, QUrl
+from PyQt6.QtCore import QEvent, QObject, QPointF, QProcess, QRect, QSignalBlocker, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
@@ -70,6 +71,7 @@ from xtouch_daemon.gui.qt.pages.sections import (
 )
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.pages.states import StatesPage
+from xtouch_daemon.gui.qt.remote_hand import RemoteHand
 from xtouch_daemon.gui.qt.theme.icons import refresh_icons, set_icon
 from xtouch_daemon.gui.qt.theme.settings import (
     ZOOM_LEVELS,
@@ -169,6 +171,10 @@ class MainWindow(QMainWindow):
         self.live_preview.changed.connect(self.refresh_preview)
         self.shown = False
         """Whether the window was shown: the first time the keys go to the strips."""
+        self.trying: QProcess | None = None
+        """The daemon started by "Try without a device", with the virtual device; it ends with the window."""
+        if session is not None and session.trying is not None:
+            self._keep_trying(session.trying)
         self.resume_live_preview = session is not None and session.live_preview
         """Turns the live preview on once it can be: it was on in the window before the zoom."""
 
@@ -350,9 +356,12 @@ class MainWindow(QMainWindow):
         self.slots_page = slots = SlotsPanel(
             self.editor, audio, lambda: self.live.snapshot, self.live.send, self.show_channel
         )
-        self.device_view = DeviceView(slots)
+        self.device_view = DeviceView(slots, RemoteHand(self.live), lambda: self.live.owned)
         self.device_view.close_virtual_device.connect(self.close_virtual_device)
         self.device_view.picked.connect(self.show_slot)
+        self.device_view.moved.connect(self.move_slot)
+        self.device_view.try_without_device.connect(self.try_without_device)
+        slots.simulated.connect(lambda: self.live_preview.set_situation(slots.what_if if slots.simulation else None))
         self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
         self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
         self.pages: dict[str, Page] = {"slots": slots, "channels": self.channels_page, "states": self.states_page}
@@ -583,6 +592,10 @@ class MainWindow(QMainWindow):
     def refresh_preview(self) -> None:
         """Shows the device (live while the daemon tells what it shows) and whether it runs the file."""
         snapshot = self.live.snapshot
+        if self.trying is not None and offers_virtual_device(snapshot, self.hosted is not None):
+            # the daemon started to try without a device waits for its device: here it is
+            self.open_virtual_device()
+        self.device_view.show_daemon(self.daemon is not None or self.trying is not None)
         self._show_live_preview(snapshot)
         self.device_view.show_live(snapshot)
         shows_document = previewed(snapshot, self.validation.config, self.live_preview.running)
@@ -613,6 +626,7 @@ class MainWindow(QMainWindow):
             shows_document and self.document.modified,
             self.live_preview.on,
             self.validation.config is None,
+            self.slots_page.on_device,
         )
         show_status(self.changes_pill, changes)
         self._show_savable()
@@ -640,14 +654,20 @@ class MainWindow(QMainWindow):
         elif self.resume_live_preview:
             self.resume_live_preview = False
             preview.set_on(True)
-        # without changes the device runs the file anyway: nothing to switch (it stays on for the next change)
-        self.try_box.setVisible(self.document.modified or preview.running)
+        # without changes or a situation to show, the device runs the file anyway: nothing to switch (it stays on for
+        # the next change)
+        simulating = self.slots_page.simulation is not None
+        self.try_box.setVisible(self.document.modified or simulating or preview.running)
+        self.slots_page.show_on_device(
+            preview.on and preview.simulating and snapshot is not None and snapshot.simulated, reason is None
+        )
         self.preview_switch.setEnabled(reason is None)
         with QSignalBlocker(self.preview_switch):
             self.preview_switch.setChecked(preview.on)
         tip = reason or (
-            "Runs the changes on the device before they are saved, and the saved file again once this is off or the "
-            "window closes. It stays on for the next changes."
+            "Runs the changes on the device before they are saved, and what Simulate shows while it is open; the "
+            "saved file and the real situation again once this is off or the window closes. It stays on for the next "
+            "changes."
         )
         for widget in (self.preview_switch, self.preview_label):
             widget.setToolTip(tip)
@@ -877,7 +897,45 @@ class MainWindow(QMainWindow):
             maximized=self.isMaximized(),
             audio=self.audio,
             live_preview=self.live_preview.on,
+            trying=self.trying,
         )
+
+    def move_slot(self, source: int, target: int) -> None:
+        """A strip was dragged to another place: its slot moves there, and stays picked."""
+        self.editor.move_slot(source, target)
+        self.status.setText(f"Moved slot {source} to {target}. Ctrl+Z moves it back.")
+        self.device_view.select(target - 1)
+
+    def try_without_device(self) -> None:
+        """
+        Starts a daemon with the virtual device on this file (saved first if it is new), and opens the device in the
+        window once the daemon waits for it (see `refresh_preview`).
+        """
+        if self.trying is not None:
+            return
+        if not self.document.exists and not self.save():
+            return
+        process = QProcess()
+        process.setProcessChannelMode(QProcess.ProcessChannelMode.ForwardedChannels)
+        process.start(
+            sys.executable, ["-m", "xtouch_daemon", "run", "--virtual-device", "--config", str(self.document.path)]
+        )
+        self._keep_trying(process)
+        self.status.setText("Starting a daemon with the virtual device…")
+
+    def _keep_trying(self, process: QProcess) -> None:
+        """The daemon to try without a device is this window's: it ends with it."""
+        process.setParent(self)  # pyright: ignore[reportArgumentType]: PyQt's stub types the parent as Self
+        process.finished.connect(lambda code, _status: self._tried(process, code))
+        self.trying = process
+
+    def _tried(self, process: QProcess, code: int) -> None:
+        if self.trying is not process:
+            return
+        self.trying = None
+        process.deleteLater()
+        self.status.setText(f"The daemon for trying without a device ended (exit code {code}).")
+        self.refresh_service()
 
     def _mode_clicked(self) -> None:
         if offers_virtual_device(self.live.snapshot, self.hosted is not None):
@@ -929,6 +987,13 @@ class MainWindow(QMainWindow):
         # previews again (see `Session`)
         self.live_preview.set_on(False)
         self.close_virtual_device()
+        if self.trying is not None and self.rezoom is not None:
+            # the next window takes it over (see `session()`)
+            self.trying.setParent(None)  # pyright: ignore[reportArgumentType]
+        elif self.trying is not None:
+            trying, self.trying = self.trying, None
+            trying.terminate()
+            trying.waitForFinished(3000)
         save_window_state(bytes(self.saveState()))
         app = QApplication.instance()
         assert app is not None

@@ -4,7 +4,7 @@ What a window hands to the next one when the zoom changes.
 
 from dataclasses import dataclass
 
-from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QProcess, QRect
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.history import History
@@ -27,3 +27,5 @@ class Session:
     audio: AudioState
     live_preview: bool = False
     """Whether the live preview was on: it goes on in the next window (a new start has it off)."""
+    trying: QProcess | None = None
+    """The daemon started by "Try without a device": the next window ends it when it closes."""

@@ -50,7 +50,6 @@ class PartDrawing(QWidget):
         crop = CROPS[part]
         self.scale = min(SIZE[0] / crop.width(), SIZE[1] / crop.height())
         self.blink = True
-        self.hand: Hand | None = None
         self.view = StripView(self, 0)
         self.view.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.view.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -61,6 +60,16 @@ class PartDrawing(QWidget):
     @property
     def resizing(self) -> bool:
         return False
+
+    @property
+    def hand(self) -> Hand | None:
+        """Nobody plays a preview of a part."""
+        return None
+
+    @property
+    def mover(self) -> None:
+        """Its strip stays put."""
+        return None
 
     def pick(self, index: int) -> None:
         """A click does nothing."""
