@@ -1,7 +1,8 @@
 """
-The main window. From the top: the menus; the file and the service; the window Device and the window Configuration
-(docked one above the other at first; each can go to any side, or be a window of its own), which has a rail of the
-pages (Slots, Channels, States, Settings) and the page; at the bottom the problems, undo and saving.
+The main window (its title: the file, • with unsaved changes). From the top: the menus; the service; the window Device
+and the window Configuration (docked one above the other at first; each can go to any side, or be a window of its
+own), which has a rail of the pages (Slots, Channels, States, Settings) and the page; at the bottom the problems, undo
+and saving.
 """
 
 import sys
@@ -53,10 +54,17 @@ from xtouch_daemon.gui.domain.live_preview import previewed, unavailable
 from xtouch_daemon.gui.domain.schema import SECTIONS
 from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
-from xtouch_daemon.gui.domain.status import changes_status, offers_virtual_device, preview_status, runs_older
+from xtouch_daemon.gui.domain.status import (
+    Status,
+    changes_status,
+    offers_virtual_device,
+    preview_status,
+    runs_older,
+)
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
 from xtouch_daemon.gui.qt.fields.controls import Switch
+from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
@@ -90,6 +98,7 @@ from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice
 from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.device_view import DeviceView
+from xtouch_daemon.gui.qt.window.hover_tips import HoverTips
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.hardware import protocol
@@ -287,13 +296,9 @@ class MainWindow(QMainWindow):
         logo.setPixmap(app_icon().pixmap(QSize(LOGO_SIZE, LOGO_SIZE)))
         layout.addWidget(logo)
         layout.addSpacing(Space.S)
-        titles = QVBoxLayout()
-        titles.setSpacing(0)
-        titles.addWidget(label("X-Touch Extender", "title"))
-        self.path_label = ElidedLabel("", "hint", Qt.TextElideMode.ElideMiddle)
-        titles.addWidget(self.path_label)
-        # the path gets the room the service doesn't need
-        layout.addLayout(titles, 1)
+        # the file is in the title of the window and the tip of the pill next to Save
+        layout.addWidget(label("X-Touch Extender", "title"))
+        layout.addStretch(1)
         layout.addSpacing(Space.L)
         self.service_controls = ServiceControls(self.service)
         self.service_controls.changed.connect(self.refresh_service)
@@ -573,6 +578,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.problems_button)
         self.status = ElidedLabel("", "hint")
         layout.addWidget(self.status, 1)
+        self.hover_tip = ElidedLabel("", "hint")
+        """The tip of what is under the mouse, in place of the status line (see `HoverTips`)."""
+        layout.addWidget(self.hover_tip, 1)
+        self.hover_tips = HoverTips(self, self.hover_tip, self.status)
         self.restart_button = QPushButton("Restart the service")
         set_icon(self.restart_button, "restart")
         self.restart_button.clicked.connect(self._restart)
@@ -580,6 +589,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.restart_button)
         self.changes_pill = label("", "pill")
         """Whether the device runs the saved file, the unsaved changes, or neither (see `changes_status`)."""
+        self.changes: Status | None = None
+        make_clickable(self.changes_pill, self._show_changes)
         layout.addWidget(self.changes_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self.try_box = self._try_switch()
         layout.addWidget(self.try_box)
@@ -629,8 +640,10 @@ class MainWindow(QMainWindow):
             page.show_problems(self.validation)
         self._show_problems(self.validation.problems)
         modified = self.document.modified
-        state = "new file" if not self.document.exists else "unsaved changes" if modified else "saved"
-        self.path_label.setText(f"{self.document.path}  ·  {state}")
+        # Qt adds the name of the application ("— X-Touch Extender"); • as editors mark unsaved changes
+        mark = "• " if modified else ""
+        new = " (new)" if not self.document.exists else ""
+        self.setWindowTitle(f"{mark}{self.document.path.name}{new}")
         self._show_savable()
         for widget in (self.revert_button, self.revert_action):
             widget.setEnabled(modified)
@@ -675,8 +688,31 @@ class MainWindow(QMainWindow):
             self.validation.config is None,
             self.slots_page.on_device,
         )
-        show_status(self.changes_pill, changes)
+        self.changes = changes
+        show_status(self.changes_pill, changes, more=True)
         self._show_savable()
+
+    def _show_changes(self) -> None:
+        """What the device runs, and the file: its path, to copy or to open its folder."""
+        if self.changes is None:
+            return
+        path = self.document.path
+        clipboard = QApplication.clipboard()
+        assert clipboard is not None
+        entries = [
+            Entry("The device", self.changes),
+            Entry(
+                "The file",
+                text=str(path),
+                actions=(
+                    ("Copy the path", lambda: clipboard.setText(str(path))),
+                    ("Open the folder", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent)))),
+                ),
+            ),
+        ]
+        if self.daemon is not None and self.daemon.config != path.resolve():
+            entries.append(Entry("The daemon reads", text=str(self.daemon.config)))
+        show_popover(self.changes_pill, entries)
 
     def _show_savable(self) -> None:
         """
@@ -711,13 +747,19 @@ class MainWindow(QMainWindow):
         self.preview_switch.setEnabled(reason is None)
         with QSignalBlocker(self.preview_switch):
             self.preview_switch.setChecked(preview.on)
-        tip = reason or (
-            "Runs the changes on the device before they are saved, and what Simulate shows while it is open; the "
-            "saved file and the real situation again once this is off or the window closes. It stays on for the next "
-            "changes."
+        tip = (
+            reason.why
+            if reason is not None
+            else (
+                "Runs the changes on the device before they are saved, and what Simulate shows while it is open; the "
+                "saved file and the real situation again once this is off or the window closes. It stays on for the "
+                "next changes."
+            )
         )
         for widget in (self.preview_switch, self.preview_label):
             widget.setToolTip(tip)
+        # why it is off, next to it rather than in its tooltip only
+        self.preview_label.setText("Try on the device" if reason is None else f"Try on the device: {reason.short}")
         message = f"The device keeps the version before: {preview.error}" if preview.error else preview.notice
         self.preview_message.setVisible(message is not None)
         self.preview_message.setText(message or "")
@@ -1033,6 +1075,7 @@ class MainWindow(QMainWindow):
         # back to the file (the daemon would notice the closed connection too); after a new zoom the next window
         # previews again (see `Session`)
         self.live_preview.set_on(False)
+        self.hover_tips.stop()
         self.close_virtual_device()
         if self.trying is not None and self.rezoom is not None:
             # the next window takes it over (see `session()`)

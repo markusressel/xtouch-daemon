@@ -61,9 +61,14 @@ meter next to Rec, Solo, Mute and Select, and the fader with its dB scale: the m
 at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`). What each slot shows is printed under its LCD.
 
 The footer shows the problems, whether the device runs the file, the switch [Try on the device](#try-on-the-device)
-while there are unsaved changes, and the buttons Undo, Redo, Revert and "Save and apply". The header has the state of
-the service with buttons to
+while there are unsaved changes, and the buttons Undo, Redo, Revert and "Save and apply". The title of the window
+names the file, with • while there are unsaved changes. The header has the state of the service with buttons to
 install, start, restart or stop it (see [The service](#the-service)), and what the sound server has.
+
+**Help where you look:** while the mouse is on something with a tooltip, the footer shows its first sentence at once,
+in place of the status line; the tooltip itself follows after a moment. A pill with ▾ opens what it means in full on
+a click, with what can be done about it. A control that is off says why next to it (e.g. "Play: device not
+connected").
 
 States, channels and slots have a color each, in the whole window: states (and modes) violet, channels (and what
 else a slot can show: pools, people) teal, slots orange. The icons of their pages on the rail, the chips of the
@@ -108,8 +113,8 @@ device" once the daemon drives it, and "virtual device not running · Open it" w
 opens it in the window (see [below](#the-virtual-device)).
 
 Next to it, a pill shows the mode the device shows ("Mode: gaming", "No mode" while no mode is on, "· by hand" when
-it was picked by hand). A mode is a state with `mode = true`: one at a time is on. Its tooltip lists the states and
-what each slot shows.
+it was picked by hand). A mode is a state with `mode = true`: one at a time is on. A click lists the states, with what
+turned each on, and picks a mode by hand ("Pick gaming", "Pick no mode", "Back to the rules").
 
 The pill of the service at the top tells what the daemon is connected to: "running" while all is well, else the worst
 problem, e.g. "running · Home Assistant not authorized" or "running · device not connected". A click lists each
@@ -135,7 +140,7 @@ Play works on the virtual device the window hosts, and on the device of a runnin
 the mouse does as if the device sent it, so the mixer acts and a motorized fader follows once it is let go. The fader
 under the mouse is drawn there at once. Play is off while Simulate shows only the drawing (it works when Simulate runs on
 the device, see [Try on the device](#try-on-the-device)), without a daemon (or with one of another user, or too old to
-take it) and while the device is not connected; its tooltip says why.
+take it) and while the device is not connected; the bar says why next to it ("Play: device not connected").
 
 While no daemon runs, "Try without a device" starts one with the virtual device on this file (saved first if it is
 new) and opens the device in the window, in Play: to set everything up and try it before there is a device. That
@@ -153,8 +158,9 @@ daemon, which is what reached the device.
 ## Try on the device
 
 Next to Save and apply, a pill says what the device runs: "Saved, on the device", "Unsaved changes" (the device
-runs the saved file), "On the device, not saved", or what is wrong (e.g. "Not running", "Not on the device yet"), with
-the details in its tooltip.
+runs the saved file), "On the device, not saved", or what is wrong (e.g. "Not running", "Not on the device yet"). A
+click tells it in full, with the path of the file ("Copy the path", "Open the folder") and the file the daemon reads
+when that is another one.
 
 While there are unsaved changes, the switch "Try on the device" sits next to it: the device runs the configuration in
 the editor before it is saved, and follows every change a moment after it (undo and redo too). The file is not
@@ -187,8 +193,8 @@ next changes until it is turned off or the window closes; a new window starts wi
   nothing drives them), so they are as before once the file runs again. Entities of channels only the changes had are
   removed again when it ends.
 
-The switch is disabled, and its tooltip says why, while no daemon runs, while the daemon reads another file, and for a
-daemon from before this feature (restart it to run the installed version).
+The switch is disabled, and its label says why ("Try on the device: no daemon"), while no daemon runs, while the
+daemon reads another file, and for a daemon from before this feature (restart it to run the installed version).
 
 ## The slots
 

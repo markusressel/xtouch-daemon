@@ -27,6 +27,14 @@ class Status:
     tip: str = ""
 
 
+@dataclass(frozen=True)
+class Reason:
+    """Why something can't be used: a few words to show next to it, and the whole of it."""
+
+    short: str
+    why: str
+
+
 def preview_status(
     daemon: Instance | None, snapshot: Snapshot | None, device_name: str, hosting: bool = False
 ) -> Status:
@@ -76,27 +84,31 @@ PLAY = "play"
 """The feature of the daemon (`Snapshot.features`) that a hand from the GUI needs."""
 
 
-def play_unavailable(snapshot: Snapshot | None, owned: bool, hosting: bool, simulating: bool) -> str | None:
+def play_unavailable(snapshot: Snapshot | None, owned: bool, hosting: bool, simulating: bool) -> Reason | None:
     """
     Why the mouse can't be a hand on the device, None when it can: on the virtual device the GUI hosts, or on the
     device of a daemon of this user that takes `Play` and has it connected. `simulating`: Simulate shows only the
     drawing (it is not on the device), with no device to play on.
     """
     if simulating:
-        return (
+        return Reason(
+            "only in the drawing",
             "Simulate shows what the slots would show, only in the drawing: turn on Try on the device to play it on "
-            "the device, or end it (Esc)."
+            "the device, or end it (Esc).",
         )
     if hosting:
         return None
     if snapshot is None:
-        return "No daemon runs: Try it without a device, or start the service."
+        return Reason("no daemon", "No daemon runs: Try it without a device, or start the service.")
     if not owned:
-        return "The daemon runs as another user."
+        return Reason("another user's daemon", "The daemon runs as another user.")
     if PLAY not in snapshot.features:
-        return "The daemon that runs is too old to be played from here: restart it to run the installed version."
+        return Reason(
+            "daemon too old",
+            "The daemon that runs is too old to be played from here: restart it to run the installed version.",
+        )
     if not snapshot.device:
-        return "The device is not connected."
+        return Reason("device not connected", "The device is not connected.")
     return None
 
 

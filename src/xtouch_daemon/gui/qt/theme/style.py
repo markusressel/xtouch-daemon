@@ -8,7 +8,7 @@ from pathlib import Path
 import qt_themes
 from PyQt6.QtCore import QSettings, QTemporaryDir
 from PyQt6.QtGui import QColor, QPalette
-from PyQt6.QtWidgets import QApplication, QWidget
+from PyQt6.QtWidgets import QApplication, QProxyStyle, QStyle, QStyleHintReturn, QStyleOption, QWidget
 
 from xtouch_daemon.gui.qt.theme.tokens import (
     CONTROL_HEIGHT,
@@ -41,6 +41,25 @@ def load_theme_mode() -> ThemeMode:
     return ThemeMode(value) if value in ThemeMode._value2member_map_ else ThemeMode.DARK
 
 
+TIP_DELAY_MS = 300
+"""How long the mouse rests on a widget before its tooltip shows (Qt's default, 700 ms, feels like none comes)."""
+
+
+class QuickTips(QProxyStyle):
+    """The style of the platform, with tooltips that come sooner."""
+
+    def styleHint(
+        self,
+        hint: QStyle.StyleHint,
+        option: QStyleOption | None = None,
+        widget: QWidget | None = None,
+        returnData: QStyleHintReturn | None = None,
+    ) -> int:
+        if hint == QStyle.StyleHint.SH_ToolTip_WakeUpDelay:
+            return TIP_DELAY_MS
+        return super().styleHint(hint, option, widget, returnData)
+
+
 def apply_theme(mode: ThemeMode) -> None:
     global _current_mode
     _current_mode = mode
@@ -49,6 +68,11 @@ def apply_theme(mode: ThemeMode) -> None:
     qt_themes.set_theme(colors.qt_theme)
     app = QApplication.instance()
     assert isinstance(app, QApplication)
+    if not isinstance(app.style(), QuickTips):
+        style = app.style()
+        assert style is not None
+        # a new style of the same name: the app deletes the one it had
+        app.setStyle(QuickTips(style.name()))
     app.setPalette(_palette(app.palette(), colors))
     stylesheet = _stylesheet(colors, app.font().pointSizeF(), _arrows(colors))
     # a style sheet polishes every widget again, which takes a while: not for the same one

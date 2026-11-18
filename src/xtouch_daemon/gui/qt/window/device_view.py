@@ -15,15 +15,18 @@ from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout,
 
 from xtouch_daemon.gui.domain.looks import device_faces
 from xtouch_daemon.gui.domain.simulate import simulated_faces
-from xtouch_daemon.gui.domain.status import Status, play_unavailable
+from xtouch_daemon.gui.domain.slots import MODES
+from xtouch_daemon.gui.domain.status import Status, Tone, play_unavailable
 from xtouch_daemon.gui.qt.fields.basics import label, show_status
+from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Hand, Preview
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDeviceBar
-from xtouch_daemon.live.messages import Snapshot
+from xtouch_daemon.live.messages import SetMode, Snapshot
+from xtouch_daemon.slots.model import DEFAULT
 
 SELECT_TIP = "Select: a click picks a strip and its slot, dragging a strip (or Ctrl+Left/Right) moves its slot."
 PLAY_TIP = (
@@ -85,13 +88,17 @@ class DeviceView(QWidget):
         self.mode_hint = label("", "hint")
         layout.addWidget(self.mode_hint, 1)
         self.slots_pill = label("", "pill")
-        """The mode the device shows, with the states and slots in its tip."""
+        """The mode the device shows; a click: the modes to pick and the states."""
         self.slots_pill.hide()
+        make_clickable(self.slots_pill, self._show_modes)
         layout.addWidget(self.slots_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         layout.addSpacing(Space.XS)
         self.live_pill = label("", "pill")
-        """Live or the file; while the daemon waits for the virtual device, a click opens it."""
-        self.live_pill.mousePressEvent = lambda event: self.live_clicked.emit()  # type: ignore[method-assign]
+        """Live or the file; a click: what that means (and the virtual device to open, while the daemon waits)."""
+        make_clickable(self.live_pill, self._show_live)
+        self.live_status: Status | None = None
+        self.offered = False
+        self.slots_status: Status | None = None
         layout.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         layout.addSpacing(Space.S)
         self.try_button = QPushButton("Try without a device")
@@ -125,11 +132,43 @@ class DeviceView(QWidget):
         What the drawing shows (live or the file; `offered`: a click opens the virtual device) and the mode of the
         slots, None without slots.
         """
-        show_status(self.live_pill, live)
-        self.live_pill.setCursor(Qt.CursorShape.PointingHandCursor if offered else Qt.CursorShape.ArrowCursor)
+        self.live_status, self.offered, self.slots_status = live, offered, slots
+        show_status(self.live_pill, live, more=True)
         self.slots_pill.setVisible(slots is not None)
         if slots is not None:
-            show_status(self.slots_pill, slots)
+            show_status(self.slots_pill, slots, more=True)
+
+    def _show_live(self) -> None:
+        if self.live_status is None:
+            return
+        actions = (("Open the virtual device", self.live_clicked.emit),) if self.offered else ()
+        show_popover(self.live_pill, [Entry("The drawing", self.live_status, actions=actions)])
+
+    def _show_modes(self) -> None:
+        """The mode, the modes to pick (or back to the rules) and the states, with what turned them on."""
+        slots = self.snapshot.slots if self.snapshot is not None else None
+        if slots is None or self.slots_status is None:
+            return
+        request = self.slots.request
+        modes = [DEFAULT, *(state.name for state in slots.states if state.mode)]
+        picks = tuple(
+            ("Pick no mode" if mode == DEFAULT else f"Pick {mode}", lambda mode=mode: request(SetMode(mode)))
+            for mode in modes
+            if mode != slots.mode
+        )
+        if slots.mode_pick is not None:
+            picks += (("Back to the rules", lambda: request(SetMode("auto"))),)
+        how = "It was picked by hand, until the rules want another one." if slots.mode_pick else "The rules pick it."
+        entries = [Entry("Mode", self.slots_status, f"{MODES} {how}", picks)]
+        for state in slots.states:
+            if state.mode:
+                continue
+            value = Status("on", Tone.GOOD) if state.value else Status("off", Tone.NEUTRAL)
+            why = state.source or "none of its sources is on"
+            why = why[:1].upper() + why[1:]
+            override = "" if state.override == "auto" else f" Overridden: {state.override}."
+            entries.append(Entry(state.name, value, f"{why}.{override}"))
+        show_popover(self.slots_pill, entries)
 
     def show_daemon(self, runs: bool) -> None:
         """Whether a daemon runs: without one (and nothing hosted), "Try without a device"."""
@@ -158,13 +197,17 @@ class DeviceView(QWidget):
         if reason is not None and self.play_button.isChecked():
             self.select_button.setChecked(True)
         self.play_button.setEnabled(reason is None)
-        self.play_button.setToolTip(PLAY_TIP if reason is None else f"{PLAY_TIP}\n\n{reason}")
+        self.play_button.setToolTip(PLAY_TIP if reason is None else f"{reason.why}\n\n{PLAY_TIP}")
         if self.play_button.isChecked():
             where = "the virtual device" if hosting else "the device, through the daemon"
             hint = f"Playing on {where}"
         else:
             hint = "Drag a strip to move its slot"
+            if reason is not None:
+                # why Play is off, next to it rather than in its tooltip only
+                hint += f"  ·  Play: {reason.short}"
         self.mode_hint.setText(hint)
+        self.mode_hint.setToolTip(reason.why if reason is not None and not self.play_button.isChecked() else "")
         self.try_button.setVisible(not self.daemon_runs and not hosting)
 
     def host(self, hosted: HostedDevice | None) -> None:

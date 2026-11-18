@@ -164,6 +164,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The GUI's pills moved to what they are about: "Live" and the mode ("Mode: gaming", "No mode") to the bar of the
   window Device, Home Assistant into the pill of the service, which tells the worst problem of the daemon's
   connections (device, sound server, Home Assistant, voice chat); a click on it lists them with their settings.
+- The GUI's title names the file (• with unsaved changes) instead of a line in the header.
+- Help in the GUI without waiting for tooltips: the footer shows the first sentence of the tooltip under the mouse at
+  once (tooltips follow after 300 ms), pills with ▾ open their details on a click (the pill next to Save with the
+  path of the file, Live, the mode with the states and buttons to pick one), and Play and "Try on the device" say
+  next to them why they are off.
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
   and window, and of the desktop file of `xtouch-daemon-gui-bin`.
 - The documentation has a version per release (and `dev` for main) with a version selector, built once per version

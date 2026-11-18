@@ -2,15 +2,15 @@
 The controls of the systemd user service in the header of the window.
 """
 
-from PyQt6.QtCore import QPoint, Qt, pyqtSignal
-from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QMessageBox, QPushButton, QWidget
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import QHBoxLayout, QMessageBox, QPushButton, QWidget
 
 from xtouch_daemon import installed_version
 from xtouch_daemon.gui.domain.connections import Connection, worst
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, unit_status
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, label, show_status
+from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.theme.style import set_role
-from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import (
@@ -23,9 +23,6 @@ from xtouch_daemon.system.systemd import (
     unit_path,
     uses_packaged_unit,
 )
-
-POPUP_TEXT_WIDTH = 380
-"""The width of the explanations in the list of the connections."""
 
 
 class ServiceControls(QWidget):
@@ -145,41 +142,26 @@ class ServiceControls(QWidget):
                 problem.status.tone,
                 f"{problem.status.tip}\n\n{status.tip}",
             )
-        if self.connections:
-            status = Status(status.text, status.tone, f"{status.tip}\n\nClick for what the daemon is connected to.")
-        show_status(self.pill, status)
+        show_status(self.pill, status, more=bool(self.connections))
         self.pill.setCursor(Qt.CursorShape.PointingHandCursor if self.connections else Qt.CursorShape.ArrowCursor)
 
     def show_connections_list(self) -> None:
         """Under the pill: each connection of the daemon, how it is doing and why, with its settings."""
         if not self.connections:
             return
-        popup = QFrame(self, Qt.WindowType.Popup)
-        set_role(popup, "popup")
-        popup.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        grid = QGridLayout(popup)
-        grid.setContentsMargins(Space.M, Space.M, Space.M, Space.M)
-        grid.setHorizontalSpacing(Space.M)
-        grid.setVerticalSpacing(Space.XS)
-        for index, connection in enumerate(self.connections):
-            grid.addWidget(label(connection.name), 2 * index, 0)
-            pill = label("", "pill")
-            show_status(pill, connection.status)
-            grid.addWidget(pill, 2 * index, 1, Qt.AlignmentFlag.AlignLeft)
-            if connection.settings is not None:
-                settings = QPushButton("Settings")
-                settings.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-                settings.clicked.connect(
-                    lambda _=False, page=connection.settings: (popup.close(), self.settings_asked.emit(page))
+        show_popover(
+            self.pill,
+            [
+                Entry(
+                    connection.name,
+                    connection.status,
+                    actions=(("Settings", lambda page=connection.settings: self.settings_asked.emit(page)),)
+                    if connection.settings is not None
+                    else (),
                 )
-                grid.addWidget(settings, 2 * index, 2)
-            tip = label(connection.status.tip, "hint", wrap=True)
-            tip.setFixedWidth(POPUP_TEXT_WIDTH)
-            tip.setContentsMargins(0, 0, 0, Space.S)
-            grid.addWidget(tip, 2 * index + 1, 0, 1, 3)
-        popup.adjustSize()
-        popup.move(self.pill.mapToGlobal(QPoint(0, self.pill.height() + Space.XS)))
-        popup.show()
+                for connection in self.connections
+            ],
+        )
 
     def _hide_service_controls(self) -> None:
         for widget in (self.unit_label, self.service_button, self.override_button, self.stop_button):

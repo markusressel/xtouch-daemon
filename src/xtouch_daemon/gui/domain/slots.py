@@ -9,7 +9,7 @@ from xtouch_daemon.live.messages import SlotsState, Snapshot
 from xtouch_daemon.slots.model import DEFAULT
 
 MODES = (
-    "A mode is a state with `mode = true`: one at a time is on, and without one the slots show their default (no "
+    "A mode is a state with mode = true: one at a time is on, and without one the slots show their default (no "
     "mode). The chord of the device picks the next one."
 )
 

@@ -104,10 +104,14 @@ def discard(layout: QLayout, widget: QWidget) -> None:
     widget.deleteLater()
 
 
-def show_status(pill: QLabel, status: Status) -> None:
-    """A status in a pill: its text, its tone as the color, and its tip."""
-    pill.setText(status.text)
-    pill.setToolTip(status.tip)
+def show_status(pill: QLabel, status: Status, more: bool = False) -> None:
+    """
+    A status in a pill: its text, its tone as the color, and its tip. `more`: a click opens what it means in full (a
+    popover, see `fields.popover`), which ▾ tells; its tip then says only that.
+    """
+    pill.setText(f"{status.text}  ▾" if more else status.text)
+    # the first paragraph shows in the footer while the mouse is on it (see `HoverTips`)
+    pill.setToolTip(f"{status.tip.split(chr(10) * 2)[0]}\n\nClick for details." if more else status.tip)
     set_role(pill, status.tone.value, "tone")
 
 
