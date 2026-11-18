@@ -168,6 +168,56 @@ class SlotsDocument:
         parent.clear()
         parent.update(renamed)
 
+    def rename_references(self, old: str, new: str) -> None:
+        """
+        Follows a renamed channel, pool or state: the stacks and conditions that name it, the lists of channels of
+        pools and states, and the actions of `[controls]` and the chord (`toggle:old`, `mode:old`).
+        """
+        word = re.compile(rf"(?<![\w#@-]){re.escape(old)}(?![\w-])")
+
+        def renamed(value: Any, keys: tuple[str, ...] = ("show", "when")) -> Any:
+            """`value` with the id in the texts of a candidate (or of the keys of a table), the same if it is not."""
+            if isinstance(value, str):
+                return word.sub(new, value)
+            if isinstance(value, list):
+                return [renamed(item, keys) for item in value]
+            if isinstance(value, dict):
+                return {key: renamed(item, keys) if key in keys else item for key, item in value.items()}
+            return value
+
+        def action(value: Any) -> Any:
+            if isinstance(value, str):
+                return f"{value.split(':')[0]}:{new}" if value in (f"toggle:{old}", f"mode:{old}") else value
+            if isinstance(value, list):
+                return [action(item) for item in value]
+            if isinstance(value, dict):
+                return {key: renamed(item, ("when",)) if key == "when" else action(item) for key, item in value.items()}
+            return value
+
+        changes: list[tuple[OptionPath, Any]] = []
+        for slot, stack in self.get(("slots",), {}).items():
+            changes.append((("slots", slot), renamed(stack)))
+        for slot, entry in self.get(("controls",), {}).items():
+            changes.append((("controls", slot), action(entry)))
+        for name, state in self.get(("state",), {}).items():
+            if "when" in state:
+                changes.append((("state", name, "when"), renamed(state["when"])))
+            if "channels" in state:
+                changes.append(
+                    (("state", name, "channels"), [new if item == old else item for item in state["channels"]])
+                )
+        for name, pool in self.get(("pool",), {}).items():
+            if "channels" in pool:
+                changes.append(
+                    (("pool", name, "channels"), [new if item == old else item for item in pool["channels"]])
+                )
+        chord = self.get(("switching", "chord", "action"))
+        if chord is not None:
+            changes.append((("switching", "chord", "action"), action(chord)))
+        for path, value in changes:
+            if value != self.get(path):
+                self.set(path, value)
+
     def move_slot(self, source: int, target: int) -> None:
         """
         Moves slot `source` (1 for the leftmost one) to `target`, the slots between make room: its stack of
@@ -241,7 +291,13 @@ class SlotsDocument:
             return None
 
     def render(self) -> str:
-        """The TOML text of the data: the text that was read, with the changes."""
+        """
+        The TOML text of the data: the text that was read, with the changes. For a file that is not there yet it is
+        written anew (the sections in order, the slots by number) with the comment at the top of the example: the
+        commented examples below it and the notes on its values would not fit what the user made of it.
+        """
+        if not self.exists:
+            return _fresh(self.values, self._toml)
         _sync(self._toml, self.values, 0)
         return tomlkit.dumps(self._toml)
 
@@ -270,6 +326,32 @@ class SlotsDocument:
 
 INLINE_SECTIONS = frozenset({"controls"})
 """Sections whose entries are inline tables when they are new (`2 = { select = "toggle:call" }`)."""
+
+
+SECTION_ORDER = ("device", "behavior", "aliases", "mqtt", "voip", "switching", "channel", "pool", "state")
+"""The sections of a file that is written anew, before `[slots]` and `[controls]`."""
+
+
+def _fresh(values: dict[str, Any], original: Any) -> str:
+    """The data as a new file: the comment at the top of `original`, then the sections in a fixed order."""
+    header: list[str] = []
+    for line in tomlkit.dumps(original).splitlines():
+        if line.strip() and not line.startswith("#"):
+            break
+        header.append(line)
+    while header and not header[-1].strip():
+        header.pop()
+    ordered: dict[str, Any] = {name: values[name] for name in SECTION_ORDER if name in values}
+    ordered["slots"] = dict(sorted(values.get("slots", {}).items(), key=lambda item: int(item[0])))
+    if "controls" in values:
+        ordered["controls"] = dict(sorted(values["controls"].items(), key=lambda item: int(item[0])))
+    ordered.update({name: value for name, value in values.items() if name not in ordered})
+    if not ordered["slots"]:
+        del ordered["slots"]
+    document = tomlkit.document()
+    _sync(document, ordered, 0)
+    body = re.sub(r"(?<=[^\n])\n(?=\[)", "\n\n", tomlkit.dumps(document))
+    return ("\n".join(header) + "\n\n" if header else "") + body
 
 
 def _sync(container: Container | Table | InlineTable, values: dict[str, Any], depth: int, section: str = "") -> None:

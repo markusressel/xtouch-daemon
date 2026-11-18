@@ -86,7 +86,7 @@ class Tables(QWidget):
             wide = column.kind == Kind.TEXT and column.max_length is None
             if not wide:
                 # a label, a number: narrow
-                edit.setMaximumWidth(120 if column.kind == Kind.TEXT else 110)
+                edit.setMaximumWidth(100 if column.kind == Kind.TEXT else 84)
             layout.addWidget(edit, 1 if wide else 0)
             column_suggest = self._suggest.get(column.name)
             if column_suggest is not None:

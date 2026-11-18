@@ -16,6 +16,7 @@ from xtouch_daemon.config.files import default_config_path, example_config
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
+from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import notes, outcomes, table
 
 
@@ -69,9 +70,14 @@ def describe_strip(config: StripConfig, name: str, meter_point: MeterPoint = "pr
     return f"{label}{what} ({', '.join(details)})"
 
 
+ROWS_SHOWN = 12
+"""The most rows of the table of outcomes that `check-config` shows without `--all`."""
+
+
 @click.command("check-config")
 @CONFIG_OPTION
-def check_config(config_path: Path | None) -> None:
+@click.option("--all", "every_row", is_flag=True, help="Show every combination of the table, however many there are.")
+def check_config(config_path: Path | None, every_row: bool) -> None:
     """Check the configuration and show what each strip does."""
     path = config_path or default_config_path()
     config = load_or_fail(config_path)
@@ -84,7 +90,14 @@ def check_config(config_path: Path | None) -> None:
         meter_point = getattr(strip, "meter_point", None) or config.behavior.meter_point
         click.echo(f"  {name}: {describe_strip(strip, name, meter_point)}")
     click.echo("What the slots show:")
-    click.echo(table(outcomes(setup.scene)))
+    rows = outcomes(setup.scene)
+    # a long table is as hard to read as none: the situations that differ in one thing, the rest on request
+    shown = rows
+    if len(rows) > ROWS_SHOWN and not every_row:
+        shown = [row for row in rows if (row.mode != DEFAULT) + len(row.on) + len(row.flipped) <= 1]
+    click.echo(table(shown))
+    if len(shown) < len(rows):
+        click.echo(f"  ({len(rows) - len(shown)} more combinations of these: check-config --all)")
     if found := notes(setup.scene):
         click.echo("Notes:")
         for note in found:

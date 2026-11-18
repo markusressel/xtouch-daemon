@@ -14,6 +14,8 @@ The goal, for the 8 strips (slots) of the device:
 
 You need the daemon installed and the device [set up and tested](first-steps.md). The GUI starts with
 `xtouch-daemon gui`; without a configuration file it edits a new one and writes it with the first "Save and apply".
+That new file starts as the example: a channel `out` (the default output, on slot 8) and a channel `mic` (the default
+input, on slot 7). The tour changes them. The drawing of the device at the top shows what the file shows, as you edit.
 No device? [Run the virtual one](without-a-device.md) and use that one as the device in this tour.
 
 ## 1. See what you have
@@ -28,8 +30,9 @@ something in the browser first, so that `list-apps` has an application to show.
 
 ## 2. The main output
 
-**GUI:** page **Channels**, **Add**, **Output from the sound server**, pick your speakers. Rename the id to
-`main_output` (field next to the title), set the label to `Main` (up to 7 characters: that is all the LCD has).
+**GUI:** page **Channels**, pick `out`. Rename its id to `main_output` (field next to the title; the slots that name
+it follow), set the label to `Main` (up to 7 characters: that is all the LCD has) and the color to cyan. A second
+output would be **Add**, **Output from the sound server**.
 
 Select should switch between several devices, so add **Choices**: one per device, each with a label. A device that
 only exists in another profile of the sound card (the digital output, say) also needs the `card` and `profile`:
@@ -91,7 +94,8 @@ lit_when_idle = true        # the LCD stays lit while nothing plays: it is where
 
 ## 4. The microphone
 
-**GUI:** **Add**, **Input from the sound server**.
+**GUI:** page **Channels**, pick `mic`, and give it the label, the color and the device (the ▾ next to the field lists
+the inputs of the sound server). Another input: **Add**, **Input from the sound server**.
 
 ```toml
 [channel.mic]
@@ -105,12 +109,12 @@ encoder = "balance"
 ## 5. A state: in a call
 
 A *state* is when something matters. VoIP and the microphone should only take a strip while you are in a call, so
-make that a state. **GUI:** page **States**, **Add**, **In a call**; its sources are "You are in the voice chat"
+make that a state. **GUI:** page **States**, **Add**, **In a call (state)**; its sources are "You are in the voice chat"
 (Mumble, with its [plugin](../guides/mumble.md)) and "An application records" (Discord and the like have the
 microphone open while you talk):
 
 ```toml
-[state.in_call]
+[state.call]
 voice_chat = true
 recording = ["@voip"]
 delay_off = 5               # stays on 5 s after the last source went off: a reconnect is not the end of the call
@@ -119,7 +123,9 @@ delay_off = 5               # stays on 5 s after the last source went off: a rec
 ## 6. The slots
 
 **GUI:** page **Slots**. Each slot is a card with its candidates, the first whose condition holds is shown. **+** adds a
-candidate, the inspector sets what it shows and when (the condition is `in_call`, `browser plays`, `always`, ...).
+candidate at the end; pick one and the inspector sets what it shows ("Shows") and when ("When": empty is always, or a
+condition such as `call`, `present`, `call and not gaming`). Slots 7 and 8 start with one candidate each, from the
+example: change those.
 
 ```toml
 [slots]
@@ -132,8 +138,8 @@ candidate, the inspector sets what it shows and when (the condition is `in_call`
 5 = ["people", "apps"]
 6 = ["people", "apps"]
 # VoIP and the microphone in a call, else applications
-7 = ["voip if in_call", "apps"]
-8 = ["mic if in_call", "apps"]
+7 = ["voip if call", "apps"]
+8 = ["mic if call", "apps"]
 ```
 
 - `apps` is the next application that plays and has no channel; `people` the next person of the voice chat;
@@ -162,6 +168,8 @@ under **Extender** ([Behavior](../configuration/behavior.md#faders-without-a-tou
 ```shell
 xtouch-daemon check-config     # errors with the line they are in, then what every slot shows when
 ```
+
+A long table shows the situations that change one thing; `check-config --all` has every combination.
 
 The GUI shows the same on the page **Slots**: **Simulate** puts the device in another situation (in a call, nothing
 playing, a game running) and the drawing shows what the strips would show. Without a daemon the drawing already shows
@@ -234,7 +242,7 @@ label = "Game"
 [pool.people]
 color = "yellow"
 
-[state.in_call]
+[state.call]
 voice_chat = true
 recording = ["@voip"]
 delay_off = 5
@@ -246,8 +254,8 @@ delay_off = 5
 4 = ["people", "apps"]
 5 = ["people", "apps"]
 6 = ["people", "apps"]
-7 = ["voip if in_call", "apps"]
-8 = ["mic if in_call", "apps"]
+7 = ["voip if call", "apps"]
+8 = ["mic if call", "apps"]
 ```
 
 Where to go from here: [Channels, states and slots](../configuration/slots.md) for what else a slot can do (pools, modes,

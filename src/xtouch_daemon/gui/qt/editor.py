@@ -68,8 +68,9 @@ class Editor(QObject):
         self.edited(Change(Scope.CHANNELS))
 
     def rename_channel(self, name: str, new: str) -> None:
-        """Another id for a channel; the stacks, pools and states that name it are the user's to change."""
+        """Another id for a channel; the stacks, pools and states that name it follow."""
         self.document.rename(("channel", name), new)
+        self.document.rename_references(name, new)
         self.edited(Change(Scope.CHANNELS))
 
     def add_state(self, mode: bool, name: str | None = None, options: dict[str, Any] | None = None) -> str:
@@ -84,8 +85,9 @@ class Editor(QObject):
         self.edited(Change(Scope.STATES))
 
     def rename_state(self, name: str, new: str) -> None:
-        """Another id for a state; the conditions that name it are the user's to change."""
+        """Another id for a state; the conditions and controls that name it follow."""
         self.document.rename(("state", name), new)
+        self.document.rename_references(name, new)
         self.edited(Change(Scope.STATES))
 
     def move_slot(self, source: int, target: int) -> None:

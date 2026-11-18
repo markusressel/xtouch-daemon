@@ -49,7 +49,7 @@ Signals:
 ## `check-config`
 
 ```shell
-xtouch-daemon check-config [-c FILE]
+xtouch-daemon check-config [-c FILE] [--all]
 ```
 
 Validates the configuration, describes each channel and shows a table of what the slots show in which states.
@@ -72,8 +72,11 @@ A channel with [`choices`](../configuration/channels/devices.md#choices) lists t
 `output: Phones, Speaker or Buds (Select switches)`. A channel whose meter shows the level after its fader
 (`meter_point = "post_fader"`, see [Meters](../configuration/channels/index.md#meters)) says `meter post-fader`.
 
-A file with errors names the place of each one, e.g. `channel.mic.label: String should have at most 7 characters`, and
-the command fails. After the table, `Notes:` lists candidates that can never show (e.g. a channel below a pool
+A table of more than 12 rows shows the situations that differ in one thing; `--all` shows every combination.
+
+A file with errors names the place of each one and its line in the file, e.g.
+`channel.mic (line 12): label: String should have at most 7 characters`, with what is likely meant where it can be
+guessed (`brwoser is no channel or pool (did you mean browser?)`), and the command fails. After the table, `Notes:` lists candidates that can never show (e.g. a channel below a pool
 without a condition) and people with no slot to sit on.
 
 ## `init-config`
@@ -120,7 +123,7 @@ presets, for `match`, `exclude` and `[aliases]`.
 ## `test`
 
 ```shell
-xtouch-daemon test [-c FILE] [--no-events]
+xtouch-daemon test [-c FILE] [--no-events] [--virtual-device]
 ```
 
 Lights up everything on the device and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
@@ -128,7 +131,8 @@ meter, and moves its fader up and down. Then it shows what you do on the device 
 and the messages from the device the daemon doesn't use, until Ctrl+C. `--no-events` ends after the test.
 
 It takes the name of the device from `[device]` of the configuration. Stop the daemon first
-(`systemctl --user stop xtouch-daemon`): only one program can use the device.
+(`systemctl --user stop xtouch-daemon`): only one program can use the device. `--virtual-device` (or
+`[device] virtual = true`) tests the [virtual device](#virtual-device), which has to run (in another terminal).
 
 ## `virtual-device`
 

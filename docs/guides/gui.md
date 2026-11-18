@@ -16,7 +16,7 @@ them again; the GUI remembers it):
 
 - **Slots:** what each slot shows when, see [The slots](#the-slots).
 - **Channels:** the channels of the file, then the built-in pools `[pool.apps]`, `[pool.people]`, `[pool.auto]` and `[pool.devices]`.
-  Add (by type), Duplicate and Remove; the id can be renamed. Each says where it is used (`slot 2`, `pool games`, `state call`).
+  Add (by type), Duplicate and Remove; the id can be renamed (the slots, conditions, pools and controls that name it follow). Each says where it is used (`slot 2`, `pool games`, `state call`).
 - **States:** the modes first, then the other states. The form asks in order: State or Mode (a mode has a label and
   a priority), and On while: Sources or Condition, never both. Sources lists only the ones the state has, each with
   ✕ to remove it; Add source offers the others ("An application plays", "You are in the voice chat", ...), and the

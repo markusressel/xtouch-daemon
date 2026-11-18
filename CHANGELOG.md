@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   call" and "Gaming" in its Add menu, and says what a state is while there is none; an empty slot says what it shows.
 - `list-devices --snippet` prints a channel for every output and input, ready to paste (Bluetooth devices by a
   wildcard).
+- `test --virtual-device` (and `[device] virtual = true`) runs the self-test on the virtual device; its error without a
+  device says so.
+- `check-config --all`: a table of more than 12 rows shows only the situations that differ in one thing by default.
 - A Setup tour in the docs builds a whole configuration, step by step, in the GUI and in the file.
 - Errors of a file name its line (`slots.7[0] (line 12): ...`), and say what is likely meant: the closest channel,
   option or state, and "two names in a row" for a condition like `in call`; a label that is missing says what it is
@@ -21,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Renaming a channel or state in the GUI renames it in the slots, conditions, pools and controls that name it (they
+  went red before).
+- A file the GUI writes for the first time is written anew: sections in order, slots by number, no leftovers of the
+  example's comments in the middle of your slots. The drawing keeps what the file showed while the file has problems.
 - The page Device of Settings is called Extender, so "Device" is only the drawing of the device.
 - A new line in a table of the GUI (choices, profiles) is not part of the file until you type in it, so it shows no
   "required" error before; `profiles` shows only on a channel that has it (`choices` does the same).

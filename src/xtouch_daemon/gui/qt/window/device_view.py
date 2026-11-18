@@ -13,7 +13,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
-from xtouch_daemon.gui.domain.looks import device_faces
+from xtouch_daemon.gui.domain.looks import StripFace, device_faces
 from xtouch_daemon.gui.domain.simulate import WhatIf, simulated, simulated_faces
 from xtouch_daemon.gui.domain.slots import MODES
 from xtouch_daemon.gui.domain.status import Reason, Status, Tone, play_unavailable
@@ -60,6 +60,8 @@ class DeviceView(QWidget):
         self.daemon_runs = True
         """Whether a daemon runs (see `show_daemon`): without one, it offers to try without a device."""
         self.snapshot: Snapshot | None = None
+        self._file_faces: tuple[StripFace, ...] | None = None
+        """What the file showed last, while it is valid: kept while it has problems."""
         self.slots = slots
         """The slots: what Simulate shows instead of the device."""
         self.preview = Preview()
@@ -210,6 +212,10 @@ class DeviceView(QWidget):
         elif snapshot is None and config is not None:
             # no daemon: what the file shows in the default situation (no state on, nothing plays)
             faces = simulated_faces(config.slots, simulated(config.slots, WhatIf()), "file")
+            self._file_faces = faces
+        elif snapshot is None and self._file_faces is not None:
+            # a file with problems: the drawing keeps what the file showed before
+            faces = self._file_faces
         else:
             # the device, also while it shows the situation of Simulate
             faces = device_faces(snapshot)

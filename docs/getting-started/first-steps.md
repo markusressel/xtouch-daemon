@@ -27,7 +27,8 @@ Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its f
 you do on the device: faders, buttons and encoders. Ctrl+C stops it.
 
 Only one program can use the device. Stop the daemon before the test (`systemctl --user stop xtouch-daemon`), and close
-DAWs that use it.
+DAWs that use it. Without a device, start the virtual one in another terminal (`xtouch-daemon virtual-device`) and run
+`xtouch-daemon test --virtual-device`; see [Without a device](without-a-device.md).
 
 ## Write a configuration
 
