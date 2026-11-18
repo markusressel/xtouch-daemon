@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+The page GitHub Pages shows for an address of the site that has nothing (see .github/workflows/docs.yml, which puts
+it at the root of gh-pages, next to the versions of mike). An address without a version (a link from before the
+documentation had versions: /xtouch-daemon/configuration/slots/) or with a version that was never deployed (the GUI
+of a release links to its own version, /xtouch-daemon/0.2.0/..., before the release is built) goes to the same page
+in the version the root shows: latest, or dev before the first release. A page that is missing in a version that
+exists is not found.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>xtouch-daemon: page not found</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40em; margin: 4em auto; padding: 0 1em; color: #24292f; }
+    @media (prefers-color-scheme: dark) { body { background: #1e2127; color: #dcdfe4; } a { color: #61afef; } }
+  </style>
+  <script>
+    (async () => {
+      const base = "/xtouch-daemon/";
+      const path = location.pathname.startsWith(base) ? location.pathname.slice(base.length) : "";
+      const [first, ...rest] = path.split("/");
+      const response = await fetch(base + "versions.json", { cache: "no-store" });
+      if (!response.ok) return;
+      const versions = await response.json();
+      const known = new Set(versions.flatMap((v) => [v.version, ...v.aliases]));
+      if (known.has(first)) return; // the version exists, the page doesn't
+      const target = known.has("latest") ? "latest" : versions[0]?.version;
+      if (!target) return;
+      // a version (X.Y.Z) not deployed: the rest of the path; no version at all: all of it
+      const page = /^\d+\.\d+\.\d+$/.test(first) ? rest.join("/") : path;
+      location.replace(base + target + "/" + page + location.search + location.hash);
+    })();
+  </script>
+</head>
+<body>
+  <h1>Page not found</h1>
+  <p>This page doesn't exist (any more). See <a href="/xtouch-daemon/">the documentation of xtouch-daemon</a>.</p>
+</body>
+</html>
