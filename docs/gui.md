@@ -228,9 +228,6 @@ call and applications that play (the two counts; the strips show their names): a
 and the drawing, the cards and the why line follow it. With "Try on the device" on, the device shows it too (see
 [Try on the device](#try-on-the-device)); else nothing is sent to the daemon. Esc, or Simulate again, ends it.
 
-**Grid** lists every combination that shows something else, like the table of `xtouch-daemon check-config`. A click
-on a row simulates it, a click on a cell also picks the card of its slot.
-
 ## Editing options
 
 The forms come from the options of the configuration, so every option has a field. The options of a channel are in

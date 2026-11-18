@@ -53,8 +53,7 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - The table form `{ show = ..., when = ..., ... }` takes options of the look at this place (`label`, `color`,
   `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`); on `apps` and `auto` also `encoder`, `min_volume` and
   `max_volume`; on `people` only `color`, `meter` and `meter_point`.
-- The GUI's page Slots simulates other modes and states (Simulate) and lists every combination that shows
-  something else (Grid), like the table of `check-config`.
+- The GUI's page Slots simulates other modes and states (Simulate), in the drawing or on the device.
 - `xtouch-daemon why 2` says why slot 2 shows what it shows, `xtouch-daemon why voip` where the channel is and
   why.
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for

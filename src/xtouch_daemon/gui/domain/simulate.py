@@ -1,6 +1,6 @@
 """
 Simulate on the page Slots: what the slots would show with other modes, states and presence (a what-if), from the
-resolver alone; nothing goes to the daemon. The grid of distinct outcomes picks such what-ifs.
+resolver; with Try on the device, the daemon runs it on the device too (`live.StartPreview`).
 """
 
 import dataclasses
@@ -11,7 +11,7 @@ from xtouch_daemon.gui.domain.looks import DARK, StripFace, StripLook
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import SlotsState, SlotView, StateView
 from xtouch_daemon.slots.model import AUTO, BUILT_IN, DEFAULT
-from xtouch_daemon.slots.outcomes import Outcome, Situation, dimensions, simulate, states_for
+from xtouch_daemon.slots.outcomes import Situation, dimensions, simulate, states_for
 
 SIMULATED = "what if"
 """The source of a state that is on in a simulation."""
@@ -24,11 +24,6 @@ class WhatIf(Situation):
     pools: present, `auto`: an application plays), so many people in the call, applications that play and outputs
     and inputs without a channel. The daemon can run it too (`live.StartPreview`).
     """
-
-    @classmethod
-    def of(cls, outcome: Outcome) -> WhatIf:
-        """The what-if of a row of the grid."""
-        return cls(outcome.mode, frozenset(outcome.on), frozenset(outcome.flipped))
 
     def counted(self, people: int | None = None, apps: int | None = None, devices: int | None = None) -> WhatIf:
         """With so many people in the call, applications that play, or devices without a channel."""

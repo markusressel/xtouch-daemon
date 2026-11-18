@@ -30,10 +30,6 @@ before. Two possible causes, not checked yet:
 Next time a game starts: `pactl list sink-inputs` shows its `application.name` and the volume it starts with. If
 PipeWire doesn't restore it, remember the volume per game ourselves.
 
-## Does the "Grid" view really add anything of value?
-
-I feel like it is not helpful, and we should probably remove it. Is there a reason to keep it that makes sense?
-
 ## Sidebar buttons
 
 Can we make our main sidebar collapsable into just icons? that
@@ -52,4 +48,12 @@ Can we make our main sidebar collapsable into just icons? that
 can our documentation show different git states? so we can show
   the documentation for different versions/tags/commits or the
   repo? If not we should add that.
+
+## AI support
+
+Is there anything we should add to either the daemon or the GUI to help AI work with them?
+Or is it enough that we have a config and documentation up online?
+If we can avoid implementing features for AI, that would be best, but if there is something that would add real value to a user, it is worth it.
+I was able to edit the config to my liking with AI pretty easily, but maybe there is still something to make it easier for less smart models?
+
 

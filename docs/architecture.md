@@ -159,7 +159,7 @@ itself does not import it.
   turns sound server snapshots into suggestions, `apply()` decides between reload, restart and "the daemon does not
   run". `gui/qt` only shows that and passes edits back.
 - **Pages by what they edit.** A rail on the left has the pages: Slots (a card per slot with its stack, an inspector
-  for the candidate picked, why it shows, Simulate and the Grid), Channels, States and Settings (`[device]`,
+  for the candidate picked, why it shows, Simulate), Channels, States and Settings (`[device]`,
   `[behavior]`, `[aliases]`, `[mqtt]` as "Home Assistant", `[voip]`). Slots, Channels and States are two panes with a
   `PaneSplitter` (`gui/qt/window/splitter.py`) between them, which keeps its share in `QSettings`.
 - **The device on every page.** The drawing of the device (`DeviceView`, `gui/qt/window/device_view.py`) is a

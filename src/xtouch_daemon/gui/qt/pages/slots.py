@@ -17,16 +17,12 @@ from PyQt6.QtWidgets import (
     QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
-    QHeaderView,
     QListWidget,
     QListWidgetItem,
     QMenu,
     QPushButton,
     QScrollArea,
     QSpinBox,
-    QStackedWidget,
-    QTableWidget,
-    QTableWidgetItem,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -70,7 +66,6 @@ from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
 from xtouch_daemon.slots.model import APPS, AUTO, DEFAULT, DEVICES, PEOPLE
-from xtouch_daemon.slots.outcomes import Outcome, outcomes
 from xtouch_daemon.slots.why import why_channel, why_slot
 
 _INDEX = Qt.ItemDataRole.UserRole
@@ -304,18 +299,11 @@ class SlotsPanel(Page):
         set_role(self.simulate_button, "segment", "variant")
         self.simulate_button.setCheckable(True)
         self.simulate_button.setToolTip(
-            "What the slots would show in other modes and states; nothing is sent (Esc ends it)"
+            "What the slots would show in other modes and states; on the device too with Try on the device "
+            "(Esc ends it)"
         )
         self.simulate_button.clicked.connect(lambda checked: self.simulate(WhatIf() if checked else None))
         top.addWidget(self.simulate_button)
-        self.grid_button = button("table", "Grid")
-        set_role(self.grid_button, "segment", "variant")
-        self.grid_button.setCheckable(True)
-        self.grid_button.setToolTip(
-            "Every combination that shows something else: a row simulates it, a cell picks its slot"
-        )
-        self.grid_button.clicked.connect(self.show_grid)
-        top.addWidget(self.grid_button)
         self.layout_.addWidget(row(top))
         self.state_buttons: dict[str, QToolButton] = {}
         cards = QWidget()
@@ -325,19 +313,6 @@ class SlotsPanel(Page):
         self.card_scroll.setWidgetResizable(True)
         self.card_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.card_scroll.setWidget(cards)
-        self.grid = QTableWidget()
-        self.grid.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.grid.cellClicked.connect(self._grid_cell)
-        horizontal = self.grid.horizontalHeader()
-        assert horizontal is not None
-        horizontal.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        vertical = self.grid.verticalHeader()
-        assert vertical is not None
-        vertical.sectionClicked.connect(self._grid_row)
-        self.outcomes: list[Outcome] = []
-        self.middle = QStackedWidget()
-        self.middle.addWidget(self.card_scroll)
-        self.middle.addWidget(self.grid)
         self.lists: list[StackList] = []
         self.card_frames: list[QFrame] = []
         self.card_contents: list[tuple[list[Row], int | None, dict[int, str], bool, tuple[str, str] | None] | None] = [
@@ -389,7 +364,7 @@ class SlotsPanel(Page):
         inspector.addWidget(self.controls)
         inspector.addStretch()
         self.inspector_scroll = scrolled(self.inspector)
-        self.splitter = PaneSplitter("slots", self.middle, self.inspector_scroll)
+        self.splitter = PaneSplitter("slots", self.card_scroll, self.inspector_scroll)
         self.layout_.addWidget(self.splitter, 1)
         self._show()
 
@@ -426,13 +401,12 @@ class SlotsPanel(Page):
 
     def _show(self) -> None:
         config = self.editor.validation.config
-        for toggle in (self.simulate_button, self.grid_button):
-            toggle.setEnabled(config is not None)
-            toggle.setToolTip(toggle.toolTip() if config is not None else "Only for a file without problems")
+        self.simulate_button.setEnabled(config is not None)
+        self.simulate_button.setToolTip(
+            self.simulate_button.toolTip() if config is not None else "Only for a file without problems"
+        )
         if self.what_if is not None:
             self.simulate(self.what_if if config is not None else None)
-        if self.grid_button.isChecked():
-            self.show_grid(config is not None)
         self._show_state_bar()
         self._show_cards()
         self._show_inspector()
@@ -814,7 +788,7 @@ class SlotsPanel(Page):
         slots = self.shown_slots()
         return {view.slot: view for view in slots.slots} if slots is not None else {}
 
-    # -- simulate and the grid ---------------------------------------------------------------------------------------
+    # -- simulate ------------------------------------------------------------------------------------------------
 
     def simulate(self, what_if: WhatIf | None) -> None:
         """Shows what the slots would show in `what_if`; None goes back to what the daemon tells."""
@@ -867,32 +841,6 @@ class SlotsPanel(Page):
             count.setToolTip(tip)
             count.valueChanged.connect(lambda n, counted=counted: self.simulate(counted(n)))
             self.what_if_bar.addWidget(count)
-
-    def show_grid(self, shown: bool) -> None:
-        """The grid of distinct outcomes in place of the cards (or the cards again)."""
-        config = self.editor.validation.config
-        self.grid_button.setChecked(shown)
-        self.middle.setCurrentWidget(self.grid if shown else self.card_scroll)
-        if not shown or config is None:
-            return
-        self.outcomes = outcomes(config.slots.scene)
-        self.grid.clear()
-        self.grid.setRowCount(len(self.outcomes))
-        self.grid.setColumnCount(protocol.STRIPS)
-        self.grid.setHorizontalHeaderLabels([str(slot) for slot in range(1, protocol.STRIPS + 1)])
-        self.grid.setVerticalHeaderLabels([outcome.label for outcome in self.outcomes])
-        for index, outcome in enumerate(self.outcomes):
-            for column, shows in enumerate(outcome.slots):
-                self.grid.setItem(index, column, QTableWidgetItem(shows))
-
-    def _grid_row(self, index: int) -> None:
-        self.simulate(WhatIf.of(self.outcomes[index]))
-
-    def _grid_cell(self, index: int, column: int) -> None:
-        """Simulates the row and picks the card of the slot."""
-        self._grid_row(index)
-        self.show_grid(False)
-        self.select_slot(column + 1)
 
     # -- picking --------------------------------------------------------------------------------------------------
 
