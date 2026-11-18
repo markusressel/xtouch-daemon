@@ -1,6 +1,6 @@
 """
 Running a configuration of channels, states and slots on the device (the prototype of
-docs/development/design/channels-states-slots.md): the `SlotEngine` feeds a `Simulation` with what the sound server, the
+docs/development/design/slots/index.md): the `SlotEngine` feeds a `Simulation` with what the sound server, the
 processes and the voice chat show, and takes the requests (a mode, an override, a pin); its result says what the
 `SlotMixer` (`runtime.binder`) puts on each strip of the device.
 """

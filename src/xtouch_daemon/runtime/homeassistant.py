@@ -1,5 +1,5 @@
 """
-Channels, states and slots in Home Assistant (see "Home Assistant" in docs/development/design/channels-states-slots.md),
+Channels, states and slots in Home Assistant (see docs/development/design/slots/daemon.md),
 for as long as the configuration:
 
 - `select.<ns>_mode`: the mode picked by hand, or `auto` for the rules.

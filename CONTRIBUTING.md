@@ -56,4 +56,4 @@ In PyCharm, use `.venv` as the interpreter. `.run/` holds run configurations for
 To try a change on the device, stop the service first (`systemctl --user stop xtouch-daemon`): only one program can
 open the device. Then `just run -l debug`.
 
-See [docs/development/architecture.md](docs/development/architecture.md) for how the parts fit together.
+See [docs/development/architecture/index.md](docs/development/architecture/index.md) for how the parts fit together.

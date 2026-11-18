@@ -22,7 +22,7 @@ from xtouch_daemon.slots.model import DEFAULT, Scene
 from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.voip.demo import DemoProvider
 
-EXAMPLE = DOCS / "development" / "design" / "channels-states-slots.toml"
+EXAMPLE = DOCS / "development" / "design" / "slots" / "example.toml"
 """The complete example of the design."""
 
 

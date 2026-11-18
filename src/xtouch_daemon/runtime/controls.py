@@ -1,5 +1,5 @@
 """
-The controls of the slots (`[controls]`, see "Controls" in docs/development/design/channels-states-slots.md): what a
+The controls of the slots (`[controls]`, see docs/development/design/slots/slots.md): what a
 fader, encoder or button of a slot does whatever the slot shows. Each entry is a claim on the `Desk`'s strip of the slot
 while its `when` holds (the first of a slot whose `when` holds); a slot under a finger keeps its claim until it is let
 go. A claim shows what it takes (the fader, the ring, the LEDs of its buttons); the controller of what the slot shows

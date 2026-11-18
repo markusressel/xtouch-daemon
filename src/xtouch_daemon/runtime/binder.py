@@ -1,5 +1,5 @@
 """
-The slots on the device, natively (see "The daemon" in docs/development/design/channels-states-slots.md): a controller
+The slots on the device, natively (see docs/development/design/slots/daemon.md): a controller
 per channel for as long as the configuration, one per application of `auto` and per person while they are members, and
 a binder that puts on each strip of the device the controller of what its slot shows. Only slots whose result
 changed are bound again: the others keep their controller, their fader and their texts.

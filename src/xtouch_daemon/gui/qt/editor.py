@@ -1,7 +1,7 @@
 """
 The one source of truth of the window: the document being edited, its undo history and its validation. Views read
 from here and change the document through here; the signal tells them what changed, so each one updates what it
-shows in place (see the GUI section of docs/development/architecture.md).
+shows in place (see docs/development/architecture/gui.md).
 """
 
 from typing import Any

@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   keeps only what the service needs: Install and start, Start, or Restart after an upgrade.
 - Play: a drag on the knob of an encoder turns it (up or right is clockwise), holding the knob holds it down, and
   holding on an LED of the ring turns the encoder until the ring lights it.
+- The development docs: the architecture is split by topic (audio, live view, GUI, testing), the design of channels,
+  states and slots into a page per concept with only what holds now, and replaced designs (layouts, strips that move,
+  how the slots were built) are under History.
 
 ### Fixed
 
@@ -33,7 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   [Hardware](docs/reference/hardware.md#the-virtual-device) knows. The live view shows the daemon's mirror of the device (the
   same model), so the GUI draws what reached the device, banners and flashes included, with the motors and meters
   moving as on it. See `docs/development/design/device-simulator.md`.
-- Channels, states and slots (see the page Channels, states and slots and `docs/development/design/channels-states-slots.md`):
+- Channels, states and slots (see the page Channels, states and slots and `docs/development/design/slots/index.md`):
   `[channel.*]` say what a strip can control, `[state.*]` what goes on (a call, a game, a mode), and `[slots]` what
   each of the 8 strips shows, as candidates with conditions (`"voip if call"`, `"mum if present"`). A slot gets
   another strip when what it shows changes, the others stay as they are (no blank texts), a slot that shows another
@@ -165,7 +168,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `check-config` names the old spellings. `present(apps)` and `present(people)` work in conditions,
   `present(auto)` holds while either does. `check-config` notes candidates that never show and people that can
   sit nowhere, `xtouch-daemon why people` tells who sits where and who waits, and the GUI's Simulate takes a
-  number of people in the call and of applications that play. See `docs/development/design/people-slots.md`.
+  number of people in the call and of applications that play. See `docs/development/design/slots/people.md`.
 - Select and Play above the drawing of the device in the GUI. Select: dragging a strip moves its slot (candidates and
   controls) to another place, the others glide aside, as do Ctrl+Left/Right and the context menu. Play: the mouse is a
   hand on the device, on the virtual device the GUI hosts or on the device of a running daemon, which takes a new

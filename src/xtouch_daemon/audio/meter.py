@@ -8,11 +8,11 @@ indicator of the desktop, or switch Bluetooth headphones into their headset mode
 They are native PipeWire streams on purpose: WirePlumber 0.5.18 (PipeWire 1.6.10) restores captures of PulseAudio
 clients (`parec`, peak detection streams) at 0 % volume, so they would only get silence.
 
-Where the volume is (measured with PipeWire 1.6.10, see docs/development/architecture.md): a stream and an input apply
-their volume and Mute in their own node (audioconvert), so everything that links to them gets the audio after both. The
-monitor of an output is taken before the output's volume and Mute (`monitor.channel-volumes` is off by default). The
-meters capture what they can and turn it into the level of the strip's `meter_point` with the volume the sound server
-tells (`scale_of()`): the audio of a muted stream or input is gone, its pre-fader level with it.
+Where the volume is (measured with PipeWire 1.6.10, see docs/development/architecture/audio.md): a stream and an
+input apply their volume and Mute in their own node (audioconvert), so everything that links to them gets the audio
+after both. The monitor of an output is taken before the output's volume and Mute (`monitor.channel-volumes` is off
+by default). The meters capture what they can and turn it into the level of the strip's `meter_point` with the volume
+the sound server tells (`scale_of()`): the audio of a muted stream or input is gone, its pre-fader level with it.
 """
 
 import array

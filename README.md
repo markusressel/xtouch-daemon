@@ -106,7 +106,7 @@ processes = ["@steam-games"]
 - [Commands](docs/reference/commands.md)
 - [Troubleshooting](docs/guides/troubleshooting.md)
 - [Hardware and protocol](docs/reference/hardware.md)
-- [Architecture](docs/development/architecture.md)
+- [Architecture](docs/development/architecture/index.md)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
 - [Releasing](RELEASING.md)

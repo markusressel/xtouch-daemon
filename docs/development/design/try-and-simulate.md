@@ -23,7 +23,7 @@ One preview with two optional parts, both run by the daemon:
 - **the situation**: the what-if of Simulate, or the real one.
 
 The switch "Try on the device" (next to Save and apply) sends whatever differs from reality: the unsaved changes,
-and while Simulate is open, its situation too. With the switch off, Simulate stays what it is today: the drawing
+and while Simulate is open, its situation too. With the switch off, Simulate stays what it was before: the drawing
 only. So the real device never changes without that switch (decision 1).
 
 ## The situation in the daemon
@@ -41,13 +41,13 @@ The `SlotEngine` runs a situation in a second `Simulation` of its own (`what_if`
   `people` people, `devices` devices. Stand-ins are taken from what is real first (applications that play now,
   people in the call, devices without a channel), then made up (`App 3`, `Person 2`, `Device 1`): a real one has
   audio behind its strip, a made-up one shows its label on a strip that controls nothing.
-- **Delays and dwells** apply as in reality: a state switched on in the situation waits its `on_delay`, a channel
+- **Delays and dwells** apply as in reality: a state switched on in the situation waits its `delay_on`, a channel
   that goes absent stays `absent_after` seconds. That is the point of trying it on the device.
 - The real `Simulation` is not stepped while a situation runs, and nothing of the situation is kept: no
   `slots.json`, no `people.json`.
 
 `engine.active` is the `Simulation` that runs (the situation's, or the real one); the `SlotMixer` and the live view
-use it. Home Assistant keeps the real one: its slot sensors and state sensors are not updated while a situation runs,
+use it (see [Live view](../architecture/live-view.md#live-preview) for the preview around it). Home Assistant keeps the real one: its slot sensors and state sensors are not updated while a situation runs,
 so automations never see a made-up situation. The live view tells `simulated: true` in the snapshot, with the slots
 and states of the situation.
 
@@ -63,7 +63,7 @@ steps again at once and the slots show reality.
 - **Simulate** with the switch on: the what-if goes to the daemon (debounced like edits), the drawing shows the live
   device (with the accent frame while the situation runs), the cards show the daemon's slots and their why, and Play
   works: the faders of real stand-ins move their audio.
-- **Simulate** with the switch off: as today, the resolver in the GUI, the drawing only, no Play. Its bar says
+- **Simulate** with the switch off: as before, the resolver in the GUI, the drawing only, no Play. Its bar says
   "Only in the drawing: turn on Try on the device to run it on the device."
 - **The switch** is there while there are unsaved changes or Simulate is open, and a daemon can take it.
 - **The pill** next to it: "On the device, not saved", "On the device · simulated", "On the device, not saved ·

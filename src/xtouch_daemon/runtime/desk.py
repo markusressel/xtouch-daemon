@@ -3,8 +3,8 @@ The desk: the 8 strips of the device for as long as the daemon runs, whatever co
 them. It knows the hands (faders under a finger, buttons held down), hands every event of the device to the presenter
 bound to its strip, and sends a release to whoever got the press, even when another presenter was bound in between.
 The meters of the strips and the chord of Solo buttons are its business too: a capture goes on while another
-mixer takes over a strip that shows the same. See "Step 2: the Desk" in
-docs/development/design/channels-states-slots.md.
+mixer takes over a strip that shows the same. See "The runtime" in
+docs/development/design/slots/daemon.md.
 """
 
 import asyncio

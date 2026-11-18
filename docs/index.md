@@ -76,4 +76,4 @@ for lights, speakers in other rooms or scenes.
 | Guides | The [GUI](guides/gui.md), [Home Assistant](guides/home-assistant.md), [Mumble](guides/mumble.md), and [Troubleshooting](guides/troubleshooting.md). |
 | [Configuration](configuration/index.md) | The file, applying changes, and every option: [channels, states and slots](configuration/slots.md), the [channel types](configuration/channels/index.md), the parts of a strip. |
 | Reference | Every [command](reference/commands.md), the [hardware and its protocol](reference/hardware.md), the [voice chat bridge](reference/voice-chat-bridge.md). |
-| Development | How it works inside ([Architecture](development/architecture.md)) and why ([Design documents](development/design/channels-states-slots.md)). |
+| Development | How it works inside ([Architecture](development/architecture/index.md)) and why ([Design documents](development/index.md)). |

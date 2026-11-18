@@ -3,7 +3,7 @@
 What the device shows: **channels** are what a strip can control (an output, a group of applications, a person),
 each strip of the device (a **slot**) has a short list of the channels it can show, and **states** (in a call,
 gaming) decide which. A slot changes only when what it shows changes; the others stay as they are. The
-[design](../development/design/channels-states-slots.md) has every detail.
+[design](../development/design/slots/index.md) has every detail.
 
 `xtouch-daemon init-config` writes a small example. `xtouch-daemon check-config` shows a table of what each slot
 shows in which states.

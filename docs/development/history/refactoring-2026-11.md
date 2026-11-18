@@ -1,9 +1,7 @@
-# Refactoring, November 2026
+# History: refactoring, November 2026
 
-A pass over the code for structure, without changing what anything does. The steps are ranked by value against risk;
-each is one commit, checked with ruff, pyright and the tests that cover it.
-
-Status: all eight steps are done (2026-11-18).
+Status: done (2026-11-18). A pass over the code for structure, without changing what anything does. The steps were
+ranked by value against risk; each was one commit, checked with ruff, pyright and the tests that cover it.
 
 ## Survey
 
@@ -41,7 +39,7 @@ Status: all eight steps are done (2026-11-18).
 8. **The files of the slots.** `runtime/slots.py` keeps the `SlotEngine`; reading and writing `slots.json` and
    `people.json` go to `runtime/slot_files.py`.
 
-After these, `docs/development/architecture.md` names the new modules.
+After these, the [architecture](../architecture/index.md) names the new modules.
 
 ## Left as they are
 
