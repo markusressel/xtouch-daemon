@@ -334,7 +334,7 @@ def pool_text(values: Mapping[str, Any], name: str) -> str:
         )
     else:
         what = f"the next present channel of its list, from the {side(name, 'left')}"
-    return f"Pool {name}: {what}. A slot it has no member for goes to the pool or - right below."
+    return f"Pool {name}: {what}. With none left for a slot, the candidate below it gets the slot (a pool or `-`)."
 
 
 def choices(values: Mapping[str, Any]) -> list[str]:

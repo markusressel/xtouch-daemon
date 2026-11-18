@@ -46,7 +46,7 @@ from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, label
+from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, help_text, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
@@ -58,11 +58,11 @@ from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
 from xtouch_daemon.slots.model import AUTO, DEFAULT, DEVICES
-from xtouch_daemon.slots.why import why_channel, why_slot
+from xtouch_daemon.slots.why import where, why_slot
 
 SHOWS_HELP = (
     "What the slot shows while this candidate wins: a channel, a pool (`apps`, `people`, `auto`, ...) or `-` for a "
-    "dark strip. A slot the pool has no member for goes to the pool right below."
+    "dark strip. A pool with none left for the slot leaves it to the candidate below (a pool or `-`)."
 )
 """The help under Shows (see Writing help in `AGENTS.md`)."""
 WHEN_HELP = (
@@ -193,11 +193,14 @@ class SlotsPanel(Page):
         self.place_rows: list[OptionRow] = []
         """The rows of the form shown."""
         self.channel = label("", "hint", wrap=True)
+        """What the candidate shows, and where it is now: as the help (`code`, the colors of states and channels)."""
+        self.channel.setTextFormat(Qt.TextFormat.RichText)
         inspector.addWidget(self.channel)
         self.channel_button = button("pencil-outline", "Edit the channel")
         self.channel_button.clicked.connect(lambda: self.show_channel(self._candidate_row().show))
         inspector.addWidget(self.channel_button)
         self.controls = label("", "hint", wrap=True)
+        self.controls.setTextFormat(Qt.TextFormat.RichText)
         inspector.addWidget(self.controls)
         inspector.addStretch()
         self.inspector_scroll = scrolled(self.inspector)
@@ -296,7 +299,13 @@ class SlotsPanel(Page):
             self.candidate = len(stack) - 1 if stack else None
         self._show_why()
         controls = controls_text(self.document.values, self.slot)
-        set_text(self.controls, "Controls: " + "; ".join(controls) if controls else "No controls of its own.")
+        if controls:
+            text = f"`[controls]` claims parts of slot {self.slot}: " + "; ".join(controls) + "."
+        else:
+            text = (
+                f"Its buttons, encoder and fader work as what it shows: `[controls]` claims none of slot {self.slot}."
+            )
+        set_text(self.controls, _help(text))
         for widget in (self.show_box, self.when_edit, self.channel):
             widget.parentWidget().setVisible(self.candidate is not None)  # pyright: ignore[reportOptionalMemberAccess]
         for widget in (self.channel, self.show_help, self.when_help):
@@ -322,20 +331,20 @@ class SlotsPanel(Page):
         if isinstance(channel, dict):
             kind = CHANNEL_TYPES.get(str(channel.get("type")))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
             elsewhere = [use for use in uses(self.document.values, candidate.show) if use != f"slot {self.slot}"]
-            set_text(
-                self.channel,
+            text = (
                 f"Channel {candidate.show} ({kind.title if kind else '?'}). "
                 + (f"Also used in: {', '.join(elsewhere)}." if elsewhere else "Used nowhere else.")
-                + self._channel_why(candidate.show),
+                + self._channel_why(candidate.show)
             )
+            set_text(self.channel, _help(text))
             strip = kind.strip if kind else None
         else:
-            set_text(
-                self.channel,
+            text = (
                 "Nothing: the strip is dark."
                 if candidate.show == EMPTY
-                else pool_text(self.document.values, candidate.show) + self._channel_why(candidate.show),
+                else pool_text(self.document.values, candidate.show) + self._channel_why(candidate.show)
             )
+            set_text(self.channel, _help(text))
             strip = pool_strip(candidate.show)
         if strip is not None:
             form, self.place_rows = self._place_form(strip, place_options(candidate.show))
@@ -348,7 +357,8 @@ class SlotsPanel(Page):
         slots = self.shown_slots()
         if slots is None:
             return ""
-        return f"\n{'What if' if self.simulation else 'Now'}: {why_channel(slots, name)}"
+        # the sentence before it names the channel or pool already
+        return f"\n{'What if' if self.simulation else 'Now'}: {where(slots, name)}."
 
     def _show_why(self) -> None:
         live = self.shown_slots()
@@ -665,3 +675,8 @@ class SlotsPanel(Page):
             self.request(SetMode(name if value == "on" else "auto"))
         else:
             self.request(SetOverride(name, value))
+
+
+def _help(text: str) -> str:
+    """`text` as the help shows it (see `help_text`), its lines as lines."""
+    return "<br>".join(help_text(line) for line in text.split("\n"))

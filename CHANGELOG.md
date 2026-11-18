@@ -184,6 +184,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   is while the what-ifs replace the states.
 - "Learn more" opens the documentation of the installed version; addresses without a version (older links) and of
   versions not published yet go to the same page of the latest documentation instead of "not found".
+- The inspector of a slot says it plainly: a pool with no member on a slot is "no application on a slot" (or
+  nobody, no device, no person or application), members without `app:`, the controls line what `[controls]` claims
+  of the slot or that it claims none, and the help of a pool that the candidate below gets the slot it can't fill.
+  `xtouch-daemon why` words pools the same way.
 - Dragging the handle between the panes of a page no longer lags: where it was left is written once, when it is let
   go, not on every move.
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
