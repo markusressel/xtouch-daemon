@@ -134,6 +134,10 @@ def _entities(c: ThemeColors) -> str:
             f"min-height: {2 * Radius.PILL - 2}px; padding: 0 {Space.S}px; }}"
         )
         rules.append(f'QToolButton[entity="{entity}"]:hover {{ background: {tint(color, 4 * TINT_ALPHA)}; }}')
+        # the one picked of several (the path of the candidates of a slot)
+        rules.append(
+            f'QToolButton[entity="{entity}"]:checked {{ background: {tint(color, 6 * TINT_ALPHA)}; font-weight: bold; }}'
+        )
         # a condition (`variant="outline"`): only the line and the text, so it reads apart from what a slot shows
         rules.append(
             f'QLabel[role="chip"][entity="{entity}"][variant="outline"] {{ color: {color}; background: transparent; }}'

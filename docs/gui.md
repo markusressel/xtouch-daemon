@@ -226,21 +226,25 @@ On the page Slots:
   person sits there, also when `apps` is above it). Options of the strip in that slot only follow as in the file (`color
   = white, rec = recording`). + adds `auto` at the end, the bin removes the candidate picked. Drag a candidate, or move
   it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
-- **The inspector** edits the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or
+- **The inspector** starts with the path of the slot's candidates (`Slot 3 › 1 games › 2 apps`: the one picked
+  highlighted, ● the one the slot shows, ○ the one it came to that has none left; a click picks one) and a box of
+  what goes on: why the slot shows what it shows, a step a line (✗ a candidate passed over and why, → what it shows,
+  the same as `xtouch-daemon why 3`), which channel the candidate shows, where else that is used and where it is
+  now, or what a pool hands out and from which side, with "Edit the channel" to its page, and what `[controls]`
+  claims of the slot. Below it, it edits the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or
   `auto`, `-`), when (the
   [condition](configuration/slots.md#conditions):
   states violet, channels in `present(...)` teal, a mistake underlined in red with what is wrong in its tooltip;
   typing offers the states, keywords and channels that fit, Ctrl+Space all of them),
   and the options of its place (look, on `apps` and `auto` the encoder and the volume range, on `people` the look of
-  a person's strip). It says why the slot shows what it shows (the same as `xtouch-daemon why 2`), which channel the
-  candidate shows, where else that is used and where it is now, or what a pool hands out and from which side, with "Edit the channel" to its page; below, the controls of the slot (`[controls]`).
+  a person's strip).
 
 Clicking a strip in the window Device (or Left, Right, Home, End) picks its card, with the candidate it shows.
 
 **Simulate** shows what the slots would show in another mode, with other states on, with channels absent (`auto
 plays`: an application plays; `people fill`, `apps fill`: as many as there are slots), or with so many people in the
 call and applications that play (the two counts; the strips show their names): a frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar,
-and the drawing, the cards and the why line follow it. With "Try on the device" on, the device shows it too (see
+and the drawing, the cards and the box of the inspector follow it. With "Try on the device" on, the device shows it too (see
 [Try on the device](#try-on-the-device)); else nothing is sent to the daemon. Esc, or Simulate again, ends it.
 
 ## Editing options

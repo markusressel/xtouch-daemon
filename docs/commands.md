@@ -166,7 +166,7 @@ for it:
 $ xtouch-daemon why 2
 Slot 2: voip if call: doesn't hold (call is off); shows auto:app:firefox
 $ xtouch-daemon why browser
-browser: on 4; not 8 (on slot 4 (tie, to the left))
+browser: on slot 4; not slot 8 (on slot 4 (tie, to the left))
 ```
 
 The GUI shows the same above the inspector of a slot on the page Slots.

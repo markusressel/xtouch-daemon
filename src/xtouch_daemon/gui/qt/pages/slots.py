@@ -14,6 +14,7 @@ from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QComboBox,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QPushButton,
     QScrollArea,
@@ -31,6 +32,7 @@ from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text, sim
 from xtouch_daemon.gui.domain.slot_stacks import (
     EMPTY,
     Row,
+    StepKind,
     choices,
     controls_text,
     member_summary,
@@ -41,6 +43,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     rows,
     stack_value,
     targets,
+    why_steps,
 )
 from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
@@ -52,13 +55,13 @@ from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import StackList
-from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
 from xtouch_daemon.slots.model import AUTO, DEFAULT, DEVICES
-from xtouch_daemon.slots.why import where, why_slot
+from xtouch_daemon.slots.why import where
 
 SHOWS_HELP = (
     "What the slot shows while this candidate wins: a channel, a pool (`apps`, `people`, `auto`, ...) or `-` for a "
@@ -160,11 +163,37 @@ class SlotsPanel(Page):
             self._card(slot)
         self.cards.addStretch()
         self.inspector, inspector = card()
+        crumbs = QHBoxLayout()
+        crumbs.setSpacing(Space.XS)
         self.title = label("", "section")
-        inspector.addWidget(self.title)
-        self.why = label("", "hint", wrap=True)
-        """Why the slot shows what it shows (`xtouch-daemon why <slot>`), while the daemon tells it."""
-        inspector.addWidget(self.why)
+        set_role(self.title, Entity.SLOT.value, "entity")
+        crumbs.addWidget(self.title)
+        self.crumbs = QHBoxLayout()
+        """The candidates of the slot as a path, the one picked highlighted, the one it shows with a dot."""
+        self.crumbs.setSpacing(Space.XS)
+        crumbs.addLayout(self.crumbs)
+        crumbs.addStretch()
+        inspector.addWidget(row(crumbs))
+        self.shown_crumbs: tuple[object, ...] | None = None
+        self.status_box = QFrame()
+        """
+        What goes on, at the top: why the slot shows what it shows (while the daemon tells it), what the candidate
+        shows and where it is now, and what `[controls]` claims; a bar in the color of how it is doing.
+        """
+        set_role(self.status_box, "popover_row")
+        status = QVBoxLayout(self.status_box)
+        status.setContentsMargins(Space.M, Space.S, Space.S, Space.S)
+        status.setSpacing(Space.S)
+        self.why = QWidget()
+        """Why the slot shows what it shows (`xtouch-daemon why <slot>`), a step a line."""
+        self.why_rows = QGridLayout(self.why)
+        self.why_rows.setContentsMargins(0, 0, 0, 0)
+        self.why_rows.setHorizontalSpacing(Space.S)
+        self.why_rows.setVerticalSpacing(Space.XS)
+        self.why_rows.setColumnStretch(2, 1)
+        self.shown_steps: tuple[object, ...] | None = None
+        status.addWidget(self.why)
+        inspector.addWidget(self.status_box)
         what = QHBoxLayout()
         what.addWidget(label("Shows"))
         self.show_box = QComboBox()
@@ -195,13 +224,13 @@ class SlotsPanel(Page):
         self.channel = label("", "hint", wrap=True)
         """What the candidate shows, and where it is now: as the help (`code`, the colors of states and channels)."""
         self.channel.setTextFormat(Qt.TextFormat.RichText)
-        inspector.addWidget(self.channel)
+        status.addWidget(self.channel)
         self.channel_button = button("pencil-outline", "Edit the channel")
         self.channel_button.clicked.connect(lambda: self.show_channel(self._candidate_row().show))
-        inspector.addWidget(self.channel_button)
+        status.addWidget(self.channel_button, 0, Qt.AlignmentFlag.AlignLeft)
         self.controls = label("", "hint", wrap=True)
         self.controls.setTextFormat(Qt.TextFormat.RichText)
-        inspector.addWidget(self.controls)
+        status.addWidget(self.controls)
         inspector.addStretch()
         self.inspector_scroll = scrolled(self.inspector)
         self.splitter = PaneSplitter("slots", self.card_scroll, self.inspector_scroll)
@@ -306,7 +335,8 @@ class SlotsPanel(Page):
                 f"Its buttons, encoder and fader work as what it shows: `[controls]` claims none of slot {self.slot}."
             )
         set_text(self.controls, _help(text))
-        for widget in (self.show_box, self.when_edit, self.channel):
+        self._show_crumbs(stack)
+        for widget in (self.show_box, self.when_edit):
             widget.parentWidget().setVisible(self.candidate is not None)  # pyright: ignore[reportOptionalMemberAccess]
         for widget in (self.channel, self.show_help, self.when_help):
             widget.setVisible(self.candidate is not None)
@@ -318,7 +348,7 @@ class SlotsPanel(Page):
             self.show_problems(self.editor.validation)
             return
         candidate = stack[self.candidate]
-        set_text(self.title, f"Slot {self.slot} · candidate {self.candidate + 1}")
+        set_text(self.title, f"Slot {self.slot}")
         self.show_box.blockSignals(True)
         self.show_box.clear()
         self.show_box.addItems(choices(self.document.values))
@@ -357,14 +387,90 @@ class SlotsPanel(Page):
         slots = self.shown_slots()
         if slots is None:
             return ""
-        # the sentence before it names the channel or pool already
-        return f"\n{'What if' if self.simulation else 'Now'}: {where(slots, name)}."
+        # the sentence before it names the channel or pool already, the box says whether it is now or what if
+        now = where(slots, name)
+        return f"\n{now[:1].upper()}{now[1:]}."
 
     def _show_why(self) -> None:
+        """
+        Why the slot shows what it shows, a step a line: ✗ a candidate passed over and why, → what it shows (○ dark),
+        ● held. The bar of the box: green while it shows something, neutral while dark or while nothing tells.
+        """
         live = self.shown_slots()
+        view = self._views().get(self.slot) if live is not None else None
+        steps = why_steps(view.why) if view is not None else ()
+        key = (live is not None, self.simulation is not None, steps)
+        if key == self.shown_steps:
+            return
+        self.shown_steps = key
+        while (item := self.why_rows.takeAt(0)) is not None:
+            if (widget := item.widget()) is not None:
+                widget.hide()
+                widget.deleteLater()
         self.why.setVisible(live is not None)
-        if live is not None:
-            set_text(self.why, why_slot(live, self.slot))
+        if live is None:
+            set_role(self.status_box, Tone.NEUTRAL.value, "tone")
+            return
+        heading = "What if" if self.simulation is not None else "Now"
+        self.why_rows.addWidget(label(heading, "hint"), 0, 0, 1, 3)
+        if not steps:
+            self.why_rows.addWidget(label(f"The daemon tells nothing about slot {self.slot}.", "hint"), 1, 0, 1, 3)
+        colors = current_colors()
+        marks = {
+            StepKind.PASSED: ("✗", colors.text_muted),
+            StepKind.HELD: ("●", colors.tone_warn),
+            StepKind.SHOWN: ("→", colors.tone_good),
+            StepKind.DARK: ("○", colors.text_muted),
+        }
+        for line, step in enumerate(steps, start=1):
+            mark, color = marks[step.kind]
+            sign = label(mark)
+            sign.setStyleSheet(f"color: {color}; font-weight: bold;")
+            self.why_rows.addWidget(sign, line, 0, Qt.AlignmentFlag.AlignTop)
+            subject = label(step.subject)
+            final = step.kind in (StepKind.SHOWN, StepKind.DARK)
+            subject.setStyleSheet("font-weight: bold;" if final else f"color: {colors.text_muted};")
+            self.why_rows.addWidget(subject, line, 1, Qt.AlignmentFlag.AlignTop)
+            if step.reason:
+                reason = label("", "hint", wrap=True)
+                reason.setTextFormat(Qt.TextFormat.RichText)
+                reason.setText(help_text(step.reason))
+                self.why_rows.addWidget(reason, line, 2)
+        shows = bool(steps) and steps[-1].kind == StepKind.SHOWN
+        set_role(self.status_box, (Tone.GOOD if shows else Tone.NEUTRAL).value, "tone")
+
+    def _show_crumbs(self, stack: list[Row]) -> None:
+        """
+        `Slot 3 › 1 games › 2 apps › 3 people`: the candidates in their order, the one picked highlighted, the one
+        the slot shows with a dot; a click picks one.
+        """
+        view = self._views().get(self.slot)
+        shown = view.candidate if view is not None else None
+        # the candidate it came to, which has nothing for it: the strip is dark
+        dark = view is not None and view.pool is not None and view.member is None
+        key = (self.slot, tuple((row.show, row.when) for row in stack), self.candidate, shown, dark)
+        if key == self.shown_crumbs:
+            return
+        self.shown_crumbs = key
+        _clear(self.crumbs)
+        for index, candidate in enumerate(stack):
+            self.crumbs.addWidget(label("›", "hint"))
+            crumb = QToolButton()
+            set_role(crumb, Entity.CHANNEL.value, "entity")
+            mark = ("○ " if dark else "● ") if index == shown else ""
+            crumb.setText(f"{mark}{index + 1}  {candidate.show}")
+            crumb.setCheckable(True)
+            crumb.setChecked(index == self.candidate)
+            crumb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            when = f"when {candidate.when}" if candidate.when else "always"
+            more = (
+                ("; the slot came to it, and it has none left" if dark else "; the slot shows it")
+                if index == shown
+                else ""
+            )
+            crumb.setToolTip(f"Candidate {index + 1} of {len(stack)}: {when} → {candidate.show}{more}")
+            crumb.clicked.connect(lambda _=False, index=index: self.lists[self.slot - 1].setCurrentRow(index))
+            self.crumbs.addWidget(crumb)
 
     def _place_form(self, strip: str, allowed: frozenset[str]) -> tuple[QWidget, list[OptionRow]]:
         """The form of the options of a place of `strip`, for the candidate picked."""

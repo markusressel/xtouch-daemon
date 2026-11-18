@@ -5,8 +5,9 @@ strings, tables where a candidate has options).
 """
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any, Literal
 
 from xtouch_daemon.audio.model import AudioState
@@ -365,3 +366,56 @@ def _action(value: Any) -> str:
     if isinstance(value, Mapping):
         return "launch " + " ".join(str(part) for part in value.get("launch", ()))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportUnknownVariableType]
     return str(value)
+
+
+class StepKind(StrEnum):
+    """What a step of the resolver did for a slot (see `why_steps`)."""
+
+    PASSED = "passed"
+    """A candidate was passed over: its condition doesn't hold, its channel is elsewhere, its pool has none left."""
+    HELD = "held"
+    """The slot kept what it showed: held by a finger or a button, or within its dwell time."""
+    SHOWN = "shown"
+    """What the slot shows."""
+    DARK = "dark"
+    """The slot shows nothing: the pool it came to has none left."""
+
+
+@dataclass(frozen=True)
+class Step:
+    kind: StepKind
+    subject: str
+    """What the step is about: a candidate (`game if present`), a channel, a pool, or what the slot shows."""
+    reason: str
+    """Why, e.g. `doesn't hold (present: no)`; "" for what the slot shows."""
+
+
+def why_steps(lines: Sequence[str]) -> tuple[Step, ...]:
+    """
+    The trace of the resolver for a slot (`SlotView.why`) as steps: the candidates passed over and why, then what
+    the slot shows (`auto:app:firefox` as `firefox (auto)`), or that it is dark and why.
+    """
+    steps: list[Step] = []
+    for line in lines:
+        if line == "held":
+            steps.append(
+                Step(StepKind.HELD, "Held", "it keeps what it shows: touched, or within its dwell")
+            )
+        elif line.startswith("shows nothing: "):
+            steps.append(Step(StepKind.DARK, "Dark", line.removeprefix("shows nothing: ")))
+        elif line.startswith("shows "):
+            steps.append(Step(StepKind.SHOWN, shown_text(line.removeprefix("shows ")), ""))
+        else:
+            subject, _, reason = line.partition(": ")
+            steps.append(Step(StepKind.PASSED, subject, reason))
+    return tuple(steps)
+
+
+def shown_text(shown: str) -> str:
+    """What a slot shows, for people: `browser`, `-` as nothing, `auto:app:firefox` as `firefox (auto)`."""
+    if shown == "-":
+        return "nothing"
+    pool, _, member = shown.partition(":")
+    if not member:
+        return shown
+    return f"{member.partition(':')[2] or member} ({pool})"

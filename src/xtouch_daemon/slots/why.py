@@ -21,26 +21,29 @@ _NONE_OF = {APPS: "no application", PEOPLE: "nobody", DEVICES: "no device", AUTO
 
 def why_channel(slots: SlotsState, name: str) -> str:
     """
-    `browser: on 2; not 8 (on slot 2 (tie, to the left))`: the slots that show a channel and why not the others. For
-    a pool its members and who waits: `people: Alice on 6, Bob on 5; waiting: Carol`.
+    `browser: on slot 2; not slot 8 (on slot 2 (tie, to the left))`: the slots that show a channel and why not the
+    others. For a pool its members and who waits: `people: Alice on 6, Bob on 5; waiting: Carol`.
     """
     return f"{name}: {where(slots, name)}"
 
 
 def where(slots: SlotsState, name: str) -> str:
-    """`why_channel` without the name: `on 2; not 8 (...)`, `Alice on 6; waiting: Carol`, `no application on a slot`."""
+    """
+    `why_channel` without the name: `on slot 2; not slot 8 (...)`, `Alice on 6; waiting: Carol`, `no application on
+    a slot`.
+    """
     if any(view.pool == name and view.channel != name for view in slots.slots) or name in slots.waiting:
         seated = [f"{_member(view.member)} on {view.slot}" for view in slots.slots if view.pool == name and view.member]
         waiting = slots.waiting.get(name, ())
         parts = [", ".join(seated) if seated else f"{_NONE_OF.get(name, 'nothing')} on a slot"]
         parts += [f"waiting: {', '.join(_member(member) for member in waiting)}"] if waiting else []
         return "; ".join(parts)
-    parts = [f"on {view.slot}" for view in slots.slots if name in (view.channel, view.member)]
+    parts = [f"on slot {view.slot}" for view in slots.slots if name in (view.channel, view.member)]
     for view in slots.slots:
         if name in (view.channel, view.member):
             continue
         reasons = [_reason(line, name) for line in view.why]
-        parts.extend(f"not {view.slot} ({reason})" for reason in reasons if reason is not None)
+        parts.extend(f"not slot {view.slot} ({reason})" for reason in reasons if reason is not None)
     return "; ".join(parts) if parts else "on no slot, and no slot asks for it"
 
 
