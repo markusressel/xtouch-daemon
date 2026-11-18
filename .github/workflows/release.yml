@@ -55,6 +55,9 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
       - name: Build
         run: packaging/build-release.sh dist
+      # pulsectl loads libpulse on import; Arch's package depends on it (libpulse)
+      - name: Install libpulse
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpulse0
       - name: Smoke test
         env:
           VERSION: ${{ steps.version.outputs.version }}
