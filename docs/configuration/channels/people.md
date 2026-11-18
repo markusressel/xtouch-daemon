@@ -32,11 +32,11 @@ same options:
 | `label` | the first name of `person` | The top line of a `person` channel; people without a channel show their name. |
 | `color` | `"white"` | The backlight while the person is there and does not talk. Dark while they are away. |
 | `talking_color` | `"green"` | The backlight while the person talks. |
-| `meter` | `true` | Whether the LED meter shows the person's voice. Without levels from the provider it lights while they talk. The level is after their volume, see [Meters](strips.md#meters). |
+| `meter` | `true` | Whether the LED meter shows the person's voice. Without levels from the provider it lights while they talk. The level is after their volume, see [Meters](index.md#meters). |
 | `max_volume` | `behavior.max_volume` | The volume of a person with the fader at the top, 1..200 percent; 100 % is at the 0 dB mark as on the other strips. Above 100 % the voice is louder than Mumble plays it, and may clip. |
 
 The strips of people have no `launch`: starting the voice chat is a control of a slot, e.g.
-`7 = { select = { launch = ["mumble"] }, when = "not call" }` in [`[controls]`](slots.md#controls-and-the-chord).
+`7 = { select = { launch = ["mumble"] }, when = "not call" }` in [`[controls]`](../slots.md#controls-and-the-chord).
 A place of `people` in a slot takes `color`, `meter` and `meter_point`: `{ show = "people", color = "orange" }`.
 
 ## Where people sit
@@ -84,40 +84,9 @@ the people (of `people` and `auto`) as itself; `in_pool = false` keeps it out.
 Without the section, its defaults apply. None of the voice chat clients tells another program the volume of each
 person, so the daemon can't read them from PipeWire: they all come out of one stream. Mumble and TeamSpeak have
 plugins that can, and the bridge is what such a plugin talks to. For Mumble there is one: see
-[Mumble](../integrations/mumble.md), which the GUI installs with a click.
+[Mumble](../../guides/mumble.md), which the GUI installs with a click.
 
-The state `voice_chat = true` (see [States and modes](slots.md#states-and-modes)) is on while you are in a channel of
+The state `voice_chat = true` (see [States and modes](../slots.md#states-and-modes)) is on while you are in a channel of
 the voice chat.
 
-### The bridge protocol
-
-The daemon serves the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` (mode 0600). When a plugin connects,
-the daemon says who it is and which version of the protocol it speaks:
-
-```json
-{"daemon": "xtouch-daemon", "version": "0.1.0", "protocol": 1}
-```
-
-The plugin sends its whole state on every change (and while someone talks, for the levels, e.g. 20 times a second),
-one JSON object per line:
-
-```json
-{"protocol": 1, "client": "mumble", "channel": "Lobby", "capabilities": ["volume", "mute", "levels"],
- "participants": [{"id": "12", "name": "Alice", "talking": true, "muted": false, "volume": 100, "level": 0.4}]}
-```
-
-`id` and `name` are needed, the rest is optional; without `protocol` it is 1. `channel` is the channel the user is
-in (the GUI shows it). `volume` is 0..200 percent, `level` 0..1. `capabilities` says what
-the plugin can do: `volume` (the faders set volumes), `mute` (Mute mutes), `levels` (it sends `level`). The daemon
-sends commands back the same way:
-
-```json
-{"set_volume": {"id": "12", "volume": 80}}
-{"set_muted": {"id": "12", "muted": true}}
-```
-
-One plugin at a time: a new connection replaces the one before. When the plugin goes, so do the participants.
-
-**Versions.** Both sides ignore keys they don't know, so new optional keys keep the version. A change that an older
-side would get wrong gets a new `protocol` number; the daemon ignores (and logs) the lines of a protocol it does not
-speak, so a plugin can tell from the greeting whether to speak an older one.
+A plugin for another client speaks the [bridge protocol](../../reference/voice-chat-bridge.md).

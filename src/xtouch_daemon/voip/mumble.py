@@ -6,7 +6,7 @@ A bundle (`xtouch-daemon.mumble_plugin`) is a zip of the plugin library and a ma
 into Mumble's plugin directory, as Mumble's own installer does; Mumble loads it with "Reload plugins" in its settings
 (Plugins), or when it starts, and it has to be enabled there once. Mumble's installer (`mumble <bundle>`) is not used:
 with a Mumble that runs, it needs a second instance (`--multiple`), which loads the plugin a second time and crashed
-(Mumble 1.5.939). See docs/integrations/mumble.md.
+(Mumble 1.5.939). See docs/guides/mumble.md.
 """
 
 import contextlib

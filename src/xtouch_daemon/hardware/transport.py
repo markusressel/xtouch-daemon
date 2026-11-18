@@ -1,8 +1,8 @@
 """
 How the `Surface` reaches the device: a `Port` finds and opens it (LookupError while it is not there) and gives a
 `Transport` to write to, which calls back with what the device sent and when it is gone. The real device is the raw
-ALSA MIDI device of its sound card (`AlsaPort`); the virtual one (see docs/design/device-simulator.md) is a Unix socket
-(`SocketPort`), which speaks the same bytes.
+ALSA MIDI device of its sound card (`AlsaPort`); the virtual one (see docs/development/design/device-simulator.md) is a
+Unix socket (`SocketPort`), which speaks the same bytes.
 """
 
 import socket

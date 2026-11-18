@@ -1,6 +1,6 @@
 """
 Running a configuration of channels, states and slots on the device (the prototype of
-docs/design/channels-states-slots.md): the `SlotEngine` feeds a `Simulation` with what the sound server, the
+docs/development/design/channels-states-slots.md): the `SlotEngine` feeds a `Simulation` with what the sound server, the
 processes and the voice chat show, and takes the requests (a mode, an override, a pin); its result says what the
 `SlotMixer` (`runtime.binder`) puts on each strip of the device.
 """
@@ -92,7 +92,7 @@ class SlotEngine:
         Runs a situation instead of reality from the next step on (None: reality again), in a `Simulation` of its own
         that starts where the real one is: its states are overrides, its mode the one picked, what the sound server
         and the voice chat show is made for it (`Situation.observation`). Nothing of it is kept or told to Home
-        Assistant. See `docs/design/try-and-simulate.md`.
+        Assistant. See `docs/development/design/try-and-simulate.md`.
         """
         self.situation = situation
         if situation is None:

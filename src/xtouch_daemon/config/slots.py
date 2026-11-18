@@ -1,5 +1,5 @@
 """
-A configuration of channels, states and slots (the prototype of docs/design/channels-states-slots.md) on the
+A configuration of channels, states and slots (the prototype of docs/development/design/channels-states-slots.md) on the
 device: the strips each slot can show, built from the channels, pools and the options of the candidates as strips of
 today's types and checked when the file is loaded (see `runtime.binder` for how they show).
 """

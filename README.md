@@ -53,9 +53,9 @@ git clone https://github.com/haad-org/haad-mqtt-autodiscovery
 uv tool install ./xtouch-daemon          # or './xtouch-daemon[gui]' for the GUI
 ```
 
-The device has to be in **MC** mode on **USB**, see [Getting started](docs/getting-started.md#set-up-the-device). No
+The device has to be in **MC** mode on **USB**, see [Getting started](docs/getting-started/first-steps.md#set-up-the-device). No
 device yet? `xtouch-daemon run --virtual-device`, or "Try without a device" in the GUI, see
-[Without a device](docs/getting-started.md#without-a-device).
+[Without a device](docs/getting-started/without-a-device.md).
 
 ## Quick start
 
@@ -96,17 +96,17 @@ processes = ["@steam-games"]
 
 ## Documentation
 
-- [Getting started](docs/getting-started.md)
+- [Getting started](docs/getting-started/install.md)
 - [Configuration](docs/configuration/index.md): [channels, states and slots](docs/configuration/slots.md),
-  [devices](docs/configuration/devices.md), [applications](docs/configuration/applications.md),
-  [people](docs/configuration/people.md)
-- [Home Assistant](docs/home-assistant.md)
-- [Mumble](docs/integrations/mumble.md)
-- [GUI](docs/gui.md)
-- [Commands](docs/commands.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Hardware and protocol](docs/hardware.md)
-- [Architecture](docs/architecture.md)
+  [devices](docs/configuration/channels/devices.md), [applications](docs/configuration/channels/applications.md),
+  [people](docs/configuration/channels/people.md)
+- [Home Assistant](docs/guides/home-assistant.md)
+- [Mumble](docs/guides/mumble.md)
+- [GUI](docs/guides/gui.md)
+- [Commands](docs/reference/commands.md)
+- [Troubleshooting](docs/guides/troubleshooting.md)
+- [Hardware and protocol](docs/reference/hardware.md)
+- [Architecture](docs/development/architecture.md)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
 - [Releasing](RELEASING.md)

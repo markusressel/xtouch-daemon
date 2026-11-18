@@ -41,7 +41,7 @@ Status: all eight steps are done (2026-11-18).
 8. **The files of the slots.** `runtime/slots.py` keeps the `SlotEngine`; reading and writing `slots.json` and
    `people.json` go to `runtime/slot_files.py`.
 
-After these, `docs/architecture.md` names the new modules.
+After these, `docs/development/architecture.md` names the new modules.
 
 ## Left as they are
 

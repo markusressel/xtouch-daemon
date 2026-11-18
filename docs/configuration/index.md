@@ -13,37 +13,37 @@ xtouch-daemon check-config     # validates the file and shows what each slot sho
 Unknown options are errors, so a typo does not go unnoticed. `check-config` names the place of every error, e.g.
 `channel.mic.label: String should have at most 7 characters`.
 
-The [GUI](../gui.md) edits the same options in a window and shows the same errors next to them.
+The [GUI](../guides/gui.md) edits the same options in a window and shows the same errors next to them.
 
 ## Sections
 
 | Section | What it configures | Page |
 |---|---|---|
-| `[channel.<id>]` | What a strip can control: a device, a group of applications, a person, Home Assistant. | [Channels](strips.md) |
+| `[channel.<id>]` | What a strip can control: a device, a group of applications, a person, Home Assistant. | [Channels](channels/index.md) |
 | `[slots]` | What each strip of the device (a slot) shows, and when. | [Channels, states and slots](slots.md#slots) |
 | `[state.<id>]` | States and modes (in a call, gaming) that the slots ask about. | [Channels, states and slots](slots.md#states-and-modes) |
 | `[controls]` | Actions of the buttons, fader or encoder of a slot, whatever it shows. | [Channels, states and slots](slots.md#controls-and-the-chord) |
-| `[pool.apps]`, `[pool.auto]` | How `apps` and `auto` take the next application that plays. | [Applications](applications.md#apps-and-auto) |
-| `[pool.people]`, `[voip]` | The people of the voice chat, and where they sit. | [People](people.md) |
-| `[pool.devices]` | Outputs and inputs without a channel (a USB headset) on the slots that name `devices`. | [Devices](devices.md#devices-without-a-channel) |
+| `[pool.apps]`, `[pool.auto]` | How `apps` and `auto` take the next application that plays. | [Applications](channels/applications.md#apps-and-auto) |
+| `[pool.people]`, `[voip]` | The people of the voice chat, and where they sit. | [People](channels/people.md) |
+| `[pool.devices]` | Outputs and inputs without a channel (a USB headset) on the slots that name `devices`. | [Devices](channels/devices.md#devices-without-a-channel) |
 | `[device]` | Which sound card is the extender. | [Behavior](behavior.md#device) |
 | `[behavior]` | Volume limit, encoder step, reset volume, meters. | [Behavior](behavior.md#behavior) |
 | `[aliases]` | Names to show for applications on `auto` slots. | [Behavior](behavior.md#aliases) |
 | `[switching]` | The chord and the banner of a new mode. | [Channels, states and slots](slots.md#controls-and-the-chord) |
-| `[mqtt]` | The MQTT broker of Home Assistant. | [Home Assistant](../home-assistant.md#mqtt) |
+| `[mqtt]` | The MQTT broker of Home Assistant. | [Home Assistant](../guides/home-assistant.md#mqtt) |
 
 The channel types:
 
 | `type` | What the channel controls | Page |
 |---|---|---|
-| `output`, `input` | An output or an input device, several of them, [choices](devices.md#choices) to switch between, or the default one. | [Devices](devices.md) |
-| `apps` | All streams of a group of applications. | [Applications](applications.md#apps-channels) |
-| `person` | Someone of the voice chat. | [People](people.md#strips-for-one-person) |
-| `homeassistant` | Nothing by itself: its parts are entities in Home Assistant. | [Home Assistant](../home-assistant.md) |
+| `output`, `input` | An output or an input device, several of them, [choices](channels/devices.md#choices) to switch between, or the default one. | [Devices](channels/devices.md) |
+| `apps` | All streams of a group of applications. | [Applications](channels/applications.md#apps-channels) |
+| `person` | Someone of the voice chat. | [People](channels/people.md#strips-for-one-person) |
+| `homeassistant` | Nothing by itself: its parts are entities in Home Assistant. | [Home Assistant](../guides/home-assistant.md) |
 
 In a slot, `apps` is the next application that plays and has no channel of its own
-([Applications](applications.md#apps-and-auto)), `people` the next person of the voice chat
-([People](people.md#where-people-sit)), `auto` either, and `-` a dark strip ([Channels](strips.md#empty-slots)).
+([Applications](channels/applications.md#apps-and-auto)), `people` the next person of the voice chat
+([People](channels/people.md#where-people-sit)), `auto` either, and `-` a dark strip ([Channels](channels/index.md#empty-slots)).
 
 ## Applying changes
 

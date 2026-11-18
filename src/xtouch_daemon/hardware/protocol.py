@@ -256,7 +256,7 @@ def fader_fraction(value: int) -> float:
 
 
 # -- the other side: the messages to the device as the device reads them, and what it sends -------------------------
-# (for the simulated device, see docs/design/device-simulator.md)
+# (for the simulated device, see docs/development/design/device-simulator.md)
 
 
 @dataclass(frozen=True)

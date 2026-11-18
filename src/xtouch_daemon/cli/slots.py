@@ -1,6 +1,6 @@
 """
 `simulate`: what the slots of a configuration in the format of channels, states and slots show in given states (the
-prototype of docs/design/channels-states-slots.md).
+prototype of docs/development/design/channels-states-slots.md).
 """
 
 import time

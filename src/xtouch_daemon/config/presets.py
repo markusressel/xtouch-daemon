@@ -1,6 +1,6 @@
 """
 Presets: named groups of applications for the lists that match applications by name, e.g. `@browsers` in `match`
-instead of the names of every browser. See docs/design/presets.md.
+instead of the names of every browser. See docs/development/design/presets.md.
 
 A preset stands for parts of names like the ones users write, matched the same way (anywhere in the name, ignoring
 case). The configuration expands presets when it is validated, so the rest of the daemon sees plain names only.

@@ -1,7 +1,7 @@
 """
 Previews of the controls of a strip: the options of a channel grouped by the part of the strip they are about (the
 encoder, the display, the buttons, the fader and meter), and for each part a short scene that shows what the values
-do on the device, frame by frame with a caption. See `docs/design/control-previews.md`.
+do on the device, frame by frame with a caption. See `docs/development/design/control-previews.md`.
 """
 
 from collections.abc import Mapping

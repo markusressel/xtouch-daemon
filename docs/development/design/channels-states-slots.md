@@ -46,7 +46,7 @@ Channels, pools, states and the `id`s of controls share one namespace: an id is 
 unique across all four (a control `id` names Home Assistant entities like a channel id does). `auto`, `people` and
 `default` are built in. Reserved: `and`, `or`, `not`, `if`, `present`, `none`, `mode`,
 and ids starting with `state_` or `slot_` (they would collide with the entity IDs in Home Assistant). The sigils stay
-those of today: `@name` a [preset](../configuration/presets.md), `#name` a tag.
+those of today: `@name` a [preset](../../configuration/presets.md), `#name` a tag.
 
 ### Conditions
 
@@ -477,7 +477,7 @@ delay_off = 5               # VoIP and Mic stay through a reconnect, not much lo
 8 = ["mic if call", "auto"]
 ```
 
-What it shows, as `xtouch-daemon simulate docs/design/channels-states-slots.toml --table` prints it (the example is
+What it shows, as `xtouch-daemon simulate docs/development/design/channels-states-slots.toml --table` prints it (the example is
 [that file](channels-states-slots.toml); a test keeps this table in line with it): one row per combination of states
 and presence the stacks ask about that changes something.
 
@@ -745,7 +745,7 @@ and the state engine are code now, pure (no sound server, no device), in `xtouch
 | `outcomes` | The distinct outcomes: the table above, `simulate --table`, the GUI's grid. |
 | `recording`, `replay` | `observe` records the real system; `simulate --replay` replays it: changes, flaps, time on. |
 
-`xtouch-daemon simulate docs/design/channels-states-slots.toml --mode gaming --state call --playing firefox` shows
+`xtouch-daemon simulate docs/development/design/channels-states-slots.toml --mode gaming --state call --playing firefox` shows
 the slots and why. The tests (`tests/slots/`) have the scenarios the reviews traced that the prototype covers, and
 one keeps the table above in line with the example. Not in the prototype: batching (a matter of when the daemon calls
 it), the touch sensors (their result is `held`), reload carrying the result over, cycling

@@ -3,14 +3,14 @@
 What the device shows: **channels** are what a strip can control (an output, a group of applications, a person),
 each strip of the device (a **slot**) has a short list of the channels it can show, and **states** (in a call,
 gaming) decide which. A slot changes only when what it shows changes; the others stay as they are. The
-[design](../design/channels-states-slots.md) has every detail.
+[design](../development/design/channels-states-slots.md) has every detail.
 
 `xtouch-daemon init-config` writes a small example. `xtouch-daemon check-config` shows a table of what each slot
 shows in which states.
 
 ## Channels
 
-A channel is something a strip controls, with the options of its type (see [Channels](strips.md)):
+A channel is something a strip controls, with the options of its type (see [Channels](channels/index.md)):
 
 ```toml
 [channel.out]
@@ -59,9 +59,9 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
   `switching.banner` seconds.
 
-Four pools are built in: `apps` (applications, see [Applications](applications.md#apps-and-auto)), `people` (the
-people of the voice chat, see [People](people.md#where-people-sit)), `auto` (both) and `devices` (the outputs and
-inputs no channel has, see [Devices](devices.md#devices-without-a-channel)). `[pool.apps]` has `from`, `hold` and
+Four pools are built in: `apps` (applications, see [Applications](channels/applications.md#apps-and-auto)), `people` (the
+people of the voice chat, see [People](channels/people.md#where-people-sit)), `auto` (both) and `devices` (the outputs and
+inputs no channel has, see [Devices](channels/devices.md#devices-without-a-channel)). `[pool.apps]` has `from`, `hold` and
 `exclude`, `[pool.people]` `from`, `order` and the look of the strips of people, `[pool.auto]` the look of the
 applications on its slots, `[pool.devices]` `from`, `hold`, `exclude` and the look of the strips of devices.
 
@@ -152,7 +152,7 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 
 `when` takes a [condition](#conditions) of states and modes: the controls apply while it holds. Actions:
 `homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, or `{ launch = [...] }` (see
-[Launching the application](applications.md#launching-the-application)).
+[Launching the application](channels/applications.md#launching-the-application)).
 
 | Option of `[switching]` | Default | Meaning |
 |---|---|---|
@@ -164,4 +164,4 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 With `[mqtt]`: `select.xtouch_mode`, a binary sensor per state (with `since`,
 `source` and `override`), an override select per state, an input switch per state with `homeassistant = true`,
 `binary_sensor.xtouch_<channel>_shown`, and `sensor.xtouch_slot_<n>` (what the slot shows, with `label`, `kind`, `via`
-and `reason`). See [Home Assistant](../home-assistant.md).
+and `reason`). See [Home Assistant](../guides/home-assistant.md).

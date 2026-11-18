@@ -18,16 +18,16 @@ PAGES: dict[str, str] = {
     "device": "configuration/behavior/#device",
     "behavior": "configuration/behavior/#behavior",
     "aliases": "configuration/behavior/#aliases",
-    "mqtt": "home-assistant/#mqtt",
+    "mqtt": "guides/home-assistant/#mqtt",
     "channels": "configuration/slots/#channels",
     "states": "configuration/slots/#states-and-modes",
     "switching": "configuration/slots/#controls-and-the-chord",
-    "voip": "configuration/people/#voice-chat",
+    "voip": "configuration/channels/people/#voice-chat",
 }
 """The pages, and the settings by page."""
 
 GUIDES: dict[str, str] = {
-    "mumble": "integrations/mumble/",
+    "mumble": "guides/mumble/",
     "slots": "configuration/slots/#slots",
     "conditions": "configuration/slots/#conditions",
 }
@@ -37,37 +37,37 @@ the slots and their conditions.
 """
 
 STRIP_TYPES: dict[str, str] = {
-    "output": "configuration/devices/",
-    "input": "configuration/devices/",
-    "apps": "configuration/applications/#apps-channels",
-    "auto": "configuration/applications/#apps-and-auto",
-    "homeassistant": "home-assistant/#homeassistant-channels",
-    "empty": "configuration/strips/#empty-slots",
-    "voip": "configuration/people/",
+    "output": "configuration/channels/devices/",
+    "input": "configuration/channels/devices/",
+    "apps": "configuration/channels/applications/#apps-channels",
+    "auto": "configuration/channels/applications/#apps-and-auto",
+    "homeassistant": "guides/home-assistant/#homeassistant-channels",
+    "empty": "configuration/channels/#empty-slots",
+    "voip": "configuration/channels/people/",
 }
 """The strip types."""
 
 STRIP_OPTIONS: dict[str, str] = {
-    "rec": "configuration/indicators/#indicators",
-    "solo": "configuration/indicators/#indicators",
-    "min_volume": "configuration/strips/#volume-range",
-    "max_volume": "configuration/strips/#volume-range",
-    "encoder": "configuration/encoders/",
-    "fader": "configuration/encoders/#fader-homeassistant",
-    "label": "configuration/strips/#labels",
-    "device": "configuration/devices/#several-devices",
-    "profiles": "configuration/devices/#profiles",
-    "choices": "configuration/devices/#choices",
-    "match": "configuration/applications/#apps-channels",
-    "launch": "configuration/applications/#launching-the-application",
-    "launch_when_running": "configuration/applications/#launching-the-application",
-    "person": "configuration/people/#strips-for-one-person",
-    "meter_point": "configuration/strips/#meters",
+    "rec": "configuration/strip/leds/#indicators",
+    "solo": "configuration/strip/leds/#indicators",
+    "min_volume": "configuration/channels/#volume-range",
+    "max_volume": "configuration/channels/#volume-range",
+    "encoder": "configuration/strip/encoders/",
+    "fader": "configuration/strip/encoders/#fader-homeassistant",
+    "label": "configuration/channels/#labels",
+    "device": "configuration/channels/devices/#several-devices",
+    "profiles": "configuration/channels/devices/#profiles",
+    "choices": "configuration/channels/devices/#choices",
+    "match": "configuration/channels/applications/#apps-channels",
+    "launch": "configuration/channels/applications/#launching-the-application",
+    "launch_when_running": "configuration/channels/applications/#launching-the-application",
+    "person": "configuration/channels/people/#strips-for-one-person",
+    "meter_point": "configuration/channels/#meters",
 }
 """The options of the strips; `STRIP_TYPE_OPTIONS` overrides them for one type."""
 
 STRIP_TYPE_OPTIONS: dict[tuple[str, str], str] = {
-    ("voip", "label"): "configuration/people/#strips-for-one-person",
+    ("voip", "label"): "configuration/channels/people/#strips-for-one-person",
 }
 
 SECTION_OPTIONS: dict[str, dict[str, str]] = {
@@ -78,14 +78,14 @@ SECTION_OPTIONS: dict[str, dict[str, str]] = {
         "shutdown": "configuration/behavior/#startup-and-shutdown-sequences",
     },
     "behavior": {
-        "max_volume": "configuration/strips/#100-at-the-0-db-mark",
-        "unity_at": "configuration/strips/#100-at-the-0-db-mark",
-        "encoder_step": "configuration/encoders/#volume",
-        "reset_volume": "configuration/encoders/#volume",
-        "meter_point": "configuration/strips/#meters",
+        "max_volume": "configuration/channels/#100-at-the-0-db-mark",
+        "unity_at": "configuration/channels/#100-at-the-0-db-mark",
+        "encoder_step": "configuration/strip/encoders/#volume",
+        "reset_volume": "configuration/strip/encoders/#volume",
+        "meter_point": "configuration/channels/#meters",
     },
     "mqtt": {
-        "namespace": "home-assistant/#entities",
+        "namespace": "guides/home-assistant/#entities",
     },
     "switching": {
         "chord": "configuration/slots/#controls-and-the-chord",

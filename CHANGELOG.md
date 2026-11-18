@@ -13,10 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   it headless (`--broken-touch 1,4`), and the GUI opens it from the pill while the daemon waits for it: the mouse on
   the drawing is a hand on it (faders with and without a touch, buttons, encoders), a bar unplugs it, switches it off
   and on and breaks touch sensors. It speaks the bytes of the device, and does what the device does as far as
-  [Hardware](docs/hardware.md#the-virtual-device) knows. The live view shows the daemon's mirror of the device (the
+  [Hardware](docs/reference/hardware.md#the-virtual-device) knows. The live view shows the daemon's mirror of the device (the
   same model), so the GUI draws what reached the device, banners and flashes included, with the motors and meters
-  moving as on it. See `docs/design/device-simulator.md`.
-- Channels, states and slots (see the page Channels, states and slots and `docs/design/channels-states-slots.md`):
+  moving as on it. See `docs/development/design/device-simulator.md`.
+- Channels, states and slots (see the page Channels, states and slots and `docs/development/design/channels-states-slots.md`):
   `[channel.*]` say what a strip can control, `[state.*]` what goes on (a call, a game, a mode), and `[slots]` what
   each of the 8 strips shows, as candidates with conditions (`"voip if call"`, `"mum if present"`). A slot gets
   another strip when what it shows changes, the others stay as they are (no blank texts), a slot that shows another
@@ -148,7 +148,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `check-config` names the old spellings. `present(apps)` and `present(people)` work in conditions,
   `present(auto)` holds while either does. `check-config` notes candidates that never show and people that can
   sit nowhere, `xtouch-daemon why people` tells who sits where and who waits, and the GUI's Simulate takes a
-  number of people in the call and of applications that play. See `docs/design/people-slots.md`.
+  number of people in the call and of applications that play. See `docs/development/design/people-slots.md`.
 - Select and Play above the drawing of the device in the GUI. Select: dragging a strip moves its slot (candidates and
   controls) to another place, the others glide aside, as do Ctrl+Left/Right and the context menu. Play: the mouse is a
   hand on the device, on the virtual device the GUI hosts or on the device of a running daemon, which takes a new
@@ -158,7 +158,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with its delays and dwells, real applications, people and devices as stand-ins first and made-up ones for the rest,
   and Play works on it. The switch is there while Simulate is open, the pill says "On the device · simulated", and
   Home Assistant never sees the situation. `StartPreview` takes a `situation` and no `config` (the file's), snapshots
-  tell `simulated`. See `docs/design/try-and-simulate.md`.
+  tell `simulated`. See `docs/development/design/try-and-simulate.md`.
 - The GUI's pages are a window Configuration, like the window Device: each docks at any side or floats as a window of
   its own (e.g. on another screen). Its rail shows icons only, » shows their names.
 - The GUI's pills moved to what they are about: "Live" and the mode ("Mode: gaming", "No mode") to the bar of the
@@ -201,6 +201,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   controls of the device stand out. Code blocks, links and headings stay as they are.
 - Play with a daemon that waits for the virtual device (`[device] virtual = true`) opens it in the window and plays
   on it, instead of being off with "device not connected".
+- The documentation has sections: Getting started (install, first steps, without a device), Guides, Configuration
+  (the channel types and the parts of a strip grouped), Reference (commands, hardware and protocol, the voice chat
+  bridge) and Development (architecture and all design documents). Pages moved, so their addresses changed.
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
   and window, and of the desktop file of `xtouch-daemon-gui-bin`.
 - The documentation has a version per release (and `dev` for main) with a version selector, built once per version

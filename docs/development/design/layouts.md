@@ -1,6 +1,6 @@
 # Design: layouts
 
-Status: implemented as in [Phasing](#phasing); how to use it is in [Channels, states and slots](../configuration/slots.md), which replaced layouts.
+Status: implemented as in [Phasing](#phasing); how to use it is in [Channels, states and slots](../../configuration/slots.md), which replaced layouts.
 
 The idea: the configuration holds several **layouts**, each a set of up to 8 strips. A "default" layout for the
 desk (outputs, browser, music), a "gaming" layout with the game, the voice chat, the microphone and one strip per
@@ -310,7 +310,7 @@ Later:
   option of the Home Assistant select or a switch next to it, a mark in the GUI's layout tabs). Deferred: the
   edge-triggered rules already leave a manual choice alone until something happens.
 - TeamSpeak (plugin SDK, or ClientQuery without volume). The Mumble plugin is done: `integrations/mumble`, see
-  [Mumble](../integrations/mumble.md).
+  [Mumble](../../guides/mumble.md).
 - Window focus as a rule (`focused = [...]`) through compositor-specific providers (KWin script, Sway/Hyprland IPC).
 - Rules on time of day or on Home Assistant states (an automation can already set the select).
 - Inheriting from other layouts than the default; per-layout `[behavior]`.

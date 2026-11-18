@@ -1,6 +1,6 @@
 """
 Starting applications from the Select button of a strip (`launch`), detached from the daemon: a restart of the
-daemon's service must not end them. See docs/design/launch.md.
+daemon's service must not end them. See docs/development/design/launch.md.
 
 The command comes only from the configuration (the file, or a live preview of the same user) and runs without a
 shell. Home Assistant can't start anything.

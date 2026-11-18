@@ -1,7 +1,7 @@
 """
 The live preview (see `gui.domain.live_preview`): sends the document to the daemon while it is on, a moment after
-every edit, with the situation of Simulate while it is open (see `docs/design/try-and-simulate.md`), and keeps the
-preview alive with a heartbeat.
+every edit, with the situation of Simulate while it is open (see `docs/development/design/try-and-simulate.md`), and
+keeps the preview alive with a heartbeat.
 """
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal

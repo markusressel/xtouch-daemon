@@ -22,8 +22,8 @@ processes = ["@steam-games"]    # while any game from Steam runs
 
 Presets work in:
 
-- `match` of [`apps` channels](applications.md#apps-channels), `apps` of [states](slots.md#states-and-modes) and
-  `exclude` of [`[pool.apps]`](applications.md#apps-and-auto): they match the names and binaries of the applications' streams.
+- `match` of [`apps` channels](channels/applications.md#apps-channels), `apps` of [states](slots.md#states-and-modes) and
+  `exclude` of [`[pool.apps]`](channels/applications.md#apps-and-auto): they match the names and binaries of the applications' streams.
 - `processes` of [states](slots.md#states-and-modes): they match the names of processes.
 
 A preset stands for different names in each: e.g. `@steam-games` is the streams of Windows games (`.exe`) in
@@ -33,7 +33,7 @@ running. An unknown preset is an error that lists the known ones; a preset that 
 can.
 
 `xtouch-daemon check-config` shows what each preset stands for, `xtouch-daemon list-apps` the presets of the
-applications that play, and the [GUI](../gui.md) suggests the presets that fit each list.
+applications that play, and the [GUI](../guides/gui.md) suggests the presets that fit each list.
 
 ## The presets
 

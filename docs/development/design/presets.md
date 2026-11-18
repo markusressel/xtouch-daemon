@@ -1,6 +1,6 @@
 # Design: presets
 
-Status: implemented as described here; how to use it is in [Presets](../configuration/presets.md).
+Status: implemented as described here; how to use it is in [Presets](../../configuration/presets.md).
 
 The idea: common groups of applications (every browser, every voice chat, every game started from Steam) get a name,
 so nobody has to look up what each application calls its streams and processes. `match = ["@browsers"]` instead of

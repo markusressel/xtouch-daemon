@@ -3,7 +3,7 @@ The simulated device: what the host sets on it (texts, colors, LEDs, rings, mete
 it (touch and move faders, press buttons, turn and push encoders), as the bytes the real device takes and sends. Pure:
 no IO, no asyncio, no Qt; the time comes in as `now` (seconds), so frontends and tests drive it.
 
-What it does is verified on the device (see docs/hardware.md), except these assumptions:
+What it does is verified on the device (see docs/reference/hardware.md), except these assumptions:
 
 - the motor goes to its target at a fixed speed, `MOTOR_SECONDS` over the whole range;
 - a meter falls by one level every `METER_FALL` seconds after it was set (as the live view assumed);

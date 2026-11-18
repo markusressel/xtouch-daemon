@@ -4,7 +4,7 @@ volume and level), tells its listeners when it changed, and carries out volume a
 show the snapshot; they don't know which voice chat it comes from.
 
 Voice chat clients mix every participant into one stream, so the sound server can't tell them apart: a provider asks
-the client (or a plugin inside it). See docs/design/layouts.md for what the clients offer.
+the client (or a plugin inside it). See docs/development/design/layouts.md for what the clients offer.
 
 The provider remembers the volume and the mute the strips set for each name (`change_volume()`, `change_muted()`),
 and sets them again when someone of that name comes back: the clients forget them when a participant leaves (the

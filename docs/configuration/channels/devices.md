@@ -8,13 +8,13 @@ card.
 |---|---|---|
 | `type` | required | `"output"` or `"input"`. |
 | `device` | the default device | The node name (`xtouch-daemon list-devices`) or the description of the device, or a list of them; `*` is a wildcard. Without it, the strip follows whatever device is the default. |
-| `label` | see [Labels](strips.md#labels) | The top line of the LCD. With `profiles`, the label of the active profile comes first. |
+| `label` | see [Labels](index.md#labels) | The top line of the LCD. With `profiles`, the label of the active profile comes first. |
 | `select` | `true` | Whether Select makes the device the default. Needs `device` or `choices`. |
 | `choices` | none | The devices Select switches between, each maybe in a profile of its card, see [below](#choices). Instead of `device` and `profiles`. |
 | `profiles` | none | Profiles of the device's sound card that Rec switches between, see [below](#profiles). |
-| `encoder` | `"balance"` | `balance` or `volume`, see [Encoders](encoders.md). |
+| `encoder` | `"balance"` | `balance` or `volume`, see [Encoders](../strip/encoders.md). |
 
-They also have the [options of every audio channel](strips.md#options-of-every-audio-channel): `color`, `meter`, `rec`,
+They also have the [options of every audio channel](index.md#options-of-every-audio-channel): `color`, `meter`, `rec`,
 `solo`, `min_volume`, `max_volume`.
 
 ```toml
@@ -35,10 +35,10 @@ color = "red"
 | Element | Function |
 |---|---|
 | Fader | Sets the volume, `min_volume` at the bottom to `max_volume` at the top. Follows changes made elsewhere. |
-| Encoder | See [Encoders](encoders.md): by default the balance. |
+| Encoder | See [Encoders](../strip/encoders.md): by default the balance. |
 | Mute | Toggles mute. The LED is on while the device is muted. |
-| Rec | With `profiles`: switches the sound card to the next profile. The LED is on for every profile but the first. Without `profiles` (also with `choices`) the LED is an [indicator](indicators.md). |
-| Solo | Its LED is an [indicator](indicators.md). |
+| Rec | With `profiles`: switches the sound card to the next profile. The LED is on for every profile but the first. Without `profiles` (also with `choices`) the LED is an [indicator](../strip/leds.md). |
+| Solo | Its LED is an [indicator](../strip/leds.md). |
 | Select | With `device` and `select`: makes the device the default output/input, or switches to the next of several. With `choices`: the next choice. The LED is on while it is the default. |
 | LCD | Top: the label. Bottom: the volume, or `muted`. |
 | Ring | What the encoder controls. |
@@ -159,7 +159,7 @@ will call it (usually `alsa_output.<card>.<profile output>`, e.g. `iec958-stereo
   so a few quick presses step through the choices. Pressed on a choice that is shown but isn't the default, it
   makes that one the default first.
 - **The LED** of Select is on while the device of the choice is the default. Rec keeps its
-  [indicator](indicators.md) (`rec`).
+  [indicator](../strip/leds.md) (`rec`).
 - **Elsewhere:** a default chosen elsewhere (pavucontrol, headphones that connect and become the default) shows on
   the strip if it is one of the choices.
 - Two choices on the same card in the same profile only switch the default.
@@ -167,7 +167,7 @@ will call it (usually `alsa_output.<card>.<profile output>`, e.g. `iec958-stereo
   `max_volume`, else the strip's.
 - While none of the choices is there, the strip is dark and shows `off`; `"out if present"` in a slot shows
   something else then.
-- With [`[mqtt]`](../home-assistant.md#choices), Home Assistant has a select for the choice.
+- With [`[mqtt]`](../../guides/home-assistant.md#choices), Home Assistant has a select for the choice.
 
 At least two choices, and not together with `device` or `profiles`; `select = false` does not go with them either.
 `profiles` (below) still works, but `choices` does the same with one button.

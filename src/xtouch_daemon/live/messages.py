@@ -160,9 +160,9 @@ class StartPreview:
     """
     Run this configuration (the whole TOML text, None: the file's) instead of the file, without writing the file,
     and with a `situation` the slots of that situation instead of the real ones (see
-    `docs/design/try-and-simulate.md`). The daemon answers with a `Reply` of kind "preview"; sent again, the device
-    follows. The preview ends with `EndPreview`, with the connection, without a request for `daemon.PREVIEW_TIMEOUT`
-    (see `KeepPreview`), and when the file is loaded again.
+    `docs/development/design/try-and-simulate.md`). The daemon answers with a `Reply` of kind "preview"; sent again, the
+    device follows. The preview ends with `EndPreview`, with the connection, without a request for
+    `daemon.PREVIEW_TIMEOUT` (see `KeepPreview`), and when the file is loaded again.
     """
 
     config: str | None

@@ -12,7 +12,7 @@ For more detail, stop the service and run the daemon in the foreground with `xto
 ## The device
 
 **The device shows `IP: 192.168.001.100 wait...`.** It is set to its network interface and ignores USB. Switch it to
-MC mode on USB in its setup menu, see [Getting started](getting-started.md#set-up-the-device).
+MC mode on USB in its setup menu, see [Getting started](../getting-started/first-steps.md#set-up-the-device).
 
 **`... is it switched on, in MC mode on USB?`** `xtouch-daemon test` can't find the sound card of the extender. The
 daemon waits for it and connects when it appears. Check that it is connected and on, and that `/proc/asound/cards` lists it. If the name differs, set
@@ -22,16 +22,16 @@ daemon waits for it and connects when it appears. Check that it is connected and
 before `xtouch-daemon test` (`systemctl --user stop xtouch-daemon`), and close DAWs or other MIDI tools that opened it.
 
 **`... Permission denied`.** Your user can't open the MIDI device in `/dev/snd`. Desktop sessions give access to the
-logged-in user; without a session, add the user to the `audio` group. See [Hardware](hardware.md#linux-access).
+logged-in user; without a session, add the user to the `audio` group. See [Hardware](../reference/hardware.md#linux-access).
 
 **A fader does not change the volume.** Only a touched fader changes a value. A fader whose touch sensor failed goes
 back to its value after a move. `xtouch-daemon test` shows whether the device reports `fader touched`. Until the
-sensor is repaired, [`touchless_faders`](configuration/behavior.md#faders-without-a-touch-sensor) makes the fader work
+sensor is repaired, [`touchless_faders`](../configuration/behavior.md#faders-without-a-touch-sensor) makes the fader work
 without it.
 
 **A fader jumps on its first move after the daemon started.** The device can't tell where its faders are, so after a
 connect the daemon assumes them at the bottom. A fader moved while the daemon did not run jumps from where it really
-is. See [Hardware](hardware.md#motor-faders).
+is. See [Hardware](../reference/hardware.md#motor-faders).
 
 ## Audio
 
@@ -58,7 +58,7 @@ should list `WAYLAND_DISPLAY` or `DISPLAY`); most desktops import them at login.
 
 **An application lands on the wrong strip.** `xtouch-daemon list-apps` names the strip that takes it. An `apps` strip
 takes every application whose name or binary contains one of its `match` entries, so a short entry can match more than
-intended. `check-config` shows what the [presets](configuration/presets.md) in `match` stand for.
+intended. `check-config` shows what the [presets](../configuration/presets.md) in `match` stand for.
 
 ## Configuration
 

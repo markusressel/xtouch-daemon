@@ -26,7 +26,7 @@ A mode that the type does not have is an error, e.g.
 `xtouch-daemon check-config` shows the encoder of every channel.
 
 `homeassistant` channels have no `encoder` option: their encoder is a Home Assistant entity, see
-[Home Assistant](../home-assistant.md#entities).
+[Home Assistant](../../guides/home-assistant.md#entities).
 
 ```toml
 [channel.out]
@@ -41,7 +41,7 @@ encoder = "volume"   # fine steps instead of the balance
 ## `volume`
 
 Fine steps of the volume. One step is `behavior.encoder_step` percent (1 by default), and the fader follows. A push
-sets `behavior.reset_volume` (100 % by default). Both stay within the [volume range](strips.md#volume-range) of the
+sets `behavior.reset_volume` (100 % by default). Both stay within the [volume range](../channels/index.md#volume-range) of the
 channel.
 
 ## `balance`
@@ -89,7 +89,7 @@ The encoder belongs to Home Assistant, the fader still sets the volume. For exam
 to the speakers. Turning changes `number.<ns>_<id>_encoder` (0..100) by `behavior.encoder_step` per step, the ring
 shows it, the LCD shows the value (`42%`), and a push sends `encoder_pressed`/`encoder_released` on `event.<ns>_<id>_buttons`. It works while the strip
 is idle too. An automation in Home Assistant decides what the number does, see
-[Home Assistant](../home-assistant.md#audio-strips-with-home-assistant-controls).
+[Home Assistant](../../guides/home-assistant.md#audio-strips-with-home-assistant-controls).
 
 ```toml
 [channel.desk]
@@ -102,7 +102,7 @@ encoder = "homeassistant"
 
 The other way round: the fader belongs to Home Assistant (`number.<ns>_<id>_fader`, with `fader_touched` and
 `fader_released` events), and the encoder sets the volume in fine steps. The LCD still shows the volume. Both need the
-[`[mqtt]`](../home-assistant.md#mqtt) section.
+[`[mqtt]`](../../guides/home-assistant.md#mqtt) section.
 
 ```toml
 [channel.music]

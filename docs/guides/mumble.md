@@ -1,6 +1,6 @@
 # Mumble
 
-With the Mumble plugin of xtouch-daemon, the [strips of people](../configuration/people.md) show the people in your
+With the Mumble plugin of xtouch-daemon, the [strips of people](../configuration/channels/people.md) show the people in your
 Mumble channel, one per strip:
 
 - the name on the LCD, the backlight in `talking_color` while they talk, and their voice on the meter;
@@ -10,7 +10,7 @@ Mumble channel, one per strip:
 - people who join or leave the channel, and you moving to another channel, show at once.
 
 It needs Mumble 1.4 or later on Linux (x86_64). People sit on the slots of `auto` (and `people`) in every configuration; the
-[`[voip]`](../configuration/people.md#voice-chat) section can be left out: its `provider = "bridge"` is the default.
+[`[voip]`](../configuration/channels/people.md#voice-chat) section can be left out: its `provider = "bridge"` is the default.
 
 ## Setup in the GUI
 
@@ -34,7 +34,7 @@ running, or the plugin is not enabled), "not in use" for a daemon older than the
 xtouch-daemon mumble-plugin --install
 ```
 
-does what the button does (see [`mumble-plugin`](../commands.md#mumble-plugin)); then step 2 above. Without
+does what the button does (see [`mumble-plugin`](../reference/commands.md#mumble-plugin)); then step 2 above. Without
 xtouch-daemon's help: in Mumble, **Settings**, **Plugins**, **Install plugin...**, and pick
 `/usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin` (a release) or
 `integrations/mumble/build/xtouch-daemon.mumble_plugin` (a checkout, after `xtouch-daemon mumble-plugin --build`).
@@ -67,12 +67,12 @@ delay_off = 5
 7 = ["mic if call", "auto"]
 ```
 
-See [People and the voice chat](../configuration/people.md) and [States and modes](../configuration/slots.md#states-and-modes).
+See [People and the voice chat](../configuration/channels/people.md) and [States and modes](../configuration/slots.md#states-and-modes).
 
 To start Mumble from the device, give a slot a launch in `[controls]` with a `mumble://` URL, e.g.
 `6 = { select = { launch = ["mumble", "mumble://me@voice.example.org/Gaming"] }, when = "not call" }`: Select starts
 Mumble, which connects to the server and joins the channel. See
-[Launching the application](../configuration/applications.md#launching-the-application).
+[Launching the application](../configuration/channels/applications.md#launching-the-application).
 
 ## What it does, and what not
 
@@ -99,7 +99,7 @@ Mumble, which connects to the server and joins the channel. See
 ## How it works
 
 The plugin (`integrations/mumble/plugin.c`, plugin API 1.0) connects to the socket of the daemon,
-`$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock`, and speaks the [bridge protocol](../configuration/people.md#the-bridge-protocol):
+`$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock`, and speaks the [bridge protocol](../reference/voice-chat-bridge.md):
 the people of the channel on every change and 20 times a second while someone talks (for the levels), and the
 volume and mute commands back. The plugin's socket thread never calls into Mumble; a second thread makes the calls for
 the mute, which Mumble runs in its main thread (see the comment at the top of `plugin.c`). It connects again every 2 seconds while the daemon is not there, so the order in which

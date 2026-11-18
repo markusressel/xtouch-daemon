@@ -6,11 +6,11 @@ Every strip has four buttons with LEDs: Rec, Solo, Mute and Select.
 |---|---|
 | Mute | On while the strip is muted. |
 | Select | On device strips with `device` and `select`: on while the device is the default. Otherwise off. |
-| Rec | An indicator (option `rec`). On device strips with [profiles](devices.md#profiles) it shows the profile instead: on for every profile but the first. |
+| Rec | An indicator (option `rec`). On device strips with [profiles](../channels/devices.md#profiles) it shows the profile instead: on for every profile but the first. |
 | Solo | An indicator (option `solo`). |
 
 On `homeassistant` strips every LED is an entity that Home Assistant sets, see
-[Home Assistant](../home-assistant.md#entities).
+[Home Assistant](../../guides/home-assistant.md#entities).
 
 ## Indicators
 

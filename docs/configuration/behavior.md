@@ -7,7 +7,7 @@ The sections that apply to the daemon and to every strip. The GUI shows them in 
 | Option | Default | Meaning |
 |---|---|---|
 | `name` | `"X-Touch-Ext"` | Part of the name of the extender's sound card, as `/proc/asound/cards` lists it. |
-| `virtual` | `false` | Drive the [virtual device](../getting-started.md#without-a-device) instead of the real one (`xtouch-daemon run --virtual-device` does the same for one run). |
+| `virtual` | `false` | Drive the [virtual device](../getting-started/without-a-device.md) instead of the real one (`xtouch-daemon run --virtual-device` does the same for one run). |
 | `touch_required` | `true` | Whether a fader changes a value only while the device reports a touch. `false` makes every move count, see [below](#faders-without-a-touch-sensor). |
 | `touchless_faders` | `[]` | Faders whose touch sensor does not work, numbered from 1 on the left, see [below](#faders-without-a-touch-sensor). |
 | `startup` | `"sweep"` | How the strips light up after a connect, see [below](#startup-and-shutdown-sequences). |
@@ -35,7 +35,7 @@ shutdown = "curtain"
 
 ### Faders without a touch sensor
 
-Only a touched fader changes a value (see [Hardware](../hardware.md#motor-faders)), so a fader whose touch sensor
+Only a touched fader changes a value (see [Hardware](../reference/hardware.md#motor-faders)), so a fader whose touch sensor
 failed goes back to its value shortly after every move. Until it is repaired, `touchless_faders` lets it work without the
 sensor: a move counts as a touch, and half a second without a move as letting go. In the GUI these are the buttons
 under "Touchless faders" on the page "Device".
@@ -65,15 +65,15 @@ What it can't do:
 
 | Option | Default | Meaning |
 |---|---|---|
-| `max_volume` | `130` | The volume of a fader at the top, 100..200 percent. Above 100 % the audio is amplified in software. 130 puts 100 % at the 0 dB mark of the device with one slope over the whole travel; 100 puts it at the top. Channels may have their own [range](strips.md#volume-range). |
-| `unity_at` | `77` | Where on the fader 100 % is, 10..95 percent of the travel; the device marks 0 dB at about 77. For strips whose range goes above 100 %, see [100 % at the 0 dB mark](strips.md#100-at-the-0-db-mark). |
-| `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` [encoder](encoders.md) and by the encoders of `homeassistant` channels. |
+| `max_volume` | `130` | The volume of a fader at the top, 100..200 percent. Above 100 % the audio is amplified in software. 130 puts 100 % at the 0 dB mark of the device with one slope over the whole travel; 100 puts it at the top. Channels may have their own [range](channels/index.md#volume-range). |
+| `unity_at` | `77` | Where on the fader 100 % is, 10..95 percent of the travel; the device marks 0 dB at about 77. For strips whose range goes above 100 %, see [100 % at the 0 dB mark](channels/index.md#100-at-the-0-db-mark). |
+| `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` [encoder](strip/encoders.md) and by the encoders of `homeassistant` channels. |
 | `reset_volume` | `100` | The volume a push on a `volume` encoder sets, 0..200, at most `max_volume`. It stays within the range of the channel. |
 | `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a channel turns off a single one. |
-| `meter_point` | `"pre_fader"` | Where the meters take the level: `"pre_fader"` before the volume and Mute of each strip, `"post_fader"` after them. A channel or a place in a slot may have its own, see [Meters](strips.md#meters). |
+| `meter_point` | `"pre_fader"` | Where the meters take the level: `"pre_fader"` before the volume and Mute of each strip, `"post_fader"` after them. A channel or a place in a slot may have its own, see [Meters](channels/index.md#meters). |
 
 How long `apps` and `auto` keep an application and which ones they never take are `hold` and `exclude` of
-[`[pool.apps]`](applications.md#apps-and-auto).
+[`[pool.apps]`](channels/applications.md#apps-and-auto).
 
 ```toml
 [behavior]

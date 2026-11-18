@@ -80,12 +80,14 @@ def test_links_are_addresses_on_the_site():
     assert docs.DOCS_URL == "https://markusressel.github.io/xtouch-daemon/"
     assert docs.page_link("mqtt") == "https://markusressel.github.io/xtouch-daemon/home-assistant/#mqtt"
     assert docs.page_link("strips") is None
-    assert docs.strip_type_link("auto") == docs.url("configuration/applications/#auto")
+    assert docs.strip_type_link("auto") == docs.url("configuration/channels/applications/#auto")
     assert docs.strip_type_link("pipewire") is None
-    assert docs.option_link("strip", "rec", "input") == docs.url("configuration/indicators/#indicators")
+    assert docs.option_link("strip", "rec", "input") == docs.url("configuration/strip/leds/#indicators")
     # a type may link an option elsewhere
-    assert docs.option_link("strip", "label", "voip") == docs.url("configuration/people/#strips-for-one-person")
+    assert docs.option_link("strip", "label", "voip") == docs.url(
+        "configuration/channels/people/#strips-for-one-person"
+    )
     assert docs.option_link("strip", "meter", "output") is None
-    assert docs.option_link("behavior", "unity_at") == docs.url("configuration/strips/#100-at-the-0-db-mark")
+    assert docs.option_link("behavior", "unity_at") == docs.url("configuration/channels/#100-at-the-0-db-mark")
     assert docs.option_link("behavior", "meters") is None
     assert docs.option_link("aliases", "anything") is None

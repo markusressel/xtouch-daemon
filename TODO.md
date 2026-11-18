@@ -22,7 +22,7 @@ before. Two possible causes, not checked yet:
 
 - Ours: gaming builds a new mixer (the prototype of slots), so the strip is new and has forgotten its volume
   (`AppGroupStrip.group_volume`); until the game has a stream the fader is down ("idle"), then it shows the volume
-  the stream starts with. Step 5 of `docs/design/channels-states-slots.md` keeps one controller per channel for as
+  the stream starts with. Step 5 of `docs/development/design/channels-states-slots.md` keeps one controller per channel for as
   long as the configuration, which fixes this within a run.
 - PipeWire's: WirePlumber restores the volume of a stream by its properties (mostly `application.name`). Games under
   Proton/Wine often have a generic or changing name, so nothing is restored.

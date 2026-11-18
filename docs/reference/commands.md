@@ -34,7 +34,7 @@ Runs the daemon in the foreground. `install-service` sets it up as a systemd use
 | `-l`, `--log-level LEVEL` | `debug`, `info` (default), `warning` or `error`. `debug` also logs the messages of the device the daemon doesn't use. |
 
 The daemon notes its process and configuration file in `$XDG_RUNTIME_DIR/xtouch-daemon.json` while it runs, and
-serves what the device shows on `$XDG_RUNTIME_DIR/xtouch-daemon.sock` for the [GUI](gui.md). A second daemon does not
+serves what the device shows on `$XDG_RUNTIME_DIR/xtouch-daemon.sock` for the [GUI](../guides/gui.md). A second daemon does not
 start: it names the one that runs.
 
 Signals:
@@ -66,9 +66,9 @@ default  out  browser  auto  auto
 call     out  browser  mic   auto
 ```
 
-A channel with [`choices`](configuration/devices.md#choices) lists them, e.g.
+A channel with [`choices`](../configuration/channels/devices.md#choices) lists them, e.g.
 `output: Phones, Speaker or Buds (Select switches)`. A channel whose meter shows the level after its fader
-(`meter_point = "post_fader"`, see [Meters](configuration/strips.md#meters)) says `meter post-fader`.
+(`meter_point = "post_fader"`, see [Meters](../configuration/channels/index.md#meters)) says `meter post-fader`.
 
 A file with errors names the place of each one, e.g. `channel.mic.label: String should have at most 7 characters`, and
 the command fails. The command lists the channels and shows the
@@ -80,7 +80,7 @@ table of what the slots show in which states.
 xtouch-daemon init-config [PATH] [-f]
 ```
 
-Writes the example configuration with [channels, states and slots](configuration/slots.md) to
+Writes the example configuration with [channels, states and slots](../configuration/slots.md) to
 `~/.config/xtouch-daemon/config.toml`, or to `PATH`. An existing file stays, unless `-f` (`--force`) overwrites it.
 
 ## `list-devices`
@@ -91,8 +91,8 @@ xtouch-daemon list-devices
 
 Lists the outputs and inputs with the node names to use as `device`, their descriptions, volumes and states; `*`
 marks the defaults. Then it lists each sound card by its name and description, with its devices and its profiles
-(name and description), for `card` and `profile` of [`choices`](configuration/devices.md#choices) and for
-[`profiles`](configuration/devices.md#profiles); `*` marks the active ones:
+(name and description), for `card` and `profile` of [`choices`](../configuration/channels/devices.md#choices) and for
+[`profiles`](../configuration/channels/devices.md#profiles); `*` marks the active ones:
 
 ```
 Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa_output.pci-0000_11_00.4.analog-stereo):
@@ -108,7 +108,7 @@ Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa
 xtouch-daemon list-apps [-c FILE]
 ```
 
-Lists the applications that play now: their names (and aliases), the [presets](configuration/presets.md) they are
+Lists the applications that play now: their names (and aliases), the [presets](../configuration/presets.md) they are
 part of (e.g. `Brave (@browsers)`), binaries and volumes, and which strip takes each one: an `apps` strip, an `auto`
 strip, "ignored" (`behavior.ignore`) or no strip. Use the names and binaries, or the presets, for `match`, `ignore`
 and `[aliases]`.
@@ -147,7 +147,7 @@ interrupted (Ctrl+C); the GUI can host one itself, with the mouse on its strips.
 xtouch-daemon mode [NAME | auto | --next | --previous]
 ```
 
-Without arguments it prints the [modes](configuration/slots.md#states-and-modes) of the running daemon, marks the
+Without arguments it prints the [modes](../configuration/slots.md#states-and-modes) of the running daemon, marks the
 one that is on, and says whether it was picked by hand. `mode gaming` picks the mode `gaming`, `--next` and
 `--previous` the one after or before it, `auto` lets the rules decide again. It talks to the daemon over its live
 view socket, so it needs a running daemon.
@@ -177,7 +177,7 @@ The GUI shows the same above the inspector of a slot on the page Slots.
 xtouch-daemon mumble-plugin [--build] [--install]
 ```
 
-The [Mumble plugin](integrations/mumble.md) that gives `voip` strips the people of your Mumble channel. Without
+The [Mumble plugin](../guides/mumble.md) that gives `voip` strips the people of your Mumble channel. Without
 options it tells where the plugin is, whether Mumble is installed, and whether Mumble has the plugin:
 
 ```
@@ -203,7 +203,7 @@ Writes the systemd user unit `~/.config/systemd/user/xtouch-daemon.service` for 
 reloads systemd. `--now` also enables and starts it. The unit is `Type=notify`, reloads with `SIGHUP` and restarts
 on failure.
 
-The [Arch Linux package](getting-started.md#arch-linux) installs its unit as
+The [Arch Linux package](../getting-started/install.md#arch-linux) installs its unit as
 `/usr/lib/systemd/user/xtouch-daemon.service`. Its `xtouch-daemon install-service` writes no file then: it reloads
 systemd, and with `--now` enables and starts that unit. A unit in `~/.config/systemd/user` overrides the one of the
 package (systemd prefers it), e.g. one written before by a checkout; the command says so.
@@ -222,7 +222,7 @@ xtouch-daemon gui [-c FILE]
 ```
 
 Edits the configuration in a window, and applies it. Needs the `gui` extra, or the package `xtouch-daemon-gui-bin`
-(which has the command `xtouch-daemon-gui`). See [GUI](gui.md).
+(which has the command `xtouch-daemon-gui`). See [GUI](../guides/gui.md).
 
 ## `simulate`
 
@@ -231,7 +231,7 @@ xtouch-daemon simulate FILE [--mode NAME] [--state NAME]... [--absent CHANNEL]..
 ```
 
 What the 8 slots of FILE show in the given states, and why not the candidates above (see
-[Channels, states and slots](configuration/slots.md)).
+[Channels, states and slots](../configuration/slots.md)).
 
 | Option | Meaning |
 |---|---|

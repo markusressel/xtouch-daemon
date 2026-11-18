@@ -208,7 +208,7 @@ layout's strips. If that is complex, a switch may simply reset the hold timers.
 - **Device preview in the GUI:** shows the live placement while the daemon tells it. Clicking a physical strip
   selects the config strip it shows. Offline: the static placement with every strip present.
 - **Editor:** every config strip has to be reachable, including those beyond 8 and the collapsed ones. Add a compact
-  strip list or overflow row (the implementer picks; follow docs/architecture.md's GUI section once the GUI
+  strip list or overflow row (the implementer picks; follow docs/development/architecture.md's GUI section once the GUI
   architecture rework has landed). It shows which strips are on the device now, which are collapsed, and which wait.
 - **Option order:** `collapse` goes with the strip-level options (the GUI agent is making the order follow the
   device; put it near the top, after the type-specific "what it controls" fields).

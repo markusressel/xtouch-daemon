@@ -1,4 +1,4 @@
-# Hardware
+# Hardware and protocol
 
 The Behringer X-Touch Extender has 8 strips. Each has a 100 mm motorized, touch-sensitive fader, four buttons with
 LEDs (Rec, Solo, Mute, Select), an encoder with a push button and an LED ring, an LED meter, and an LCD with two lines
@@ -7,25 +7,15 @@ of 7 characters and one of 8 backlight colors.
 The meter has 8 LEDs: seven for the level (green, then orange) and a red clip LED at the top. Mackie Control sets it
 in 14 levels, about two per LED (only the 14th lights the clip LED), and the device lets it fall by itself. What the
 levels mean on an audio strip, and whether they are taken before or after the fader, is in
-[Meters](configuration/strips.md#meters).
+[Meters](../configuration/channels/index.md#meters).
 
-![The eight strips as the GUI draws them, from the top: encoder and LED ring, LCD, meter and buttons, fader](images/device.png)
+![The eight strips as the GUI draws them, from the top: encoder and LED ring, LCD, meter and buttons, fader](../images/device.png)
 
 xtouch-daemon drives it over USB in its Mackie Control mode, so it acts as the "host" a DAW would be. The device needs
 no driver: it is a USB class compliant MIDI device.
 
-## Setting up the device
-
-The extender has to be in **MC** mode on **USB**. Out of the box it may be set to the network interface: then it
-shows `IP: 192.168.001.100 wait...` and ignores USB.
-
-1. Switch it off.
-2. Hold the **Select** button of strip 1 and switch it on: the setup menu opens.
-3. Set **Mode** to `MC` and **Interface** to `USB` with the encoders.
-4. Leave the menu (Select of strip 1 again, or switch it off and on).
-
-Check it with `xtouch-daemon test`: every strip lights its LCD in a color, its LEDs, ring and meter, and moves its
-fader. Afterwards the command echoes what you do on the device.
+[First steps](../getting-started/first-steps.md#set-up-the-device) sets the device up (MC mode on USB) and
+tests it.
 
 ## Linux access
 
@@ -46,7 +36,7 @@ Only one program can have the device open. Stop the daemon before `xtouch-daemon
   hand. A move without a touch waits for one for 0.3 s with the motor still: with a touch it was the hand and counts,
   without one it was the device itself (e.g. its faders going down after it was switched on), and the fader goes back
   to its value. A fader whose touch sensor failed can't change the volume until it is repaired, or until it is one of
-  the [`touchless_faders`](configuration/behavior.md#faders-without-a-touch-sensor). With `touch_required = false`,
+  the [`touchless_faders`](../configuration/behavior.md#faders-without-a-touch-sensor). With `touch_required = false`,
   every move of every fader counts.
 - **Smooth motion:** a fader glides to a new value instead of jumping there. It follows its target like a critically
   damped spring (no overshoot) that gets there in about 100 ms, starting from where it is, also from where a hand left
@@ -61,7 +51,7 @@ Only one program can have the device open. Stop the daemon before `xtouch-daemon
 - **Startup and shutdown sequences:** after a connect the strips light up and their faders come up; when the daemon
   stops they go dark and their faders go down. By default one after the other, from the left and from the right;
   `[device] startup` and `shutdown` choose others, see
-  [Startup and shutdown sequences](configuration/behavior.md#startup-and-shutdown-sequences). The device can't blink
+  [Startup and shutdown sequences](../configuration/behavior.md#startup-and-shutdown-sequences). The device can't blink
   a ring and has no brightness levels, so the light effects are steps of on and off.
 - **Start:** the device can't tell where its faders are. It reports a position only while a finger moves a fader,
   not after a connect, not on the device query, not after a motor move. So after a connect a fader is assumed at the
@@ -123,4 +113,4 @@ Messages the daemon does not use are not lost: `xtouch-daemon test` prints them 
 daemon logs them at debug level (`xtouch-daemon run -l debug`). They show what a device sends that differs from the
 table above, e.g. a touch that is not the usual note.
 
-See [Troubleshooting](troubleshooting.md) for problems with the device.
+See [Troubleshooting](../guides/troubleshooting.md) for problems with the device.

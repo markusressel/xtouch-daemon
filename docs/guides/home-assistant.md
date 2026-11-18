@@ -86,7 +86,7 @@ volume on the other control and gets these entities of the [list below](#entitie
 | `fader = "homeassistant"` | `number.<ns>_<id>_fader`, and `event.<ns>_<id>_buttons` with `fader_touched`, `fader_released`. |
 
 The LCD, the LEDs and the buttons stay with PipeWire. The channel's id names the entities, its `label` starts their
-names. See [Encoders](configuration/encoders.md#homeassistant) for the details.
+names. See [Encoders](../configuration/strip/encoders.md#homeassistant) for the details.
 
 ```toml
 [channel.desk]
@@ -96,7 +96,7 @@ label = "Desk"
 encoder = "homeassistant"    # the fader sets the volume, the encoder dims the desk lamp
 ```
 
-A control of a slot can belong to Home Assistant whatever the slot shows, with [`[controls]`](configuration/slots.md#controls-and-the-chord):
+A control of a slot can belong to Home Assistant whatever the slot shows, with [`[controls]`](../configuration/slots.md#controls-and-the-chord):
 `6 = { fader = "homeassistant", id = "desk" }` is `number.xtouch_desk_fader`.
 
 ## Entities
@@ -123,7 +123,7 @@ Entities of a channel that was removed from the configuration are removed from H
 
 ## Choices
 
-With `[mqtt]`, an `output` or `input` channel with [`choices`](configuration/devices.md#choices) has
+With `[mqtt]`, an `output` or `input` channel with [`choices`](../configuration/channels/devices.md#choices) has
 `select.<ns>_<id>_output` (`select.<ns>_<id>_input`): the choice the strip shows, one option per choice, named by its
 `label` (or its `device`; a second choice of the same name gets a number, e.g. `Out 2`). Choosing one switches to it
 like Select on the device, profile first; one that isn't there is refused and the select goes back. The select
@@ -139,7 +139,7 @@ data:
 
 ## Modes, states and slots
 
-With `[mqtt]`, Home Assistant sees and sets the [states and modes](configuration/slots.md#states-and-modes):
+With `[mqtt]`, Home Assistant sees and sets the [states and modes](../configuration/slots.md#states-and-modes):
 
 | Entity | What it is |
 |---|---|

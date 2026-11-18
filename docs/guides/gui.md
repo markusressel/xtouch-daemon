@@ -1,30 +1,12 @@
 # GUI
 
-`xtouch-daemon gui` edits the configuration file in a window and applies it to the running daemon.
+`xtouch-daemon gui` edits the configuration file in a window and applies it to the running daemon. It starts with
+`xtouch-daemon-gui` (the Arch Linux package) or `xtouch-daemon gui`, `-c FILE` for another file; see
+[Install](../getting-started/install.md#the-gui).
 
-It edits [channels, states and slots](configuration/slots.md).
+It edits [channels, states and slots](../configuration/slots.md).
 
-![The GUI: the window Device at the top, the slots and the inspector of slot 3 below](images/gui.png)
-
-## Install and start
-
-On Arch Linux, install the package `xtouch-daemon-gui-bin` (see [Getting started](getting-started.md#arch-linux)).
-It uses the system's PyQt6, and starts with `xtouch-daemon-gui` or "X-Touch Extender" in the menu of the desktop:
-
-```shell
-xtouch-daemon-gui            # the default configuration file
-xtouch-daemon-gui -c FILE    # another one
-```
-
-From a checkout, the GUI needs the `gui` extra (PyQt6). The wheels bring Qt along, so it needs no system packages:
-
-```shell
-uv tool install --force './xtouch-daemon[gui]'
-xtouch-daemon gui            # the default configuration file
-xtouch-daemon gui -c FILE    # another one
-```
-
-Without the extra, `xtouch-daemon gui` says how to install it.
+![The GUI: the window Device at the top, the slots and the inspector of slot 3 below](../images/gui.png)
 
 ## The window
 
@@ -37,14 +19,14 @@ them again; the GUI remembers it):
 - **States:** the modes first, then the other states. The form asks in order: State or Mode (a mode has a label and
   a priority), and On while: Sources or Condition, never both. Sources lists only the ones the state has, each with
   ✕ to remove it; Add source offers the others ("An application plays", "You are in the voice chat", ...), and the
-  state is on while any of them is. Condition takes a [condition](configuration/slots.md#conditions) of other states
+  state is on while any of them is. Condition takes a [condition](../configuration/slots.md#conditions) of other states
   and modes, in the field of the page Slots. Switching between them asks before it removes what the other had.
   Delays and overrides (`delay_on`, `delay_off`, `persist`) are folded away until a state has one. Above the form:
   what the daemon says about it right now (since when, from which source), its override (a mode: picked by hand),
   and which stacks and controls use it.
 - **Settings:** `[behavior]`, `[aliases]`, `[mqtt]` (as "Home Assistant"), `[switching]` (as "Modes and chord"),
   `[voip]` (as "Voice chat") and `[device]`. "Voice chat" also tells whether Mumble is connected, lists the steps of
-  its setup, and installs the [Mumble plugin](integrations/mumble.md) with "Install Mumble plugin".
+  its setup, and installs the [Mumble plugin](mumble.md) with "Install Mumble plugin".
 
 Slots, Channels and States have a list or the slots on the left and what is picked on the right. The handle between
 them (the short upright bar) gives either side more room; each page keeps its share for the next start.
@@ -86,9 +68,16 @@ Device, the dark or the light theme, the [zoom](#zoom)) and Help (this documenta
 
 ## The service
 
+The service button installs, starts and restarts the systemd user service, the same as
+`xtouch-daemon install-service`. It asks before it installs or starts it. While the service runs, "Stop" next to it
+stops it (`systemctl --user stop`): it stays enabled, so it starts again with the next session, or with "Start".
+
+A daemon that runs outside systemd (e.g. from a terminal or an IDE) is found too: the header shows "running
+elsewhere", and saving reloads it. The GUI does not start, restart or stop that one: restart it where it runs.
+
 Next to the state of the service, the header shows which unit systemd uses: "packaged" for the one of the Arch Linux
 package (`/usr/lib/systemd/user/xtouch-daemon.service`), or "own unit" for a unit in `~/.config/systemd/user`, which
-[`install-service`](commands.md#install-service) wrote, e.g. for a checkout; its tooltip has the unit and the program it
+[`install-service`](../reference/commands.md#install-service) wrote, e.g. for a checkout; its tooltip has the unit and the program it
 starts.
 
 - **Install and start** takes the unit of the package when the GUI is the one of the package: it enables and starts
@@ -115,7 +104,7 @@ the window Device), read from the daemon's live view. Without a running daemon i
 daemon that runs while the device is not connected shows "Live · not connected": the strips show what the device will
 show once it is there.
 
-With the [virtual device](getting-started.md#without-a-device) (`run --virtual-device`), the pill says "Live · virtual
+With the [virtual device](../getting-started/without-a-device.md) (`run --virtual-device`), the pill says "Live · virtual
 device" once the daemon drives it, and "virtual device not running · Open it" while the daemon waits for it: a click
 opens it in the window (see [below](#the-virtual-device)).
 
@@ -240,7 +229,7 @@ On the page Slots:
   now, or what a pool hands out and from which side, with "Edit the channel" to its page, and what `[controls]`
   claims of the slot. Below it, it edits the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or
   `auto`, `-`), when (the
-  [condition](configuration/slots.md#conditions):
+  [condition](../configuration/slots.md#conditions):
   states violet, channels in `present(...)` teal, a mistake underlined in red with what is wrong in its tooltip;
   typing offers the states, keywords and channels that fit, Ctrl+Space all of them),
   and the options of its place (look, on `apps` and `auto` the encoder and the volume range, on `people` the look of
@@ -292,7 +281,7 @@ The GUI reads the sound server and suggests what it has:
 |---|---|
 | `device` | The outputs or inputs by node name, with their descriptions; the default is marked. |
 | `profiles` | The profiles of the sound cards of those devices; the active one is marked. |
-| `match`, `exclude` of `[pool.apps]`, `apps` and `recording` of a state | The [presets](configuration/presets.md) (`@browsers`, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined. |
+| `match`, `exclude` of `[pool.apps]`, `apps` and `recording` of a state | The [presets](../configuration/presets.md) (`@browsers`, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined. |
 | `processes` of a state | The presets for processes. |
 | `[aliases]` | The names of the applications that play. |
 | `person` of a `person` channel | The people in the voice chat now, as the running daemon tells them. |
@@ -329,12 +318,3 @@ Closing the window with unsaved changes asks whether to save them.
   (`journalctl --user -u xtouch-daemon`).
 
 "Revert" drops the changes and reads the file again (Undo brings them back).
-
-## The service
-
-The service button installs, starts and restarts the systemd user service, the same as
-`xtouch-daemon install-service`. It asks before it installs or starts it. While the service runs, "Stop" next to it
-stops it (`systemctl --user stop`): it stays enabled, so it starts again with the next session, or with "Start".
-
-A daemon that runs outside systemd (e.g. from a terminal or an IDE) is found too: the header shows "running
-elsewhere", and saving reloads it. The GUI does not start, restart or stop that one: restart it where it runs.

@@ -9,7 +9,7 @@ device from the GUI (see the decisions below).
 The X-Touch Extender used for development was defective (the touch sensors of faders 1 and 4 failed) and went back.
 Without a device nothing above the protocol can be tried outside the tests: no slots on strips, no fader under a
 finger while a slot changes, no LEDs and texts to look at. The protocol and the behavior of the device are known well
-(see [Hardware](../hardware.md), verified on the device on 2026-11-15), so a simulated device can stand in for it:
+(see [Hardware](../../reference/hardware.md), verified on the device on 2026-11-15), so a simulated device can stand in for it:
 for development, for the GUI, and for tests that run the real `Surface` end to end.
 
 The model is also how the GUI sees the device (decided 2026-11-17): the daemon keeps one as a mirror of the device it
@@ -20,7 +20,7 @@ drives, and the GUI shows the mirror. One model of the device, then, for the vir
 - The daemon talks to the simulated device with the same bytes as to the real one. Everything above the transport
   (`Surface`, its touch grace, touchless faders, the glide of the motors, the startup sequence, reconnects) runs
   unchanged, so it gets tried too.
-- The simulated device behaves like the real one where [Hardware](../hardware.md) says how, including faults: a
+- The simulated device behaves like the real one where [Hardware](../../reference/hardware.md) says how, including faults: a
   touch sensor that fails (like the returned unit), the device switched off and on (faders move by themselves), unplugged.
 - One model of the device, without IO and without Qt, behind its frontends: the mirror in the daemon (what the GUI
   shows), a socket server for the daemon, the GUI's drawing to use it, and a test fixture.
@@ -138,7 +138,7 @@ again, so a daemon restart sees the faders where they were, as on the real devic
 
 ### 6. Fidelity
 
-What the simulator does is either verified on the device (it says so in [Hardware](../hardware.md)) or an
+What the simulator does is either verified on the device (it says so in [Hardware](../../reference/hardware.md)) or an
 assumption; the assumptions are listed in the module's docstring and in the docs: the speed of the motor, the fall
 of the meters, the delay of the touch, the moves after switching on. A test against the real device later replaces
 assumptions with measurements.

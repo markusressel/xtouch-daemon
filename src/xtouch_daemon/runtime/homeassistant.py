@@ -1,6 +1,6 @@
 """
-Channels, states and slots in Home Assistant (see "Home Assistant" in docs/design/channels-states-slots.md), for as
-long as the configuration:
+Channels, states and slots in Home Assistant (see "Home Assistant" in docs/development/design/channels-states-slots.md),
+for as long as the configuration:
 
 - `select.<ns>_mode`: the mode picked by hand, or `auto` for the rules.
 - `binary_sensor.<ns>_state_<id>`: each state and mode, with the attributes `since`, `source` and `override`.

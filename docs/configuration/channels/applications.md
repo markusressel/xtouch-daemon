@@ -10,13 +10,13 @@ All playback streams of a group of applications.
 | Option | Default | Meaning |
 |---|---|---|
 | `type` | required | `"apps"`. |
-| `match` | required | Parts of application names or binaries, ignoring case, or [presets](presets.md) like `"@browsers"`. |
+| `match` | required | Parts of application names or binaries, ignoring case, or [presets](../presets.md) like `"@browsers"`. |
 | `label` | required | The top line of the LCD. |
-| `encoder` | `"media"` | `media`, `volume`, `balance` or `homeassistant`, see [Encoders](encoders.md). |
+| `encoder` | `"media"` | `media`, `volume`, `balance` or `homeassistant`, see [Encoders](../strip/encoders.md). |
 | `launch` | none | A command that Select starts while none of the applications runs, see [Launching the application](#launching-the-application). |
 | `launch_when_running` | `false` | Select starts `launch` also while the application runs. |
 
-They also have the [options of every audio channel](strips.md#options-of-every-audio-channel): `color`, `meter`,
+They also have the [options of every audio channel](index.md#options-of-every-audio-channel): `color`, `meter`,
 `rec`, `solo`, `min_volume`, `max_volume`, `fader`.
 
 ```toml
@@ -32,14 +32,14 @@ A stream belongs to the channel when its application name (`application.name`) o
 matches Windows games under Proton. `xtouch-daemon list-apps` shows the names and binaries of the applications that
 play, and which channel or slot takes each one. A stream can belong to several `apps` channels.
 
-For common groups there are [presets](presets.md): `@browsers`, `@voip`, `@games`, `@steam-games`, `@music` and
+For common groups there are [presets](../presets.md): `@browsers`, `@voip`, `@games`, `@steam-games`, `@music` and
 `@video` stand for the names of well-known applications of the group, e.g. `match = ["@browsers"]` for every browser,
 and mix with names of your own (`match = ["@voip", "my-voice-app"]`).
 
 | Element | Function |
 |---|---|
 | Fader | Sets every stream of the group to the same volume. A stream that starts later gets that volume too. Shows the loudest stream. |
-| Encoder | See [Encoders](encoders.md), for all streams. |
+| Encoder | See [Encoders](../strip/encoders.md), for all streams. |
 | Mute | Mutes all streams, or unmutes them when all are muted. The LED is on while all are muted. |
 | Select | Nothing, or with `launch` it starts the application. The LED flashes while it starts and is on while it runs, see [Launching the application](#launching-the-application). |
 | LCD | Top: the label. Bottom: the volume, `muted`, or `idle` while no stream of the group is there. |
@@ -73,9 +73,9 @@ color = "cyan"                # the look of the applications on every auto slot
 
 The look options of every audio channel go into `[pool.apps]`, `[pool.auto]` or a place; a place of `apps` or `auto`
 also takes `encoder`
-(`pick` by default: `pick`, `media`, `volume`, `balance` or `homeassistant`, see [Encoders](encoders.md)),
+(`pick` by default: `pick`, `media`, `volume`, `balance` or `homeassistant`, see [Encoders](../strip/encoders.md)),
 `min_volume` and `max_volume`. There is no `label`: the label is the application's alias from
-[`[aliases]`](behavior.md#aliases), or its name.
+[`[aliases]`](../behavior.md#aliases), or its name.
 
 How `apps` and `auto` get their applications:
 
@@ -89,7 +89,7 @@ How `apps` and `auto` get their applications:
 - A newly assigned application keeps its own volume.
 
 With the default `encoder = "pick"`, the encoder chooses the application and a push pins it, so it stays after it
-stopped playing. See [Encoders](encoders.md#pick).
+stopped playing. See [Encoders](../strip/encoders.md#pick).
 
 A slot of `apps` or `auto` works like an `apps` channel for its application. Without an application it is dark, blank, and does
 nothing.
@@ -97,7 +97,7 @@ nothing.
 ## Launching the application
 
 With `launch`, the Select button of an `apps` channel starts an application while it does not run: the voice
-chat, the music player. Any slot can start one with [`[controls]`](slots.md#controls-and-the-chord), whatever it
+chat, the music player. Any slot can start one with [`[controls]`](../slots.md#controls-and-the-chord), whatever it
 shows: `7 = { select = { launch = ["mumble"] }, when = "not call" }`.
 
 ```toml
@@ -114,8 +114,8 @@ launch = ["mumble", "mumble://markus@voice.example.org/Gaming"]
   `&&`. A single string works too (`launch = "mumble mumble://markus@voice.example.org/Gaming"`) and is split like a
   shell splits it, with quotes, but nothing is expanded.
 - Select starts it only while the application does not run: no stream matches `match`, and no process whose name
-  contains one of the `match` entries runs (like `processes` of [states](slots.md#states-and-modes)), so a silent
-  voice chat counts as running. For a [preset](presets.md), its processes count, e.g. Steam's `reaper` for
+  contains one of the `match` entries runs (like `processes` of [states](../slots.md#states-and-modes)), so a silent
+  voice chat counts as running. For a [preset](../presets.md), its processes count, e.g. Steam's `reaper` for
   `@steam-games`. A process named like the program of `launch` (the file name of its first part, exactly) counts
   too; that is all a launch of `[controls]` looks at.
 - While it runs, Select does nothing. With `launch_when_running = true` Select starts the command also then.

@@ -1,6 +1,6 @@
 # Channels
 
-Each `[channel.<id>]` section is something a strip of the device can control; [slots](slots.md#slots) say which
+Each `[channel.<id>]` section is something a strip of the device can control; [slots](../slots.md#slots) say which
 strip shows it when. The id names it in slots, conditions and the entities in Home Assistant: lower case letters,
 digits and `_`.
 
@@ -18,10 +18,10 @@ color = "red"
 | `output`, `input` | [Devices](devices.md) |
 | `apps` | [Applications](applications.md) |
 | `person` | [People and the voice chat](people.md) |
-| `homeassistant` | [Home Assistant](../home-assistant.md) |
+| `homeassistant` | [Home Assistant](../../guides/home-assistant.md) |
 
 The strips of `auto` (the next application that plays) and empty slots (`-`) are no channels: they are written in
-the [slots](slots.md#slots).
+the [slots](../slots.md#slots).
 
 Options about slots rather than the strip: `tags` (names to group channels under), `in_pool = false` (an `apps` or
 `person` channel without a slot stays out of `apps`, `people` and `auto`) and `absent_after` (seconds the channel stays present after it
@@ -38,15 +38,15 @@ only `color` of them.
 | `lit_when_idle` | `false` | Whether the LCD keeps its backlight while the strip has nothing to control: no application of an `apps` group plays, the device is not there, an `auto` strip has no application. The fader stays down all the same. |
 | `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). |
 | `meter_point` | `behavior.meter_point` | Where the meter takes the level: `"pre_fader"` before the volume and Mute of the strip, `"post_fader"` after them, see [Meters](#meters). |
-| `rec` | `"recording"` | What the LED of the Rec button shows: `recording`, `playing`, `default`, `muted` or `off`, see [LEDs](indicators.md). |
-| `solo` | `"off"` | What the LED of the Solo button shows, the same values, see [LEDs](indicators.md). |
+| `rec` | `"recording"` | What the LED of the Rec button shows: `recording`, `playing`, `default`, `muted` or `off`, see [LEDs](../strip/leds.md). |
+| `solo` | `"off"` | What the LED of the Solo button shows, the same values, see [LEDs](../strip/leds.md). |
 | `min_volume` | `0` | The volume of the fader at the bottom, 0..200 percent. |
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
-| `encoder` | depends on the type | What the encoder does, see [Encoders](encoders.md). |
-| `fader` | `"volume"` | `"homeassistant"` hands the fader to Home Assistant, see [Encoders](encoders.md#fader-homeassistant). |
+| `encoder` | depends on the type | What the encoder does, see [Encoders](../strip/encoders.md). |
+| `fader` | `"volume"` | `"homeassistant"` hands the fader to Home Assistant, see [Encoders](../strip/encoders.md#fader-homeassistant). |
 
 Device and application channels also have a `label`, see their pages. A candidate of a slot can change the look at
-that place: `{ show = "mic", color = "blue" }` (see [Slots](slots.md#slots)).
+that place: `{ show = "mic", color = "blue" }` (see [Slots](../slots.md#slots)).
 
 ## Labels
 
@@ -59,7 +59,7 @@ Where the label comes from:
 |---|---|
 | `output`, `input` | The label of the active [profile](devices.md#profiles), else `label`. Without both: the start of the device's description with `device`, `"Output"`/`"Input"` without it. |
 | `apps` | `label` (required). |
-| `auto` | The alias of the application from [`[aliases]`](behavior.md#aliases), or its name. |
+| `auto` | The alias of the application from [`[aliases]`](../behavior.md#aliases), or its name. |
 | `person` | `label`, else the first name of `person`; people of `auto` show their name. |
 | `homeassistant` | What Home Assistant sets, until then `label`. |
 
@@ -109,10 +109,10 @@ top. The GUI shows the option in "Global settings", "Behavior".
 | Element | What it does on an audio strip |
 |---|---|
 | Fader | Sets the volume. Follows changes made elsewhere. Only a touched fader changes the volume. |
-| Encoder | What `encoder` says, see [Encoders](encoders.md). |
+| Encoder | What `encoder` says, see [Encoders](../strip/encoders.md). |
 | Mute | Toggles mute. Its LED is on while muted. |
-| Rec, Solo | Their LEDs are [indicators](indicators.md). The buttons do nothing, except Rec with [profiles](devices.md#profiles). |
-| Select | On device strips: makes the device the default. On application strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. [`[controls]`](slots.md#controls-and-the-chord) can give it another action. |
+| Rec, Solo | Their LEDs are [indicators](../strip/leds.md). The buttons do nothing, except Rec with [profiles](devices.md#profiles). |
+| Select | On device strips: makes the device the default. On application strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. [`[controls]`](../slots.md#controls-and-the-chord) can give it another action. |
 | LCD | Top: the label. Bottom: the volume, or `muted`, `idle`, `off`. The backlight in `color`, dark while the strip has nothing to control. |
 | Ring | What the encoder controls. |
 | Meter | The level of what the strip controls, see [Meters](#meters). |
@@ -124,7 +124,7 @@ slowly to the bottom. When it is back, the fader goes up to its volume again.
 
 The LED meter shows the peak level of what the strip controls, 10 times a second: from -60 dB (the lowest LED) up to
 just below full scale (the seventh LED), 5 dB per level of the device (about two levels per LED, see
-[Hardware](../hardware.md)). A peak at full scale lights the red LED at the top too, for half a second. The device
+[Hardware](../../reference/hardware.md)). A peak at full scale lights the red LED at the top too, for half a second. The device
 lets a meter fall by itself when no new level comes.
 
 `meter_point` says where the level is taken, like the pre-fader and post-fader meters of a hardware mixer:
@@ -142,7 +142,7 @@ What each strip type can show:
 | `apps`, `auto` | The streams' audio divided by their volume, so the fader doesn't move the meter. **While muted the meter stays dark:** PipeWire applies the volume and Mute inside the stream, before anything else can listen, so the audio of a muted stream is gone. | The streams as they play. |
 | `input` | The input divided by its volume. Dark while muted, as above. | The input as applications get it. |
 | `person`, people | The voice before the participant's volume (the plugin's fader). Muted, Mumble doesn't fetch their voice: the meter lights while they talk, without a level. A plugin that tells no level before the volume shows the one after it. | The voice after their volume, dark while muted. |
-| `homeassistant` | The meter entity, see [Home Assistant](../home-assistant.md). | |
+| `homeassistant` | The meter entity, see [Home Assistant](../../guides/home-assistant.md). | |
 
 The first that sets it wins: the `meter_point` of the place in a slot, the channel's, then `behavior.meter_point`.
 
