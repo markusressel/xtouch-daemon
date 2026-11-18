@@ -137,8 +137,11 @@ class SlotsPanel(Page):
             "(Esc ends it)"
         )
         self.simulate_button.clicked.connect(lambda checked: self.simulate(WhatIf() if checked else None))
-        top.addWidget(self.simulate_button)
-        self.layout_.addWidget(row(top))
+        # first: it stays where it is while the what-ifs take the place of the states
+        top.insertWidget(0, self.simulate_button)
+        top.insertSpacing(1, Space.S)
+        self.bar = row(top)
+        """Simulate and the states, or the what-ifs: in the row of the window above the page (see `MainWindow`)."""
         self.state_buttons: dict[str, QToolButton] = {}
         cards = QWidget()
         self.cards = QVBoxLayout(cards)
@@ -614,12 +617,12 @@ class SlotsPanel(Page):
         state = next((state for state in slots.states if state.name == name), None) if slots is not None else None
         anchor = self.state_buttons[name]
         if slots is None or state is None:
-            unknown = Entry(name, text="The daemon doesn't tell this state yet.", entity=Entity.STATE)
-            show_popover(anchor, "The state", [unknown])
+            unknown = Entry("", text="The daemon doesn't tell this state yet.")
+            show_popover(anchor, name, [unknown])
             return
         value = Status("on", Tone.GOOD) if state.value else Status("off", Tone.NEUTRAL)
         why = state.source or "none of its sources is on"
-        entries = [Entry(name, value, f"{why[:1].upper()}{why[1:]}.", entity=Entity.STATE)]
+        entries = [Entry("", value, f"{why[:1].upper()}{why[1:]}.")]
         if state.mode:
             picked = slots.mode_pick == name
             override = Status("picked by hand", Tone.WARN) if picked else Status("by the rules", Tone.NEUTRAL)
@@ -654,7 +657,7 @@ class SlotsPanel(Page):
                 actions=((simulate, lambda: self.simulate(what_if)),),
             )
         )
-        show_popover(anchor, "The state", entries)
+        show_popover(anchor, name, entries)
 
     def override(self, name: str, value: str) -> None:
         """Asks the daemon to override a state, or to pick a mode (`auto`: the rules decide again)."""

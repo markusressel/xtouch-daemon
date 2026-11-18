@@ -5,6 +5,7 @@ it, rendered offscreen. Nothing of the machine is used: no daemon, device, sound
     uv run --extra gui python scripts/screenshot.py [OUT_DIR]
 """
 
+import dataclasses
 import os
 import sys
 import tempfile
@@ -104,12 +105,21 @@ def shoot(home: Path, out: Path) -> None:
     from PyQt6.QtWidgets import QApplication
 
     from xtouch_daemon.audio.model import AudioState, Card, Device, Direction, Profile, Stream
+    from xtouch_daemon.gui.domain.simulate import WhatIf, simulated
     from xtouch_daemon.gui.domain.slots_document import SlotsDocument
     from xtouch_daemon.gui.qt.theme.style import apply_theme
     from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
     from xtouch_daemon.gui.qt.window.main_window import MainWindow
     from xtouch_daemon.live.codec import encode
-    from xtouch_daemon.live.messages import MqttState, Snapshot, StripState, fingerprint
+    from xtouch_daemon.live.messages import (
+        FEATURES,
+        MqttState,
+        SlotsState,
+        Snapshot,
+        StateView,
+        StripState,
+        fingerprint,
+    )
     from xtouch_daemon.system.instance import Instance
     from xtouch_daemon.system.systemd import Service
 
@@ -183,7 +193,23 @@ def shoot(home: Path, out: Path) -> None:
     saved = document.saved_config
     assert saved is not None
     mqtt = MqttState("homeassistant.local:1883", "xtouch", connected=True, ready=True, error=None, entities=6)
-    snapshot = Snapshot(fingerprint(saved), True, sound_server=True, mqtt=True, strips=strips, mqtt_state=mqtt)
+    # gaming is on (strip 4 shows the games, none of which plays), as the rules found it; Spotify plays on `auto`
+    resolved = simulated(saved.slots, WhatIf(mode="gaming", apps=1))
+    views = tuple(
+        dataclasses.replace(view, member="app:Spotify") if view.member is not None else view for view in resolved.slots
+    )
+    gaming = StateView("gaming", True, True, None, "a Steam game runs", "auto")
+    slots = SlotsState(mode="gaming", mode_pick=None, slots=views, states=(gaming,), waiting={})
+    snapshot = Snapshot(
+        fingerprint(saved),
+        True,
+        sound_server=True,
+        mqtt=True,
+        strips=strips,
+        mqtt_state=mqtt,
+        features=FEATURES,
+        slots=slots,
+    )
 
     socket = home / "runtime" / "live.sock"
     server = QLocalServer()
@@ -210,8 +236,7 @@ def shoot(home: Path, out: Path) -> None:
     wait(app, lambda: window.live.snapshot is not None and window.audio_label.text() != "Reading the sound server…")
     window.device_view.select(SELECTED)
     settle(app)
-    # the file as it is on a machine of a user, not in the temporary directory
-    window.path_label.setText(window.path_label.text().replace(str(path), "~/.config/xtouch-daemon/config.toml"))
+    # the path of the file (in the temporary directory) is in the title of the window, which a grab doesn't show
 
     out.mkdir(parents=True, exist_ok=True)
     save(window.grab(), out / "gui.png")

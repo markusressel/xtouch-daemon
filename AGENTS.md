@@ -11,9 +11,9 @@ uv, src layout. Start with [docs/architecture.md](docs/architecture.md).
 | `src/xtouch_daemon/audio/` | `AudioState` model, `AudioBackend` protocol, `PulseBackend`, `pw-record` meters, MPRIS media players. |
 | `src/xtouch_daemon/config/`, `config.example.toml` | pydantic configuration, split by topic (`files`, `model`, `sections`, `layout`, strip types, `inheritance`, `values`, `names`), and the example file. `config/presets.py` has the presets (`@browsers`, ...); `docs/configuration/presets.md` has their table, kept in line by a test. |
 | `src/xtouch_daemon/strips/` | Strip controllers (`output`/`input`, `apps`, `auto`, `homeassistant`, `empty`, `voip`). |
-| `src/xtouch_daemon/slots/` | Prototype of `docs/design/channels-states-slots.md` (channels, pools, states, slots and their resolver), pure and not used by the daemon yet; `xtouch-daemon simulate` and `observe` drive it. |
+| `src/xtouch_daemon/slots/` | Channels, pools, states, slots and their resolver (`docs/design/channels-states-slots.md`), pure: `runtime/slots` runs it on the device, the GUI's Simulate and `xtouch-daemon simulate` and `observe` drive it too. |
 | `src/xtouch_daemon/mqtt.py` | `MqttBridge`: the MQTT connection for Home Assistant (discovery, retained states, availability). |
-| `src/xtouch_daemon/runtime/` | The running daemon: lifecycle (`daemon`: signals, reload, shutdown, sd_notify), `mixer` (feeds states and events to the controllers), `placement` (strips that collapse), `layouts` (switching and rules), `slots` (the prototype of channels, states and slots on the device). |
+| `src/xtouch_daemon/runtime/` | The running daemon: lifecycle (`daemon`: signals, reload, shutdown, sd_notify), `mixer` (feeds states and events to the controllers), `placement` (strips that collapse), `layouts` (switching and rules), `slots` (channels, states and slots on the device), `slot_files` (what they keep across restarts). |
 | `src/xtouch_daemon/system/` | The system around it: `instance` (runtime file), `systemd` (incl. controlling the user service), `processes` (`/proc`), `launch` (starting a strip's `launch` detached from the daemon; tests use `FakeLauncher`, `conftest.no_launches` makes a real start fail). |
 | `src/xtouch_daemon/live/` | The live view of the device for the GUI over a Unix socket: `messages`, `codec`, `server`. |
 | `src/xtouch_daemon/cli/` | The CLI, one module per topic; `cli/__init__.py` puts the commands together. |
@@ -33,6 +33,7 @@ just lint            # ruff check + ruff format --check + codespell
 just typecheck       # pyright
 just check           # all of the above, like CI
 just docs            # builds the documentation site (strict: broken links fail)
+just screenshot      # renders docs/images/ (README and docs) offscreen from scripts/screenshot.py: after changes to the look of the GUI
 ```
 
 ## Rules
@@ -55,7 +56,10 @@ just docs            # builds the documentation site (strict: broken links fail)
   `conftest.no_host` fails a test that touches the processes, sound devices, the user's files, the session bus or the
   runtime directory of the machine; a test that does so on purpose is marked `host`.
 - Type hints everywhere; `ruff` and `pyright` must pass.
-- Git: commit, but never push. The user pushes.
+- GUI: never use `Qt.WindowType.Popup` (or `QMenu` for more than a menu): a popup grabs the keyboard and the mouse,
+  on X11 the whole display, so screenshot tools and the keys of the window manager stop working. Details a click away
+  are popovers (`gui/qt/fields/popover.py`), drawn inside the window.
+- Git: on a branch, commit and push the finished, checked work; on `main` only when the user asks. Never force-push.
 
 ## Writing help
 
@@ -78,3 +82,5 @@ Technical English):
 - The same word for the same thing, the words of the GUI: state, mode, channel, pool, slot, strip, candidate.
   The GUI colors them (and their sections in `code`, e.g. `[state.gaming]`), so write them out.
 - Options, values, commands and sections in backticks.
+- Headings and titles (popovers, their rows, pages, docks) are short noun phrases in sentence case: "Connections",
+  "Mode and states", "File"; no "The ...", no "What ...". A pill's popover doesn't repeat the pill: it explains it.

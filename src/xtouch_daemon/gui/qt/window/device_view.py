@@ -142,9 +142,10 @@ class DeviceView(QWidget):
         if self.live_status is None:
             return
         actions = (("Open the virtual device", self.live_clicked.emit),) if self.offered else ()
-        show_popover(
-            self.live_pill, "What the drawing shows", [Entry("The drawing", self.live_status, actions=actions)]
-        )
+        status = self.live_status
+        # the pill clicked says the status already: only what it means, in the color of its tone
+        entry = Entry("", Status("", status.tone), status.tip, actions)
+        show_popover(self.live_pill, "Drawing", [entry])
 
     def _show_modes(self) -> None:
         """The mode, the modes to pick (or back to the rules) and the states, with what turned them on."""
@@ -170,7 +171,7 @@ class DeviceView(QWidget):
             why = why[:1].upper() + why[1:]
             override = "" if state.override == "auto" else f" Overridden: {state.override}."
             entries.append(Entry(state.name, value, f"{why}.{override}", entity=Entity.STATE))
-        show_popover(self.slots_pill, "The mode and the states", entries)
+        show_popover(self.slots_pill, "Mode and states", entries)
 
     def show_daemon(self, runs: bool) -> None:
         """Whether a daemon runs: without one (and nothing hosted), "Try without a device"."""

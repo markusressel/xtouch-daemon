@@ -304,9 +304,11 @@ class MainWindow(QMainWindow):
         return box
 
     def _preview_status(self) -> QHBoxLayout:
-        """What the preview shows (live or the file), the connection to Home Assistant, and the sound server."""
+        """The bar of the page shown (see `_pages`) and the sound server."""
         top = QHBoxLayout()
-        top.addStretch(1)
+        self.page_bars = QStackedWidget()
+        """The bar of each page of the rail (an empty one for a page without), switched with the page."""
+        top.addWidget(self.page_bars, 1)
         self.audio_label = label("Reading the sound server…", "pill")
         """What the GUI read from the sound server (for the suggestions); a click: all of it."""
         make_clickable(self.audio_label, self._show_audio)
@@ -357,6 +359,9 @@ class MainWindow(QMainWindow):
         self.settings.picked.connect(self.show_page)
         self.nav_buttons = self.settings.buttons
         self.stack.addWidget(self.settings)
+        for name in RAIL_PAGES:
+            self.page_bars.addWidget(slots.bar if name == "slots" else QWidget())
+        self.stack.currentChanged.connect(self.page_bars.setCurrentIndex)
         return self.stack
 
     def _bar(self, name: str, content: QWidget) -> QToolBar:
@@ -601,9 +606,10 @@ class MainWindow(QMainWindow):
         clipboard = QApplication.clipboard()
         assert clipboard is not None
         entries = [
-            Entry("The device", self.changes),
+            # the pill clicked says it already: what it means, in the color of its tone
+            Entry("Device", Status("", self.changes.tone), self.changes.tip),
             Entry(
-                "The file",
+                "File",
                 path=str(path),
                 actions=(
                     ("Copy the path", lambda: clipboard.setText(str(path))),
@@ -614,13 +620,13 @@ class MainWindow(QMainWindow):
         if self.daemon is not None and self.daemon.config != path.resolve():
             entries.append(
                 Entry(
-                    "The daemon reads",
+                    "Daemon's file",
                     Status("another file", Tone.WARN),
                     "Save and apply writes this file, which the daemon does not read.",
                     path=str(self.daemon.config),
                 )
             )
-        show_popover(self.changes_pill, "The configuration", entries)
+        show_popover(self.changes_pill, "Configuration", entries)
 
     def _show_savable(self) -> None:
         """
@@ -752,12 +758,12 @@ class MainWindow(QMainWindow):
 
     def _show_audio(self) -> None:
         """What the GUI read from the sound server, or why it couldn't, and reading it again (it stays open)."""
-        heading = "What the GUI reads from the sound server"
+        heading = "Sound server"
         again = (("Read again", self._read_audio_again),)
         if self.audio_error is not None:
             entry = Entry(
-                "Not reachable",
-                Status("no names", Tone.WARN),
+                "",
+                Status("not reachable", Tone.WARN),
                 f"{self.audio_error}\n\nThe forms suggest no names meanwhile: type them by hand.",
             )
             self._keep_audio_popover(show_popover(self.audio_label, heading, [entry], actions=again))

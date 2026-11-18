@@ -25,9 +25,9 @@ TEXT_WIDTH = 400
 @dataclass(frozen=True)
 class Entry:
     title: str
-    """What the row is about, e.g. "Home Assistant"."""
+    """What the row is about, e.g. "Home Assistant"; "" for none (the popover is about one thing, its heading)."""
     status: Status | None = None
-    """How it is doing, as a pill; None for none."""
+    """How it is doing, as a pill (none without a text: only the color of the bar); None for none."""
     text: str = ""
     """The explanation (the tip of the status when empty), with `code` as in the help."""
     actions: tuple[tuple[str, Callable[[], object]], ...] = ()
@@ -163,30 +163,24 @@ def _row(popup: QFrame, entry: Entry) -> QFrame:
     grid.setContentsMargins(Space.M, Space.S, Space.S, Space.S)
     grid.setHorizontalSpacing(Space.M)
     grid.setVerticalSpacing(Space.XS)
-    title = label(entry.title)
-    title.setStyleSheet("font-weight: bold;")
-    if entry.entity is not None:
-        title.setStyleSheet(f"font-weight: bold; color: {getattr(current_colors(), entry.entity.value)};")
-    grid.addWidget(title, 0, 0)
-    if entry.status is not None:
+    if entry.title:
+        title = label(entry.title)
+        title.setStyleSheet("font-weight: bold;")
+        if entry.entity is not None:
+            title.setStyleSheet(f"font-weight: bold; color: {getattr(current_colors(), entry.entity.value)};")
+        grid.addWidget(title, 0, 0)
+    if entry.status is not None and entry.status.text:
         pill = label("", "pill")
         show_status(pill, entry.status)
         pill.setToolTip("")
-        grid.addWidget(pill, 0, 1, Qt.AlignmentFlag.AlignLeft)
+        # without a title, in its place
+        grid.addWidget(pill, 0, 1 if entry.title else 0, Qt.AlignmentFlag.AlignLeft)
     grid.setColumnStretch(1, 1)
-    if entry.actions:
-        buttons = QHBoxLayout()
-        buttons.setSpacing(Space.XS)
-        for index, (text, action) in enumerate(entry.actions):
-            button = QPushButton(text)
-            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            if index == 0 and tone in (Tone.WARN, Tone.BAD):
-                # what fixes it
-                set_role(button, "primary", "variant")
-            button.clicked.connect(lambda _=False, action=action: (popup.close(), action()))
-            buttons.addWidget(button)
+    buttons = _buttons(popup, entry, tone)
+    titled = bool(entry.title) or (entry.status is not None and bool(entry.status.text))
+    if buttons is not None and titled:
         grid.addLayout(buttons, 0, 2, Qt.AlignmentFlag.AlignRight)
-    line = 1
+    line = 1 if titled else 0
     text = entry.text or (entry.status.tip if entry.status is not None else "")
     if text:
         explanation = label("", "hint", wrap=True)
@@ -210,7 +204,27 @@ def _row(popup: QFrame, entry: Entry) -> QFrame:
         shown.setFixedWidth(TEXT_WIDTH)
         grid.addWidget(shown, line, 0, 1, 3)
         line += 1
+    if buttons is not None and not titled:
+        # nothing above the text: the buttons go under it
+        grid.addLayout(buttons, line, 0, 1, 3, Qt.AlignmentFlag.AlignRight)
     return row
+
+
+def _buttons(popup: QFrame, entry: Entry, tone: Tone) -> QHBoxLayout | None:
+    """The buttons of `entry`, the first one of a problem standing out; None without any."""
+    if not entry.actions:
+        return None
+    buttons = QHBoxLayout()
+    buttons.setSpacing(Space.XS)
+    for index, (text, action) in enumerate(entry.actions):
+        button = QPushButton(text)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        if index == 0 and tone in (Tone.WARN, Tone.BAD):
+            # what fixes it
+            set_role(button, "primary", "variant")
+        button.clicked.connect(lambda _=False, action=action: (popup.close(), action()))
+        buttons.addWidget(button)
+    return buttons
 
 
 def make_clickable(pill: QLabel, clicked: Callable[[], None]) -> None:

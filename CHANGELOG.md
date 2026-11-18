@@ -178,6 +178,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   (marked as real: the device and Home Assistant follow it) and "Simulate it off/on" from the situation there is.
 - What the GUI read from the sound server is a pill: a click lists the outputs, inputs and applications, or why it
   couldn't, with "Read again" (the popover stays open and shows what it read).
+- Popovers are titled with what they are about ("Connections", "Mode and states", "Sound server") and don't repeat
+  the pill that opened them.
+- Simulate, the states and the sound server share one row above the slots; Simulate comes first and stays where it
+  is while the what-ifs replace the states.
+- Dragging the handle between the panes of a page no longer lags: where it was left is written once, when it is let
+  go, not on every move.
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
   and window, and of the desktop file of `xtouch-daemon-gui-bin`.
 - The documentation has a version per release (and `dev` for main) with a version selector, built once per version
