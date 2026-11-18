@@ -13,6 +13,8 @@ _migrate/
 .idea
 # the documentation site, built by zensical
 site/
+# a copy of the icon of the project for the site (just docs-icon): the one in the package is the original
+/docs/images/icon.svg
 # worktrees and links of Claude Code
 .claude/
 # core dumps of crashed processes

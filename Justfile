@@ -32,11 +32,15 @@ typecheck:
 check: lint typecheck coverage
 
 # build the documentation site into site/ (strict: broken links fail)
-docs:
+docs: docs-icon
     uv run --group docs zensical build --clean --strict
 
+# copy the icon of the project (the one in the package, which the GUI uses) to where the site takes it from
+docs-icon:
+    cp src/xtouch_daemon/gui/qt/theme/images/icon.svg docs/images/icon.svg
+
 # serve the documentation on http://localhost:<port>, rebuilt on changes (8000 is often taken)
-docs-serve port="8001":
+docs-serve port="8001": docs-icon
     uv run --group docs zensical serve --dev-addr localhost:{{port}}
 
 # serve the documentation of a commit, tag or branch on http://localhost:<port>, from a temporary worktree
@@ -47,6 +51,8 @@ docs-at ref port="8001":
     git worktree add --detach "$dir" "{{ref}}"
     trap 'git worktree remove --force "$dir"' EXIT
     cd "$dir"
+    # older refs have the copy committed
+    if [ -f src/xtouch_daemon/gui/qt/theme/images/icon.svg ]; then cp src/xtouch_daemon/gui/qt/theme/images/icon.svg docs/images/icon.svg; fi
     # the Zensical of today: the ref may be older than the docs group
     uvx zensical serve --dev-addr localhost:{{port}}
 

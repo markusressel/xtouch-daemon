@@ -2,13 +2,15 @@
 The controls of the systemd user service in the header of the window.
 """
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QHBoxLayout, QMessageBox, QPushButton, QWidget
+from PyQt6.QtCore import QPoint, Qt, pyqtSignal
+from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QMessageBox, QPushButton, QWidget
 
 from xtouch_daemon import installed_version
+from xtouch_daemon.gui.domain.connections import Connection, worst
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, unit_status
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, label, show_status
 from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import (
@@ -22,6 +24,9 @@ from xtouch_daemon.system.systemd import (
     uses_packaged_unit,
 )
 
+POPUP_TEXT_WIDTH = 380
+"""The width of the explanations in the list of the connections."""
+
 
 class ServiceControls(QWidget):
     """
@@ -29,6 +34,8 @@ class ServiceControls(QWidget):
     unit of the package instead of one in ~/.config.
     """
 
+    settings_asked = pyqtSignal(str, arguments=["page"])
+    """The list of the connections was asked for the settings of one (a page of the settings, e.g. "mqtt")."""
     changed = pyqtSignal(arguments=[])
     """The service was installed, started, stopped, ...: the window looks for the daemon again."""
     told = pyqtSignal(str, arguments=["text"])
@@ -43,7 +50,11 @@ class ServiceControls(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(label("Service", "hint"))
         self.pill = label("…", "pill")
+        self.pill.mousePressEvent = lambda event: self.show_connections_list()  # type: ignore[method-assign]
         layout.addWidget(self.pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.service_status = Status("…", Tone.NEUTRAL)
+        """The state of the service alone, without the connections of the daemon."""
+        self.connections: tuple[Connection, ...] = ()
         self.unit_label = ElidedLabel("", "hint")
         """Which unit is in effect: the package's, or one in ~/.config and the program it starts."""
         layout.addWidget(self.unit_label)
@@ -71,14 +82,14 @@ class ServiceControls(QWidget):
                 f"The daemon runs outside systemd (process {daemon.pid}, e.g. from a terminal or an IDE) "
                 f"and reads {daemon.config}. Saving reloads it; restart it where it runs."
             )
-            show_status(self.pill, Status("running elsewhere", Tone.GOOD, tip))
+            self._show_service(Status("running elsewhere", Tone.GOOD, tip))
             self._hide_service_controls()
             return
         try:
             state = self.service.state()
         except ServiceError as e:
             self.state = None
-            show_status(self.pill, Status("unavailable", Tone.BAD, str(e)))
+            self._show_service(Status("unavailable", Tone.BAD, str(e)))
             self._hide_service_controls()
             return
         self.state = state
@@ -98,7 +109,7 @@ class ServiceControls(QWidget):
         else:
             tone = Tone.BAD if state.active == "failed" else Tone.NEUTRAL
             text, tip = "Start", "Enable the service and start it"
-        show_status(self.pill, Status(state.describe(), tone, f"systemctl --user status {UNIT_NAME}"))
+        self._show_service(Status(state.describe(), tone, f"systemctl --user status {UNIT_NAME}"))
         self.service_button.setText(text)
         self.service_button.setToolTip(tip)
         set_role(self.service_button, "primary" if highlight else "", "variant")
@@ -112,6 +123,63 @@ class ServiceControls(QWidget):
             self.unit_label.setToolTip(unit.tip)
         self.override_button.setToolTip(f"Remove {unit_path()}, which overrides the unit of the package")
         self.override_button.setVisible(overrides)
+
+    def _show_service(self, status: Status) -> None:
+        self.service_status = status
+        self._show_pill()
+
+    def show_connections(self, found: tuple[Connection, ...]) -> None:
+        """What the daemon is connected to (see `domain.connections`): the pill tells the worst problem."""
+        if found == self.connections:
+            return
+        self.connections = found
+        self._show_pill()
+
+    def _show_pill(self) -> None:
+        """The state of the service, with the worst problem of a connection while it runs."""
+        status = self.service_status
+        problem = worst(self.connections)
+        if problem is not None and status.tone == Tone.GOOD:
+            status = Status(
+                f"{status.text} · {problem.short} {problem.status.text}",
+                problem.status.tone,
+                f"{problem.status.tip}\n\n{status.tip}",
+            )
+        if self.connections:
+            status = Status(status.text, status.tone, f"{status.tip}\n\nClick for what the daemon is connected to.")
+        show_status(self.pill, status)
+        self.pill.setCursor(Qt.CursorShape.PointingHandCursor if self.connections else Qt.CursorShape.ArrowCursor)
+
+    def show_connections_list(self) -> None:
+        """Under the pill: each connection of the daemon, how it is doing and why, with its settings."""
+        if not self.connections:
+            return
+        popup = QFrame(self, Qt.WindowType.Popup)
+        set_role(popup, "popup")
+        popup.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        grid = QGridLayout(popup)
+        grid.setContentsMargins(Space.M, Space.M, Space.M, Space.M)
+        grid.setHorizontalSpacing(Space.M)
+        grid.setVerticalSpacing(Space.XS)
+        for index, connection in enumerate(self.connections):
+            grid.addWidget(label(connection.name), 2 * index, 0)
+            pill = label("", "pill")
+            show_status(pill, connection.status)
+            grid.addWidget(pill, 2 * index, 1, Qt.AlignmentFlag.AlignLeft)
+            if connection.settings is not None:
+                settings = QPushButton("Settings")
+                settings.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                settings.clicked.connect(
+                    lambda _=False, page=connection.settings: (popup.close(), self.settings_asked.emit(page))
+                )
+                grid.addWidget(settings, 2 * index, 2)
+            tip = label(connection.status.tip, "hint", wrap=True)
+            tip.setFixedWidth(POPUP_TEXT_WIDTH)
+            tip.setContentsMargins(0, 0, 0, Space.S)
+            grid.addWidget(tip, 2 * index + 1, 0, 1, 3)
+        popup.adjustSize()
+        popup.move(self.pill.mapToGlobal(QPoint(0, self.pill.height() + Space.XS)))
+        popup.show()
 
     def _hide_service_controls(self) -> None:
         for widget in (self.unit_label, self.service_button, self.override_button, self.stop_button):

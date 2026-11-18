@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 
 from xtouch_daemon.audio.pulse import read_state
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
+from xtouch_daemon.gui.qt.theme.icons import app_icon
 from xtouch_daemon.gui.qt.theme.settings import load_zoom
 from xtouch_daemon.gui.qt.theme.style import apply_theme, load_theme_mode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -43,6 +44,8 @@ def create_application() -> QApplication:
     app.setApplicationDisplayName("X-Touch Extender")
     # Wayland finds the icon of the window by it: packaging/xtouch-daemon-gui.desktop
     app.setDesktopFileName("xtouch-daemon-gui")
+    # X11 and the task bars that don't read the desktop file
+    app.setWindowIcon(app_icon())
     apply_theme(load_theme_mode())
     return app
 

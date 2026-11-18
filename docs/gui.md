@@ -28,7 +28,8 @@ Without the extra, `xtouch-daemon gui` says how to install it.
 
 ## The window
 
-The rail on the left has four pages:
+The window **Configuration** has a rail of four pages on its left, icons only (» at its foot shows their names, « hides
+them again; the GUI remembers it):
 
 - **Slots:** what each slot shows when, see [The slots](#the-slots).
 - **Channels:** the channels of the file, then the built-in pools `[pool.apps]`, `[pool.people]`, `[pool.auto]` and `[pool.devices]`.
@@ -48,9 +49,10 @@ The rail on the left has four pages:
 Slots, Channels and States have a list or the slots on the left and what is picked on the right. The handle between
 them (the short upright bar) gives either side more room; each page keeps its share for the next start.
 
-The window **Device** shows the device on every page, above the page at first. Its title bar moves it to another side
-of the window, or out of it as a window of its own (e.g. on another screen); View → Device closes and opens it. The
-GUI keeps where it is for the next start. Clicking a strip of it (or Left, Right, Home, End) shows its slot on the
+The window **Device** shows the device on every page, above the window Configuration at first. The title bar of either
+moves it to another side of the window, next to the other one, or out of it as a window of its own (e.g. on another
+screen); View → Device closes and opens the device (Configuration always stays open). The GUI keeps where they are for
+the next start. Clicking a strip of it (or Left, Right, Home, End) shows its slot on the
 page Slots.
 
 The drawing of the device shows the encoder with its ring of 13 LEDs (Mackie Control lights the middle 11), the LCD
@@ -73,8 +75,9 @@ Device, the dark or the light theme, the [zoom](#zoom)) and Help (this documenta
 ## The service
 
 Next to the state of the service, the header shows which unit systemd uses: "packaged" for the one of the Arch Linux
-package (`/usr/lib/systemd/user/xtouch-daemon.service`), or "from" and the program of a unit in
-`~/.config/systemd/user`, which [`install-service`](commands.md#install-service) wrote, e.g. for a checkout.
+package (`/usr/lib/systemd/user/xtouch-daemon.service`), or "own unit" for a unit in `~/.config/systemd/user`, which
+[`install-service`](commands.md#install-service) wrote, e.g. for a checkout; its tooltip has the unit and the program it
+starts.
 
 - **Install and start** takes the unit of the package when the GUI is the one of the package: it enables and starts
   it, and writes no file. Any other GUI writes a unit for its own `xtouch-daemon` to `~/.config/systemd/user`.
@@ -95,20 +98,23 @@ the selected slot and the page stay. The zoom is on top of a `QT_SCALE_FACTOR` o
 
 ## Live view
 
-While the daemon runs, the drawing shows what the device shows right now ("Live"), read from the daemon's live
-view. Without a running daemon it is dark, and the window says so. A daemon that runs while the device is not
-connected shows "Live · X-Touch-Ext not connected": the strips show what the device will show once it is there.
-
-While the daemon runs with an `[mqtt]` section, a second pill tells how its connection to Home Assistant is doing:
-"Home Assistant" while it is connected, otherwise what is wrong, e.g. "Home Assistant · not authorized" or
-"Home Assistant · refused". Its tooltip has the broker's own words and what to check; a click opens the settings.
+While the daemon runs, the drawing shows what the device shows right now ("Live", in a pill on the right of the bar of
+the window Device), read from the daemon's live view. Without a running daemon it is dark, and the window says so. A
+daemon that runs while the device is not connected shows "Live · not connected": the strips show what the device will
+show once it is there.
 
 With the [virtual device](getting-started.md#without-a-device) (`run --virtual-device`), the pill says "Live · virtual
 device" once the daemon drives it, and "virtual device not running · Open it" while the daemon waits for it: a click
 opens it in the window (see [below](#the-virtual-device)).
 
-A third pill shows the mode ("Mode gaming", "Mode gaming · by hand"); its tooltip lists the states and what each slot
-shows.
+Next to it, a pill shows the mode the device shows ("Mode: gaming", "No mode" while no mode is on, "· by hand" when
+it was picked by hand). A mode is a state with `mode = true`: one at a time is on. Its tooltip lists the states and
+what each slot shows.
+
+The pill of the service at the top tells what the daemon is connected to: "running" while all is well, else the worst
+problem, e.g. "running · Home Assistant not authorized" or "running · device not connected". A click lists each
+connection (the device, the sound server, Home Assistant with an `[mqtt]` section, the voice chat with `[voip]`), how
+it is doing and why (for Home Assistant the broker's own words and what to check), with a button to its settings.
 
 ## Select and Play
 

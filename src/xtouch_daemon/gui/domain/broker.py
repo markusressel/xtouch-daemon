@@ -77,15 +77,6 @@ def live_status(snapshot: Snapshot | None) -> Status:
     return status_of(state)
 
 
-def header_status(snapshot: Snapshot | None) -> Status | None:
-    """The connection for the pill next to the preview: only while the daemon runs with an [mqtt] section."""
-    if snapshot is None or snapshot.mqtt is None:
-        return None
-    status = live_status(snapshot)
-    text = "Home Assistant" if status.tone == Tone.GOOD else f"Home Assistant · {status.text}"
-    return Status(text, status.tone, status.tip)
-
-
 def status_of(state: MqttState) -> Status:
     who = f" as {state.username}" if state.username else ""
     if state.connected and state.ready:

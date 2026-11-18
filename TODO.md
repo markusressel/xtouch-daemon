@@ -30,30 +30,9 @@ before. Two possible causes, not checked yet:
 Next time a game starts: `pactl list sink-inputs` shows its `application.name` and the volume it starts with. If
 PipeWire doesn't restore it, remember the volume per game ourselves.
 
-## Sidebar buttons
-
-Can we make our main sidebar collapsable into just icons? that
-  would probably save some space. Or we make it a floating menu bar
-  instead, then we wouldn't waste so many empty space below the 4
-  buttons on it, but we would need to ensure no content is
-  displayed below it. And it might make more sense to have it next
-  to what the selection shows, not next to the device preview,
-  since that is always there anyway. And the configuration view
-  should also become a window that can be dragged. I don't want to
-  turn this into an IDE, but maybe sidebars like in IntelliJ would
-  help again here?!
-
-## Documentation per Version/Commit/Release
-
-can our documentation show different git states? so we can show
-  the documentation for different versions/tags/commits or the
-  repo? If not we should add that.
-
 ## AI support
 
 Is there anything we should add to either the daemon or the GUI to help AI work with them?
 Or is it enough that we have a config and documentation up online?
 If we can avoid implementing features for AI, that would be best, but if there is something that would add real value to a user, it is worth it.
 I was able to edit the config to my liking with AI pretty easily, but maybe there is still something to make it easier for less smart models?
-
-

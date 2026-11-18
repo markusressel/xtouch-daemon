@@ -49,7 +49,9 @@ def save_split(name: str, share: float) -> None:
 
 # -- the window ---------------------------------------------------------------------------------------------------
 
-_WINDOW_KEY = "window_state"
+_WINDOW_KEY = "window_state/2"
+"""Version 2: the rail is part of the window Configuration (a dock), no bar of its own; earlier layouts are dropped."""
+_RAIL_KEY = "rail_labels"
 
 
 def load_window_state() -> bytes | None:
@@ -60,6 +62,15 @@ def load_window_state() -> bytes | None:
 
 def save_window_state(state: bytes) -> None:
     QSettings().setValue(_WINDOW_KEY, state)
+
+
+def load_rail_labels() -> bool:
+    """Whether the rail shows the names of the pages under their icons (False at first: icons only)."""
+    return QSettings().value(_RAIL_KEY, False, type=bool) is True
+
+
+def save_rail_labels(shown: bool) -> None:
+    QSettings().setValue(_RAIL_KEY, shown)
 
 
 def zoom_step(zoom: float, steps: int) -> float:

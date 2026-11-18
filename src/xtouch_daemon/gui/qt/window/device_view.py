@@ -3,7 +3,8 @@ The device as it is right now (the live view of the daemon), or what Simulate on
 GUI, or on the device with Try on the device): the window
 Device, docked or on its own, on every page. A bar above the drawing switches between Select (a click picks a slot,
 a drag moves it) and Play (the mouse is a hand on the device), and offers to try it without a device while no daemon
-runs; while the GUI hosts the virtual device, a second bar has what the mouse can't do on it.
+runs; on its right the mode the device shows and whether the drawing is live. While the GUI hosts the virtual device,
+a second bar has what the mouse can't do on it.
 """
 
 from collections.abc import Callable
@@ -14,8 +15,8 @@ from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout,
 
 from xtouch_daemon.gui.domain.looks import device_faces
 from xtouch_daemon.gui.domain.simulate import simulated_faces
-from xtouch_daemon.gui.domain.status import play_unavailable
-from xtouch_daemon.gui.qt.fields.basics import label
+from xtouch_daemon.gui.domain.status import Status, play_unavailable
+from xtouch_daemon.gui.qt.fields.basics import label, show_status
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Hand, Preview
 from xtouch_daemon.gui.qt.theme.icons import set_icon
@@ -38,6 +39,8 @@ class DeviceView(QWidget):
     """A strip of the drawing was clicked: the slot (1 for the leftmost one) to show on the page Slots."""
     moved = pyqtSignal(int, int, arguments=["source", "target"])
     """A strip was dragged to another place: its slot moves there (slots from 1)."""
+    live_clicked = pyqtSignal(arguments=[])
+    """The pill of what the drawing shows was clicked (it opens the virtual device while the daemon waits for it)."""
     try_without_device = pyqtSignal(arguments=[])
     """"Try without a device": a daemon with the virtual device, hosted here."""
 
@@ -81,6 +84,16 @@ class DeviceView(QWidget):
         layout.addSpacing(Space.S)
         self.mode_hint = label("", "hint")
         layout.addWidget(self.mode_hint, 1)
+        self.slots_pill = label("", "pill")
+        """The mode the device shows, with the states and slots in its tip."""
+        self.slots_pill.hide()
+        layout.addWidget(self.slots_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addSpacing(Space.XS)
+        self.live_pill = label("", "pill")
+        """Live or the file; while the daemon waits for the virtual device, a click opens it."""
+        self.live_pill.mousePressEvent = lambda event: self.live_clicked.emit()  # type: ignore[method-assign]
+        layout.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addSpacing(Space.S)
         self.try_button = QPushButton("Try without a device")
         set_icon(self.try_button, "play-circle-outline")
         self.try_button.setToolTip(
@@ -106,6 +119,17 @@ class DeviceView(QWidget):
     def _play_toggled(self, playing: bool) -> None:
         self.preview.set_playing(playing)
         self._show_mode()
+
+    def show_status(self, live: Status, offered: bool, slots: Status | None) -> None:
+        """
+        What the drawing shows (live or the file; `offered`: a click opens the virtual device) and the mode of the
+        slots, None without slots.
+        """
+        show_status(self.live_pill, live)
+        self.live_pill.setCursor(Qt.CursorShape.PointingHandCursor if offered else Qt.CursorShape.ArrowCursor)
+        self.slots_pill.setVisible(slots is not None)
+        if slots is not None:
+            show_status(self.slots_pill, slots)
 
     def show_daemon(self, runs: bool) -> None:
         """Whether a daemon runs: without one (and nothing hosted), "Try without a device"."""

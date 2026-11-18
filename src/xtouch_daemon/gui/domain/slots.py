@@ -1,21 +1,28 @@
 """
-The slots of a running daemon with channels, states and slots, for the GUI: the mode in a pill next to the preview,
-and in its tip which states are on and what each slot shows.
+The slots of a running daemon with channels, states and slots, for the GUI: the mode in a pill on the bar of the
+window Device (the chord changes it there), and in its tip which states are on and what each slot shows.
 """
 
 from xtouch_daemon.gui.domain.looks import shown
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.live.messages import SlotsState, Snapshot
+from xtouch_daemon.slots.model import DEFAULT
+
+MODES = (
+    "A mode is a state with `mode = true`: one at a time is on, and without one the slots show their default (no "
+    "mode). The chord of the device picks the next one."
+)
 
 
 def slots_status(snapshot: Snapshot | None) -> Status | None:
-    """The mode for the pill next to the preview: only while the daemon runs a configuration of slots."""
+    """The mode for its pill: only while the daemon runs a configuration of slots."""
     if snapshot is None or snapshot.slots is None:
         return None
     slots = snapshot.slots
+    text = "No mode" if slots.mode == DEFAULT else f"Mode: {slots.mode}"
     if slots.mode_pick is None:
-        return Status(f"Mode {slots.mode}", Tone.NEUTRAL, _tip(slots, "The rules pick the mode."))
-    return Status(f"Mode {slots.mode} · by hand", Tone.WARN, _tip(slots, "The mode was picked by hand."))
+        return Status(text, Tone.NEUTRAL, _tip(slots, f"{MODES} The rules pick it now."))
+    return Status(f"{text} · by hand", Tone.WARN, _tip(slots, f"{MODES} It was picked by hand."))
 
 
 def _tip(slots: SlotsState, how: str) -> str:

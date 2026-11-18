@@ -159,6 +159,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and Play works on it. The switch is there while Simulate is open, the pill says "On the device · simulated", and
   Home Assistant never sees the situation. `StartPreview` takes a `situation` and no `config` (the file's), snapshots
   tell `simulated`. See `docs/design/try-and-simulate.md`.
+- The GUI's pages are a window Configuration, like the window Device: each docks at any side or floats as a window of
+  its own (e.g. on another screen). Its rail shows icons only, » shows their names.
+- The GUI's pills moved to what they are about: "Live" and the mode ("Mode: gaming", "No mode") to the bar of the
+  window Device, Home Assistant into the pill of the service, which tells the worst problem of the daemon's
+  connections (device, sound server, Home Assistant, voice chat); a click on it lists them with their settings.
+- An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
+  and window, and of the desktop file of `xtouch-daemon-gui-bin`.
 - The documentation has a version per release (and `dev` for main) with a version selector, built once per version
   with mike to the branch `gh-pages`; `just docs-at <ref>` serves the documentation of any commit locally.
 - A built-in pool `devices`: the outputs and inputs no channel has (a USB headset, Bluetooth speakers), on the slots

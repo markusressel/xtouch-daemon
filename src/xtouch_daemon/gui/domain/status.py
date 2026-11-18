@@ -48,9 +48,9 @@ def preview_status(
     if snapshot is not None:
         if not snapshot.device:
             return Status(
-                f"Live · {device_name} not connected",
+                "Live · not connected",
                 Tone.WARN,
-                "The daemon runs but the device is not there: the strips show what it will show once it is.",
+                f"The daemon runs but {device_name} is not there: the strips show what it will show once it is.",
             )
         return Status("Live", Tone.GOOD, "The strips show what the device shows right now.")
     if daemon is None:
@@ -221,9 +221,11 @@ def unit_status(state: ServiceState, overrides: bool) -> Status | None:
     if state.packaged:
         return Status("packaged", Tone.NEUTRAL, f"The unit of the package: {state.unit}")
     tip = f"The unit {state.unit}"
+    if state.program:
+        tip += f", which starts {state.program}"
     if overrides:
-        tip += ", which overrides the one of the package"
-    return Status(f"from {state.program or state.unit}", Tone.WARN if overrides else Tone.NEUTRAL, tip)
+        tip += "; it overrides the one of the package"
+    return Status("own unit", Tone.WARN if overrides else Tone.NEUTRAL, tip)
 
 
 def outdated(state: ServiceState, snapshot: Snapshot | None, installed: str, program: str) -> str | None:

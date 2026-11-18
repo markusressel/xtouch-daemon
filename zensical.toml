@@ -51,6 +51,10 @@ nav = [
 
 [project.theme]
 language = "en"
+# the icon of the project: a copy of the one in the package (src/xtouch_daemon/gui/qt/theme/images/icon.svg, which the
+# GUI uses), made by `just docs-icon` before every build
+logo = "images/icon.svg"
+favicon = "images/icon.svg"
 features = [
   "content.action.edit",
   "content.code.copy",
@@ -81,8 +85,6 @@ scheme = "slate"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to system preference"
 
-[project.theme.icon]
-logo = "lucide/sliders-vertical"
 
 # A version selector in the header: the versions are deployed with mike (Zensical's fork, until Zensical versions
 # documentation itself) to the branch gh-pages, `dev` for main and X.Y.Z for each release, the newest one also as

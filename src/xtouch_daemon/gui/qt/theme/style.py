@@ -222,6 +222,8 @@ QWidget[role="chip"][variant="preset"] {{ background: transparent; border: 1px s
 
 QWidget[role="bar"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-top-width: 1px;
     border-bottom-width: 1px; }}
+QFrame[role="popup"] {{ background: {c.raised}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px; }}
+QWidget[role="rail"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-right-width: 1px; }}
 QToolBar {{ background: {c.chrome}; border: none; padding: 0; spacing: 0; }}
 QMenuBar {{ background: {c.chrome}; border-bottom: 1px solid {c.border}; }}
 QMenuBar::item {{ background: transparent; padding: {Space.XS}px {Space.M}px; border-radius: {Radius.SMALL}px; }}

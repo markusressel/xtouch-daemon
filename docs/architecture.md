@@ -158,14 +158,15 @@ itself does not import it.
   would show, `looks` how the live view draws each strip, `status` whether the device runs the saved file, `sources`
   turns sound server snapshots into suggestions, `apply()` decides between reload, restart and "the daemon does not
   run". `gui/qt` only shows that and passes edits back.
-- **Pages by what they edit.** A rail on the left has the pages: Slots (a card per slot with its stack, an inspector
+- **Pages by what they edit.** A rail on the left of the window Configuration has the pages: Slots (a card per slot with its stack, an inspector
   for the candidate picked, why it shows, Simulate), Channels, States and Settings (`[device]`,
   `[behavior]`, `[aliases]`, `[mqtt]` as "Home Assistant", `[voip]`). Slots, Channels and States are two panes with a
   `PaneSplitter` (`gui/qt/window/splitter.py`) between them, which keeps its share in `QSettings`.
-- **The device on every page.** The drawing of the device (`DeviceView`, `gui/qt/window/device_view.py`) is a
-  `QDockWidget`: docked above the page at first, at any side, or a window of its own; `QMainWindow.saveState()` keeps
-  where it is. The header, the rail and the footer are fixed `QToolBar`s, so they reach across the window and the
-  dock sits between them. A click on a strip of the drawing picks its slot on the page Slots. The menus hold what is
+- **The device on every page.** The drawing of the device (`DeviceView`, `gui/qt/window/device_view.py`) and the
+  pages with their rail (the window Configuration) are `QDockWidget`s: one above the other at first, at any side, or
+  windows of their own; `QMainWindow.saveState()` keeps where they are. The central widget is an empty placeholder,
+  so the docks have all the room. The header and the footer are fixed `QToolBar`s, so they reach across the window
+  and the docks sit between them. A click on a strip of the drawing picks its slot on the page Slots. The menus hold what is
   used now and then (the theme, the zoom) and the keys of the window.
 - **Previews of the controls.** `gui/domain/demos.py` groups the options of a channel by the part of the strip they
   are about and makes a short scene for each part from the values in the form (frames of a `StripState` with a

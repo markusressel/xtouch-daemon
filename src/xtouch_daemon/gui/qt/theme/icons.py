@@ -2,6 +2,8 @@
 Material Design icons (qtawesome) that follow the theme.
 """
 
+from pathlib import Path
+
 import qtawesome as qta
 from PyQt6.QtGui import QColor, QIcon, QPalette
 from PyQt6.QtWidgets import QAbstractButton, QApplication, QWidget
@@ -9,6 +11,15 @@ from PyQt6.QtWidgets import QAbstractButton, QApplication, QWidget
 from xtouch_daemon.gui.qt.theme.style import current_colors
 
 _ICON_PROPERTY = "themed_icon"
+APP_ICON = Path(__file__).parent / "images" / "icon.svg"
+"""
+The icon of the project: the device, as four of its strips. The original: the site (`just docs-icon`), the README and
+the desktop file of the release (`packaging/build-release.sh`) take it from here.
+"""
+
+
+def app_icon() -> QIcon:
+    return QIcon(str(APP_ICON))
 
 
 def set_icon(button: QAbstractButton, name: str, color: str | None = None) -> None:

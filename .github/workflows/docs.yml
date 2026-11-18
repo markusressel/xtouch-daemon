@@ -29,6 +29,8 @@ jobs:
         with:
           python-version: 3.x
       - run: pip install zensical "mike @ git+https://github.com/squidfunk/mike.git@2d4ad799442f4592db8ad53b179bfb33db8c69ac"
+      # the icon of the project for the site, from the package (see `just docs-icon`)
+      - run: cp src/xtouch_daemon/gui/qt/theme/images/icon.svg docs/images/icon.svg
       # --strict: a broken link or anchor fails the build (mike builds without it)
       - run: zensical build --clean --strict
       - name: Prepare gh-pages

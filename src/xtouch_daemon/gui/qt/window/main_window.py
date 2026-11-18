@@ -1,14 +1,14 @@
 """
-The main window. From the top: the menus; the file and the service; a rail of the pages (Slots, Channels, States,
-Settings), the window Device (docked above the page at first, or anywhere else, or on its own) and the page; at the
-bottom the problems, undo and saving.
+The main window. From the top: the menus; the file and the service; the window Device and the window Configuration
+(docked one above the other at first; each can go to any side, or be a window of its own), which has a rail of the
+pages (Slots, Channels, States, Settings) and the page; at the bottom the problems, undo and saving.
 """
 
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QEvent, QObject, QPointF, QProcess, QRect, QSignalBlocker, Qt, QTimer, QUrl
+from PyQt6.QtCore import QEvent, QObject, QPointF, QProcess, QRect, QSignalBlocker, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDockWidget,
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -45,14 +46,14 @@ from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import Problem
 from xtouch_daemon.gui.domain import broker, docs, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
-from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
+from xtouch_daemon.gui.domain.connections import connections
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import previewed, unavailable
 from xtouch_daemon.gui.domain.schema import SECTIONS
 from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
-from xtouch_daemon.gui.domain.status import Status, changes_status, offers_virtual_device, preview_status, runs_older
+from xtouch_daemon.gui.domain.status import changes_status, offers_virtual_device, preview_status, runs_older
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
 from xtouch_daemon.gui.qt.fields.controls import Switch
@@ -72,11 +73,13 @@ from xtouch_daemon.gui.qt.pages.sections import (
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.pages.states import StatesPage
 from xtouch_daemon.gui.qt.remote_hand import RemoteHand
-from xtouch_daemon.gui.qt.theme.icons import refresh_icons, set_icon
+from xtouch_daemon.gui.qt.theme.icons import app_icon, refresh_icons, set_icon
 from xtouch_daemon.gui.qt.theme.settings import (
     ZOOM_LEVELS,
+    load_rail_labels,
     load_window_state,
     load_zoom,
+    save_rail_labels,
     save_window_state,
     save_zoom,
     zoom_step,
@@ -109,6 +112,10 @@ RAIL = (
     ("settings", "Settings", "cog-outline", "The device, behavior, aliases, Home Assistant, the voice chat"),
 )
 """The pages of the rail: name, title, icon, tip."""
+LOGO_SIZE = 44
+"""The size of the icon of the project in the header, next to the title."""
+RAIL_ICON = 22
+"""The size of the icons of the rail without their names."""
 WINDOW_SIZE = (1280, 1000)
 """The size of the window when it opens, where the screen has room for it."""
 DEVICE_HEIGHT = 380
@@ -189,12 +196,23 @@ class MainWindow(QMainWindow):
         self.preview_message.hide()
         body.addWidget(self.preview_message)
         body.addWidget(self._pages(), 1)
-        self.setCentralWidget(root)
-        # the header, the rail and the footer reach across the window, the docks are between them
+        configuration = QWidget()
+        editor = QHBoxLayout(configuration)
+        editor.setContentsMargins(0, 0, 0, 0)
+        editor.setSpacing(0)
+        editor.addWidget(self._rail())
+        editor.addWidget(root, 1)
+        # the docks have all the room: a main window needs a central widget, this one takes none
+        placeholder = QWidget()
+        placeholder.setMaximumSize(0, 0)
+        self.setCentralWidget(placeholder)
+        # hidden, it leaves no handle between it and the docks either
+        placeholder.hide()
+        # the header and the footer reach across the window, the docks are between them
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._bar("header", self._header()))
-        self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self._bar("rail", self._rail()))
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self._bar("footer", self._footer()))
         self.device_dock = self._device_dock()
+        self.configuration_dock = self._configuration_dock(configuration)
         self._menus()
         # the menus of the window list its docks and bars: the menu View has the dock, the bars always show
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
@@ -265,17 +283,23 @@ class MainWindow(QMainWindow):
         header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         layout = QHBoxLayout(header)
         layout.setContentsMargins(Space.XL, Space.M, Space.L, Space.M)
+        logo = QLabel()
+        logo.setPixmap(app_icon().pixmap(QSize(LOGO_SIZE, LOGO_SIZE)))
+        layout.addWidget(logo)
+        layout.addSpacing(Space.S)
         titles = QVBoxLayout()
         titles.setSpacing(0)
         titles.addWidget(label("X-Touch Extender", "title"))
         self.path_label = ElidedLabel("", "hint", Qt.TextElideMode.ElideMiddle)
         titles.addWidget(self.path_label)
-        layout.addLayout(titles)
-        layout.addStretch()
+        # the path gets the room the service doesn't need
+        layout.addLayout(titles, 1)
+        layout.addSpacing(Space.L)
         self.service_controls = ServiceControls(self.service)
         self.service_controls.changed.connect(self.refresh_service)
         # the status line comes later, with the footer
         self.service_controls.told.connect(lambda text: self.status.setText(text))
+        self.service_controls.settings_asked.connect(self.show_page)
         layout.addWidget(self.service_controls)
         return header
 
@@ -302,17 +326,6 @@ class MainWindow(QMainWindow):
     def _preview_status(self) -> QHBoxLayout:
         """What the preview shows (live or the file), the connection to Home Assistant, and the sound server."""
         top = QHBoxLayout()
-        self.mode_pill = label("", "pill")
-        """Live or the file; while the daemon waits for the virtual device, a click opens it."""
-        self.mode_pill.mousePressEvent = lambda event: self._mode_clicked()  # type: ignore[method-assign]
-        top.addWidget(self.mode_pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.mqtt_pill = label("", "pill")
-        self.mqtt_pill.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.mqtt_pill.mousePressEvent = lambda event: self.show_page("mqtt")  # type: ignore[method-assign]
-        top.addWidget(self.mqtt_pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.slots_pill = label("", "pill")
-        """The mode of a daemon with channels, states and slots; its tip has the states and the slots."""
-        top.addWidget(self.slots_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         top.addStretch(1)
         self.audio_label = ElidedLabel("Reading the sound server…", "hint")
         top.addWidget(self.audio_label)
@@ -322,12 +335,15 @@ class MainWindow(QMainWindow):
         return top
 
     def _rail(self) -> QWidget:
-        """The pages on the left, one at a time."""
+        """
+        The pages on the left of the window Configuration, one at a time: icons, with their names under them once
+        the button at the foot shows them (remembered).
+        """
         rail = QWidget()
-        set_role(rail, "bar")
+        set_role(rail, "rail")
         rail.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         layout = QVBoxLayout(rail)
-        layout.setContentsMargins(Space.S, Space.L, Space.S, Space.L)
+        layout.setContentsMargins(Space.XS, Space.M, Space.XS, Space.M)
         layout.setSpacing(Space.XS)
         self.rail = QButtonGroup(self)
         self.rail_buttons: dict[str, QToolButton] = {}
@@ -336,17 +352,37 @@ class MainWindow(QMainWindow):
             rail_button.setText(title)
             # the pages of the states, channels and slots in their colors, like everywhere in the window
             set_icon(rail_button, icon_name, name.removesuffix("s") if name != "settings" else None)
-            rail_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
             rail_button.setCheckable(True)
             rail_button.setAutoRaise(True)
-            rail_button.setToolTip(tip)
-            rail_button.setMinimumWidth(72)
+            rail_button.setToolTip(f"{title}: {tip}")
             rail_button.clicked.connect(lambda _=False, name=name: self.show_page(name))
             self.rail.addButton(rail_button)
             self.rail_buttons[name] = rail_button
             layout.addWidget(rail_button)
+        self.rail_icon_size = self.rail_buttons["slots"].iconSize()
+        """The size of the icons with their names under them (the style's)."""
         layout.addStretch()
+        self.rail_labels_button = QToolButton()
+        self.rail_labels_button.setAutoRaise(True)
+        self.rail_labels_button.clicked.connect(lambda: self.show_rail_labels(not load_rail_labels()))
+        layout.addWidget(self.rail_labels_button)
+        self.show_rail_labels(load_rail_labels())
         return rail
+
+    def show_rail_labels(self, shown: bool) -> None:
+        """The names of the pages under their icons on the rail, or icons only."""
+        save_rail_labels(shown)
+        for rail_button in self.rail_buttons.values():
+            if shown:
+                rail_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+                rail_button.setMinimumWidth(72)
+            else:
+                rail_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+                rail_button.setMinimumWidth(0)
+            # alone, the icon is the target: as large as with its name
+            rail_button.setIconSize(self.rail_icon_size if shown else QSize(RAIL_ICON, RAIL_ICON))
+        set_icon(self.rail_labels_button, "chevron-double-left" if shown else "chevron-double-right")
+        self.rail_labels_button.setToolTip("Hide the names of the pages" if shown else "Show the names of the pages")
 
     def _pages(self) -> QStackedWidget:
         def audio() -> AudioState:
@@ -361,6 +397,7 @@ class MainWindow(QMainWindow):
         self.device_view.picked.connect(self.show_slot)
         self.device_view.moved.connect(self.move_slot)
         self.device_view.try_without_device.connect(self.try_without_device)
+        self.device_view.live_clicked.connect(self._mode_clicked)
         slots.simulated.connect(lambda: self.live_preview.set_situation(slots.what_if if slots.simulation else None))
         self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
         self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
@@ -416,7 +453,7 @@ class MainWindow(QMainWindow):
         return settings
 
     def _bar(self, name: str, content: QWidget) -> QToolBar:
-        """A bar of the window that stays where it is: the header, the rail or the footer."""
+        """A bar of the window that stays where it is: the header or the footer."""
         bar = QToolBar(name)
         bar.setObjectName(name)
         bar.setMovable(False)
@@ -431,6 +468,21 @@ class MainWindow(QMainWindow):
         dock.setObjectName("device")
         dock.setWidget(self.device_view)
         self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
+        return dock
+
+    def _configuration_dock(self, configuration: QWidget) -> QDockWidget:
+        """
+        The window Configuration (the rail and the page): under the device at first; it can go to any side, or be a
+        window of its own, but not be closed: it is what the window edits.
+        """
+        dock = QDockWidget("Configuration", self)
+        dock.setObjectName("configuration")
+        dock.setFeatures(
+            QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable
+        )
+        dock.setWidget(configuration)
+        self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
+        self.splitDockWidget(self.device_dock, dock, Qt.Orientation.Vertical)
         return dock
 
     def _menus(self) -> None:
@@ -602,17 +654,12 @@ class MainWindow(QMainWindow):
         saved = self.document.saved_config
         device = saved.device.name if saved is not None else "the device"
         hosting = self.hosted is not None
-        show_status(self.mode_pill, preview_status(self.daemon, snapshot, device, hosting))
-        offered = offers_virtual_device(snapshot, hosting)
-        self.mode_pill.setCursor(Qt.CursorShape.PointingHandCursor if offered else Qt.CursorShape.ArrowCursor)
-        mqtt = header_status(snapshot)
-        self.mqtt_pill.setVisible(mqtt is not None)
-        if mqtt is not None:
-            show_status(self.mqtt_pill, Status(mqtt.text, mqtt.tone, f"{mqtt.tip} Click for the settings."))
-        slots = slots_status(snapshot)
-        self.slots_pill.setVisible(slots is not None)
-        if slots is not None:
-            show_status(self.slots_pill, slots)
+        self.device_view.show_status(
+            preview_status(self.daemon, snapshot, device, hosting),
+            offers_virtual_device(snapshot, hosting),
+            slots_status(snapshot),
+        )
+        self.service_controls.show_connections(connections(snapshot, device))
         self.states_page.show_live(snapshot)
         self.mqtt_page.show_live(snapshot)
         self.voip_page.show_live(snapshot)
