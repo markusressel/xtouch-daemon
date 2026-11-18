@@ -96,7 +96,7 @@ opposite: you define it, and it takes exactly one strip, even when its `match` f
 | `people` | The people of the voice chat without a `person` channel. |
 | `auto` | The people and the applications together: people first, from the right. |
 | `devices` | The outputs and inputs that no channel has (a USB headset). |
-| your own, `[pool.<id>]` | The first present channel of a list on the first slot, the next one on the next slot. |
+| your own, `[pool.<id>]` | Channels of a list (the first present one on the first slot, the next on the next), or with `kind`, the applications that match or the listed people. |
 
 When a pool has no member for a slot, the slot goes on to the candidate below it: `["people", "apps"]` is a person
 for as long as there is one, else an application.

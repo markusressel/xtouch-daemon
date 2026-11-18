@@ -170,9 +170,21 @@ def stack_value(stack: list[Row]) -> str | list[str | dict[str, Any]] | None:
     return entries
 
 
-def place_options(show: str) -> frozenset[str]:
-    """The options a place takes for what it shows: its look, and for `apps` and `auto` how it acts on applications."""
-    return model.place_options(show)
+def pool_kind(values: Mapping[str, Any], show: str) -> str:
+    """What a pool hands out: `apps`, `people`, `devices`, `auto`, or `channels` (a pool of channels of the file)."""
+    if show in BUILT_IN:
+        return show
+    kind = values.get("pool", {}).get(show, {}).get("kind")
+    return kind if kind in ("apps", "people") else "channels"
+
+
+def place_options(show: str, values: Mapping[str, Any] | None = None) -> frozenset[str]:
+    """
+    The options a place takes for what it shows: its look, and for `apps` and `auto` how it acts on applications. A pool
+    of applications or of people of your own (`values`: the file) takes those of `apps` or `people`.
+    """
+    kind = pool_kind(values, show) if values is not None else show
+    return model.place_options(kind if kind in (APPS, PEOPLE) else show)
 
 
 def is_pool(values: Mapping[str, Any], show: str) -> bool:
@@ -203,7 +215,9 @@ def member_summary(view: SlotView | None, audio: AudioState, slots: SlotsState |
         return None
     devices = {device.name: device.description for device in (*audio.outputs, *audio.inputs)}
     kind = view.member.partition(":")[0]
-    pool = {"app": APPS, "person": PEOPLE, "device": DEVICES}.get(kind, view.pool)
+    pool = (
+        {"app": APPS, "person": PEOPLE, "device": DEVICES}.get(kind, view.pool) if view.pool in BUILT_IN else view.pool
+    )
     waiting = slots.waiting.get(pool, ()) if slots is not None else ()
     names = ", ".join(member_text(other, devices) for other in waiting)
     return member_text(view.member, devices), f"Waiting: {names}." if names else ""
@@ -226,14 +240,15 @@ def row_state(index: int, shown: int | None, dark: bool) -> RowState:
     return "shown" if index == shown else "unreached"
 
 
-def pool_strip(show: str) -> str | None:
+def pool_strip(show: str, values: Mapping[str, Any] | None = None) -> str | None:
     """
     The strip type of what the pool `show` hands out: applications, people, outputs, or the channels of a pool of
     channels; None for `-`, which shows nothing.
     """
     if show == EMPTY:
         return None
-    return {APPS: "auto", AUTO: "auto", PEOPLE: "voip", DEVICES: "output"}.get(show, "apps")
+    kind = pool_kind(values, show) if values is not None else show
+    return {APPS: "auto", AUTO: "auto", PEOPLE: "voip", DEVICES: "output"}.get(kind, "apps")
 
 
 def free_words(values: Mapping[str, Any], name: str) -> str:
@@ -300,6 +315,8 @@ def lcd_colors(values: Mapping[str, Any], row: Row) -> tuple[tuple[str, str], ..
     if row.show in channels:
         return (of(channels, row.show, f"[channel.{row.show}]"),)
     pool = pools.get(row.show)
+    if isinstance(pool, Mapping) and pool.get("kind") in ("apps", "people"):  # pyright: ignore[reportUnknownMemberType]
+        return (of(pools, row.show, f"[pool.{row.show}]"),)
     if isinstance(pool, Mapping):
         found: dict[str, list[str]] = {}
         for entry in pool.get("channels", ()):  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
@@ -333,6 +350,10 @@ def pool_text(values: Mapping[str, Any], name: str) -> str:
             f"the people (from the {side(PEOPLE, 'right')}) and the applications (from the {side(APPS, 'left')}), "
             "the people first"
         )
+    elif (kind := pool_kind(values, name)) == "apps":
+        what = f"the applications of its list that play, from the {side(name, 'left')}"
+    elif kind == "people":
+        what = f"the listed people of the voice chat, from the {side(name, 'right')}"
     else:
         what = f"the next present channel of its list, from the {side(name, 'left')}"
     return f"Pool {name}: {what}."

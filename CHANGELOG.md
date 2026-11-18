@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Pools of your own for applications and people: `[pool.<id>]` with `kind = "apps"` (`match`, `exclude`, `from`,
+  `hold`, look) or `kind = "people"` (`people`, `from`, look). Each member gets a strip, a pool takes its members
+  before `apps`, `people` and `auto`, and only while a slot names it. The GUI adds "Pool of applications" and "Pool of
+  people" to the Add menu of Channels; Simulate and `check-config` know them.
 - GUI: Channels has "Pool of channels" in its Add menu; the pools of channels of the file are listed under "Pools",
   with a form for their channels (ids and `#tags`) and side, and can be renamed and removed.
 - Documentation: a "Concepts" page (channels, slots, states, pools, and the words that look alike, such as `apps`,

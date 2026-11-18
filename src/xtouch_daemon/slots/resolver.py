@@ -19,9 +19,11 @@ from xtouch_daemon.slots.inputs import (
     excluded,
     owner_of,
     people_of,
+    pool_of_app,
+    pool_people,
     pool_present,
 )
-from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, DEVICES, PEOPLE, Candidate, Scene
+from xtouch_daemon.slots.model import APPS, AUTO, DEVICES, PEOPLE, Candidate, PoolConfig, Scene
 
 SLOTS = range(1, protocol.STRIPS + 1)
 KINDS: Mapping[str, tuple[str, ...]] = {
@@ -31,17 +33,6 @@ KINDS: Mapping[str, tuple[str, ...]] = {
     AUTO: (PEOPLE, APPS),
 }
 """The members each built-in pool hands out: `auto` the people and the applications, the people first."""
-ORDER = (PEOPLE, APPS, DEVICES)
-"""The kinds of members, in the order that wins a tie on a slot (a slot of `auto`: the people)."""
-
-
-def kind_of(member: Member) -> str:
-    """The kind of member: a person, a device, or an application (or an `apps` channel as a whole)."""
-    if isinstance(member, Person):
-        return PEOPLE
-    if isinstance(member, Device):
-        return DEVICES
-    return APPS
 
 
 @dataclass(frozen=True)
@@ -233,7 +224,7 @@ class _Resolver:
         and keep no slot, so a slot a candidate above takes back would move every one of them.
         """
         right = self.scene.side(pool) == "right"
-        first = pool == PEOPLE
+        first = pool == PEOPLE or pool in self.scene.people_pools
         return sorted(slots, key=lambda slot: (first and index[slot] != 0, -slot if right else slot))
 
     def _of_channels(
@@ -247,7 +238,11 @@ class _Resolver:
         rest = {slot: list(chain) for slot, chain in chains.items()}
         while True:
             heads = {slot: stacks[slot][chain[0]].show for slot, chain in rest.items()}
-            pools = [pool for pool in self.scene.pools if pool not in BUILT_IN and pool in heads.values()]
+            pools = [
+                pool
+                for pool, config in self.scene.pools.items()
+                if isinstance(config, PoolConfig) and pool in heads.values()
+            ]
             if not pools:
                 return rest
             for pool in pools:
@@ -291,7 +286,7 @@ class _Resolver:
                 show = stacks[slot][index].show
                 if show is None:
                     break
-                for kind in KINDS[show]:
+                for kind in KINDS.get(show, (show,)):
                     kinds[slot].setdefault(kind, index)
             # without a member: dark, as the last pool of its chain, or `-`
             ends[slot] = chain[-1]
@@ -310,36 +305,47 @@ class _Resolver:
                     apps.append(member)
         devices = [device for device in devices_of(self.scene, self.inputs.observation) if device not in held]
         members: dict[str, list[Member]] = {PEOPLE: list(people), APPS: apps, DEVICES: list(devices)}
+        # the pools of your own come before the built-in ones: the people, then the applications
+        for pool in self.scene.people_pools:
+            members[pool] = list(pool_people(self.scene, pool, self.inputs.observation, with_slot))
+        for pool in self.scene.apps_pools:
+            members[pool] = self._pool_apps(pool, with_slot)
+        for pool in (*self.scene.people_pools, *self.scene.apps_pools):
+            members[pool] = [member for member in members[pool] if member not in held]
+        sources = (*self.scene.people_pools, PEOPLE, *self.scene.apps_pools, APPS, DEVICES)
         order = {
             kind: self._fill_order(
                 kind,
                 (slot for slot in kinds if kind in kinds[slot] and slot not in pinned),
                 {slot: kinds[slot][kind] for slot in kinds if kind in kinds[slot]},
             )
-            for kind in ORDER
+            for kind in sources
         }
-        lost: dict[str, set[int]] = {kind: set() for kind in ORDER}
+        lost: dict[str, set[int]] = {kind: set() for kind in sources}
         while True:
-            taken: dict[str, dict[int, Member]] = {
-                PEOPLE: dict(zip((slot for slot in order[PEOPLE] if slot not in lost[PEOPLE]), people, strict=False)),
-                APPS: self._place(apps, pinned, [slot for slot in order[APPS] if slot not in lost[APPS]], (APPS, AUTO)),
-                DEVICES: self._place(
-                    members[DEVICES], {}, [slot for slot in order[DEVICES] if slot not in lost[DEVICES]], (DEVICES,)
-                ),
-            }
-            contested = {slot for slot in kinds if sum(slot in taken[kind] for kind in ORDER) > 1}
+            taken: dict[str, dict[int, Member]] = {}
+            for kind in sources:
+                free = [slot for slot in order[kind] if slot not in lost[kind]]
+                if kind == PEOPLE or kind in self.scene.people_pools:
+                    taken[kind] = dict(zip(free, members[kind], strict=False))
+                elif kind == APPS:
+                    taken[kind] = self._place(apps, pinned, free, (APPS, AUTO))
+                else:
+                    taken[kind] = self._place(members[kind], {}, free, (kind,))
+            contested = {slot for slot in kinds if sum(slot in taken[kind] for kind in sources) > 1}
             if not contested:
                 break
             for slot in contested:
                 # it ends: a kind only ever loses slots, and a slot one won stays taken
-                takers = [kind for kind in ORDER if slot in taken[kind]]
-                first = min(takers, key=lambda kind: (kinds[slot][kind], ORDER.index(kind)))
+                takers = [kind for kind in sources if slot in taken[kind]]
+                first = min(takers, key=lambda kind: (kinds[slot][kind], sources.index(kind)))
                 for kind in takers:
                     if kind != first:
                         lost[kind].add(slot)
         for slot in kinds:
-            member: Member | None = next((taken[kind][slot] for kind in ORDER if slot in taken[kind]), None)
-            if member is None:
+            source = next((kind for kind in sources if slot in taken[kind]), None)
+            member: Member | None = taken[source][slot] if source is not None else None
+            if member is None or source is None:
                 # every pool of the chain came away empty: each says so, the slot is dark
                 for index in rest[slot]:
                     if (show := stacks[slot][index].show) is not None:
@@ -348,8 +354,7 @@ class _Resolver:
                 show = stacks[slot][end].show
                 shown[slot] = Shown(end) if show is None else Shown(end, pool=show)
                 continue
-            kind = kind_of(member)
-            index = kinds[slot][kind]
+            index = kinds[slot][source]
             for above in sorted({kinds[slot][other] for other in kinds[slot]} - {index}):
                 if above < index:
                     self.why[slot].append(f"{stacks[slot][above].show}: none left for this slot")
@@ -357,13 +362,13 @@ class _Resolver:
             if isinstance(member, Person):
                 if before is not None and before.member is not None and not isinstance(before.member, Person):
                     self.why[slot].append(f"{before}: gives way to {member}")
-                shown[slot] = Shown(index, channel=member.channel, pool=PEOPLE, member=member)
+                shown[slot] = Shown(index, channel=member.channel, pool=source, member=member)
             elif isinstance(member, Device):
                 shown[slot] = Shown(index, pool=DEVICES, member=member)
             else:
                 shown[slot] = Shown(index, channel=channel_of(member), pool=stacks[slot][index].show, member=member)
         waiting: dict[str, tuple[Member, ...]] = {}
-        for kind in ORDER:
+        for kind in sources:
             if left := tuple(member for member in members[kind] if member not in taken[kind].values()):
                 waiting[kind] = left
         return waiting
@@ -391,6 +396,17 @@ class _Resolver:
             if slot not in placed and free:
                 placed[slot] = free.pop(0)
         return placed
+
+    def _pool_apps(self, pool: str, with_slot: set[str]) -> list[Member]:
+        """The members of a pool of applications of your own, but not those of an `apps` channel with a slot."""
+        members: dict[Member, None] = {}
+        for app in self.inputs.observation.pool_playing.get(pool, ()):
+            if pool_of_app(self.scene, app) != pool:
+                continue
+            owner = owner_of(self.scene, app)
+            if owner is None or owner not in with_slot:
+                members[App(app)] = None
+        return list(members)
 
     def _people(self, with_slot: set[str]) -> list[Person]:
         """

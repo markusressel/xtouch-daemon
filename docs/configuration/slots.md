@@ -107,6 +107,51 @@ from = "left"                     # the side it fills its slots from (default)
 - A pool of channels goes above the built-in pools in a stack: `["outs", "auto"]`, not `["auto", "outs"]`.
 - It has no look of its own: its channels bring theirs.
 
+### Pools of applications and of people
+
+`kind` makes a pool of your own hand out members instead of channels: `kind = "apps"` the applications that play and
+match, `kind = "people"` listed people of the voice chat, each on a strip of its own. Use them to split what `apps` and
+`people` hand out in one piece:
+
+```toml
+[pool.music]
+kind = "apps"
+match = ["@music"]            # parts of names or binaries, and presets, as in an `apps` channel
+exclude = ["spotify-ads"]     # optional: never these, though they match
+from = "left"                 # the side it fills its slots from (default)
+hold = 5                      # seconds a slot keeps an application after it stopped (default)
+color = "green"               # the look of its strips
+
+[pool.friends]
+kind = "people"
+people = ["Alice", "Bob"]     # names in the voice chat; this is their order
+from = "right"                # the default of a pool of people
+talking_color = "green"
+
+[slots]
+5 = ["music", "apps"]         # a music player if one plays, else the next other application
+6 = "apps"
+7 = ["friends", "people"]     # Alice and Bob first, then anyone else in the call
+```
+
+| Option | `kind = "apps"` | `kind = "people"` |
+|---|---|---|
+| `match` | Required. | Not allowed. |
+| `exclude` | Optional. | Not allowed. |
+| `people` | Not allowed. | Required: names as in `person` of a channel, ignoring case. |
+| `from` | `left` | `right` |
+| `hold` | Seconds, default 5. | Not allowed: people stay `absent_after` seconds, as in `people`. |
+| Look | `color`, `meter`, `meter_point`, `rec`, `solo`, `lit_when_idle`, `min_volume`, `max_volume`; no `pick` encoder. | `color`, `meter`, `meter_point`, `rec`, `solo`, `lit_when_idle`, `talking_color`. |
+
+- A pool of your own takes its members first: a music player goes to `music`, not to `apps` or `auto`. An `apps`
+  channel or a `person` channel that has a slot keeps its application or person.
+- It takes them **only while a slot names it**, in any stack. A pool that no slot names takes nothing, so a forgotten
+  `[pool.music]` can't make the players disappear from the device; `check-config` says "pool music is on no slot".
+- A member that finds no slot waits in its pool: with one slot for `friends`, Bob waits and does not fall into `people`.
+- Like `apps`, an application keeps its slot while it plays; a pool of people fills by the order of its list.
+- Several pools share a slot as candidates: `["friends", "music", "auto"]`. A pool above `auto` or another pool wins
+  a slot that both could fill; a slot a pool has no member for goes to the candidate below it.
+
 ## States and modes
 
 ```toml

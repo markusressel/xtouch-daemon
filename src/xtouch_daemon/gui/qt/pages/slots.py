@@ -392,9 +392,9 @@ class SlotsPanel(Page):
                 else pool_text(self.document.values, candidate.show) + self._channel_why(candidate.show)
             )
             set_text(self.channel, _help(text))
-            strip = pool_strip(candidate.show)
+            strip = pool_strip(candidate.show, self.document.values)
         if strip is not None:
-            form, self.place_rows = self._place_form(strip, place_options(candidate.show))
+            form, self.place_rows = self._place_form(strip, place_options(candidate.show, self.document.values))
             self.place.show_part(form)
             self.place.setVisible(True)
             self._load_rows(self.place_rows)
@@ -730,7 +730,7 @@ class SlotsPanel(Page):
         assert self.candidate is not None
         stack = rows(self.document.values, self.slot)
         # options that the new place does not take go
-        allowed = place_options(candidate.show)
+        allowed = place_options(candidate.show, self.document.values)
         stack[self.candidate] = Row(
             candidate.show, candidate.when, {key: value for key, value in candidate.options.items() if key in allowed}
         )

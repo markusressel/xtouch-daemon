@@ -33,7 +33,7 @@ from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Snapshot
-from xtouch_daemon.slots.model import BUILT_IN, PoolConfig
+from xtouch_daemon.slots.model import BUILT_IN, AppsPoolConfig, PeoplePoolConfig, PoolConfig
 
 APPS = ("pool", "apps")
 PEOPLE = ("pool", "people")
@@ -42,7 +42,9 @@ HEADER_CHANNELS = ("header", "channels")
 HEADER_POOLS = ("header", "pools")
 """The titles of the two groups of the list: they are no channels or pools."""
 CUSTOM_POOL = "pool.custom"
-"""The key of the form of a pool of your own: a list of channels."""
+"""The key of the form of a pool of your own: a list of channels. Pools of applications and of people add their kind."""
+CUSTOM_APPS_POOL = f"{CUSTOM_POOL}.apps"
+CUSTOM_PEOPLE_POOL = f"{CUSTOM_POOL}.people"
 POOLS = tuple(("pool", name) for name, *_ in BUILT_IN_POOLS)
 """The built-in pools: their options and look."""
 _ID = re.compile(r"[a-z0-9_]+")
@@ -104,6 +106,14 @@ class ChannelsPage(Page):
         assert pool_action is not None
         pool_action.setToolTip("Hands the first present channel of a list to the first slot, the next one to the next")
         pool_action.triggered.connect(lambda _=False: self.add_pool())
+        for kind, title, tip in (
+            ("apps", "Pool of applications", "Gives each application of a group that plays its own slot"),
+            ("people", "Pool of people", "Gives each of the listed people of the voice chat their own slot"),
+        ):
+            action = menu.addAction(icon("format-list-bulleted"), title)
+            assert action is not None
+            action.setToolTip(tip)
+            action.triggered.connect(lambda _=False, kind=kind: self.add_pool(kind))
         menu.aboutToShow.connect(self._list_devices)
         self.add_button.setMenu(menu)
         self.duplicate_button = button("content-copy", "Duplicate")
@@ -151,6 +161,8 @@ class ChannelsPage(Page):
             strip = "voip" if pool == "people" else "auto"
             self._form(f"pool.{pool}", pool_options(pool), lambda name, pool=pool: ("pool", pool, name), strip)
         self._form(CUSTOM_POOL, options(PoolConfig), lambda name: (*self.selection, name), "auto")
+        self._form(CUSTOM_APPS_POOL, options(AppsPoolConfig), lambda name: (*self.selection, name), "auto")
+        self._form(CUSTOM_PEOPLE_POOL, options(PeoplePoolConfig), lambda name: (*self.selection, name), "voip")
         self._show()
 
     # -- building -------------------------------------------------------------------------------------------------
@@ -249,7 +261,8 @@ class ChannelsPage(Page):
         if self.selection in POOLS:
             return f"pool.{self.selection[1]}"
         if self.selection[0] == "pool":
-            return CUSTOM_POOL
+            kind = self.document.get((*self.selection, "kind"), None)
+            return f"{CUSTOM_POOL}.{kind}" if kind in ("apps", "people") else CUSTOM_POOL
         return str(self.document.get((*self.selection, "type"), "apps"))
 
     @property
@@ -297,7 +310,10 @@ class ChannelsPage(Page):
             title = next(title for name, title, *_ in BUILT_IN_POOLS if name == self.selection[1])
             set_text(self.title, f"{title}: [pool.{self.selection[1]}]")
         else:
-            set_text(self.title, "Pool of channels")
+            kind = self.document.get((*self.selection, "kind"), None)
+            set_text(
+                self.title, {"apps": "Pool of applications", "people": "Pool of people"}.get(kind, "Pool of channels")
+            )
             self.id_edit.setText(str(self.selection[1]))
         yours = self.selection not in POOLS
         self.id_edit.setVisible(yours)
@@ -331,8 +347,13 @@ class ChannelsPage(Page):
         for pool, title, icon_name, what in BUILT_IN_POOLS:
             entries.append((("pool", pool), f"{title}\n{what}", icon_name, f"[pool.{pool}]"))
         for name, pool in self.custom_pools.items():
-            channels = ", ".join(str(channel) for channel in pool.get("channels", ())) or "no channels yet"
-            entries.append((("pool", name), f"{name}\n{channels}", "format-list-bulleted", f"[pool.{name}]"))
+            kind = pool.get("kind")
+            members = pool.get("match" if kind == "apps" else "people" if kind == "people" else "channels", ())
+            if isinstance(members, str):
+                members = (members,)
+            what = ", ".join(str(member) for member in members) or "nothing yet"
+            what = f"applications: {what}" if kind == "apps" else f"people: {what}" if kind == "people" else what
+            entries.append((("pool", name), f"{name}\n{what}", "format-list-bulleted", f"[pool.{name}]"))
         entries = [
             (path, text + "  ⚠" if path[0] != "header" and self.editor.validation.at(*path) else text, icon_name, tip)
             for path, text, icon_name, tip in entries
@@ -405,8 +426,8 @@ class ChannelsPage(Page):
     def duplicate(self) -> None:
         self.select(("channel", self.editor.duplicate_channel(str(self.selection[1]))))
 
-    def add_pool(self) -> None:
-        self.select(("pool", self.editor.add_pool()))
+    def add_pool(self, kind: str | None = None) -> None:
+        self.select(("pool", self.editor.add_pool(kind)))
 
     def remove(self) -> None:
         if self.selection[0] == "pool":

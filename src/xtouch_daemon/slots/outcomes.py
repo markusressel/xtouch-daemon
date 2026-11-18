@@ -5,10 +5,21 @@ that changes what the slots show, as `check-config`, `simulate --table` and the 
 
 import itertools
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
-from xtouch_daemon.slots.inputs import Attendee, Observation, SoundDevice, devices_of, owner_of
-from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, DEFAULT, DEVICES, PEOPLE, Scene
+from xtouch_daemon.config.presets import Kind, expand
+from xtouch_daemon.slots.inputs import Attendee, Observation, SoundDevice, devices_of, owner_of, pool_of_app
+from xtouch_daemon.slots.model import (
+    APPS,
+    AUTO,
+    BUILT_IN,
+    DEFAULT,
+    DEVICES,
+    PEOPLE,
+    AppsPoolConfig,
+    PeoplePoolConfig,
+    Scene,
+)
 from xtouch_daemon.slots.resolver import SLOTS, Inputs, Result, resolve
 from xtouch_daemon.slots.states import Override, composed_order
 
@@ -48,7 +59,7 @@ def dimensions(scene: Scene) -> tuple[tuple[str, ...], tuple[str, ...]]:
                 name = target if target is not None else candidate.show
                 assert name is not None, "the model has no present on - (nothing)"
                 presence[name] = None
-    for pool in (APPS, PEOPLE, DEVICES):
+    for pool in (APPS, PEOPLE, DEVICES, *scene.apps_pools, *scene.people_pools):
         if any(candidate.show == pool for slot in SLOTS for candidate in scene.stacks[slot]):
             presence[pool] = None
     return tuple(name for name in states if not scene.states[name].mode), tuple(presence)
@@ -101,6 +112,11 @@ def notes(scene: Scene) -> list[str]:
                 )
                 break
     shown = {candidate.show for stack in scene.stacks.values() for candidate in stack}
+    result.extend(
+        f"pool {name} is on no slot, so it takes no one"
+        for name in (*scene.apps_pools, *scene.people_pools)
+        if name not in scene.named
+    )
     asked = bool(scene.people.model_fields_set or scene.people.model_extra) or any(
         channel.type == "person" and channel.in_pool for channel in scene.channels.values()
     )
@@ -158,19 +174,21 @@ def simulate(
     """
     flipped = set(flipped)
     values = states_for(scene, mode, on)
-    gone = {channel for name in flipped if name not in BUILT_IN for channel in _channels_of(scene, name)}
+    gone = {channel for name in flipped if not _fills(scene, name) for channel in _channels_of(scene, name)}
     present = frozenset(name for name in scene.channels if name not in gone)
     apps = max(apps, len(SLOTS) if APPS in flipped else 1 if AUTO in flipped else 0)
     people = max(people, len(SLOTS) if PEOPLE in flipped else 0)
     devices = max(devices, len(SLOTS) if DEVICES in flipped else 0)
     names = (*PEOPLE_NAMES, *(f"Person {n}" for n in range(len(PEOPLE_NAMES) + 1, people + 1)))[:people]
+    own_apps, own_people = _members_of_pools(scene, flipped)
+    listed = [name for name in own_people if name not in names]
     observation = Observation(
-        playing=tuple(f"app {n}" for n in range(1, apps + 1)),
-        voice_chat=people > 0,
-        people=tuple(Attendee(name, name) for name in names),
+        playing=(*own_apps, *(f"app {n}" for n in range(1, apps + 1))),
+        voice_chat=people > 0 or bool(listed),
+        people=tuple(Attendee(name, name) for name in (*listed, *names)),
         sound_devices=tuple(SoundDevice(f"device_{n}", f"Device {n}", "output") for n in range(1, devices + 1)),
     )
-    return resolve(scene, Inputs(values, present, observation, order=names))
+    return resolve(scene, Inputs(values, present, _with_pools(scene, observation), order=(*listed, *names)))
 
 
 @dataclass(frozen=True)
@@ -207,7 +225,7 @@ class Situation:
         strips have audio behind them), then made-up ones.
         """
         flipped = set(self.flipped)
-        gone = {channel for name in flipped if name not in BUILT_IN for channel in _channels_of(scene, name)}
+        gone = {channel for name in flipped if not _fills(scene, name) for channel in _channels_of(scene, name)}
         playing: list[str] = []
         devices: set[str] = set()
         people: list[Attendee] = []
@@ -226,11 +244,15 @@ class Situation:
         sounds = max(self.devices, len(SLOTS) if DEVICES in flipped else 0)
         real_apps = [app for app in real.playing if owner_of(scene, app) is None]
         made_up_apps = (f"App {n}" for n in itertools.count(1))
+        own_apps, own_people = _members_of_pools(scene, flipped)
+        playing += own_apps
+        people += (Attendee(name, name) for name in own_people)
         playing += itertools.islice(itertools.chain(real_apps, made_up_apps), apps)
         # people of `person` channels are there as the situation says, not as stand-ins
         named = {
             name.lower() for channel in scene.channels.values() if channel.type == "person" for name in channel.people
         }
+        named |= {name.lower() for name in own_people}
         real_people = [person for person in real.people if person.name.lower() not in named]
         made_up_people = (
             Attendee(name, name)
@@ -242,13 +264,16 @@ class Situation:
         made_up_devices = (SoundDevice(f"device_{n}", f"Device {n}", "output") for n in itertools.count(1))
         sound_devices = list(itertools.islice(itertools.chain(real_devices, made_up_devices), sounds))
         people += stand_ins
-        return Observation(
-            playing=tuple(playing),
-            voice_chat=bool(people),
-            people=tuple(people),
-            devices=frozenset(devices),
-            sound_devices=tuple(sound_devices),
-            defaults=real.defaults,
+        return _with_pools(
+            scene,
+            Observation(
+                playing=tuple(playing),
+                voice_chat=bool(people),
+                people=tuple(people),
+                devices=frozenset(devices),
+                sound_devices=tuple(sound_devices),
+                defaults=real.defaults,
+            ),
         )
 
 
@@ -259,13 +284,42 @@ def _outcome(scene: Scene, mode: str, on: set[str], flipped: set[str]) -> tuple[
 
 def _label(scene: Scene, mode: str, on: tuple[str, ...], flipped: tuple[str, ...]) -> str:
     states = " and ".join(([] if mode == DEFAULT else [mode]) + list(on))
-    changes = [f"{name} {_flipped(name)}" for name in flipped]
+    changes = [f"{name} {_flipped(scene, name)}" for name in flipped]
     return ", ".join(([states] if states else []) + changes) or DEFAULT
 
 
-def _flipped(name: str) -> str:
-    """What flipping a channel or pool means: absent, `auto` present, `apps` and `people` fill their slots."""
-    return "present" if name == AUTO else "fill" if name in BUILT_IN else "absent"
+def _with_pools(scene: Scene, observation: Observation) -> Observation:
+    """The observation with what each pool of applications of your own takes that plays."""
+    return replace(
+        observation,
+        pool_playing={
+            name: tuple(app for app in observation.playing if pool_of_app(scene, app) == name)
+            for name in scene.apps_pools
+        },
+    )
+
+
+def _fills(scene: Scene, name: str) -> bool:
+    """Whether `name` is a pool of members (built in, or of applications or people of your own)."""
+    return name in BUILT_IN or name in scene.apps_pools or name in scene.people_pools
+
+
+def _members_of_pools(scene: Scene, flipped: Iterable[str]) -> tuple[list[str], list[str]]:
+    """The stand-in applications and people of the pools of your own that are `flipped`: one application, all people."""
+    apps: list[str] = []
+    people: list[str] = []
+    for name in flipped:
+        pool = scene.pools.get(name)
+        if isinstance(pool, AppsPoolConfig):
+            apps.append(expand(pool.match, Kind.STREAMS)[0])
+        elif isinstance(pool, PeoplePoolConfig):
+            people.extend(pool.people)
+    return apps, people
+
+
+def _flipped(scene: Scene, name: str) -> str:
+    """What flipping a channel or pool means: absent, `auto` present, the pools of members fill their slots."""
+    return "present" if name == AUTO else "fill" if _fills(scene, name) else "absent"
 
 
 def _channels_of(scene: Scene, name: str) -> tuple[str, ...]:

@@ -4,12 +4,21 @@ presence of channels and pools in it.
 """
 
 import fnmatch
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass, replace
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from xtouch_daemon.config.presets import Kind, expand
-from xtouch_daemon.slots.model import APPS, AUTO, DEVICES, PEOPLE, ChannelConfig, Scene
+from xtouch_daemon.slots.model import (
+    APPS,
+    AUTO,
+    DEVICES,
+    PEOPLE,
+    AppsPoolConfig,
+    ChannelConfig,
+    PeoplePoolConfig,
+    Scene,
+)
 from xtouch_daemon.slots.timing import Delayed
 
 
@@ -96,6 +105,8 @@ class Observation:
     playing: tuple[str, ...] = ()
     """The applications with a playback stream (playing or paused), in the order they started; with those `apps`
     still holds (`hold`) after they stopped."""
+    pool_playing: Mapping[str, tuple[str, ...]] = field(default_factory=dict[str, tuple[str, ...]])
+    """Per pool of applications of your own, the applications it takes that play, with those it still holds."""
     recording: tuple[str, ...] = ()
     """The applications with a capture stream."""
     voice_chat: bool = False
@@ -136,9 +147,36 @@ def owner_of(scene: Scene, app: str) -> str | None:
     )
 
 
+def pool_of_app(scene: Scene, app: str) -> str | None:
+    """The first pool of applications of your own, in the order of the file, that a slot names and that takes it."""
+    for name in scene.apps_pools:
+        pool = scene.pools[name]
+        assert isinstance(pool, AppsPoolConfig)
+        if (
+            name in scene.named
+            and app_matches(app, expand(pool.match, Kind.STREAMS))
+            and not app_matches(app, expand(pool.exclude, Kind.STREAMS))
+        ):
+            return name
+    return None
+
+
+def pool_of_person(scene: Scene, person: str) -> str | None:
+    """The first pool of people of your own, in the order of the file, that a slot names and lists the person."""
+    for name in scene.people_pools:
+        pool = scene.pools[name]
+        assert isinstance(pool, PeoplePoolConfig)
+        if name in scene.named and person.lower() in (listed.lower() for listed in pool.people):
+            return name
+    return None
+
+
 def excluded(scene: Scene, app: str) -> bool:
-    """Whether `apps` and `auto` never take it: `[pool.apps] exclude`, or a channel with `in_pool = false` has it."""
-    if app_matches(app, expand(scene.apps.exclude, Kind.STREAMS)):
+    """
+    Whether `apps` and `auto` never take it: `[pool.apps] exclude`, a pool of applications of your own takes it, or a
+    channel with `in_pool = false` has it.
+    """
+    if app_matches(app, expand(scene.apps.exclude, Kind.STREAMS)) or pool_of_app(scene, app) is not None:
         return True
     owner = owner_of(scene, app)
     return owner is not None and not scene.channels[owner].in_pool
@@ -205,6 +243,8 @@ def people_of(scene: Scene, observation: Observation, present: frozenset[str], w
     """
     members: list[Person] = []
     for attendee in observation.people:
+        if pool_of_person(scene, attendee.name) is not None:
+            continue
         channel = person_channel_of(scene, attendee.name)
         if channel is None:
             members.append(Person(attendee.id, attendee.name))
@@ -218,6 +258,23 @@ def people_of(scene: Scene, observation: Observation, present: frozenset[str], w
     return members
 
 
+def pool_people(scene: Scene, pool: str, observation: Observation, with_slot: set[str]) -> list[Person]:
+    """The members of a pool of people of your own, in the order of its list: who is in the voice chat."""
+    config = scene.pools[pool]
+    assert isinstance(config, PeoplePoolConfig)
+    by_name = {attendee.name.lower(): attendee for attendee in observation.people}
+    members: list[Person] = []
+    for name in config.people:
+        attendee = by_name.get(name.lower())
+        if attendee is None or pool_of_person(scene, attendee.name) != pool:
+            continue
+        channel = person_channel_of(scene, attendee.name)
+        if channel is not None and channel in with_slot:
+            continue
+        members.append(Person(attendee.id, attendee.name, channel))
+    return members
+
+
 def pool_present(scene: Scene, pool: str, observation: Observation, present: frozenset[str]) -> bool:
     """
     Whether a pool has members, counted before slots are assigned (so conditions never depend on the result): `apps`
@@ -228,12 +285,24 @@ def pool_present(scene: Scene, pool: str, observation: Observation, present: fro
     if pool == APPS:
         return any(not excluded(scene, app) for app in observation.playing)
     if pool == PEOPLE:
-        people = (person_channel_of(scene, attendee.name) for attendee in observation.people)
+        people = (
+            person_channel_of(scene, attendee.name)
+            for attendee in observation.people
+            if pool_of_person(scene, attendee.name) is None
+        )
         return any(channel is None or scene.channels[channel].in_pool for channel in people)
     if pool == AUTO:
         return pool_present(scene, APPS, observation, present) or pool_present(scene, PEOPLE, observation, present)
     if pool == DEVICES:
         return bool(devices_of(scene, observation))
+    config = scene.pools[pool]
+    if isinstance(config, AppsPoolConfig):
+        return any(
+            not app_matches(app, expand(config.exclude, Kind.STREAMS)) for app in observation.pool_playing.get(pool, ())
+        )
+    if isinstance(config, PeoplePoolConfig):
+        names = {name.lower() for name in config.people}
+        return any(attendee.name.lower() in names for attendee in observation.people)
     return any(channel in present for channel in scene.channels_of(pool))
 
 
@@ -313,21 +382,47 @@ class PoolMembers:
         self._devices = Lingering[SoundDevice](scene.devices.hold, lambda gone, new: gone.name == new.name)
         # a reconnect gets a new id: the same name takes the place of who left
         self._people = Lingering[Attendee](absent_after, lambda gone, new: gone.name == new.name)
+        self._pools: dict[str, Lingering[str]] = {}
+        """The applications each pool of applications of your own holds (`hold` of its own)."""
+        for name in scene.apps_pools:
+            pool = scene.pools[name]
+            assert isinstance(pool, AppsPoolConfig)
+            self._pools[name] = Lingering[str](pool.hold)
+        self._matches = {
+            name: expand(pool.match, Kind.STREAMS)
+            for name in scene.apps_pools
+            if isinstance(pool := scene.pools[name], AppsPoolConfig)
+        }
 
     def carry(self, before: PoolMembers) -> None:
         """Goes on from where `before` was (a reload)."""
         self._playing.carry(before._playing)
+        for name, lingering in self._pools.items():
+            if name in before._pools:
+                lingering.carry(before._pools[name])
         self._devices.carry(before._devices)
         self._people.carry(before._people)
 
     def update(self, observation: Observation, now: float) -> Observation:
+        pool_playing = {
+            name: lingering.update(
+                tuple(app for app in observation.playing if app_matches(app, self._matches[name])), now
+            )
+            for name, lingering in self._pools.items()
+        }
         return replace(
             observation,
+            pool_playing=pool_playing,
             playing=self._playing.update(observation.playing, now),
             people=self._people.update(observation.people, now),
             sound_devices=self._devices.update(observation.sound_devices, now),
         )
 
     def deadline(self) -> float | None:
-        deadlines = (self._playing.deadline(), self._people.deadline(), self._devices.deadline())
+        deadlines = (
+            self._playing.deadline(),
+            self._people.deadline(),
+            self._devices.deadline(),
+            *(lingering.deadline() for lingering in self._pools.values()),
+        )
         return min((d for d in deadlines if d is not None), default=None)

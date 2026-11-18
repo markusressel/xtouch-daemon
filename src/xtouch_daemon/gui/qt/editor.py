@@ -68,11 +68,11 @@ class Editor(QObject):
         self.document.unset(("channel", name))
         self.edited(Change(Scope.CHANNELS))
 
-    def add_pool(self) -> str:
-        """Adds a pool of channels, with an id after `pool`; returns the id."""
+    def add_pool(self, kind: str | None = None) -> str:
+        """Adds a pool of channels, or of `apps` or `people` of your own, with an id after `pool`; returns the id."""
         pools: dict[str, Any] = self.document.get(("pool",), {})
         name = free_id({*pools, *BUILT_IN}, "pool")
-        self.document.set(("pool", name), {"channels": []})
+        self.document.set(("pool", name), {"channels": []} if kind is None else {"kind": kind})
         self.edited(Change(Scope.CHANNELS))
         return name
 

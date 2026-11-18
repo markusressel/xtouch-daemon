@@ -1,7 +1,7 @@
 # Pools of your own
 
-Part of [Design: channels, states and slots](index.md). Status: **proposed** (2026-11-19), not built. Today a
-`[pool.<id>]` can only list channels ([Pools](channels.md#pools-one-of-several)); the pools of applications, people and
+Part of [Design: channels, states and slots](index.md). Status: **built** (2026-11-19). Without `kind`, a
+`[pool.<id>]` lists channels ([Pools](channels.md#pools-one-of-several)); the pools of applications, people and
 devices are built in. This page adds pools of applications and of people that the user defines.
 
 ## Why
@@ -52,7 +52,7 @@ stack (`["friends", "music", "auto"]`), as the built-in ones do.
 | `from` | Default `left`. | Default `right`. |
 | `hold` | Seconds, default 5. | Not allowed: people stay `absent_after` seconds, like the built-in pool. |
 | look (`color`, `meter`, `meter_point`, `rec`, `solo`, `lit_when_idle`) | The look options of `[pool.apps]`. | The look options of `[pool.people]` (`talking_color` too). |
-| `encoder`, `min_volume`, `max_volume` | As in `[pool.apps]`. | Not allowed: the strips of people have none. |
+| `encoder`, `min_volume`, `max_volume` | As in `[pool.apps]`, but no `pick`; default `media`. | Not allowed: the strips of people have none. |
 
 Errors use the existing words: a missing `match` is `pool.music: kind apps needs match`; an option of the other kind
 names where it belongs (`people: an option of kind people`). A `kind` other than the two lists them.
@@ -91,9 +91,8 @@ keeps those rules and changes what a "kind" is: today it is one of `people`, `ap
   again, until nothing changes. It ends for the same reason as today: a source only loses slots.
 - **Fill order.** Each source from its side. The people of a pool of people first take the slots where it is the first
   candidate ([Not a block](people.md#not-a-block)); a pool of applications keeps the slot each had.
-- **Pins and `pick`.** A pool of applications has `encoder = "pick"` by default like `apps`. The pin is per slot and
-  names the member, so it works across pools unchanged; the members `pick` offers are those of the pool the slot's
-  chain reaches first (paused ones too).
+- **Pins and `pick`.** A pool of applications has no `pick` encoder (`encoder = "pick"` is an error): its
+  default is `media`. Pins of the built-in pools work unchanged.
 - **Waiting.** Members that got no slot wait **per source**: `Result.waiting` keys are pool names, so `why` and the GUI
   say "Alice waits" for `friends` and "Spotify waits" for `music`.
 - **Presence.** `present` of a pool of your own is true while it has a member (an application plays, a listed person is
