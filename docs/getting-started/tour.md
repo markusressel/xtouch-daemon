@@ -8,7 +8,7 @@ The goal, for the 8 strips (slots) of the device:
 | Slot | Shows |
 |---|---|
 | 1 | The main output, with Select switching between phones, speakers and Bluetooth headphones. |
-| 2, 3 | The browser, and the game while one runs; otherwise the next application that plays, otherwise a person of the voice chat. |
+| 2, 3 | Slot 2 the browser and slot 3 the game, each while it plays; otherwise the next application that plays, otherwise a person of the voice chat. |
 | 4 to 6 | People of the voice chat (from the right), otherwise applications. |
 | 7, 8 | VoIP (7) and the microphone (8) while you are in a call; otherwise applications. |
 
@@ -160,8 +160,19 @@ reset_volume = 35
 "WEBRTC VoiceEngine" = "Discord"
 ```
 
-If a touch sensor of a fader is broken (the fader jumps back after every move), switch that fader to `touchless_faders`
-under **Extender** ([Behavior](../configuration/behavior.md#faders-without-a-touch-sensor)).
+Three more settings finish the file. On **Settings**, **Extender**, the author picks the startup sequence `show` and
+switches fader 1 to `touchless_faders`, because its touch sensor is broken and the fader jumps back after every move
+([Behavior](../configuration/behavior.md#faders-without-a-touch-sensor)). On **Channels**, in the built-in pool
+**People**, the strips of people light up yellow:
+
+```toml
+[device]
+touchless_faders = [1]
+startup = "show"
+
+[pool.people]
+color = "yellow"
+```
 
 ## 8. Check it, then apply it
 

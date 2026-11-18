@@ -15,7 +15,7 @@ The window **Configuration** has a rail of four pages on its left, icons only (Â
 them again; the GUI remembers it):
 
 - **Slots:** what each slot shows when, see [The slots](#the-slots).
-- **Channels:** the channels of the file, then the built-in pools `[pool.apps]`, `[pool.people]`, `[pool.auto]` and `[pool.devices]`.
+- **Channels:** two groups: the channels (each takes one strip), then the pools (each supplies a member to every slot that names it): the built-in `[pool.apps]`, `[pool.people]`, `[pool.auto]` and `[pool.devices]`. The box Shows of a candidate on the page Slots has the same two groups.
   Add (by type), Duplicate and Remove; the id can be renamed (the slots, conditions, pools and controls that name it follow). Each says where it is used (`slot 2`, `pool games`, `state call`).
 - **States:** the modes first, then the other states. The form asks in order: State or Mode (a mode has a label and
   a priority), and On while: Sources or Condition, never both. Sources lists only the ones the state has, each with

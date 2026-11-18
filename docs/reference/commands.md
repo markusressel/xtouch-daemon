@@ -76,7 +76,7 @@ A table of more than 12 rows shows the situations that differ in one thing; `--a
 
 A file with errors names the place of each one and its line in the file, e.g.
 `channel.mic (line 12): label: String should have at most 7 characters`, with what is likely meant where it can be
-guessed (`brwoser is no channel or pool (did you mean browser?)`), and the command fails. After the table, `Notes:` lists candidates that can never show (e.g. a channel below a pool
+guessed (`browsr is no channel or pool (did you mean browser?)`), and the command fails. After the table, `Notes:` lists candidates that can never show (e.g. a channel below a pool
 without a condition) and people with no slot to sit on.
 
 ## `init-config`

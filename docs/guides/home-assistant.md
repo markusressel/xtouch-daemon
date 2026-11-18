@@ -230,7 +230,7 @@ automation:
           value: "{{ [trigger.to_state.state | float(0) / 2000 * 100, 100] | min | round(0) }}"
 ```
 
-## haad
+## As a haad controller
 
 The same as a [haad](https://github.com/markusressel/haad) controller (a sketch: the entity wrappers are haad's, the
 names depend on your setup):

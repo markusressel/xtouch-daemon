@@ -26,15 +26,16 @@ xtouch-daemon test
 Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader. Afterwards the command shows what
 you do on the device: faders, buttons and encoders. Ctrl+C stops it.
 
-Only one program can use the device. Stop the daemon before the test (`systemctl --user stop xtouch-daemon`), and close
-DAWs that use it. Without a device, start the virtual one in another terminal (`xtouch-daemon virtual-device`) and run
+Only one program can use the device. If the daemon already runs as a service, stop it before the test
+(`systemctl --user stop xtouch-daemon`), and close DAWs that use the device. Without a device, start the virtual one in another terminal (`xtouch-daemon virtual-device`) and run
 `xtouch-daemon test --virtual-device`; see [Without a device](without-a-device.md).
 
 ## Write a configuration
 
-Without a configuration file the daemon uses the example configuration: the default input on slot 7, the default
-output on slot 8, and `auto` on the others (the next application that plays). So it is useful right away. To make it
-yours, the easiest way is the [GUI](../guides/gui.md) (`xtouch-daemon-gui` or `xtouch-daemon gui`): it shows what the
+A configuration names **channels** (what a strip can control), **states** (in a call, gaming) and, for each of the 8
+slots, what its strip shows when. [Concepts](../concepts.md) explains these words. Without a file the daemon uses the
+[example configuration](../configuration/index.md): the default input on slot 7, the default output on slot 8, and
+`auto` (the next application that plays) on the others. To make it yours, the easiest way is the [GUI](../guides/gui.md) (`xtouch-daemon-gui` or `xtouch-daemon gui`): it shows what the
 file shows in the default situation, every option with its help, and what a change does (**Simulate**); its
 "Save and apply" writes the file and loads it into the running daemon.
 
@@ -49,9 +50,7 @@ xtouch-daemon list-apps                   # the applications that play now, and 
 xtouch-daemon check-config                # validates the file (with the line of each error) and shows what each slot shows when
 ```
 
-A channel is something a strip can control, a slot is a strip of the device, and states (in a call, gaming) decide
-what each slot shows. For example, Bluetooth headphones on slot 1 while they are connected, and VoIP on slot 2 during a
-call:
+For example, Bluetooth headphones on slot 1 while they are connected, and VoIP on slot 2 during a call:
 
 ```toml
 [channel.buds]
@@ -105,8 +104,8 @@ package. The same without the command:
 systemctl --user enable --now xtouch-daemon
 ```
 
-A unit in `~/.config/systemd/user` (e.g. from an installation from the source) overrides the one of the package.
-`xtouch-daemon install-service --remove-override` removes it, so does "Use the packaged unit" in the [GUI](../guides/gui.md#the-service).
+A unit in `~/.config/systemd/user` overrides the one of the package; see
+[`install-service`](../reference/commands.md#install-service).
 
 | Task | Command |
 |---|---|

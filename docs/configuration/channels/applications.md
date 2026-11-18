@@ -91,8 +91,7 @@ How `apps` and `auto` get their applications:
 With the default `encoder = "pick"`, the encoder chooses the application and a push pins it, so it stays after it
 stopped playing. See [Encoders](../strip/encoders.md#pick).
 
-A slot of `apps` or `auto` works like an `apps` channel for its application. Without an application it is dark, blank, and does
-nothing.
+A slot of `apps` or `auto` works like an `apps` channel for its application. Without an application it is dark and does nothing.
 
 ## Launching the application
 

@@ -24,11 +24,12 @@ from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, EntityItemDelegate, Lines
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.preview.part_view import PartPreview
 from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import set_role
-from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.slots.model import BUILT_IN
@@ -36,6 +37,9 @@ from xtouch_daemon.slots.model import BUILT_IN
 APPS = ("pool", "apps")
 PEOPLE = ("pool", "people")
 AUTO = ("pool", "auto")
+HEADER_CHANNELS = ("header", "channels")
+HEADER_POOLS = ("header", "pools")
+"""The titles of the two groups of the list: they are no channels or pools."""
 POOLS = tuple(("pool", name) for name, *_ in BUILT_IN_POOLS)
 """The built-in pools: their options and look."""
 _ID = re.compile(r"[a-z0-9_]+")
@@ -74,6 +78,7 @@ class ChannelsPage(Page):
         side = QVBoxLayout()
         self.list = QListWidget()
         self.list.setMinimumWidth(160)
+        self.list.setItemDelegate(EntityItemDelegate(self.list))
         scroll_shadows(self.list)
         self.listed: list[tuple[OptionPath, str, str, str]] = []
         """The lines of the list: (path, text, icon, tip)."""
@@ -282,8 +287,8 @@ class ChannelsPage(Page):
         self.show_problems(self.editor.validation)
 
     def _show_list(self) -> None:
-        """One line per channel, then the built-in pools; the selected one stays selected."""
-        entries: list[tuple[OptionPath, str, str, str]] = []
+        """A group of the channels, then one of the built-in pools; the selected one stays selected."""
+        entries: list[tuple[OptionPath, str, str, str]] = [(HEADER_CHANNELS, "Channels: one strip each", "", "")]
         for name, channel in self.channels.items():
             kind = CHANNEL_TYPES.get(str(channel.get("type")))
             tags = ", ".join(channel.get("tags", ()))
@@ -294,10 +299,11 @@ class ChannelsPage(Page):
                 + f"\n{where}"
             )
             entries.append((("channel", name), text, kind.icon if kind else "help", kind.title if kind else "?"))
+        entries.append((HEADER_POOLS, "Pools: a member for each slot that names them", "", ""))
         for pool, title, icon_name, what in BUILT_IN_POOLS:
             entries.append((("pool", pool), f"{title}\n{what}", icon_name, f"[pool.{pool}]"))
         entries = [
-            (path, text + "  ⚠" if self.editor.validation.at(*path) else text, icon_name, tip)
+            (path, text + "  ⚠" if path[0] != "header" and self.editor.validation.at(*path) else text, icon_name, tip)
             for path, text, icon_name, tip in entries
         ]
         self.list.blockSignals(True)
@@ -306,9 +312,19 @@ class ChannelsPage(Page):
             self.listed = entries
             self.list.clear()
             for path, text, icon_name, tip in entries:
-                item = QListWidgetItem(icon(icon_name), text)
-                item.setData(Qt.ItemDataRole.UserRole, path)
-                item.setToolTip(tip)
+                if path[0] == "header":
+                    # a title of a group: it can't be picked
+                    item = QListWidgetItem(text)
+                    item.setFlags(Qt.ItemFlag.NoItemFlags)
+                    font = item.font()
+                    font.setBold(True)
+                    item.setFont(font)
+                else:
+                    item = QListWidgetItem(icon(icon_name), text)
+                    name, _, below = text.partition("\n")
+                    item.setData(LINES_ROLE, Lines(name, Entity.CHANNEL, below))
+                    item.setData(Qt.ItemDataRole.UserRole, path)
+                    item.setToolTip(tip)
                 self.list.addItem(item)
         for index, (path, *_) in enumerate(entries):
             if path == self.selection:

@@ -19,7 +19,12 @@ from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
 def items(window: MainWindow) -> list[QListWidgetItem]:
     channels = window.channels_page.list
-    return [item for index in range(channels.count()) if (item := channels.item(index)) is not None]
+    # without the titles of the groups
+    return [
+        item
+        for index in range(channels.count())
+        if (item := channels.item(index)) is not None and item.data(Qt.ItemDataRole.UserRole) is not None
+    ]
 
 
 def test_the_window_shows_the_configuration(window: MainWindow, path: Path):

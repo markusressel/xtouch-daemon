@@ -26,6 +26,7 @@ nav = [
     { "Setup tour" = "getting-started/tour.md" },
     { "Without a device" = "getting-started/without-a-device.md" },
   ] },
+  { "Concepts" = "concepts.md" },
   { "Guides" = [
     { "GUI" = "guides/gui.md" },
     { "Home Assistant" = "guides/home-assistant.md" },

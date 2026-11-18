@@ -83,9 +83,10 @@ the people (of `people` and `auto`) as itself; `in_pool = false` keeps it out.
 | `participants` | `["Alice", "Bob", "Carol", "Dave", "Eve"]` | The names of the `demo` people. |
 
 Without the section, its defaults apply. None of the voice chat clients tells another program the volume of each
-person, so the daemon can't read them from PipeWire: they all come out of one stream. Mumble and TeamSpeak have
-plugins that can, and the bridge is what such a plugin talks to. For Mumble there is one: see
-[Mumble](../../guides/mumble.md), which the GUI installs with a click.
+person, so the daemon can't read them from PipeWire: they all come out of one stream. Mumble has a
+plugin API that can, and the bridge is what such a plugin talks to. For Mumble there is one: see
+[Mumble](../../guides/mumble.md), which the GUI installs with a click. Other clients, TeamSpeak included, are not
+supported yet; open an issue if you need one.
 
 The state `voice_chat = true` (see [States and modes](../slots.md#states-and-modes)) is on while you are in a channel of
 the voice chat.

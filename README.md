@@ -12,27 +12,23 @@ a game, a call, headphones plugged in. Strips can also belong to Home Assistant,
 
 ## Features
 
-- **Channels, states and slots.** Channels are what a strip can control (an output or input, a group of
-  applications, a person, Home Assistant), states are what goes on (a call, a game, a mode), and each of the 8
-  slots lists what it shows when (`"game if gaming"`, `"buds if present"`). Only the slots that change move; the
-  others stay as they are.
-- **Pools** fill the slots that name them: `apps` the next application that plays, `people` the next person of the
-  voice chat, `devices` outputs without a channel (a USB headset), `auto` applications and people.
-- **Modes** (gaming, work, ...) by rules or by hand: the chord (two Solo buttons together), a button of `[controls]`,
-  `xtouch-daemon mode`, or Home Assistant. A new mode shows its name across the LCDs.
-- **The device, all of it:** motor faders that glide and stay still while touched, LCDs with label, volume and color,
-  encoders for balance, volume, picking an application or the media player, Rec and Solo as indicators, and passive
-  LED meters that never wake a device or switch Bluetooth headphones into headset mode.
-- **People of the voice chat** on their own strips (Mumble, with its plugin): their volume, mute, and who talks.
-- **Home Assistant** over MQTT discovery: strips or single controls as entities, the mode, every state and what each
-  slot shows, with an override per state.
-- **A GUI** (`xtouch-daemon gui`): the device live, with the mouse as a hand on it; a card per slot with why it
-  shows what it shows; Simulate (what the slots show in another situation, also on the device); "Try on the device"
-  for unsaved changes; and "Try without a device" with a virtual one.
-- **A proper service:** a systemd user service that survives unplugging the device and restarts of the sound server
-  and the broker, reloads without a restart, and explains itself (`check-config`, `why`, `simulate`).
+The device has 8 strips. Each has a slot in the configuration: a list of what the strip can show, top first, and
+**states** (in a call, gaming) decide which entry wins now. See [Concepts](docs/concepts.md).
 
-See the [full feature list](docs/index.md#features).
+- **Devices, applications, people, Home Assistant.** A strip controls an output or input (with Select switching
+  between several), all streams of a group of applications (presets for browsers, games, voice chats, ...), one
+  person of your Mumble channel, or entities for your Home Assistant automations.
+- **Pools** fill slots with whatever is there: the next application that plays, the next person of the voice chat,
+  an output without a channel.
+- **Modes** (gaming, work, ...) by rules or by hand: the chord (two Solo buttons together), `xtouch-daemon mode`, or
+  Home Assistant.
+- **The whole device:** motor faders that glide and stay still while touched, LCDs, encoders, LED rings and meters
+  that never wake a device.
+- **A GUI** (`xtouch-daemon gui`) with the device live, Simulate, and a virtual device when you have none.
+- **A systemd user service** that recovers from an unplugged device or a restarted sound server, and explains itself
+  (`check-config`, `why`, `simulate`).
+
+See the [documentation](docs/index.md) for the rest.
 
 ## Installation
 
@@ -97,6 +93,7 @@ processes = ["@steam-games"]
 ## Documentation
 
 - [Getting started](docs/getting-started/install.md)
+- [Concepts](docs/concepts.md)
 - [Configuration](docs/configuration/index.md): [channels, states and slots](docs/configuration/slots.md),
   [devices](docs/configuration/channels/devices.md), [applications](docs/configuration/channels/applications.md),
   [people](docs/configuration/channels/people.md)

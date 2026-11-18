@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtGui import QKeySequence, QShortcut, QStandardItemModel
 from PyQt6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -33,7 +33,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     EMPTY,
     Row,
     StepKind,
-    choices,
+    choice_groups,
     controls_text,
     member_summary,
     place_options,
@@ -359,7 +359,16 @@ class SlotsPanel(Page):
         set_text(self.title, f"Slot {self.slot}")
         self.show_box.blockSignals(True)
         self.show_box.clear()
-        self.show_box.addItems(choices(self.document.values))
+        for title, names in choice_groups(self.document.values):
+            if title and names:
+                # a title of a group: it can't be picked
+                self.show_box.addItem(title)
+                model = self.show_box.model()
+                assert isinstance(model, QStandardItemModel)
+                header = model.item(self.show_box.count() - 1)
+                assert header is not None
+                header.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.show_box.addItems(names)
         self.show_box.setCurrentText(candidate.show)
         self.show_box.blockSignals(False)
         self.when_edit.set_names([*self.document.values.get("state", {}), DEFAULT], targets(self.document.values))
@@ -627,7 +636,7 @@ class SlotsPanel(Page):
         # members of the pools: a call with so many people, so many applications that play, devices plugged in
         counts: list[tuple[str, int, str, Callable[[int], WhatIf]]] = [
             ("people", what_if.people, "The people in the voice chat", lambda n: what_if.counted(people=n)),
-            ("applications", what_if.apps, "The applications that play", lambda n: what_if.counted(apps=n)),
+            ("apps", what_if.apps, "The applications that play", lambda n: what_if.counted(apps=n)),
         ]
         if DEVICES in inputs.presence:
             counts.append(

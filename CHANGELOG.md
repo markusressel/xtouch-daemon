@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Documentation: a "Concepts" page (channels, slots, states, pools, and the words that look alike, such as `apps`,
+  `auto` and `device`); the start page and the README explain the model with an example and say what a pool is.
 - The GUI helps a first configuration: without a daemon the drawing shows what the file shows in the default
   situation (it was dark); Channels has "Output from the sound server" and "Input from the sound server" in its Add
   menu, a hint while the file has no channel, and opens on the first channel; States has the starting points "In a
@@ -24,6 +26,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the list of Channels and the box Shows of a slot candidate have two groups, "Channels" (one strip each) and
+  "Pools" (a member for each slot that names them: the built-in ones and your own); the Simulate bar says "apps" instead of "applications" so that it fits; the
+  description of a pool no longer repeats the help of Shows; the lines of the Channels list show the names in the
+  color of channels and the states and slots they name in theirs.
 - A new file in the GUI starts empty instead of with the example's channels and slots 7 and 8.
 - Renaming a channel or state in the GUI renames it in the slots, conditions, pools and controls that name it (they
   went red before).

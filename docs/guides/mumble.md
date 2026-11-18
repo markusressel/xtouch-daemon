@@ -75,7 +75,7 @@ To start Mumble from the device, give a slot a launch in `[controls]` with a `mu
 Mumble, which connects to the server and joins the channel. See
 [Launching the application](../configuration/channels/applications.md#launching-the-application).
 
-## What it does, and what not
+## Behavior and limits
 
 - **Mute is Mumble's "Local Mute"** (in the menu of a user): Mute on the strip sets it, Mumble shows it in its
   window, and setting it in Mumble lights the button. Mumble tells plugins of no change of the local mute, so the
@@ -103,8 +103,8 @@ The plugin (`integrations/mumble/plugin.c`, plugin API 1.0) connects to the sock
 `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock`, and speaks the [bridge protocol](../reference/voice-chat-bridge.md):
 the people of the channel on every change and 20 times a second while someone talks (for the levels), and the
 volume and mute commands back. The plugin's socket thread never calls into Mumble; a second thread makes the calls for
-the mute, which Mumble runs in its main thread (see the comment at the top of `plugin.c`). It connects again every 2 seconds while the daemon is not there, so the order in which
-Mumble and the daemon start does not matter. `$XTOUCH_DAEMON_VOIP_SOCKET` (in Mumble's environment) points it to
+the mute, which Mumble runs in its main thread (see the comment at the top of `plugin.c`). It connects again every
+2 seconds while the daemon is not there, so the order in which Mumble and the daemon start does not matter. `$XTOUCH_DAEMON_VOIP_SOCKET` (in Mumble's environment) points it to
 another socket.
 
 **Flatpak:** a Mumble in a Flatpak can't see the socket by default. Let it:
@@ -133,7 +133,6 @@ that `xtouch-daemon mumble-plugin` says "In Mumble: ..." with a path. The daemon
 
 **Nobody on the strips:** the strips show your channel without you; join a channel with other people. People need
 free `auto` slots, or `person` channels on slots (`xtouch-daemon check-config` shows which slots are `auto`).
-
 
 **Two Mumble clients at once** (e.g. a second one with `mumble -m -c <other settings file>` to test with another
 user): enable the plugin in one of them only. The daemon keeps the plugin that connected first and refuses the other

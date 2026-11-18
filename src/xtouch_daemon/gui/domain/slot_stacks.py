@@ -335,14 +335,19 @@ def pool_text(values: Mapping[str, Any], name: str) -> str:
         )
     else:
         what = f"the next present channel of its list, from the {side(name, 'left')}"
-    return f"Pool {name}: {what}. With none left for a slot, the candidate below it gets the slot (a pool or `-`)."
+    return f"Pool {name}: {what}."
+
+
+def choice_groups(values: Mapping[str, Any]) -> list[tuple[str, list[str]]]:
+    """What a candidate can show, in groups with their titles: the channels, the pools (the built-in ones too), `-`."""
+    channels = list(values.get("channel", {}))
+    pools = [name for name in values.get("pool", {}) if name not in BUILT_IN]
+    return [("Channels", channels), ("Pools", [*BUILT_IN, *pools]), ("", [EMPTY])]
 
 
 def choices(values: Mapping[str, Any]) -> list[str]:
     """What a candidate can show: the channels, the pools (the built-in ones too), and `-`."""
-    channels = list(values.get("channel", {}))
-    pools = [name for name in values.get("pool", {}) if name not in BUILT_IN]
-    return [*channels, *BUILT_IN, *pools, EMPTY]
+    return [name for _, names in choice_groups(values) for name in names]
 
 
 def targets(values: Mapping[str, Any]) -> list[str]:
