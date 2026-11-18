@@ -9,24 +9,18 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QEvent, QObject, QPointF, QProcess, QRect, QSignalBlocker, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QProcess, QRect, QSignalBlocker, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
     QCloseEvent,
     QDesktopServices,
-    QKeyEvent,
     QKeySequence,
     QShowEvent,
-    QWheelEvent,
 )
 from PyQt6.QtWidgets import (
-    QAbstractScrollArea,
-    QAbstractSlider,
-    QAbstractSpinBox,
     QApplication,
     QButtonGroup,
-    QComboBox,
     QDockWidget,
     QHBoxLayout,
     QLabel,
@@ -34,7 +28,6 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
-    QScrollBar,
     QStackedWidget,
     QToolBar,
     QToolButton,
@@ -100,6 +93,7 @@ from xtouch_daemon.gui.qt.virtual_device import HostedDevice
 from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.device_view import DeviceView
 from xtouch_daemon.gui.qt.window.hover_tips import HoverTips
+from xtouch_daemon.gui.qt.window.input_filter import InputFilter
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.live.messages import Snapshot
@@ -129,13 +123,6 @@ WINDOW_SIZE = (1280, 1000)
 """The size of the window when it opens, where the screen has room for it."""
 DEVICE_HEIGHT = 380
 """The height of the window Device above the page, until it is made larger or smaller."""
-
-
-def _takes_wheel(widget: QObject | None) -> bool:
-    """Whether the wheel would change the value of `widget`: a number, a choice or a slider (not a scroll bar)."""
-    return isinstance(widget, QAbstractSpinBox | QComboBox) or (
-        isinstance(widget, QAbstractSlider) and not isinstance(widget, QScrollBar)
-    )
 
 
 class MainWindow(QMainWindow):
@@ -233,8 +220,9 @@ class MainWindow(QMainWindow):
             self.resizeDocks([self.device_dock], [DEVICE_HEIGHT], Qt.Orientation.Vertical)
         app = QApplication.instance()
         assert app is not None
-        # the document's undo, also while a text field has the focus: its own would leave the document behind
-        app.installEventFilter(self)
+        self.input_filter = InputFilter()
+        """The document's undo also while a text field has the focus, the wheel on the page rather than in a field."""
+        app.installEventFilter(self.input_filter)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh_service)
         self.timer.start(SERVICE_POLL_MS)
@@ -826,41 +814,6 @@ class MainWindow(QMainWindow):
         if self.editor.redo():
             self.status.setText("Redone.")
 
-    def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
-        assert event is not None
-        if (
-            event.type() == QEvent.Type.ShortcutOverride
-            and isinstance(event, QKeyEvent)
-            and (event.matches(QKeySequence.StandardKey.Undo) or event.matches(QKeySequence.StandardKey.Redo))
-        ):
-            # kept from the text fields: the shortcuts of the window undo and redo
-            event.ignore()
-            return True
-        if event.type() == QEvent.Type.Wheel and isinstance(event, QWheelEvent) and _takes_wheel(watched):
-            # the wheel scrolls the page under a field instead of changing its value by accident
-            assert isinstance(watched, QWidget)
-            area = watched.parentWidget()
-            while area is not None and not isinstance(area, QAbstractScrollArea):
-                area = area.parentWidget()
-            if area is not None:
-                viewport = area.viewport()
-                assert viewport is not None
-                QApplication.sendEvent(
-                    viewport,
-                    QWheelEvent(
-                        QPointF(watched.mapTo(viewport, event.position().toPoint())),
-                        event.globalPosition(),
-                        event.pixelDelta(),
-                        event.angleDelta(),
-                        event.buttons(),
-                        event.modifiers(),
-                        event.phase(),
-                        event.inverted(),
-                    ),
-                )
-            return True
-        return False
-
     # -- the sound server -----------------------------------------------------------------------------------------
 
     def load_audio(self) -> None:
@@ -1081,5 +1034,5 @@ class MainWindow(QMainWindow):
         save_window_state(bytes(self.saveState()))
         app = QApplication.instance()
         assert app is not None
-        app.removeEventFilter(self)
+        app.removeEventFilter(self.input_filter)
         event.accept()
