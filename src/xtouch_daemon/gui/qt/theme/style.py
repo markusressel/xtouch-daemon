@@ -247,6 +247,15 @@ QWidget[role="chip"][variant="preset"] {{ background: transparent; border: 1px s
 QWidget[role="bar"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-top-width: 1px;
     border-bottom-width: 1px; }}
 QFrame[role="popup"] {{ background: {c.raised}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px; }}
+QFrame[role="popover_row"] {{ border: 0 solid {c.border}; border-left-width: 3px; border-radius: 0;
+    background: transparent; }}
+QFrame[role="popover_row"][tone="good"] {{ border-left-color: {c.tone_good}; }}
+QFrame[role="popover_row"][tone="warn"] {{ border-left-color: {c.tone_warn};
+    background: {tint(c.warning, TINT_ALPHA // 2)}; }}
+QFrame[role="popover_row"][tone="bad"] {{ border-left-color: {c.tone_bad};
+    background: {tint(c.error, TINT_ALPHA // 2)}; }}
+QFrame[role="popover_row"][tone="neutral"] {{ border-left-color: {c.tone_neutral}; }}
+QLabel[role="path"] {{ font-family: monospace; color: {c.text_muted}; }}
 QWidget[role="rail"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-right-width: 1px; }}
 QToolBar {{ background: {c.chrome}; border: none; padding: 0; spacing: 0; }}
 QMenuBar {{ background: {c.chrome}; border-bottom: 1px solid {c.border}; }}

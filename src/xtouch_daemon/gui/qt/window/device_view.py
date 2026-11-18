@@ -23,7 +23,7 @@ from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Hand, Preview
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
-from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDeviceBar
 from xtouch_daemon.live.messages import SetMode, Snapshot
 from xtouch_daemon.slots.model import DEFAULT
@@ -142,7 +142,9 @@ class DeviceView(QWidget):
         if self.live_status is None:
             return
         actions = (("Open the virtual device", self.live_clicked.emit),) if self.offered else ()
-        show_popover(self.live_pill, [Entry("The drawing", self.live_status, actions=actions)])
+        show_popover(
+            self.live_pill, "What the drawing shows", [Entry("The drawing", self.live_status, actions=actions)]
+        )
 
     def _show_modes(self) -> None:
         """The mode, the modes to pick (or back to the rules) and the states, with what turned them on."""
@@ -159,7 +161,7 @@ class DeviceView(QWidget):
         if slots.mode_pick is not None:
             picks += (("Back to the rules", lambda: request(SetMode("auto"))),)
         how = "It was picked by hand, until the rules want another one." if slots.mode_pick else "The rules pick it."
-        entries = [Entry("Mode", self.slots_status, f"{MODES} {how}", picks)]
+        entries = [Entry("Mode", self.slots_status, f"{MODES} {how}", picks, Entity.STATE)]
         for state in slots.states:
             if state.mode:
                 continue
@@ -167,8 +169,8 @@ class DeviceView(QWidget):
             why = state.source or "none of its sources is on"
             why = why[:1].upper() + why[1:]
             override = "" if state.override == "auto" else f" Overridden: {state.override}."
-            entries.append(Entry(state.name, value, f"{why}.{override}"))
-        show_popover(self.slots_pill, entries)
+            entries.append(Entry(state.name, value, f"{why}.{override}", entity=Entity.STATE))
+        show_popover(self.slots_pill, "The mode and the states", entries)
 
     def show_daemon(self, runs: bool) -> None:
         """Whether a daemon runs: without one (and nothing hosted), "Try without a device"."""

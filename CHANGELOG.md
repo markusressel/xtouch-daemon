@@ -168,7 +168,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Help in the GUI without waiting for tooltips: the footer shows the first sentence of the tooltip under the mouse at
   once (tooltips follow after 300 ms), pills with ▾ open their details on a click (the pill next to Save with the
   path of the file, Live, the mode with the states and buttons to pick one), and Play and "Try on the device" say
-  next to them why they are off.
+  next to them why they are off. A popover has a row per thing with a bar in the color of how it does (a problem
+  also tinted, its fix as the main button), states in their color, `code` and paths in a monospace font.
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
   and window, and of the desktop file of `xtouch-daemon-gui-bin`.
 - The documentation has a version per release (and `dev` for main) with a version selector, built once per version

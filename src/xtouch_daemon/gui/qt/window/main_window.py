@@ -56,6 +56,7 @@ from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
 from xtouch_daemon.gui.domain.status import (
     Status,
+    Tone,
     changes_status,
     offers_virtual_device,
     preview_status,
@@ -703,7 +704,7 @@ class MainWindow(QMainWindow):
             Entry("The device", self.changes),
             Entry(
                 "The file",
-                text=str(path),
+                path=str(path),
                 actions=(
                     ("Copy the path", lambda: clipboard.setText(str(path))),
                     ("Open the folder", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent)))),
@@ -711,8 +712,15 @@ class MainWindow(QMainWindow):
             ),
         ]
         if self.daemon is not None and self.daemon.config != path.resolve():
-            entries.append(Entry("The daemon reads", text=str(self.daemon.config)))
-        show_popover(self.changes_pill, entries)
+            entries.append(
+                Entry(
+                    "The daemon reads",
+                    Status("another file", Tone.WARN),
+                    "Save and apply writes this file, which the daemon does not read.",
+                    path=str(self.daemon.config),
+                )
+            )
+        show_popover(self.changes_pill, "The configuration", entries)
 
     def _show_savable(self) -> None:
         """

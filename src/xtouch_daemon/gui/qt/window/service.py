@@ -151,6 +151,7 @@ class ServiceControls(QWidget):
             return
         show_popover(
             self.pill,
+            "What the daemon is connected to",
             [
                 Entry(
                     connection.name,

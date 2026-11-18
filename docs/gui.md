@@ -67,7 +67,8 @@ install, start, restart or stop it (see [The service](#the-service)), and what t
 
 **Help where you look:** while the mouse is on something with a tooltip, the footer shows its first sentence at once,
 in place of the status line; the tooltip itself follows after a moment. A pill with ▾ opens what it means in full on
-a click, with what can be done about it. A control that is off says why next to it (e.g. "Play: device not
+a click, with what can be done about it: a row per thing, with a bar in the color of how it does (a problem is
+also tinted and its fix is the main button). A control that is off says why next to it (e.g. "Play: device not
 connected").
 
 States, channels and slots have a color each, in the whole window: states (and modes) violet, channels (and what
