@@ -398,9 +398,7 @@ def why_steps(lines: Sequence[str]) -> tuple[Step, ...]:
     steps: list[Step] = []
     for line in lines:
         if line == "held":
-            steps.append(
-                Step(StepKind.HELD, "Held", "it keeps what it shows: touched, or within its dwell")
-            )
+            steps.append(Step(StepKind.HELD, "Held", "it keeps what it shows: touched, or within its dwell"))
         elif line.startswith("shows nothing: "):
             steps.append(Step(StepKind.DARK, "Dark", line.removeprefix("shows nothing: ")))
         elif line.startswith("shows "):
