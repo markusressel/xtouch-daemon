@@ -25,6 +25,12 @@ class WhatIf(Situation):
     and inputs without a channel. The daemon can run it too (`live.StartPreview`).
     """
 
+    @classmethod
+    def of_live(cls, slots: SlotsState) -> WhatIf:
+        """The mode and the states that are on as the daemon tells them, the rest as `Simulate` starts it."""
+        on = frozenset(state.name for state in slots.states if state.value and not state.mode)
+        return cls(mode=slots.mode, on=on)
+
     def counted(self, people: int | None = None, apps: int | None = None, devices: int | None = None) -> WhatIf:
         """With so many people in the call, applications that play, or devices without a channel."""
         return dataclasses.replace(

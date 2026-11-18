@@ -11,13 +11,17 @@ from PyQt6.QtWidgets import QApplication, QLabel, QWidget
 class HoverTips(QObject):
     def __init__(self, window: QWidget, tip_label: QLabel, status: QWidget) -> None:
         """`tip_label` shows the tip; `status` (the status line) makes room for it meanwhile."""
-        # the window keeps it
-        super().__init__()
+        # a child of the window: gone with it, and with it its filter and its timer
+        super().__init__(window)  # pyright: ignore[reportArgumentType]
         self.main = window
         self.tip_label = tip_label
         self.status = status
         self.tip_label.hide()
-        self._pending = False
+        self.timer = QTimer(self)
+        """Shows the tip after the Leave of one widget and the Enter of the next one."""
+        self.timer.setSingleShot(True)
+        self.timer.setInterval(0)
+        self.timer.timeout.connect(self._show)
         app = QApplication.instance()
         assert app is not None
         app.installEventFilter(self)
@@ -30,14 +34,11 @@ class HoverTips(QObject):
 
     def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
         assert event is not None
-        if event.type() in (QEvent.Type.Enter, QEvent.Type.Leave) and not self._pending:
-            # after the Leave of one widget and the Enter of the next one
-            self._pending = True
-            QTimer.singleShot(0, self._show)
+        if event.type() in (QEvent.Type.Enter, QEvent.Type.Leave) and not self.timer.isActive():
+            self.timer.start()
         return False
 
     def _show(self) -> None:
-        self._pending = False
         tip = self.tip_at(QApplication.widgetAt(QCursor.pos()))
         self.tip_label.setText(tip)
         self.tip_label.setVisible(bool(tip))

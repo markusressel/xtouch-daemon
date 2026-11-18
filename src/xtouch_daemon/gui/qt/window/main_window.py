@@ -306,8 +306,11 @@ class MainWindow(QMainWindow):
         """What the preview shows (live or the file), the connection to Home Assistant, and the sound server."""
         top = QHBoxLayout()
         top.addStretch(1)
-        self.audio_label = ElidedLabel("Reading the sound server…", "hint")
-        top.addWidget(self.audio_label)
+        self.audio_label = label("Reading the sound server…", "pill")
+        """What the GUI read from the sound server (for the suggestions); a click: all of it."""
+        make_clickable(self.audio_label, self._show_audio)
+        self.audio_error: str | None = None
+        top.addWidget(self.audio_label, 0, Qt.AlignmentFlag.AlignVCenter)
         self.refresh_audio = flat_button("refresh", "Read the devices and applications of the sound server again")
         self.refresh_audio.clicked.connect(self.load_audio)
         top.addWidget(self.refresh_audio)
@@ -724,19 +727,47 @@ class MainWindow(QMainWindow):
 
     def load_audio(self) -> None:
         self.audio_label.setText("Reading the sound server…")
+        self.audio_label.setToolTip("")
         self.loader.load()
 
     def _audio_loaded(self, state: AudioState) -> None:
         self.audio = state
-        self.audio_label.setText(f"Sound server: {sources.summary(state)}")
-        self.audio_label.setToolTip("")
+        self.audio_error = None
+        tip = "What the GUI read from the sound server: the names the forms suggest."
+        show_status(self.audio_label, Status(f"Sound server: {sources.summary(state)}", Tone.NEUTRAL, tip), more=True)
         self._audio_changed()
 
     def _audio_failed(self, message: str) -> None:
         self.audio = DISCONNECTED
-        self.audio_label.setText("Sound server not reachable: type names by hand")
-        self.audio_label.setToolTip(message)
+        self.audio_error = message
+        status = Status("Sound server not reachable: type names by hand", Tone.WARN, message)
+        show_status(self.audio_label, status, more=True)
         self._audio_changed()
+
+    def _show_audio(self) -> None:
+        """What the GUI read from the sound server, or why it couldn't, and reading it again."""
+        again = (("Read again", self.load_audio),)
+        if self.audio_error is not None:
+            entry = Entry(
+                "The sound server",
+                Status("not reachable", Tone.WARN),
+                f"{self.audio_error}\n\nThe forms suggest no names meanwhile: type them by hand.",
+                again,
+            )
+            show_popover(self.audio_label, "What the GUI reads from the sound server", [entry])
+            return
+        entries = [
+            Entry(
+                "For the suggestions",
+                text="The names the forms suggest for `device` and `match`. The GUI reads them itself: the "
+                "daemon's own connection to the sound server is in the pill of the service.",
+                actions=again,
+            )
+        ]
+        for kind, names in sources.contents(self.audio):
+            count = Status(str(len(names)), Tone.GOOD if names else Tone.NEUTRAL)
+            entries.append(Entry(kind, count, ", ".join(names) or "None."))
+        show_popover(self.audio_label, "What the GUI reads from the sound server", entries)
 
     def _audio_changed(self) -> None:
         """What the forms suggest depends on the devices and the applications of the sound server."""

@@ -66,7 +66,8 @@ names the file, with • while there are unsaved changes. The header has the sta
 install, start, restart or stop it (see [The service](#the-service)), and what the sound server has.
 
 **Help where you look:** while the mouse is on something with a tooltip, the footer shows its first sentence at once,
-in place of the status line; the tooltip itself follows after a moment. A pill with ▾ opens what it means in full on
+in place of the status line; the tooltip itself follows after a moment, with the states, channels and slots it
+names in their colors. A pill with ▾ opens what it means in full on
 a click, with what can be done about it: a row per thing, with a bar in the color of how it does (a problem is
 also tinted and its fix is the main button). A control that is off says why next to it (e.g. "Play: device not
 connected").
@@ -201,8 +202,9 @@ daemon reads another file, and for a daemon from before this feature (restart it
 
 On the page Slots:
 
-- **The state bar** lists the states and modes: ● on, ○ off, with the override in brackets. Its menu overrides a
-  state (`auto`, `on`, `off`) or picks a mode (`pick`, `auto`), like Home Assistant or `xtouch-daemon mode`.
+- **The state bar** lists the states and modes: ● on, ○ off, with the override in brackets. A click on one shows what
+  turned it on, its override (real, like Home Assistant or `xtouch-daemon mode`: `auto`, `on`, `off`, or for a mode
+  picking it and back to the rules), and Simulate with it the other way (nothing changes).
 - **A card per slot** lists its candidates as rules, read from the top like "if, else if, else": the first whose
   condition holds wins. `when gaming → auto` shows `auto` while `gaming` is on, `otherwise → browser` below it `browser`
   the rest of the time (`always` for a lone candidate without a condition). A pool without a condition reads `when app
@@ -284,7 +286,8 @@ The GUI reads the sound server and suggests what it has:
 | `[aliases]` | The names of the applications that play. |
 | `person` of a `person` channel | The people in the voice chat now, as the running daemon tells them. |
 
-The refresh button in the header reads the sound server again, e.g. after you started an application. Without a
+The pill "Sound server: ..." says how much the GUI read; a click lists the outputs, inputs and applications, with
+"Read again" (also the refresh button next to it), e.g. after you started an application. Without a
 sound server, type the names by hand. The people of the voice chat come from the daemon's live view: without a
 running daemon (or nobody in the channel), type the names by hand.
 

@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 
 from xtouch_daemon.audio.pulse import read_state
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
+from xtouch_daemon.gui.qt.fields.rich_tips import RichTips
 from xtouch_daemon.gui.qt.theme.icons import app_icon
 from xtouch_daemon.gui.qt.theme.settings import load_zoom
 from xtouch_daemon.gui.qt.theme.style import apply_theme, load_theme_mode
@@ -38,6 +39,10 @@ def scale_for(zoom: float, own: str | None) -> str:
     return f"{base * zoom:g}"
 
 
+_rich_tips: RichTips | None = None
+"""The tooltips in the colors of the help, for as long as the application runs."""
+
+
 def create_application() -> QApplication:
     name_application()
     app = QApplication(sys.argv[:1])
@@ -47,6 +52,8 @@ def create_application() -> QApplication:
     # X11 and the task bars that don't read the desktop file
     app.setWindowIcon(app_icon())
     apply_theme(load_theme_mode())
+    global _rich_tips
+    _rich_tips = RichTips()
     return app
 
 

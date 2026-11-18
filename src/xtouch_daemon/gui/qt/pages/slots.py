@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
-    QMenu,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -45,10 +44,12 @@ from xtouch_daemon.gui.domain.slot_stacks import (
 )
 from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
+from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import StackList
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -252,16 +253,7 @@ class SlotsPanel(Page):
             set_role(state_button, Entity.STATE.value, "entity")
             # the label until the daemon tells the state (see `show_live`)
             state_button.setText(str(self.document.get(("state", name, "label")) or name))
-            state_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-            menu = QMenu(state_button)
-            mode = bool(self.document.get(("state", name, "mode")))
-            for value in OVERRIDES:
-                if mode and value == "off":
-                    continue
-                action = menu.addAction("pick" if mode and value == "on" else value)
-                assert action is not None
-                action.triggered.connect(lambda _=False, name=name, value=value: self.override(name, value))
-            state_button.setMenu(menu)
+            state_button.clicked.connect(lambda _=False, name=name: self._show_state(name))
             self.state_bar.addWidget(state_button)
             self.state_buttons[name] = state_button
         self.shown_live = None
@@ -463,8 +455,9 @@ class SlotsPanel(Page):
             override = "" if state is None or state.override == "auto" else f" ({state.override})"
             if picked == name:
                 override = " (picked)"
-            state_button.setText(f"{dot}{self.document.get(('state', name, 'label')) or name}{override}")
-            state_button.setToolTip(f"{name}: {state.source or 'off'}" if state is not None else name)
+            state_button.setText(f"{dot}{self.document.get(('state', name, 'label')) or name}{override}  ▾")
+            tip = f"{name}: {state.source or 'off'}" if state is not None else name
+            state_button.setToolTip(f"{tip}\n\nClick for its override, or to simulate it the other way.")
         self._show_cards()
         self._show_why()
 
@@ -610,6 +603,58 @@ class SlotsPanel(Page):
             candidate.show, candidate.when, {key: value for key, value in candidate.options.items() if key in allowed}
         )
         self._write(self.slot, stack, self.candidate)
+
+    def _show_state(self, name: str) -> None:
+        """
+        The state `name` as the daemon tells it, its override (real: the device and Home Assistant follow it) and
+        what the slots would show with it the other way (Simulate: nothing changes).
+        """
+        snapshot = self.snapshot()
+        slots = snapshot.slots if snapshot is not None else None
+        state = next((state for state in slots.states if state.name == name), None) if slots is not None else None
+        anchor = self.state_buttons[name]
+        if slots is None or state is None:
+            unknown = Entry(name, text="The daemon doesn't tell this state yet.", entity=Entity.STATE)
+            show_popover(anchor, "The state", [unknown])
+            return
+        value = Status("on", Tone.GOOD) if state.value else Status("off", Tone.NEUTRAL)
+        why = state.source or "none of its sources is on"
+        entries = [Entry(name, value, f"{why[:1].upper()}{why[1:]}.", entity=Entity.STATE)]
+        if state.mode:
+            picked = slots.mode_pick == name
+            override = Status("picked by hand", Tone.WARN) if picked else Status("by the rules", Tone.NEUTRAL)
+            actions = (("Back to the rules", lambda: self.override(name, "auto")),) if picked else ()
+            if slots.mode != name:
+                actions += ((f"Pick {name}", lambda: self.override(name, "on")),)
+            text = "Real: the device and Home Assistant follow a mode picked by hand until the rules want another one."
+        else:
+            override = Status(state.override, Tone.NEUTRAL if state.override == "auto" else Tone.WARN)
+            actions = tuple(
+                (
+                    f"Override: {choice}" if choice != "auto" else "Back to auto",
+                    lambda choice=choice: self.override(name, choice),
+                )
+                for choice in OVERRIDES
+                if choice != state.override
+            )
+            text = "Real: the device and Home Assistant follow an override until it is back on `auto`."
+        entries.append(Entry("Override", override, text, actions))
+        what_if = WhatIf.of_live(slots)
+        if state.mode:
+            mode = DEFAULT if slots.mode == name else name
+            what_if = dataclasses.replace(what_if, mode=mode)
+            simulate = "Simulate no mode" if mode == DEFAULT else f"Simulate {name} as the mode"
+        else:
+            what_if = what_if.toggled(name, flip=False)
+            simulate = f"Simulate it {'off' if state.value else 'on'}"
+        entries.append(
+            Entry(
+                "Simulate",
+                text="What the slots would show with it the other way, without changing anything.",
+                actions=((simulate, lambda: self.simulate(what_if)),),
+            )
+        )
+        show_popover(anchor, "The state", entries)
 
     def override(self, name: str, value: str) -> None:
         """Asks the daemon to override a state, or to pick a mode (`auto`: the rules decide again)."""

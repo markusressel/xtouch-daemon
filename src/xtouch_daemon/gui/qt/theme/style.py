@@ -59,6 +59,14 @@ class QuickTips(QProxyStyle):
             return TIP_DELAY_MS
         return super().styleHint(hint, option, widget, returnData)
 
+    def pixelMetric(
+        self, metric: QStyle.PixelMetric, option: QStyleOption | None = None, widget: QWidget | None = None
+    ) -> int:
+        if metric == QStyle.PixelMetric.PM_ToolTipLabelFrameWidth:
+            # the padding of QToolTip in the style sheet is all the room a tip needs
+            return 0
+        return super().pixelMetric(metric, option, widget)
+
 
 def apply_theme(mode: ThemeMode) -> None:
     global _current_mode
@@ -265,7 +273,8 @@ QDockWidget::title {{ background: {c.chrome}; padding: {Space.XS}px {Space.M}px;
 QFrame[role="card"] {{ background: {c.raised}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px; }}
 QFrame[role="card"] QLabel {{ background: transparent; border: none; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: {c.surface}; border: none; }}
-QToolTip {{ background: {c.raised}; color: {c.text}; border: 1px solid {c.border}; padding: {Space.XS}px {Space.S}px; }}
+QToolTip {{ background: {c.raised}; color: {c.text}; border: 1px solid {c.border}; border-radius: {Radius.SMALL}px;
+    padding: 2px {Space.XS + 2}px; }}
 QMenu {{ background: {c.raised}; border: 1px solid {c.border}; padding: {Space.XS}px; }}
 QMenu::item {{ padding: {Space.S - 2}px {Space.M}px; border-radius: {Radius.SMALL}px; }}
 QMenu::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}

@@ -170,6 +170,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   path of the file, Live, the mode with the states and buttons to pick one), and Play and "Try on the device" say
   next to them why they are off. A popover has a row per thing with a bar in the color of how it does (a problem
   also tinted, its fix as the main button), states in their color, `code` and paths in a monospace font.
+  Tooltips have a slimmer frame and the colors of the help: states, channels and slots in their colors, `code` in a
+  monospace font, what follows the first paragraph muted.
+- The states above the cards of the slots open a popover instead of a menu: what turned the state on, its override
+  (marked as real: the device and Home Assistant follow it) and "Simulate it off/on" from the situation there is.
+- What the GUI read from the sound server is a pill: a click lists the outputs, inputs and applications, or why it
+  couldn't, with "Read again".
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
   and window, and of the desktop file of `xtouch-daemon-gui-bin`.
 - The documentation has a version per release (and `dev` for main) with a version selector, built once per version

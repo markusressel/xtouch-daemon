@@ -56,6 +56,19 @@ def summary(state: AudioState) -> str:
     )
 
 
+def contents(state: AudioState) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """What the sound server has, by kind: the outputs and inputs (the default marked), the applications that play."""
+
+    def named(direction: Direction) -> tuple[str, ...]:
+        return tuple(
+            device.description + (" (the default)" if state.is_default(device) else "")
+            for device in state.devices(direction)
+        )
+
+    applications = tuple(sorted({stream.app for stream in state.streams}, key=str.casefold))
+    return (("Outputs", named(Direction.OUTPUT)), ("Inputs", named(Direction.INPUT)), ("Applications", applications))
+
+
 def devices(state: AudioState, direction: Direction) -> tuple[Suggestion, ...]:
     """The devices for `device`, by node name, as `xtouch-daemon list-devices` lists them."""
     return tuple(
