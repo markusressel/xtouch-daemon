@@ -221,17 +221,18 @@ def test_the_lcd_fits_7_characters_per_line_and_a_line_between_them(window: Main
     middle = QPointF(cells.center().x() + 0.5, cells.top() + (cells.height() - 2) / 2 + 1)
 
     rim = QPointF(LCD.left() + 2.4, LCD.center().y())
+    # in the first cell, which is blank: a glyph of another font would reach the point
     panel = QPointF(cells.left() + 1, cells.center().y() - 6)
 
     # a negative display: the backlight around a dark panel, and through it in the line and the characters
-    image = show_state(view, color="blue", text=("Browser", "Phones "))
+    image = show_state(view, color="blue", text=(" Browse", " Phone "))
     for point in (rim, middle):
         assert pixel(image, point).blue() > 200
     assert pixel(image, panel).lightness() < 30
     lit = [image.pixelColor(x, y) for x in range(image.width()) for y in range(image.height())]
     assert any(color.blue() > 200 and color.red() < 120 for color in lit)
     # the backlight off: all dark
-    image = show_state(view, color="off", text=("Browser", "Phones "))
+    image = show_state(view, color="off", text=(" Browse", " Phone "))
     for point in (rim, middle, panel):
         assert pixel(image, point).lightness() < 50
     # dimmed: a dim rim, but characters that can still be read
