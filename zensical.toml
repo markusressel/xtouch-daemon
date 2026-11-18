@@ -64,6 +64,7 @@ nav = [
       { "Presets" = "development/design/presets.md" },
       { "A simulated device" = "development/design/device-simulator.md" },
       { "Previews of the controls" = "development/design/control-previews.md" },
+      { "An interactive device test" = "development/design/interactive-test.md" },
       { "Refactoring, November 2026" = "development/design/refactoring-2026-11.md" },
     ] },
   ] },
