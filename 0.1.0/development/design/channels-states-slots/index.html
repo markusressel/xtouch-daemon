@@ -1,0 +1,4170 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Use a Behringer X-Touch Extender as a hardware mixer for PipeWire">
+      
+      
+        <meta name="author" content="Markus Ressel">
+      
+      
+        <link rel="canonical" href="https://markusressel.github.io/xtouch-daemon/latest/development/design/channels-states-slots/">
+      
+      
+      
+        <link rel="prev" href="../../architecture/">
+      
+      
+        <link rel="next" href="../try-and-simulate/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../images/icon.svg">
+      <meta name="generator" content="zensical-0.1.2">
+    
+    
+      
+        <title>Channels, states and slots - xtouch-daemon</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="xtouch-daemon" class="md-header__button md-logo" aria-label="xtouch-daemon" data-md-component="logo">
+      
+  <img src="../../../images/icon.svg" alt="xtouch-daemon">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            xtouch-daemon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Channels, states and slots
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/markusressel/xtouch-daemon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    markusressel/xtouch-daemon
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="xtouch-daemon" class="md-nav__button md-logo" aria-label="xtouch-daemon" data-md-component="logo">
+      
+  <img src="../../../images/icon.svg" alt="xtouch-daemon">
+
+    </a>
+    xtouch-daemon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/markusressel/xtouch-daemon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    markusressel/xtouch-daemon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Getting started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/first-steps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  First steps
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/without-a-device/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Without a device
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Guides
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Guides
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/gui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  GUI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/home-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home Assistant
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/mumble/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mumble
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../configuration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Configuration
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/slots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels, states and slots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../configuration/channels/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Channels
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/channels/devices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Devices
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/channels/applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/channels/people/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  People and the voice chat
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Parts of a strip
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Parts of a strip
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/strip/encoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Encoders
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/strip/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LEDs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Presets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Behavior, device and aliases
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/hardware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hardware and protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/voice-chat-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Voice chat bridge
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Development
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Design documents
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Design documents
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels, states and slots
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels, states and slots
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Motivation
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The model
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#names" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Names
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Conditions
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#channels-what-a-strip-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Channels: what a strip controls
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pools-one-of-several" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pools: one of several
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#people" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        People
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#states-when-something-matters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        States: when something matters
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="States: when something matters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Overrides
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Modes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slots-where-it-shows" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Slots: where it shows
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Slots: where it shows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-resolver" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The resolver
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stability" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Stability
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#telling-what-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Telling what changed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Controls
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pitfalls-the-design-makes-possible" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pitfalls the design makes possible
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#home-assistant" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Home Assistant
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-chord" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The chord
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A complete example
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The GUI
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-new-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A new configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-daemon" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The daemon
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The daemon">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-order-of-the-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The order of the work
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-the-desk" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Step 2: the Desk
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-9-the-old-format-goes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Step 9: the old format goes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-10-the-gui-edits-the-new-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Step 10: the GUI edits the new format
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Migration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests-the-design-needs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tests the design needs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prototype" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Prototype
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions-after-the-live-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Decisions after the live test
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Review log
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Review log">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sixth-review-the-integration-of-the-fifth" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sixth review (the integration of the fifth)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fifth-review-the-integration-of-the-fourth-and-actions-of-places" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fifth review (the integration of the fourth, and actions of places)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fourth-review-architecture-after-the-live-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fourth review (architecture, after the live test)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#first-review-daw-linux-desktop-and-home-assistant-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        First review (DAW, Linux desktop and Home Assistant user)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#second-review-daw-linux-desktop-home-assistant-user-systems-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Second review (DAW, Linux desktop, Home Assistant user, systems design)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#third-review-the-same-profile-with-hand-traces-of-the-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Third review (the same profile, with hand traces of the example)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../try-and-simulate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Try changes and situations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../people-slots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Where the people sit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layouts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Layouts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../launch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Launching applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dynamic-strips/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Output choices and moving strips
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Presets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../device-simulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A simulated device
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-previews/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Previews of the controls
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../refactoring-2026-11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Refactoring, November 2026
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Motivation
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The model
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#names" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Names
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Conditions
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#channels-what-a-strip-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Channels: what a strip controls
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pools-one-of-several" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pools: one of several
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#people" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        People
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#states-when-something-matters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        States: when something matters
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="States: when something matters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Overrides
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Modes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slots-where-it-shows" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Slots: where it shows
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Slots: where it shows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-resolver" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The resolver
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stability" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Stability
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#telling-what-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Telling what changed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Controls
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pitfalls-the-design-makes-possible" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pitfalls the design makes possible
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#home-assistant" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Home Assistant
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-chord" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The chord
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A complete example
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The GUI
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-new-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A new configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-daemon" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The daemon
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The daemon">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-order-of-the-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The order of the work
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-the-desk" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Step 2: the Desk
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-9-the-old-format-goes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Step 9: the old format goes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-10-the-gui-edits-the-new-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Step 10: the GUI edits the new format
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Migration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests-the-design-needs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tests the design needs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prototype" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Prototype
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions-after-the-live-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Decisions after the live test
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Review log
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Review log">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sixth-review-the-integration-of-the-fifth" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sixth review (the integration of the fifth)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fifth-review-the-integration-of-the-fourth-and-actions-of-places" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fifth review (the integration of the fourth, and actions of places)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fourth-review-architecture-after-the-live-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fourth review (architecture, after the live test)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#first-review-daw-linux-desktop-and-home-assistant-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        First review (DAW, Linux desktop and Home Assistant user)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#second-review-daw-linux-desktop-home-assistant-user-systems-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Second review (DAW, Linux desktop, Home Assistant user, systems design)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#third-review-the-same-profile-with-hand-traces-of-the-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Third review (the same profile, with hand traces of the example)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../../architecture/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Development
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="././" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Design documents
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+    <a href="https://github.com/markusressel/xtouch-daemon/edit/main/docs/development/design/channels-states-slots.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="design-channels-states-and-slots">Design: channels, states and slots<a class="headerlink" href="#design-channels-states-and-slots" title="Permanent link">&para;</a></h1>
+<p>Status: decided, being built. It replaces strips, layouts, <code>inherit</code> strips and <code>collapse</code> with concepts that are
+each edited in one place; the old format goes (see <a href="#decisions-after-the-live-test">Decisions after the live test</a>).
+The configuration format may change freely before 0.1.0. Revision 5, after three reviews of the design and a live test
+of a prototype on the device, see <a href="#review-log">Review log</a>. The resolver and the state engine run in
+<code>xtouch_daemon.slots</code> and <code>xtouch-daemon simulate</code>; the daemon runs them as a prototype, see <a href="#prototype">Prototype</a>.</p>
+<h2 id="motivation">Motivation<a class="headerlink" href="#motivation" title="Permanent link">&para;</a></h2>
+<p>A <code>[[strip]]</code> today answers four questions at once, and the answers are spread over several mechanisms:</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Today</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>What</strong> does it control?</td>
+<td><code>type</code> and its options (<code>device</code>, <code>match</code>, <code>choices</code>, <code>person</code>, ...).</td>
+</tr>
+<tr>
+<td><strong>When</strong> does it matter?</td>
+<td>Implicitly ("has nothing to control"), <code>collapse</code>, the rules of a <code>[[layout]]</code> (<code>apps</code>, <code>processes</code>).</td>
+</tr>
+<tr>
+<td><strong>How</strong> is it related to other strips?</td>
+<td><code>inherit</code> (by layout and position), the <code>voip</code> group, nothing for "these two belong together".</td>
+</tr>
+<tr>
+<td><strong>Where</strong> is it on the device?</td>
+<td>Its position in a list, shifted by <code>collapse</code>, replaced as a whole by a layout.</td>
+</tr>
+</tbody>
+</table>
+<p>That makes simple wishes hard:</p>
+<ul>
+<li>"VoIP and the Mic only during a call, else <code>auto</code> strips there" needs a group that collapses together, and extra
+  <code>auto</code> strips that fill in. Neither exists.</li>
+<li>"The VoIP strip matters while gaming and while calling" needs it in two layouts (an <code>inherit</code> strip) and a rule
+  per layout, and the two can't both be active.</li>
+<li><code>inherit</code> refers to "strip 6 of the layout default": moving a strip silently changes what the reference means.
+  The author's own configuration shows it: its <code>gaming</code> layout inherits strip 6, an <code>auto</code> strip, where VoIP was
+  meant, and puts Browser where the Mic was, so the Mic is gone while gaming.</li>
+<li><code>collapse</code> moves every strip after it: the fader under the finger changes, which hurts muscle memory.</li>
+<li>The GUI has to show all of it in one strip form, plus a "Layout" tab, plus global pages: it feels unintuitive.</li>
+</ul>
+<h2 id="the-model">The model<a class="headerlink" href="#the-model" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Answers</th>
+<th>Edited on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Channel</strong></td>
+<td>What a strip controls: a device, applications, a person in the voice chat, a Home Assistant strip.</td>
+<td>Channels page</td>
+</tr>
+<tr>
+<td><strong>Pool</strong></td>
+<td>Which one of several a strip takes: whatever plays and has no slot (<code>auto</code>), the next present channel of a list.</td>
+<td>Channels page</td>
+</tr>
+<tr>
+<td><strong>People</strong></td>
+<td>The people in the voice chat: the pool <code>people</code>, and with the applications the pool <code>auto</code> (see <a href="../people-slots/">people-slots.md</a>).</td>
+<td>Channels page (look, <code>from</code> and <code>order</code>); the learned order is live there</td>
+</tr>
+<tr>
+<td><strong>Controls</strong></td>
+<td>What a fader, encoder or button of a slot does whatever the slot shows (a Home Assistant knob, starting Mumble).</td>
+<td>Device page</td>
+</tr>
+<tr>
+<td><strong>State</strong></td>
+<td>When something matters: a named on/off condition, live, with a manual override. A <strong>mode</strong> is a state that excludes the other modes (today's layouts).</td>
+<td>States page</td>
+</tr>
+<tr>
+<td><strong>Slot</strong></td>
+<td>Where: one of the 8 strips of the device, with a stack of candidates (channels or pools, each with a condition).</td>
+<td>Device page</td>
+</tr>
+</tbody>
+</table>
+<h3 id="names">Names<a class="headerlink" href="#names" title="Permanent link">&para;</a></h3>
+<p>Channels, pools, states and the <code>id</code>s of controls share one namespace: an id is lower case letters, digits and <code>_</code>,
+unique across all four (a control <code>id</code> names Home Assistant entities like a channel id does). <code>auto</code>, <code>people</code> and
+<code>default</code> are built in. Reserved: <code>and</code>, <code>or</code>, <code>not</code>, <code>if</code>, <code>present</code>, <code>none</code>, <code>mode</code>,
+and ids starting with <code>state_</code> or <code>slot_</code> (they would collide with the entity IDs in Home Assistant). The sigils stay
+those of today: <code>@name</code> a <a href="../../../configuration/presets/">preset</a>, <code>#name</code> a tag.</p>
+<h3 id="conditions">Conditions<a class="headerlink" href="#conditions" title="Permanent link">&para;</a></h3>
+<p>One expression language says "when" everywhere: in candidates (<code>"mic if call"</code>) and in composed states
+(<code>when = "..."</code>).</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>expr     := or
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>or       := and ("or" and)*
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>and      := not ("and" not)*
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>not      := "not" not | atom
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>atom     := ID | "present" | "present(" ID ")" | "(" expr ")"
+</span></code></pre></div>
+<ul>
+<li><code>ID</code>: a state or mode; <code>default</code> is on while no other mode is.</li>
+<li><code>present</code>: the candidate's own channel or pool is present; only in candidates of slots (a state takes channels
+  with its source <code>channels</code>). <code>present(spotify)</code>: that channel or pool is. Presence of a pool is defined before slots are assigned (below), so conditions never depend on the result.</li>
+<li>The GUI shows conditions as chips that read as text: <code>call or gaming</code>.</li>
+<li>Errors point at the place: <code>slots.7[0]: "voip if cal": unknown state cal (did you mean call?)</code>, with a caret in
+  the GUI and <code>check-config</code>.</li>
+</ul>
+<p>Conditions depend only on <strong>inputs</strong>: states and presence. Nothing in a condition depends on what other slots show.
+That is what makes the resolver deterministic and Simulate truthful.</p>
+<h3 id="channels-what-a-strip-controls">Channels: what a strip controls<a class="headerlink" href="#channels-what-a-strip-controls" title="Permanent link">&para;</a></h3>
+<p>A channel is today's strip without its place: <code>type</code> and the options of that type. The table key is its id.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.out]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cyan"</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">[[channel.out.choices]]</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Phones"</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.pci-0000_11_00.4.analog-stereo"</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_card.pci-0000_11_00.4"</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output:analog-stereo+input:analog-stereo"</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="k">[[channel.out.choices]]</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.pci-0000_11_00.4.iec958-stereo"</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_card.pci-0000_11_00.4"</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output:iec958-stereo+input:analog-stereo"</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">200</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="k">[[channel.out.choices]]</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Buds"</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="k">[channel.spotify]</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"spotify"</span><span class="p">]</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Spotify"</span>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="n">tags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"media"</span><span class="p">]</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="k">[channel.alice]</span>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"person"</span>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="n">person</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"Alice"</span><span class="p">,</span><span class="w"> </span><span class="s2">"alice-phone"</span><span class="p">]</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mum"</span>
+</span></code></pre></div>
+<ul>
+<li>Types: <code>output</code>, <code>input</code>, <code>apps</code>, <code>homeassistant</code> as today, and <code>person</code> (today's <code>voip</code> strip with <code>person</code>,
+  with <code>talking_color</code>, <code>max_volume</code>, <code>meter</code>, <code>launch</code>). Two <code>person</code> channels with a name in common are an error,
+  as today. <code>auto</code> and the group of <code>voip</code> strips are pools; <code>empty</code> is the candidate <code>"-"</code>.</li>
+<li><code>tags</code>: free-form names for grouping channels, used by pools (<code>#media</code>) and the <code>channels</code> source of states.
+  They are not conditions; name them after what the channels are (<code>media</code>, <code>games</code>), not after states.</li>
+<li><strong>Presence</strong>: whether the channel has something to control: its device is there, an application of the group has
+  a stream, the person is in the voice chat; always for <code>homeassistant</code>. <code>absent_after</code> (default
+  <code>behavior.absent_after</code>, 3 s; today's <code>collapse_hold</code>) delays "absent", so a reconnecting Bluetooth device does not
+  flap; it is present again at once.</li>
+<li><code>in_pool</code> (default <code>true</code>, <code>apps</code> and <code>person</code> channels): whether the channel goes into the pools <code>apps</code> and <code>auto</code>
+  (a <code>person</code> channel: <code>people</code> and <code>auto</code>) while it is present and no slot shows it (below).</li>
+<li>Its Home Assistant entities are named by its id (<code>select.xtouch_out_output</code>), the same wherever and whenever it
+  shows, and they stay available while it is not shown. One owner per stream: the channel, wherever it is.</li>
+</ul>
+<h3 id="pools-one-of-several">Pools: one of several<a class="headerlink" href="#pools-one-of-several" title="Permanent link">&para;</a></h3>
+<p>A pool gives each slot that shows it one <strong>member</strong> that no other slot shows.</p>
+<table>
+<thead>
+<tr>
+<th>Pool</th>
+<th>Members, in this order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apps</code> (built in)</td>
+<td><strong>Whatever plays and has no slot</strong>: <code>apps</code> channels with <code>in_pool</code> that are present and not shown (each as a whole: its label, volume, entities, as in DAW banking), and applications that play and no channel matches. In the order they started playing. A member stays one for <code>hold</code> seconds after it stopped (today's <code>auto_hold</code>).</td>
+</tr>
+<tr>
+<td><code>people</code> (built in)</td>
+<td>The people in the voice chat, see <a href="#people">People</a>.</td>
+</tr>
+<tr>
+<td><code>auto</code> (built in)</td>
+<td>Both, sharing its slots; the catch-all.</td>
+</tr>
+<tr>
+<td><code>[pool.&lt;id&gt;] channels = [...]</code></td>
+<td>The present channels of the list (ids, <code>"#tag"</code>) that are not shown by a candidate of their own, in the list's order.</td>
+</tr>
+</tbody>
+</table>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[pool.auto]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"white"</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">hold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">                     </span><span class="c1"># today's behavior.auto_hold</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">exclude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"speech-dispatcher"</span><span class="p">,</span><span class="w"> </span><span class="s2">"notification"</span><span class="p">]</span><span class="w">   </span><span class="c1"># never these: today's behavior.ignore</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">[pool.media]</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"#media"</span><span class="p">]</span>
+</span></code></pre></div>
+<ul>
+<li>The options of <code>[pool.auto]</code> are those of today's <code>auto</code> strips; a pool of channels has none (its members bring
+  their own).</li>
+<li><strong>Presence of a pool</strong>, for <code>if present</code>, counts its members before slots are assigned: <code>auto</code> is present while
+  anything plays that is not excluded, or anyone is in the voice chat (people take its slots; counted before the
+  slots are assigned, so also someone whose <code>person</code> channel has a slot of its own); a pool of channels while one of
+  them is present. Conditions stay independent of the result.</li>
+<li><strong>Members keep their slot</strong> in <code>auto</code>, so applications don't hop around (people keep their order instead). A pool of
+  channels fills <strong>by its order</strong> instead (the first present channel gets the first slot), which is what <code>collapse</code>
+  does today: Buds coming back takes its place, the others move on.</li>
+<li>Select does what it does on the member (makes a device the default, launches).</li>
+<li><strong>Pick</strong> (the <code>pick</code> encoder of <code>auto</code> slots), as today: turning picks the slot's member among the applications
+  without a slot (<code>2/5</code>; people are not picked); a push pins it, and it stays on the slot after it stopped playing,
+  until the next push (<code>pinned</code>, <code>auto</code>). A pin beats the pool's order, and people don't take a pinned slot. The
+  resolver keeps the pins: the encoder only asks for one.</li>
+</ul>
+<h3 id="people">People<a class="headerlink" href="#people" title="Permanent link">&para;</a></h3>
+<p>Decided again on 2026-11-17, see <a href="../people-slots/">people-slots.md</a>: <code>people</code> is a built-in pool and a candidate,
+<code>apps</code> the applications alone, and <code>auto</code> both, sharing its slots (people first, each from its side). A pool hands a
+slot it has no member for to the pool or <code>-</code> right below it (<code>["people", "apps"]</code>), and a slot two pools could fill
+goes to the one higher in its stack. <code>[pool.people]</code> replaces <code>[people]</code> (<code>from</code>, <code>order</code>, the look), <code>in_pool</code>
+replaces <code>in_auto</code>, <code>hold</code> and <code>exclude</code> are options of <code>[pool.apps]</code>. What stays from below:</p>
+<ul>
+<li>The members: everyone in the voice chat who has no <code>person</code> channel, and the <code>person</code> channels (with <code>in_pool</code>,
+  default <code>true</code>) that are present and have no slot of their own, each as itself (its label, look and entities).
+  Like a channel, a person stays a member <code>absent_after</code> after they left, so a reconnect moves nothing.</li>
+<li>They sit <strong>in their order</strong>, for muscle memory of who sits where: <code>order</code> (names, or ids of <code>person</code> channels),
+  then the others in the order they were first seen (kept 30 days, across restarts, in
+  <code>~/.local/state/xtouch-daemon/people.json</code>). Slots where they are the first candidate go first, then the others,
+  each from their side: no block (see <a href="../people-slots/#not-a-block">people-slots.md</a>). Someone earlier in the order
+  who comes moves those after them one slot on; no slot is kept empty for someone who is away.</li>
+<li>People don't take a pinned slot. More people than slots wait; there is no paging. Controls of a slot
+  (<a href="#controls">Controls</a>) don't keep them out.</li>
+<li>Every configuration has the voice chat's provider (<code>[voip]</code> with its defaults if the file has none), and its
+  socket costs nothing while no voice chat connects.</li>
+<li>Members are typed: an application, a channel or a person, never told apart by their names (someone called
+  <code>browser</code> is no channel). People are told apart by the voice chat's id of the participant (step 4); <code>order</code> and the
+  learned order go by name.</li>
+</ul>
+<h3 id="states-when-something-matters">States: when something matters<a class="headerlink" href="#states-when-something-matters" title="Permanent link">&para;</a></h3>
+<p>A state is a named condition that is on or off, evaluated all the time and visible everywhere: the GUI, the live
+view, Home Assistant, <code>xtouch-daemon state</code>.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[state.call]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">voice_chat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">           </span><span class="c1"># in a channel of the voice chat, also alone (from the bridge)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">recording</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"discord"</span><span class="p">,</span><span class="w"> </span><span class="s2">"vesktop"</span><span class="p">]</span><span class="w">   </span><span class="c1"># or: one of these records (they open a capture stream only in a call)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">delay_off</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">               </span><span class="c1"># stays 5 s after: a reconnect, not much longer</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">[state.wireless]</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"bluez_output.*"</span><span class="p">]</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="k">[state.focus]</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">when</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"not call and not gaming"</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="k">[state.night]</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">homeassistant</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">        </span><span class="c1"># Home Assistant feeds it: switch.xtouch_state_night_input</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>On while</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apps</code></td>
+<td>One of these applications has a playback stream (playing or paused). Names and presets as <code>match</code>.</td>
+</tr>
+<tr>
+<td><code>recording</code></td>
+<td>One of these applications has a capture stream. Not for Mumble: it keeps its capture stream open while connected, even alone; use <code>voice_chat</code>.</td>
+</tr>
+<tr>
+<td><code>voice_chat</code></td>
+<td>The voice chat reports that you are in a channel, also alone: joining one says you mean to talk (the mic shows before anyone comes, and the <code>people</code> pool covers who comes).</td>
+</tr>
+<tr>
+<td><code>processes</code></td>
+<td>A process of one of these names runs (polled every 2 s while any state uses it).</td>
+</tr>
+<tr>
+<td><code>devices</code></td>
+<td>A device (output or input) that matches is there.</td>
+</tr>
+<tr>
+<td><code>channels</code></td>
+<td>One of these channels is present: ids, or <code>"#tag"</code>.</td>
+</tr>
+<tr>
+<td><code>homeassistant</code></td>
+<td>Its input switch in Home Assistant (<code>switch.xtouch_state_&lt;id&gt;_input</code>) is on.</td>
+</tr>
+<tr>
+<td><code>when</code></td>
+<td>The expression holds. Not together with other sources: a state is either composed or has sources.</td>
+</tr>
+</tbody>
+</table>
+<p>A state with several sources is on while any of them is. Without sources it is only what its override says.
+<code>delay_on</code> (default 0) and <code>delay_off</code> (default <code>behavior.state_delay_off</code>, 3 s; for modes 10 s, today's
+<code>switching.hold</code>, which goes away; 0 for composed states, whose expression has the delays of what it names, so
+<code>call</code> and <code>not call</code> never overlap) apply to the sources, not to the override. References between states and modes
+must not form a loop; <code>check-config</code> names it.</p>
+<h4 id="overrides">Overrides<a class="headerlink" href="#overrides" title="Permanent link">&para;</a></h4>
+<p>Every state has an override: <code>auto</code> (the sources decide), <code>on</code> or <code>off</code>. It is set from Home Assistant
+(<code>select.xtouch_state_&lt;id&gt;</code>), the GUI, the command line (<code>xtouch-daemon state call on</code>) or the chord. One rule for
+all states and modes:</p>
+<ul>
+<li><code>on</code> and <code>off</code> take effect at once, past the delays; back to <code>auto</code>, the sources decide at once too.</li>
+<li>An override lasts <strong>until the sources change</strong> (an edge after their delays), then it is <code>auto</code> again. Example:
+  <code>gaming</code> forced off while a game runs (to use the default mode for a moment); when the game exits, <code>auto</code> again,
+  and the next game brings the mode.</li>
+<li><code>persist = true</code> keeps it across edges, until it is set to <code>auto</code> by hand. States without sources have no edges,
+  so their override is kept by itself.</li>
+<li>Overrides are kept across restarts. The first evaluation after a start is the <strong>baseline</strong>, not an edge: a kept
+  override survives it.</li>
+<li>An active override shows: hatched in the GUI's state bar, <code>override</code> in Home Assistant's attributes, and in the
+  banner on the LCDs when it is set and when the daemon starts.</li>
+</ul>
+<h4 id="modes">Modes<a class="headerlink" href="#modes" title="Permanent link">&para;</a></h4>
+<p>Modes are states with <code>mode = true</code>. Exactly one mode is on: the one with the highest <code>priority</code> whose sources are
+on (then the first in the file), else <code>default</code>. The override is one <code>select.xtouch_mode</code> with <code>auto</code> and every mode,
+<code>xtouch-daemon mode gaming</code>, <code>mode --next</code>/<code>--previous</code>, <code>mode --auto</code>. <code>--next</code> and the chord cycle through
+<code>default</code> and the modes in the order of the file (not through <code>auto</code>). A picked mode lasts until the rules want
+another mode than before; edges that don't change what the rules want (a mode of lower priority starts) and edges of
+modes with <code>persist</code> don't end it.
+A mode keeps <code>label</code>, the banner across the LCDs.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[state.gaming]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Gaming"</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">processes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@steam-games"</span><span class="p">]</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">apps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@games"</span><span class="p">]</span>
+</span></code></pre></div>
+<h3 id="slots-where-it-shows">Slots: where it shows<a class="headerlink" href="#slots-where-it-shows" title="Permanent link">&para;</a></h3>
+<p>The device has 8 slots, one per physical strip, numbered 1 to 8 from the left. Each slot has a stack of
+candidates, top first.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[slots]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"out"</span><span class="w">                   </span><span class="c1"># a single candidate: the same as ["out"]</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"browser"</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span></code></pre></div>
+<ul>
+<li>A candidate is <code>"&lt;channel or pool&gt;"</code>, optionally with <code>" if &lt;expression&gt;"</code>, or
+  <code>"-"</code>: deliberately nothing (the slot is dark, today's <code>empty</code>). A slot whose value is a string has that one
+  candidate.</li>
+<li>A slot without an entry is <code>"auto"</code>. A stack whose candidates all don't hold, or lose, ends in an implicit
+  <code>"auto"</code>; <code>"-"</code> at the end makes it dark instead.</li>
+<li>The table form <code>{ show = "...", when = "...", ... }</code> takes <strong>options for this place</strong>:</li>
+<li>on any candidate, what it looks like here: <code>label</code>, <code>color</code>, <code>lit_when_idle</code>, <code>rec</code>, <code>solo</code>, <code>meter</code>,
+    <code>meter_point</code>;</li>
+<li>on an <code>auto</code> candidate also what acts on an application without a channel: <code>encoder</code> (<code>pick</code>, <code>media</code>,
+    <code>volume</code>, <code>balance</code>), <code>min_volume</code>, <code>max_volume</code>.</li>
+<li>These apply to the applications without a channel the place shows. A channel it shows as a member (an <code>apps</code>
+    channel without a slot) looks and works as the channel; the pool's look only fills in what the channel leaves
+    open. People look as <code>[pool.people]</code> says. What a control does whatever the slot shows (Home Assistant, <code>launch</code>)
+    is in <code>[controls]</code>.</li>
+</ul>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">show</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">,</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"pick"</span><span class="w"> </span><span class="p">}]</span>
+</span></code></pre></div>
+<p>Two words keep the rules apart: a candidate <strong>holds</strong> while its condition is true; a slot <strong>shows</strong> the candidate it
+gets in the end. Every candidate without a condition holds: a channel that is absent is shown dark (<code>off</code>) and keeps
+its place, an empty pool is shown dark like an <code>auto</code> strip without an application. <code>"spotify if present"</code> and
+<code>"auto if present"</code> hold only while there is something.</p>
+<h4 id="the-resolver">The resolver<a class="headerlink" href="#the-resolver" title="Permanent link">&para;</a></h4>
+<p>It decides what each slot shows from the inputs (states, presence, pool members, pins, held slots) and, for pool
+members only, the previous result.</p>
+<ol>
+<li><strong>Fixed slots.</strong> A slot that is held (a finger, a button) or within its dwell time keeps what it shows; its
+   channel or member is reserved, and the other slots are resolved around it.</li>
+<li><strong>Channels by rank.</strong> Every other slot proposes its first candidate that holds. A channel that several slots
+   propose goes to the one where it is highest in the stack (its rank), ties to the leftmost slot; the others go on
+   to their next candidate that holds. Repeat until nothing changes. A pool candidate always takes its slot in this
+   step (pools are not contested). It ends: a slot only ever goes down its stack.</li>
+<li><strong>Pools.</strong> The members are computed now (the <code>auto</code> pool needs to know which channels have a slot) and handed
+   out: the people take the slots of <code>auto</code> from the right, in their order (not pinned ones, see <a href="#people">People</a>);
+   pinned members go to their slots; a member of <code>auto</code> keeps the slot it had if that slot still shows the pool and
+   no person took it; the others go to the remaining slots of the pool left to right, in the pool's order (a pool of
+   channels: all by its order). Members left over <strong>wait</strong>. A slot of a pool without a member for it is dark. The
+   pools of channels go first, then the people take their share of the slots of <code>auto</code>, then <code>auto</code> hands out its
+   applications: a slot meant for a channel gets it before <code>auto</code> takes it as a whole. A pin of a channel that has
+   a slot of its own now is dropped (one channel, one slot).</li>
+</ol>
+<p>Pools never fall through and conditions never look at the result, so the steps run once each, in this order: the
+same inputs give the same result.</p>
+<p><code>check-config</code> warns about candidates that can never show (an earlier one always holds), channels that no stack
+has, <code>launch</code> channels that only show under conditions, and lists channels in several stacks with the slot that wins
+each tie.</p>
+<h4 id="stability">Stability<a class="headerlink" href="#stability" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Batching</strong>: changes are resolved together 100 ms after the first one (a game starts several streams and a
+  process at once), so faders move once.</li>
+<li><strong>Dwell</strong>: a slot keeps what it shows for at least 1 s before it changes again.</li>
+<li><strong>Nothing changes under a finger</strong>: a held slot is fixed (step 1) until let go. A fader in <code>touchless_faders</code>
+  counts as touched while the user moves it and half a second after, as today; the motor moving it to a new channel
+  doesn't count. The buttons of the chord don't hold slots.</li>
+<li><strong>Startup</strong>: the daemon waits for the first state of the sound server and the first process scan, evaluates the
+  states without <code>delay_on</code> (the baseline), restores the overrides, and only then runs the startup sequence: the first
+  picture is the right one.</li>
+<li><strong>Reload</strong>: the previous result carries over by channel id and pool member.</li>
+</ul>
+<h4 id="telling-what-changed">Telling what changed<a class="headerlink" href="#telling-what-changed" title="Permanent link">&para;</a></h4>
+<p>A slot that changes flashes the new label on the top line and the reason on the bottom line (<code>call</code>, <code>gaming</code>,
+<code>absent</code>) for <code>switching.banner</code> seconds. A mode change shows its label across all LCDs instead (no flashes per
+slot at the same time). The motor fader moves to the new volume, as with banking in a DAW. The daemon logs one line
+per resolution with the changes and the reasons: <code>7: auto:Spotify -&gt; voip (call: Discord records); Spotify waits</code>.</p>
+<h3 id="controls">Controls<a class="headerlink" href="#controls" title="Permanent link">&para;</a></h3>
+<p>What a fader, encoder or button of a slot does whatever the slot shows: actions that belong to the place on the
+device, not to a channel.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[controls]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w"> </span><span class="p">}</span><span class="w">                        </span><span class="c1"># number.xtouch_slot_4_encoder and push events</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mumble://..."</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">solo</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"toggle:night"</span><span class="p">,</span><span class="w"> </span><span class="n">rec</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fader</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"desk_fader"</span><span class="w"> </span><span class="p">}</span><span class="w">       </span><span class="c1"># number.xtouch_desk_fader_fader</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="w">                                                    </span><span class="c1"># by mode: the first whose when holds</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"strip_3"</span><span class="p">,</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"gaming"</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"obs"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">]</span>
+</span></code></pre></div>
+<ul>
+<li>A slot's controls can claim <code>fader</code>, <code>encoder</code> (turn and push), <code>select</code>, <code>rec</code> and <code>solo</code>; not Mute, which stays
+  with what the slot shows.</li>
+<li>Actions: <code>"homeassistant"</code> (a number for the fader or encoder, events for the buttons, and a select for their LED),
+  <code>{ launch = [...], launch_when_running = ... }</code>, and the actions of the chord: <code>"cycle_modes"</code>, <code>"mode:&lt;id&gt;"</code>,
+  <code>"toggle:&lt;state&gt;"</code> (the LED shows the state or mode). <code>"toggle:&lt;mode&gt;"</code> picks the mode, and the next press gives
+  it back to the rules (<code>auto</code>); its LED is on while it is the mode. A fader and an encoder only take
+  <code>"homeassistant"</code>.</li>
+<li>A slot has one table of controls or a list of them: the first whose <code>when</code> holds acts, the others don't (a
+  migrated layout per entry). The entries of a slot may share an <code>id</code>; another slot can't have it.</li>
+<li>A claimed control wins over what the slot shows and owns its LED or ring; the presenter bound there is told which
+  are taken. With the fader taken, the encoder of what the slot shows sets the volume, as with today's
+  <code>fader = "homeassistant"</code>; with only the encoder taken, the fader stays the volume. Under a claimed Select the LED
+  is the launch's. A candidate of the slot can't set the LED (<code>rec</code>, <code>solo</code>) of a claimed button, also while the
+  claim's <code>when</code> doesn't hold: one owner per LED in the file.</li>
+<li>A channel's own <code>fader</code>/<code>encoder = "homeassistant"</code> (entities by channel id, moving with the channel) stays; a
+  claim of the slot wins over it while it holds.</li>
+<li><code>when</code> (states only, no <code>present</code>): while it doesn't hold, the controls go back to what the slot shows. Starting
+  Mumble on slot 7 outside a call leaves VoIP's own Select alone in a call. Nothing changes under a finger: a held
+  slot keeps its claims until it is let go, and a release goes to whoever got the press.</li>
+<li>Controls don't touch the resolver: they don't hold a slot, people and channels sit there as anywhere. The Solo
+  buttons of the chord can't be claimed.</li>
+<li>Their entities are <code>*.xtouch_slot_&lt;n&gt;_*</code>, or <code>*.xtouch_&lt;id&gt;_*</code> with <code>id</code>: registered once per configuration,
+  always there, they follow the slot rather than what it shows.</li>
+</ul>
+<h3 id="pitfalls-the-design-makes-possible">Pitfalls the design makes possible<a class="headerlink" href="#pitfalls-the-design-makes-possible" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Launch</strong>: a channel with <code>launch</code> can only be launched while a slot shows it. <code>"voip if call"</code> hides VoIP
+  exactly when you'd press Select to start the voice chat: put the launch into <code>[controls]</code> with <code>when = "not
+  call"</code>. <code>check-config</code> warns.</li>
+<li><strong>Indicators</strong>: a hidden channel's LEDs are not on the device. <code>mic if call</code> hides the Mic and its Rec LED, which
+  lights while any application records (a meeting in a browser tab, OBS).</li>
+<li><strong>A voice chat without room</strong>: people in a Mumble call while no <code>auto</code> slot is free for them wait; the why line
+  says so ("Bob waits").</li>
+</ul>
+<h3 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The entities of a channel (<code>number.xtouch_&lt;id&gt;_fader</code>, <code>select.xtouch_&lt;id&gt;_output</code>, ...)</td>
+<td>As today's strips, named by the channel id, registered once per configuration: they stay available (and keep their state) while the channel is not shown or moves to another slot; the buttons of a <code>homeassistant</code> channel send events only while it is shown.</td>
+</tr>
+<tr>
+<td>The entities of the controls of a slot (<code>number.xtouch_slot_&lt;n&gt;_fader</code>, <code>event.xtouch_slot_&lt;n&gt;_buttons</code>, ..., or <code>&lt;id&gt;</code> instead of <code>slot_&lt;n&gt;</code>)</td>
+<td>Registered once per configuration, always there, whatever the slot shows.</td>
+</tr>
+<tr>
+<td><code>binary_sensor.xtouch_&lt;id&gt;_shown</code></td>
+<td>Whether the channel is on a slot.</td>
+</tr>
+<tr>
+<td><code>sensor.xtouch_slot_&lt;n&gt;</code></td>
+<td>What slot n shows: a channel id (also one <code>auto</code> hands out), <code>app:&lt;application&gt;</code>, <code>person:&lt;name&gt;</code>, or <code>none</code>. Attributes <code>label</code>, <code>kind</code> (<code>channel</code>, <code>app</code>, <code>person</code>, <code>none</code>), <code>via</code> (the candidate: a channel or pool id), <code>reason</code>.</td>
+</tr>
+<tr>
+<td><code>binary_sensor.xtouch_state_&lt;id&gt;</code></td>
+<td>The state. Attributes <code>since</code>, <code>source</code> (which source turned it on), <code>override</code>.</td>
+</tr>
+<tr>
+<td><code>select.xtouch_state_&lt;id&gt;</code></td>
+<td>The override: <code>auto</code>, <code>on</code>, <code>off</code>.</td>
+</tr>
+<tr>
+<td><code>switch.xtouch_state_&lt;id&gt;_input</code></td>
+<td>Only for <code>homeassistant = true</code>: what Home Assistant feeds into the state.</td>
+</tr>
+<tr>
+<td><code>select.xtouch_mode</code></td>
+<td>The mode override: <code>auto</code> and every mode. Replaces <code>select.xtouch_layout</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-chord">The chord<a class="headerlink" href="#the-chord" title="Permanent link">&para;</a></h3>
+<p><code>[switching] chord = { strips = [1, 8], action = "cycle_modes" }</code> (default). <code>action = "toggle:call"</code> toggles the
+override of a state instead (<code>auto</code> -&gt; the opposite of its value now -&gt; <code>auto</code>). The same actions are those of
+buttons in <code>[controls]</code>; the Solo buttons of the chord can't be claimed there.</p>
+<h2 id="a-complete-example">A complete example<a class="headerlink" href="#a-complete-example" title="Permanent link">&para;</a></h2>
+<p>The author's configuration in this format (today about 110 lines):</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># [device], [behavior], [aliases], [mqtt] unchanged</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">[channel.out]</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cyan"</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">choices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">... ]   # the three choices above</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">[channel.browser]</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@browsers"</span><span class="p">]</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Browser"</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"blue"</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="k">[channel.game]</span>
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@games"</span><span class="p">]</span>
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Game"</span>
+</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>
+</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="k">[channel.voip]</span>
+</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@voip"</span><span class="p">]</span>
+</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"VoIP"</span>
+</span><span id="__span-8-24"><a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"yellow"</span>
+</span><span id="__span-8-25"><a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="n">lit_when_idle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-8-26"><a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="n">in_pool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">             </span><span class="c1"># notification sounds of Discord don't take an auto slot</span>
+</span><span id="__span-8-27"><a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>
+</span><span id="__span-8-28"><a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="k">[channel.mic]</span>
+</span><span id="__span-8-29"><a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span>
+</span><span id="__span-8-30"><a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_input.pci-0000_11_00.4.analog-stereo"</span>
+</span><span id="__span-8-31"><a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mic"</span>
+</span><span id="__span-8-32"><a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"red"</span>
+</span><span id="__span-8-33"><a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"balance"</span>
+</span><span id="__span-8-34"><a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a>
+</span><span id="__span-8-35"><a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a><span class="k">[pool.auto]</span>
+</span><span id="__span-8-36"><a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"white"</span>
+</span><span id="__span-8-37"><a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a>
+</span><span id="__span-8-38"><a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a><span class="k">[pool.people]</span><span class="w">               </span><span class="c1"># they take auto slots from the right (next to VoIP), applications from the left</span>
+</span><span id="__span-8-39"><a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"yellow"</span>
+</span><span id="__span-8-40"><a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a>
+</span><span id="__span-8-41"><a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a><span class="k">[state.gaming]</span>
+</span><span id="__span-8-42"><a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-8-43"><a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Gaming"</span>
+</span><span id="__span-8-44"><a id="__codelineno-8-44" name="__codelineno-8-44" href="#__codelineno-8-44"></a><span class="n">processes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@steam-games"</span><span class="p">]</span>
+</span><span id="__span-8-45"><a id="__codelineno-8-45" name="__codelineno-8-45" href="#__codelineno-8-45"></a><span class="n">apps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@games"</span><span class="p">]</span>
+</span><span id="__span-8-46"><a id="__codelineno-8-46" name="__codelineno-8-46" href="#__codelineno-8-46"></a>
+</span><span id="__span-8-47"><a id="__codelineno-8-47" name="__codelineno-8-47" href="#__codelineno-8-47"></a><span class="k">[state.call]</span>
+</span><span id="__span-8-48"><a id="__codelineno-8-48" name="__codelineno-8-48" href="#__codelineno-8-48"></a><span class="n">voice_chat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-8-49"><a id="__codelineno-8-49" name="__codelineno-8-49" href="#__codelineno-8-49"></a><span class="n">recording</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"discord"</span><span class="p">,</span><span class="w"> </span><span class="s2">"vesktop"</span><span class="p">]</span>
+</span><span id="__span-8-50"><a id="__codelineno-8-50" name="__codelineno-8-50" href="#__codelineno-8-50"></a><span class="n">delay_on</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w">               </span><span class="c1"># voice_chat and recording have no blips to swallow</span>
+</span><span id="__span-8-51"><a id="__codelineno-8-51" name="__codelineno-8-51" href="#__codelineno-8-51"></a><span class="n">delay_off</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">               </span><span class="c1"># VoIP and Mic stay through a reconnect, not much longer</span>
+</span><span id="__span-8-52"><a id="__codelineno-8-52" name="__codelineno-8-52" href="#__codelineno-8-52"></a>
+</span><span id="__span-8-53"><a id="__codelineno-8-53" name="__codelineno-8-53" href="#__codelineno-8-53"></a><span class="k">[slots]</span>
+</span><span id="__span-8-54"><a id="__codelineno-8-54" name="__codelineno-8-54" href="#__codelineno-8-54"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"out"</span><span class="w">                       </span><span class="c1"># always the speaker/phones/buds</span>
+</span><span id="__span-8-55"><a id="__codelineno-8-55" name="__codelineno-8-55" href="#__codelineno-8-55"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"browser"</span>
+</span><span id="__span-8-56"><a id="__codelineno-8-56" name="__codelineno-8-56" href="#__codelineno-8-56"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">  </span><span class="c1"># the game next to the browser</span>
+</span><span id="__span-8-57"><a id="__codelineno-8-57" name="__codelineno-8-57" href="#__codelineno-8-57"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">show</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">,</span><span class="w"> </span><span class="n">rec</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"recording"</span><span class="w"> </span><span class="p">}]</span>
+</span><span id="__span-8-58"><a id="__codelineno-8-58" name="__codelineno-8-58" href="#__codelineno-8-58"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span><span id="__span-8-59"><a id="__codelineno-8-59" name="__codelineno-8-59" href="#__codelineno-8-59"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span></code></pre></div>
+<p>What it shows, as <code>xtouch-daemon simulate docs/development/design/channels-states-slots.toml --table</code> prints it (the example is
+<a href="../channels-states-slots.toml">that file</a>; a test keeps this table in line with it): one row per combination of states
+and presence the stacks ask about that changes something.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>when             1    2        3     4-6   7     8
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>default          out  browser  auto  auto  auto  auto
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>call             out  browser  auto  auto  voip  mic
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>gaming           out  browser  game  auto  auto  auto
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>gaming and call  out  browser  game  auto  voip  mic
+</span></code></pre></div>
+<ul>
+<li>People share the auto slots: they
+  sit as a block from the right, next to VoIP, in their order (<code>order</code>, then the order they were first seen in);
+  applications fill the auto slots from the left. A person takes the slot of an application only if no auto slot is
+  free, and the application moves to a free one or waits.</li>
+<li>With Mumble, joining a channel turns <code>call</code> on at once (<code>delay_on = 0</code>): VoIP, Mic and the person show up
+  together. Leaving shows at once on the person's strip; VoIP and Mic stay 5 s, through a reconnect.</li>
+<li>A candidate can set options of its strip: slot 4 sets <code>rec</code> (here to its default, the REC LED shows recording).</li>
+</ul>
+<h2 id="the-gui">The GUI<a class="headerlink" href="#the-gui" title="Permanent link">&para;</a></h2>
+<p>A left rail with four pages; the header and the footer (problems, undo, save) stay as they are.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>┌──────┬────────────────────────────────────────────────────────────────────────────────┐
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>│ ▣    │ call ● 21:04 ▾   gaming ○ ▾   wireless ● ▾   night ▨ on ⟲      [▷ Simulate]    │
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>│Device├────────────────────────────────────────────────────────────────────────────────┤
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>│ ≡    │  [ the live device as today: LCDs, meters, faders, buttons, 8 strips ]         │
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>│Chan- │ ┌─1──────────┐┌─2────────────┐┌─3──────┐ ··· ┌─7──────────────┐┌─8──────────┐ │
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>│nels  │ │  Game      ││▶ Browser     ││▶ auto  │     │▶ VoIP          ││▶ Mic       │ │
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>│ ◐    │ │  gaming    ││  always      ││ always │     │  call          ││  call      │ │
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>│States│ │▶ Out       ││ + add        │└────────┘     │  auto          ││  auto      │ │
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>│ ⚙    │ │  always    │└──────────────┘               │  always        ││  always    │ │
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>│Sett. │ │ + add      │                               │ + add          ││ + add      │ │
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>│      │ └────────────┘                               └────────────────┘└────────────┘ │
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>│      │ Slot 1 · Out: game doesn't hold (gaming is off)             [Slots | Grid]     │
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>│      │ ┌ Candidate ─────────────────┐┌ Channel browser (also in: —) ────────────────┐ │
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>│      │ │ show [browser ▾] always    ││ apps · match @browsers · label Browser · ... │ │
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>│      │ │ + condition   place opts ▾ ││                                              │ │
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>│      │ └────────────────────────────┘└──────────────────────────────────────────────┘ │
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>└──────┴────────────────────────────────────────────────────────────────────────────────┘
+</span></code></pre></div>
+<ul>
+<li><strong>Device</strong> (the start page):</li>
+<li>The <strong>state bar</strong> is live and read-only: each state with its value and since when. Its ▾ menu sets the
+    override (<code>auto</code>, <code>on</code>, <code>off</code>), which changes the daemon; an overridden state is hatched, with ⟲ to go back to
+    <code>auto</code>.</li>
+<li>The <strong>live device</strong> stays as today (LCDs, meters, faders, the buttons), above the stacks.</li>
+<li><strong>Simulate</strong> is a separate mode, named so it can't be mixed up with the existing <strong>Live preview</strong> (which runs
+    the unsaved file on the device). It draws a colored frame around the device and opens a bar of what-if inputs:
+    every state, the presence of the channels and pools the stacks ask about, and how many members each pool has.
+    The device then shows what the resolver would. Nothing is sent. Esc ends it.</li>
+<li>Each slot is a <strong>card</strong> with its stack: one row per candidate with its condition as text chips (<code>call or
+    gaming</code>, <code>always</code>), ▶ on the one shown. Drag and drop or Ctrl+Up/Down reorder; "+ add" or dropping a channel or
+    pool adds a candidate, and its condition opens as chips right away (in Simulate, prefilled with the states turned
+    on).</li>
+<li>The <strong>why line</strong> tells for the selected slot what it shows and why not the candidates above it, from the
+    resolver's trace; for a selected channel where it is and why not elsewhere (<code>Browser: on 2; not 8 (tie to 2)</code>).
+    The same is <code>xtouch-daemon why 2</code> and <code>xtouch-daemon why browser</code>.</li>
+<li>The <strong>inspector</strong> edits the candidate (condition as chips or as text, the options for this place) and its
+    channel or pool in one panel; it says where else that channel is used. Below the card, the slot's
+    <strong>controls</strong>: per fader, encoder and button what it does whatever the slot shows, with their <code>when</code>.</li>
+<li><strong>Grid</strong> shows the distinct outcomes, as in the example above. Clicking a row simulates it, clicking a cell
+    selects that card.</li>
+<li><strong>Channels</strong>: channels and pools, <code>people</code> with its look, <code>order</code>, and the learned order live, to drag into
+  <code>order</code>) in a list with type icon, label, tags and where they are used. The inspector is
+  today's strip form without place and layout. "Duplicate" replaces copy and paste of strips.</li>
+<li><strong>States</strong>: modes first, then the other states: sources or composition, delays, live value with since when and
+  which source, override, and which stacks use it.</li>
+<li><strong>Settings</strong>: <code>[device]</code>, <code>[behavior]</code>, <code>[aliases]</code>, <code>[mqtt]</code>, <code>[voip]</code>, <code>[switching]</code>.</li>
+</ul>
+<p>Undo, validation, the Live preview and the problem list stay; problems link to a slot, candidate, channel, pool or
+state. The GUI keeps the form a stack has in the file (string, compact list or tables) and its comments.</p>
+<h2 id="a-new-configuration">A new configuration<a class="headerlink" href="#a-new-configuration" title="Permanent link">&para;</a></h2>
+<p><code>init-config</code> writes the smallest configuration that works, and the rest as comments that teach it:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">[channel.out]</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span><span class="w">             </span><span class="c1"># the default output</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="k">[channel.mic]</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span><span class="w">              </span><span class="c1"># the default input</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="k">[slots]</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"mic"</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"out"</span><span class="w">                   </span><span class="c1"># the main output on the right, as in a DAW; slots 1 to 6 are auto</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># [state.call]               # in a call, for slots like 6 = ["voip if call", "auto"]</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="c1"># voice_chat = true          # Mumble with the plugin; for Discord: recording = ["discord"]</span>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="c1"># delay_off = 5</span>
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="c1">#</span>
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="c1"># [state.gaming]             # a mode: while a game from Steam runs</span>
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="c1"># mode = true</span>
+</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="c1"># processes = ["@steam-games"]</span>
+</span></code></pre></div>
+<h2 id="the-daemon">The daemon<a class="headerlink" href="#the-daemon" title="Permanent link">&para;</a></h2>
+<p>Slots replace strips and layouts in the daemon (no translation into today's strips): what lives as long as the
+daemon, the configuration or a member, and a binder that changes only the slots whose result changed.</p>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Lives as long as</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Desk</code> (<code>runtime/desk.py</code>)</td>
+<td>the daemon</td>
+<td>The 8 strips of the device: the touch, buttons and touchless faders (<code>held_slots()</code>), the events to the presenter bound to each slot, the meters of the bound presenters, banners and flashes. Replaces <code>Mixer</code> and <code>Flow</code>.</td>
+</tr>
+<tr>
+<td><code>SlotEngine</code> (<code>runtime/slots.py</code>)</td>
+<td>the daemon</td>
+<td>The <code>StateEngine</code>, presence, the members of the pools, the resolver with dwell, pins and the order of the people; keeps overrides, the mode pick and the people across restarts; wakes at the deadlines of the delays (no polling). A reload carries the run state over by state, channel and member id. Replaces <code>SlotRunner</code> and <code>LayoutSwitcher</code>.</td>
+</tr>
+<tr>
+<td><code>ChannelSet</code> (<code>runtime/channels.py</code>)</td>
+<td>the configuration (diffed by id on reload)</td>
+<td>One controller per channel, with its own <code>VirtualStrip</code>, and its entities, registered once.</td>
+</tr>
+<tr>
+<td><code>Members</code> (<code>runtime/members.py</code>)</td>
+<td>a member</td>
+<td>A controller per application of <code>auto</code> (today's <code>AutoStrip</code> without <code>AutoSlot</code>) and per person (today's <code>voip</code> strip with a participant id, without <code>VoipSeats</code>): made when it becomes a member, closed when its <code>hold</code> or <code>absent_after</code> ends; it moves between slots unchanged.</td>
+</tr>
+<tr>
+<td><code>Places</code> (<code>runtime/places.py</code>)</td>
+<td>the configuration</td>
+<td>The options of <code>auto</code> candidates: their look, and what acts on the application without a channel they show (the <code>pick</code>, <code>media</code>, <code>volume</code>, <code>balance</code> encoder, the volume range).</td>
+</tr>
+<tr>
+<td><code>Controls</code> (<code>runtime/controls.py</code>)</td>
+<td>the configuration</td>
+<td>The <code>[controls]</code> of each slot with their entities: bound to the <code>Desk</code>'s slot, not to what it shows; they take the claimed controls from the presenter while <code>when</code> holds.</td>
+</tr>
+<tr>
+<td><code>Binder</code> (<code>runtime/binder.py</code>)</td>
+<td>the daemon</td>
+<td>Compares a result with the one before and binds only the slots that changed (<code>VirtualStrip.bind</code>); unbinds what is no longer shown; the flashes and their reason. A controller gets its look (label, color, <code>lit_when_idle</code>, <code>rec</code>, <code>solo</code>, <code>meter</code>, <code>meter_point</code>) when it is bound, its identity is its channel or member.</td>
+</tr>
+<tr>
+<td>Home Assistant (<code>runtime/homeassistant.py</code>)</td>
+<td>the configuration</td>
+<td>The entities of states, overrides, the mode and the slots.</td>
+</tr>
+<tr>
+<td>Live view</td>
+<td></td>
+<td>A snapshot of the slots (per slot the candidate, channel, pool, member and why), the states (value, since, source, override), the mode and who waits; requests <code>SetMode</code> and <code>SetOverride</code>.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Goes away: <code>Mixer</code>, <code>placement.py</code>, <code>layouts.py</code>, <code>AutoAssigner</code>/<code>AutoSlot</code>, <code>VoipSeats</code>, <code>Shape</code>/<code>DARK</code>/<code>showing</code>,
+  <code>config/strips</code> (the <code>[[strip]]</code> types), the layouts, <code>inheritance</code>, and handing the applications of <code>apps</code>
+  channels to <code>behavior.ignore</code>.</li>
+<li>The resolver alone decides which member shows where; the encoder's pick and pins are requests to the <code>SlotEngine</code>.</li>
+<li>Times come from the loop's clock (<code>loop.time()</code>).</li>
+<li><code>check-config</code> prints channels, pools, people, states with their sources, per slot its stack, the outcome table,
+  and the warnings above. <code>list-apps</code> says per application which channel, pool or slot has it.</li>
+</ul>
+<h3 id="the-order-of-the-work">The order of the work<a class="headerlink" href="#the-order-of-the-work" title="Permanent link">&para;</a></h3>
+<p>Each step keeps the daemon working and the tests green:</p>
+<ol>
+<li>The format: <code>[people]</code>, no <code>people</code> candidate (both revised in <a href="../people-slots/">people-slots.md</a>), people skip
+   pins, <code>person</code> channels in the block, the presence of <code>auto</code>, typed members, <code>[controls]</code> (read and checked; they
+   run from step 5c on), <code>talking_color</code> only for people.</li>
+<li><code>Desk</code> out of <code>Mixer</code>, for both formats: touch and held buttons survive a new mixer. See <a href="#step-2-the-desk">Step 2</a>.</li>
+<li>Controllers get their look, identity and entity ids from outside (the old format from its strips).</li>
+<li><code>SlotEngine</code> with pins, overrides and persistence, carried over a reload; the prototype takes the applications of
+   <code>auto</code> from the result. Pins hold a typed member (application or channel, like <code>Person</code>), people go by the
+   participant's id.</li>
+<li>The slots natively: <code>ChannelSet</code>, <code>Members</code>, <code>Places</code>, <code>Controls</code>, <code>Binder</code> on the <code>Desk</code>; <code>Shape</code> and the
+   rebuilding go; entities per channel and per slot's controls.</li>
+<li>Home Assistant: states, overrides, the mode (replaces the layout select), the slots. The chord gets its new form,
+   and its check against <code>[controls]</code> moves into <code>Scene.of()</code> (now in <code>config/slots.py</code>).</li>
+<li>The live view: the snapshot and requests above; the GUI shows them read-only.</li>
+<li><code>check-config</code>, <code>init-config</code>, the docs. <code>migrate-config</code> was not built: the old format is a clean break, an old
+   file fails <code>check-config</code>.</li>
+<li>The old format and its runtime go.</li>
+<li>The GUI edits the new format.</li>
+</ol>
+<h3 id="step-2-the-desk">Step 2: the Desk<a class="headerlink" href="#step-2-the-desk" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>Presenter</code>: what the <code>Desk</code> calls of a controller (today's <code>StripController</code>): <code>strip</code>, the <code>on_*</code> handlers,
+  <code>meter_targets</code>, <code>is_playing</code>, <code>target_gain</code>, <code>held_meter</code>, <code>close</code>, and <code>taken_controls</code> (step 5).</li>
+<li>The <code>Desk</code> API: <code>bind(slot, presenter | None, meter_point)</code>, <code>held_slots()</code> (slots from 1), <code>dispatch(event)</code>. A
+  presenter bound to a slot a finger is on gets <code>on_touch(True)</code> at once, so it knows (in the old format a layout
+  switch rebinds under a finger; in the new one a held slot doesn't change).</li>
+<li><code>dispatch</code> routes by slot and control (fader, encoder, each button) to an owner: the bound presenter, or a claim
+  (a hook that stays empty until step 5 brings <code>[controls]</code>). It is sticky: a release (button up, encoder push up)
+  goes to whoever got the press, even if <code>bind()</code> changed in between. A touched fader goes over instead: on <code>bind()</code>
+  the presenter that had it gets <code>on_touch(False)</code>, the new one <code>on_touch(True)</code>, its moves and its release, so each
+  sees a touch and its release.</li>
+<li>Until step 9 the old format binds the controllers of its mixer through the <code>Flow</code> (<code>strip_at</code>).</li>
+<li>The <code>Desk</code> owns the meters from step 2 on: it runs the meter loop for the presenters bound now.</li>
+<li>The <code>Desk</code> also keeps the chord's held Solo buttons and the flashes and banners of the slots.</li>
+<li>The GUI's live preview uses the same <code>Desk</code>: touch and held buttons carry over its start and end.</li>
+<li>Tests: <code>tests/runtime/test_desk.py</code> with what moves from <code>test_mixer.py</code>, and "a finger on fader 2 during a change
+  of slot 7 keeps slot 2 as it is, and the new presenter of slot 2 knows about the finger".</li>
+</ul>
+<h3 id="step-9-the-old-format-goes">Step 9: the old format goes<a class="headerlink" href="#step-9-the-old-format-goes" title="Permanent link">&para;</a></h3>
+<p>Decided 2026-11-17: step 9 before step 10; the GUI may not edit configurations in between.</p>
+<ul>
+<li><strong>9a, reading</strong>: the old <code>Config</code> (strips, layouts and their checks), <code>LayoutConfig</code>, <code>InheritStripConfig</code>,
+  <code>Inheritance</code> and the old-only options (<code>behavior.auto_hold</code>, <code>ignore</code>, <code>collapse_hold</code>, <code>switching.hold</code>) move
+  to <code>config/legacy/</code> (the GUI read it until step 10; it is gone now). <code>parse_config</code> refuses a file
+  with <code>[[strip]]</code> or <code>[[layout]]</code>; a file without <code>[slots]</code> is one of channels,
+  states and slots with all slots <code>auto</code>, so <code>Config.slots</code> is always there. The defaults without a file are
+  <code>config.example.toml</code>.</li>
+<li><strong>9b, runtime</strong>: the daemon runs only slots: <code>Mixer</code>, <code>runtime/layouts.py</code> (<code>LayoutSwitcher</code>, <code>layout_file</code>),
+  <code>placement.py</code>, <code>AutoAssigner</code>/<code>AutoSlot</code>, <code>VoipSeats</code>, <code>collapse</code> in the strips, <code>select.&lt;ns&gt;_layout</code>, and in the
+  live view <code>layout</code>, <code>layouts</code>, <code>placement</code> and <code>SwitchLayout</code> go; <code>xtouch-daemon layout</code> fails with a pointer to
+  <code>mode</code>. The binder reads <code>hold</code> and the excluded applications from the scene, not from <code>[behavior]</code>.</li>
+<li><strong>9c, commands</strong>: <code>check-config</code> describes channels, states and slots (the table, and per channel what it is),
+  <code>list-apps</code> says which channel, pool or slot takes each application, <code>test</code> and <code>run</code> as before.</li>
+<li><strong>9d, docs</strong>: the pages of strips, layouts and collapsing go into Channels, states and slots; Getting started, Home
+  Assistant, Commands, Architecture and the example follow.</li>
+</ul>
+<h3 id="step-10-the-gui-edits-the-new-format">Step 10: the GUI edits the new format<a class="headerlink" href="#step-10-the-gui-edits-the-new-format" title="Permanent link">&para;</a></h3>
+<p>Decided 2026-11-17: the whole of <a href="#the-gui">The GUI</a>, in these commits:</p>
+<ul>
+<li><strong>10a, the document</strong>: <code>gui/domain/slots_document.py</code>, the file as plain data with option paths
+  (<code>("channel", "mic", "label")</code>, <code>("slots", "3")</code>, <code>("state", "call", "delay_off")</code>), written back into the TOML
+  text with its comments and the form of each stack. An old file fails to open with the errors of <code>check-config</code>. <code>validate()</code> runs <code>parse_config()</code> and gives each problem its path. Undo as today.</li>
+<li><strong>10b, the rail, Settings and Channels</strong>: a left rail (Device, Channels, States, Settings); Settings are today's
+  section pages; Channels lists channels and the pools (<code>apps</code>, <code>people</code>, <code>auto</code> and those of channels) with type, label, tags and where they are
+  used, the inspector is today's strip form, with Add, Duplicate and Remove.</li>
+<li><strong>10c, States</strong>: modes first, then the other states: sources or <code>when</code>, delays, <code>persist</code>, live value since when
+  and from which source, the override, and which stacks use it.</li>
+<li><strong>10d, Device</strong>: the live device with the state bar (live, override menus) above slot cards: each stack as rows
+  with their conditions as chips, ▶ on the one shown, add, remove, Ctrl+Up/Down and drag and drop; the inspector
+  edits the candidate (show, condition as chips or text, place options) and its channel, and says where else the
+  channel is used; below it the controls of the slot.</li>
+<li><strong>10e, why</strong>: the why line from the resolver's trace for a slot or a channel, and <code>xtouch-daemon why &lt;slot or
+  channel&gt;</code>.</li>
+<li><strong>10f, Simulate and Grid</strong>: Simulate (a frame around the device, a bar of what-if inputs, the device shows what
+  the resolver would, nothing is sent, Esc ends it) and the Grid of distinct outcomes (a row simulates it, a cell
+  selects its card).</li>
+<li><strong>10g, the old GUI goes</strong>: strips and layouts in the GUI, <code>config/legacy</code>, the old example
+  and <code>init-config --strips</code>, <code>layout</code>, <code>layouts</code>, <code>placement</code> and <code>SwitchLayout</code> of the live view; the GUI page and
+  its screenshot follow.</li>
+</ul>
+<h2 id="migration">Migration<a class="headerlink" href="#migration" title="Permanent link">&para;</a></h2>
+<p>Not built (decided 2026-11-17: a clean break). An old file fails <code>check-config</code>; this is how to write it anew:</p>
+<table>
+<thead>
+<tr>
+<th>Old</th>
+<th>New</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A strip</td>
+<td>A channel and a candidate in the slot of its position. Its id: its <code>id</code>; for a strip with Home Assistant entities <code>strip_&lt;position&gt;</code> (so <code>select.xtouch_strip_1_output</code> keeps working), with a suggestion to rename it; else its label in lower case, else <code>&lt;type&gt;_&lt;n&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>homeassistant</code> strips that share entities across layouts</td>
+<td>One channel.</td>
+</tr>
+<tr>
+<td>An <code>auto</code> strip</td>
+<td><code>auto</code>; its options that differ from those of the other <code>auto</code> strips become options of the place. Candidates the same as the slot's fallback are dropped.</td>
+</tr>
+<tr>
+<td>A <code>voip</code> strip</td>
+<td>Without <code>person</code>: a <code>people</code> candidate, its look goes to <code>[pool.people]</code>; people fill slots from the right in their order, so their strips move; <code>label</code> and paging go. With <code>person</code>: a <code>person</code> channel. A <code>launch</code> goes to <code>[controls]</code> of its slot, <code>select = { launch = ... }</code> (decision 6).</td>
+</tr>
+<tr>
+<td><code>fader</code>/<code>encoder = "homeassistant"</code> and <code>launch</code> of an <code>auto</code> strip</td>
+<td><code>[controls]</code> of its slot, with <code>id = "strip_&lt;n&gt;"</code> so the entities keep their ids.</td>
+</tr>
+<tr>
+<td>An <code>empty</code> strip</td>
+<td><code>"-"</code>.</td>
+</tr>
+<tr>
+<td>A <code>[[layout]]</code></td>
+<td>A <code>[state.&lt;name&gt;] mode = true</code> with its rules, label and priority; each of its strips a candidate <code>if &lt;name&gt;</code> above the default one of that slot.</td>
+</tr>
+<tr>
+<td><code>meter_point</code> of a layout</td>
+<td><code>meter_point</code> on the places of its candidates.</td>
+</tr>
+<tr>
+<td>An <code>inherit</code> strip</td>
+<td>A candidate of the channel it refers to. The report names every one it resolved, so surprises (like the one in the motivation) show.</td>
+</tr>
+<tr>
+<td><code>collapse</code> on a strip</td>
+<td>The strip stays in its slot as <code>"&lt;id&gt; if present"</code> above <code>auto</code>: nothing shifts any more. The report lists them and points to pools of channels for those who want filling by order.</td>
+</tr>
+<tr>
+<td><code>behavior.auto_hold</code>, <code>behavior.ignore</code></td>
+<td><code>[pool.apps] hold</code>, <code>exclude</code>.</td>
+</tr>
+<tr>
+<td><code>behavior.collapse_hold</code></td>
+<td><code>behavior.absent_after</code>.</td>
+</tr>
+<tr>
+<td><code>switching.hold</code></td>
+<td><code>delay_off</code> of each mode.</td>
+</tr>
+<tr>
+<td><code>switching.chord = [1, 8]</code></td>
+<td><code>chord = { strips = [1, 8], action = "cycle_modes" }</code>.</td>
+</tr>
+<tr>
+<td>The remembered layout (<code>layout_file</code>)</td>
+<td>The kept override of the mode.</td>
+</tr>
+<tr>
+<td>Strips with the same <code>strip_&lt;n&gt;</code> entities in several layouts that control different things</td>
+<td>Separate channels; the report names the entities that are renamed.</td>
+</tr>
+<tr>
+<td><code>select.xtouch_layout</code>, <code>xtouch-daemon layout</code></td>
+<td><code>select.xtouch_mode</code>, <code>xtouch-daemon mode</code>; the old command fails with a pointer, the report names the entity for automations.</td>
+</tr>
+</tbody>
+</table>
+<p>No compatibility reading of the old format.</p>
+<h2 id="tests-the-design-needs">Tests the design needs<a class="headerlink" href="#tests-the-design-needs" title="Permanent link">&para;</a></h2>
+<p>The resolver and the state engine are pure, so each rule gets unit tests, among them every scenario the reviews
+traced:</p>
+<ul>
+<li>the example's table, row by row, and joining Mumble while gaming (VoIP, Mic and the person at once);</li>
+<li>a channel several stacks want at the same and at different ranks; an exhausted stack ending in <code>auto</code>; <code>"-"</code>;</li>
+<li>a held slot keeping a channel another slot now ranks higher; a touchless fader moved by the user and by the motor;</li>
+<li>pool members keeping their slots and waiting (6 applications, then a call); <code>pick</code> and pins; people in their
+  order from the right, moving applications only when needed;
+  a pool of channels filling by order; a hidden channel taking an <code>auto</code> slot as a whole, and <code>in_pool = false</code>;</li>
+<li>batching and dwell; startup as the baseline with a kept override; a reload carrying the result over;</li>
+<li><code>delay_on</code> swallowing a join tone; overrides in all three values, ending at an edge, with <code>persist</code>;</li>
+<li>modes by priority, the mode override with <code>auto</code>, <code>--next</code> order, <code>default</code> in conditions;</li>
+<li>composed states, loops, reserved and duplicate names, errors with positions;</li>
+<li>an absent channel holding versus <code>if present</code>, <code>absent_after</code>, presence of pools.</li>
+</ul>
+<h2 id="prototype">Prototype<a class="headerlink" href="#prototype" title="Permanent link">&para;</a></h2>
+<p>Three reviews of prose found three rounds of holes, each in the parts that only existed as prose. So the resolver
+and the state engine are code now, pure (no sound server, no device), in <code>xtouch_daemon.slots</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model</code></td>
+<td><code>Scene.of()</code>: reads <code>[channel.*]</code>, <code>[pool.*]</code>, <code>[state.*]</code>, <code>[slots]</code> with every check above.</td>
+</tr>
+<tr>
+<td><code>expressions</code></td>
+<td>The conditions, with errors at their position.</td>
+</tr>
+<tr>
+<td><code>inputs</code>, <code>timing</code></td>
+<td>An <code>Observation</code> (applications, voice chat, processes, devices, Home Assistant), presence, the delays.</td>
+</tr>
+<tr>
+<td><code>states</code></td>
+<td><code>StateEngine</code>: sources, delays, overrides, modes, composed states, the baseline.</td>
+</tr>
+<tr>
+<td><code>resolver</code></td>
+<td><code>resolve()</code>: fixed slots, channels by rank, pools; the trace.</td>
+</tr>
+<tr>
+<td><code>simulation</code></td>
+<td><code>Simulation</code>: all of it over time, with the dwell time and held slots.</td>
+</tr>
+<tr>
+<td><code>outcomes</code></td>
+<td>The distinct outcomes: the table above, <code>simulate --table</code>, the GUI's grid.</td>
+</tr>
+<tr>
+<td><code>recording</code>, <code>replay</code></td>
+<td><code>observe</code> records the real system; <code>simulate --replay</code> replays it: changes, flaps, time on.</td>
+</tr>
+</tbody>
+</table>
+<p><code>xtouch-daemon simulate docs/development/design/channels-states-slots.toml --mode gaming --state call --playing firefox</code> shows
+the slots and why. The tests (<code>tests/slots/</code>) have the scenarios the reviews traced that the prototype covers, and
+one keeps the table above in line with the example. Not in the prototype: batching (a matter of when the daemon calls
+it), the touch sensors (their result is <code>held</code>), reload carrying the result over, cycling
+through modes (<code>--next</code>), Home Assistant and the live view, the GUI, the migration.</p>
+<p>What building it showed:</p>
+<ul>
+<li><strong>An override set while a delay is pending ends with it.</strong> <code>call</code> forced off while a join tone's <code>delay_on</code> runs:
+  2 s later the sources turn on (an edge), the override ends, and the call comes anyway. That is the rule ("until the
+  sources change"); whether it is what people expect needs trying on the device.</li>
+<li><strong>The grid explains rank surprises.</strong> A test configuration with <code>1 = ["buds if present", "out"]</code> and
+  <code>3 = ["out if video", "auto"]</code>: in video mode without buds, <code>out</code> goes to slot 3 (rank 1 there, 2 on slot 1), and
+  slot 1 shows <code>auto</code>. Correct, but only the grid (or <code>check-config</code>'s list of shared channels) makes it visible.</li>
+<li><strong><code>present</code> on <code>"-"</code> meant nothing</strong>: now an error.</li>
+<li><strong>Channels of a pool without a slot don't wait</strong>: only applications and people do; such channels are just not
+  shown.</li>
+<li><strong>A multi-line inline table is no TOML 1.0</strong>: the examples of <code>choices</code> use <code>[[channel.out.choices]]</code>.</li>
+<li><strong>The code review</strong> (a DAW, Linux desktop and Home Assistant user, reviewing the code with counter-examples) found
+  seven bugs no scenario had caught, all fixed with a test each: a held slot didn't reserve a channel it showed in
+  <code>auto</code>, nor did pins check for one, so a channel could be on two slots; <code>auto</code> took a channel before the pool of
+  channels meant for it; pool members had no delay (a Mumble reconnect moved a fader twice) and <code>hold</code> wasn't used;
+  <code>persist</code> didn't apply to modes, and any mode edge ended a pick; replays missed flaps after long stable times.
+  Also: <code>present</code> in a state's <code>when</code> is an error now, composed states have no delays of their own, <code>simulate</code>
+  checks its options, and <code>--table</code> no longer shows composed states apart from what they name.</li>
+</ul>
+<p><strong>On the device</strong>: the daemon runs a file in this format (<code>xtouch-daemon run -c slots.toml</code>). The resolver runs
+every 0.2 s (that is the batching) on what the sound server, the processes and the voice chat of the daemon show.
+Each channel has its controller for as long as the configuration, each application of <code>auto</code> and each person
+without a channel one while they are members (<code>SlotMixer</code> in <code>runtime/binder.py</code>, step 5b); after each step only the
+slots whose result changed get another controller, so the others keep their texts, fader and LEDs; a slot that
+shows another candidate flashes its label and why (the <code>when</code> of the new candidate, or <code>not &lt;when&gt;</code> of the old one)
+for <code>switching.banner</code> seconds, unless the mode changed (its banner says it). <code>[controls]</code> run
+(<code>runtime/controls.py</code>, step 5c): the first entry of a slot whose <code>when</code> holds claims its controls on the <code>Desk</code>,
+shows their fader, ring and LEDs, and launches, picks modes, toggles states or puts them into Home Assistant. Apps
+channels never go into <code>auto</code> one application at a time, only as a whole. The mode takes the place of the layout:
+<code>xtouch-daemon layout gaming</code>, the GUI and the chord pick a mode, <code>layout auto</code> gives it back to the rules; the
+banner names a new mode. With <code>[mqtt]</code>, Home Assistant has the entities of <a href="#home-assistant">Home Assistant</a>
+(<code>runtime/homeassistant.py</code>, step 6). Not yet: the GUI (it can't edit the format).</p>
+<p>Next: see <a href="#decisions-after-the-live-test">Decisions after the live test</a>.</p>
+<h2 id="decisions-after-the-live-test">Decisions after the live test<a class="headerlink" href="#decisions-after-the-live-test" title="Permanent link">&para;</a></h2>
+<p>The prototype ran on the author's device (the example above). Decided then:</p>
+<ol>
+<li><strong>People only share <code>auto</code></strong> (revised 2026-11-17 in <a href="../people-slots/">people-slots.md</a>: <code>people</code>, <code>apps</code> and
+   <code>auto</code> are built-in pools). <code>people</code> is no candidate of a slot any more, and <code>share</code> goes: people always take
+   <code>auto</code> slots from the right, in their order. One way to place people; no paging. Fixed people are <code>person</code>
+   channels.</li>
+<li><strong>Slots replace strips and layouts in the daemon.</strong> Not a translation into today's strips: channel controllers
+   that live as long as the configuration, bound to slots by the resolver (<a href="#the-daemon">The daemon</a>).</li>
+<li><strong>The conditions stay as they are</strong> (<code>"x if y"</code> strings with the grammar above): they read well and worked on
+   the device.</li>
+<li><strong>One format.</strong> The old one goes: no reading of it, and no <code>migrate-config</code> either (<a href="#migration">Migration</a>).
+   The GUI, the docs and <code>init-config</code> move to the new format.</li>
+<li><strong><code>person</code> channels without a slot join the people</strong> as themselves (<code>in_pool</code> to opt out), like <code>apps</code> channels
+   join <code>auto</code>.</li>
+<li><strong>Starting the voice chat</strong> is a control of the slot VoIP shows on: <code>7 = { select = { launch = [...] }, when =
+   "not call" }</code> in <code>[controls]</code>; the VoIP channel stays hidden outside a call, the strips of people have no launch.</li>
+<li><strong><code>[people]</code></strong>, not <code>[pool.people]</code>: people are no pool any more (revised 2026-11-17: <code>[pool.people]</code>).</li>
+<li><strong><code>[controls]</code></strong>: actions that belong to a slot, whatever it shows (<a href="#controls">Controls</a>). Options of places
+   only look, or act on applications without a channel.</li>
+</ol>
+<p>Found on the device and changed in the prototype: <code>call</code> on at once and off after 5 s (a delay showed VoIP and Mic
+after the people, a long one hid leaving); people in a learned order instead of fixed home slots (no empty slots);
+people from the right, applications from the left (they don't push each other around); <code>voice_chat</code> also alone (the
+mic before anyone comes); the meters of people on the dB scale like every other meter.</p>
+<h2 id="review-log">Review log<a class="headerlink" href="#review-log" title="Permanent link">&para;</a></h2>
+<h3 id="sixth-review-the-integration-of-the-fifth">Sixth review (the integration of the fifth)<a class="headerlink" href="#sixth-review-the-integration-of-the-fifth" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A pinned member a held slot shows went to its pin's slot too: one stream on two strips.</td>
+<td>A pin waits while a held slot shows its member.</td>
+</tr>
+<tr>
+<td>Claims could change under a finger; a release could go to another owner than the press.</td>
+<td>Held slots keep their claims; <code>dispatch</code> is sticky and routes by control.</td>
+</tr>
+<tr>
+<td>Minor: untyped pins and members by display name; an <code>id</code> on controls without Home Assistant; an empty launch; <code>launch_when_running</code> in <code>[people]</code>; LEDs of claimed buttons with a <code>when</code>; the chord check outside the model; two homes for Home Assistant faders; LEDs under claims.</td>
+<td>Step 4; errors; refused; one owner per LED; step 6; both stay, the slot's claim wins; stated.</td>
+</tr>
+<tr>
+<td><code>bind()</code> lacked the meter point the <code>Desk</code> needs for its meters.</td>
+<td><code>bind(slot, presenter, meter_point)</code>.</td>
+</tr>
+<tr>
+<td><strong>Owner</strong>: one table of controls per slot can't change with the mode (layouts with different controls on a strip).</td>
+<td>A list per slot, the first whose <code>when</code> holds.</td>
+</tr>
+<tr>
+<td><strong>Owner</strong>: <code>toggle:&lt;mode&gt;</code> had no meaning (modes have no override of their own).</td>
+<td>Picks the mode, the next press back to <code>auto</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="fifth-review-the-integration-of-the-fourth-and-actions-of-places">Fifth review (the integration of the fourth, and actions of places)<a class="headerlink" href="#fifth-review-the-integration-of-the-fourth-and-actions-of-places" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Actions (a Home Assistant knob, a launch) only worked through what the slot showed: a channel or a person there silently disabled them.</td>
+<td><code>[controls]</code> per slot (decision 8).</td>
+</tr>
+<tr>
+<td><strong>Blocker</strong>: participant names and channel ids were one namespace of members: someone called <code>browser</code> became the Browser channel and broke the strips.</td>
+<td>Typed members (application, channel, person).</td>
+</tr>
+<tr>
+<td>Options that kept people off a place disagreed between code and design; place ids couldn't be reused; decision 6 hung on people skipping places.</td>
+<td>Gone with <code>[controls]</code>: only pins keep people out.</td>
+</tr>
+<tr>
+<td>Minor: <code>launch</code> in <code>[people]</code>; a <code>[voip]</code> provider in every configuration; <code>auto</code> present for people who never sit in it; a dropped pin kept people out; the table doesn't explore people; participant ids.</td>
+<td>Refused; said in the design (people share <code>auto</code> everywhere, the bridge socket costs nothing without a voice chat); fixed; fixed; Simulate gets a count of people (step 7); step 4.</td>
+</tr>
+<tr>
+<td>Doc: the <code>Places</code> row against the people rule, a fifth review that didn't exist, where <code>[people]</code> is edited, "then the people" as a pool.</td>
+<td>Fixed.</td>
+</tr>
+<tr>
+<td>Step 2 not concrete.</td>
+<td><a href="#step-2-the-desk">Step 2</a>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="fourth-review-architecture-after-the-live-test">Fourth review (architecture, after the live test)<a class="headerlink" href="#fourth-review-architecture-after-the-live-test" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Blocker</strong>: entities were named by strip (<code>strip_&lt;n&gt;</code>) and went away with a channel's slot; place options overrode a channel's controls and <code>id</code>.</td>
+<td>Entities per channel and place id, registered once per configuration; place ids in the namespace; place options only for applications without a channel.</td>
+</tr>
+<tr>
+<td><strong>Blocker</strong>: the mixer handed out the applications of <code>auto</code> itself, in its own order, next to the resolver; pins never reached the resolver.</td>
+<td>The resolver alone; pick and pins are requests to the <code>SlotEngine</code>.</td>
+</tr>
+<tr>
+<td>Touch and held buttons died with each new mixer.</td>
+<td>The <code>Desk</code> lives as long as the daemon.</td>
+</tr>
+<tr>
+<td>People on places with controls, people and pins.</td>
+<td>People skip pinned slots and places with control options; pick only lists applications.</td>
+</tr>
+<tr>
+<td>The presence of <code>auto</code> didn't count people.</td>
+<td>It does.</td>
+</tr>
+<tr>
+<td><code>person</code> channels without a slot vanished.</td>
+<td>They join the people (decision 5).</td>
+</tr>
+<tr>
+<td>Leftovers of <code>share</code> and the <code>people</code> candidate.</td>
+<td>Gone; <code>[people]</code>.</td>
+</tr>
+<tr>
+<td>A reload lost the run state.</td>
+<td>The <code>SlotEngine</code> outlives the configuration.</td>
+</tr>
+<tr>
+<td>Controllers had their place built in; the live view counted strips by layout.</td>
+<td>Look and identity when bound; a snapshot of slots and states.</td>
+</tr>
+<tr>
+<td>The voice chat's <code>launch</code> had no home.</td>
+<td>A launch on the place VoIP leaves (decision 6).</td>
+</tr>
+<tr>
+<td>Minor: clocks, people by name, <code>sensor.xtouch_slot_&lt;n&gt;</code>, migration rows, polling, entity churn of the prototype.</td>
+<td><code>loop.time()</code>, ids for members, the sensor's format, the rows, deadlines; the native runtime ends the churn.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="first-review-daw-linux-desktop-and-home-assistant-user">First review (DAW, Linux desktop and Home Assistant user)<a class="headerlink" href="#first-review-daw-linux-desktop-and-home-assistant-user" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>voip</code> was both a channel and the built-in pool.</td>
+<td>Pools became a concept; one namespace and the pool <code>people</code>.</td>
+</tr>
+<tr>
+<td>An off-delay without an on-delay: a notification sound turns <code>call</code> on for 30 s.</td>
+<td><code>delay_on</code>/<code>delay_off</code>; <code>recording</code> and <code>voice_chat</code> as sources.</td>
+</tr>
+<tr>
+<td>"Leftmost wins" ranks by position.</td>
+<td>Rank first, ties to the left.</td>
+</tr>
+<tr>
+<td>Too many ways to say "when".</td>
+<td>One expression language; tags only group channels; <code>when</code> is exclusive with sources.</td>
+</tr>
+<tr>
+<td>Modes and states were two concepts with two syntaxes.</td>
+<td><code>mode = true</code> on a state; every state has an override.</td>
+</tr>
+<tr>
+<td><code>present</code> was undefined for absent channels.</td>
+<td>An absent channel holds (dark, keeps its place); <code>if present</code> skips it.</td>
+</tr>
+<tr>
+<td>A touchless fader can't protect "nothing under a finger".</td>
+<td>It counts as touched after the user moved it.</td>
+</tr>
+<tr>
+<td>No feedback when a slot swaps.</td>
+<td>The new label plus the reason.</td>
+</tr>
+<tr>
+<td>Home Assistant needs to know what shows where.</td>
+<td><code>sensor.xtouch_slot_&lt;n&gt;</code>, <code>binary_sensor.xtouch_&lt;id&gt;_shown</code>.</td>
+</tr>
+<tr>
+<td>Long syntax.</td>
+<td><code>[channel.&lt;id&gt;]</code>, the compact slot form.</td>
+</tr>
+<tr>
+<td>GUI: preview and override looked the same; no overview.</td>
+<td>Read-only state bar with override menu, Simulate, chips, one inspector, the why line, the grid.</td>
+</tr>
+<tr>
+<td>Migration breaks <code>strip_&lt;n&gt;</code> entities.</td>
+<td>Kept where entities exist, with a rename suggestion.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="second-review-daw-linux-desktop-home-assistant-user-systems-design">Second review (DAW, Linux desktop, Home Assistant user, systems design)<a class="headerlink" href="#second-review-daw-linux-desktop-home-assistant-user-systems-design" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stickiness made the result depend on history.</td>
+<td>Channels go by rank, then position, without history; only members of <code>auto</code> and <code>people</code> keep their slots. Incumbency as a tie-breaker (proposed) would break the example the same way, so ties go to the leftmost slot. "Holds" and "shows" are separate terms.</td>
+</tr>
+<tr>
+<td>Pools: circular, no order, <code>auto_hold</code> missing, no per-place options or ids.</td>
+<td>See the third review for the final rules; <code>hold</code>; options for a place and <code>id</code>.</td>
+</tr>
+<tr>
+<td><code>launch</code> unreachable behind a condition; the Mic's Rec indicator hidden.</td>
+<td>Pitfalls section and <code>check-config</code> warnings.</td>
+</tr>
+<tr>
+<td>Paging, <code>person</code> strips, <code>pick</code>, <code>collapse_hold</code> had no home.</td>
+<td>Paging of <code>people</code>; <code>type = "person"</code>; <code>pick</code> as today; <code>absent_after</code>.</td>
+</tr>
+<tr>
+<td>Overrides vs delays, persistence, mode select without <code>auto</code>, <code>when</code> ORed with sources, loops, the chord freezing slots.</td>
+<td>Overrides bypass delays; one persistence rule (third review); <code>auto</code> in the mode select; <code>when</code> exclusive; loops are errors; chord buttons don't hold slots.</td>
+</tr>
+<tr>
+<td>Expression language.</td>
+<td>Grammar; one namespace with reserved words; pools without a prefix; tags named after kinds; errors with positions.</td>
+</tr>
+<tr>
+<td>GUI: Simulate, grid explosion, why not, cards, overridden style.</td>
+<td>All adopted.</td>
+</tr>
+<tr>
+<td>Home Assistant: feeding states, the mode select, formats, attributes.</td>
+<td><code>homeassistant = true</code> with an input switch; formats and attributes defined.</td>
+</tr>
+<tr>
+<td>Daemon: batching, dwell, startup, reload, polling, logging, <code>voice_chat</code>.</td>
+<td>All adopted.</td>
+</tr>
+<tr>
+<td>Migration notes, deliberately empty slots.</td>
+<td>Adopted; <code>"-"</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="third-review-the-same-profile-with-hand-traces-of-the-example">Third review (the same profile, with hand traces of the example)<a class="headerlink" href="#third-review-the-same-profile-with-hand-traces-of-the-example" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Blocker</strong>: pools and fall-through were circular; the steps didn't say how they iterate.</td>
+<td>Pools always hold (like channels); <code>if present</code> with pool presence counted before assignment; conditions depend only on inputs; the steps run once each, in order.</td>
+</tr>
+<tr>
+<td><strong>Blocker</strong>: an exhausted stack and a held slot were undefined; motor moves of touchless faders.</td>
+<td>An implicit trailing <code>auto</code> (<code>"-"</code> for dark); held and dwelling slots are fixed inputs whose channel is reserved; motor moves don't count.</td>
+</tr>
+<tr>
+<td><strong>Blocker</strong>: the example's table showed a scene that barely exists (people present means <code>call</code> with Mumble) and slot 8 changed twice.</td>
+<td>The example asked <code>people if gaming and present</code> and dropped Browser from slot 8 (replaced after the live test: people share <code>auto</code>).</td>
+</tr>
+<tr>
+<td><strong>Blocker</strong>: a hidden channel's streams in <code>auto</code> had two owners.</td>
+<td><code>auto</code> hands out whatever plays and has no slot, hidden <code>apps</code> channels as a whole; <code>in_auto = false</code> opts out.</td>
+</tr>
+<tr>
+<td><strong>Blocker</strong>: four contradictions (<code>meter_point</code>, <code>buds</code> as state and channel, <code>switching.hold</code>, the noisy slot 4).</td>
+<td><code>meter_point</code> on channels and places; the state is <code>wireless</code>; <code>switching.hold</code> goes; slot 4 removed from the example.</td>
+</tr>
+<tr>
+<td>Options for a place leaked entity ownership; options of today's <code>auto</code> strips missing.</td>
+<td>Look options on any candidate; control options and <code>id</code> on pool candidates only; the missing ones added.</td>
+</tr>
+<tr>
+<td>Pools of channels: shown twice, priority inverted, <code>collapse</code> migration too broad, Select.</td>
+<td>Members exclude channels with a slot; pools of channels fill by order; <code>collapse</code> migrates to <code>if present</code> in place; Select pages only on <code>people</code>.</td>
+</tr>
+<tr>
+<td>Three persistence rules; startup as an edge.</td>
+<td>One rule; overrides are kept across restarts; startup is the baseline.</td>
+</tr>
+<tr>
+<td>Entity ID collisions; shared <code>homeassistant</code> strips in migration.</td>
+<td>Reserved ids; one channel for shared entities.</td>
+</tr>
+<tr>
+<td><code>pick</code> changed meaning.</td>
+<td>As today.</td>
+</tr>
+<tr>
+<td>Coverage: chord syntax, <code>mode --next</code>, the CLI, <code>person</code> name overlap, <code>ignore</code> vs <code>exclude</code>, <code>auto_hold</code>, the live device in the GUI, Mumble outside its slots.</td>
+<td>All adopted.</td>
+</tr>
+<tr>
+<td>Minor: banner and flashes, chip text, the presets link, cycle order, why for channels.</td>
+<td>All adopted.</td>
+</tr>
+<tr>
+<td>Newcomer configuration and <code>init-config</code>.</td>
+<td><a href="#a-new-configuration">A new configuration</a>.</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../../architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Architecture">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Architecture
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../try-and-simulate/" class="md-footer__link md-footer__link--next" aria-label="Next: Try changes and situations">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Try changes and situations
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Markus Ressel, AGPL-3.0-or-later
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["content.action.edit","content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      
+        <script src="../../../javascripts/entities.js"></script>
+      
+    
+  </body>
+</html>
