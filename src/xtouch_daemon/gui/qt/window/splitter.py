@@ -45,6 +45,9 @@ class GripHandle(QSplitterHandle):
     def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
         self._follow()
         super().mouseReleaseEvent(event)
+        splitter = self.splitter()
+        if isinstance(splitter, PaneSplitter):
+            splitter.keep()
 
     def paintEvent(self, event: QPaintEvent | None) -> None:
         painter = QPainter(self)
@@ -83,8 +86,14 @@ class PaneSplitter(QSplitter):
         self.share = self.wanted
 
     def _moved(self) -> None:
-        """The handle was dragged: the new share stays, also for the next start."""
+        """The handle moves: the new share stays (`keep` keeps it for the next start, once it is let go)."""
         self.wanted = self.share
+
+    def keep(self) -> None:
+        """
+        The handle was let go: its share is kept for the next start. Not on every move: writing the settings takes
+        tens of milliseconds (QSettings writes its file each time), which made dragging lag.
+        """
         save_split(self.name, self.wanted)
 
     @property
