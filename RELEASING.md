@@ -71,6 +71,9 @@ commit next to the project.
    The [Documentation workflow](.github/workflows/docs.yml) publishes the documentation of the tag as its version
    (`/0.2.0/`), moves the alias `latest` to it and makes it the default of the site. `main` is the version `dev`.
    Each version is built once, when it is pushed, and stays as it is (with mike, on the branch `gh-pages`).
+   The "Learn more" links of the GUI open the version of the GUI (`/0.2.0/...`); the site's `404.html`
+   ([pages/404.html](pages/404.html)) forwards an address without a version, or of a version not deployed yet, to
+   the same page of `latest` (`dev` before the first release).
 
 4. **Publish the AUR packages** once the workflow has passed. On an Arch Linux machine with your AUR SSH key:
 

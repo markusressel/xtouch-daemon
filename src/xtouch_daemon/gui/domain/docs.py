@@ -4,8 +4,15 @@ are those of the site built from `docs/` (`configuration/strips.md` is `configur
 its headings; a test checks that they exist.
 """
 
+from xtouch_daemon import __version__
+
 DOCS_URL = "https://markusressel.github.io/xtouch-daemon/"
-"""The documentation site."""
+"""The documentation site: its root shows the latest release (dev before the first one)."""
+DOCS_VERSION = __version__
+"""
+The version of the documentation the links open: the one of this program. Before it is deployed (a checkout between
+releases), the site forwards to the same page of the latest release (see `pages/404.html`).
+"""
 
 PAGES: dict[str, str] = {
     "device": "configuration/behavior/#device",
@@ -88,8 +95,8 @@ SECTION_OPTIONS: dict[str, dict[str, str]] = {
 
 
 def url(path: str) -> str:
-    """The address of a page of the documentation, e.g. `configuration/strips/#labels`."""
-    return DOCS_URL + path
+    """The address of a page of the documentation, in the version of this program: e.g. `configuration/slots/`."""
+    return f"{DOCS_URL}{DOCS_VERSION}/{path}"
 
 
 def page_link(page: str) -> str | None:

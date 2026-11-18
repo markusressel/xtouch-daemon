@@ -51,3 +51,16 @@ jobs:
         run: |
           mike deploy --push --update-aliases "$GITHUB_REF_NAME" latest
           mike set-default --push latest
+      # GitHub Pages has no redirects: its 404 page forwards an address without a version (or of a version not
+      # deployed) to the version the root shows (see pages/404.html)
+      - name: Forward addresses without a version
+        run: |
+          git fetch origin gh-pages --depth=1
+          git worktree add --detach "$RUNNER_TEMP/pages" origin/gh-pages
+          cp pages/404.html "$RUNNER_TEMP/pages/404.html"
+          cd "$RUNNER_TEMP/pages"
+          git add 404.html
+          if ! git diff --cached --quiet; then
+            git commit -m "404.html: forward addresses without a version"
+            git push origin HEAD:gh-pages
+          fi

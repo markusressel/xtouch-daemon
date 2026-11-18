@@ -182,6 +182,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   the pill that opened them.
 - Simulate, the states and the sound server share one row above the slots; Simulate comes first and stays where it
   is while the what-ifs replace the states.
+- "Learn more" opens the documentation of the installed version; addresses without a version (older links) and of
+  versions not published yet go to the same page of the latest documentation instead of "not found".
 - Dragging the handle between the panes of a page no longer lags: where it was left is written once, when it is let
   go, not on every move.
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
