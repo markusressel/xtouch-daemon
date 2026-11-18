@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>xtouch-daemon</title>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1e23"/><stop offset="1" stop-color="#0e1013"/></linearGradient>
+    <linearGradient id="strip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#262a31"/><stop offset="1" stop-color="#1a1d22"/></linearGradient>
+    <linearGradient id="cap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3e7ec"/><stop offset="1" stop-color="#80868f"/></linearGradient>
+    <radialGradient id="knob" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#5a616c"/><stop offset="1" stop-color="#1d2025"/></radialGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="44" fill="url(#panel)" stroke="#30343c" stroke-width="4"/>
+  <rect x="24.0" y="30" width="46" height="196" rx="10" fill="url(#strip)" stroke="#2f333b" stroke-width="2"/>
+  <path d="M36.4 66.6 A15 15 0 0 1 55.0 43.3" fill="none" stroke="#ff9a2e" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="47.0" cy="56" r="9" fill="url(#knob)"/>
+  <rect x="30.0" y="82" width="34" height="22" rx="4" fill="#3fe0e6"/>
+  <rect x="36.0" y="88" width="22" height="3.5" rx="1.75" fill="#101215" opacity="0.75"/>
+  <rect x="36.0" y="95" width="14" height="3.5" rx="1.75" fill="#101215" opacity="0.75"/>
+  <rect x="44.5" y="122" width="5" height="90" rx="2.5" fill="#050607"/>
+  <rect x="32.0" y="153.5" width="30" height="18" rx="4" fill="url(#cap)"/>
+  <rect x="32.0" y="161.5" width="30" height="2" fill="#1b1d21"/>
+  <rect x="78.0" y="30" width="46" height="196" rx="10" fill="url(#strip)" stroke="#2f333b" stroke-width="2"/>
+  <path d="M90.4 66.6 A15 15 0 0 1 88.9 47.2" fill="none" stroke="#ff9a2e" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="101.0" cy="56" r="9" fill="url(#knob)"/>
+  <rect x="84.0" y="82" width="34" height="22" rx="4" fill="#e64dff"/>
+  <rect x="90.0" y="88" width="22" height="3.5" rx="1.75" fill="#101215" opacity="0.75"/>
+  <rect x="90.0" y="95" width="14" height="3.5" rx="1.75" fill="#101215" opacity="0.75"/>
+  <rect x="98.5" y="122" width="5" height="90" rx="2.5" fill="#050607"/>
+  <rect x="86.0" y="176.0" width="30" height="18" rx="4" fill="url(#cap)"/>
+  <rect x="86.0" y="184.0" width="30" height="2" fill="#1b1d21"/>
+  <rect x="132.0" y="30" width="46" height="196" rx="10" fill="url(#strip)" stroke="#2f333b" stroke-width="2"/>
+  <path d="M144.4 66.6 A15 15 0 1 1 170.0 55.1" fill="none" stroke="#ff9a2e" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="155.0" cy="56" r="9" fill="url(#knob)"/>
+  <rect x="138.0" y="82" width="34" height="22" rx="4" fill="#ffd23f"/>
+  <rect x="144.0" y="88" width="22" height="3.5" rx="1.75" fill="#101215" opacity="0.75"/>
+  <rect x="144.0" y="95" width="14" height="3.5" rx="1.75" fill="#101215" opacity="0.75"/>
+  <rect x="152.5" y="122" width="5" height="90" rx="2.5" fill="#050607"/>
+  <rect x="140.0" y="131.0" width="30" height="18" rx="4" fill="url(#cap)"/>
+  <rect x="140.0" y="139.0" width="30" height="2" fill="#1b1d21"/>
+  <rect x="186.0" y="30" width="46" height="196" rx="10" fill="url(#strip)" stroke="#2f333b" stroke-width="2"/>
+  <path d="M198.4 66.6 A15 15 0 0 1 205.5 41.4" fill="none" stroke="#ff9a2e" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="209.0" cy="56" r="9" fill="url(#knob)"/>
+  <rect x="192.0" y="82" width="34" height="22" rx="4" fill="#3ee06a"/>
+  <rect x="198.0" y="88" width="22" height="3.5" rx="1.75" fill="#101215" opacity="0.75"/>
+  <rect x="198.0" y="95" width="14" height="3.5" rx="1.75" fill="#101215" opacity="0.75"/>
+  <rect x="206.5" y="122" width="5" height="90" rx="2.5" fill="#050607"/>
+  <rect x="194.0" y="189.5" width="30" height="18" rx="4" fill="url(#cap)"/>
+  <rect x="194.0" y="197.5" width="30" height="2" fill="#1b1d21"/>
+</svg>

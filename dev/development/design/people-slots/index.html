@@ -1,0 +1,3012 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Use a Behringer X-Touch Extender as a hardware mixer for PipeWire">
+      
+      
+        <meta name="author" content="Markus Ressel">
+      
+      
+        <link rel="canonical" href="https://markusressel.github.io/xtouch-daemon/latest/development/design/people-slots/">
+      
+      
+      
+        <link rel="prev" href="../try-and-simulate/">
+      
+      
+        <link rel="next" href="../layouts/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../images/icon.svg">
+      <meta name="generator" content="zensical-0.1.2">
+    
+    
+      
+        <title>Where the people sit - xtouch-daemon</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="xtouch-daemon" class="md-header__button md-logo" aria-label="xtouch-daemon" data-md-component="logo">
+      
+  <img src="../../../images/icon.svg" alt="xtouch-daemon">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            xtouch-daemon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Where the people sit
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/markusressel/xtouch-daemon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    markusressel/xtouch-daemon
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="xtouch-daemon" class="md-nav__button md-logo" aria-label="xtouch-daemon" data-md-component="logo">
+      
+  <img src="../../../images/icon.svg" alt="xtouch-daemon">
+
+    </a>
+    xtouch-daemon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/markusressel/xtouch-daemon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    markusressel/xtouch-daemon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Getting started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/first-steps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  First steps
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/without-a-device/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Without a device
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Guides
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Guides
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/gui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  GUI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/home-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home Assistant
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/mumble/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mumble
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../configuration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Configuration
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/slots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels, states and slots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../configuration/channels/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Channels
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/channels/devices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Devices
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/channels/applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/channels/people/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  People and the voice chat
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Parts of a strip
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Parts of a strip
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/strip/encoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Encoders
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/strip/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LEDs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Presets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../configuration/behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Behavior, device and aliases
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/hardware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hardware and protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/voice-chat-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Voice chat bridge
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Development
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Design documents
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Design documents
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../channels-states-slots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels, states and slots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../try-and-simulate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Try changes and situations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Where the people sit
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Where the people sit
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The format
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The rules
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#not-a-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Not a block
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pins-held-slots-hold" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pins, held slots, <code>hold</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Use cases
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Use cases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#u1-voice-chat-on-the-right-markus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U1: voice chat on the right (Markus)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u2-mirrored-voice-chat-on-the-left" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U2: mirrored (voice chat on the left)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u3-people-in-the-middle" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U3: people in the middle
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u4-people-only-in-a-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U4: people only in a call
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u5-a-call-replaces-the-applications" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U5: a call replaces the applications
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u6-the-simple-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U6: the simple case
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors-and-notes-of-check-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors and notes of <code>check-config</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The GUI
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Built
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-chosen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Not chosen
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layouts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Layouts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../launch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Launching applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dynamic-strips/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Output choices and moving strips
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Presets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../device-simulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A simulated device
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-previews/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Previews of the controls
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../refactoring-2026-11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Refactoring, November 2026
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The format
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The rules
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#not-a-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Not a block
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pins-held-slots-hold" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pins, held slots, <code>hold</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Use cases
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Use cases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#u1-voice-chat-on-the-right-markus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U1: voice chat on the right (Markus)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u2-mirrored-voice-chat-on-the-left" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U2: mirrored (voice chat on the left)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u3-people-in-the-middle" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U3: people in the middle
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u4-people-only-in-a-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U4: people only in a call
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u5-a-call-replaces-the-applications" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U5: a call replaces the applications
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#u6-the-simple-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        U6: the simple case
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors-and-notes-of-check-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors and notes of <code>check-config</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The GUI
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Built
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-chosen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Not chosen
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../../architecture/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Development
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../channels-states-slots/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Design documents
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+    <a href="https://github.com/markusressel/xtouch-daemon/edit/main/docs/development/design/people-slots.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="design-where-the-people-of-the-voice-chat-sit">Design: where the people of the voice chat sit<a class="headerlink" href="#design-where-the-people-of-the-voice-chat-sit" title="Permanent link">&para;</a></h1>
+<p>Status: decided (2026-11-17), being built. Round 3: option D of round 2 with three built-in pools. It replaces
+decisions 1 and 7 of <a href="../channels-states-slots/#decisions-after-the-live-test">Decisions after the live test</a> and the
+parts of <a href="../channels-states-slots/#people">People</a> that place people.</p>
+<h2 id="why">Why<a class="headerlink" href="#why" title="Permanent link">&para;</a></h2>
+<p>Until now the people of the voice chat had no candidate of their own: the resolver put them on the slots of <code>auto</code>,
+from the right, while applications filled them from the left. That fits one layout (the voice chat's strips on the
+right) and the file could not say anything else: not the voice chat on the left, not people in the middle, not
+people only in a call, not "a call replaces the applications". The GUI didn't show that <code>auto</code> takes people at all.</p>
+<h2 id="the-format">The format<a class="headerlink" href="#the-format" title="Permanent link">&para;</a></h2>
+<p>Three built-in pools. Each is a candidate like any channel or pool:</p>
+<table>
+<thead>
+<tr>
+<th>Pool</th>
+<th>Members</th>
+<th>Section and options</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apps</code></td>
+<td>The applications that play and have no channel, and the <code>apps</code> channels with <code>in_pool</code> that play and have no slot (as a whole).</td>
+<td><code>[pool.apps]</code>: <code>from</code> (default <code>"left"</code>), <code>exclude</code> (default <code>["speech-dispatcher"]</code>), <code>hold</code> (default 5), the look of the strips of applications on its slots.</td>
+</tr>
+<tr>
+<td><code>people</code></td>
+<td>The people in the voice chat without a <code>person</code> channel, and the <code>person</code> channels with <code>in_pool</code> that are present and have no slot (as themselves). In <code>order</code>, then as first seen (learned, kept 30 days).</td>
+<td><code>[pool.people]</code>: <code>from</code> (default <code>"right"</code>), <code>order</code>, the look of the strips of people (<code>color</code>, <code>talking_color</code>, <code>meter</code>, <code>meter_point</code>, <code>max_volume</code>).</td>
+</tr>
+<tr>
+<td><code>auto</code></td>
+<td>Both: people and applications share its slots, the people first.</td>
+<td><code>[pool.auto]</code>: the look of the strips of applications on its slots. People look as <code>[pool.people]</code> says.</td>
+</tr>
+</tbody>
+</table>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[pool.people]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"right"</span><span class="w">              </span><span class="c1"># the side the people fill their slots from (the default)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">order</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"Alice"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mum"</span><span class="p">]</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"yellow"</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">[pool.apps]</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span><span class="w">               </span><span class="c1"># the default</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">hold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">exclude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"speech-dispatcher"</span><span class="p">,</span><span class="w"> </span><span class="s2">"notification"</span><span class="p">]</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">[channel.mum]</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"person"</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">person</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"Alice"</span><span class="p">,</span><span class="w"> </span><span class="s2">"alice-phone"</span><span class="p">]</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">in_pool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">              </span><span class="c1"># while no slot shows mum, she is one of the people (default)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="k">[slots]</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span><span class="w">      </span><span class="c1"># a person, else an application</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">show</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"pick"</span><span class="w"> </span><span class="p">}]</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">show</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"orange"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span></code></pre></div>
+<ul>
+<li>A slot without an entry is <code>auto</code>, and a stack that can run out ends in <code>auto</code>, as before. The simple case needs
+  no words: people from the right, applications from the left, on every slot.</li>
+<li><code>from</code> is <code>"left"</code> (slot 1 first) or <code>"right"</code> (slot 8 first). It is an option of <code>apps</code>, <code>people</code> and the pools of
+  channels; inside <code>auto</code> the people fill from <code>[pool.people] from</code>, the applications from <code>[pool.apps] from</code>. The
+  defaults are opposite sides, so people and applications meet only when the slots run out. (Round 2 proposed
+  <code>"left"</code> for every pool; with people inside <code>auto</code> that would make every person push the applications along.)</li>
+<li><code>in_pool</code> (default <code>true</code>) replaces <code>in_auto</code>: an <code>apps</code> channel without a slot goes into <code>apps</code> and <code>auto</code>, a
+  <code>person</code> channel without a slot into <code>people</code> and <code>auto</code>.</li>
+<li>Places: a place of <code>apps</code> takes the options of an <code>auto</code> place (the look, <code>encoder</code>, <code>min_volume</code>, <code>max_volume</code>);
+  a place of <code>people</code> takes <code>color</code>, <code>meter</code> and <code>meter_point</code> (people show their names and have no Rec or Solo of
+  a place).</li>
+<li>Presence: <code>present(apps)</code> while an application <code>apps</code> may take plays; <code>present(people)</code> while someone who would
+  be one of the people is in the voice chat (counted before slots, so also a <code>person</code> channel with a slot of its
+  own); <code>present(auto)</code> while either is.</li>
+</ul>
+<h2 id="the-rules">The rules<a class="headerlink" href="#the-rules" title="Permanent link">&para;</a></h2>
+<p>Step 1 (fixed slots) and step 2 (channels by rank) stay as they are. Step 3 hands out the members of the pools.</p>
+<ol>
+<li><strong>Chain.</strong> The pool a slot shows after step 2 and the candidates below it that hold while they are pools, up to
+   and with a <code>-</code>, form the slot's chain. A channel ends it. <code>["people if call", "- if call", "auto"]</code> while <code>call</code>
+   is on: <code>people</code>, <code>-</code>.</li>
+<li><strong>Hand-down.</strong> A pool with no member for a slot leaves it to the next pool of the chain. A slot that no pool
+   fills shows the last pool of its chain, dark, or <code>-</code>. (Before: a pool slot without a member was dark.)</li>
+<li><strong>Pools of channels first</strong>, in the order of the file, each from its side. A pool of channels below <code>apps</code>,
+   <code>people</code> or <code>auto</code> in a chain is an error: those take the channels that no pool of channels gives a slot.</li>
+<li><strong>Contest.</strong> Then the people and the applications are handed out: the people over the slots whose chain has
+   <code>people</code> or <code>auto</code>, in their order; the applications over those with <code>apps</code> or <code>auto</code>, pins first, then each on
+   the slot it had, then in their order. A slot both fill goes to the one higher in its stack (inside <code>auto</code>, the
+   people). The other gives that slot up and is handed out again, until nothing changes. It ends: each only loses
+   slots. Members left over wait (<code>waiting["people"]</code>, <code>waiting["apps"]</code>).</li>
+<li><strong>Fill order.</strong> Each from its side. The people first take the slots where they are the first candidate, then
+   the others.</li>
+</ol>
+<h3 id="not-a-block">Not a block<a class="headerlink" href="#not-a-block" title="Permanent link">&para;</a></h3>
+<p>People inside <code>auto</code> (and in <code>people</code>) are <strong>no block</strong>: they take the slots where nothing is above them first,
+then the others, each group from their side. In the live test's file with <code>call</code> overridden off the order was
+6, 5, 4, then 8, 7, 3, 2. This stays, for a reason: people keep no slot (they sit in their order, recomputed every
+step), so a slot that a candidate above can take back (<code>voip if call</code>) would move every one of them when it does.
+Applications keep the slot they had, so for them the side alone decides (as before: slot 2 before slot 3, whatever is
+above them).</p>
+<h3 id="pins-held-slots-hold">Pins, held slots, <code>hold</code><a class="headerlink" href="#pins-held-slots-hold" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A pin (the <code>pick</code> encoder) is an application's; it reserves its slot if the chain there has <code>apps</code> or <code>auto</code>.
+  People don't take a pinned slot. People are never picked or pinned.</li>
+<li>What a held or dwelling slot shows, of any pool, is not handed out again.</li>
+<li><code>hold</code> keeps an application a member after it stopped; <code>absent_after</code> keeps a person one after they left.</li>
+</ul>
+<h2 id="use-cases">Use cases<a class="headerlink" href="#use-cases" title="Permanent link">&para;</a></h2>
+<p><code>A</code>, <code>B</code>, ... are people in their order; "call" is the state <code>call</code> (Mumble: <code>voice_chat = true</code>). The tables come
+from the resolver (without a previous result).</p>
+<h3 id="u1-voice-chat-on-the-right-markus">U1: voice chat on the right (Markus)<a class="headerlink" href="#u1-voice-chat-on-the-right-markus" title="Permanent link">&para;</a></h3>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[pool.people]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"yellow"</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">[pool.apps]</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"white"</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">[slots]</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"main"</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"browser if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="s2">"people"</span><span class="p">]</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="s2">"people"</span><span class="p">]</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">show</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="n">rec</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"recording"</span><span class="w"> </span><span class="p">}]</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+<th>6</th>
+<th>7</th>
+<th>8</th>
+<th>Waits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No call, nothing plays</td>
+<td>people</td>
+<td>people</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td></td>
+</tr>
+<tr>
+<td>No call, browser and Spotify play</td>
+<td>browser</td>
+<td>Spotify</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 1 person</td>
+<td>people</td>
+<td>people</td>
+<td>apps</td>
+<td>apps</td>
+<td>A</td>
+<td>voip</td>
+<td>mic</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 3 people</td>
+<td>people</td>
+<td>people</td>
+<td>C</td>
+<td>B</td>
+<td>A</td>
+<td>voip</td>
+<td>mic</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 3 people, browser and Spotify play</td>
+<td>browser</td>
+<td>Spotify</td>
+<td>C</td>
+<td>B</td>
+<td>A</td>
+<td>voip</td>
+<td>mic</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 7 people</td>
+<td>E</td>
+<td>D</td>
+<td>C</td>
+<td>B</td>
+<td>A</td>
+<td>voip</td>
+<td>mic</td>
+<td>F, G</td>
+</tr>
+<tr>
+<td>Call, 7 people, browser and Spotify play</td>
+<td>browser</td>
+<td>Spotify</td>
+<td>C</td>
+<td>B</td>
+<td>A</td>
+<td>voip</td>
+<td>mic</td>
+<td>D, E, F, G</td>
+</tr>
+</tbody>
+</table>
+<p>On 2 and 3 applications come before people: in a crowded call a playing application still gets a fader. A dark
+slot shows the last pool of its chain (<code>people</code> on 2 and 3).</p>
+<h3 id="u2-mirrored-voice-chat-on-the-left">U2: mirrored (voice chat on the left)<a class="headerlink" href="#u2-mirrored-voice-chat-on-the-left" title="Permanent link">&para;</a></h3>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[pool.people]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">[pool.apps]</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"right"</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">[slots]</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="s2">"people"</span><span class="p">]</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"browser if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="s2">"people"</span><span class="p">]</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"main"</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>1</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+<th>6</th>
+<th>7</th>
+<th>Waits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No call, browser plays</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>people</td>
+<td>browser</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 1 person</td>
+<td>mic</td>
+<td>voip</td>
+<td>A</td>
+<td>apps</td>
+<td>apps</td>
+<td>people</td>
+<td>people</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 3 people, browser and Spotify play</td>
+<td>mic</td>
+<td>voip</td>
+<td>A</td>
+<td>B</td>
+<td>C</td>
+<td>Spotify</td>
+<td>browser</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 7 people</td>
+<td>mic</td>
+<td>voip</td>
+<td>A</td>
+<td>B</td>
+<td>C</td>
+<td>D</td>
+<td>E</td>
+<td>F, G</td>
+</tr>
+</tbody>
+</table>
+<h3 id="u3-people-in-the-middle">U3: people in the middle<a class="headerlink" href="#u3-people-in-the-middle" title="Permanent link">&para;</a></h3>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[pool.people]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">[pool.apps]</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"right"</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">[slots]</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"main"</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"mic"</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+<th>6</th>
+<th>7</th>
+<th>Waits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No call, X, Y, Z play</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>Z</td>
+<td>Y</td>
+<td>X</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 1 person, X plays</td>
+<td>apps</td>
+<td>A</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>X</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 3 people, X, Y, Z play</td>
+<td>Z</td>
+<td>A</td>
+<td>B</td>
+<td>C</td>
+<td>Y</td>
+<td>X</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 4 people, X, Y, Z play</td>
+<td>Y</td>
+<td>A</td>
+<td>B</td>
+<td>C</td>
+<td>D</td>
+<td>X</td>
+<td>Z</td>
+</tr>
+<tr>
+<td>Call, 7 people</td>
+<td>apps</td>
+<td>A</td>
+<td>B</td>
+<td>C</td>
+<td>D</td>
+<td>apps</td>
+<td>E, F, G</td>
+</tr>
+</tbody>
+</table>
+<p>Applications fill from the right, so slot 2 comes last; <code>from</code> is a side, not "the edges first".</p>
+<h3 id="u4-people-only-in-a-call">U4: people only in a call<a class="headerlink" href="#u4-people-only-in-a-call" title="Permanent link">&para;</a></h3>
+<p>Matters when <code>call</code> means less than "someone is in the voice chat", e.g. sitting in a Mumble lobby all evening with
+<code>call</code> toggled by a button. Slots that should never show people say <code>apps</code>: <code>auto</code>, also the implicit one at the end
+of a stack that can run out, takes people.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[slots]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"main"</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="k">[controls]</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">solo</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"toggle:call"</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+<th>6</th>
+<th>7</th>
+<th>8</th>
+<th>Waits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3 people in the lobby, <code>call</code> off, Spotify plays</td>
+<td>Spotify</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>apps</td>
+<td>A, B, C</td>
+</tr>
+<tr>
+<td><code>call</code> on, 3 people, Spotify plays</td>
+<td>Spotify</td>
+<td>apps</td>
+<td>C</td>
+<td>B</td>
+<td>A</td>
+<td>voip</td>
+<td>mic</td>
+<td></td>
+</tr>
+<tr>
+<td><code>call</code> on, 3 people, Spotify and mpv play</td>
+<td>Spotify</td>
+<td>mpv</td>
+<td>C</td>
+<td>B</td>
+<td>A</td>
+<td>voip</td>
+<td>mic</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="u5-a-call-replaces-the-applications">U5: a call replaces the applications<a class="headerlink" href="#u5-a-call-replaces-the-applications" title="Permanent link">&para;</a></h3>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[pool.people]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">[slots]</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"main"</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"- if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"- if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"- if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"- if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"- if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+<th>6</th>
+<th>7</th>
+<th>8</th>
+<th>Waits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No call, Firefox plays</td>
+<td>Firefox</td>
+<td>auto</td>
+<td>auto</td>
+<td>auto</td>
+<td>auto</td>
+<td>auto</td>
+<td>auto</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 1 person, Firefox plays</td>
+<td>A</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>voip</td>
+<td>mic</td>
+<td>Firefox</td>
+</tr>
+<tr>
+<td>Call, 3 people</td>
+<td>A</td>
+<td>B</td>
+<td>C</td>
+<td>-</td>
+<td>-</td>
+<td>voip</td>
+<td>mic</td>
+<td></td>
+</tr>
+<tr>
+<td>Call, 7 people</td>
+<td>A</td>
+<td>B</td>
+<td>C</td>
+<td>D</td>
+<td>E</td>
+<td>voip</td>
+<td>mic</td>
+<td>F, G</td>
+</tr>
+</tbody>
+</table>
+<h3 id="u6-the-simple-case">U6: the simple case<a class="headerlink" href="#u6-the-simple-case" title="Permanent link">&para;</a></h3>
+<p>No entry, or <code>auto</code>: people from the right, applications from the left, on every slot that shows <code>auto</code>, as before.</p>
+<h2 id="errors-and-notes-of-check-config">Errors and notes of <code>check-config</code><a class="headerlink" href="#errors-and-notes-of-check-config" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[people]</code></td>
+<td><code>people: the section is [pool.people] now; the people sit on the slots whose stack names people or auto</code></td>
+</tr>
+<tr>
+<td><code>in_auto</code></td>
+<td><code>channel.voip: in_auto is in_pool now</code></td>
+</tr>
+<tr>
+<td><code>hold</code>, <code>exclude</code> in <code>[pool.auto]</code></td>
+<td><code>pool.auto: hold: an option of [pool.apps] now</code></td>
+</tr>
+<tr>
+<td><code>from</code>, <code>order</code>, <code>channels</code> in <code>[pool.auto]</code></td>
+<td><code>pool.auto: from: auto fills from the sides of [pool.apps] and [pool.people]</code> (and the like)</td>
+</tr>
+<tr>
+<td><code>hold</code>, <code>exclude</code>, <code>channels</code> in <code>[pool.people]</code></td>
+<td><code>pool.people: hold: people stay absent_after seconds after they left</code> (and the like)</td>
+</tr>
+<tr>
+<td><code>channels</code>, <code>order</code> in <code>[pool.apps]</code></td>
+<td><code>pool.apps: order: an option of [pool.people]</code> (and the like)</td>
+</tr>
+<tr>
+<td><code>from</code></td>
+<td><code>pool.people.from: Input should be 'left' or 'right'</code></td>
+</tr>
+<tr>
+<td>a channel or state named <code>apps</code>, <code>people</code> or <code>auto</code></td>
+<td><code>channel.apps: apps is a built-in pool</code></td>
+</tr>
+<tr>
+<td>a place of <code>people</code></td>
+<td><code>slots.6[0]: rec is no option of a place for people (...)</code></td>
+</tr>
+<tr>
+<td>a pool of channels below a built-in one</td>
+<td><code>slots.2[1]: media below auto: a pool of channels goes above the pools auto, apps and people</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>check-config</code> prints notes after the table: a channel right below a pool without a condition never shows (a pool
+hands down only to pools and <code>-</code>), and <code>people: no slot shows people or auto, ...</code> when the file has a <code>person</code>
+channel or <code>[pool.people]</code> options and no slot can show people.</p>
+<h2 id="the-gui">The GUI<a class="headerlink" href="#the-gui" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Slots</strong>: Shows offers <code>apps</code>, <code>people</code> and <code>auto</code> with the channels. The dot is on the candidate that fills the slot
+  (on <code>people</code> while a person sits there). A pool without a condition reads <code>when app without a slot → apps</code> (an outlined chip)
+  (tooltip: what a member needs, e.g. an application that plays and has no slot yet; revised 2026-11-18, it read <code>left
+  over → apps</code> below another pool). A tiny LCD after each candidate has the color of its strip. The inspector says what
+  a pool hands out and from where (<code>Pool people: the people of the voice chat ..., from the right.</code>), with the place
+  options of its strips: those of an application for <code>apps</code> and <code>auto</code>, of a person for <code>people</code>, of a channel for a
+  pool of channels.</li>
+<li><strong>Simulate</strong>: two counts next to the states, people in the call and applications that play; the device shows their
+  names. <code>apps fill</code> and <code>people fill</code> are what-ifs where the stacks name them.</li>
+<li><strong>Grid</strong>: <code>apps</code> and <code>people</code> are dimensions where a stack names them (full: as many as slots), e.g. a row
+  <code>call, people fill</code>.</li>
+<li><strong>Channels</strong>: the built-in pools <code>[pool.apps]</code>, <code>[pool.people]</code> and <code>[pool.auto]</code> below the channels, each with its
+  options and the look of its strips.</li>
+<li><strong>why</strong>: <code>xtouch-daemon why people</code> lists who sits where and who waits; a slot's why says <code>people: none left for
+  this slot</code> when it was handed down.</li>
+</ul>
+<h2 id="built">Built<a class="headerlink" href="#built" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pools, options, errors, chain check</td>
+<td><code>slots/model.py</code> (<code>AppsConfig</code>, <code>PeopleConfig</code>, <code>AutoConfig</code>, <code>PoolConfig</code>, <code>_parse_pools()</code>, <code>_check_chains()</code>, <code>place_options()</code>)</td>
+</tr>
+<tr>
+<td>Presence, members</td>
+<td><code>slots/inputs.py</code> (<code>pool_present()</code>, <code>people_of()</code>, <code>excluded()</code>)</td>
+</tr>
+<tr>
+<td>Chains, hand-down, contest</td>
+<td><code>slots/resolver.py</code> (<code>_chain()</code>, <code>_of_channels()</code>, <code>_contest()</code>, <code>_fill_order()</code>)</td>
+</tr>
+<tr>
+<td>Simulate, Grid, notes</td>
+<td><code>slots/outcomes.py</code> (<code>simulate()</code> with counts, <code>dimensions()</code>, <code>notes()</code>), <code>cli/configuration.py</code></td>
+</tr>
+<tr>
+<td>Strips of places</td>
+<td><code>config/slots.py</code>, <code>runtime/binder.py</code> (people take the look of their place)</td>
+</tr>
+<tr>
+<td>GUI</td>
+<td><code>gui/domain/slot_stacks.py</code>, <code>gui/domain/simulate.py</code>, <code>gui/domain/channels.py</code>, <code>gui/qt/pages/slots.py</code>, <code>gui/qt/pages/channels.py</code></td>
+</tr>
+</tbody>
+</table>
+<p>Tests are Markus's call; the existing ones that describe the old rules fail as expected (<code>in_auto</code>, <code>[people]</code>,
+<code>hold</code> of <code>[pool.auto]</code>, <code>waiting["auto"]</code>, a pool of channels that was dark and now hands down).</p>
+<h2 id="not-chosen">Not chosen<a class="headerlink" href="#not-chosen" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>People only as a pool, pools never fall through</strong>: slots meant for people are dark outside a call (the live test
+  rejected that).</li>
+<li><strong><code>auto</code> alone with options in <code>[people]</code></strong> (<code>from</code>, <code>slots</code>, <code>when</code>, <code>alone</code>): a second language next to the stacks.</li>
+<li><strong>A preference per <code>auto</code> place</strong> (<code>people = "first"</code>): the same as stacks, hidden in an option.</li>
+<li><strong>A list of slots for people</strong> (<code>[people] slots = [6, 5, 4]</code>): a second place to edit when a slot moves.</li>
+<li><strong>A real block, or "first candidate first" for applications too</strong>: see <a href="#not-a-block">Not a block</a>.</li>
+<li><strong><code>+2</code> or paging when more people than slots</strong>: they wait; the why line and the live view say who.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../try-and-simulate/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Try changes and situations">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Try changes and situations
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../layouts/" class="md-footer__link md-footer__link--next" aria-label="Next: Layouts">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Layouts
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Markus Ressel, AGPL-3.0-or-later
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["content.action.edit","content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      
+        <script src="../../../javascripts/entities.js"></script>
+      
+    
+  </body>
+</html>
