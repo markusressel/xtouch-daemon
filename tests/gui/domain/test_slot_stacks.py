@@ -2,15 +2,20 @@
 The stacks of the slots as the page Device edits them.
 """
 
+from xtouch_daemon.audio.model import AudioState, Device, Direction
 from xtouch_daemon.gui.domain.slot_stacks import (
     Row,
     choices,
     controls_text,
+    member_summary,
     place_options,
+    pool_strip,
     row_of,
+    row_state,
     rows,
     stack_value,
 )
+from xtouch_daemon.live.messages import SlotsState, SlotView
 
 
 def test_candidates_are_read_in_each_form():
@@ -54,3 +59,27 @@ def test_controls_are_text():
     assert controls_text(values, 2) == ["select: launch mumble -m (when not call)"]
     assert controls_text(values, 5) == ["select: toggle:call, solo: mode:gaming"]
     assert controls_text(values, 1) == []
+
+
+def test_candidates_stand_against_the_one_shown():
+    assert [row_state(index, 1, False) for index in range(3)] == ["passed", "shown", "unreached"]
+    assert [row_state(index, None, False) for index in range(2)] == ["", ""]
+    assert [row_state(index, None, True) for index in range(2)] == ["passed", "passed"]
+
+
+def test_pools_hand_out_strips_of_their_kind():
+    assert pool_strip("-") is None
+    assert [pool_strip(pool) for pool in ("apps", "auto", "people", "devices")] == ["auto", "auto", "voip", "output"]
+    assert pool_strip("games") == "apps"
+
+
+def test_what_a_pool_hands_out_and_who_waits():
+    headset = Device("bt_headset", "Headset", Direction.OUTPUT, 50, False, True)
+    view = SlotView(slot=3, candidate=0, channel=None, pool="devices", member="device:bt_headset", why=())
+    slots = SlotsState(mode="default", mode_pick=None, slots=(view,), states=(), waiting={"apps": ("app:mpv",)})
+    assert member_summary(view, AudioState(outputs=(headset,)), slots) == ("Headset", "")
+    app = SlotView(slot=4, candidate=0, channel=None, pool="auto", member="app:firefox", why=())
+    assert member_summary(app, AudioState(), slots) == ("firefox", "Waiting: mpv.")
+    assert member_summary(app, AudioState(), None) == ("firefox", "")
+    assert member_summary(SlotView(1, 0, "out", None, None, ()), AudioState(), slots) is None
+    assert member_summary(None, AudioState(), slots) is None

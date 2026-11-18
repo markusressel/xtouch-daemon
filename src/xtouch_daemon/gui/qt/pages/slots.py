@@ -7,7 +7,7 @@ the controls of the slot.
 
 import dataclasses
 from collections.abc import Callable, Mapping
-from typing import Any, Literal
+from typing import Any
 
 from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QPointF, QRectF, Qt, QVariantAnimation, pyqtSignal
 from PyQt6.QtGui import QColor, QDropEvent, QKeyEvent, QKeySequence, QPainter, QPaintEvent, QPen, QShortcut
@@ -37,17 +37,20 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     ALWAYS,
     EMPTY,
     Row,
+    RowState,
     choices,
     controls_text,
     free_text,
     free_words,
     is_pool,
     lcd_colors,
-    member_text,
+    member_summary,
     place_options,
+    pool_strip,
     pool_text,
     readable,
     reasons,
+    row_state,
     rows,
     stack_value,
     targets,
@@ -65,7 +68,7 @@ from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS, Entity, Motion, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
-from xtouch_daemon.slots.model import APPS, AUTO, DEFAULT, DEVICES, PEOPLE
+from xtouch_daemon.slots.model import AUTO, DEFAULT, DEVICES
 from xtouch_daemon.slots.why import why_channel, why_slot
 
 _INDEX = Qt.ItemDataRole.UserRole
@@ -128,10 +131,6 @@ class StackList(QListWidget):
         super().dropEvent(event)
         self.reordered.emit(self.order(), self.currentRow())
 
-
-type RowState = Literal["", "shown", "passed", "unreached"]
-"""Where a candidate is against the one the device shows: it, above it (did not win), below it (not reached); "" while
-nothing tells."""
 
 RAIL = 24
 """The width of the rail on the left of a card: a line through its candidates, with a node on each."""
@@ -441,7 +440,7 @@ class SlotsPanel(Page):
             view = live.get(slot)
             candidates = rows(self.document.values, slot)
             shown_candidate = view.candidate if view is not None else None
-            member = self._member(view)
+            member = member_summary(view, self.audio(), self.shown_slots())
             # a pool with nothing to hand out (or no candidate at all): none of them shows, the strip is dark
             dark = view is not None and (view.candidate is None or (view.pool is not None and view.member is None))
             if dark:
@@ -461,22 +460,6 @@ class SlotsPanel(Page):
             problems = self.editor.validation.at("slots", str(slot)) + self.editor.validation.at("controls", str(slot))
             set_role(self.card_frames[slot - 1], bool(problems), "problem")
             self.card_frames[slot - 1].setToolTip("\n".join(str(problem) for problem in problems))
-
-    def _member(self, view: SlotView | None) -> tuple[str, str] | None:
-        """
-        What the pool of the candidate shown hands out on the slot of `view`, in words, and who else of its kind waits
-        for a slot (`Waiting: mpv, Spotify.`); None for a channel, a dark slot or while nothing tells.
-        """
-        if view is None or view.pool is None or view.member is None:
-            return None
-        audio = self.audio()
-        devices = {device.name: device.description for device in (*audio.outputs, *audio.inputs)}
-        slots = self.shown_slots()
-        kind = view.member.partition(":")[0]
-        pool = {"app": APPS, "person": PEOPLE, "device": DEVICES}.get(kind, view.pool)
-        waiting = slots.waiting.get(pool, ()) if slots is not None else ()
-        names = ", ".join(member_text(other, devices) for other in waiting)
-        return member_text(view.member, devices), f"Waiting: {names}." if names else ""
 
     def _fill_card(
         self,
@@ -498,13 +481,7 @@ class SlotsPanel(Page):
             item = QListWidgetItem()
             item.setData(_INDEX, index)
             stack.addItem(item)
-            state: RowState
-            if dark or (shown is not None and index < shown):
-                state = "passed"
-            elif shown is None:
-                state = ""
-            else:
-                state = "shown" if index == shown else "unreached"
+            state = row_state(index, shown, dark)
             widget = self._row_widget(
                 candidate,
                 state,
@@ -646,18 +623,7 @@ class SlotsPanel(Page):
                 if candidate.show == EMPTY
                 else pool_text(self.document.values, candidate.show) + self._channel_why(candidate.show),
             )
-            # the strips a pool hands out: applications, people, or the channels of a pool of channels
-            strip = (
-                None
-                if candidate.show == EMPTY
-                else "auto"
-                if candidate.show in (APPS, AUTO)
-                else "voip"
-                if candidate.show == PEOPLE
-                else "output"
-                if candidate.show == DEVICES
-                else "apps"
-            )
+            strip = pool_strip(candidate.show)
         if strip is not None:
             form, self.place_rows = self._place_form(strip, place_options(candidate.show))
             self.place.show_part(form)

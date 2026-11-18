@@ -7,10 +7,12 @@ strings, tables where a candidate has options).
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
+from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.channels import stack_of
 from xtouch_daemon.gui.domain.states import stack_of_controls
+from xtouch_daemon.live.messages import SlotsState, SlotView
 from xtouch_daemon.slots import model
 from xtouch_daemon.slots.expressions import ExpressionError, parse
 from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, CONTROLS, DEVICES, PEOPLE
@@ -188,6 +190,49 @@ def member_text(member: str, devices: Mapping[str, str]) -> str:
     if kind == "device":
         return devices.get(name, name)
     return name
+
+
+def member_summary(view: SlotView | None, audio: AudioState, slots: SlotsState | None) -> tuple[str, str] | None:
+    """
+    What the pool of the candidate shown hands out on the slot of `view`, in words, and who else of its kind waits
+    for a slot (`Waiting: mpv, Spotify.`); None for a channel, a dark slot or while nothing tells. `slots` are the
+    slots shown, for who waits.
+    """
+    if view is None or view.pool is None or view.member is None:
+        return None
+    devices = {device.name: device.description for device in (*audio.outputs, *audio.inputs)}
+    kind = view.member.partition(":")[0]
+    pool = {"app": APPS, "person": PEOPLE, "device": DEVICES}.get(kind, view.pool)
+    waiting = slots.waiting.get(pool, ()) if slots is not None else ()
+    names = ", ".join(member_text(other, devices) for other in waiting)
+    return member_text(view.member, devices), f"Waiting: {names}." if names else ""
+
+
+type RowState = Literal["", "shown", "passed", "unreached"]
+"""Where a candidate is against the one the device shows: it, above it (did not win), below it (not reached); "" while
+nothing tells."""
+
+
+def row_state(index: int, shown: int | None, dark: bool) -> RowState:
+    """
+    Where the candidate `index` is against the one shown (`shown`, None while nothing tells); `dark`: none of them has
+    anything to show, so all of them were passed.
+    """
+    if dark or (shown is not None and index < shown):
+        return "passed"
+    if shown is None:
+        return ""
+    return "shown" if index == shown else "unreached"
+
+
+def pool_strip(show: str) -> str | None:
+    """
+    The strip type of what the pool `show` hands out: applications, people, outputs, or the channels of a pool of
+    channels; None for `-`, which shows nothing.
+    """
+    if show == EMPTY:
+        return None
+    return {APPS: "auto", AUTO: "auto", PEOPLE: "voip", DEVICES: "output"}.get(show, "apps")
 
 
 def free_words(values: Mapping[str, Any], name: str) -> str:
