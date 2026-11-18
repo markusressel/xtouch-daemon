@@ -20,7 +20,6 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QApplication,
-    QButtonGroup,
     QDockWidget,
     QHBoxLayout,
     QLabel,
@@ -62,7 +61,7 @@ from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popo
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
-from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page, page_title, scrolled
+from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page
 from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
 from xtouch_daemon.gui.qt.pages.sections import (
     BrokerTest,
@@ -78,10 +77,8 @@ from xtouch_daemon.gui.qt.remote_hand import RemoteHand
 from xtouch_daemon.gui.qt.theme.icons import app_icon, refresh_icons, set_icon
 from xtouch_daemon.gui.qt.theme.settings import (
     ZOOM_LEVELS,
-    load_rail_labels,
     load_window_state,
     load_zoom,
-    save_rail_labels,
     save_window_state,
     save_zoom,
     zoom_step,
@@ -94,6 +91,7 @@ from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.device_view import DeviceView
 from xtouch_daemon.gui.qt.window.hover_tips import HoverTips
 from xtouch_daemon.gui.qt.window.input_filter import InputFilter
+from xtouch_daemon.gui.qt.window.rail import RAIL_PAGES, Rail, SettingsPages
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.live.messages import Snapshot
@@ -108,17 +106,8 @@ from xtouch_daemon.system.systemd import (
 SERVICE_POLL_MS = 3000
 APPLY_GRACE_MS = 2000
 """How long a reload may take before the window says that the daemon did not take the file."""
-RAIL = (
-    ("slots", "Slots", "tune-vertical", "What each slot shows when"),
-    ("channels", "Channels", "format-list-bulleted", "What a strip can control"),
-    ("states", "States", "toggle-switch-outline", "The states and modes that decide what slots show"),
-    ("settings", "Settings", "cog-outline", "The device, behavior, aliases, Home Assistant, the voice chat"),
-)
-"""The pages of the rail: name, title, icon, tip."""
 LOGO_SIZE = 44
 """The size of the icon of the project in the header, next to the title."""
-RAIL_ICON = 22
-"""The size of the icons of the rail without their names."""
 WINDOW_SIZE = (1280, 1000)
 """The size of the window when it opens, where the screen has room for it."""
 DEVICE_HEIGHT = 380
@@ -196,7 +185,11 @@ class MainWindow(QMainWindow):
         editor = QHBoxLayout(configuration)
         editor.setContentsMargins(0, 0, 0, 0)
         editor.setSpacing(0)
-        editor.addWidget(self._rail())
+        self.rail = Rail()
+        """The pages on the left of the window Configuration."""
+        self.rail.picked.connect(self.show_page)
+        self.rail_buttons = self.rail.buttons
+        editor.addWidget(self.rail)
         editor.addWidget(root, 1)
         # the docks have all the room: a main window needs a central widget, this one takes none
         placeholder = QWidget()
@@ -327,56 +320,6 @@ class MainWindow(QMainWindow):
         top.addWidget(self.refresh_audio)
         return top
 
-    def _rail(self) -> QWidget:
-        """
-        The pages on the left of the window Configuration, one at a time: icons, with their names under them once
-        the button at the foot shows them (remembered).
-        """
-        rail = QWidget()
-        set_role(rail, "rail")
-        rail.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
-        layout = QVBoxLayout(rail)
-        layout.setContentsMargins(Space.XS, Space.M, Space.XS, Space.M)
-        layout.setSpacing(Space.XS)
-        self.rail = QButtonGroup(self)
-        self.rail_buttons: dict[str, QToolButton] = {}
-        for name, title, icon_name, tip in RAIL:
-            rail_button = QToolButton()
-            rail_button.setText(title)
-            # the pages of the states, channels and slots in their colors, like everywhere in the window
-            set_icon(rail_button, icon_name, name.removesuffix("s") if name != "settings" else None)
-            rail_button.setCheckable(True)
-            rail_button.setAutoRaise(True)
-            rail_button.setToolTip(f"{title}: {tip}")
-            rail_button.clicked.connect(lambda _=False, name=name: self.show_page(name))
-            self.rail.addButton(rail_button)
-            self.rail_buttons[name] = rail_button
-            layout.addWidget(rail_button)
-        self.rail_icon_size = self.rail_buttons["slots"].iconSize()
-        """The size of the icons with their names under them (the style's)."""
-        layout.addStretch()
-        self.rail_labels_button = QToolButton()
-        self.rail_labels_button.setAutoRaise(True)
-        self.rail_labels_button.clicked.connect(lambda: self.show_rail_labels(not load_rail_labels()))
-        layout.addWidget(self.rail_labels_button)
-        self.show_rail_labels(load_rail_labels())
-        return rail
-
-    def show_rail_labels(self, shown: bool) -> None:
-        """The names of the pages under their icons on the rail, or icons only."""
-        save_rail_labels(shown)
-        for rail_button in self.rail_buttons.values():
-            if shown:
-                rail_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-                rail_button.setMinimumWidth(72)
-            else:
-                rail_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-                rail_button.setMinimumWidth(0)
-            # alone, the icon is the target: as large as with its name
-            rail_button.setIconSize(self.rail_icon_size if shown else QSize(RAIL_ICON, RAIL_ICON))
-        set_icon(self.rail_labels_button, "chevron-double-left" if shown else "chevron-double-right")
-        self.rail_labels_button.setToolTip("Hide the names of the pages" if shown else "Show the names of the pages")
-
     def _pages(self) -> QStackedWidget:
         def audio() -> AudioState:
             # the pages ask for the current one every time
@@ -410,40 +353,11 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(slots)
         self.stack.addWidget(self.channels_page)
         self.stack.addWidget(self.states_page)
-        self.stack.addWidget(self._settings())
+        self.settings = SettingsPages(self.pages)
+        self.settings.picked.connect(self.show_page)
+        self.nav_buttons = self.settings.buttons
+        self.stack.addWidget(self.settings)
         return self.stack
-
-    def _settings(self) -> QWidget:
-        """The sections with options of their own, one at a time."""
-        settings = QWidget()
-        pages = QHBoxLayout(settings)
-        pages.setContentsMargins(0, Space.M, 0, 0)
-        pages.setSpacing(16)
-        nav = QVBoxLayout()
-        nav.setSpacing(2)
-        self.nav = QButtonGroup(self)
-        self.settings_stack = QStackedWidget()
-        self.nav_buttons: dict[str, QPushButton] = {}
-        for name in SETTINGS_PAGES:
-            nav_button = QPushButton(page_title(name))
-            set_role(nav_button, "nav", "variant")
-            nav_button.setCheckable(True)
-            nav_button.setToolTip(f"[{name}] in the file")
-            nav_button.clicked.connect(lambda _=False, name=name: self.show_page(name))
-            self.nav.addButton(nav_button)
-            self.nav_buttons[name] = nav_button
-            nav.addWidget(nav_button)
-            self.settings_stack.addWidget(scrolled(self.pages[name]))
-        nav.addStretch()
-        holder = QWidget()
-        holder.setLayout(nav)
-        nav.setContentsMargins(0, 0, 0, 0)
-        # wide enough for the longest name with the padding of the style
-        holder.setMinimumWidth(max(nav_button.sizeHint().width() for nav_button in self.nav_buttons.values()) + 40)
-        pages.addWidget(holder)
-        pages.addWidget(self.settings_stack, 1)
-        self.nav_buttons[SETTINGS_PAGES[0]].setChecked(True)
-        return settings
 
     def _bar(self, name: str, content: QWidget) -> QToolBar:
         """A bar of the window that stays where it is: the header or the footer."""
@@ -606,16 +520,15 @@ class MainWindow(QMainWindow):
     def show_page(self, name: str) -> None:
         """Shows a page of the rail ("slots", "channels", "states", "settings"), or one of the settings."""
         if name in SETTINGS_PAGES:
-            self.nav_buttons[name].setChecked(True)
-            self.settings_stack.setCurrentIndex(SETTINGS_PAGES.index(name))
+            self.settings.show_page(name)
             name = "settings"
         self.rail_buttons[name].setChecked(True)
-        self.stack.setCurrentIndex([entry[0] for entry in RAIL].index(name))
+        self.stack.setCurrentIndex(RAIL_PAGES.index(name))
 
     @property
     def current_page(self) -> str:
-        name = RAIL[self.stack.currentIndex()][0]
-        return SETTINGS_PAGES[self.settings_stack.currentIndex()] if name == "settings" else name
+        name = RAIL_PAGES[self.stack.currentIndex()]
+        return self.settings.current_page if name == "settings" else name
 
     def _document_changed(self, change: Change) -> None:
         """The document changed (see `Change`): every view shows what changed for it, and the problems."""
