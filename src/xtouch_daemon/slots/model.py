@@ -320,7 +320,7 @@ class StateConfig(_Section):
     delay_on: float = 0.0
     """Seconds its sources must be on before the state is."""
     delay_off: float | None = None
-    """Seconds the state stays on after its sources went off; by default 3, for modes 10."""
+    """Seconds the state stays on after its sources went off; by default 3, for modes 10, for `when` 0."""
     persist: bool = False
     """An override lasts until you set it back, not only until the sources change."""
 

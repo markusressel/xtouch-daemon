@@ -124,8 +124,8 @@ processes = ["@steam-games"]
 A state is on while any of its sources is: `apps` (playing), `recording`, `voice_chat`, `processes`, `devices`,
 `channels`, `homeassistant` (a switch in Home Assistant), or `when` (a [condition](#conditions) of other states). `delay_on`
 (default 0) and `delay_off` (default 3 seconds, 10 for a mode) smooth it: the state goes on only after its sources
-were on that long, and off only after they were off that long. A state with `when` has no delays of its own: it
-follows the states it names. Modes are states with `mode = true`: the one with the highest `priority` whose sources are
+were on that long, and off only after they were off that long. A state with `when` has no delays by default (both
+0): it follows the states it names, which have theirs already; delays you give it add to theirs. Modes are states with `mode = true`: the one with the highest `priority` whose sources are
 on is the mode, else `default`. When the mode changes, the LCDs show its `label` across the strips for
 `switching.banner` seconds.
 
