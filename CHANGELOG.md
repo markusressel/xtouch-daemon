@@ -206,6 +206,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   switches it to the virtual device and opens it.
 - Switching a state between sources and a condition asks in plain words, lists the sources or the condition it
   removes, and has "Remove and switch" and Cancel instead of Yes and No.
+- The picked candidate of a slot card is an even, rounded tint, without the frame of its list around it.
 - The documentation has sections: Getting started (install, first steps, without a device), Guides, Configuration
   (the channel types and the parts of a strip grouped), Reference (commands, hardware and protocol, the voice chat
   bridge) and Development (architecture and all design documents). Pages moved, so their addresses changed.

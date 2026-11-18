@@ -254,6 +254,8 @@ QWidget[role="chips"] QLineEdit {{ border: none; background: transparent; paddin
 QWidget[role="chip"] {{ background: {tint(c.accent, 2 * TINT_ALPHA)}; border-radius: {Radius.PILL}px; }}
 QLabel[role="chip"] {{ padding: 1px {Space.S}px; }}
 {_entities(c)}
+QListWidget[role="stack"] {{ background: transparent; border: none; }}
+QListWidget[role="stack"]::item {{ border-radius: {Radius.SMALL}px; }}
 QListWidget[role="stack"]::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
 QWidget[role="chip"][variant="preset"] {{ background: transparent; border: 1px solid {c.accent}; }}
 

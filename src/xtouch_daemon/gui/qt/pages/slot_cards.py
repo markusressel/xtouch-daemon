@@ -10,6 +10,7 @@ from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QPointF, QRectF, Qt, 
 from PyQt6.QtGui import QColor, QDropEvent, QKeyEvent, QPainter, QPaintEvent, QPen
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QListWidget,
@@ -50,8 +51,9 @@ class StackList(QListWidget):
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        # picked on a tint: the chips of its row keep their colors
+        # picked on a tint: the chips of its row keep their colors; no frame of its own, the card is the frame
         set_role(self, "stack")
+        self.setFrameShape(QFrame.Shape.NoFrame)
         self.resize_animation = QVariantAnimation(self)
         self.resize_animation.setDuration(Motion.RESIZE)
         self.resize_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -145,7 +147,7 @@ class StackList(QListWidget):
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.addItem(item)
         rows_height = sum(self.sizeHintForRow(index) for index in range(self.count()))
-        self.grow_to(rows_height + 2 * self.frameWidth() + Space.XS)
+        self.grow_to(rows_height)
 
 
 RAIL = 24
