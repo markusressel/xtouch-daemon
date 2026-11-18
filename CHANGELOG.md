@@ -27,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `launch`, a `fader` and `encoder = "homeassistant"` (controls of a slot: `[controls]`), and `label` on them or on
   a place of `apps`, `auto` or `devices` says why instead of "Extra inputs are not permitted" on every slot. The GUI
   no longer offers those on a pool or a place.
+- The Solo buttons of the mode chord held their slots, so a mode picked by the chord changed those two strips only
+  after the release. They hold nothing, as designed.
 
 ## [0.1.0] - 2026-11-18
 

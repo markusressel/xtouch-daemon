@@ -13,7 +13,7 @@ in the voice chat, or a strip for Home Assistant. Each of the 8 strips of the de
 of channels it can show, and **states** (in a call, gaming) decide which one it shows now. So the device follows what
 you do: the game gets a fader while it runs, the voice chat and the microphone while you are in a call, and the next
 application that plays takes a free strip. When one strip changes, the others stay as they are, and a strip you
-are touching or holding a button of keeps what it shows until you let go. See [Channels, states and slots](configuration/slots.md).
+are touching or pressing (a fader, a button, the encoder) keeps what it shows until you let go. See [Channels, states and slots](configuration/slots.md).
 
 ### What a strip can control
 

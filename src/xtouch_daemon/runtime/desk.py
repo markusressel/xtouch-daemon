@@ -161,7 +161,7 @@ class Desk:
         return frozenset(
             {
                 *(strip + 1 for strip in self._touched),
-                *(strip + 1 for strip, _ in self._held),
+                *(strip + 1 for strip, button in self._held if not (button == Button.SOLO and strip in self.chord)),
                 *(index + 1 for index, strip in enumerate(self.surface.strips) if strip.held),
             }
         )
