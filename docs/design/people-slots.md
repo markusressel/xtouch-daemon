@@ -264,11 +264,13 @@ channel or `[pool.people]` options and no slot can show people.
 
 ## The GUI
 
-- **Slots**: Shows offers `apps`, `people` and `auto` with the channels. The dot is on the candidate that fills the
-  slot (on `people` while a person sits there). A pool below a pool that always holds reads `left over → apps`
-  (tooltip: the slots the pool above has no member for). The inspector says what a pool hands out and from where
-  (`Pool people: the people of the voice chat ..., from the right.`), with the place options of its strips: those
-  of an application for `apps` and `auto`, of a person for `people`, of a channel for a pool of channels.
+- **Slots**: Shows offers `apps`, `people` and `auto` with the channels. The dot is on the candidate that fills the slot
+  (on `people` while a person sits there). A pool without a condition reads `when app without a slot → apps` (an outlined chip)
+  (tooltip: what a member needs, e.g. an application that plays and has no slot yet; revised 2026-11-18, it read `left
+  over → apps` below another pool). A tiny LCD after each candidate has the color of its strip. The inspector says what
+  a pool hands out and from where (`Pool people: the people of the voice chat ..., from the right.`), with the place
+  options of its strips: those of an application for `apps` and `auto`, of a person for `people`, of a channel for a
+  pool of channels.
 - **Simulate**: two counts next to the states, people in the call and applications that play; the device shows their
   names. `apps fill` and `people fill` are what-ifs where the stacks name them.
 - **Grid**: `apps` and `people` are dimensions where a stack names them (full: as many as slots), e.g. a row

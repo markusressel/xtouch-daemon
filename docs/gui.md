@@ -58,8 +58,9 @@ The drawing of the device shows the encoder with its ring of 13 LEDs (Mackie Con
 meter next to Rec, Solo, Mute and Select, and the fader with its dB scale: the middle of the cap marks the value, -∞
 at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`). What each slot shows is printed under its LCD.
 
-The footer shows the file, whether the device runs it, the problems, and the buttons Undo, Redo, Revert and "Save and
-apply". The header has the switch of the [live preview](#live-preview), the state of the service with buttons to
+The footer shows the problems, whether the device runs the file, the switch [Try on the device](#try-on-the-device)
+while there are unsaved changes, and the buttons Undo, Redo, Revert and "Save and apply". The header has the state of
+the service with buttons to
 install, start, restart or stop it (see [The service](#the-service)), and what the sound server has.
 
 States, channels and slots have a color each, in the whole window: states (and modes) violet, channels (and what
@@ -123,34 +124,37 @@ as on the device), and breaks the touch sensor of faders ("Broken touch"), to tr
 it, and so does closing the window: for the daemon it is unplugged. What the drawing shows still comes from the
 daemon, which is what reached the device.
 
-## Live preview
+## Try on the device
 
-The switch "Live preview" in the header makes the device run the configuration in the editor before it is saved:
-the device follows every change a moment after it (undo and redo too), and the strips show it live. The file is not
-written. The switch is off whenever the window opens.
+Next to Save and apply, a pill says what the device runs: "Saved, on the device", "Unsaved changes" (the device
+runs the saved file), "On the device, not saved", or what is wrong (e.g. "Not running", "Not on the device yet"), with
+the details in its tooltip.
 
-- **While it is on**, the pill "Previewing unsaved changes" says that the device runs what is in the editor, not the
-  file.
+While there are unsaved changes, the switch "Try on the device" sits next to it: the device runs the configuration in
+the editor before it is saved, and follows every change a moment after it (undo and redo too). The file is not
+written. Without unsaved changes the switch is gone: the device runs the file anyway. Once on, it stays on for the
+next changes until it is turned off or the window closes; a new window starts with it off.
+
+- **While it is on**, the pill says "On the device, not saved" ("Sending to the device…" for a moment after a change).
 - **Save and apply** makes it the configuration: the daemon loads the saved file, which is what the device shows
-  already. The switch stays on for the next change.
+  already.
 - **Back to the file:** turning the switch off, closing the window (it asks about unsaved changes as usual, and says
   that the device runs them) or "Revert" brings back the saved file. So does a window that crashed: the daemon goes
   back to the file when the connection of the window ends, or when the window does not answer for 10 seconds. The
   file also comes back when it changes on disk, or the daemon is reloaded; then the switch goes off and the window
   says why.
-- **What the daemon does not take** shows in red under the pills, and the device keeps the version before. A preview
-  can't change `[mqtt]` (that takes a save and a restart), and a changed `[device] name` takes effect only with a
-  restart. A configuration with problems is not sent at all: the pill says "Live preview paused" until they are
+- **What the daemon does not take** shows in red under the status bar at the top, and the device keeps the version
+  before. It can't change `[mqtt]` (that takes a save and a restart), and a changed `[device] name` takes effect only
+  with a restart. A configuration with problems is not sent at all: the pill says "Paused: problems" until they are
   fixed.
 - **Channels, states and slots** are all part of it: a stack changed in the editor shows on the device as it is.
-- **One window at a time:** a second window that turns the live preview on takes it over, and the first one's switch
-  goes off.
-- **Home Assistant:** channels the preview does not have keep their entities in Home Assistant (with their state; only
-  nothing drives them), so they are as before once the file runs again. Entities of channels only the preview had are
+- **One window at a time:** a second window that turns it on takes over, and the first one's switch goes off.
+- **Home Assistant:** channels the changes do not have keep their entities in Home Assistant (with their state; only
+  nothing drives them), so they are as before once the file runs again. Entities of channels only the changes had are
   removed again when it ends.
 
-The switch is off, and its tooltip says why, while no daemon runs, while the daemon reads another file, and for a
-daemon from before the live preview (restart it to run the installed version).
+The switch is disabled, and its tooltip says why, while no daemon runs, while the daemon reads another file, and for a
+daemon from before this feature (restart it to run the installed version).
 
 ## The slots
 
@@ -160,18 +164,23 @@ On the page Slots:
   state (`auto`, `on`, `off`) or picks a mode (`pick`, `auto`), like Home Assistant or `xtouch-daemon mode`.
 - **A card per slot** lists its candidates as rules, read from the top like "if, else if, else": the first whose
   condition holds wins. `when gaming → auto` shows `auto` while `gaming` is on, `otherwise → browser` below it `browser`
-  the rest of the time (`always` for a lone candidate without a condition). Below a pool that always holds, `left over →
-  apps` gets the slots that pool has no member for. A rail on the left joins the candidates from the top, with "else"
-  between two and a node on each: green on the one the device shows (or Simulate would). Above it, the candidates are
-  dimmed with why they did not win (`✗ browser doesn't play`, `✗ browser is on slot 3`); below it, dimmed more: not
-  reached. Conditions are outlined chips, what the slot shows a filled one. The states are violet (`call`, `not gaming`,
-  one per `or`). `present` is spelled out in a teal chip, in what it means for the type of the channel or pool: `browser
-  if present` reads `when browser plays → browser`, `mic if present` `mic is connected`, `mum if present` `mum is in the
-  voice chat`, `present(people)` `someone is in the voice chat`. What the slot shows is teal (see [the
-  colors](#the-window)), and the green node is on the row that shows (on `people` while a person sits there, also when
-  `apps` is above it). Options of the strip in that slot only follow as in the file (`color = white, rec =
-  recording`). + adds `auto` at the end, the bin removes the candidate picked. Drag a candidate, or move it with Ctrl+Up
-  and Ctrl+Down. A slot without candidates shows `auto`.
+  the rest of the time (`always` for a lone candidate without a condition). A pool without a condition reads `when app
+  without a slot → apps` (an outlined chip): it shows only while it has a member no other slot has, else the slot goes
+  on to the next candidate. A tiny LCD after what it shows has the color of the strip: the candidate's own `color`, else
+  the channel's or the pool's, else white (two for `auto`: applications and people; one per color for a pool of
+  channels; dark for `-`). Its tooltip says where the color comes from. A rail on the left joins the candidates from the
+  top, with "else" between two and a node on each: green on the one the device shows (or Simulate would). Above it, the
+  candidates are dimmed with why they did not win (`✗ browser doesn't play`, `✗ browser is on slot 3`); below it, dimmed
+  more: not reached. When none of them has anything to show (e.g. the last is a pool with no member left), all are
+  dimmed with why (`✗ no person without a slot`) and the rail ends in a row of its own, "nothing to show: the strip is
+  dark", which is the one shown. Conditions are outlined chips, what the slot shows a filled one. The states are violet
+  (`call`, `not gaming`, one per `or`). `present` is spelled out in an olive chip (green in the light theme), in what it
+  means for the type of the channel or pool: `browser if present` reads `when browser plays → browser`, `mic if present`
+  `mic is connected`, `mum if present` `mum is in the voice chat`, `present(people)` `someone is in the voice chat`.
+  What the slot shows is teal (see [the colors](#the-window)), and the green node is on the row that shows (on `people`
+  while a person sits there, also when `apps` is above it). Options of the strip in that slot only follow as in the file
+  (`color = white, rec = recording`). + adds `auto` at the end, the bin removes the candidate picked. Drag a candidate,
+  or move it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
 - **The inspector** edits the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or
   `auto`, `-`), when (the
   [condition](configuration/slots.md#conditions):

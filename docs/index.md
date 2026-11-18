@@ -48,7 +48,7 @@ for lights, speakers in other rooms or scenes.
 ### Around it
 
 - **GUI editor** (`xtouch-daemon gui`): the eight strips as the device shows them right now, editing with errors next
-  to the options, suggestions from the sound server, drag to reorder, undo, a live preview that runs the unsaved
+  to the options, suggestions from the sound server, drag to reorder, undo, "Try on the device" that runs the unsaved
   changes on the device, and save-and-apply that keeps the comments of the file. See [GUI](gui.md).
 - **Command line tools:** a device self-test, lists of devices, profiles and applications, a configuration check. See
   [Commands](commands.md).

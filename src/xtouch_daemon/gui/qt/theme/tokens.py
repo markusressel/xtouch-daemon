@@ -12,11 +12,13 @@ from enum import StrEnum
 class Entity(StrEnum):
     """
     The things of the configuration that have a color of their own (`ThemeColors`): states (modes are states too),
-    channels (and what else a slot can show: pools, people), slots.
+    channels (and what else a slot can show: pools, people), slots, and presence: a condition that asks whether a
+    channel or a member of a pool is there (`browser plays`), in a hue apart from the channel it asks about.
     """
 
     STATE = "state"
     CHANNEL = "channel"
+    PRESENCE = "presence"
     SLOT = "slot"
 
 
@@ -101,6 +103,7 @@ class ThemeColors:
     state: str
     channel: str
     slot: str
+    presence: str
     """
     The colors of the things the configuration is made of (see `Entity`), everywhere in the window: in the help, as
     chips, on the rail. Hues of their own, apart from the tones (good, warning, bad) and the accent (what can be
@@ -111,7 +114,8 @@ class ThemeColors:
 THEMES = {
     # One Dark. text on raised 10.2:1; text_muted 6.5 (raised) / 5.9 (sunken); control_border 3.3 (raised) / 4.0
     # (sunken) / 3.6 (surface); on_accent 8.0 on accent, 9.4 on accent_hover; error 5.2..6.3; placeholder 5.2 on
-    # sunken; the pill texts 4.9..6.4 on their tints; state, channel, slot 5.1..5.4 on raised, text 6.5 on their chips
+    # sunken; the pill texts 4.9..6.4 on their tints; state, channel, slot 5.1..5.4 on raised, text 6.5 on their chips;
+    # presence 6.5 on raised
     ThemeMode.DARK: ThemeColors(
         qt_theme="one_dark_two",
         surface="#282c34",
@@ -137,10 +141,11 @@ THEMES = {
         state="#d48fe7",
         channel="#56b6c2",
         slot="#d19a66",
+        presence="#b5c25a",
     ),
     # GitHub light. text_muted 5.7 (surface) / 6.1 (white); control_border 3.2 / 3.5; on_accent 5.2 on accent, 5.9
     # on accent_hover; error 5.0, success 4.8, warning 4.6 on surface; the pill texts 4.9..6.5 on their tints; state,
-    # channel, slot 4.7 on surface, 5.0 on white, text 11 on their chips
+    # channel, slot 4.7 on surface, 5.0 on white, text 11 on their chips; presence 5.3 on surface, 5.6 on white
     ThemeMode.LIGHT: ThemeColors(
         qt_theme="github_light",
         surface="#f6f8fa",
@@ -166,6 +171,7 @@ THEMES = {
         state="#8250df",
         channel="#0f7b84",
         slot="#bc4c00",
+        presence="#5c6f00",
     ),
 }
 

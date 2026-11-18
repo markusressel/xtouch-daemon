@@ -43,7 +43,10 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     Row,
     choices,
     controls_text,
-    hands_down,
+    free_text,
+    free_words,
+    is_pool,
+    lcd_colors,
     place_options,
     pool_text,
     readable,
@@ -57,10 +60,11 @@ from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, entity_label, flat_button, help_label, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
+from xtouch_daemon.gui.qt.fields.controls import LcdBadge
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
-from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
+from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS, Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
@@ -86,7 +90,9 @@ class StackList(QListWidget):
         set_role(self, "stack")
 
     def order(self) -> list[int]:
-        return [self.item(index).data(_INDEX) for index in range(self.count())]  # pyright: ignore[reportOptionalMemberAccess]
+        # without the end of a dark slot (see `_fill_card`), which is no candidate
+        indexes = [self.item(index).data(_INDEX) for index in range(self.count())]  # pyright: ignore[reportOptionalMemberAccess]
+        return [index for index in indexes if index is not None]
 
     def keyPressEvent(self, e: QKeyEvent | None) -> None:
         assert e is not None
@@ -123,7 +129,7 @@ class CandidateRow(QWidget):
     rule is dimmed, with why it did not win under it; below it, dimmed more: not reached.
     """
 
-    def __init__(self, index: int, count: int, state: RowState, reason: str):
+    def __init__(self, index: int, count: int, state: RowState, reason: str, numbered: bool = True):
         super().__init__()
         self.first = index == 0
         self.last = index == count - 1
@@ -138,7 +144,7 @@ class CandidateRow(QWidget):
         self.rule = QHBoxLayout(self.line)
         self.rule.setContentsMargins(0, Space.XS if self.first else 0, 0, 0)
         self.rule.setSpacing(Space.S)
-        number = label(str(index + 1), "hint")
+        number = label(str(index + 1) if numbered else "", "hint")
         number.setFixedWidth(Space.M)
         self.rule.addWidget(number)
         outer.addWidget(self.line)
@@ -181,13 +187,13 @@ class CandidateRow(QWidget):
 def chip(text: str, show: str, values: Mapping[str, Any]) -> QWidget:
     """
     A part of a condition as an outlined chip: in words (`present` says what has to be present, see `readable`), in
-    the color of a channel when it asks only about presence, else of a state; `always` is no condition, so it is a
+    the color of presence when it asks only about presence, else of a state; `always` is no condition, so it is a
     hint.
     """
     if text == ALWAYS:
         return label(text, "hint")
     words, presence = readable(text, show, values)
-    widget = entity_label(words, Entity.CHANNEL if presence else Entity.STATE, chip=True)
+    widget = entity_label(words, Entity.PRESENCE if presence else Entity.STATE, chip=True)
     # outlined: a condition, apart from the filled chip of what the slot shows
     set_role(widget, "outline", "variant")
     widget.setToolTip(f"In the file: {text}")
@@ -307,7 +313,7 @@ class SlotsPanel(Page):
         self.middle.addWidget(self.grid)
         self.lists: list[StackList] = []
         self.card_frames: list[QFrame] = []
-        self.card_contents: list[tuple[list[Row], int | None, dict[int, str]] | None] = [None] * protocol.STRIPS
+        self.card_contents: list[tuple[list[Row], int | None, dict[int, str], bool] | None] = [None] * protocol.STRIPS
         """What each card shows: its candidates, the one the device shows, and why those above it did not win."""
         for slot in range(1, protocol.STRIPS + 1):
             self._card(slot)
@@ -432,11 +438,16 @@ class SlotsPanel(Page):
             view = live.get(slot)
             candidates = rows(self.document.values, slot)
             shown_candidate = view.candidate if view is not None else None
-            why = reasons(candidates, shown_candidate, view.why if view is not None else (), self.document.values)
-            if self.card_contents[slot - 1] != (candidates, shown_candidate, why):
+            # a pool with nothing to hand out (or no candidate at all): none of them shows, the strip is dark
+            dark = view is not None and (view.candidate is None or (view.pool is not None and view.member is None))
+            if dark:
+                shown_candidate = None
+            reached = len(candidates) if dark else shown_candidate
+            why = reasons(candidates, reached, view.why if view is not None else (), self.document.values)
+            if self.card_contents[slot - 1] != (candidates, shown_candidate, why, dark):
                 # built again only when a candidate, the one shown or a reason changed: every build lays out the card
-                self.card_contents[slot - 1] = (candidates, shown_candidate, why)
-                self._fill_card(stack, candidates, shown_candidate, why)
+                self.card_contents[slot - 1] = (candidates, shown_candidate, why, dark)
+                self._fill_card(stack, candidates, shown_candidate, why, dark)
             if slot == self.slot and self.candidate is not None and self.candidate < stack.count():
                 stack.setCurrentRow(self.candidate)
             elif slot != self.slot:
@@ -446,22 +457,41 @@ class SlotsPanel(Page):
             set_role(self.card_frames[slot - 1], bool(problems), "problem")
             self.card_frames[slot - 1].setToolTip("\n".join(str(problem) for problem in problems))
 
-    def _fill_card(self, stack: StackList, candidates: list[Row], shown: int | None, why: dict[int, str]) -> None:
+    def _fill_card(
+        self, stack: StackList, candidates: list[Row], shown: int | None, why: dict[int, str], dark: bool = False
+    ) -> None:
+        """
+        The candidates of a slot on its rail; `dark`: none of them has anything to show, so the rail ends in a row
+        of its own, the dark strip, which is the one shown.
+        """
         stack.clear()
+        count = len(candidates) + dark
         for index, candidate in enumerate(candidates):
             item = QListWidgetItem()
             item.setData(_INDEX, index)
             stack.addItem(item)
-            above = candidates[index - 1] if index else None
-            left_over = hands_down(self.document.values, above, candidate)
-            state: RowState = (
-                "" if shown is None else "shown" if index == shown else "passed" if index < shown else "unreached"
-            )
-            widget = self._row_widget(
-                candidate, state, index, len(candidates), self.document.values, left_over, why.get(index, "")
-            )
+            state: RowState
+            if dark or (shown is not None and index < shown):
+                state = "passed"
+            elif shown is None:
+                state = ""
+            else:
+                state = "shown" if index == shown else "unreached"
+            widget = self._row_widget(candidate, state, index, count, self.document.values, why.get(index, ""))
             stack.setItemWidget(item, widget)
             item.setSizeHint(stack.itemWidget(item).sizeHint())  # pyright: ignore[reportOptionalMemberAccess]
+        if dark and candidates:
+            item = QListWidgetItem()
+            # no candidate: it can't be picked, moved or dropped on
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            stack.addItem(item)
+            end = CandidateRow(len(candidates), count, "shown", "", numbered=False)
+            end.rule.addWidget(label("nothing to show: the strip is dark", "hint"))
+            end.rule.addWidget(LcdBadge("off", "off: the LCD is dark"))
+            end.rule.addStretch()
+            end.setToolTip("No candidate has anything to show now, so the strip is dark")
+            stack.setItemWidget(item, end)
+            item.setSizeHint(end.sizeHint())
         if stack.count() == 0:
             item = QListWidgetItem(f"{AUTO} (no entry)")
             item.setFlags(Qt.ItemFlag.NoItemFlags)
@@ -476,20 +506,23 @@ class SlotsPanel(Page):
         index: int,
         count: int,
         values: Mapping[str, Any],
-        left_over: bool = False,
         reason: str = "",
     ) -> QWidget:
         """
         A candidate as a rule, read from the top like if, else if, else: `when gaming → auto`, then
-        `otherwise → browser` for the last one without a condition, `left over → auto` below a pool that always holds
-        (`left_over`: it gets the slots that pool has no member for). States and what it shows are chips in their
-        colors (see `Entity`). On the rail of its card (see `CandidateRow`), with why it did not win (`reason`).
+        `otherwise → browser` for the last one without a condition, `when (app without a slot) → apps` for a pool
+        without one (it shows only while it has a member no other slot has). States and what it shows are chips
+        in their colors (see `Entity`).
+        On the rail of its card (see `CandidateRow`), with why it did not win (`reason`).
         """
         widget = CandidateRow(index, count, state, reason)
         layout = widget.rule
-        if left_over and candidate.chips == (ALWAYS,):
-            word = label("left over", "hint")
-            word.setToolTip("The slots the pool above has no member for")
+        if candidate.chips == (ALWAYS,) and is_pool(values, candidate.show):
+            layout.addWidget(label("when", "hint"))
+            word = entity_label(free_words(values, candidate.show), Entity.PRESENCE, chip=True)
+            # outlined like the other conditions: a member is there, as `present` of a channel
+            set_role(word, "outline", "variant")
+            word.setToolTip(free_text(values, candidate.show))
             layout.addWidget(word)
         elif candidate.chips == (ALWAYS,):
             word = "otherwise" if index == count - 1 and count > 1 else ALWAYS
@@ -506,8 +539,17 @@ class SlotsPanel(Page):
             if candidate.show == EMPTY
             else entity_label(candidate.show, Entity.CHANNEL, True)
         )
-        if candidate.options:
-            options = ElidedLabel(", ".join(f"{name} = {_value(value)}" for name, value in candidate.options.items()))
+        for color, where in lcd_colors(values, candidate):
+            if color in LCD_COLORS:
+                layout.addWidget(LcdBadge(color, f"{color}: {where}"))
+        # a color the LCD has no backlight for stays as text, for the problems to name
+        rest = {
+            name: value
+            for name, value in candidate.options.items()
+            if name != "color" or not (isinstance(value, str) and value in LCD_COLORS)
+        }
+        if rest:
+            options = ElidedLabel(", ".join(f"{name} = {_value(value)}" for name, value in rest.items()))
             set_role(options, "hint")
             options.own_tip = True
             options.setToolTip("Options of the strip in this slot only: " + options.text())

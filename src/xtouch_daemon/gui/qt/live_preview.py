@@ -120,7 +120,7 @@ class LivePreview(QObject):
             self._sent = None
             self.running = False
             self.set_on(False)
-            self.notice = f"The live preview ended: {reply.message}."
+            self.notice = f"Trying the changes on the device ended: {reply.message}."
         elif reply.kind == "error":
             self.error = reply.message
         else:

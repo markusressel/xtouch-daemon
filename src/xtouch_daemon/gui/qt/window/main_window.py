@@ -47,18 +47,18 @@ from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.broker import header_status
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.history import History
-from xtouch_daemon.gui.domain.live_preview import preview_pill, previewed, unavailable
+from xtouch_daemon.gui.domain.live_preview import previewed, unavailable
 from xtouch_daemon.gui.domain.schema import SECTIONS
 from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
-from xtouch_daemon.gui.domain.status import Status, offers_virtual_device, preview_status, runs_older, sync_status
+from xtouch_daemon.gui.domain.status import Status, changes_status, offers_virtual_device, preview_status, runs_older
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
 from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
-from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page, page_title, scrolled, set_text
+from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page, page_title, scrolled
 from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
 from xtouch_daemon.gui.qt.pages.sections import (
     BrokerTest,
@@ -266,7 +266,6 @@ class MainWindow(QMainWindow):
         titles.addWidget(self.path_label)
         layout.addLayout(titles)
         layout.addStretch()
-        self._live_preview_switch(layout)
         self.service_controls = ServiceControls(self.service)
         self.service_controls.changed.connect(self.refresh_service)
         # the status line comes later, with the footer
@@ -274,18 +273,25 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.service_controls)
         return header
 
-    def _live_preview_switch(self, layout: QHBoxLayout) -> None:
-        """The switch of the live preview: the device runs the document instead of the file while it is on."""
+    def _try_switch(self) -> QWidget:
+        """
+        "Try on the device", next to Save and apply: the device runs the changes in the editor before they are saved
+        (the live preview). Only there while there are changes to try.
+        """
+        box = QWidget()
+        layout = QHBoxLayout(box)
+        layout.setContentsMargins(0, 0, Space.S, 0)
+        layout.setSpacing(Space.S)
         self.preview_switch = Switch()
-        # like the service controls: a key typed into the window right after it opened must not turn it on
+        # a key typed into the window must not turn it on: Enter in a field would send the changes to the device
         self.preview_switch.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.preview_switch.setAccessibleName("Live preview")
+        self.preview_switch.setAccessibleName("Try on the device")
         self.preview_switch.toggled.connect(self.live_preview.set_on)
-        self.preview_label = label("Live preview", "hint")
+        self.preview_label = label("Try on the device", "hint")
         self.preview_label.setBuddy(self.preview_switch)
         layout.addWidget(self.preview_label)
         layout.addWidget(self.preview_switch)
-        layout.addSpacing(Space.L)
+        return box
 
     def _preview_status(self) -> QHBoxLayout:
         """What the preview shows (live or the file), the connection to Home Assistant, and the sound server."""
@@ -294,9 +300,6 @@ class MainWindow(QMainWindow):
         """Live or the file; while the daemon waits for the virtual device, a click opens it."""
         self.mode_pill.mousePressEvent = lambda event: self._mode_clicked()  # type: ignore[method-assign]
         top.addWidget(self.mode_pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.preview_pill = label("", "pill")
-        """Whether the device runs the unsaved changes (the live preview)."""
-        top.addWidget(self.preview_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self.mqtt_pill = label("", "pill")
         self.mqtt_pill.setCursor(Qt.CursorShape.PointingHandCursor)
         self.mqtt_pill.mousePressEvent = lambda event: self.show_page("mqtt")  # type: ignore[method-assign]
@@ -304,8 +307,7 @@ class MainWindow(QMainWindow):
         self.slots_pill = label("", "pill")
         """The mode of a daemon with channels, states and slots; its tip has the states and the slots."""
         top.addWidget(self.slots_pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.sync_label = ElidedLabel("", "hint")
-        top.addWidget(self.sync_label, 1)
+        top.addStretch(1)
         self.audio_label = ElidedLabel("Reading the sound server…", "hint")
         top.addWidget(self.audio_label)
         self.refresh_audio = flat_button("refresh", "Read the devices and applications of the sound server again")
@@ -515,6 +517,11 @@ class MainWindow(QMainWindow):
         self.restart_button.clicked.connect(self._restart)
         self.restart_button.hide()
         layout.addWidget(self.restart_button)
+        self.changes_pill = label("", "pill")
+        """Whether the device runs the saved file, the unsaved changes, or neither (see `changes_status`)."""
+        layout.addWidget(self.changes_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.try_box = self._try_switch()
+        layout.addWidget(self.try_box)
         self.undo_button = flat_button("undo", "Undo (Ctrl+Z)")
         self.undo_button.clicked.connect(self.undo)
         layout.addWidget(self.undo_button)
@@ -596,7 +603,7 @@ class MainWindow(QMainWindow):
         self.states_page.show_live(snapshot)
         self.mqtt_page.show_live(snapshot)
         self.voip_page.show_live(snapshot)
-        sync = sync_status(
+        changes = changes_status(
             self.daemon,
             snapshot,
             self.document.path,
@@ -604,9 +611,10 @@ class MainWindow(QMainWindow):
             self.document.modified,
             self.applying.isActive(),
             shows_document and self.document.modified,
+            self.live_preview.on,
+            self.validation.config is None,
         )
-        set_text(self.sync_label, sync.text)
-        self.sync_label.setToolTip(sync.tip)
+        show_status(self.changes_pill, changes)
         self._show_savable()
 
     def _show_savable(self) -> None:
@@ -621,7 +629,10 @@ class MainWindow(QMainWindow):
             widget.setEnabled(savable)
 
     def _show_live_preview(self, snapshot: Snapshot | None) -> None:
-        """The switch of the live preview (off while it can't be on), its pill, and what the daemon said."""
+        """
+        The switch "Try on the device": there while there are changes to try (or they run), off and disabled while
+        they can't go to the device; and what the daemon said.
+        """
         preview = self.live_preview
         reason = unavailable(self.daemon, snapshot, self.document.path, self.live.owned)
         if reason is not None:
@@ -629,19 +640,17 @@ class MainWindow(QMainWindow):
         elif self.resume_live_preview:
             self.resume_live_preview = False
             preview.set_on(True)
+        # without changes the device runs the file anyway: nothing to switch (it stays on for the next change)
+        self.try_box.setVisible(self.document.modified or preview.running)
         self.preview_switch.setEnabled(reason is None)
         with QSignalBlocker(self.preview_switch):
             self.preview_switch.setChecked(preview.on)
         tip = reason or (
-            "The device runs the changes in the editor while they are not saved, and the file again once this is "
-            "off or the window closes"
+            "Runs the changes on the device before they are saved, and the saved file again once this is off or the "
+            "window closes. It stays on for the next changes."
         )
         for widget in (self.preview_switch, self.preview_label):
             widget.setToolTip(tip)
-        pill = preview_pill(preview.on, preview.running, self.document.modified, self.validation.config is None)
-        self.preview_pill.setVisible(pill is not None)
-        if pill is not None:
-            show_status(self.preview_pill, pill)
         message = f"The device keeps the version before: {preview.error}" if preview.error else preview.notice
         self.preview_message.setVisible(message is not None)
         self.preview_message.setText(message or "")
@@ -905,7 +914,7 @@ class MainWindow(QMainWindow):
             buttons = QMessageBox.StandardButton
             question = "Save the changes before closing?"
             if self.live_preview.running:
-                question += " The device runs them now (live preview): without saving, it goes back to the file."
+                question += " The device runs them now (Try on the device): without saving, it goes back to the file."
             answer = QMessageBox.question(
                 self,
                 "Unsaved changes",

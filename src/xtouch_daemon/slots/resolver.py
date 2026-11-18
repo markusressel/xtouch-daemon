@@ -158,7 +158,10 @@ class _Resolver:
         # 3. pools
         waiting = self._pools(shown)
         for slot in SLOTS:
-            self.why[slot].append(f"shows {shown[slot]}")
+            dark = shown[slot].pool is not None and shown[slot].member is None
+            self.why[slot].append(
+                f"shows nothing: {shown[slot].pool} has none left" if dark else f"shows {shown[slot]}"
+            )
         return Result(dict(sorted(shown.items())), waiting, {slot: tuple(lines) for slot, lines in self.why.items()})
 
     def _next(self, slot: int, start: int) -> int:
@@ -266,6 +269,7 @@ class _Resolver:
                         rest[slot].pop(0)
                     else:
                         # channels of a pool without a slot are just not shown: the slot is dark
+                        self.why[slot].append(f"{pool}: none left for this slot")
                         shown[slot] = Shown(index[slot], pool=pool)
                         del rest[slot]
 
@@ -336,6 +340,10 @@ class _Resolver:
         for slot in kinds:
             member: Member | None = next((taken[kind][slot] for kind in ORDER if slot in taken[kind]), None)
             if member is None:
+                # every pool of the chain came away empty: each says so, the slot is dark
+                for index in rest[slot]:
+                    if (show := stacks[slot][index].show) is not None:
+                        self.why[slot].append(f"{show}: none left for this slot")
                 end = ends[slot]
                 show = stacks[slot][end].show
                 shown[slot] = Shown(end) if show is None else Shown(end, pool=show)

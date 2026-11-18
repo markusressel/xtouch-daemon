@@ -87,7 +87,7 @@ def runs_older(daemon: Instance | None, snapshot: Snapshot | None, path: Path, s
     )
 
 
-def sync_status(
+def changes_status(
     daemon: Instance | None,
     snapshot: Snapshot | None,
     path: Path,
@@ -95,36 +95,64 @@ def sync_status(
     modified: bool,
     applying: bool,
     previewed: bool = False,
+    trying: bool = False,
+    problems: bool = False,
 ) -> Status:
     """
-    Whether the device runs the saved file, and what is not on it yet. `applying` is true for a moment after a
-    reload, which takes the daemon a moment. `previewed`: the device runs the document as it is (the live preview).
+    The pill next to Save and apply: whether the device runs the saved file, the unsaved changes (the live preview,
+    "Try on the device"), or neither, in a few words, the rest in its tip. `applying` is true for a moment after a
+    reload, which takes the daemon a moment; `previewed`: the device runs the document as it is; `trying`: the live
+    preview is on; `problems`: the document has some, so it does not go to the device.
     """
     if previewed:
         return Status(
-            "The device runs the unsaved changes (live preview). Save to keep them.",
+            "On the device, not saved",
             Tone.WARN,
-            "Turning the live preview off, or closing the window, brings back the saved file.",
+            "The device runs the changes in the editor. Save and apply keeps them; turning off Try on the device, or "
+            "closing the window, brings back the saved file.",
         )
-    pending = " There are unsaved changes." if modified else ""
+    if trying and modified and problems:
+        return Status(
+            "Paused: problems",
+            Tone.WARN,
+            "The changes have problems, so the device keeps the last version without them. Fix them to go on.",
+        )
+    if trying and modified:
+        return Status("Sending to the device…", Tone.NEUTRAL, "The changes reach the device in a moment.")
+    base = _saved_status(daemon, snapshot, path, saved, applying)
+    if not modified:
+        return base
+    if base.tone == Tone.GOOD:
+        return Status(
+            "Unsaved changes",
+            Tone.NEUTRAL,
+            "The device runs the saved file. Try on the device runs the changes there before you save them.",
+        )
+    return Status("Unsaved changes", base.tone, f"{base.text}. {base.tip}".strip())
+
+
+def _saved_status(
+    daemon: Instance | None, snapshot: Snapshot | None, path: Path, saved: Config | None, applying: bool
+) -> Status:
+    """Whether the device runs the saved file, without the changes in the editor."""
     if daemon is None:
-        return Status(("Nothing runs this file." + pending).strip(), Tone.NEUTRAL)
+        return Status("Not running", Tone.NEUTRAL, "No daemon runs this file: start the service.")
     if path.resolve() != daemon.config:
-        return Status(f"The daemon reads {daemon.config}, not this file.{pending}", Tone.WARN)
+        return Status("Runs another file", Tone.WARN, f"The daemon reads {daemon.config}, not this file.")
     if snapshot is None:
-        return Status(("The daemon reads this file." + pending).strip(), Tone.NEUTRAL)
+        return Status("Saved", Tone.NEUTRAL, "The daemon reads this file; it has no live view to tell what runs.")
     if saved is not None and snapshot.config == fingerprint(saved):
-        return Status(("The device runs the saved file." + pending).strip(), Tone.GOOD)
+        return Status("Saved, on the device", Tone.GOOD, "The device runs the saved file.")
     if snapshot.preview:
         return Status(
-            "The device runs a live preview, not the saved file." + pending,
+            "Another window previews",
             Tone.WARN,
-            "A window of the GUI previews unsaved changes on the device. The file runs again once that ends.",
+            "A window of the GUI tries unsaved changes on the device. The file runs again once that ends.",
         )
     if applying:
-        return Status("Applying the saved file…", Tone.NEUTRAL)
+        return Status("Applying…", Tone.NEUTRAL, "The daemon loads the saved file.")
     return Status(
-        "The device does not run the saved file yet." + pending,
+        "Not on the device yet",
         Tone.WARN,
         "Save and apply it. If it stays like this, the daemon did not take the file: its log says why "
         "(journalctl --user -u xtouch-daemon), e.g. a changed [mqtt] section needs a restart.",

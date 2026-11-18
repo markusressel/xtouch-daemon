@@ -1,5 +1,6 @@
 """
-Small controls for values: a switch for booleans, color swatches, toggles for the numbers of strips.
+Small controls for values: a switch for booleans, color swatches, a tiny LCD for a color, toggles for the numbers of
+strips.
 """
 
 from PyQt6.QtCore import QPointF, QRectF, QSize, QSizeF, Qt, pyqtSignal
@@ -101,6 +102,31 @@ class Swatch(QAbstractButton):
             painter.drawPolyline(
                 QPolygonF([center + QPointF(-4.5, 0), center + QPointF(-1.5, 3), center + QPointF(4.5, -3.5)])
             )
+
+
+class LcdBadge(QWidget):
+    """A color of an LCD as a tiny LCD: the backlight, with two lines of text on it."""
+
+    SIZE = QSize(24, 16)
+
+    def __init__(self, name: str, tooltip: str = ""):
+        super().__init__()
+        self.name = name
+        self.setToolTip(tooltip or name)
+        self.setAccessibleName(f"LCD {name}")
+        self.setFixedSize(self.SIZE)
+
+    def paintEvent(self, event: QPaintEvent | None) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        screen = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        painter.setPen(QPen(QColor(current_colors().control_border), 1))
+        painter.setBrush(QColor(LCD_COLORS[self.name]))
+        painter.drawRoundedRect(screen, 3, 3)
+        text = LCD_TEXT_OFF if self.name == "off" else LCD_TEXT
+        painter.setPen(QPen(QColor(text), 2, cap=Qt.PenCapStyle.RoundCap))
+        for y, length in ((5.5, 12), (10.5, 8)):
+            painter.drawLine(QPointF(5, y), QPointF(5 + length, y))
 
 
 class ColorPicker(QWidget):

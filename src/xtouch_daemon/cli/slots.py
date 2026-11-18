@@ -92,7 +92,9 @@ def simulate(
         ),
     )
     for slot, shown in result.slots.items():
-        click.echo(f"{slot}  {shown}")
+        # a pool with nothing to hand out: the strip is dark
+        dark = shown.pool is not None and shown.member is None
+        click.echo(f"{slot}  - (dark: {shown.pool} has none left)" if dark else f"{slot}  {shown}")
         for line in result.why[slot][:-1]:
             click.echo(f"     {line}")
     for pool, members in result.waiting.items():

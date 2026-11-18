@@ -123,6 +123,8 @@ def _reason(text: str, show: str, values: Mapping[str, Any]) -> str:
     """A why line of a candidate in words: `doesn't hold (gaming is off, present: no)` is `gaming is off, ...`."""
     if text.startswith("on slot "):
         return f"{show} is {text}"
+    if text == "none left for this slot" and is_pool(values, show):
+        return f"no {free_words(values, show)}"
     if not (text.startswith("doesn't hold (") and text.endswith(")")):
         return text
     parts: list[str] = []
@@ -175,17 +177,80 @@ def is_pool(values: Mapping[str, Any], show: str) -> bool:
     return show in BUILT_IN or show in values.get("pool", {})
 
 
-def hands_down(values: Mapping[str, Any], above: Row | None, row: Row) -> bool:
+def free_words(values: Mapping[str, Any], name: str) -> str:
     """
-    Whether `row` gets the slots the pool of the row above has no member for, and only those: that pool always
-    holds, and `row` is a pool or `-`.
+    The condition a pool without one has, as a chip: a member that no slot has yet, e.g. `app without a slot` (not
+    that the slot is free). `free_text` says it in full.
     """
-    return (
-        above is not None
-        and is_pool(values, above.show)
-        and above.chips == (ALWAYS,)
-        and (row.show == EMPTY or is_pool(values, row.show))
-    )
+    if name == APPS:
+        return "app without a slot"
+    if name == PEOPLE:
+        return "person without a slot"
+    if name == DEVICES:
+        return "device without a slot"
+    if name == AUTO:
+        return "app or person without a slot"
+    return f"{name} channel without a slot"
+
+
+def free_text(values: Mapping[str, Any], name: str) -> str:
+    """
+    What a pool without a condition needs to fill a slot, for the tooltip of `free_words`: a member that no slot has
+    yet (it may have members, all on other slots).
+    """
+    if name == APPS:
+        return "An application that plays and has no slot yet"
+    if name == PEOPLE:
+        return "Someone in the voice chat who has no slot yet"
+    if name == DEVICES:
+        return "A device no channel has that has no slot yet"
+    if name == AUTO:
+        return "An application that plays, or someone in the voice chat, that has no slot yet"
+    return f"A channel of {name} that is there and has no slot yet"
+
+
+DEFAULT_COLOR = "white"
+"""The color of a strip that doesn't set one."""
+
+
+def lcd_colors(values: Mapping[str, Any], row: Row) -> tuple[tuple[str, str], ...]:
+    """
+    The colors the LCD of the slot has while `row` fills it, each with where it comes from: the candidate's own
+    `color`, else the channel's or the pool's (`auto` has those of `[pool.auto]` and `[pool.people]`, a pool of
+    channels those of its channels), else white. `-` is a dark LCD.
+    """
+    if row.show == EMPTY:
+        return (("off", "nothing: the LCD is dark"),)
+    own = row.options.get("color")
+    if isinstance(own, str):
+        return ((own, "color of this candidate"),)
+    pools: Mapping[str, Any] = values.get("pool", {})
+    channels: Mapping[str, Any] = values.get("channel", {})
+
+    def of(section: Mapping[str, Any], name: str, where: str) -> tuple[str, str]:
+        table = section.get(name)
+        color = table.get("color") if isinstance(table, Mapping) else None  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        if isinstance(color, str):
+            return color, where
+        return DEFAULT_COLOR, f"{where}: not set, white"
+
+    if row.show == AUTO:
+        return of(pools, AUTO, "applications: [pool.auto]"), of(pools, PEOPLE, "people: [pool.people]")
+    if row.show in BUILT_IN:
+        return (of(pools, row.show, f"[pool.{row.show}]"),)
+    if row.show in channels:
+        return (of(channels, row.show, f"[channel.{row.show}]"),)
+    pool = pools.get(row.show)
+    if isinstance(pool, Mapping):
+        found: dict[str, list[str]] = {}
+        for entry in pool.get("channels", ()):  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            for name, channel in channels.items():
+                tags = channel.get("tags", ()) if isinstance(channel, Mapping) else ()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+                if name == entry or entry in tags:
+                    color, _ = of(channels, name, "")
+                    found.setdefault(color, []).append(name)
+        return tuple((color, "[channel.*] of " + ", ".join(names)) for color, names in found.items())
+    return ()
 
 
 def pool_text(values: Mapping[str, Any], name: str) -> str:

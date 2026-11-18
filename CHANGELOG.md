@@ -84,7 +84,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - "Live preview" in the GUI: while it is on, the device runs the configuration in the editor before it is saved
   and follows every change. Saving keeps it; turning it off, closing the window, or a window that crashed or hangs
   brings back the file, and so does a change of the file on disk or a reload. Errors of the daemon show inline. It needs a daemon of this version (restart an older
-  one), which takes previews only from its own user.
+  one), which takes previews only from its own user. It sits next to Save and apply as "Try on the device", only
+  while there are unsaved changes, with a pill that says what the device runs (the saved file, the changes, or what
+  is wrong).
 
 - `lit_when_idle` on audio strips: the LCD keeps its backlight while the strip has nothing to control, e.g. an
   `apps` group whose applications don't play.
@@ -128,10 +130,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   (only those it has, Add source for more, ✕ to remove one) or Condition (the field of the page Slots, without
   `present`), never both. Delays and overrides are folded away until a state has one. A state whose last option
   is removed stays (it was removed with it).
-- On the cards of the page Slots, `present` is spelled out in what it means for the channel or pool (`when browser
-  plays → browser`, `mic is connected`, `mum is in the voice chat`) in the color of channels, and chips of one condition are joined by "or". Conditions are outlined chips,
-  what the slot shows filled ones. A rail joins the candidates of a card ("else" between two, numbered, a green node
-  on the one shown); above it they are dimmed with why they did not win, below it as not reached.
+- On the cards of the page Slots, `present` is spelled out in what it means for the channel or pool (`when browser plays
+  → browser`, `mic is connected`, `mum is in the voice chat`) in a color of its own (olive), apart from the teal of what
+  the slot shows, and chips of one condition are joined by "or". Conditions are outlined chips, what the slot shows
+  filled ones. A rail joins the candidates of a card ("else" between two, numbered, a green node on the one shown);
+  above it they are dimmed with why they did not win, below it as not reached. A pool without a condition reads `when
+  app without a slot → apps` (an outlined chip), and a tiny LCD after each candidate has the color its strip gets (its
+  own, the channel's or the pool's). A slot whose pools have no member left ends its rail in "nothing to show: the strip
+  is dark" instead of marking the last pool as shown; `xtouch-daemon why` says `shows nothing: people has none left` and
+  `simulate` `- (dark: people has none left)`.
 - Three built-in pools: `apps` (the applications that play and have no slot), `people` (the people of the voice
   chat) and `auto` (both, sharing its slots, people first). A slot says where people sit:
   `5 = ["people", "apps"]` is a person, else the next application; a pool with no member for a slot hands it to the
