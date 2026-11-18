@@ -335,6 +335,7 @@ class MainWindow(QMainWindow):
         self.device_view.picked.connect(self.show_slot)
         self.device_view.moved.connect(self.move_slot)
         self.device_view.try_without_device.connect(self.try_without_device)
+        self.device_view.use_virtual_device.connect(self.use_virtual_device)
         self.device_view.live_clicked.connect(self._mode_clicked)
         slots.simulated.connect(lambda: self.live_preview.set_situation(slots.what_if if slots.simulation else None))
         self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
@@ -940,6 +941,19 @@ class MainWindow(QMainWindow):
         process.deleteLater()
         self.status.setText(f"The daemon for trying without a device ended (exit code {code}).")
         self.refresh_service()
+
+    def use_virtual_device(self) -> None:
+        """
+        For a daemon that finds no device: `[device] virtual = true`, saved (the daemon takes it when it reloads,
+        without a restart), and the virtual device opened here.
+        """
+        if self.daemon is None or self.document.path.resolve() != self.daemon.config:
+            self.status.setText("The daemon reads another file: set Virtual on the page Device of that one.")
+            return
+        self.document.set(("device", "virtual"), True)
+        self.editor.edited(Change(Scope.VALUE, ("device", "virtual")))
+        if self.save():
+            self.open_virtual_device()
 
     def _mode_clicked(self) -> None:
         if offers_virtual_device(self.live.snapshot, self.hosted is not None):

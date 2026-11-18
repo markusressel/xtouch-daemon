@@ -29,7 +29,7 @@ from xtouch_daemon.config.files import default_config_path, load_config, parse_c
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.surface import Surface
-from xtouch_daemon.hardware.transport import SocketPort
+from xtouch_daemon.hardware.transport import AlsaPort, Port, SocketPort
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
@@ -98,9 +98,14 @@ def voip_state(provider: VoipProvider) -> VoipState:
     )
 
 
+def device_port(name: str, virtual: bool) -> Port:
+    """How to reach the device named `name`, or the virtual device (`[device] virtual`)."""
+    return SocketPort(instance.virtual_device_socket_file()) if virtual else AlsaPort(name)
+
+
 def device_surface(name: str, virtual: bool) -> Surface:
     """The surface of the device named `name`, or of the virtual device (`[device] virtual`)."""
-    return Surface(port=SocketPort(instance.virtual_device_socket_file())) if virtual else Surface(name)
+    return Surface(port=device_port(name, virtual))
 
 
 def touchless(config: Config) -> frozenset[int]:
@@ -157,6 +162,8 @@ class Daemon:
         """Set when something the slots look at changed: they are resolved SLOTS_BATCH later."""
         self.voip = self._build_voip(config)
         self._voip_task: asyncio.Task[None] | None = None
+        self._device_switch: asyncio.Task[None] | None = None
+        """Lets go of the device for another one (a reload with another `[device] name` or `virtual`)."""
         self._processes = processes
         self._state_dir = state_dir
         self.desk = Desk(self.surface, self._chord(config), self._on_chord, capture_command)
@@ -233,7 +240,9 @@ class Daemon:
             systemd.notify("READY=1", "STATUS=The [mqtt] section changed, restart the daemon")
             return False
         if (config.device.name, config.device.virtual) != (self.config.device.name, self.config.device.virtual):
-            _LOGGER.warning("The [device] name or virtual changed: restart the daemon for it to take effect")
+            # another device: the strips show the same on it once it is connected
+            port = device_port(config.device.name, config.device.virtual)
+            self._device_switch = asyncio.create_task(self.surface.use(port), name="device switch")
         self.file_config = config
         self._end_preview("the configuration file was loaded")
         self._use(config)
@@ -464,7 +473,7 @@ class Daemon:
             self.file_config.device.name,
             self.file_config.device.virtual,
         ):
-            return Reply("preview", True, "The device name and virtual change only with a restart.")
+            return Reply("preview", True, "The device name and virtual change when the file is saved.")
         return Reply("preview", True)
 
     def _end_preview(self, reason: str) -> bool:

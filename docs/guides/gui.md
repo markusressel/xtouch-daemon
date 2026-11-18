@@ -174,8 +174,8 @@ next changes until it is turned off or the window closes; a new window starts wi
   file also comes back when it changes on disk, or the daemon is reloaded; then the switch goes off and the window
   says why.
 - **What the daemon does not take** shows in red under the status bar at the top, and the device keeps the version
-  before. It can't change `[mqtt]` (that takes a save and a restart), and a changed `[device] name` takes effect only
-  with a restart. A configuration with problems is not sent at all: the pill says "Paused: problems" until they are
+  before. It can't change `[mqtt]` (that takes a save and a restart), nor `[device] name` and `virtual` (they take
+  a save). A configuration with problems is not sent at all: the pill says "Paused: problems" until they are
   fixed.
 - **Channels, states and slots** are all part of it: a stack changed in the editor shows on the device as it is.
 - **Simulate on the device:** while Simulate is open on the page Slots, the switch is there too (also without unsaved
@@ -310,9 +310,9 @@ Closing the window with unsaved changes asks whether to save them.
   IDE.
 - Without changes it is there too while the daemon runs another version of the file, e.g. one edited outside the
   GUI: then it only reloads the daemon.
-- A changed `[device] name` is reloaded, but takes a restart to take effect. A changed `[mqtt]` section is not
-  reloaded at all. In both cases the window offers "Restart the service" for the service; restart a daemon that runs
-  elsewhere where it runs.
+- A changed `[mqtt]` section is not reloaded at all: the window offers "Restart the service" for the service;
+  restart a daemon that runs elsewhere where it runs. A changed `[device] name` or `virtual` is: the daemon switches
+  to that device.
 - It then tells whether the device runs the saved file: "The device runs the saved file", or "The device does not run
   the saved file yet". If that stays, the daemon did not take the file, and its log says why
   (`journalctl --user -u xtouch-daemon`).

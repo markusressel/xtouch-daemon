@@ -63,8 +63,8 @@ intended. `check-config` shows what the [presets](../configuration/presets.md) i
 ## Configuration
 
 **A change does not show on the device.** Reload the daemon after saving: `systemctl --user reload xtouch-daemon`. A
-file with errors is logged and the old configuration stays: run `xtouch-daemon check-config`. A changed `[device] name` or
-`[mqtt]` section needs a restart. The [GUI](gui.md) tells whether the device runs the saved file.
+file with errors is logged and the old configuration stays: run `xtouch-daemon check-config`. A changed `[mqtt]` section
+needs a restart. The [GUI](gui.md) tells whether the device runs the saved file.
 
 ## Home Assistant
 

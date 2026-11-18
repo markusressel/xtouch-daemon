@@ -203,10 +203,10 @@ def sections() -> tuple[Section, ...]:
 SECTIONS: dict[str, Section] = {section.name: section for section in sections()}
 """The sections with options of their own (`[device]`, `[behavior]`, `[mqtt]`), edited option by option."""
 
-RESTART_SECTIONS: dict[str, str | None] = {"device": "name", "mqtt": None}
+RESTART_SECTIONS: dict[str, str | None] = {"mqtt": None}
 """
 The sections a reload does not take, with the one option of them that matters (None: all of them): the daemon keeps
-the device it opened, and its configuration on a new `[mqtt]`.
+its configuration on a new `[mqtt]`. Another `[device] name` or `virtual` it takes: it switches to that device.
 """
 
 

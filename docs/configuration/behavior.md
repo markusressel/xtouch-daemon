@@ -13,7 +13,8 @@ The sections that apply to the daemon and to every strip. The GUI shows them in 
 | `startup` | `"sweep"` | How the strips light up after a connect, see [below](#startup-and-shutdown-sequences). |
 | `shutdown` | `"sweep"` | How the strips go dark when the daemon stops, see [below](#startup-and-shutdown-sequences). |
 
-A changed `name` or `virtual` needs a restart of the daemon; a reload takes the others.
+A reload takes them all: with another `name` or `virtual` the daemon lets go of the device and connects to the other
+one, which shows the same.
 
 ### Startup and shutdown sequences
 

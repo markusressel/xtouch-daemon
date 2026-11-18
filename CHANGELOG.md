@@ -201,6 +201,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   controls of the device stand out. Code blocks, links and headings stay as they are.
 - Play with a daemon that waits for the virtual device (`[device] virtual = true`) opens it in the window and plays
   on it, instead of being off with "device not connected".
+- A changed `[device] name` or `virtual` no longer needs a restart: a reload lets go of the device and connects to
+  the other one. While the daemon runs without a device, "Use the virtual device" above the drawing in the GUI
+  switches it to the virtual device and opens it.
 - The documentation has sections: Getting started (install, first steps, without a device), Guides, Configuration
   (the channel types and the parts of a strip grouped), Reference (commands, hardware and protocol, the voice chat
   bridge) and Development (architecture and all design documents). Pages moved, so their addresses changed.

@@ -297,11 +297,27 @@ class Surface:
                     await asyncio.sleep(SCAN_INTERVAL)
                     continue
                 announced_missing = False
+                port = self.port
                 await self._disconnected.wait()
-                _LOGGER.warning(f"{self.device_name} is gone, waiting for it to come back")
-                announced_missing = True
+                if self.port is port:
+                    _LOGGER.warning(f"{self.device_name} is gone, waiting for it to come back")
+                    announced_missing = True
         finally:
             await self.close()
+
+    async def use(self, port: Port) -> None:
+        """
+        Reaches the device through `port` from now on (another sound card, or the virtual device): lets go of the one
+        it is connected to, and `run()` connects through `port`, as to a device that came back.
+        """
+        _LOGGER.info(f"Switching from {self.device_name} to {port.name}")
+        midi = self._midi
+        await self.close()
+        if midi is not None and self._midi is midi:
+            # the transport says when the device went away, not always when it was closed
+            self._on_closed()
+        self.port = port
+        self.device_name = port.name
 
     def connect(self) -> bool:
         """Connects to the device if it is there. False if it is not (or can't be opened)."""

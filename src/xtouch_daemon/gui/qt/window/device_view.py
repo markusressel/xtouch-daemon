@@ -46,6 +46,8 @@ class DeviceView(QWidget):
     """The pill of what the drawing shows was clicked (it opens the virtual device while the daemon waits for it)."""
     try_without_device = pyqtSignal(arguments=[])
     """"Try without a device": a daemon with the virtual device, hosted here."""
+    use_virtual_device = pyqtSignal(arguments=[])
+    """"Use the virtual device": the daemon finds no device, so it drives the virtual one, hosted here."""
 
     def __init__(self, slots: SlotsPanel, remote: Hand, owned: Callable[[], bool]) -> None:
         """`remote`: the hand on the daemon's device; `owned`: whether the daemon runs as this user."""
@@ -110,6 +112,15 @@ class DeviceView(QWidget):
         self.try_button.clicked.connect(self.try_without_device.emit)
         self.try_button.hide()
         layout.addWidget(self.try_button)
+        self.virtual_button = QPushButton("Use the virtual device")
+        set_icon(self.virtual_button, "monitor-shimmer")
+        self.virtual_button.setToolTip(
+            "The daemon runs, but finds no device: it drives the virtual device instead, here in the window, without a "
+            "restart. Saves the file with `[device] virtual = true` (Virtual, on the page Device)."
+        )
+        self.virtual_button.clicked.connect(self.use_virtual_device.emit)
+        self.virtual_button.hide()
+        layout.addWidget(self.virtual_button)
         return bar
 
     def _segment(self, text: str, icon_name: str, tip: str) -> QPushButton:
@@ -231,6 +242,15 @@ class DeviceView(QWidget):
         self.mode_hint.setText(hint)
         self.mode_hint.setToolTip(reason.why if reason is not None and not self.play_button.isChecked() else "")
         self.try_button.setVisible(not self.daemon_runs and not hosting)
+        snapshot = self.snapshot
+        self.virtual_button.setVisible(
+            self.daemon_runs
+            and snapshot is not None
+            and not snapshot.device
+            and not snapshot.virtual
+            and self.owned()
+            and not hosting
+        )
 
     def host(self, hosted: HostedDevice | None) -> None:
         """The GUI hosts the virtual device (None: not any more): its bar, and Play on it."""

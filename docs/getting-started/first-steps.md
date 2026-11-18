@@ -90,7 +90,7 @@ A unit in `~/.config/systemd/user` (e.g. from an installation from the source) o
 | Task | Command |
 |---|---|
 | Apply a changed configuration | `xtouch-daemon check-config && systemctl --user reload xtouch-daemon` |
-| Restart (after changing `[device] name` or `[mqtt]`) | `systemctl --user restart xtouch-daemon` |
+| Restart (after changing `[mqtt]`) | `systemctl --user restart xtouch-daemon` |
 | Stop (e.g. for `xtouch-daemon test`) | `systemctl --user stop xtouch-daemon` |
 | See whether the device, sound server and broker are connected | `systemctl --user status xtouch-daemon` |
 | Follow the log | `journalctl --user -u xtouch-daemon -f` |

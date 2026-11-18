@@ -38,7 +38,7 @@ class DeviceConfig(Model):
     virtual: bool = False
     """
     Drives the virtual device instead, to try things without the device (`xtouch-daemon virtual-device`, or the
-    GUI's). Takes effect after a restart.
+    GUI's). A reload switches to it, or back to the device.
     """
     touch_required: bool = True
     """

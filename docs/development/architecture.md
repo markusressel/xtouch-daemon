@@ -189,7 +189,7 @@ itself does not import it.
 - **The daemon is found, not guessed.** `xtouch-daemon run` writes `$XDG_RUNTIME_DIR/xtouch-daemon.json` (its process
   id, its configuration file, whether systemd started it) while it runs (`system/instance.py`), so the GUI finds it wherever
   it was started, and a second daemon names the one that has the device. A saved file is reloaded (SIGHUP) only when
-  the daemon reads that file; a changed `[device] name` or `[mqtt]` needs a restart, since a reload does not take them. The
+  the daemon reads that file; a changed `[mqtt]` needs a restart, since a reload does not take it (another `[device] name` or `virtual` it does: `Surface.use`). The
   GUI restarts only the service: `systemd.Service` (shared with `install-service`) reads the state of the unit, and
   installs, starts and restarts it.
 - **PyQt6, QtAwesome and qt-themes.** The same as openhasp-config-manager, so the tools look and work alike. The wheels
