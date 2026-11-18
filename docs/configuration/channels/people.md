@@ -92,3 +92,5 @@ The state `voice_chat = true` (see [States and modes](../slots.md#states-and-mod
 the voice chat.
 
 A plugin for another client speaks the [bridge protocol](../../reference/voice-chat-bridge.md).
+
+Next: [Mumble](../../guides/mumble.md) for the plugin, [slots](../slots.md#pools-of-applications-and-of-people) for pools of people of your own.

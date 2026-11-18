@@ -120,3 +120,5 @@ To run it in the foreground instead, e.g. to watch the log while you try somethi
 ```shell
 xtouch-daemon run -l debug
 ```
+
+Next: the [Setup tour](tour.md), then [Concepts](../concepts.md).

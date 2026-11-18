@@ -50,12 +50,19 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   the right). `apps` and `people` are each of them alone. A slot without an entry is `auto`, and so is a stack whose
   candidates all don't hold.
 - `-` is nothing: the slot is dark.
-- The table form `{ show = ..., when = ..., ... }` takes options of the look at this place: `color`,
-  `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`, and on a channel `label`. On `apps` and `auto` also
-  `encoder`, `min_volume` and `max_volume` (for the applications without a channel); on `devices` those and
-  `select`; on `people` only `color`, `meter` and `meter_point`. The built-in pools (`[pool.apps]`, `[pool.auto]`,
-  `[pool.devices]`, `[pool.people]`) take the same for all their places. A control for Home Assistant or a launch
-  is a control of the slot: [`[controls]`](#controls-and-the-chord).
+- The table form `{ show = ..., when = ..., ... }` takes options of the look at this place. The built-in pools
+  (`[pool.apps]`, `[pool.auto]`, `[pool.devices]`, `[pool.people]`) take the same for all their places.
+
+  | Candidate | Options |
+  |---|---|
+  | a channel | `color`, `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`, `label` |
+  | `apps`, `auto` | the look (not `label`), and for the applications without a channel `encoder`, `min_volume`, `max_volume` |
+  | `devices` | those of `apps`, and `select` |
+  | `people` | `color`, `meter`, `meter_point` |
+
+  A control for Home Assistant, or one that starts an application (`{ launch = [...] }`), is a control of the slot, not
+  a place option: [`[controls]`](#controls-and-the-chord). How to start an application with Select:
+  [Launching the application](channels/applications.md#launching-the-application).
 - The GUI's page Slots simulates other modes and states (Simulate), in the drawing or on the device.
 - `xtouch-daemon why 2` says why slot 2 shows what it shows, `xtouch-daemon why voip` where the channel is and
   why.
@@ -251,3 +258,5 @@ With `[mqtt]`: `select.xtouch_mode`, a binary sensor per state (with `since`,
 `source` and `override`), an override select per state that is no mode, an input switch per state with `homeassistant = true`,
 `binary_sensor.xtouch_<channel>_shown`, and `sensor.xtouch_slot_<n>` (what the slot shows, with `label`, `kind`, `via`
 and `reason`). See [Home Assistant](../guides/home-assistant.md).
+
+Next: [Devices](channels/devices.md), [Applications](channels/applications.md) and [People](channels/people.md) say what each channel type takes; [Presets](presets.md) the `@` names.

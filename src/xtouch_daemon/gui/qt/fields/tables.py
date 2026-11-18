@@ -86,7 +86,15 @@ class Tables(QWidget):
             wide = column.kind == Kind.TEXT and column.max_length is None
             if not wide:
                 # a label, a number: narrow
-                edit.setMaximumWidth(100 if column.kind == Kind.TEXT else 84)
+                # wide enough for its placeholder: "Min volume" must not read "Min volu..."
+                fits = edit.fontMetrics().horizontalAdvance(column.title) + 2 * Space.M
+                edit.setMinimumWidth(fits)
+                if column.max_length is not None:
+                    # as wide as its longest value: the 7 characters of a label
+                    fits = max(fits, edit.fontMetrics().horizontalAdvance("W" * column.max_length) + 2 * Space.M)
+                    edit.setMaximumWidth(fits)
+                else:
+                    edit.setMaximumWidth(max(140 if column.kind == Kind.TEXT else 84, fits))
             layout.addWidget(edit, 1 if wide else 0)
             column_suggest = self._suggest.get(column.name)
             if column_suggest is not None:

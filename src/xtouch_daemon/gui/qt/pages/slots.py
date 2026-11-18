@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
@@ -37,6 +38,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     controls_text,
     member_summary,
     place_options,
+    pool_kind,
     pool_strip,
     pool_text,
     reasons,
@@ -61,7 +63,7 @@ from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
-from xtouch_daemon.slots.model import AUTO, DEFAULT, DEVICES
+from xtouch_daemon.slots.model import AUTO, BUILT_IN, DEFAULT, DEVICES
 from xtouch_daemon.slots.why import where
 
 SHOWS_HELP = (
@@ -219,7 +221,7 @@ class SlotsPanel(Page):
         inspector.addWidget(self.problem)
         self.place = Stack()
         inspector.addWidget(self.place)
-        self.place_forms: dict[tuple[str, frozenset[str]], tuple[QWidget, list[OptionRow]]] = {}
+        self.place_forms: dict[tuple[str, frozenset[str], bool], tuple[QWidget, list[OptionRow]]] = {}
         """The forms of the options of a place, by strip type and the options it takes: built once, then reused."""
         self.place_rows: list[OptionRow] = []
         """The rows of the form shown."""
@@ -394,7 +396,11 @@ class SlotsPanel(Page):
             set_text(self.channel, _help(text))
             strip = pool_strip(candidate.show, self.document.values)
         if strip is not None:
-            form, self.place_rows = self._place_form(strip, place_options(candidate.show, self.document.values))
+            # a pool of applications of your own has no `pick` encoder
+            own = pool_kind(self.document.values, candidate.show) == "apps" and candidate.show not in BUILT_IN
+            form, self.place_rows = self._place_form(
+                strip, place_options(candidate.show, self.document.values), pick=not own
+            )
             self.place.show_part(form)
             self.place.setVisible(True)
             self._load_rows(self.place_rows)
@@ -489,21 +495,28 @@ class SlotsPanel(Page):
             crumb.clicked.connect(lambda _=False, index=index: self.lists[self.slot - 1].setCurrentRow(index))
             self.crumbs.addWidget(crumb)
 
-    def _place_form(self, strip: str, allowed: frozenset[str]) -> tuple[QWidget, list[OptionRow]]:
-        """The form of the options of a place of `strip`, for the candidate picked."""
-        key = (strip, allowed)
+    def _place_form(self, strip: str, allowed: frozenset[str], pick: bool = True) -> tuple[QWidget, list[OptionRow]]:
+        """The form of the options of a place of `strip`, for the candidate picked; `pick`: the encoder may pick."""
+        key = (strip, allowed, pick)
         if key not in self.place_forms:
             form = QWidget()
             layout = QVBoxLayout(form)
             layout.setContentsMargins(0, 0, 0, 0)
             # at a place every option is optional: the channel has its own
-            option_rows = [self._place_row(option) for option in look_options(strip, allowed)]
+            option_rows = [
+                self._place_row(
+                    dataclasses.replace(option, choices=tuple(c for c in option.choices if pick or c != "pick")),
+                    # unset, the encoder does what its strip does by default
+                    (lambda: default_encoder("apps" if not pick else strip)) if option.name == "encoder" else None,
+                )
+                for option in look_options(strip, allowed)
+            ]
             for option_row in option_rows:
                 layout.addWidget(option_row)
             self.place_forms[key] = form, option_rows
         return self.place_forms[key]
 
-    def _place_row(self, option: Option) -> OptionRow:
+    def _place_row(self, option: Option, placeholder: Callable[[], str] | None = None) -> OptionRow:
         """A row for an option of the place of the candidate picked, whichever it is when it is shown or edited."""
         name = option.name
 
@@ -521,7 +534,7 @@ class SlotsPanel(Page):
             stack[self.candidate] = Row(candidate.show, candidate.when, options)
             self._put(self.slot, stack)
 
-        option_row = OptionRow(option, get, put)
+        option_row = OptionRow(option, get, put, placeholder=placeholder)
 
         def edited() -> None:
             assert self.candidate is not None

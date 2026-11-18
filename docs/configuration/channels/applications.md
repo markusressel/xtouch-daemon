@@ -146,3 +146,5 @@ mumble://[username[:password]@]<address>[:port]/[channel[/subchannel...]]
   servers, and certificates need no password.
 - For Mumble as a Flatpak (`launch = ["flatpak", "run", "info.mumble.Mumble", "mumble://..."]`), keep `mumble` in
   `match`: the program of `launch` is `flatpak` then.
+
+Next: [People](people.md), [Presets](../presets.md), or the [slots](../slots.md) that show them.

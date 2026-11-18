@@ -207,3 +207,5 @@ profiles = [
 - If the old device was the default, the new one becomes the default.
 - Each device has its own volume: the fader moves to the volume of the new one.
 - A card in a profile that isn't in the list switches to the first one.
+
+Next: [Applications](applications.md), [People](people.md), or the [slots](../slots.md) that show them.

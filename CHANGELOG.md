@@ -32,6 +32,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the encoder of a place shows its default (`default: pick`) instead of staying blank, a pool of applications of your own offers no `pick`, and the columns of the choices table fit their titles.
+- Documentation: the plugin internals and the haad controller sketch moved to Development; Troubleshooting has Voice chat and GUI; pages end with a "Next" pointer; the place options of a slot are a table.
+
 - GUI: the list of Channels and the box Shows of a slot candidate have two groups, "Channels" (one strip each) and
   "Pools" (a member for each slot that names them: the built-in ones and your own); the Simulate bar says "apps" instead of "applications" so that it fits; the
   description of a pool no longer repeats the help of Shows; the lines of the Channels list show the names in the

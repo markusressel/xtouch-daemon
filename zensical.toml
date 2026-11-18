@@ -63,6 +63,8 @@ nav = [
       { "GUI" = "development/architecture/gui.md" },
       { "Testing" = "development/architecture/testing.md" },
     ] },
+    { "Mumble plugin" = "development/mumble-plugin.md" },
+    { "Home Assistant controller" = "development/haad-controller.md" },
     { "Design" = [
       { "Channels, states and slots" = [
         "development/design/slots/index.md",

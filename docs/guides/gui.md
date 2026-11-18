@@ -323,3 +323,5 @@ Closing the window with unsaved changes asks whether to save them.
   (`journalctl --user -u xtouch-daemon`).
 
 "Revert" drops the changes and reads the file again (Undo brings them back).
+
+Next: [Commands](../reference/commands.md) for the same things on the command line, [Troubleshooting](troubleshooting.md).

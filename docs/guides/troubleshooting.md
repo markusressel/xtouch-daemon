@@ -77,3 +77,22 @@ the broker settings in `[mqtt]` and the log. The GUI tells how the connection is
 popover of the service pill, and on the page Settings, Home Assistant, where "Test connection" tries the settings.
 
 **A strip shows `offline`.** The broker can't be reached. The daemon connects again by itself.
+
+## Voice chat
+
+**"waiting for Mumble", or nobody on the strips.** See [Mumble](mumble.md#troubleshooting): the plugin must be enabled in
+Mumble, and people need free `auto` slots or `person` channels on slots.
+
+## GUI
+
+**`xtouch-daemon gui` says how to install it.** The GUI is an extra (`xtouch-daemon[gui]`, or `xtouch-daemon-gui-bin` on
+Arch), see [Install](../getting-started/install.md).
+
+**The service pill says "unavailable".** The daemon is not running as a systemd user service. Start it with
+`systemctl --user start xtouch-daemon`, or run it in the foreground. The GUI edits the file without it, and "Try without a
+device" needs none.
+
+**"The device does not run the saved file yet" stays.** The daemon did not take the file; its log says why
+(`journalctl --user -u xtouch-daemon`).
+
+**Next:** [Commands](../reference/commands.md), [Hardware and protocol](../reference/hardware.md).

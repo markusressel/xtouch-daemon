@@ -95,3 +95,5 @@ The name to show on an `auto` slot for an application, at most 7 characters of A
 
 The key is the application name the sound server reports. `xtouch-daemon list-apps` shows it, and so do the
 suggestions of the GUI.
+
+Next: [Commands](../reference/commands.md), [Troubleshooting](../guides/troubleshooting.md).
