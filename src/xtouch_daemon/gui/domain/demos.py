@@ -45,7 +45,6 @@ LEVEL = 10
 VOLUME = 60
 """The volume the scenes start at."""
 
-AUDIO_TYPES = frozenset({"output", "input", "apps", "auto"})
 DEVICE_TYPES = frozenset({"output", "input"})
 
 

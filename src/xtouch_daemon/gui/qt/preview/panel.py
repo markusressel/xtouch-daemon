@@ -208,11 +208,6 @@ class Preview(QWidget):
     def dragging(self) -> bool:
         return self._drag is not None
 
-    @property
-    def drop_target(self) -> int | None:
-        """Where the dragged strip goes when it is let go."""
-        return None if self._drag is None else self._drag.target
-
     def start_drag(self, source: int, grab: float) -> None:
         """Lifts the strip out of the row: its place stays empty, and the others make room where it goes."""
         self._drag = _Drag(source, source, grab)
