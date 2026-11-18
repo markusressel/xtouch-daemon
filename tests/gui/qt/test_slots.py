@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import QLabel as QLabelType
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import click
-from xtouch_daemon.gui.qt.pages.slots import SlotsPanel, StackList
+from xtouch_daemon.gui.qt.pages.slot_cards import StackList
+from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot, StateView
 
