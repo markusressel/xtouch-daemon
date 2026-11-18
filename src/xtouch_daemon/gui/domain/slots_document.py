@@ -82,12 +82,12 @@ class Snapshot:
 
 
 class SlotsDocument:
-    """The configuration file at `path`, or the example configuration while there is no file yet."""
+    """The configuration file at `path`, or an empty one (with the example's header) while there is none."""
 
     def __init__(self, path: Path, text: str, exists: bool):
         self.path = path
         self.exists = exists
-        """Whether the file is there. Without it the document holds the example configuration."""
+        """Whether the file is there. Without it the document is empty: the GUI starts clean."""
         self._load(text)
 
     @classmethod
@@ -95,7 +95,7 @@ class SlotsDocument:
         try:
             text = path.read_text(encoding="utf-8")
         except FileNotFoundError:
-            return cls(path, example_config(), exists=False)
+            return cls(path, _header(example_config()) + "\n", exists=False)
         except OSError as e:
             raise ConfigError(f"can't read {path}: {e}") from e
         return cls(path, text, exists=True)
@@ -332,15 +332,21 @@ SECTION_ORDER = ("device", "behavior", "aliases", "mqtt", "voip", "switching", "
 """The sections of a file that is written anew, before `[slots]` and `[controls]`."""
 
 
-def _fresh(values: dict[str, Any], original: Any) -> str:
-    """The data as a new file: the comment at the top of `original`, then the sections in a fixed order."""
+def _header(text: str) -> str:
+    """The comment at the top of a file, up to its first line of TOML."""
     header: list[str] = []
-    for line in tomlkit.dumps(original).splitlines():
+    for line in text.splitlines():
         if line.strip() and not line.startswith("#"):
             break
         header.append(line)
     while header and not header[-1].strip():
         header.pop()
+    return "\n".join(header)
+
+
+def _fresh(values: dict[str, Any], original: Any) -> str:
+    """The data as a new file: the comment at the top of `original`, then the sections in a fixed order."""
+    header = _header(tomlkit.dumps(original)).splitlines()
     ordered: dict[str, Any] = {name: values[name] for name in SECTION_ORDER if name in values}
     ordered["slots"] = dict(sorted(values.get("slots", {}).items(), key=lambda item: int(item[0])))
     if "controls" in values:

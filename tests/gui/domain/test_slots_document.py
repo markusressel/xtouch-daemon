@@ -139,10 +139,10 @@ def test_saving_writes_only_a_valid_file(tmp_path: Path) -> None:
     assert doc.get(("slots", "1")) == "out"
 
 
-def test_without_a_file_the_example(tmp_path: Path) -> None:
+def test_without_a_file_it_starts_clean(tmp_path: Path) -> None:
     doc = SlotsDocument.open(tmp_path / "new" / "config.toml")
     assert not doc.exists
-    assert doc.get(("channel", "out", "type")) == "output"
+    assert doc.values == {}
     doc.save()
     assert doc.exists
     assert (tmp_path / "new" / "config.toml").exists()

@@ -14,8 +14,8 @@ The goal, for the 8 strips (slots) of the device:
 
 You need the daemon installed and the device [set up and tested](first-steps.md). The GUI starts with
 `xtouch-daemon gui`; without a configuration file it edits a new one and writes it with the first "Save and apply".
-That new file starts as the example: a channel `out` (the default output, on slot 8) and a channel `mic` (the default
-input, on slot 7). The tour changes them. The drawing of the device at the top shows what the file shows, as you edit.
+That new file is empty: every slot shows `auto`, the next application that plays. The drawing of the device at the top
+shows what the file shows, as you edit.
 No device? [Run the virtual one](without-a-device.md) and use that one as the device in this tour.
 
 ## 1. See what you have
@@ -30,9 +30,9 @@ something in the browser first, so that `list-apps` has an application to show.
 
 ## 2. The main output
 
-**GUI:** page **Channels**, pick `out`. Rename its id to `main_output` (field next to the title; the slots that name
-it follow), set the label to `Main` (up to 7 characters: that is all the LCD has) and the color to cyan. A second
-output would be **Add**, **Output from the sound server**.
+**GUI:** page **Channels**, **Add**, **Output from the sound server**, pick your speakers. Rename the id to
+`main_output` (field next to the title; the slots that name it follow), set the label to `Main` (up to 7 characters:
+that is all the LCD has) and the color to cyan.
 
 Select should switch between several devices, so add **Choices**: one per device, each with a label. A device that
 only exists in another profile of the sound card (the digital output, say) also needs the `card` and `profile`:
@@ -94,8 +94,8 @@ lit_when_idle = true        # the LCD stays lit while nothing plays: it is where
 
 ## 4. The microphone
 
-**GUI:** page **Channels**, pick `mic`, and give it the label, the color and the device (the ▾ next to the field lists
-the inputs of the sound server). Another input: **Add**, **Input from the sound server**.
+**GUI:** page **Channels**, **Add**, **Input from the sound server**, pick the microphone, then give it the label and the
+color.
 
 ```toml
 [channel.mic]
@@ -124,8 +124,8 @@ delay_off = 5               # stays on 5 s after the last source went off: a rec
 
 **GUI:** page **Slots**. Each slot is a card with its candidates, the first whose condition holds is shown. **+** adds a
 candidate at the end; pick one and the inspector sets what it shows ("Shows") and when ("When": empty is always, or a
-condition such as `call`, `present`, `call and not gaming`). Slots 7 and 8 start with one candidate each, from the
-example: change those.
+condition such as `call`, `present`, `call and not gaming`). Pick a slot's first candidate before adding the next: an
+empty slot is `auto`, so the first **+** shows it as a candidate you can change.
 
 ```toml
 [slots]

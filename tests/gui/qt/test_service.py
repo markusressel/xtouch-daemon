@@ -460,7 +460,7 @@ def test_a_new_file_can_be_saved_right_away(make_window: MakeWindow, tmp_path: P
     assert window.windowTitle() == "new.toml (new)"
     assert window.save_button.isEnabled()
     assert window.save()
-    assert "slots" in tomllib.loads((tmp_path / "new.toml").read_text())
+    assert tomllib.loads((tmp_path / "new.toml").read_text()) == {}
     assert window.status.text().startswith("Saved. The service reads")
 
 

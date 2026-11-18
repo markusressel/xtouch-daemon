@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- A new file in the GUI starts empty instead of with the example's channels and slots 7 and 8.
 - Renaming a channel or state in the GUI renames it in the slots, conditions, pools and controls that name it (they
   went red before).
 - A file the GUI writes for the first time is written anew: sections in order, slots by number, no leftovers of the

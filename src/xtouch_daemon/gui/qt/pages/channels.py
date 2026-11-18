@@ -63,7 +63,7 @@ class ChannelsPage(Page):
             )
         )
         self.start = help_label(
-            "No channel in the file yet. Without one the default output is on slot 8 and the default input on slot 7. "
+            "No channel in the file yet: every slot shows `auto`, the next application that plays. "
             'Add makes a channel: an output, an input, applications, a person or Home Assistant; "from the sound '
             'server" picks one of the devices there are now. A slot shows a channel once you name it on the page '
             "Slots.",
