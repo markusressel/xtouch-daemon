@@ -21,6 +21,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QApplication,
     QDockWidget,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -310,6 +311,9 @@ class MainWindow(QMainWindow):
         """What the GUI read from the sound server (for the suggestions); a click: all of it."""
         make_clickable(self.audio_label, self._show_audio)
         self.audio_error: str | None = None
+        self.audio_popover: QFrame | None = None
+        self.reopen_audio = False
+        """Whether the popover asked to read again: it shows the result."""
         top.addWidget(self.audio_label, 0, Qt.AlignmentFlag.AlignVCenter)
         self.refresh_audio = flat_button("refresh", "Read the devices and applications of the sound server again")
         self.refresh_audio.clicked.connect(self.load_audio)
@@ -736,6 +740,7 @@ class MainWindow(QMainWindow):
         tip = "What the GUI read from the sound server: the names the forms suggest."
         show_status(self.audio_label, Status(f"Sound server: {sources.summary(state)}", Tone.NEUTRAL, tip), more=True)
         self._audio_changed()
+        self._audio_read()
 
     def _audio_failed(self, message: str) -> None:
         self.audio = DISCONNECTED
@@ -743,31 +748,57 @@ class MainWindow(QMainWindow):
         status = Status("Sound server not reachable: type names by hand", Tone.WARN, message)
         show_status(self.audio_label, status, more=True)
         self._audio_changed()
+        self._audio_read()
 
     def _show_audio(self) -> None:
-        """What the GUI read from the sound server, or why it couldn't, and reading it again."""
-        again = (("Read again", self.load_audio),)
+        """What the GUI read from the sound server, or why it couldn't, and reading it again (it stays open)."""
+        heading = "What the GUI reads from the sound server"
+        again = (("Read again", self._read_audio_again),)
         if self.audio_error is not None:
             entry = Entry(
-                "The sound server",
-                Status("not reachable", Tone.WARN),
+                "Not reachable",
+                Status("no names", Tone.WARN),
                 f"{self.audio_error}\n\nThe forms suggest no names meanwhile: type them by hand.",
-                again,
             )
-            show_popover(self.audio_label, "What the GUI reads from the sound server", [entry])
+            self._keep_audio_popover(show_popover(self.audio_label, heading, [entry], actions=again))
             return
+        intro = (
+            "The names the forms suggest for `device` and `match`. The GUI reads them itself: the daemon's own "
+            "connection to the sound server is in the pill of the service."
+        )
         entries = [
             Entry(
-                "For the suggestions",
-                text="The names the forms suggest for `device` and `match`. The GUI reads them itself: the "
-                "daemon's own connection to the sound server is in the pill of the service.",
-                actions=again,
+                kind,
+                Status(str(len(items)), Tone.GOOD if items else Tone.NEUTRAL),
+                "" if items else "None.",
+                items=items,
             )
+            for kind, items in sources.contents(self.audio)
         ]
-        for kind, names in sources.contents(self.audio):
-            count = Status(str(len(names)), Tone.GOOD if names else Tone.NEUTRAL)
-            entries.append(Entry(kind, count, ", ".join(names) or "None."))
-        show_popover(self.audio_label, "What the GUI reads from the sound server", entries)
+        self._keep_audio_popover(show_popover(self.audio_label, heading, entries, intro, again))
+
+    def _keep_audio_popover(self, popover: QFrame) -> None:
+        self.audio_popover = popover
+        popover.destroyed.connect(lambda: self._forget_audio_popover(popover))
+
+    def _forget_audio_popover(self, popover: QFrame) -> None:
+        # the one closed for showing anew goes after the new one is there
+        if self.audio_popover is popover:
+            self.audio_popover = None
+
+    def _read_audio_again(self) -> None:
+        """Read again from the popover: it shows what was read when it is there (see `_audio_read`)."""
+        self.reopen_audio = True
+        self.load_audio()
+
+    def _audio_read(self) -> None:
+        """The popover, open while it read again, shows what it read now (in the same place)."""
+        if not self.reopen_audio:
+            return
+        self.reopen_audio = False
+        if self.audio_popover is not None and self.audio_popover.isVisible():
+            self.audio_popover.close()
+            self._show_audio()
 
     def _audio_changed(self) -> None:
         """What the forms suggest depends on the devices and the applications of the sound server."""
