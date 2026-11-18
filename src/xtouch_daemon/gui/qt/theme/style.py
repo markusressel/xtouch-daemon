@@ -136,7 +136,8 @@ def _entities(c: ThemeColors) -> str:
         rules.append(f'QToolButton[entity="{entity}"]:hover {{ background: {tint(color, 4 * TINT_ALPHA)}; }}')
         # the one picked of several (the path of the candidates of a slot)
         rules.append(
-            f'QToolButton[entity="{entity}"]:checked {{ background: {tint(color, 6 * TINT_ALPHA)}; font-weight: bold; }}'
+            f'QToolButton[entity="{entity}"]:checked {{ background: {tint(color, 6 * TINT_ALPHA)}; '
+            "font-weight: bold; }"
         )
         # a condition (`variant="outline"`): only the line and the text, so it reads apart from what a slot shows
         rules.append(
