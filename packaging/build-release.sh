@@ -120,7 +120,7 @@ EOF
 chmod 755 "$daemon_root/usr/bin/xtouch-daemon"
 
 mkdir -p "$daemon_root/usr/lib/systemd/user" "$daemon_root/usr/share/xtouch-daemon"
-"$python" -I -c 'from xtouch_daemon.systemd import unit_file; print(unit_file("/usr/bin/xtouch-daemon"), end="")' \
+"$python" -I -c 'from xtouch_daemon.system.systemd import unit_file; print(unit_file("/usr/bin/xtouch-daemon"), end="")' \
 	> "$daemon_root/usr/lib/systemd/user/xtouch-daemon.service"
 cp "$repo_dir/src/xtouch_daemon/config.example.toml" "$daemon_root/usr/share/xtouch-daemon/"
 
@@ -149,7 +149,7 @@ EOF
 # like the system's Python, and the version of xtouch-daemon-bin is pinned to the GUI's
 echo "../../../../xtouch-daemon/python/lib/python3.14/site-packages" > "$gui_site_packages/xtouch-daemon.pth"
 
-mkdir -p "$gui_root/usr/bin" "$gui_root/usr/share/applications"
+mkdir -p "$gui_root/usr/bin" "$gui_root/usr/share/applications" "$gui_root/usr/share/icons/hicolor/scalable/apps"
 cat > "$gui_root/usr/bin/xtouch-daemon-gui" << 'EOF'
 #!/bin/sh
 # The GUI of xtouch-daemon from the release package: the system's Python 3.14 and PyQt6, see /usr/lib/xtouch-daemon-gui.
@@ -157,6 +157,9 @@ exec "$(dirname "$(readlink -f "$0")")/../lib/xtouch-daemon-gui/bin/python3.14" 
 EOF
 chmod 755 "$gui_root/usr/bin/xtouch-daemon-gui"
 cp "$repo_dir/packaging/xtouch-daemon-gui.desktop" "$gui_root/usr/share/applications/"
+# the icon of the desktop file (Icon=xtouch-daemon-gui), the one the GUI shows
+cp "$repo_dir/src/xtouch_daemon/gui/qt/theme/images/icon.svg" \
+    "$gui_root/usr/share/icons/hicolor/scalable/apps/xtouch-daemon-gui.svg"
 cp "$repo_dir/LICENSE" "$gui_root/"
 
 # compile <tree> <directory>: the bytecode of everything in it, with the paths of the installed files. Nobody can write

@@ -10,10 +10,11 @@ from haad_mqtt_autodiscovery.entity.event import MQTTEvent
 from haad_mqtt_autodiscovery.entity.number import MQTTNumber
 from haad_mqtt_autodiscovery.entity.switch import MQTTSwitch
 
-from tests.conftest import finish_tasks
-from tests.fake_mqtt import FakeBroker
+from tests.support.mqtt import FakeBroker
+from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon import mqtt as mqtt_module
-from xtouch_daemon.config import ConfigError, MqttConfig
+from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.mqtt import MqttBridge
 
 CONFIG = MqttConfig(host="broker", username="xtouch", password="secret")  # type: ignore[arg-type]
@@ -251,20 +252,6 @@ async def test_entities_set_while_not_connected_are_announced_on_connect(
     assert "homeassistant/number/xtouch/strip_1_encoder/config" not in broker.retained
 
 
-async def test_entities_of_other_layouts_stay_in_home_assistant(bridge: MqttBridge, broker: FakeBroker) -> None:
-    fader, encoder = number(), number("strip_1_encoder")
-    await bridge.set_entities({fader: "0", encoder: "0"})
-    await start(bridge)
-    await until(lambda: bridge.ready)
-
-    await bridge.set_entities({fader: "0"}, keep=frozenset({encoder.unique_id}))
-    await until(lambda: bridge.ready)
-
-    # announced still, but not followed while its layout is not shown
-    assert "homeassistant/number/xtouch/strip_1_encoder/config" in broker.retained
-    assert "homeassistant/number/xtouch/strip_1_encoder/set" not in broker.connected[0].subscriptions
-
-
 async def test_a_lost_broker_is_reported_once_and_connected_again(
     bridge: MqttBridge, broker: FakeBroker, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -367,3 +354,44 @@ def test_a_password_that_is_not_there_stops_the_bridge(tmp_path: Path, monkeypat
 def test_the_password_is_not_shown() -> None:
     assert "secret" not in repr(CONFIG)
     assert "secret" not in str(CONFIG.model_dump())
+
+
+async def test_changes_of_the_entities_run_one_at_a_time_and_to_their_end(
+    bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    """A mixer replaced while it changes the entities (a reload, a slot): its unsubscribes are not cut short."""
+    first, second, third = number("a"), number("b"), number("c")
+    await bridge.set_entities({first: "0"})
+    task = await start(bridge)
+    client = broker.connected[0]
+    client.unsubscribe_gate = asyncio.Event()
+    replaced = asyncio.create_task(bridge.set_entities({second: "0"}))
+    await settle()
+    replaced.cancel()
+    following = asyncio.create_task(bridge.set_entities({third: "0"}))
+    await settle()
+    # the cancelled one still unsubscribes, the next waits for it
+    assert not following.done()
+    client.unsubscribe_gate.set()
+    await following
+    with pytest.raises(asyncio.CancelledError):
+        await replaced
+    assert first.command_topic not in client.subscriptions
+    assert second.command_topic not in client.subscriptions
+    assert third.command_topic in client.subscriptions
+    assert "homeassistant/number/xtouch/b/config" not in broker.retained
+    task.cancel()
+    await finish_tasks()
+
+
+async def test_closing_ends_the_changes_under_way(bridge: MqttBridge, broker: FakeBroker) -> None:
+    await bridge.set_entities({number("a"): "0"})
+    task = await start(bridge)
+    broker.connected[0].unsubscribe_gate = asyncio.Event()
+    change = asyncio.create_task(bridge.set_entities({number("b"): "0"}))
+    await settle()
+    await bridge.close()
+    with pytest.raises(asyncio.CancelledError):
+        await change
+    task.cancel()
+    await finish_tasks()

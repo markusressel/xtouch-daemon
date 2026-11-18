@@ -8,8 +8,8 @@ indicator of the desktop, or switch Bluetooth headphones into their headset mode
 They are native PipeWire streams on purpose: WirePlumber 0.5.18 (PipeWire 1.6.10) restores captures of PulseAudio
 clients (`parec`, peak detection streams) at 0 % volume, so they would only get silence.
 
-Where the volume is (measured with PipeWire 1.6.10, see docs/architecture.md): a stream and an input apply their
-volume and Mute in their own node (audioconvert), so everything that links to them gets the audio after both. The
+Where the volume is (measured with PipeWire 1.6.10, see docs/development/architecture.md): a stream and an input apply
+their volume and Mute in their own node (audioconvert), so everything that links to them gets the audio after both. The
 monitor of an output is taken before the output's volume and Mute (`monitor.channel-volumes` is off by default). The
 meters capture what they can and turn it into the level of the strip's `meter_point` with the volume the sound server
 tells (`scale_of()`): the audio of a muted stream or input is gone, its pre-fader level with it.
@@ -25,8 +25,8 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
-from xtouch_daemon.config import MeterPoint
-from xtouch_daemon.protocol import METER_MAX, METER_SIGNAL_MAX
+from xtouch_daemon.config.values import MeterPoint
+from xtouch_daemon.hardware.protocol import METER_MAX, METER_SIGNAL_MAX
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,6 +85,33 @@ def level_of(peak: float) -> int:
         return 0
     db = 20 * math.log10(peak)
     return max(0, min(METER_SIGNAL_MAX, math.ceil((db - FLOOR_DB) / -FLOOR_DB * METER_SIGNAL_MAX)))
+
+
+@dataclass(frozen=True)
+class Peak:
+    """A level of audio: the peak amplitude, 1.0 at full scale. The meter shows it in dB (`level_of()`)."""
+
+    amplitude: float
+
+
+@dataclass(frozen=True)
+class Lit:
+    """A level that is no audio (e.g. a percentage of Home Assistant): this many LEDs, 0..METER_MAX."""
+
+    leds: int
+
+
+type Reading = Peak | Lit
+"""
+What a strip's meter shows without a capture of its own (`StripController.held_meter()`): audio as `Peak`, so every
+source of audio reads on the same scale, anything else as `Lit`.
+"""
+
+
+def leds_of(reading: Reading) -> int:
+    if isinstance(reading, Peak):
+        return level_of(reading.amplitude)
+    return max(0, min(METER_MAX, reading.leds))
 
 
 @dataclass(frozen=True)

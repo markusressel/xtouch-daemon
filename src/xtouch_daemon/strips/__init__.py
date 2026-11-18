@@ -3,27 +3,19 @@
 from typing import assert_never
 
 from xtouch_daemon.audio.model import AudioState, Direction
-from xtouch_daemon.config import (
-    AppsStripConfig,
-    AutoStripConfig,
-    DeviceStripConfig,
-    EmptyStripConfig,
-    HomeAssistantStripConfig,
-    Indicator,
-    InheritStripConfig,
-    StripConfig,
-    VoipStripConfig,
-    color_of,
-    default_encoder,
-)
-from xtouch_daemon.launch import LaunchButton
-from xtouch_daemon.protocol import Button
+from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
+from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.values import MeterPoint, default_encoder
+from xtouch_daemon.config.voip_strips import VoipStripConfig
+from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
-from xtouch_daemon.strips.base import StripController, StripEnv, VolumeStrip
+from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
 from xtouch_daemon.strips.device import ChoiceStrip, DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
-from xtouch_daemon.strips.voip import VoipSeat, VoipStrip
-from xtouch_daemon.surface import Strip
+from xtouch_daemon.strips.voip import VoipStrip
+from xtouch_daemon.system.launch import LaunchButton
+from xtouch_daemon.voip.provider import VoipProvider
 
 
 class EmptyStrip(StripController):
@@ -33,12 +25,33 @@ class EmptyStrip(StripController):
         self.strip.reset()
 
 
-def launch_button(config: StripConfig, strip: Strip, env: StripEnv) -> LaunchButton | None:
+def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
+    """The look of a strip configuration; `meter_point` is where its meter takes the level (`Config.meter_point()`)."""
+    match config:
+        case EmptyStripConfig():
+            return Look(meter=False)
+        case HomeAssistantStripConfig():
+            return Look(config.label, config.color, meter=False)
+        case VoipStripConfig():
+            return Look(config.label, config.color, config.meter, meter_point)
+        case DeviceStripConfig() | AppsStripConfig() | AutoStripConfig():
+            return Look(
+                config.label if not isinstance(config, AutoStripConfig) else None,
+                config.color,
+                config.meter,
+                meter_point,
+                {Button.REC: config.rec, Button.SOLO: config.solo},
+                config.lit_when_idle,
+            )
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def launch_button(config: StripConfig, identity: Identity, env: StripEnv) -> LaunchButton | None:
     """What Select starts on a strip with `launch`; None for one without."""
-    if not isinstance(config, AppsStripConfig | AutoStripConfig | VoipStripConfig) or config.launch is None:
+    if not isinstance(config, AppsStripConfig | AutoStripConfig) or config.launch is None:
         return None
-    always = not isinstance(config, VoipStripConfig) and config.launch_when_running
-    return LaunchButton(config.launch, env.launcher, f"Strip {strip.index + 1}", always=always)
+    return LaunchButton(config.launch, env.launcher, identity.name, always=config.launch_when_running)
 
 
 def build_strip(
@@ -46,23 +59,22 @@ def build_strip(
     strip: Strip,
     env: StripEnv,
     aliases: dict[str, str],
-    seat: VoipSeat | None = None,
+    identity: Identity,
+    look: Look,
+    voip: VoipProvider | None = None,
 ) -> StripController:
     """
-    The controller of a strip. `seat` is where a `voip` strip sits among those of its layout (see `Mixer`);
-    `inherit` strips are resolved by `Config.all_strips()` already.
+    The controller of a strip, with its identity and look (see `look_of()`); `voip` is the voice chat of the strips
+    of people.
     """
     if isinstance(config, EmptyStripConfig):
-        return EmptyStrip(strip, env)
-    assert not isinstance(config, InheritStripConfig), "all_strips() resolves inherit strips"
+        return EmptyStrip(strip, env, identity, look)
     if isinstance(config, VoipStripConfig):
-        assert seat is not None, "the mixer seats voip strips"
-        return VoipStrip(strip, env, seat, config)
+        assert voip is not None, "the strips of people need the voice chat"
+        return VoipStrip(strip, env, identity, look, voip, config)
     if isinstance(config, HomeAssistantStripConfig):
         assert env.bridge is not None, "the configuration has no homeassistant strips without [mqtt]"
-        strip_id = config.id or f"strip_{strip.index + 1}"
-        return HomeAssistantStrip(strip, env, env.bridge, strip_id, config.label, config.color)
-    indicators: dict[Button, Indicator] = {Button.REC: config.rec, Button.SOLO: config.solo}
+        return HomeAssistantStrip(strip, env, env.bridge, identity, look)
     encoder = config.encoder or default_encoder(config.type, config.fader)
     controls = None
     if config.uses_home_assistant:
@@ -71,8 +83,7 @@ def build_strip(
             strip,
             env,
             env.bridge,
-            config.id or f"strip_{strip.index + 1}",
-            getattr(config, "label", None) or f"Strip {strip.index + 1}",
+            identity,
             fader=config.fader == "homeassistant",
             encoder=encoder == "homeassistant",
         )
@@ -81,29 +92,24 @@ def build_strip(
             controller: VolumeStrip = ChoiceStrip(
                 strip,
                 env,
+                identity,
                 Direction(config.type),
                 choices,
-                label=config.label,
-                color=color_of(config.color),
-                meter=config.meter,
-                indicators=indicators,
+                look,
                 min_volume=config.min_volume,
                 max_volume=config.max_volume,
                 encoder=encoder,
                 controls=controls,
-                strip_id=config.id or f"strip_{strip.index + 1}",
             )
         case DeviceStripConfig():
             controller = DeviceStrip(
                 strip,
                 env,
+                identity,
                 Direction(config.type),
                 config.device,
-                label=config.label,
-                color=color_of(config.color),
-                meter=config.meter,
+                look,
                 select=config.select,
-                indicators=indicators,
                 profiles=config.profiles,
                 min_volume=config.min_volume,
                 max_volume=config.max_volume,
@@ -114,11 +120,9 @@ def build_strip(
             controller = AppGroupStrip(
                 strip,
                 env,
+                identity,
                 config.match,
-                config.label,
-                color_of(config.color),
-                config.meter,
-                indicators,
+                look,
                 config.min_volume,
                 config.max_volume,
                 encoder,
@@ -129,10 +133,9 @@ def build_strip(
             controller = AutoStrip(
                 strip,
                 env,
+                identity,
                 aliases,
-                color_of(config.color),
-                config.meter,
-                indicators,
+                look,
                 config.min_volume,
                 config.max_volume,
                 encoder,
@@ -140,7 +143,6 @@ def build_strip(
             )
         case _ as unreachable:
             assert_never(unreachable)
-    controller.lit_when_idle = config.lit_when_idle
     if isinstance(controller, AppStrip):
-        controller.launch = launch_button(config, strip, env)
+        controller.launch = launch_button(config, identity, env)
     return controller

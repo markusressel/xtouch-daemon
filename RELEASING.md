@@ -8,7 +8,7 @@ GitHub release of the tag, and two AUR packages built from them:
 | Tarball | AUR package | Contents |
 |---|---|---|
 | `xtouch-daemon-<version>-x86_64.tar.gz` | `xtouch-daemon-bin` | A standalone CPython 3.14 ([python-build-standalone](https://github.com/astral-sh/python-build-standalone), installed by uv) with xtouch-daemon and every locked dependency except the GUI's, in `usr/lib/xtouch-daemon`; the command `usr/bin/xtouch-daemon`; the systemd user unit `usr/lib/systemd/user/xtouch-daemon.service` (`ExecStart=/usr/bin/xtouch-daemon run`, otherwise what `install-service` writes); `usr/share/xtouch-daemon/config.example.toml`; the Mumble plugin `usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin` (built from `integrations/mumble` with CMake); `LICENSE`. |
-| `xtouch-daemon-gui-<version>-any.tar.gz` | `xtouch-daemon-gui-bin` | A virtual environment of the system's `/usr/bin/python3.14` with its site-packages (for Arch's `python-pyqt6`) in `usr/lib/xtouch-daemon-gui`, holding the GUI's other dependencies (qtawesome, qtpy, qt-themes, tomlkit, packaging); the command `usr/bin/xtouch-daemon-gui`; `usr/share/applications/xtouch-daemon-gui.desktop`; `LICENSE`. |
+| `xtouch-daemon-gui-<version>-any.tar.gz` | `xtouch-daemon-gui-bin` | A virtual environment of the system's `/usr/bin/python3.14` with its site-packages (for Arch's `python-pyqt6`) in `usr/lib/xtouch-daemon-gui`, holding the GUI's other dependencies (qtawesome, qtpy, qt-themes, tomlkit, packaging); the command `usr/bin/xtouch-daemon-gui`; `usr/share/applications/xtouch-daemon-gui.desktop` with its icon `usr/share/icons/hicolor/scalable/apps/xtouch-daemon-gui.svg`; `LICENSE`. |
 
 Each tarball holds one directory, `<name>-<version>-<arch>/`, with `LICENSE` and the `usr/` tree.
 
@@ -67,6 +67,13 @@ commit next to the project.
    AUR packages from them in an Arch Linux container, installs them there and runs them, and then creates the GitHub
    release of the tag with the tarballs, `sha256sums.txt` and the section of the changelog. A release that exists
    already (e.g. created by hand) gets the tarballs added.
+
+   The [Documentation workflow](.github/workflows/docs.yml) publishes the documentation of the tag as its version
+   (`/0.2.0/`), moves the alias `latest` to it and makes it the default of the site. `main` is the version `dev`.
+   Each version is built once, when it is pushed, and stays as it is (with mike, on the branch `gh-pages`).
+   The "Learn more" links of the GUI open the version of the GUI (`/0.2.0/...`); the site's `404.html`
+   ([pages/404.html](pages/404.html)) forwards an address without a version, or of a version not deployed yet, to
+   the same page of `latest` (`dev` before the first release).
 
 4. **Publish the AUR packages** once the workflow has passed. On an Arch Linux machine with your AUR SSH key:
 

@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import assert_never
 
-from xtouch_daemon.config import VoipConfig
+from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.voip.bridge import BridgeProvider
 from xtouch_daemon.voip.demo import DemoProvider
 from xtouch_daemon.voip.provider import Capability, Participant, VoipProvider

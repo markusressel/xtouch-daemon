@@ -1,13 +1,18 @@
 """
 The live preview (see `gui.domain.live_preview`): sends the document to the daemon while it is on, a moment after
-every edit, and keeps the preview alive with a heartbeat.
+every edit, with the situation of Simulate while it is open (see `docs/development/design/try-and-simulate.md`), and
+keeps the preview alive with a heartbeat.
 """
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
-from xtouch_daemon.gui.domain.document import ConfigDocument
+from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.live_view import LiveView
-from xtouch_daemon.live import EndPreview, KeepPreview, Reply, StartPreview
+from xtouch_daemon.live.messages import EndPreview, KeepPreview, Reply, StartPreview
+from xtouch_daemon.slots.outcomes import Situation
+
+SITUATION = "situation"
+"""The feature of the daemon (`Snapshot.features`) that runs a situation of Simulate."""
 
 DEBOUNCE_MS = 300
 """How long the editor rests before the document goes to the daemon: typing a name sends it once, not per letter."""
@@ -23,7 +28,7 @@ class LivePreview(QObject):
 
     changed = pyqtSignal(arguments=[])
 
-    def __init__(self, live: LiveView, document: ConfigDocument):
+    def __init__(self, live: LiveView, document: SlotsDocument):
         super().__init__()
         self.live = live
         self.document = document
@@ -34,8 +39,13 @@ class LivePreview(QObject):
         """Why the daemon did not take the latest document (it runs the one before)."""
         self.notice: str | None = None
         """Something to know: e.g. why the preview ended, or what of it needs a restart."""
-        self._sent: str | None = None
-        """The text of the last preview sent, None when no preview of this window runs or is on its way."""
+        self.situation: Situation | None = None
+        """What Simulate shows, None while it is closed: the device shows it too while the preview is on."""
+        self._sent: tuple[str | None, Situation | None] | None = None
+        """
+        The last preview sent: the text (None: the file's) and the situation; None when no preview of this window
+        runs or is on its way.
+        """
         self.debounce = QTimer(self)
         self.debounce.setSingleShot(True)
         self.debounce.setInterval(DEBOUNCE_MS)
@@ -66,6 +76,19 @@ class LivePreview(QObject):
         if self.on:
             self.debounce.start()
 
+    @property
+    def simulating(self) -> bool:
+        """Whether the daemon took a situation of this window (the snapshot tells once the device shows it)."""
+        return self.running and self._sent is not None and self._sent[1] is not None
+
+    def set_situation(self, situation: Situation | None) -> None:
+        """Simulate changed (None: it ended): the device shows it too, a moment later, while the preview is on."""
+        if situation == self.situation:
+            return
+        self.situation = situation
+        if self.on:
+            self.debounce.start()
+
     def saved(self) -> None:
         """
         The document was saved and the daemon reloads it, which ends the preview: the device runs the file, which is
@@ -77,18 +100,23 @@ class LivePreview(QObject):
         self.changed.emit()
 
     def send(self) -> None:
-        """Sends the document, unless the daemon has it already; without changes the device runs the file."""
-        if not self.document.modified:
+        """
+        Sends the document and the situation, unless the daemon has them already; without changes and without a
+        situation the device runs the file.
+        """
+        snapshot = self.live.snapshot
+        situation = self.situation if snapshot is not None and SITUATION in snapshot.features else None
+        if not self.document.modified and situation is None:
             self._end()
             self.error = None
             self.changed.emit()
             return
-        if self.document.validate().config is None:
+        if self.document.modified and self.document.validate().config is None:
             # the problems show in the window; the device keeps the last document without them
             return
-        text = self.document.render()
-        if text != self._sent and self.live.send(StartPreview(text)):
-            self._sent = text
+        sent = (self.document.render() if self.document.modified else None, situation)
+        if sent != self._sent and self.live.send(StartPreview(*sent)):
+            self._sent = sent
 
     def _end(self) -> None:
         sent, self._sent = self._sent, None
@@ -114,16 +142,18 @@ class LivePreview(QObject):
                 self.error = reply.message
         elif reply.kind == "ended":
             if self._sent is None:
-                # it ended as this window wanted, e.g. by saving
+                # it ended as this window wanted, e.g. by saving: a situation goes on with the file
+                if self.on and self.situation is not None:
+                    self.send()
                 return
             # by the daemon: another window took over, the file changed, the window did not answer in time
             self._sent = None
             self.running = False
             self.set_on(False)
-            self.notice = f"The live preview ended: {reply.message}."
+            self.notice = f"Trying the changes on the device ended: {reply.message}."
         elif reply.kind == "error":
             self.error = reply.message
         else:
-            # about something else, e.g. a switch of the layout
+            # about something else, e.g. a mode picked
             return
         self.changed.emit()

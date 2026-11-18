@@ -11,10 +11,14 @@ from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtWidgets import QApplication
 
 from xtouch_daemon.audio.pulse import read_state
-from xtouch_daemon.gui.domain.document import ConfigDocument
-from xtouch_daemon.gui.qt.theme import apply_theme, load_theme_mode, load_zoom
-from xtouch_daemon.gui.qt.window import MainWindow, Session
-from xtouch_daemon.systemd import Service
+from xtouch_daemon.gui.domain.slots_document import SlotsDocument
+from xtouch_daemon.gui.qt.fields.rich_tips import RichTips
+from xtouch_daemon.gui.qt.theme.icons import app_icon
+from xtouch_daemon.gui.qt.theme.settings import load_zoom
+from xtouch_daemon.gui.qt.theme.style import apply_theme, load_theme_mode
+from xtouch_daemon.gui.qt.window.main_window import MainWindow
+from xtouch_daemon.gui.qt.window.session import Session
+from xtouch_daemon.system.systemd import Service
 
 SCALE_FACTOR = "QT_SCALE_FACTOR"
 """Qt scales a whole application by it, when the application starts."""
@@ -35,19 +39,27 @@ def scale_for(zoom: float, own: str | None) -> str:
     return f"{base * zoom:g}"
 
 
+_rich_tips: RichTips | None = None
+"""The tooltips in the colors of the help, for as long as the application runs."""
+
+
 def create_application() -> QApplication:
     name_application()
     app = QApplication(sys.argv[:1])
     app.setApplicationDisplayName("X-Touch Extender")
     # Wayland finds the icon of the window by it: packaging/xtouch-daemon-gui.desktop
     app.setDesktopFileName("xtouch-daemon-gui")
+    # X11 and the task bars that don't read the desktop file
+    app.setWindowIcon(app_icon())
     apply_theme(load_theme_mode())
+    global _rich_tips
+    _rich_tips = RichTips()
     return app
 
 
 def run_gui(path: Path) -> int:
     """Shows the window until it is closed; raises `ConfigError` for a file it can't edit."""
-    document = ConfigDocument.open(path)
+    document = SlotsDocument.open(path)
     own = os.environ.get(SCALE_FACTOR)
     session: Session | None = None
     while True:

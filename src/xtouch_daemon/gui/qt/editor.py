@@ -1,32 +1,28 @@
 """
-The one source of truth of the window: the document being edited, its undo history, its validation, and which strip is
-selected. Views read from here and change the document through here; the signals tell them what changed, so each one
-updates what it shows in place (see the GUI section of docs/architecture.md).
+The one source of truth of the window: the document being edited, its undo history and its validation. Views read
+from here and change the document through here; the signal tells them what changed, so each one updates what it
+shows in place (see the GUI section of docs/development/architecture.md).
 """
+
+from typing import Any
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
-from xtouch_daemon import protocol
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
-from xtouch_daemon.gui.domain.document import ConfigDocument, Validation
+from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, free_id
 from xtouch_daemon.gui.domain.history import History
+from xtouch_daemon.gui.domain.slots_document import OptionPath, SlotsDocument, Validation
 
 
 class Editor(QObject):
     changed = pyqtSignal(object, arguments=["change"])
     """The document changed (a `Change`), and `validation` already says what that means."""
-    selected = pyqtSignal(int, arguments=["index"])
-    """Another strip is selected. Selecting changes nothing in the document, so nothing is validated or built again."""
 
-    def __init__(self, document: ConfigDocument, history: History | None = None):
+    def __init__(self, document: SlotsDocument, history: History[SlotsDocument] | None = None):
         super().__init__()
         self.document = document
         self.history = history if history is not None else History(document)
         self.validation: Validation = document.validate()
-        self.selection = 0
-        """The strip whose options the editor shows."""
-
-    # -- what changed ---------------------------------------------------------------------------------------------
 
     def edited(self, change: Change = EVERYTHING) -> None:
         """After an edit of the document: a step to undo, the new validation, and the views show it."""
@@ -35,50 +31,9 @@ class Editor(QObject):
 
     def _show(self, change: Change) -> None:
         self.validation = self.document.validate()
-        # the selected strip beyond the 8 of the device is gone (removed, undone): the last one there is
-        gone = self.selection > self._last
-        if gone:
-            self.selection = self._last
         self.changed.emit(change)
-        if gone:
-            self.selected.emit(self.selection)
-
-    @property
-    def _last(self) -> int:
-        """The last strip that can be selected: one of the device's 8, or one of the layout beyond them."""
-        return max(protocol.STRIPS, len(self.document.strips)) - 1
-
-    def select(self, index: int) -> None:
-        index = max(0, min(index, self._last))
-        if index != self.selection:
-            self.selection = index
-            self.selected.emit(index)
 
     # -- edits that change more than a value ----------------------------------------------------------------------
-
-    def set_strip_type(self, index: int, strip_type: str) -> None:
-        self.document.set_strip_type(index, strip_type)
-        self.edited(Change(Scope.STRIPS))
-
-    def configure_up_to(self, index: int) -> None:
-        self.document.configure_up_to(index)
-        self.edited(Change(Scope.STRIPS))
-        self.select(index)
-
-    def add_strip(self) -> None:
-        """Adds an `auto` strip at the end and selects it (see `ConfigDocument.add_strip()`)."""
-        index = self.document.add_strip()
-        self.edited(Change(Scope.STRIPS))
-        self.select(index)
-
-    def move_strip(self, index: int, to: int) -> None:
-        self.document.move_strip(index, to)
-        self.edited(Change(Scope.STRIPS))
-        self.select(to)
-
-    def remove_strip(self, index: int) -> None:
-        self.document.remove_strip(index)
-        self.edited(Change(Scope.STRIPS))
 
     def add_section(self, name: str) -> None:
         self.document.add_section(name)
@@ -88,32 +43,57 @@ class Editor(QObject):
         self.document.remove_section(name)
         self.edited(Change(Scope.SECTION, (name,)))
 
-    def unset(self, path: tuple[str | int, ...]) -> None:
+    def unset(self, path: OptionPath) -> None:
         """Removes an option, e.g. an unknown one from the list of problems: no field made that change."""
         self.document.unset(path)
         self.edited()
 
-    def edit_layout(self, index: int | None) -> None:
-        """Shows the strips of another layout (an index of the layouts, None for the default one)."""
-        if index != self.document.layout:
-            self.document.edit_layout(index)
-            self._show(Change(Scope.LAYOUTS))
+    def add_channel(self, channel_type: str) -> str:
+        """Adds a channel of the type, with an id after it; returns the id."""
+        name = free_id(self.document.get(("channel",), {}), CHANNEL_TYPES[channel_type].strip)
+        self.document.set(("channel", name), {"type": channel_type})
+        self.edited(Change(Scope.CHANNELS))
+        return name
 
-    def add_layout(self, copy_strips: bool) -> None:
-        self.document.add_layout(copy_strips)
-        self.edited(Change(Scope.LAYOUTS))
+    def duplicate_channel(self, name: str) -> str:
+        """Adds a copy of a channel, with an id after it; returns the id."""
+        channels: dict[str, Any] = self.document.get(("channel",))
+        copy = free_id(channels, name)
+        self.document.set(("channel", copy), channels[name])
+        self.edited(Change(Scope.CHANNELS))
+        return copy
 
-    def remove_layout(self) -> None:
-        assert self.document.layout is not None
-        # the default layout is edited then
-        self.document.remove_layout(self.document.layout)
-        self.edited(Change(Scope.LAYOUTS))
+    def remove_channel(self, name: str) -> None:
+        self.document.unset(("channel", name))
+        self.edited(Change(Scope.CHANNELS))
 
-    def move_layout(self, to: int) -> None:
-        assert self.document.layout is not None
-        # it stays the one being edited
-        self.document.move_layout(self.document.layout, to)
-        self.edited(Change(Scope.LAYOUTS))
+    def rename_channel(self, name: str, new: str) -> None:
+        """Another id for a channel; the stacks, pools and states that name it are the user's to change."""
+        self.document.rename(("channel", name), new)
+        self.edited(Change(Scope.CHANNELS))
+
+    def add_state(self, mode: bool) -> str:
+        """Adds a state (or a mode), with an id after it; returns the id."""
+        name = free_id(self.document.get(("state",), {}), "mode" if mode else "state")
+        self.document.set(("state", name), {"mode": True} if mode else {})
+        self.edited(Change(Scope.STATES))
+        return name
+
+    def remove_state(self, name: str) -> None:
+        self.document.unset(("state", name))
+        self.edited(Change(Scope.STATES))
+
+    def rename_state(self, name: str, new: str) -> None:
+        """Another id for a state; the conditions that name it are the user's to change."""
+        self.document.rename(("state", name), new)
+        self.edited(Change(Scope.STATES))
+
+    def move_slot(self, source: int, target: int) -> None:
+        """Moves a slot with its candidates and controls; the slots between make room (see `move_slot`)."""
+        self.document.move_slot(source, target)
+        self.edited()
+
+    # -- history and the file -------------------------------------------------------------------------------------
 
     def undo(self) -> bool:
         if not self.history.can_undo:

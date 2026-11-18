@@ -4,61 +4,70 @@ are those of the site built from `docs/` (`configuration/strips.md` is `configur
 its headings; a test checks that they exist.
 """
 
+from xtouch_daemon import __version__
+
 DOCS_URL = "https://markusressel.github.io/xtouch-daemon/"
-"""The documentation site."""
+"""The documentation site: its root shows the latest release (dev before the first one)."""
+DOCS_VERSION = __version__
+"""
+The version of the documentation the links open: the one of this program. Before it is deployed (a checkout between
+releases), the site forwards to the same page of the latest release (see `pages/404.html`).
+"""
 
 PAGES: dict[str, str] = {
     "device": "configuration/behavior/#device",
     "behavior": "configuration/behavior/#behavior",
     "aliases": "configuration/behavior/#aliases",
-    "mqtt": "home-assistant/#mqtt",
-    "layout": "configuration/layouts/",
-    "switching": "configuration/layouts/#switching",
-    "voip": "configuration/layouts/#voice-chat",
+    "mqtt": "guides/home-assistant/#mqtt",
+    "channels": "configuration/slots/#channels",
+    "states": "configuration/slots/#states-and-modes",
+    "switching": "configuration/slots/#controls-and-the-chord",
+    "voip": "configuration/channels/people/#voice-chat",
 }
-"""The global settings, by page."""
+"""The pages, and the settings by page."""
 
 GUIDES: dict[str, str] = {
-    "mumble": "integrations/mumble/",
+    "mumble": "guides/mumble/",
+    "slots": "configuration/slots/#slots",
+    "conditions": "configuration/slots/#conditions",
 }
-"""The pages on setting up something outside the daemon, e.g. the plugin of a voice chat client."""
+"""
+Pages on a topic the editor links to: setting up something outside the daemon (the plugin of a voice chat client),
+the slots and their conditions.
+"""
 
 STRIP_TYPES: dict[str, str] = {
-    "output": "configuration/devices/",
-    "input": "configuration/devices/",
-    "apps": "configuration/applications/#apps-strips",
-    "auto": "configuration/applications/#auto-strips",
-    "homeassistant": "home-assistant/#homeassistant-strips",
-    "empty": "configuration/strips/#empty-strips",
-    "inherit": "configuration/layouts/#inherit-strips",
-    "voip": "configuration/layouts/#voip-strips",
+    "output": "configuration/channels/devices/",
+    "input": "configuration/channels/devices/",
+    "apps": "configuration/channels/applications/#apps-channels",
+    "auto": "configuration/channels/applications/#apps-and-auto",
+    "homeassistant": "guides/home-assistant/#homeassistant-channels",
+    "empty": "configuration/channels/#empty-slots",
+    "voip": "configuration/channels/people/",
 }
 """The strip types."""
 
 STRIP_OPTIONS: dict[str, str] = {
-    "rec": "configuration/indicators/#indicators",
-    "solo": "configuration/indicators/#indicators",
-    "min_volume": "configuration/strips/#volume-range",
-    "max_volume": "configuration/strips/#volume-range",
-    "encoder": "configuration/encoders/",
-    "fader": "configuration/encoders/#fader-homeassistant",
-    "id": "home-assistant/#audio-strips-with-home-assistant-controls",
-    "label": "configuration/strips/#labels",
-    "device": "configuration/devices/#several-devices",
-    "profiles": "configuration/devices/#profiles",
-    "choices": "configuration/devices/#choices",
-    "collapse": "configuration/collapsing/",
-    "match": "configuration/applications/#apps-strips",
-    "launch": "configuration/applications/#launching-the-application",
-    "launch_when_running": "configuration/applications/#launching-the-application",
-    "person": "configuration/layouts/#strips-for-one-person",
-    "meter_point": "configuration/strips/#meters",
+    "rec": "configuration/strip/leds/#indicators",
+    "solo": "configuration/strip/leds/#indicators",
+    "min_volume": "configuration/channels/#volume-range",
+    "max_volume": "configuration/channels/#volume-range",
+    "encoder": "configuration/strip/encoders/",
+    "fader": "configuration/strip/encoders/#fader-homeassistant",
+    "label": "configuration/channels/#labels",
+    "device": "configuration/channels/devices/#several-devices",
+    "profiles": "configuration/channels/devices/#profiles",
+    "choices": "configuration/channels/devices/#choices",
+    "match": "configuration/channels/applications/#apps-channels",
+    "launch": "configuration/channels/applications/#launching-the-application",
+    "launch_when_running": "configuration/channels/applications/#launching-the-application",
+    "person": "configuration/channels/people/#strips-for-one-person",
+    "meter_point": "configuration/channels/#meters",
 }
 """The options of the strips; `STRIP_TYPE_OPTIONS` overrides them for one type."""
 
 STRIP_TYPE_OPTIONS: dict[tuple[str, str], str] = {
-    ("homeassistant", "id"): "home-assistant/#entities",
-    ("voip", "label"): "configuration/layouts/#strips-for-one-person",
+    ("voip", "label"): "configuration/channels/people/#strips-for-one-person",
 }
 
 SECTION_OPTIONS: dict[str, dict[str, str]] = {
@@ -69,35 +78,25 @@ SECTION_OPTIONS: dict[str, dict[str, str]] = {
         "shutdown": "configuration/behavior/#startup-and-shutdown-sequences",
     },
     "behavior": {
-        "max_volume": "configuration/strips/#100-at-the-0-db-mark",
-        "unity_at": "configuration/strips/#100-at-the-0-db-mark",
-        "encoder_step": "configuration/encoders/#volume",
-        "reset_volume": "configuration/encoders/#volume",
-        "auto_hold": "configuration/applications/#auto-strips",
-        "ignore": "configuration/applications/#auto-strips",
-        "collapse_hold": "configuration/collapsing/#when-a-strip-has-nothing-to-control",
-        "meter_point": "configuration/strips/#meters",
+        "max_volume": "configuration/channels/#100-at-the-0-db-mark",
+        "unity_at": "configuration/channels/#100-at-the-0-db-mark",
+        "encoder_step": "configuration/strip/encoders/#volume",
+        "reset_volume": "configuration/strip/encoders/#volume",
+        "meter_point": "configuration/channels/#meters",
     },
     "mqtt": {
-        "namespace": "home-assistant/#entities",
-    },
-    "layout": {
-        "apps": "configuration/layouts/#rules",
-        "processes": "configuration/layouts/#rules",
-        "priority": "configuration/layouts/#rules",
-        "meter_point": "configuration/strips/#meters",
+        "namespace": "guides/home-assistant/#entities",
     },
     "switching": {
-        "chord": "configuration/layouts/#switching",
-        "hold": "configuration/layouts/#rules",
+        "chord": "configuration/slots/#controls-and-the-chord",
     },
 }
 """The options of the sections, by section."""
 
 
 def url(path: str) -> str:
-    """The address of a page of the documentation, e.g. `configuration/strips/#labels`."""
-    return DOCS_URL + path
+    """The address of a page of the documentation, in the version of this program: e.g. `configuration/slots/`."""
+    return f"{DOCS_URL}{DOCS_VERSION}/{path}"
 
 
 def page_link(page: str) -> str | None:

@@ -1,249 +1,76 @@
 """
-How the strips look on the device, for the preview: what a configuration makes of them (the label and color of each
-LCD), or what the running daemon shows right now (its live view), and which of the two the preview shows per strip.
+How the strips look in the drawing of the device: what the running daemon shows right now (its live view), with what
+each slot shows printed under it; dark while there is no daemon to tell.
 """
 
 from dataclasses import dataclass
-from typing import Any
 
-from xtouch_daemon import protocol
-from xtouch_daemon.audio.model import AudioState, Device, Direction
-from xtouch_daemon.config import STRIP_TYPES
-from xtouch_daemon.gui.domain.document import ConfigDocument, Validation
-from xtouch_daemon.gui.domain.flow import FlowRow
-from xtouch_daemon.gui.domain.inherit import referenced
-from xtouch_daemon.gui.domain.schema import Kind, strip_options
-from xtouch_daemon.live import Snapshot, StripState
-from xtouch_daemon.protocol import RingMode
+from xtouch_daemon.hardware import protocol
+from xtouch_daemon.hardware.protocol import RingMode
+from xtouch_daemon.live.messages import SlotView, Snapshot, StripState
 
 
 @dataclass(frozen=True)
 class StripLook:
     kind: str
-    """The type of the strip; "?" for a strip without a valid type."""
+    """What the strip is, for its tip: "slot"; "?" while nobody tells."""
     label: str
     """The top line of the LCD."""
     detail: str
     """What the strip controls, in a few words."""
     color: str
     """A color name of the configuration; "off" is a dark LCD."""
-    configured: bool
-    """False for the strips after the configured ones, which are `auto`."""
-    problems: int
+    configured: bool = True
+    """False while the strip shows nothing the GUI knows of: it is drawn fainter."""
     printed: str = ""
-    """What is printed under the strip instead of its type, "" for the type (see `printed()`)."""
-
-
-def _color(values: dict[str, Any], strip_type: str) -> str:
-    color = next((option for option in strip_options(strip_type) if option.kind == Kind.COLOR), None)
-    if color is None:
-        return "off"
-    value = values.get("color", color.default)
-    # a color that is not one shows as the default (the strip shows the problem)
-    return value if value in color.choices else color.default
-
-
-def _text(value: Any) -> str:
-    return value if isinstance(value, str) else ""
-
-
-def _names(value: Any) -> tuple[str, ...]:
-    """The devices of a strip: one name, or a list of them."""
-    if isinstance(value, str):
-        return (value,) if value.strip() else ()
-    if isinstance(value, list):
-        return tuple(str(item) for item in value if str(item).strip())
-    return ()
-
-
-def _profile_label(profiles: Any, state: AudioState, device: Device | None) -> str:
-    """The label of the profile of `profiles` the card of the device is in, "" for none."""
-    card = state.card(device.card) if device is not None else None
-    active = card.profile_named(card.profile) if card is not None else None
-    if active is None or not isinstance(profiles, list):
-        return ""
-    return next(
-        (
-            _text(profile.get("label"))
-            for profile in profiles
-            if isinstance(profile, dict) and active.matches(str(profile.get("profile")))
-        ),
-        "",
-    )
-
-
-def _choices(value: Any) -> list[dict[str, Any]]:
-    """The choices of a strip that have a device."""
-    if not isinstance(value, list):
-        return []
-    return [choice for choice in value if isinstance(choice, dict) and _text(choice.get("device")).strip()]
-
-
-def _choice_look(choices: list[dict[str, Any]], state: AudioState, direction: Direction, label: str) -> tuple[str, str]:
-    """
-    The label and detail of a strip with choices: like the daemon, the choice whose device is the default, else the
-    first one (also without a sound server).
-    """
-    shown = choices[0]
-    device: Device | None = None
-    for choice in choices:
-        found = next(iter(state.devices_matching(direction, (_text(choice.get("device")),))), None)
-        if found is not None and state.is_default(found):
-            shown, device = choice, found
-            break
-    titles = [_text(choice.get("label")) or _text(choice.get("device")) for choice in choices]
-    name = _text(shown.get("label")) or label or (device.description if device else _text(shown.get("device")))
-    either = f"{', '.join(titles[:-1])} or {titles[-1]}" if len(titles) > 1 else titles[0]
-    return name, f"{either}, Select switches"
-
-
-def look(values: dict[str, Any], state: AudioState, aliases: dict[str, str]) -> tuple[str, str, str, str]:
-    """The kind, label, detail and color of a strip with these options."""
-    strip_type = values.get("type")
-    if not isinstance(strip_type, str) or strip_type not in STRIP_TYPES:
-        return "?", "", "no valid type", "off"
-    color = _color(values, strip_type)
-    label = _text(values.get("label"))
-    match strip_type:
-        case "output" | "input" if _choices(values.get("choices")):
-            label, detail = _choice_look(_choices(values.get("choices")), state, Direction(strip_type), label)
-        case "output" | "input":
-            names = _names(values.get("device"))
-            direction = Direction(strip_type)
-            if not names:
-                device = state.device(direction, None)
-                detail = f"the default {strip_type}" + (f": {device.description}" if device else "")
-            else:
-                # like the daemon: the default one of them, or the first one that is there
-                there = state.devices_matching(direction, names)
-                device = next((d for d in there if state.is_default(d)), next(iter(there), None))
-                detail = " or ".join(names) + (f": {device.description}" if device else " (not there now)")
-                if len(names) == 1 and device is not None:
-                    detail = device.description
-            # like the daemon: the label of the profile the card is in, else the label, else the start of the
-            # description of a device that is there
-            label = _profile_label(values.get("profiles"), state, device) or label
-            if not label:
-                label = device.description if device is not None and names else strip_type.capitalize()
-        case "apps":
-            match = values.get("match")
-            detail = ", ".join(map(str, match)) if isinstance(match, list) and match else "no applications"
-        case "auto":
-            label = "auto"
-            playing = [aliases.get(stream.app, stream.app) for stream in state.streams if stream.playing]
-            detail = "the next application that plays" + (f", e.g. {playing[0]}" if playing else "")
-        case "voip" if _names(values.get("person")):
-            names = _names(values.get("person"))
-            label = label or names[0]
-            detail = f"{' or '.join(names)} in the voice chat, dark while away"
-        case "voip":
-            label = "voip"  # until a participant is there
-            detail = "the group: a participant of the voice chat without a strip of their own, the select button pages"
-        case "homeassistant":
-            strip_id = _text(values.get("id")) or "strip_<position>"
-            detail = f"entities of Home Assistant ({strip_id}), automations decide what it does"
-        case _:
-            detail = "a dark strip"
-    return strip_type, label[: protocol.LCD_CELL_WIDTH], detail, color
-
-
-def printed(values: dict[str, Any]) -> str:
-    """
-    What the preview prints under a strip instead of its type, "" for the type: a `voip` strip is "voip group" or the
-    person it shows.
-    """
-    if values.get("type") != "voip":
-        return ""
-    names = _names(values.get("person"))
-    return names[0] if names else "voip group"
-
-
-def looks(document: ConfigDocument, validation: Validation, state: AudioState) -> tuple[StripLook, ...]:
-    """
-    How every strip looks, the configured ones and the `auto` strips after them up to the 8 of the device. An
-    `inherit` strip looks like the strip it refers to (see `inherit.referenced()`).
-    """
-    aliases = dict(document.aliases)
-    result: list[StripLook] = []
-    for index in range(max(protocol.STRIPS, len(document.strips))):
-        configured = index < len(document.strips)
-        values = document.strips[index].values if configured else {"type": "auto"}
-        if values.get("type") == "inherit":
-            found = referenced(document, index)
-            if found is None:
-                kind, label, detail, color = "?", "", "a strip that is not there", "off"
-            else:
-                values, where = found
-                kind, label, detail, color = look(values, state, aliases)
-                detail = f"like {where}: {detail}"
-        else:
-            kind, label, detail, color = look(values, state, aliases)
-        problems = len(validation.at("strip", index)) if configured else 0
-        result.append(StripLook(kind, label, detail, color, configured, problems, printed(values)))
-    return tuple(result)
-
-
-SECOND_LINES = {"output": "100%", "input": "100%", "apps": "idle"}
-"""What the second line of the LCD shows in the preview of a file, which knows no volumes."""
-FILE_FADER = 0.7
-"""Where the preview of a file puts the faders of strips that control something."""
+    """What is printed under the strip instead of its kind, "" for the kind."""
 
 
 @dataclass(frozen=True)
 class StripFace:
-    """What the preview paints for a strip: how the configuration describes it, and what its LCD, LEDs etc. show."""
+    """What the drawing paints for a strip: what it is, and what its LCD, LEDs etc. show."""
 
     look: StripLook
     state: StripState
     live: bool
-    """Whether `state` is what the device shows right now; otherwise it is what the configuration would show."""
-    edited: bool
-    """Whether the strip has unsaved changes: then `state` shows them, not the device."""
-    dimmed: bool
-    """Whether the strip is dark on the device most of the time (an `auto` strip waits for an application)."""
+    """Whether `state` is what the device shows right now."""
+    dimmed: bool = False
+    """Whether the strip is dark on the device."""
 
 
-def file_state(look: StripLook) -> StripState:
-    """What a strip shows going by its configuration alone: its label on its color, the fader somewhere up."""
-    controls = look.kind not in ("empty", "?")
-    return StripState(
-        color=look.color,
-        text=(look.label, SECOND_LINES.get(look.kind, "")),
-        leds={button.name.lower(): "off" for button in protocol.Button},
-        ring=8 if controls else 0,
-        ring_mode="wrap",
-        fader=FILE_FADER if controls else 0.0,
-        touched=False,
-        meter=0,
-    )
+DARK = StripState(
+    color="off",
+    text=("", ""),
+    leds={button.name.lower(): "off" for button in protocol.Button},
+    ring=0,
+    ring_mode="wrap",
+    fader=0.0,
+    touched=False,
+    meter=0,
+)
+"""A strip while nobody tells what it shows."""
+UNKNOWN = StripFace(StripLook("?", "", "No daemon tells what it shows.", "off", False), DARK, False)
 
 
-def faces(
-    looks: tuple[StripLook, ...],
-    snapshot: Snapshot | None,
-    edited: tuple[bool, ...],
-    previewed: bool = False,
-    rows: tuple[FlowRow, ...] | None = None,
-) -> tuple[StripFace, ...]:
-    """
-    The strips for the preview: live while the daemon tells what the device shows (`snapshot`), except the ones with
-    unsaved changes, which show how they will look; without the daemon all of them as the configuration has them.
-    `previewed`: the device runs the document as it is (the live preview), so the edited ones are live too. `rows`
-    (see `flow_rows()`) tell which strip of the device shows each of them while strips collapse: one that is not on
-    the device shows its file look, dimmed.
-    """
+def shown(view: SlotView) -> str:
+    """What a slot shows, in a few words: `firefox via auto`, `out`, `nothing`."""
+    what = view.member or view.channel or "nothing"
+    via = f" via {view.pool}" if view.pool is not None and view.member is not None else ""
+    return f"{what}{via}"
+
+
+def device_faces(snapshot: Snapshot | None) -> tuple[StripFace, ...]:
+    """The strips as the device shows them right now, with what each slot shows; dark without the daemon."""
+    if snapshot is None:
+        return (UNKNOWN,) * protocol.STRIPS
+    views = snapshot.slots.slots if snapshot.slots is not None else ()
     result: list[StripFace] = []
-    for index, (strip_look, changed) in enumerate(zip(looks, edited, strict=True)):
-        position = index
-        if rows is not None and snapshot is not None and snapshot.placement is not None:
-            position = rows[index].position
-        if snapshot is not None and (previewed or not changed) and position is not None:
-            result.append(StripFace(strip_look, snapshot.strips[position], live=True, edited=changed, dimmed=False))
-        elif position is None:
-            result.append(StripFace(strip_look, file_state(strip_look), live=False, edited=changed, dimmed=True))
-        else:
-            dimmed = not strip_look.configured or strip_look.kind == "auto"
-            result.append(StripFace(strip_look, file_state(strip_look), live=False, edited=changed, dimmed=dimmed))
+    for index, state in enumerate(snapshot.strips[: protocol.STRIPS]):
+        view = next((view for view in views if view.slot == index + 1), None)
+        printed = (view.channel or view.pool or "-") if view is not None else ""
+        detail = f"Shows {shown(view)}" if view is not None else ""
+        look = StripLook("slot", state.text[0], detail, state.color, printed=printed)
+        result.append(StripFace(look, state, live=True, dimmed=state.color == "off"))
     return tuple(result)
 
 

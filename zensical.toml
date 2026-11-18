@@ -1,7 +1,8 @@
 # The documentation site, built with Zensical (https://zensical.org):
 #   uv run --group docs zensical serve        # preview on http://localhost:8000
 #   uv run --group docs zensical build --clean --strict
-# .github/workflows/docs.yml publishes it to GitHub Pages.
+# .github/workflows/docs.yml publishes it to GitHub Pages, a version per release (see the [project.extra.version]
+# section and CONTRIBUTING.md).
 
 [project]
 site_name = "xtouch-daemon"
@@ -15,38 +16,66 @@ copyright = "Copyright &copy; Markus Ressel, AGPL-3.0-or-later"
 docs_dir = "docs"
 site_dir = "site"
 extra_css = ["stylesheets/extra.css"]
+extra_javascript = ["javascripts/entities.js"]
 
 nav = [
   { "Home" = "index.md" },
-  { "Getting started" = "getting-started.md" },
+  { "Getting started" = [
+    { "Install" = "getting-started/install.md" },
+    { "First steps" = "getting-started/first-steps.md" },
+    { "Without a device" = "getting-started/without-a-device.md" },
+  ] },
+  { "Guides" = [
+    { "GUI" = "guides/gui.md" },
+    { "Home Assistant" = "guides/home-assistant.md" },
+    { "Mumble" = "guides/mumble.md" },
+    { "Troubleshooting" = "guides/troubleshooting.md" },
+  ] },
   { "Configuration" = [
     "configuration/index.md",
-    { "Behavior, device, aliases" = "configuration/behavior.md" },
-    { "Strips" = "configuration/strips.md" },
-    { "Devices" = "configuration/devices.md" },
-    { "Applications" = "configuration/applications.md" },
+    { "Channels, states and slots" = "configuration/slots.md" },
+    { "Channels" = [
+      "configuration/channels/index.md",
+      { "Devices" = "configuration/channels/devices.md" },
+      { "Applications" = "configuration/channels/applications.md" },
+      { "People and the voice chat" = "configuration/channels/people.md" },
+    ] },
+    { "Parts of a strip" = [
+      { "Encoders" = "configuration/strip/encoders.md" },
+      { "LEDs" = "configuration/strip/leds.md" },
+    ] },
     { "Presets" = "configuration/presets.md" },
-    { "Encoders" = "configuration/encoders.md" },
-    { "LEDs" = "configuration/indicators.md" },
-    { "Layouts" = "configuration/layouts.md" },
-    { "Collapsing strips" = "configuration/collapsing.md" },
+    { "Behavior, device and aliases" = "configuration/behavior.md" },
   ] },
-  { "Home Assistant" = "home-assistant.md" },
-  { "Mumble" = "integrations/mumble.md" },
-  { "GUI" = "gui.md" },
-  { "Commands" = "commands.md" },
-  { "Troubleshooting" = "troubleshooting.md" },
-  { "Hardware" = "hardware.md" },
-  { "Architecture" = "architecture.md" },
-  { "Design: layouts" = "design/layouts.md" },
-  { "Design: launching applications" = "design/launch.md" },
-  { "Design: choices and collapsing strips" = "design/dynamic-strips.md" },
-  { "Design: presets" = "design/presets.md" },
+  { "Reference" = [
+    { "Commands" = "reference/commands.md" },
+    { "Hardware and protocol" = "reference/hardware.md" },
+    { "Voice chat bridge" = "reference/voice-chat-bridge.md" },
+  ] },
+  { "Development" = [
+    { "Architecture" = "development/architecture.md" },
+    { "Design documents" = [
+      { "Channels, states and slots" = "development/design/channels-states-slots.md" },
+      { "Try changes and situations" = "development/design/try-and-simulate.md" },
+      { "Where the people sit" = "development/design/people-slots.md" },
+      { "Layouts" = "development/design/layouts.md" },
+      { "Launching applications" = "development/design/launch.md" },
+      { "Output choices and moving strips" = "development/design/dynamic-strips.md" },
+      { "Presets" = "development/design/presets.md" },
+      { "A simulated device" = "development/design/device-simulator.md" },
+      { "Previews of the controls" = "development/design/control-previews.md" },
+      { "Refactoring, November 2026" = "development/design/refactoring-2026-11.md" },
+    ] },
+  ] },
   { "Changelog" = "https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" },
 ]
 
 [project.theme]
 language = "en"
+# the icon of the project: a copy of the one in the package (src/xtouch_daemon/gui/qt/theme/images/icon.svg, which the
+# GUI uses), made by `just docs-icon` before every build
+logo = "images/icon.svg"
+favicon = "images/icon.svg"
 features = [
   "content.action.edit",
   "content.code.copy",
@@ -77,5 +106,15 @@ scheme = "slate"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to system preference"
 
-[project.theme.icon]
-logo = "lucide/sliders-vertical"
+
+# A version selector in the header: the versions are deployed with mike (Zensical's fork, until Zensical versions
+# documentation itself) to the branch gh-pages, `dev` for main and X.Y.Z for each release, the newest one also as
+# `latest`.
+[project.extra.version]
+provider = "mike"
+alias = true
+
+[project.plugins.mike]
+# an alias (latest) redirects to its version; GitHub Pages doesn't need to follow symlinks
+alias_type = "redirect"
+canonical_version = "latest"

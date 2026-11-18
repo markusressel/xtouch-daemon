@@ -1,195 +1,37 @@
-# xtouch-daemon configuration
+# xtouch-daemon configuration: channels, states and slots
 #
-# Copy to ~/.config/xtouch-daemon/config.toml (`xtouch-daemon init-config` does that), check it with
-# `xtouch-daemon check-config`, and apply changes with `systemctl --user reload xtouch-daemon`.
+# `xtouch-daemon check-config` checks it and shows what each slot shows when; apply changes with
+# `systemctl --user reload xtouch-daemon`. The docs: Configuration > Channels, states and slots.
+#
+# A channel is something a strip controls (a device, a group of applications, a person, Home Assistant); a slot is
+# a strip of the device, and shows the first of its candidates whose condition holds; a state (in a call, gaming)
+# is what those conditions ask about. Slots without candidates show `auto`: the people of the voice chat (from the
+# right) and the applications that play (from the left). `people` and `apps` are the two on their own, e.g.
+# 6 = ["people", "apps"]: a person, else an application.
 
-[device]
-# Part of the name of the extender's sound card (see /proc/asound/cards).
-name = "X-Touch-Ext"
-# Whether a fader changes a value only while the device reports a touch; false: every move counts (e.g. a fingertip).
-touch_required = true
-# Faders whose touch sensor does not work (1 on the left): a move counts as a touch, a short pause as letting go.
-touchless_faders = []
-# How the strips light up after a connect and go dark when the daemon stops: "instant", "sweep" (one after the other),
-# "curtain" (from the middle outwards, and back) or "show" (a wave of light).
-startup = "sweep"
-shutdown = "sweep"
+[channel.out]
+type = "output"             # the default output
 
-[behavior]
-max_volume = 130          # the volume of a fader at the top; above 100 amplifies in software (130: 100 at the 0 dB mark)
-unity_at = 77             # where on the fader 100 % is (the device marks 0 dB there), for strips above 100 %
-encoder_step = 1          # percent per encoder step
-reset_volume = 100        # the volume a push on an encoder sets
-meters = true             # LED meters show audio levels
-meter_point = "pre_fader" # meters before the volume and Mute of a strip; "post_fader": after them
-auto_hold = 5             # seconds an "auto" strip keeps an application after it stopped playing
-ignore = ["speech-dispatcher"]   # applications "auto" strips never take
-collapse_hold = 3         # seconds a strip with `collapse` stays after it has nothing to control
+[channel.mic]
+type = "input"              # the default input
 
-[aliases]
-# Names to show on "auto" strips: "name the sound server reports" = "label" (7 characters fit).
-# `xtouch-daemon list-apps` shows the reported names.
-"WEBRTC VoiceEngine" = "Discord"
+[slots]
+7 = "mic"
+8 = "out"                   # the main output on the right, as in a DAW; slots 1 to 6 are auto
 
-# ---- Strips, from the left. Up to 8 (more with collapse), missing ones are "auto". ------------------------------
-#
-# type = "output"   an output: `device` (a node name from `xtouch-daemon list-devices`), or the default output
-#                   (or several: device = ["bluez_output.*"], Select switches between those connected)
-# type = "input"    an input, the same way
-# type = "apps"     the streams of applications: match = ["firefox", "brave"] (parts of the name or binary), or
-#                   presets of well-known ones: match = ["@browsers"] (also @voip, @games, @steam-games, @music, @video)
-# type = "auto"     the next application that plays and has no strip of its own
-# type = "homeassistant"   a strip for Home Assistant automations (needs [mqtt], see docs/home-assistant.md):
-#                   its fader, encoder, meter, LCD, LEDs and buttons are entities there; id = "living_room" names them
-# type = "empty"    a dark strip
-#
-# label  = "..."    the top line of the LCD (7 characters)
-# color  = off | red | green | yellow | blue | magenta | cyan | white
-# meter  = false    no level on this strip's LED meter
-# meter_point = "post_fader"   this strip's meter after its volume and Mute (default: [behavior], or the
-#                   layout's); not on voip strips
-# rec    = "recording"   what the Rec LED shows: recording (an application records the device, or the
-# solo   = "off"         applications record), playing, default, muted, off; the same for the Solo LED
-# select = false    (output/input with a device) the select button does not make the device the default
-# launch = ["mumble", "mumble://me@voice.example.org/Gaming"]
-#                   (apps, auto, voip) Select starts this command while the application does not run; no shell
-# launch_when_running = true   (apps, auto) Select starts it also while it runs (Mumble: connect to the server)
-# choices = [...]   (output/input) devices to switch between with Select, each maybe in a card profile (see below)
-# collapse = true   the strip gives its fader to the strips after it while it has nothing to control: its device
-#                   is not there, no application has a stream (all but "homeassistant" and "empty"). The device
-#                   shows the first 8 strips that take a place. Moving strips are bad for muscle memory.
-#
-# Examples:
-#
-# [[strip]]
-# type = "output"
-# device = "alsa_output.pci-0000_11_00.4.analog-stereo"
-# label = "Speaker"
-# color = "cyan"
-#
-# [[strip]]
+# [channel.voip]             # the voice chat as one strip
 # type = "apps"
-# match = ["@voip"]                   # Discord, Mumble, TeamSpeak, Signal, ... (`xtouch-daemon check-config` lists them)
-# label = "VoIP"
-# color = "green"
-# launch = ["mumble", "mumble://me@voice.example.org/Gaming"]   # Select starts Mumble and joins the channel
-#
-# One strip for three outputs: Select goes Phones -> Speaker -> Buds, switching the sound card's profile first where
-# needed (`xtouch-daemon list-devices` lists the cards and their profiles).
-#
-# [[strip]]
-# type = "output"
-# color = "cyan"
-#
-# [[strip.choices]]
-# label = "Phones"
-# device = "alsa_output.pci-0000_11_00.4.analog-stereo"
-# card = "alsa_card.pci-0000_11_00.4"
-# profile = "output:analog-stereo+input:analog-stereo"
-#
-# [[strip.choices]]
-# label = "Speaker"
-# device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
-# card = "alsa_card.pci-0000_11_00.4"
-# profile = "output:iec958-stereo+input:analog-stereo"
-# max_volume = 200
-#
-# [[strip.choices]]
-# label = "Buds"
-# device = "bluez_output.*"
-#
-# Bluetooth headphones that come and go: while they are off, the strips after them move one place to the left.
-#
-# [[strip]]
-# type = "output"
-# device = "bluez_output.*"
-# label = "Buds"
-# collapse = true
-
-[[strip]]
-type = "auto"
-color = "cyan"
-
-[[strip]]
-type = "auto"
-color = "cyan"
-
-[[strip]]
-type = "auto"
-color = "cyan"
-
-[[strip]]
-type = "auto"
-color = "cyan"
-
-[[strip]]
-type = "auto"
-color = "cyan"
-
-[[strip]]
-type = "auto"
-color = "cyan"
-
-[[strip]]
-type = "input"
-label = "Mic"
-color = "red"
-
-[[strip]]
-type = "output"
-label = "Output"
-color = "white"
-
-# ---- Home Assistant (for "homeassistant" strips) -------------------------------------------------------------
-#
-# [mqtt]
-# host = "homeassistant.local"
-# port = 1883
-# username = "xtouch"
-# password_file = "~/.config/xtouch-daemon/mqtt-password"   # or password = "...", or password_env = "VAR"
-# discovery_prefix = "homeassistant"
-# namespace = "xtouch"                # entity IDs start with it: number.xtouch_strip_5_fader
-# device_name = "X-Touch Extender"
-
-# ---- Layouts: other sets of strips, see https://markusressel.github.io/xtouch-daemon/configuration/layouts/ -----
-#
-# The strips above are the layout "default". Switch with `xtouch-daemon layout gaming`, Home Assistant's
-# select.xtouch_layout, Solo of strips 1 and 8 held together, or the rules (apps, processes).
-#
-# [switching]
-# hold = 10                           # seconds a layout stays after its rule stopped matching
-#
-# [voip]
-# provider = "demo"                   # "bridge": a plugin of the voice chat client sends the participants
-#
-# [[layout]]
-# name = "gaming"
-# label = "Gaming"
-# processes = ["@steam-games"]        # while a game from Steam runs
-# meter_point = "post_fader"         # the meters of this layout's strips, unless a strip has its own
-#
-# [[layout.strip]]
-# type = "apps"
-# label = "Game"
-# match = ["@games"]
-#
-# [[layout.strip]]
-# type = "apps"
-# label = "VoIP"
 # match = ["@voip"]
+# label = "VoIP"
 #
-# [[layout.strip]]
-# type = "inherit"                    # strip 3 of the default layout
+# [state.call]               # in a call, for slots like 6 = ["voip if call", "auto"]
+# voice_chat = true          # Mumble with the plugin; for Discord: recording = ["discord"]
+# delay_off = 5
 #
-# [[layout.strip]]
-# type = "voip"                       # always Bob (his name in the voice chat), dark while he is away
-# person = "Bob"
+# [state.gaming]             # a mode: while a game from Steam runs
+# mode = true
+# processes = ["@steam-games"]
 #
-# [[layout.strip]]                    # strips 5 to 8: the group, everybody else in the voice chat;
-# type = "voip"                       # Select on one of them shows the next ones
-# [[layout.strip]]
-# type = "voip"
-# [[layout.strip]]
-# type = "voip"
-# [[layout.strip]]
-# type = "voip"
+# [pool.people]              # the people of the voice chat
+# from = "right"             # the side they fill their slots from; [pool.apps] has one for the applications
+# order = ["Alice"]          # who sits first; the others in the order they were first seen

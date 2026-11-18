@@ -7,8 +7,9 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtNetwork import QLocalSocket
 
-from xtouch_daemon import live
-from xtouch_daemon.live import Reply, Request, Snapshot
+from xtouch_daemon.live.codec import decode_message, encode_request
+from xtouch_daemon.live.messages import Reply, Request, Snapshot
+from xtouch_daemon.live.server import peer_uid
 
 
 class LiveView(QObject):
@@ -21,8 +22,10 @@ class LiveView(QObject):
     changed = pyqtSignal(object, arguments=["snapshot"])
     replied = pyqtSignal(object, arguments=["reply"])
 
-    def __init__(self, path: Path):
-        super().__init__()
+    def __init__(self, path: Path, parent: QObject | None = None):
+        """`parent` is the window it belongs to: it ends with it, so the socket tells nothing to a closed window."""
+        # PyQt6's stub types the parent of a QObject as `Self`, the class itself
+        super().__init__(parent)  # pyright: ignore[reportArgumentType]
         self.path = path
         self.snapshot: Snapshot | None = None
         self.owned = False
@@ -49,20 +52,20 @@ class LiveView(QObject):
         """Sends a request to the daemon; False while not connected to a daemon of this user."""
         if not self.owned or self.socket.state() != QLocalSocket.LocalSocketState.ConnectedState:
             return False
-        self.socket.write(live.encode_request(request))
+        self.socket.write(encode_request(request))
         self.socket.flush()
         return True
 
     def _connected(self) -> None:
         # a copy of the descriptor: closing it leaves the one of Qt open
         with socket.socket(fileno=os.dup(int(self.socket.socketDescriptor()))) as sock:
-            self.owned = live.peer_uid(sock) == os.getuid()
+            self.owned = peer_uid(sock) == os.getuid()
 
     def _read(self) -> None:
         # only the latest complete snapshot counts, each is the whole state; every reply counts
         latest: Snapshot | None = None
         while self.socket.canReadLine():
-            message = live.decode_message(bytes(self.socket.readLine().data()))
+            message = decode_message(bytes(self.socket.readLine().data()))
             if isinstance(message, Reply):
                 self.replied.emit(message)
             elif message is not None:

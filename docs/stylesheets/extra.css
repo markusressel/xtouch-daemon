@@ -100,3 +100,43 @@
   border: 1px solid var(--md-typeset-table-color);
   border-radius: 6px;
 }
+
+/*
+ * The words of the configuration in the colors the GUI gives them (src/xtouch_daemon/gui/qt/theme/tokens.py), marked
+ * by javascripts/entities.js: states and modes, channels (and pools, people, applications), slots, presence, and the
+ * controls of the device in the color of the text, a little bolder.
+ */
+[data-md-color-scheme="slate"] {
+  --xt-state: #d48fe7;
+  --xt-channel: #56b6c2;
+  --xt-slot: #d19a66;
+  --xt-presence: #b5c25a;
+}
+
+[data-md-color-scheme="default"] {
+  --xt-state: #8250df;
+  --xt-channel: #0f7b84;
+  --xt-slot: #bc4c00;
+  --xt-presence: #5c6f00;
+}
+
+.md-typeset .xt-state {
+  color: var(--xt-state);
+}
+
+.md-typeset .xt-channel {
+  color: var(--xt-channel);
+}
+
+.md-typeset .xt-slot {
+  color: var(--xt-slot);
+}
+
+.md-typeset .xt-presence {
+  color: var(--xt-presence);
+}
+
+.md-typeset .xt-control {
+  color: var(--md-default-fg-color);
+  font-weight: 600;
+}

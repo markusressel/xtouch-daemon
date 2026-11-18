@@ -1,7 +1,6 @@
 """A strip for an output or an input device, or for the default one."""
 
 import logging
-from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -11,10 +10,11 @@ from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Card, Device, Direction
-from xtouch_daemon.config import ChoiceConfig, EncoderMode, Indicator, ProfileConfig
-from xtouch_daemon.protocol import LCD_CELL_WIDTH, Button, Color, Led
-from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
-from xtouch_daemon.surface import Strip
+from xtouch_daemon.config.audio_strips import ChoiceConfig, ProfileConfig
+from xtouch_daemon.config.values import EncoderMode
+from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH, Button, Led
+from xtouch_daemon.hardware.strip import Strip
+from xtouch_daemon.strips.base import Identity, Level, Look, StripEnv, VolumeStrip
 
 if TYPE_CHECKING:
     from xtouch_daemon.strips.homeassistant import HomeAssistantControls
@@ -56,36 +56,32 @@ class DeviceStrip(VolumeStrip):
         self,
         strip: Strip,
         env: StripEnv,
+        identity: Identity,
         direction: Direction,
         devices: tuple[str, ...],
-        label: str | None = None,
-        color: Color = Color.WHITE,
-        meter: bool = True,
+        look: Look,
         select: bool = True,
-        indicators: Mapping[Button, Indicator] | None = None,
         profiles: tuple[ProfileConfig, ...] = (),
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
     ):
-        default_label = "Output" if direction == Direction.OUTPUT else "Input"
-        super().__init__(
-            strip, env, label or default_label, color, meter, indicators, min_volume, max_volume, encoder, controls
-        )
+        super().__init__(strip, env, identity, look, min_volume, max_volume, encoder, controls)
+        self.label = look.label or ("Output" if direction == Direction.OUTPUT else "Input")
         self.direction = direction
         self.devices = devices
         self.select = select and bool(devices)
         self.device: Device | None = None
         self.candidates: tuple[Device, ...] = ()
         """The devices of `devices` that are there."""
-        self._label_option = label
+        self._label_option = look.label
         self.default = False
         """Whether the device shown is the default one."""
         self.profiles = profiles
         if profiles:
             # its LED shows the profile
-            self.indicators.pop(Button.REC, None)
+            self.own_leds = frozenset({Button.REC})
         self.card: Card | None = None
         """The sound card of the device shown."""
         self._switch: _Switch | None = None
@@ -121,6 +117,10 @@ class DeviceStrip(VolumeStrip):
             self._switch = None
             if switch.make_default and not self.default:
                 self.run_command(self.env.backend.set_default(self.direction, self.device.name), "make default")
+
+    def set_look(self, look: Look) -> None:
+        super().set_look(look)
+        self._label_option = look.label
 
     def _update_label(self) -> None:
         """The label of the profile, else the configured one, else the start of the description of the device."""
@@ -159,10 +159,6 @@ class DeviceStrip(VolumeStrip):
 
     def recording(self, state: AudioState) -> bool:
         return self.device is not None and state.is_recorded(self.device)
-
-    def absent(self, state: AudioState) -> bool:
-        """None of its devices is there (never for the default device)."""
-        return bool(self.devices) and not state.devices_matching(self.direction, self.devices)
 
     @property
     def title(self) -> str:
@@ -208,7 +204,7 @@ class DeviceStrip(VolumeStrip):
         wanted = self.profiles[0 if index is None else (index + 1) % len(self.profiles)]
         profile = card.profile_named(wanted.profile)
         if profile is None:
-            _LOGGER.warning(f"Strip {self.strip.index + 1}: {card.name} has no profile {wanted.profile!r}")
+            _LOGGER.warning(f"{self.identity.name}: {card.name} has no profile {wanted.profile!r}")
             return
         self._switch = _Switch(card.name, profile.name, wanted, make_default=self.default)
         self.label = wanted.label
@@ -271,28 +267,23 @@ class ChoiceStrip(DeviceStrip):
         self,
         strip: Strip,
         env: StripEnv,
+        identity: Identity,
         direction: Direction,
         choices: tuple[ChoiceConfig, ...],
-        label: str | None = None,
-        color: Color = Color.WHITE,
-        meter: bool = True,
-        indicators: Mapping[Button, Indicator] | None = None,
+        look: Look,
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
-        strip_id: str | None = None,
     ):
-        """`strip_id` is the part of the ids of its entities in Home Assistant (with a bridge)."""
+        """With a bridge, the choice is an entity in Home Assistant too."""
         super().__init__(
             strip,
             env,
+            identity,
             direction,
             (),
-            label=label,
-            color=color,
-            meter=meter,
-            indicators=indicators,
+            look,
             min_volume=min_volume,
             max_volume=max_volume,
             encoder=encoder,
@@ -311,11 +302,11 @@ class ChoiceStrip(DeviceStrip):
         self._choosing: _Choosing | None = None
         self._state = AudioState()
         self.ha_select: MQTTSelect | None = None
-        if env.bridge is not None and strip_id is not None:
+        if env.bridge is not None:
             self.ha_select = MQTTSelect(
                 env.bridge.config.namespace,
-                f"{strip_id}_{direction.value}",
-                f"{label or f'Strip {strip.index + 1}'} {direction.value}",
+                f"{identity.id}_{direction.value}",
+                f"{identity.name} {direction.value}",
                 options=list(self.options),
                 icon="mdi:speaker" if direction == Direction.OUTPUT else "mdi:microphone",
                 device=env.bridge.device,
@@ -376,7 +367,7 @@ class ChoiceStrip(DeviceStrip):
         if choosing.card is not None:
             card = state.card(choosing.card)
             if card is None:
-                _LOGGER.warning(f"Strip {self.strip.index + 1}: {choosing.card} went away during the switch")
+                _LOGGER.warning(f"{self.identity.name}: {choosing.card} went away during the switch")
                 self._choosing = None
                 return
             if card.profile != choosing.profile:
@@ -391,10 +382,6 @@ class ChoiceStrip(DeviceStrip):
         elif not choosing.defaulted:
             self._choosing = replace(choosing, defaulted=True)
             self.run_command(self._make_default(self._choosing, device.name), "make default")
-
-    def absent(self, state: AudioState) -> bool:
-        """None of its choices is there."""
-        return not self.available
 
     def _choice_config(self) -> ChoiceConfig | None:
         return self.choices[self.choice] if self.choice is not None else None
@@ -456,9 +443,9 @@ class ChoiceStrip(DeviceStrip):
             self._choosing = choosing
             self.run_command(self._make_default(choosing, device.name), "make default")
         else:
-            _LOGGER.warning(f"Strip {self.strip.index + 1}: {choice.title} is not there")
+            _LOGGER.warning(f"{self.identity.name}: {choice.title} is not there")
             return
-        _LOGGER.info(f"Strip {self.strip.index + 1}: switching to {choice.title}")
+        _LOGGER.info(f"{self.identity.name}: switching to {choice.title}")
         # the label of the choice at once, the sound server follows
         self.update(state)
 
@@ -505,7 +492,7 @@ class ChoiceStrip(DeviceStrip):
         elif index in self.available:
             self.choose(index)
         else:
-            _LOGGER.warning(f"Strip {self.strip.index + 1}: {self.choices[index].title} is not there")
+            _LOGGER.warning(f"{self.identity.name}: {self.choices[index].title} is not there")
             self._publish_choice()
 
     def _publish_choice(self) -> None:

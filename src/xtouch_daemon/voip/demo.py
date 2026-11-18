@@ -1,6 +1,6 @@
 """
 A voice chat that is not there: the participants of the configuration talk in turns, and their volumes and mutes are
-kept in memory. To try `voip` strips (and layouts with them) without a voice chat.
+kept in memory. To try the people of the voice chat without one.
 """
 
 import asyncio
@@ -31,8 +31,10 @@ class DemoProvider(VoipProvider):
             tuple(
                 dataclasses.replace(
                     person,
-                    talking=index == turn and not person.muted,
-                    level=level if index == turn and not person.muted else 0.0,
+                    # as in Mumble: a muted participant still talks, but their voice doesn't come
+                    talking=index == turn,
+                    level=min(1.0, level * person.volume / 100) if index == turn and not person.muted else 0.0,
+                    pre_fader_level=level if index == turn and not person.muted else 0.0,
                 )
                 for index, person in enumerate(self._people)
             )

@@ -12,9 +12,10 @@ from typing import Any
 
 import aiomqtt
 
-from xtouch_daemon.config import ConfigError, MqttConfig
+from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.live import MqttState, Snapshot
+from xtouch_daemon.live.messages import MqttState, Snapshot
 
 TEST_TIMEOUT = 5.0
 """Seconds a test waits for the broker."""
@@ -74,15 +75,6 @@ def live_status(snapshot: Snapshot | None) -> Status:
             return Status("connected", Tone.GOOD, "The daemon is connected to the MQTT broker.")
         return Status("not connected", Tone.WARN, "The daemon is not connected to the MQTT broker.")
     return status_of(state)
-
-
-def header_status(snapshot: Snapshot | None) -> Status | None:
-    """The connection for the pill next to the preview: only while the daemon runs with an [mqtt] section."""
-    if snapshot is None or snapshot.mqtt is None:
-        return None
-    status = live_status(snapshot)
-    text = "Home Assistant" if status.tone == Tone.GOOD else f"Home Assistant · {status.text}"
-    return Status(text, status.tone, status.tip)
 
 
 def status_of(state: MqttState) -> Status:

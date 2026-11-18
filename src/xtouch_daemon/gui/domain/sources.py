@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass
 
-from xtouch_daemon import presets
 from xtouch_daemon.audio.model import AudioState, Direction
+from xtouch_daemon.config import presets
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,22 @@ def summary(state: AudioState) -> str:
     return ", ".join(
         (_count(len(state.outputs), "output"), _count(len(state.inputs), "input"), _count(applications, "application"))
     )
+
+
+def contents(state: AudioState) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
+    """
+    What the sound server has, by kind (outputs, inputs, applications that play): a name each and a note on it,
+    "(the default)" for the default device, "" otherwise.
+    """
+
+    def named(direction: Direction) -> tuple[tuple[str, str], ...]:
+        return tuple(
+            (device.description, "(the default)" if state.is_default(device) else "")
+            for device in state.devices(direction)
+        )
+
+    applications = tuple((app, "") for app in sorted({stream.app for stream in state.streams}, key=str.casefold))
+    return (("Outputs", named(Direction.OUTPUT)), ("Inputs", named(Direction.INPUT)), ("Applications", applications))
 
 
 def devices(state: AudioState, direction: Direction) -> tuple[Suggestion, ...]:

@@ -10,10 +10,10 @@ import logging
 from typing import TYPE_CHECKING
 
 from xtouch_daemon.audio.backend import AudioCommandError
-from xtouch_daemon.protocol import RING_MAX, RingMode
+from xtouch_daemon.hardware.protocol import RING_MAX, RingMode
 
 if TYPE_CHECKING:
-    from xtouch_daemon.media import MediaPlayers, Player
+    from xtouch_daemon.audio.media import MediaPlayers, Player
     from xtouch_daemon.strips.apps import AppStrip, AutoStrip
     from xtouch_daemon.strips.base import VolumeStrip
 
@@ -140,7 +140,7 @@ class BalanceKnob(Knob):
                 try:
                     await self.owner.apply_balance(balance)
                 except AudioCommandError as e:
-                    _LOGGER.warning(f"Strip {self.owner.strip.index + 1}: setting the balance: {e}")
+                    _LOGGER.warning(f"{self.owner.identity.name}: setting the balance: {e}")
                 if self.wanted == balance:
                     self.wanted = None
         finally:
@@ -213,7 +213,7 @@ class MediaKnob(Knob):
         players = self.apps.env.players
         if players is None:
             return None
-        from xtouch_daemon.media import player_of
+        from xtouch_daemon.audio.media import player_of
 
         return player_of(players.players, self.apps.streams.values())
 
@@ -254,7 +254,7 @@ class MediaKnob(Knob):
 
     def ring(self) -> tuple[int, RingMode]:
         if self._poller is None and self.apps.env.players is not None:
-            self._poller = asyncio.create_task(self._poll(), name=f"strip {self.apps.strip.index + 1}: track")
+            self._poller = asyncio.create_task(self._poll(), name=f"{self.apps.identity.name}: track")
         if self.progress is None or self.status == "Stopped" or not self._lit:
             return 0, RingMode.DOT
         return ring_position(self.progress), RingMode.WRAP

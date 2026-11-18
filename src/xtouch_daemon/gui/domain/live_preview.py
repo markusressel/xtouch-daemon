@@ -6,30 +6,39 @@ the window says about it.
 
 from pathlib import Path
 
-from xtouch_daemon.config import Config
-from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.instance import Instance
-from xtouch_daemon.live import Snapshot, fingerprint
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.gui.domain.status import Reason
+from xtouch_daemon.live.messages import Snapshot, fingerprint
+from xtouch_daemon.system.instance import Instance
 
 FEATURE = "preview"
 """The feature of the daemon (`Snapshot.features`) that the live preview needs."""
 
 
-def unavailable(daemon: Instance | None, snapshot: Snapshot | None, path: Path, owned: bool) -> str | None:
+def unavailable(daemon: Instance | None, snapshot: Snapshot | None, path: Path, owned: bool) -> Reason | None:
     """
     Why the live preview can't be turned on, None when it can: a daemon has to run this file, tell what the device
     shows (`snapshot`), run as this user (`owned`, see `LiveView.owned`) and know previews.
     """
     if daemon is None:
-        return "No daemon runs: start the service to preview the changes on the device."
+        return Reason("no daemon", "No daemon runs: start the service to try the changes on the device.")
     if path.resolve() != daemon.config:
-        return f"The daemon runs {daemon.config}, not this file."
+        return Reason("the daemon runs another file", f"The daemon runs {daemon.config}, not this file.")
     if snapshot is None:
-        return f"No live view from the daemon (process {daemon.pid}): restart it for a live preview."
+        return Reason(
+            "no live view",
+            f"No live view from the daemon (process {daemon.pid}): restart it to try changes on the device.",
+        )
     if not owned:
-        return "The daemon runs as another user: the configuration, with its secrets, does not go to it."
+        return Reason(
+            "another user's daemon",
+            "The daemon runs as another user: the configuration, with its secrets, does not go to it.",
+        )
     if FEATURE not in snapshot.features:
-        return "The daemon that runs is too old for a live preview: restart it to run the installed version."
+        return Reason(
+            "daemon too old",
+            "The daemon that runs is too old to try changes on the device: restart it to run the installed version.",
+        )
     return None
 
 
@@ -44,33 +53,4 @@ def previewed(snapshot: Snapshot | None, config: Config | None, running: bool) -
         and snapshot.preview
         and config is not None
         and snapshot.config == fingerprint(config)
-    )
-
-
-def preview_pill(on: bool, running: bool, modified: bool, problems: bool) -> Status | None:
-    """
-    What the pill of the live preview says; None while it is off. `running`: the daemon runs a preview of this window,
-    `problems`: the document has some, so it does not go to the daemon.
-    """
-    if not on:
-        return None
-    if modified and problems:
-        return Status(
-            "Live preview paused",
-            Tone.WARN,
-            "The configuration has problems: the device keeps the last version without them. Fix them to go on.",
-        )
-    if running:
-        return Status(
-            "Previewing unsaved changes",
-            Tone.WARN,
-            "The device runs the configuration in the editor, not the file. Save to keep it, turn the live preview "
-            "off (or close the window) to go back to the file.",
-        )
-    if modified:
-        return Status("Live preview…", Tone.NEUTRAL, "The changes go to the device in a moment.")
-    return Status(
-        "Live preview",
-        Tone.NEUTRAL,
-        "No unsaved changes: the device runs the file. The next change goes to the device right away.",
     )

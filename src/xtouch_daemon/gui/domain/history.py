@@ -3,11 +3,22 @@ Undo and redo of the edits of a document. Every edit can be taken back, also rem
 editor needs no "are you sure?" questions. Typing into one option is one step, not one per character.
 """
 
-from typing import Any
-
-from xtouch_daemon.gui.domain.document import ConfigDocument, DocumentState
+from typing import Any, Protocol
 
 type Path = tuple[Any, ...]
+
+
+class State(Protocol):
+    """What a document is at one moment."""
+
+    def data(self) -> Any: ...
+
+
+class Editable[S: State](Protocol):
+    """A document whose edits can be taken back: `ConfigDocument`, `SlotsDocument`."""
+
+    def state(self) -> S: ...
+    def restore(self, state: Any) -> None: ...
 
 
 def _at(data: Any, path: Path) -> Any:
@@ -33,14 +44,14 @@ def changed_paths(before: Any, after: Any, path: Path = ()) -> set[Path]:
     return set() if before == after else {path}
 
 
-class History:
+class History[D: Editable[Any]]:
     """The states of `document` before its edits. Call `record()` after every edit."""
 
-    def __init__(self, document: ConfigDocument):
+    def __init__(self, document: D):
         self.document = document
         self._current = document.state()
-        self._undo: list[DocumentState] = []
-        self._redo: list[DocumentState] = []
+        self._undo: list[Any] = []
+        self._redo: list[Any] = []
         self._last_change: set[Path] = set()
 
     @property
@@ -63,7 +74,7 @@ class History:
         self._last_change = change
         self._redo.clear()
 
-    def _one_value(self, change: set[Path], state: DocumentState) -> bool:
+    def _one_value(self, change: set[Path], state: Any) -> bool:
         """Whether the change is of a single value, like a text being typed, rather than of a list or a table."""
         if len(change) != 1:
             return False
@@ -79,7 +90,7 @@ class History:
         self._undo.append(self._current)
         self._go(self._redo.pop())
 
-    def _go(self, state: DocumentState) -> None:
+    def _go(self, state: Any) -> None:
         self._current = state
         # the next edit is a step of its own, even of the same option
         self._last_change = set()

@@ -62,6 +62,8 @@ dev = [
 ]
 docs = [
     "zensical>=0.1.1",
+    # Zensical's fork of mike: versions of the documentation (until Zensical has that itself)
+    "mike @ git+https://github.com/squidfunk/mike.git@2d4ad799442f4592db8ad53b179bfb33db8c69ac",
 ]
 
 [tool.pytest.ini_options]
@@ -110,5 +112,5 @@ typeCheckingMode = "standard"
 [tool.codespell]
 # integrations/mumble/include is Mumble's header, as it is upstream
 skip = "*.lock,./site,./.venv,./integrations/mumble/include,./integrations/mumble/build"
-# "bu" is typed into a field in a test (the start of "buds"), HDA is a sound card (HDA Intel)
-ignore-words-list = "bu,hda"
+# "bu" and "pres" are typed into fields (the starts of "buds" and "present"), HDA is a sound card (HDA Intel)
+ignore-words-list = "bu,hda,pres"

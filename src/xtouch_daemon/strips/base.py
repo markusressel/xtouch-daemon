@@ -9,15 +9,16 @@ from typing import TYPE_CHECKING, assert_never
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
-from xtouch_daemon.audio.meter import CaptureTarget
+from xtouch_daemon.audio.media import MediaPlayers
+from xtouch_daemon.audio.meter import CaptureTarget, Reading
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import BehaviorConfig, EncoderMode, Indicator
-from xtouch_daemon.launch import Launcher
-from xtouch_daemon.media import MediaPlayers
+from xtouch_daemon.config.sections import BehaviorConfig
+from xtouch_daemon.config.values import ColorName, EncoderMode, Indicator, MeterPoint, color_of
+from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.hardware.strip import Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.strips.knobs import BalanceKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
-from xtouch_daemon.surface import Strip
+from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.voip.provider import VoipProvider
 
 if TYPE_CHECKING:
@@ -47,21 +48,67 @@ class StripEnv:
     launcher: Launcher = field(default_factory=Launcher)
     """Starts the applications of strips with `launch`."""
     processes: Callable[[], frozenset[str]] = frozenset
-    """The names of the processes that run (see `layouts.running_processes()`), as the mixer saw them last."""
+    """The names of the processes that run (see `processes.running_processes()`), as the mixer saw them last."""
+
+
+@dataclass(frozen=True)
+class Identity:
+    """
+    Who a controller is, whatever strip of the device shows it: `id` is part of the ids of its entities in Home
+    Assistant (the id of its channel), `name` of their names and of the log.
+    """
+
+    id: str
+    name: str
+
+
+@dataclass(frozen=True)
+class Look:
+    """How a controller looks on the strip it is on: the options of the configuration."""
+
+    label: str | None = None
+    """The top line; None for what the controller shows by itself (e.g. the description of a device)."""
+    color: ColorName = "white"
+    meter: bool = True
+    """Whether the LED meter shows the level (if `behavior.meters` is on)."""
+    meter_point: MeterPoint = "pre_fader"
+    indicators: Mapping[Button, Indicator] = field(default_factory=dict[Button, Indicator])
+    """What the LEDs of Rec and Solo show."""
+    lit_when_idle: bool = False
+    """Whether the LCD keeps its backlight while the strip is idle."""
 
 
 class StripController:
     """
     Drives one strip: `update()` shows the audio state on it (after every change), the `on_*` methods handle what
-    happens on the device. None of them block: commands to the sound server run as tasks.
+    happens on the device. None of them block: commands to the sound server run as tasks. Its identity and look come
+    from outside: the configuration of a strip, or of a channel.
     """
 
-    def __init__(self, strip: Strip, env: StripEnv, color: Color = Color.WHITE, meter: bool = True):
+    def __init__(self, strip: Strip, env: StripEnv, identity: Identity, look: Look):
         self.strip = strip
         self.env = env
-        self.color = color
-        self.meter = meter and env.behavior.meters
+        self.identity = identity
+        self.look = look
+        self.taken: frozenset[Claimable] = frozenset()
+        """The controls of its strip the controls of the slot claim (`[controls]`): their events go there."""
         self._tasks: set[asyncio.Task[None]] = set()
+
+    def set_look(self, look: Look) -> None:
+        """Another look (the strip it is on now has other options); shows at the next `update()`."""
+        self.look = look
+
+    def set_taken(self, taken: frozenset[Claimable]) -> None:
+        """The controls of the slot claim these controls of the strip it is on (none when it leaves the slot)."""
+        self.taken = taken
+
+    @property
+    def color(self) -> Color:
+        return color_of(self.look.color)
+
+    @property
+    def meter(self) -> bool:
+        return self.look.meter and self.env.behavior.meters
 
     def update(self, state: AudioState) -> None:
         """Shows the state on the strip."""
@@ -86,22 +133,16 @@ class StripController:
         """
         return None
 
-    def absent(self, state: AudioState) -> bool:
-        """
-        Whether the strip has nothing to control (its devices are not there, no application has a stream), so with
-        `collapse` the strips after it take its place (see `placement.py`).
-        """
-        return False
-
     @property
     def title(self) -> str:
-        """What the strip is, for the log: its label, or its type."""
-        return f"strip {self.strip.index + 1}"
+        """What the strip is, for the log: its label, or its name."""
+        return self.identity.name
 
-    def held_meter(self) -> int | None:
+    def held_meter(self, point: MeterPoint) -> Reading | None:
         """
-        A level the meter holds without audio (0..METER_MAX), e.g. one Home Assistant set; None for none. The device
-        lets a meter fall, so the mixer sends it again and again.
+        What the meter shows without a capture of its own: audio as a `Peak` (e.g. a participant of the voice chat),
+        anything else as `Lit` (e.g. a level Home Assistant set); None for nothing. `point` is the strip's
+        `meter_point`. The device lets a meter fall, so the mixer sends it again and again.
         """
         return None
 
@@ -137,9 +178,9 @@ class StripController:
             try:
                 await command
             except AudioCommandError as e:
-                _LOGGER.warning(f"Strip {self.strip.index + 1}: {what}: {e}")
+                _LOGGER.warning(f"{self.identity.name}: {what}: {e}")
 
-        task = asyncio.create_task(run(), name=f"strip {self.strip.index + 1}: {what}")
+        task = asyncio.create_task(run(), name=f"{self.identity.name}: {what}")
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
@@ -200,34 +241,65 @@ class VolumeStrip(StripController):
         self,
         strip: Strip,
         env: StripEnv,
-        label: str,
-        color: Color = Color.WHITE,
-        meter: bool = True,
-        indicators: Mapping[Button, Indicator] | None = None,
+        identity: Identity,
+        look: Look,
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
     ):
-        super().__init__(strip, env, color, meter)
-        self.label = label
+        super().__init__(strip, env, identity, look)
+        self.label = look.label or ""
+        """The top line: the label of the look, or what the kind of strip shows."""
         self.controls = controls
         """Its fader and/or encoder in Home Assistant (`fader`/`encoder = "homeassistant"`)."""
         if controls is not None:
             controls.on_change = self.show
         self.min_volume = min_volume
         self.max_volume = max_volume
-        self.indicators: dict[Button, Indicator] = dict(indicators or {})
+        self.own_leds: frozenset[Button] = frozenset()
+        """The LEDs the kind of strip shows something of its own on, not the indicators of the look."""
         self.level: Level | None = None
         self.active = False
-        self.lit_when_idle = False
-        """Whether the LCD keeps its backlight while the strip is idle (`lit_when_idle`)."""
         self._wanted: int | None = None
         self._setter: asyncio.Task[None] | None = None
         self.notice: str | None = None
         """Shown on the second line instead of the volume for a moment (`notify`)."""
         self._notice_timer: asyncio.TimerHandle | None = None
+        self.encoder_mode: EncoderMode = encoder
+        """What the encoder does by the configuration; while the fader is taken, it sets the volume (see `knob`)."""
         self.knob = self.make_knob(encoder)
+
+    def set_look(self, look: Look) -> None:
+        super().set_look(look)
+        self.label = look.label or self.label
+
+    def set_place(self, encoder: EncoderMode, min_volume: int | None, max_volume: int | None) -> None:
+        """What the encoder does and the volume range: those of the place the strip is on now."""
+        self.encoder_mode = encoder
+        self.min_volume = min_volume
+        self.max_volume = max_volume
+        self._make_knob()
+
+    def set_taken(self, taken: frozenset[Claimable]) -> None:
+        """With the fader taken (and not the encoder), the encoder sets the volume, as with a Home Assistant fader."""
+        before = self._knob_mode()
+        super().set_taken(taken)
+        if self._knob_mode() != before:
+            self._make_knob()
+
+    def _knob_mode(self) -> EncoderMode:
+        if "fader" in self.taken and "encoder" not in self.taken:
+            return "volume"
+        return self.encoder_mode
+
+    def _make_knob(self) -> None:
+        self.knob.close()
+        self.knob = self.make_knob(self._knob_mode())
+
+    @property
+    def indicators(self) -> dict[Button, Indicator]:
+        return {button: indicator for button, indicator in self.look.indicators.items() if button not in self.own_leds}
 
     # -- for the kinds of strips ----------------------------------------------------------------------------------
 
@@ -314,7 +386,7 @@ class VolumeStrip(StripController):
         return self.controls.fader if self.controls is not None else None
 
     def show(self) -> None:
-        self.strip.set_color(self.color if self.active or self.lit_when_idle else Color.BLACK)
+        self.strip.set_color(self.color if self.active or self.look.lit_when_idle else Color.BLACK)
         self.strip.set_text(0, self.label)
         if self.ha_fader is not None and self.controls is not None and self.controls.connected:
             self.ha_fader.show()
@@ -430,18 +502,18 @@ class VolumeStrip(StripController):
         # right away, the sound server confirms it a moment later
         self.strip.set_text(1, f"{self._wanted}%")
         if self._setter is None or self._setter.done():
-            self._setter = asyncio.create_task(self._apply_wanted(), name=f"strip {self.strip.index + 1}: volume")
+            self._setter = asyncio.create_task(self._apply_wanted(), name=f"{self.identity.name}: volume")
             self._tasks.add(self._setter)
             self._setter.add_done_callback(self._tasks.discard)
 
     async def _apply_wanted(self) -> None:
         while self._wanted is not None:
             volume = self._wanted
-            _LOGGER.debug(f"Strip {self.strip.index + 1}: volume {volume}%")
+            _LOGGER.debug(f"{self.identity.name}: volume {volume}%")
             try:
                 await self.apply_volume(volume)
             except AudioCommandError as e:
-                _LOGGER.warning(f"Strip {self.strip.index + 1}: setting the volume: {e}")
+                _LOGGER.warning(f"{self.identity.name}: setting the volume: {e}")
             else:
                 # until the sound server reports it, so the old volume does not flash up
                 if self.level is not None:

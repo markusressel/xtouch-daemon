@@ -2,19 +2,18 @@
 
 import asyncio
 import logging
-import time
-from collections.abc import Callable, Mapping
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Protocol
 
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Stream
-from xtouch_daemon.config import EncoderMode, Indicator
-from xtouch_daemon.launch import LaunchButton
-from xtouch_daemon.layouts import process_matching
-from xtouch_daemon.protocol import Button, Color
-from xtouch_daemon.strips.base import Level, StripEnv, VolumeStrip
+from xtouch_daemon.config.values import EncoderMode
+from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.hardware.strip import Strip
+from xtouch_daemon.strips.base import Identity, Level, Look, StripEnv, VolumeStrip
 from xtouch_daemon.strips.knobs import Knob, MediaKnob, PickKnob
-from xtouch_daemon.surface import Strip
+from xtouch_daemon.system.launch import LaunchButton
+from xtouch_daemon.system.processes import process_matching
 
 if TYPE_CHECKING:
     from xtouch_daemon.strips.homeassistant import HomeAssistantControls
@@ -39,16 +38,14 @@ class AppStrip(VolumeStrip):
         self,
         strip: Strip,
         env: StripEnv,
-        label: str,
-        color: Color = Color.WHITE,
-        meter: bool = True,
-        indicators: Mapping[Button, Indicator] | None = None,
+        identity: Identity,
+        look: Look,
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
     ):
-        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder, controls)
+        super().__init__(strip, env, identity, look, min_volume, max_volume, encoder, controls)
         self.streams: dict[int, Stream] = {}
         self.group_volume: int | None = None
         """The volume of the strip: set on the strip, or the loudest stream; None before the first stream."""
@@ -117,10 +114,6 @@ class AppStrip(VolumeStrip):
         balance = streams[min(streams)].balance
         return Level(volume, all(stream.muted for stream in streams.values()), balance), True
 
-    def absent(self, state: AudioState) -> bool:
-        """None of its applications has a stream, playing or paused."""
-        return not self.streams_in(state)
-
     @property
     def title(self) -> str:
         return self.label
@@ -169,18 +162,16 @@ class AppGroupStrip(AppStrip):
         self,
         strip: Strip,
         env: StripEnv,
+        identity: Identity,
         patterns: tuple[str, ...],
-        label: str,
-        color: Color = Color.WHITE,
-        meter: bool = True,
-        indicators: Mapping[Button, Indicator] | None = None,
+        look: Look,
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
         processes: tuple[str, ...] | None = None,
     ):
-        super().__init__(strip, env, label, color, meter, indicators, min_volume, max_volume, encoder, controls)
+        super().__init__(strip, env, identity, look, min_volume, max_volume, encoder, controls)
         self.patterns = patterns
         self.processes = patterns if processes is None else processes
 
@@ -190,7 +181,7 @@ class AppGroupStrip(AppStrip):
     def runs(self, state: AudioState) -> bool:
         """
         An application of the group has a stream, or a process whose name contains one of `processes` runs (like the
-        `processes` rule of a layout), or the program of `launch`: a silent voice chat runs too.
+        `processes` of a state), or the program of `launch`: a silent voice chat runs too.
         """
         return (
             bool(self.streams_in(state))
@@ -202,33 +193,50 @@ class AppGroupStrip(AppStrip):
         return state.records_matching(self.patterns)
 
 
+class PickSlot(Protocol):
+    """Where the `pick` encoder of an `auto` strip picks and pins its application."""
+
+    @property
+    def pinned(self) -> bool: ...
+
+    def position(self) -> tuple[int, int] | None:
+        """Which of how many candidates the slot has, None for none of them."""
+        ...
+
+    def pick(self, steps: int) -> None: ...
+    def toggle_pin(self) -> None: ...
+
+
 class AutoStrip(AppStrip):
     """
-    The streams of the application the `AutoAssigner` gave the strip, under its alias. Dark while it has none. With
-    `encoder = "pick"`, the encoder picks the application (`slot`, which the mixer gives it) and a push pins it.
+    The streams of the application the slots gave the strip, under its alias. Dark while it has none. With
+    `encoder = "pick"`, the encoder picks the application (`slot`, which the binder gives it) and a push pins it.
     """
 
     def __init__(
         self,
         strip: Strip,
         env: StripEnv,
+        identity: Identity,
         aliases: dict[str, str],
-        color: Color = Color.WHITE,
-        meter: bool = True,
-        indicators: Mapping[Button, Indicator] | None = None,
+        look: Look,
         min_volume: int | None = None,
         max_volume: int | None = None,
         encoder: EncoderMode = "volume",
         controls: HomeAssistantControls | None = None,
     ):
-        super().__init__(strip, env, "", color, meter, indicators, min_volume, max_volume, encoder, controls)
+        super().__init__(strip, env, identity, look, min_volume, max_volume, encoder, controls)
         self.aliases = aliases
         self.app: str | None = None
-        self.slot: AutoSlot | None = None
-        """Its place in the `AutoAssigner`, for picking the application."""
+        self.slot: PickSlot | None = None
+        """Where it picks its application: the slot of channels and states."""
 
     def make_knob(self, encoder: EncoderMode) -> Knob:
         return PickKnob(self) if encoder == "pick" else super().make_knob(encoder)
+
+    def set_look(self, look: Look) -> None:
+        # the label is the application's
+        self.look = look
 
     def assign(self, app: str | None) -> None:
         if app == self.app:
@@ -253,126 +261,6 @@ class AutoStrip(AppStrip):
     def inactive_text(self) -> str:
         return "" if self.app is None else "idle"
 
-    def absent(self, state: AudioState) -> bool:
-        """It has no application (after `behavior.auto_hold`)."""
-        return self.app is None
-
     @property
     def title(self) -> str:
         return self.label or "auto"
-
-
-class AutoAssigner:
-    """
-    Gives the `auto` strips the applications that play and have no strip of their own, in the order they started.
-    An application keeps its strip while it plays, and for `hold` seconds after it stopped (so it does not jump
-    between strips from one track to the next). A pinned slot keeps its application until it is unpinned. `pick`
-    puts another application into a slot.
-    """
-
-    def __init__(self, slots: int, hold: float, ignore: tuple[str, ...], clock: Callable[[], float] = time.monotonic):
-        self.assigned: list[str | None] = [None] * slots
-        self.hold = hold
-        self.ignore = ignore
-        self._clock = clock
-        self._stopped_at: dict[str, float] = {}
-        self.pinned: set[int] = set()
-        """The slots that keep their application."""
-
-    def _apps(self, state: AudioState, claimed: tuple[tuple[str, ...], ...], playing: bool) -> list[str]:
-        """The applications without a strip of their own, in the order they started (only the ones that play)."""
-        apps: list[str] = []
-        for stream in sorted(state.streams, key=lambda stream: stream.index):
-            if (playing and not stream.playing) or stream.app in apps or stream.matches(self.ignore):
-                continue
-            if any(stream.matches(patterns) for patterns in claimed):
-                continue
-            apps.append(stream.app)
-        return apps
-
-    def candidates(self, state: AudioState, claimed: tuple[tuple[str, ...], ...] = ()) -> list[str]:
-        """What a slot can pick: the applications without a strip of their own that are there, paused ones too."""
-        return self._apps(state, claimed, playing=False)
-
-    def pick(self, slot: int, steps: int, state: AudioState, claimed: tuple[tuple[str, ...], ...] = ()) -> None:
-        """
-        Moves the slot `steps` applications on among the candidates; one that another slot has swaps with it. A
-        pinned slot stays pinned, with the new application.
-        """
-        candidates = self.candidates(state, claimed)
-        if not candidates:
-            return
-        current = self.assigned[slot]
-        if current in candidates:
-            app = candidates[(candidates.index(current) + steps) % len(candidates)]
-        else:
-            app = candidates[0 if steps > 0 else -1]
-        if app in self.assigned:
-            self.assigned[self.assigned.index(app)] = current
-        self.assigned[slot] = app
-        self._stopped_at.pop(app, None)
-
-    def toggle_pin(self, slot: int) -> None:
-        """Pins the slot (only one with an application), or unpins it."""
-        if slot in self.pinned:
-            self.pinned.discard(slot)
-        elif self.assigned[slot] is not None:
-            self.pinned.add(slot)
-
-    def assign(self, state: AudioState, claimed: tuple[tuple[str, ...], ...] = ()) -> list[str | None]:
-        """The application of every slot. `claimed` are the patterns of the strips with applications of their own."""
-        now = self._clock()
-        playing = self._apps(state, claimed, playing=True)
-
-        for slot, app in enumerate(self.assigned):
-            if app is None or slot in self.pinned:
-                continue
-            if app in playing:
-                self._stopped_at.pop(app, None)
-            elif now - self._stopped_at.setdefault(app, now) >= self.hold:
-                self.assigned[slot] = None
-                del self._stopped_at[app]
-
-        for app in playing:
-            if app in self.assigned:
-                continue
-            if None not in self.assigned:
-                break
-            self.assigned[self.assigned.index(None)] = app
-        return list(self.assigned)
-
-
-class AutoSlot:
-    """A slot of the `AutoAssigner` for its strip: picks and pins with the current state, then shows the result."""
-
-    def __init__(
-        self,
-        assigner: AutoAssigner,
-        index: int,
-        state: Callable[[], AudioState],
-        claimed: tuple[tuple[str, ...], ...],
-        refresh: Callable[[], None],
-    ):
-        self.assigner = assigner
-        self.index = index
-        self._state = state
-        self._claimed = claimed
-        self._refresh = refresh
-
-    @property
-    def pinned(self) -> bool:
-        return self.index in self.assigner.pinned
-
-    def position(self) -> tuple[int, int] | None:
-        """Which of how many candidates the slot has, None for none of them."""
-        candidates = self.assigner.candidates(self._state(), self._claimed)
-        app = self.assigner.assigned[self.index]
-        return (candidates.index(app), len(candidates)) if app in candidates else None
-
-    def pick(self, steps: int) -> None:
-        self.assigner.pick(self.index, steps, self._state(), self._claimed)
-        self._refresh()
-
-    def toggle_pin(self) -> None:
-        self.assigner.toggle_pin(self.index)
-        self._refresh()

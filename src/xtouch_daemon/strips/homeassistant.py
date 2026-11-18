@@ -28,21 +28,13 @@ from haad_mqtt_autodiscovery.entity.number import MQTTNumber
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from haad_mqtt_autodiscovery.entity.text import MQTTText, MQTTTextPayload
 
+from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config import (
-    AppsStripConfig,
-    AutoStripConfig,
-    ColorName,
-    DeviceStripConfig,
-    HomeAssistantStripConfig,
-    StripConfig,
-    color_of,
-    default_encoder,
-)
+from xtouch_daemon.config.values import ColorName, MeterPoint, color_of
+from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
+from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
-from xtouch_daemon.strips.base import StripController, StripEnv
-from xtouch_daemon.surface import Strip
+from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv
 
 FADER_PUBLISH_INTERVAL = 0.1
 """How often a fader moved by hand publishes its value: Home Assistant and its automations don't need every step."""
@@ -57,36 +49,6 @@ EVENT_TYPES = [
 ]
 LEDS = {"off": Led.OFF, "on": Led.ON, "flash": Led.FLASH}
 """The states of an LED in Home Assistant."""
-
-
-def entity_ids(namespace: str, config: StripConfig, strip_id: str) -> frozenset[str]:
-    """
-    The unique ids of the entities a strip of the configuration has in Home Assistant (none for most), without making
-    them: for the entities of the layouts the device does not show, which stay in Home Assistant.
-    """
-    if isinstance(config, HomeAssistantStripConfig):
-        suffixes = [
-            "fader",
-            "encoder",
-            "meter",
-            "top",
-            "bottom",
-            "color",
-            *(f"{button.name.lower()}_led" for button in Button),
-            "buttons",
-        ]
-    elif isinstance(config, DeviceStripConfig | AppsStripConfig | AutoStripConfig):
-        encoder = (config.encoder or default_encoder(config.type, config.fader)) == "homeassistant"
-        suffixes = [
-            *(["fader"] if config.fader == "homeassistant" else []),
-            *(["encoder"] if encoder else []),
-            *(["buttons"] if config.uses_home_assistant else []),
-            # the select of the choices
-            *([config.type] if isinstance(config, DeviceStripConfig) and config.switches else []),
-        ]
-    else:
-        suffixes = []
-    return frozenset(f"{namespace}_{strip_id}_{suffix}" for suffix in suffixes)
 
 
 class LcdText(MQTTText):
@@ -146,12 +108,12 @@ class LatestValue:
 
 
 class StripEntities:
-    """Makes the entities of a strip: ids `<namespace>_<strip_id>_<suffix>`, names `<title> <suffix>`."""
+    """Makes the entities of a controller: ids `<namespace>_<id>_<suffix>`, names `<name> <suffix>` (its identity)."""
 
-    def __init__(self, bridge: MqttBridge, strip_id: str, title: str):
+    def __init__(self, bridge: MqttBridge, identity: Identity):
         self.namespace, self.device = bridge.config.namespace, bridge.device
-        self.strip_id = strip_id
-        self.title = title
+        self.strip_id = identity.id
+        self.title = identity.name
 
     def number(self, suffix: str) -> MQTTNumber:
         """0..100 %: the fader in tenths, the encoder and the meter in whole steps."""
@@ -238,12 +200,10 @@ class HomeAssistantControls:
     changes them.
     """
 
-    def __init__(
-        self, strip: Strip, env: StripEnv, bridge: MqttBridge, strip_id: str, title: str, fader: bool, encoder: bool
-    ):
+    def __init__(self, strip: Strip, env: StripEnv, bridge: MqttBridge, identity: Identity, fader: bool, encoder: bool):
         self.bridge = bridge
         self.on_change: Callable[[], None] = lambda: None
-        entities = StripEntities(bridge, strip_id, title)
+        entities = StripEntities(bridge, identity)
         self.fader = FaderLink(strip, entities.number("fader")) if fader else None
         self.encoder = EncoderLink(strip, entities.number("encoder"), env.behavior.encoder_step) if encoder else None
         event_types = [
@@ -276,16 +236,16 @@ class HomeAssistantStrip(StripController):
         strip: Strip,
         env: StripEnv,
         bridge: MqttBridge,
-        strip_id: str,
-        label: str | None = None,
-        color: ColorName = "white",
+        identity: Identity,
+        look: Look,
     ):
-        super().__init__(strip, env, color_of(color), meter=False)
+        """Home Assistant sets the meter (`held_meter()`): the look's `meter` means nothing here."""
+        super().__init__(strip, env, identity, look)
         self.bridge = bridge
-        self.default_label = label or ""
-        self.default_color: ColorName = color
-        entities = StripEntities(bridge, strip_id, label or f"Strip {strip.index + 1}")
-        namespace, device, title = entities.namespace, entities.device, entities.title
+        self.default_label = look.label or ""
+        self.default_color: ColorName = look.color
+        entities = StripEntities(bridge, identity)
+        namespace, device, title, strip_id = entities.namespace, entities.device, entities.title, identity.id
 
         def line(suffix: str) -> LcdText:
             return LcdText(namespace, f"{strip_id}_{suffix}", f"{title} {suffix} line", device=device)
@@ -314,13 +274,18 @@ class HomeAssistantStrip(StripController):
             self.meter_level: "0",
             self.top: self.default_label,
             self.bottom: "",
-            self.lcd_color: color,
+            self.lcd_color: look.color,
             **dict.fromkeys(self.leds.values(), "off"),
             self.buttons: None,
         }
         for entity in self._entities:
             if entity is not self.buttons:
                 bridge.watch(entity, self._changed)
+
+    def set_look(self, look: Look) -> None:
+        super().set_look(look)
+        self.default_label = look.label or ""
+        self.default_color = look.color
 
     @property
     def entities(self) -> dict[MQTTEntity, str | None]:
@@ -364,15 +329,15 @@ class HomeAssistantStrip(StripController):
         self.fader_link.show()
         self.strip.set_ring(*self.encoder_link.ring())
 
-    def held_meter(self) -> int | None:
+    def held_meter(self, point: MeterPoint) -> Lit | None:
         """
         The level of the meter entity: 0..100 % over the levels of the meter, 100 % lights all LEDs (the red one too),
-        nothing while not connected.
+        nothing while not connected. Home Assistant sets the level, so the meter point means nothing here.
         """
         percent = _value(self.meter_level.target_state)
         if not self.connected or percent is None:
             return None
-        return round(max(0.0, min(100.0, percent)) / 100 * METER_MAX)
+        return Lit(round(max(0.0, min(100.0, percent)) / 100 * METER_MAX))
 
     # -- the device -----------------------------------------------------------------------------------------------
 

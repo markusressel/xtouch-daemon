@@ -16,8 +16,12 @@ from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from xtouch_daemon.config import ENCODERS, STRIP_MODELS, ColorName, Config, Meanings, Presets
-from xtouch_daemon.presets import Kind as PresetKind
+from xtouch_daemon.config.base import Meanings
+from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.names import Presets
+from xtouch_daemon.config.presets import Kind as PresetKind
+from xtouch_daemon.config.strips import STRIP_MODELS
+from xtouch_daemon.config.values import ENCODERS, ColorName
 
 
 class Kind(StrEnum):
@@ -58,8 +62,6 @@ class Option:
     """The options of each table of `TABLES`."""
     meanings: tuple[tuple[str, str], ...] = ()
     """What the choices mean (`Meanings` of the option), as pairs of the value and its meaning."""
-    whole_numbers: bool = False
-    """Whether a text of digits alone is a whole number (e.g. `strip = 3`), any other one a name."""
     presets: PresetKind | None = None
     """For a list of names that may have presets (`@browsers`): what its names are matched against."""
 
@@ -89,21 +91,11 @@ def describe(value: object) -> str:
     return "not set" if value is None else str(value)
 
 
-WHOLE_NUMBERS = object()
-"""The constraint of a text that is a whole number when it has only digits (`Option.whole_numbers`)."""
-
-
 def _unwrap(annotation: Any) -> tuple[Any, list[Any]]:
     """The type of an annotation without `None` and `Annotated`, and the constraints that came with them."""
     constraints: list[Any] = []
     if get_origin(annotation) in (Union, types.UnionType):
-        members = [arg for arg in get_args(annotation) if arg is not type(None)]
-        if len(members) == 2 and {_unwrap(member)[0] for member in members} == {int, str}:
-            # a number or a name (`strip` of an `inherit` strip): a text, whose digits are a number
-            (annotation,) = (member for member in members if _unwrap(member)[0] is str)
-            constraints.append(WHOLE_NUMBERS)
-        else:
-            (annotation,) = members
+        (annotation,) = [arg for arg in get_args(annotation) if arg is not type(None)]
     while get_origin(annotation) is Annotated:
         annotation, *metadata = get_args(annotation)
         for item in metadata:
@@ -154,8 +146,6 @@ def option(name: str, field: FieldInfo) -> Option:
     bounds: dict[str, Any] = {}
     for constraint in constraints:
         match constraint:
-            case _ if constraint is WHOLE_NUMBERS:
-                bounds["whole_numbers"] = True
             case Meanings(meanings=meanings):
                 bounds["meanings"] = tuple(meanings.items())
             case Presets(kind=preset_kind):
@@ -183,7 +173,8 @@ def option(name: str, field: FieldInfo) -> Option:
 
 def options(model: type[BaseModel], skip: tuple[str, ...] = ()) -> tuple[Option, ...]:
     """The options of a model in the order it declares them."""
-    return tuple(option(name, field) for name, field in model.model_fields.items() if name not in skip)
+    # an option named like a word of Python has an alias (`from_` is `from`)
+    return tuple(option(field.alias or name, field) for name, field in model.model_fields.items() if name not in skip)
 
 
 @dataclass(frozen=True)
@@ -209,6 +200,16 @@ def sections() -> tuple[Section, ...]:
     return tuple(result)
 
 
+SECTIONS: dict[str, Section] = {section.name: section for section in sections()}
+"""The sections with options of their own (`[device]`, `[behavior]`, `[mqtt]`), edited option by option."""
+
+RESTART_SECTIONS: dict[str, str | None] = {"mqtt": None}
+"""
+The sections a reload does not take, with the one option of them that matters (None: all of them): the daemon keeps
+its configuration on a new `[mqtt]`. Another `[device] name` or `virtual` it takes: it switches to that device.
+"""
+
+
 def strip_models() -> dict[str, type[BaseModel]]:
     """The model of every strip type, by the value of `type`."""
     return {name: model for model in STRIP_MODELS for name in get_args(model.model_fields["type"].annotation)}
@@ -221,15 +222,11 @@ def strip_type_help(strip_type: str) -> str:
 
 STRIP_OPTION_ORDER = (
     # what the strip controls
-    "layout",
-    "strip",
     "device",
     "choices",
     "match",
     "profiles",
     "person",
-    # whether it gives its place to the next ones
-    "collapse",
     # then the parts of the strip from the top of the device to the bottom: the encoder with its ring, the LCD, the
     # meter, the buttons, the fader
     "encoder",
@@ -248,15 +245,11 @@ STRIP_OPTION_ORDER = (
     "fader",
     "min_volume",
     "max_volume",
-    # and how Home Assistant knows it
-    "id",
 )
 """
 The order of the options of a strip in the GUI: what it controls first, then as the device shows the parts of a strip,
 from the top down. Not the order of the models, which is that of the configuration file.
 """
-STRIP_CONTROLS = {"homeassistant": "id"}
-"""The option that says what a strip controls, where it is one that other types have for something else."""
 
 
 def strip_options(strip_type: str) -> tuple[Option, ...]:
@@ -264,13 +257,12 @@ def strip_options(strip_type: str) -> tuple[Option, ...]:
     The options of a strip of the type, without `type` itself, and only the encoders it has, in the order of
     `STRIP_OPTION_ORDER`.
     """
-    first = STRIP_CONTROLS.get(strip_type)
     return tuple(
         sorted(
             (
                 dataclasses.replace(option, choices=ENCODERS[strip_type]) if option.name == "encoder" else option
                 for option in options(strip_models()[strip_type], skip=("type",))
             ),
-            key=lambda option: -1 if option.name == first else STRIP_OPTION_ORDER.index(option.name),
+            key=lambda option: STRIP_OPTION_ORDER.index(option.name),
         )
     )

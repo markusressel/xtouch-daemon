@@ -1,4 +1,4 @@
-// A Mumble for the tests of the plugin (tests/test_mumble_plugin.py): loads the plugin like Mumble does, gives it the
+// A Mumble for the tests of the plugin (tests/voip/test_mumble_plugin.py): loads the plugin like Mumble does, gives it the
 // Mumble API of a made-up server, and calls its callbacks as a script on stdin says, one command per line:
 //
 //   connect LOCAL CHANNEL      the local user LOCAL in CHANNEL, connected and synchronized
