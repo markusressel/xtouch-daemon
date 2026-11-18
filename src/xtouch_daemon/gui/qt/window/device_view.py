@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout,
 from xtouch_daemon.gui.domain.looks import device_faces
 from xtouch_daemon.gui.domain.simulate import simulated_faces
 from xtouch_daemon.gui.domain.slots import MODES
-from xtouch_daemon.gui.domain.status import Status, Tone, play_unavailable
+from xtouch_daemon.gui.domain.status import Reason, Status, Tone, play_unavailable
 from xtouch_daemon.gui.qt.fields.basics import label, show_status
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
@@ -124,16 +124,28 @@ class DeviceView(QWidget):
         return button
 
     def _play_toggled(self, playing: bool) -> None:
+        if playing and self._opens_virtual_device():
+            # Play on a daemon that waits for the virtual device opens it: `host` turns Play on once it runs
+            self.select_button.setChecked(True)
+            self.live_clicked.emit()
+            return
         self.preview.set_playing(playing)
         self._show_mode()
+
+    def _opens_virtual_device(self) -> bool:
+        """Whether Play opens the virtual device first: the daemon waits for it, and the GUI offers to open it."""
+        return self.offered and self.hosted is None
 
     def show_status(self, live: Status, offered: bool, slots: Status | None) -> None:
         """
         What the drawing shows (live or the file; `offered`: a click opens the virtual device) and the mode of the
         slots, None without slots.
         """
+        changed = offered != self.offered
         self.live_status, self.offered, self.slots_status = live, offered, slots
         show_status(self.live_pill, live, more=True)
+        if changed:
+            self._show_mode()
         self.slots_pill.setVisible(slots is not None)
         if slots is not None:
             show_status(self.slots_pill, slots, more=True)
@@ -199,7 +211,14 @@ class DeviceView(QWidget):
         self.preview.device_hand = None if reason is not None else self.hosted or self.remote
         if reason is not None and self.play_button.isChecked():
             self.select_button.setChecked(True)
-        self.play_button.setEnabled(reason is None)
+        if self._opens_virtual_device():
+            reason = Reason(
+                "opens the virtual device",
+                "The daemon drives the virtual device, which does not run: Play opens it here and plays on it.",
+            )
+            self.play_button.setEnabled(True)
+        else:
+            self.play_button.setEnabled(reason is None)
         self.play_button.setToolTip(PLAY_TIP if reason is None else f"{reason.why}\n\n{PLAY_TIP}")
         if self.play_button.isChecked():
             where = "the virtual device" if hosting else "the device, through the daemon"

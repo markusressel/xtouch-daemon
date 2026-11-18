@@ -148,6 +148,8 @@ the mouse does as if the device sent it, so the mixer acts and a motorized fader
 under the mouse is drawn there at once. Play is off while Simulate shows only the drawing (it works when Simulate runs on
 the device, see [Try on the device](#try-on-the-device)), without a daemon (or with one of another user, or too old to
 take it) and while the device is not connected; the bar says why next to it ("Play: device not connected").
+With a daemon that drives the virtual device (`[device] virtual = true`) while it doesn't run, Play opens it in the
+window and plays on it.
 
 While no daemon runs, "Try without a device" starts one with the virtual device on this file (saved first if it is
 new) and opens the device in the window, in Play: to set everything up and try it before there is a device. That

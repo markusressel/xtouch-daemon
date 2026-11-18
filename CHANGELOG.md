@@ -199,6 +199,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation colors the words of the configuration as the GUI's help does: states and modes, channels (and
   pools, people, applications), slots, `present`, their sections in `code` (`[state.gaming]`, `apps`), and the
   controls of the device stand out. Code blocks, links and headings stay as they are.
+- Play with a daemon that waits for the virtual device (`[device] virtual = true`) opens it in the window and plays
+  on it, instead of being off with "device not connected".
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
   and window, and of the desktop file of `xtouch-daemon-gui-bin`.
 - The documentation has a version per release (and `dev` for main) with a version selector, built once per version
