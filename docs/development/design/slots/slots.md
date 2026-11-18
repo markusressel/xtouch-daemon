@@ -118,15 +118,13 @@ What a fader, encoder or button of a slot does whatever the slot shows: actions 
 
 - **Launch behind a condition.** A channel's `launch` works only while a slot shows it. `"voip if call"` hides VoIP
   exactly when you'd press Select to start the voice chat: put the launch into `[controls]` with `when = "not call"`.
-  `check-config` warns.
 - **Hidden indicators.** A hidden channel's LEDs are not on the device: `mic if call` hides the Mic and its Rec LED,
   which lights while any application records (a meeting in a browser tab).
 - **A voice chat without room.** People in a call while no slot is free for them wait; the why line says so
   ("Bob waits").
 - **Rank surprises.** `1 = ["buds if present", "out"]` and `3 = ["out if video", "auto"]`: in video mode without buds,
-  `out` goes to slot 3 (rank 1 there, 2 on slot 1), and slot 1 shows `auto`. Correct, but only Simulate or
-  `check-config`'s list of shared channels makes it visible.
+  `out` goes to slot 3 (rank 1 there, 2 on slot 1), and slot 1 shows `auto`. Correct, but only the outcome table,
+  Simulate or `why` make it visible.
 
-`check-config` warns about candidates that can never show (an earlier one always holds, a channel right below a pool
-without a condition), channels that no stack has, `launch` channels that only show under conditions, and lists the
-channels in several stacks with the slot that wins each tie.
+`check-config`'s notes (`slots/outcomes.notes()`) name a channel right below a pool without a condition (it never
+shows) and people with no slot to sit on.

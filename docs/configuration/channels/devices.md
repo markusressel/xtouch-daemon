@@ -98,7 +98,12 @@ from = "left"                 # the side the devices fill from (default)
 exclude = ["*HDMI*", "alsa_output.pci-*"]   # never a member: node names or descriptions, `*` wildcards
 hold = 5                      # seconds a device keeps its slot after it went away (default 5)
 color = "cyan"                # the look of the strips of devices, as on an output channel
+encoder = "volume"            # balance (default) or volume
 ```
+
+`[pool.devices]` and a place of `devices` (`{ show = "devices", select = false }`) take the look options of every
+audio channel, `encoder` (`balance` or `volume`), `min_volume`, `max_volume`, and `select` (whether Select makes the
+device the default).
 
 A device that goes away stays on its slot for `hold` seconds (its strip shows `off`), so a short drop of a Bluetooth
 link doesn't move the strips. `present(devices)` holds while a device of the pool is there.

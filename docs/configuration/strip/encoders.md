@@ -18,7 +18,11 @@ Which channel types have which modes, the default first:
 |---|---|
 | `output`, `input` | `balance`, `volume`, `homeassistant` |
 | `apps` | `media`, `volume`, `balance`, `homeassistant` |
-| `auto` (a place in a slot) | `pick`, `media`, `volume`, `balance`, `homeassistant` |
+| `apps`, `auto` (a place in a slot, or the pool) | `pick`, `media`, `volume`, `balance` |
+| `devices` (a place in a slot, or the pool) | `balance`, `volume` |
+
+The strips of people have no encoder. On a slot, whatever it shows, `[controls]` can give the encoder to Home
+Assistant: `5 = { encoder = "homeassistant" }` (see [Controls](../slots.md#controls-and-the-chord)).
 
 A mode that the type does not have is an error, e.g.
 `channel.web: encoder: pick is not for apps strips (media, volume, balance, homeassistant)`. With

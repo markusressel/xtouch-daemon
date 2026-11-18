@@ -26,6 +26,7 @@ The [GUI](../guides/gui.md) edits the same options in a window and shows the sam
 | `[pool.apps]`, `[pool.auto]` | How `apps` and `auto` take the next application that plays. | [Applications](channels/applications.md#apps-and-auto) |
 | `[pool.people]`, `[voip]` | The people of the voice chat, and where they sit. | [People](channels/people.md) |
 | `[pool.devices]` | Outputs and inputs without a channel (a USB headset) on the slots that name `devices`. | [Devices](channels/devices.md#devices-without-a-channel) |
+| `[pool.<id>]` | A pool of your own: the next present channel of a list. | [Pools of channels](slots.md#pools-of-channels) |
 | `[device]` | Which sound card is the extender. | [Behavior](behavior.md#device) |
 | `[behavior]` | Volume limit, encoder step, reset volume, meters. | [Behavior](behavior.md#behavior) |
 | `[aliases]` | Names to show for applications on `auto` slots. | [Behavior](behavior.md#aliases) |
@@ -43,7 +44,8 @@ The channel types:
 
 In a slot, `apps` is the next application that plays and has no channel of its own
 ([Applications](channels/applications.md#apps-and-auto)), `people` the next person of the voice chat
-([People](channels/people.md#where-people-sit)), `auto` either, and `-` a dark strip ([Channels](channels/index.md#empty-slots)).
+([People](channels/people.md#where-people-sit)), `auto` either, `devices` the next device without a channel
+([Devices](channels/devices.md#devices-without-a-channel)), and `-` a dark strip ([Channels](channels/index.md#empty-slots)).
 
 ## Applying changes
 

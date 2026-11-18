@@ -5,7 +5,7 @@ Every strip has four buttons with LEDs: Rec, Solo, Mute and Select.
 | LED | On audio strips |
 |---|---|
 | Mute | On while the strip is muted. |
-| Select | On device strips with `device` and `select`: on while the device is the default. Otherwise off. |
+| Select | On device strips with `device` or `choices` and `select`: on while the device is the default. On application strips with `launch`: flashing while it starts, on while it runs. Otherwise off. |
 | Rec | An indicator (option `rec`). On device strips with [profiles](../channels/devices.md#profiles) it shows the profile instead: on for every profile but the first. |
 | Solo | An indicator (option `solo`). |
 

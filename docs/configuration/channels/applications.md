@@ -72,9 +72,9 @@ color = "cyan"                # the look of the applications on every auto slot
 ```
 
 The look options of every audio channel go into `[pool.apps]`, `[pool.auto]` or a place; a place of `apps` or `auto`
-also takes `encoder`
-(`pick` by default: `pick`, `media`, `volume`, `balance` or `homeassistant`, see [Encoders](../strip/encoders.md)),
-`min_volume` and `max_volume`. There is no `label`: the label is the application's alias from
+also takes `encoder` (`pick` by default: `pick`, `media`, `volume` or `balance`, see
+[Encoders](../strip/encoders.md)), `min_volume` and `max_volume`. An encoder or fader for Home Assistant on such a
+slot is a control of the slot: `5 = { encoder = "homeassistant" }` in [`[controls]`](../slots.md#controls-and-the-chord). There is no `label`: the label is the application's alias from
 [`[aliases]`](../behavior.md#aliases), or its name.
 
 How `apps` and `auto` get their applications:

@@ -1,22 +1,25 @@
 # Home Assistant
 
-A `homeassistant` strip belongs to Home Assistant instead of PipeWire: every part of it is an entity there, and
+A `homeassistant` channel is a strip that belongs to Home Assistant instead of PipeWire: every part of it is an entity there, and
 automations decide what it does. For example, the fader dims a light, the encoder sets the volume of a speaker in
 another room, a button toggles a scene. The daemon reaches Home Assistant over MQTT discovery, so it needs the
 [`[mqtt]`](#mqtt) section.
 
 ## PipeWire or Home Assistant?
 
-Each control has one owner. The PipeWire types (`output`, `input`, `apps`, `auto`) control audio on this computer
-and need nothing else. A `homeassistant` strip controls nothing by itself; it only reports what happens on it and
-shows what Home Assistant sets. In between, an audio strip can hand its fader or its encoder to Home Assistant and keep
-the other one for the volume, see [below](#audio-strips-with-home-assistant-controls). Never both on one control: a
+Each control has one owner. The audio channels (`output`, `input`, `apps`) and the pools (`auto`, `apps`, ...)
+control audio on this computer and need nothing else. A `homeassistant` channel controls nothing by itself; it only
+reports what happens on it and shows what Home Assistant sets. In between, an audio channel can hand its fader or its
+encoder to Home Assistant and keep the other one for the volume, see
+[below](#audio-strips-with-home-assistant-controls), and [`[controls]`](#controls-of-a-slot) hands a control of a slot
+to Home Assistant whatever the slot shows. Never both on one control: a
 fader that both set a PipeWire volume and were moved by Home Assistant would fight over the motor.
 
 ## `[mqtt]`
 
-The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. Without `homeassistant` strips the section is optional;
-with it, the daemon connects anyway and shows the device in Home Assistant.
+The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. Anything that is an entity in Home Assistant needs it
+(`homeassistant` channels and controls, `homeassistant = true` on a state); without such, the section is optional,
+and with it the daemon still shows the device, its modes, states and slots in Home Assistant.
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -77,7 +80,7 @@ while none does.
 
 ## Audio strips with Home Assistant controls
 
-An `output`, `input` or `apps` channel, or an `auto` place, with `encoder = "homeassistant"` or `fader = "homeassistant"` keeps the
+An `output`, `input` or `apps` channel with `encoder = "homeassistant"` or `fader = "homeassistant"` keeps the
 volume on the other control and gets these entities of the [list below](#entities):
 
 | Option | Entities |
@@ -96,12 +99,26 @@ label = "Desk"
 encoder = "homeassistant"    # the fader sets the volume, the encoder dims the desk lamp
 ```
 
-A control of a slot can belong to Home Assistant whatever the slot shows, with [`[controls]`](../configuration/slots.md#controls-and-the-chord):
-`6 = { fader = "homeassistant", id = "desk" }` is `number.xtouch_desk_fader`.
+## Controls of a slot
+
+A control of a slot can belong to Home Assistant whatever the slot shows, with
+[`[controls]`](../configuration/slots.md#controls-and-the-chord): the fader, the encoder (turn and push), and the
+Select, Rec and Solo buttons (an event per press, and a select for the LED). The entities are named by the slot
+(`number.xtouch_slot_6_fader`), or by `id`:
+
+```toml
+[controls]
+6 = { fader = "homeassistant", id = "desk" }      # number.xtouch_desk_fader
+4 = { encoder = "homeassistant" }                 # number.xtouch_slot_4_encoder
+```
+
+With the fader taken, the encoder sets the volume of what the slot shows; with only the encoder taken, the fader
+keeps it.
 
 ## Entities
 
-`<ns>` is `mqtt.namespace`, `<id>` the id of the channel (`desk` for `[channel.desk]`) or the `id` of the control:
+`<ns>` is `mqtt.namespace`, `<id>` the id of the channel (`desk` for `[channel.desk]`), or for a control of a slot its
+`id` or `slot_<n>`:
 
 | Entity | What it is |
 |---|---|

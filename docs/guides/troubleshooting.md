@@ -46,21 +46,25 @@ output menu, `pactl move-sink-input`) stays there. Move it back in pavucontrol, 
 **A strip shows `off`.** The device it controls is not there, e.g. Bluetooth headphones that are switched off. It
 comes back by itself. `xtouch-daemon list-devices` shows the devices that are there.
 
-**An `apps` strip shows `idle`.** No stream of its applications is there. `xtouch-daemon list-apps` shows the names
-and binaries of the applications that play, and which strip takes each one.
+**An `apps` channel shows `idle`.** No stream of its applications is there. `xtouch-daemon list-apps` shows the names
+and binaries of the applications that play, and which channel or slot takes each one.
 
 **Select does not start the application of `launch`.** The daemon's log says why: a program that is not in `PATH`
 (`can't launch ...`), or one that did not show up in 15 s. Nothing happens either while the strip counts it as
-running: on `apps` strips also a process whose name contains a `match` entry (`ps -eo comm` shows them). The
+running: on `apps` channels also a process whose name contains a `match` entry (`ps -eo comm` shows them). The
 application's own output is in `journalctl --user -u 'xtouch-launch-*'`. A graphical application that finds no
 display there needs the desktop's variables in the systemd user manager (`systemctl --user show-environment`
 should list `WAYLAND_DISPLAY` or `DISPLAY`); most desktops import them at login.
 
-**An application lands on the wrong strip.** `xtouch-daemon list-apps` names the strip that takes it. An `apps` strip
-takes every application whose name or binary contains one of its `match` entries, so a short entry can match more than
+**An application lands on the wrong strip.** `xtouch-daemon list-apps` names the channel or slot that takes it. An
+`apps` channel takes every application whose name or binary contains one of its `match` entries, so a short entry can match more than
 intended. `check-config` shows what the [presets](../configuration/presets.md) in `match` stand for.
 
 ## Configuration
+
+**A slot shows something else than I expected.** `xtouch-daemon why 3` says why slot 3 shows what it shows, and why
+not each candidate above it; `xtouch-daemon why browser` where the channel is and why not elsewhere. The GUI shows
+the same in the inspector of the slot. `xtouch-daemon check-config` shows what the slots show in each situation.
 
 **A change does not show on the device.** Reload the daemon after saving: `systemctl --user reload xtouch-daemon`. A
 file with errors is logged and the old configuration stays: run `xtouch-daemon check-config`. A changed `[mqtt]` section
@@ -69,7 +73,7 @@ needs a restart. The [GUI](gui.md) tells whether the device runs the saved file.
 ## Home Assistant
 
 **The entities are unavailable.** They are available only while the daemon runs and the device is connected. Check
-the broker settings in `[mqtt]` and the log. The GUI tells how the connection is doing next to the preview and on the
-page "Home Assistant", where "Test connection" tries the settings.
+the broker settings in `[mqtt]` and the log. The GUI tells how the connection is doing in the
+popover of the service pill, and on the page Settings, Home Assistant, where "Test connection" tries the settings.
 
 **A strip shows `offline`.** The broker can't be reached. The daemon connects again by itself.

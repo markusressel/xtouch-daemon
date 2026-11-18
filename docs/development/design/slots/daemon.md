@@ -38,8 +38,7 @@ changed.
 
 ## Commands
 
-- `check-config` prints the channels, pools, people, the states with their sources, per slot its stack, the outcome
-  table, and the warnings of [Slots](slots.md#pitfalls).
+- `check-config` prints the channels, the outcome table and its notes (see [Slots](slots.md#pitfalls)).
 - `list-apps` says per application which channel, pool or slot has it.
 - `why <slot or channel>` tells what a slot shows and why not the candidates above it, or where a channel is and why
   not elsewhere (`browser: on slot 2; not slot 8 (on slot 2 (tie, to the left))`); `why people` who sits where and who waits.

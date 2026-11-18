@@ -14,7 +14,7 @@ It needs Mumble 1.4 or later on Linux (x86_64). People sit on the slots of `auto
 
 ## Setup in the GUI
 
-The page "Voice chat" of the global settings (the `[voip]` section) has a box "Mumble":
+The page Settings, Voice chat (the `[voip]` section) has a box "Mumble":
 
 1. Click **Install Mumble plugin**. It copies the plugin into Mumble's plugin directory
    (`~/.local/share/Mumble/Mumble/Plugins`, or the one of the Flatpak), replacing an older one. (Without a plugin to
@@ -22,7 +22,8 @@ The page "Voice chat" of the global settings (the `[voip]` section) has a box "M
    installer is not used: with a Mumble that runs, it starts a second instance, which crashed (Mumble 1.5.939).
 2. In Mumble: **Settings**, **Plugins**, click **Reload plugins** (or restart Mumble), tick **Enable** of
    "xtouch-daemon", and **Apply**.
-3. Keep `provider = "bridge"` (the default). People take free `auto` slots from the right; see the example below.
+3. Keep `provider = "bridge"` (the default). People take free `auto` (and `people`) slots from the right; see the
+   example below.
 4. Join a channel. The pill of the box says **Mumble connected** and how many people are in the channel.
 
 The pill shows what the running daemon sees: "waiting for Mumble" while the plugin is not connected (Mumble is not

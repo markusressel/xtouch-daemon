@@ -31,8 +31,11 @@ DAWs that use it.
 
 ## Write a configuration
 
-Without a configuration file the daemon uses the example configuration: six `auto` slots, the default input and the
-default output. To change it, write the example to `~/.config/xtouch-daemon/config.toml` and edit it:
+Without a configuration file the daemon uses the example configuration: the default input on slot 7, the default
+output on slot 8, and `auto` on the others (the next application that plays). The easiest way to change it is the
+[GUI](../guides/gui.md) (`xtouch-daemon-gui` or `xtouch-daemon gui`): it creates the file, shows every option with
+its help, and applies what you save. On the command line, write the example to `~/.config/xtouch-daemon/config.toml`
+and edit it:
 
 ```shell
 xtouch-daemon init-config     # writes ~/.config/xtouch-daemon/config.toml
@@ -65,8 +68,20 @@ voice_chat = true   # in a channel of Mumble (with the plugin)
 # slots 3 to 8 have no entry: "auto", the next application that plays
 ```
 
+`check-config` shows what this file does, as a table:
+
+```
+when               1     2     3-8
+default            buds  auto  auto
+call               buds  voip  auto
+buds absent        auto  auto  auto
+call, buds absent  auto  voip  auto
+```
+
+A row for each situation the slots ask about (`call`, whether `buds` is there) that changes something.
+
 [Channels, states and slots](../configuration/slots.md) explains the format, [Configuration](../configuration/index.md)
-every option. The GUI (`xtouch-daemon gui`) edits it in a window; see [GUI](../guides/gui.md).
+every option.
 
 ## Run it as a service
 

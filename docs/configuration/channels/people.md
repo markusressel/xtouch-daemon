@@ -32,7 +32,8 @@ same options:
 | `label` | the first name of `person` | The top line of a `person` channel; people without a channel show their name. |
 | `color` | `"white"` | The backlight while the person is there and does not talk. Dark while they are away. |
 | `talking_color` | `"green"` | The backlight while the person talks. |
-| `meter` | `true` | Whether the LED meter shows the person's voice. Without levels from the provider it lights while they talk. The level is after their volume, see [Meters](index.md#meters). |
+| `meter` | `true` | Whether the LED meter shows the person's voice. Without levels from the provider it lights while they talk. |
+| `meter_point` | `behavior.meter_point` | `"pre_fader"`: their voice before the volume of their fader; `"post_fader"`: after it, see [Meters](index.md#meters). |
 | `max_volume` | `behavior.max_volume` | The volume of a person with the fader at the top, 1..200 percent; 100 % is at the 0 dB mark as on the other strips. Above 100 % the voice is louder than Mumble plays it, and may clip. |
 
 The strips of people have no `launch`: starting the voice chat is a control of a slot, e.g.

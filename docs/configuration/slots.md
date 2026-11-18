@@ -6,7 +6,7 @@ gaming) decide which. A slot changes only when what it shows changes; the others
 [design](../development/design/slots/index.md) has every detail.
 
 `xtouch-daemon init-config` writes a small example. `xtouch-daemon check-config` shows a table of what each slot
-shows in which states.
+shows in which states, and `xtouch-daemon why 3` why slot 3 shows what it shows now.
 
 ## Channels
 
@@ -68,6 +68,42 @@ applications on its slots, `[pool.devices]` `from`, `hold`, `exclude` and the lo
 A pool that has no member for a slot hands it to the pool (or `-`) right below it: `["people", "apps"]` is a person,
 else an application. A slot that two pools could fill goes to the one higher in its stack.
 
+### Pools of channels
+
+A pool of your own hands out channels: the first of its list that is present gets the first of its slots, the next
+one the next, and so on. Use it for things of which only some are there at a time, e.g. several outputs:
+
+```toml
+[channel.speaker]
+type = "output"
+device = "alsa_output.pci-0000_11_00.4.analog-stereo"
+
+[channel.phones]
+type = "output"
+device = "alsa_output.usb-headset*"
+tags = ["outs"]
+
+[channel.buds]
+type = "output"
+device = "bluez_output.*"
+tags = ["outs"]
+
+[pool.outs]
+channels = ["speaker", "#outs"]   # channel ids, or "#tag" for every channel with that tag
+from = "left"                     # the side it fills its slots from (default)
+
+[slots]
+1 = "outs"
+2 = "outs"
+```
+
+- A channel of the list that a slot of its own shows (`3 = "buds"`) is not handed out by the pool.
+- Unlike `apps`, a pool of channels fills by its order every time: when an earlier channel comes back, the others
+  move on one slot. For channels that should keep their strip, give each a slot of its own
+  (`["buds if present", "auto"]`).
+- A pool of channels goes above the built-in pools in a stack: `["outs", "auto"]`, not `["auto", "outs"]`.
+- It has no look of its own: its channels bring theirs.
+
 ## States and modes
 
 ```toml
@@ -119,7 +155,7 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 - `not` binds closest, then `and`, then `or`: `not call and gaming or present` is `((not call) and gaming) or
   present`. Parentheses say otherwise.
 - The words are lowercase, names are those of the file (`[state.<name>]`, `[channel.<name>]`, `[pool.<name>]`), and
-  `apps`, `people` and `auto`.
+  the built-in pools `apps`, `people`, `auto` and `devices`.
 - A candidate without a condition always holds; below it, the others are never reached, except pools and `-` below
   a pool: they get the slots it has no member for.
 - Present means it has something to control: an `apps` channel while its application plays, an `output` or `input`
@@ -162,6 +198,6 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 ## Home Assistant
 
 With `[mqtt]`: `select.xtouch_mode`, a binary sensor per state (with `since`,
-`source` and `override`), an override select per state, an input switch per state with `homeassistant = true`,
+`source` and `override`), an override select per state that is no mode, an input switch per state with `homeassistant = true`,
 `binary_sensor.xtouch_<channel>_shown`, and `sensor.xtouch_slot_<n>` (what the slot shows, with `label`, `kind`, `via`
 and `reason`). See [Home Assistant](../guides/home-assistant.md).
