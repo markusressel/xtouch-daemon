@@ -118,7 +118,8 @@ def show_status(pill: QLabel, status: Status, more: bool = False) -> None:
 _ENTITY_WORDS = re.compile(r"\b(states?|modes?|channels?|pools?|slots?|people|persons?|applications?)\b", re.IGNORECASE)
 """
 The words for the things of the configuration, in their colors in the help: people and applications are what the
-pools hand out to the slots, so they have the color of the channels.
+pools hand out to the slots, so they have the color of the channels. The documentation colors the same words
+(docs/javascripts/entities.js): keep the two in line.
 """
 _CONTROL_WORDS = re.compile(r"\b(?:Select|Mute|Solo|Rec)\b|\b(?:faders?|encoders?|LCDs?|LED rings?)\b")
 """

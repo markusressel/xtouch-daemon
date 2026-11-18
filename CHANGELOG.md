@@ -196,6 +196,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   device (Select, the fader, ...) stand out.
 - Dragging the handle between the panes of a page no longer lags: where it was left is written once, when it is let
   go, not on every move.
+- The documentation colors the words of the configuration as the GUI's help does: states and modes, channels (and
+  pools, people, applications), slots, `present`, their sections in `code` (`[state.gaming]`, `apps`), and the
+  controls of the device stand out. Code blocks, links and headings stay as they are.
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header
   and window, and of the desktop file of `xtouch-daemon-gui-bin`.
 - The documentation has a version per release (and `dev` for main) with a version selector, built once per version
