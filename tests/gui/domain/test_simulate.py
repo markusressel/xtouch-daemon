@@ -4,7 +4,6 @@ Simulate: a what-if resolved, its slots and states, and the faces of the drawing
 
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text, simulated, simulated_faces
-from xtouch_daemon.slots.outcomes import Outcome
 
 CONFIG = """
 [channel.out]
@@ -43,9 +42,8 @@ def test_a_what_if_is_resolved():
     gone = simulated(setup, WhatIf("gaming", frozenset({"call"})).toggled("voip", flip=True))
     assert [view.channel or view.pool for view in gone.slots[:3]] == ["out", "auto", None]
     assert gone.mode == "gaming"
-    assert WhatIf.of(Outcome("x", (), "gaming", ("call",), ("voip",))) == WhatIf(
-        "gaming", frozenset({"call"}), frozenset({"voip"})
-    )
+    # Simulate starts with what the daemon tells: the mode and the states that are on
+    assert WhatIf.of_live(gone) == WhatIf("gaming", frozenset({"call"}))
     assert (presence_text("auto"), presence_text("voip")) == ("auto plays", "voip absent")
 
 

@@ -170,13 +170,19 @@ def preview(qtbot: QtBot) -> Preview:
     return preview
 
 
+def play(preview: Preview, hand: Hand) -> None:
+    """Play, with the mouse a hand on `hand`."""
+    preview.device_hand = hand
+    preview.set_playing(True)
+
+
 def at(preview: Preview, point: QPointF) -> QPoint:
     return (point * preview.scale).toPoint()
 
 
 def test_the_mouse_is_a_hand_on_the_hosted_device(qtbot: QtBot, preview: Preview) -> None:
     hand = Hand()
-    preview.hand = hand
+    play(preview, hand)
     view = preview.strips[1]
     top = QPointF(SLOT.center().x(), travel_y(1.0))
     middle = QPointF(SLOT.center().x(), travel_y(0.5))
@@ -225,7 +231,7 @@ def test_without_a_hand_the_mouse_only_selects(qtbot: QtBot, preview: Preview) -
 
     # nothing to take, also with a hand
     hand = Hand()
-    preview.hand = hand
+    play(preview, hand)
     qtbot.mouseClick(view, Qt.MouseButton.LeftButton, pos=QPoint(0, 0))
     assert hand.done == []
     assert clicked == [1, 1]
@@ -252,40 +258,37 @@ def test_the_wheel_turns_the_encoder(qtbot: QtBot, preview: Preview) -> None:
 
     assert not wheel(120)
     hand = Hand()
-    preview.hand = hand
+    play(preview, hand)
     assert wheel(240)
     assert not wheel(30)
     assert hand.done == [("turn", 3, 2)]
 
 
-def test_the_pill_offers_the_virtual_device_while_the_daemon_waits_for_it(
+def test_play_opens_the_virtual_device_the_daemon_waits_for(
     qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon, socket_dir: Path, isolated: Dialogs
 ) -> None:
     path = socket_dir / "virtual-device.sock"
     window = make_window(live_socket=live_daemon.path, virtual_socket=path)
+    view = window.device_view
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     waiting = dataclasses.replace(snapshot(window, strip_state(), device=False), virtual=True)
     live_daemon.send(waiting)
-    qtbot.waitUntil(lambda: window.mode_pill.text().endswith("Open it"))
-    assert window.mode_pill.cursor().shape() == Qt.CursorShape.PointingHandCursor
+    qtbot.waitUntil(lambda: view.live_pill.text().startswith("Live · virtual device not running · Open it"))
+    assert view.offered
+    assert "Play: opens the virtual device" in view.mode_hint.text()
 
     window.device_dock.hide()
-    qtbot.mouseClick(window.mode_pill, Qt.MouseButton.LeftButton)
+    view.play_button.click()
     assert window.hosted is not None
     assert path.exists()
-    # the window Device shows it, also after it was closed
+    # the window Device shows it, also after it was closed, in Play
     assert window.device_dock.isVisible()
-    assert window.device_view.preview.hand is window.hosted
-    assert window.device_view.virtual_bar is not None
-    assert window.mode_pill.text() == "Live · virtual device opening"
-    # nothing more to offer
-    qtbot.mouseClick(window.mode_pill, Qt.MouseButton.LeftButton)
+    assert view.play_button.isChecked()
+    assert view.preview.hand is window.hosted
+    assert view.virtual_bar is not None
+    assert view.live_pill.text().startswith("Live · virtual device opening")
 
-    close = [
-        button
-        for button in window.device_view.virtual_bar.findChildren(type(window.save_button))
-        if button.text() == "Close"
-    ]
+    close = [button for button in view.virtual_bar.findChildren(type(window.save_button)) if button.text() == "Close"]
     close[0].click()
     assert window.hosted is None
     assert not path.exists()
@@ -309,3 +312,23 @@ def test_closing_the_window_closes_the_virtual_device(qtbot: QtBot, make_window:
 
     window.close()
     assert not path.exists()
+
+
+def test_a_daemon_without_a_device_switches_to_the_virtual_one(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon, socket_dir: Path, isolated: Dialogs
+) -> None:
+    window = make_window(live_socket=live_daemon.path, virtual_socket=socket_dir / "virtual-device.sock")
+    view = window.device_view
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    assert view.virtual_button.isHidden()
+    live_daemon.send(snapshot(window, strip_state(), device=False))
+    qtbot.waitUntil(lambda: not view.virtual_button.isHidden())
+
+    view.virtual_button.click()
+
+    # saved and reloaded: the daemon switches to it, and the window hosts it
+    assert window.document.get(("device", "virtual")) is True
+    assert not window.document.modified
+    assert window.daemon is not None
+    assert window.daemon.reloads  # pyright: ignore[reportAttributeAccessIssue]
+    assert window.hosted is not None

@@ -6,7 +6,6 @@ import dataclasses
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QFileDialog,
     QLabel,
@@ -22,6 +21,8 @@ from tests.support.gui import (
     MakeWindow,
     buttons,
     click,
+    pill,
+    plain,
     row,
     shows,
     snapshot,
@@ -131,23 +132,15 @@ def test_the_connection_to_home_assistant_shows_while_the_daemon_uses_it(
     # the daemon runs without [mqtt]: it reads it when it starts
     live_daemon.send(snapshot(window, strip_state()))
     qtbot.waitUntil(lambda: page.box is not None and page.box.live_pill.text() == "not in use")
-    assert window.mqtt_pill.isHidden()
 
     refused = MqttState("broker:1883", None, False, False, "[code:5] Connection refused: Not authorised", 4)
     live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), mqtt=False, mqtt_state=refused))
-    qtbot.waitUntil(lambda: window.mqtt_pill.text() == "Home Assistant · not authorized")
-    assert not window.mqtt_pill.isHidden()
+    qtbot.waitUntil(lambda: page.box is not None and page.box.live_pill.text() == "not authorized")
     assert "check <code>username</code>" in page.box.live_detail.text()
-
-    # the pill leads to the settings
-    window.show_page("behavior")
-    qtbot.mouseClick(window.mqtt_pill, Qt.MouseButton.LeftButton)
-    assert window.current_page == "mqtt"
 
     connected = dataclasses.replace(refused, connected=True, ready=True, error=None)
     live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), mqtt=True, mqtt_state=connected))
-    qtbot.waitUntil(lambda: window.mqtt_pill.text() == "Home Assistant")
-    assert page.box.live_pill.text() == "connected"
+    qtbot.waitUntil(lambda: page.box is not None and page.box.live_pill.text() == "connected")
 
 
 def test_the_settings_of_home_assistant_can_be_tried_before_they_are_saved(qtbot: QtBot, make_window: MakeWindow):
@@ -223,7 +216,7 @@ def test_the_voice_chat_page_tells_whether_mumble_is_connected(
     assert not box.install_button.isEnabled()
     assert "Mumble is not installed" in box.install_button.toolTip()
     assert "Reload plugins" in box.steps.text()
-    assert "integrations/mumble/" in box.steps.text()
+    assert "guides/mumble/" in box.steps.text()
 
     live_daemon.send(snapshot(window, strip_state()))
     qtbot.waitUntil(lambda: box.live_pill.text() == "not in use")
@@ -235,7 +228,7 @@ def test_the_voice_chat_page_tells_whether_mumble_is_connected(
     ]:
         live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), voip=voip))
         qtbot.waitUntil(lambda text=text: box.live_pill.text() == text)
-        assert tip in box.live_detail.text()
+        assert tip in plain(box.live_detail.text())
 
 
 def test_the_voice_chat_page_shows_the_plugin_without_the_section(make_window: MakeWindow):
@@ -309,9 +302,10 @@ def test_the_mode_of_a_daemon_with_slots_shows_next_to_the_preview(
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     live_daemon.send(snapshot(window, strip_state()))
     qtbot.waitUntil(lambda: window.live.snapshot is not None)
-    assert window.slots_pill.isHidden()
+    pill_of_mode = window.device_view.slots_pill
+    assert pill_of_mode.isHidden()
     slots = SlotsState("gaming", None, (SlotView(1, 0, "game", None, None, ()),), (), {})
     live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), slots=slots))
-    qtbot.waitUntil(lambda: window.slots_pill.text() == "Mode gaming")
-    assert not window.slots_pill.isHidden()
-    assert "slot 1: game" in window.slots_pill.toolTip()
+    qtbot.waitUntil(lambda: pill(pill_of_mode) == "Mode: gaming")
+    assert not pill_of_mode.isHidden()
+    assert "The rules pick it now." in pill_of_mode.toolTip()

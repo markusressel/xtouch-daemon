@@ -20,6 +20,7 @@ from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
+from xtouch_daemon.hardware.transport import SocketPort
 from xtouch_daemon.runtime.daemon import Daemon, device_surface
 
 
@@ -135,7 +136,7 @@ async def test_a_configuration_with_errors_is_reported_and_the_current_one_kept(
     assert notifications[-1] == ("READY=1", "STATUS=Configuration has errors, see the log")
 
 
-async def test_a_changed_device_name_needs_a_restart(
+async def test_the_options_of_the_device_apply_with_a_reload(
     config_path: Path,
     surface: RecordingSurface,
     backend: FakeBackend,
@@ -160,10 +161,16 @@ async def test_a_changed_device_name_needs_a_restart(
     assert (surface.startup, surface.shutdown) == ("show", "curtain")
     assert "restart the daemon" not in caplog.text
 
+    # another device too: the surface lets go of the one it has and connects to that one
     config_path.write_text('[device]\nname = "X-Touch"\n' + SPEAKER)
     assert daemon.reload()
+    await settle()
+    assert surface.device_name == "X-Touch"
+    config_path.write_text("[device]\nvirtual = true\n" + SPEAKER)
+    assert daemon.reload()
+    await settle()
+    assert isinstance(surface.port, SocketPort)
 
-    assert "The [device] name or virtual changed: restart the daemon" in caplog.text
     assert surface.touchless == frozenset()
     assert (surface.startup, surface.shutdown) == ("sweep", "sweep")
     daemon.mixer.close()

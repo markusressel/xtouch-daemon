@@ -27,6 +27,7 @@ from tests.support.gui import (
     FakeLiveDaemon,
     MakeWindow,
     click,
+    plain,
     row,
     show_channel,
     snapshot,
@@ -177,9 +178,9 @@ def test_the_header_shows_which_unit_runs_the_service(make_window: MakeWindow, s
     )
     window = make_window()
 
-    assert window.service_controls.unit_label.text() == f"from {CHECKOUT}"
-    assert (
-        window.service_controls.unit_label.toolTip() == "The unit /home/me/.config/systemd/user/xtouch-daemon.service"
+    assert window.service_controls.unit_label.text() == "own unit"
+    assert window.service_controls.unit_label.toolTip() == (
+        f"The unit /home/me/.config/systemd/user/xtouch-daemon.service, which starts {CHECKOUT}"
     )
     # without a package there is nothing it overrides
     assert window.service_controls.override_button.isHidden()
@@ -207,7 +208,7 @@ def test_the_unit_that_overrides_the_package_can_be_removed(
     window = make_window()
     assert not window.service_controls.override_button.isHidden()
     assert window.service_controls.unit_label.property("role") == "hint"
-    assert window.service_controls.unit_label.toolTip().endswith(", which overrides the one of the package")
+    assert window.service_controls.unit_label.toolTip().endswith("; it overrides the one of the package")
     assert window.service_controls.override_button.focusPolicy() == Qt.FocusPolicy.NoFocus
     isolated.answer = answer
 
@@ -315,19 +316,19 @@ def test_a_failing_systemctl_is_reported(qtbot: QtBot, make_window: MakeWindow, 
     assert window.service_controls.service_button.isHidden()
 
 
-def test_a_changed_device_offers_a_restart(qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl):
+def test_a_changed_device_needs_no_restart(window: MainWindow, daemon: RecordingInstance):
     window.document.set(("device", "name"), "Other")
     window.editor.edited()
 
     assert window.save()
-    assert not window.restart_button.isHidden()
-
-    click(qtbot, window.restart_button)
-    assert systemctl.commands[-2] == ["systemctl", "--user", "restart", UNIT_NAME]
-    assert window.status.text() == "Restarted the service."
+    # the daemon switches to that device when it reloads
+    assert daemon.reloads == [1234]
+    assert window.restart_button.isHidden()
 
 
-def test_a_changed_mqtt_section_offers_a_restart_instead_of_a_reload(window: MainWindow, daemon: RecordingInstance):
+def test_a_changed_mqtt_section_offers_a_restart_instead_of_a_reload(
+    qtbot: QtBot, window: MainWindow, daemon: RecordingInstance, systemctl: FakeSystemctl
+):
     window.document.add_section("mqtt")
     window.document.set(("mqtt", "host"), "broker")
     window.editor.edited()
@@ -338,11 +339,16 @@ def test_a_changed_mqtt_section_offers_a_restart_instead_of_a_reload(window: Mai
     assert window.status.text() == "Saved. The [mqtt] section changed: restart the service to use the configuration."
     assert not window.restart_button.isHidden()
 
+    click(qtbot, window.restart_button)
+    assert systemctl.commands[-2] == ["systemctl", "--user", "restart", UNIT_NAME]
+    assert window.status.text() == "Restarted the service."
+
 
 def test_a_failing_restart_or_reload_is_reported(
     qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl, isolated: Dialogs
 ):
-    window.document.set(("device", "name"), "Other")
+    window.document.add_section("mqtt")
+    window.document.set(("mqtt", "host"), "broker")
     window.editor.edited()
     window.save()
 
@@ -381,7 +387,7 @@ def test_a_daemon_started_elsewhere_is_shown_and_reloaded(qtbot: QtBot, make_win
     assert window.save()
 
     assert daemon.reloads == [4242]
-    assert window.status.text().endswith("restart the daemon (process 4242) for that to take effect.")
+    assert window.status.text() == "Saved and reloaded: the device shows the new configuration."
     # the window restarts only the service
     assert window.restart_button.isHidden()
 
@@ -418,7 +424,7 @@ def test_a_file_that_can_not_be_written_is_reported(window: MainWindow, path: Pa
 def test_a_new_file_can_be_saved_right_away(make_window: MakeWindow, tmp_path: Path):
     window = make_window(file=tmp_path / "new.toml")
 
-    assert window.path_label.text().endswith("new file")
+    assert window.windowTitle() == "new.toml (new)"
     assert window.save_button.isEnabled()
     assert window.save()
     assert "slots" in tomllib.loads((tmp_path / "new.toml").read_text())
@@ -503,9 +509,9 @@ def test_launch_is_a_list_of_the_parts_of_the_command(window: MainWindow):
     assert launch.chips.input.placeholderText() == (
         "Add… (none: Select starts nothing; the program, then each argument)"
     )
-    link = docs.url("configuration/applications/#launching-the-application")
+    link = docs.url("configuration/channels/applications/#launching-the-application")
     assert f'<a href="{link}">Learn more</a>' in launch.help.text()
-    assert "Never through a shell." in launch.help.text()
+    assert "It runs without a shell, so nothing is expanded." in plain(launch.help.text())
     # a part per entry
     launch.chips.add("mumble")
     launch.chips.add("mumble://me@example.org/Gaming")
@@ -565,7 +571,9 @@ def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):
     show_channel(window, "out")
     # the help of the label has quotes but no tag, which Qt would show as plain text, entities and all
     (help_label,) = [
-        widget for widget in row(window, "label").findChildren(QLabel) if "start of the device" in widget.text()
+        widget
+        for widget in row(window, "label").findChildren(QLabel)
+        if "start of the description" in plain(widget.text())
     ]
     assert help_label.textFormat() == Qt.TextFormat.RichText
     document = QTextDocument()
@@ -578,16 +586,16 @@ def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
     show_channel(window, "out")
     rec = row(window, "rec")
     assert not rec.meaning.isHidden()
-    assert "<code>recording</code>: Lit while an application records" in rec.meaning.text()
+    assert "recording: Lit while an application records" in plain(rec.meaning.text())
     rec.combo.setCurrentText("muted")
-    assert "Lit while the strip is muted" in rec.meaning.text()
+    assert "Lit while the strip is muted" in plain(rec.meaning.text())
     # each value says it in the list too
     tip = rec.combo.itemData(rec.combo.findText("recording"), Qt.ItemDataRole.ToolTipRole)
     assert "screen recorder" in tip
     # an encoder that is not set: what the default does
     encoder = row(window, "encoder")
     assert encoder.combo.currentIndex() == -1
-    assert "<code>balance</code>: Turn: the balance" in encoder.meaning.text()
+    assert "balance: Turn: the balance" in plain(encoder.meaning.text())
     # a value that is no choice means nothing
     window.document.set(("channel", "out", "rec"), "loud")
     window.editor.edited()
@@ -600,7 +608,7 @@ def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
     show_channel(window, "out")
     rec = row(window, "rec")
     assert "Default: <code>recording</code>." in rec.help.text()
-    assert f'<a href="{docs.url("configuration/indicators/#indicators")}">Learn more</a>' in rec.help.text()
+    assert f'<a href="{docs.url("configuration/strip/leds/#indicators")}">Learn more</a>' in rec.help.text()
     assert rec.help.openExternalLinks()
     # an option without a section in the docs: its help says it all
     assert "Learn more" not in row(window, "meter").help.text()

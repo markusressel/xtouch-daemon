@@ -47,7 +47,7 @@ type = "person"
 person = "Alice"
 label = "Alice"
 
-[pool.auto]
+[pool.apps]
 hold = 0
 
 [state.gaming]

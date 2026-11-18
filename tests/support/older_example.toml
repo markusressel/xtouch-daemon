@@ -40,7 +40,7 @@ match = ["@voip"]
 label = "VoIP"
 color = "yellow"
 lit_when_idle = true
-in_auto = false             # notification sounds of Discord don't take an auto slot
+in_pool = false             # notification sounds of Discord don't take an auto slot
 
 [channel.mic]
 type = "input"
@@ -48,7 +48,7 @@ device = "alsa_input.pci-0000_11_00.4.analog-stereo"
 label = "Mic"
 color = "red"
 
-[people]
+[pool.people]
 color = "yellow"
 
 [state.gaming]

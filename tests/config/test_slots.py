@@ -7,6 +7,7 @@ import pytest
 
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.slots.model import AppsConfig
 
 CHANNELS = """
 [channel.out]
@@ -25,7 +26,7 @@ type = "apps"
 match = ["radio"]
 label = "Radio"
 tags = ["web"]
-in_auto = false
+in_pool = false
 
 [channel.alice]
 type = "person"
@@ -36,9 +37,11 @@ color = "green"
 channels = ["#web"]
 color = "blue"
 
-[pool.auto]
+[pool.apps]
 exclude = ["beep"]
 hold = 2
+
+[pool.auto]
 color = "white"
 """
 
@@ -46,7 +49,7 @@ color = "white"
 def test_the_strips_of_every_candidate_and_member():
     config = parse_config(
         CHANNELS
-        + '[people]\ncolor = "yellow"\norder = ["Bo"]\n'
+        + '[pool.people]\ncolor = "yellow"\norder = ["Bo"]\n'
         + '[slots]\n1 = ["out", "-"]\n2 = "web"\n3 = [{ show = "auto", color = "red" }]\n4 = "alice"\n'
     )
     assert config.slots is not None
@@ -64,7 +67,7 @@ def test_the_strips_of_every_candidate_and_member():
     # the options of a place are for applications without a channel: a channel looks as itself there
     assert strips[(3, 0, None)].model_dump()["color"] == "red"
     assert strips[(3, 0, "radio")].model_dump()["color"] == "white"
-    # people on auto slots: a person channel as itself, the others with the look of [people]
+    # people on auto slots: a person channel as itself, the others with the look of [pool.people]
     assert strips[(4, 0, "alice")].model_dump()["person"] == ("Alice",)
     assert strips[(3, 0, "alice")].model_dump()["color"] == "green"
     assert config.slots.person("Bo").model_dump()["color"] == "yellow"
@@ -77,9 +80,10 @@ def test_the_strips_of_every_candidate_and_member():
 
 
 def test_auto_never_takes_screen_readers_unless_exclude_says_otherwise():
-    assert parse_config("").slots.scene.pools["auto"].exclude == ("speech-dispatcher",)
-    config = parse_config('[pool.auto]\nexclude = ["beep"]\n')
-    assert config.slots.scene.pools["auto"].exclude == ("beep",)
+    for text, exclude in (("", ("speech-dispatcher",)), ('[pool.apps]\nexclude = ["beep"]\n', ("beep",))):
+        apps = parse_config(text).slots.scene.pools["apps"]
+        assert isinstance(apps, AppsConfig)
+        assert apps.exclude == exclude
 
 
 @pytest.mark.parametrize(
@@ -105,7 +109,7 @@ def test_auto_never_takes_screen_readers_unless_exclude_says_otherwise():
         ('[channel.app]\ntype = "apps"\nmatch = ["x"]\n[slots]\n1 = "app"\n', "channel.app: label: Field required"),
         ('[slots]\n1 = "nothing"\n', "slots.1[0]: nothing is no channel or pool"),
         ('[device]\nname = 3\n[slots]\n1 = "auto"\n', "device.name"),
-        ('[people]\ncolor = "pink"\n[slots]\n', "people: color: Input should be"),
+        ('[pool.people]\ncolor = "pink"\n[slots]\n', "pool.people: color: Input should be"),
         (
             '[controls]\n8 = { solo = "cycle_modes" }\n',
             "controls.8.solo: the Solo buttons of the chord can't be claimed",

@@ -15,7 +15,7 @@ from xtouch_daemon.audio.model import AudioState, Capture
 from xtouch_daemon.live.codec import encode, encode_reply
 from xtouch_daemon.live.messages import Reply, Snapshot, VoipState
 from xtouch_daemon.slots import replay as replay_module
-from xtouch_daemon.slots.inputs import Attendee, Observation
+from xtouch_daemon.slots.inputs import Attendee, Observation, SoundDevice
 from xtouch_daemon.slots.recording import (
     Observer,
     from_line,
@@ -53,6 +53,7 @@ def test_an_observation_of_the_readings_keeps_the_order_applications_started_in(
         people=attendees("Bob"),
         processes=frozenset({"reaper"}),
         devices=frozenset({"speaker", "speaker description"}),
+        sound_devices=(SoundDevice("speaker", "speaker description", "output"),),
     )
     # an older daemon tells no ids: the names stand for them
     older = observer.observe(

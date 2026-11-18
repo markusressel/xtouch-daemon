@@ -127,3 +127,19 @@ async def test_a_device_switched_off_and_on_shows_everything_again(port: MemoryP
         assert device.text(1)[0] == "Buds".ljust(protocol.LCD_CELL_WIDTH)
         assert device.strips[1].color == Color.GREEN
         assert events == []
+
+
+async def test_another_device_shows_everything_the_strips_show(port: MemoryPort) -> None:
+    async with running(port) as surface:
+        connections: list[bool] = []
+        surface.on_connection = connections.append
+        other = MemoryPort()
+
+        await surface.use(other)
+        assert port.transport is None
+        await until(lambda: connections == [False, True])
+        await surface.settled()
+
+        await until(lambda: fader(other.device, 1) == HALF and not other.device.strips[1].moving)
+        assert other.device.text(1)[0] == "Buds".ljust(protocol.LCD_CELL_WIDTH)
+        assert other.device.strips[1].color == Color.GREEN

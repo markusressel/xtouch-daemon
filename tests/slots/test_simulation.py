@@ -77,7 +77,7 @@ def test_auto_holds_an_application_that_stopped():
 
 
 def test_the_order_of_people_is_configured_then_learned():
-    read = scene(OLDER.read_text().replace("[people]\n", '[people]\norder = ["Bob"]\n'))
+    read = scene(OLDER.read_text().replace("[pool.people]\n", '[pool.people]\norder = ["Bob"]\n'))
     simulation = Simulation(read, known={"Old": -1e9, "Carol": 0.0})
     talking = Observation(voice_chat=True)
     simulation.step(replace(talking, people=attendees("Dave")), 1)

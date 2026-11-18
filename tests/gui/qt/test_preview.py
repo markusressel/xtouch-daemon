@@ -65,10 +65,14 @@ def window(make_window: MakeWindow, qtbot: QtBot) -> MainWindow:
     window.resize(1280, 1400)
     window.resizeDocks([window.device_dock], [round(PANEL.height()) + 120], Qt.Orientation.Vertical)
     QApplication.processEvents()
-    # as high as the panel: at scale 1, a line of 1 unit is a line of pixels
+    # as high as the panel: at scale 1, a line of 1 unit is a line of pixels (the bars above it settle a step later)
     dock = window.device_dock
-    window.resizeDocks([dock], [dock.height() - preview.height() + math.ceil(PANEL.height())], Qt.Orientation.Vertical)
-    QApplication.processEvents()
+    for _ in range(10):
+        if preview.height() == math.ceil(PANEL.height()):
+            break
+        height = dock.height() - preview.height() + math.ceil(PANEL.height())
+        window.resizeDocks([dock], [height], Qt.Orientation.Vertical)
+        qtbot.wait(10)
     assert preview.scale == pytest.approx(1, abs=0.002)
     qtbot.waitUntil(lambda: not window.device_view.preview.resizing)
     return window
@@ -269,7 +273,7 @@ def send_mouse(widget: QWidget, kind: QEvent.Type, at: QPointF, buttons: Qt.Mous
 def test_the_preview_scales_to_the_space_it_gets(window: MainWindow):
     preview = window.device_view.preview
     large = preview.scale
-    assert preview.minimumSizeHint().height() == round(PANEL.height() * MIN_SCALE)
+    assert preview.minimumSizeHint().height() == math.ceil(PANEL.height() * MIN_SCALE)
 
     shrink_device(window)
 

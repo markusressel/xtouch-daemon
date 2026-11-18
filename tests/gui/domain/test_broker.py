@@ -7,7 +7,7 @@ import pytest
 from tests.support.mqtt import FakeBroker
 from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain import broker
-from xtouch_daemon.gui.domain.broker import explain, header_status, live_status, try_broker
+from xtouch_daemon.gui.domain.broker import explain, live_status, try_broker
 from xtouch_daemon.gui.domain.status import Tone
 from xtouch_daemon.live.messages import MqttState, Snapshot
 
@@ -59,17 +59,6 @@ def test_the_page_tells_how_the_daemon_is_connected():
     # an older daemon only tells whether it is connected
     assert live_status(snapshot(True)).text == "connected"
     assert live_status(snapshot(False)).tone == Tone.WARN
-
-
-def test_the_header_names_home_assistant_while_the_daemon_uses_it():
-    assert header_status(None) is None
-    assert header_status(snapshot(None)) is None
-    good = header_status(snapshot(True, state()))
-    assert good is not None
-    assert good.text == "Home Assistant"
-    bad = header_status(snapshot(False, state(connected=False, ready=False, error="[Errno 111] Connection refused")))
-    assert bad is not None
-    assert (bad.text, bad.tone) == ("Home Assistant · refused", Tone.BAD)
 
 
 async def test_the_settings_are_tried_once():

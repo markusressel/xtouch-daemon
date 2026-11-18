@@ -99,10 +99,14 @@ def stack_of(value: Any) -> list[Any]:
 
 
 def uses(values: Mapping[str, Any], name: str) -> tuple[str, ...]:
-    """Where a channel (or a pool) is used: `slot 2`, `pool games`, `state call`."""
+    """
+    Where a channel (or a pool) is used: `slot 2`, `pool games`, `state call`. The applications and the people are
+    also on the slots of auto, which they share.
+    """
+    shows = {name, AUTO} if name in (APPS, PEOPLE) else {name}
     found: list[str] = []
     for slot, stack in values.get("slots", {}).items():
-        if any(shown_by(entry) == name for entry in stack_of(stack)):
+        if any(shown_by(entry) in shows for entry in stack_of(stack)):
             found.append(f"slot {slot}")
     for section in ("pool", "state"):
         for key, table in values.get(section, {}).items():

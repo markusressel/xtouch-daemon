@@ -7,10 +7,10 @@ from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.gui.domain.status import (
     Status,
     Tone,
+    changes_status,
     offers_virtual_device,
     outdated,
     preview_status,
-    sync_status,
     unit_status,
 )
 from xtouch_daemon.live.messages import Snapshot, fingerprint
@@ -33,7 +33,8 @@ def test_the_preview_says_whether_it_is_live():
         "Live", Tone.GOOD, "The strips show what the device shows right now."
     )
     waiting = preview_status(DAEMON, snapshot(device=False), "X-Touch-Ext")
-    assert (waiting.text, waiting.tone) == ("Live · X-Touch-Ext not connected", Tone.WARN)
+    assert (waiting.text, waiting.tone) == ("Live · not connected", Tone.WARN)
+    assert "X-Touch-Ext" in waiting.tip
     alone = preview_status(None, None, "X-Touch-Ext")
     assert (alone.text, alone.tone) == ("File preview", Tone.NEUTRAL)
     assert alone.tip.startswith("The daemon is not running")
@@ -66,62 +67,42 @@ def test_the_virtual_device_is_offered_while_the_daemon_waits_for_it(
 @pytest.mark.parametrize(
     ("daemon", "live", "modified", "applying", "text", "tone"),
     [
-        (None, None, False, False, "Nothing runs this file.", Tone.NEUTRAL),
-        (None, None, True, False, "Nothing runs this file. There are unsaved changes.", Tone.NEUTRAL),
-        (
-            Instance(42, Path("/other.toml"), systemd=False),
-            None,
-            False,
-            False,
-            "The daemon reads /other.toml, not this file.",
-            Tone.WARN,
-        ),
-        (DAEMON, None, False, False, "The daemon reads this file.", Tone.NEUTRAL),
-        (DAEMON, snapshot(), False, False, "The device runs the saved file.", Tone.GOOD),
-        (
-            DAEMON,
-            snapshot(),
-            True,
-            False,
-            "The device runs the saved file. There are unsaved changes.",
-            Tone.GOOD,
-        ),
-        (DAEMON, snapshot(config=fingerprint(OTHER)), False, True, "Applying the saved file…", Tone.NEUTRAL),
-        (
-            DAEMON,
-            snapshot(config=fingerprint(OTHER)),
-            False,
-            False,
-            "The device does not run the saved file yet.",
-            Tone.WARN,
-        ),
+        (None, None, False, False, "Not running", Tone.NEUTRAL),
+        (None, None, True, False, "Unsaved changes", Tone.NEUTRAL),
+        (Instance(42, Path("/other.toml"), systemd=False), None, False, False, "Runs another file", Tone.WARN),
+        (DAEMON, None, False, False, "Saved", Tone.NEUTRAL),
+        (DAEMON, snapshot(), False, False, "Saved, on the device", Tone.GOOD),
+        # the device runs the saved file: the changes are only in the editor
+        (DAEMON, snapshot(), True, False, "Unsaved changes", Tone.NEUTRAL),
+        (DAEMON, snapshot(config=fingerprint(OTHER)), False, True, "Applying…", Tone.NEUTRAL),
+        (DAEMON, snapshot(config=fingerprint(OTHER)), False, False, "Not on the device yet", Tone.WARN),
     ],
 )
 def test_whether_the_device_runs_the_saved_file(
     daemon: Instance | None, live: Snapshot | None, modified: bool, applying: bool, text: str, tone: Tone
 ):
-    status = sync_status(daemon, live, PATH, CONFIG, modified, applying)
+    status = changes_status(daemon, live, PATH, CONFIG, modified, applying)
     assert (status.text, status.tone) == (text, tone)
 
 
 def test_a_saved_file_with_errors_is_not_what_the_device_runs():
-    assert sync_status(DAEMON, snapshot(), PATH, None, False, False).tone == Tone.WARN
+    assert changes_status(DAEMON, snapshot(), PATH, None, False, False).tone == Tone.WARN
 
 
-def test_a_live_preview_is_not_the_saved_file():
+def test_changes_tried_on_the_device_are_not_the_saved_file():
     preview = dataclasses.replace(snapshot(config=fingerprint(OTHER)), preview=True)
 
     # of this window, with the document as it is
-    ours = sync_status(DAEMON, preview, PATH, CONFIG, True, False, previewed=True)
-    assert (ours.text, ours.tone) == (
-        "The device runs the unsaved changes (live preview). Save to keep them.",
-        Tone.WARN,
-    )
+    ours = changes_status(DAEMON, preview, PATH, CONFIG, True, False, previewed=True)
+    assert (ours.text, ours.tone) == ("On the device, not saved", Tone.WARN)
     assert "brings back the saved file" in ours.tip
     # of another window, or of a version of the document before
-    other = sync_status(DAEMON, preview, PATH, CONFIG, True, False)
-    assert other.text == ("The device runs a live preview, not the saved file. There are unsaved changes.")
-    assert other.tone == Tone.WARN
+    other = changes_status(DAEMON, preview, PATH, CONFIG, True, False)
+    assert (other.text, other.tone) == ("Unsaved changes", Tone.WARN)
+    assert other.tip.startswith("Another window previews.")
+    # with problems, the device keeps what it has
+    paused = changes_status(DAEMON, preview, PATH, CONFIG, True, False, trying=True, problems=True)
+    assert paused.text == "Paused: problems"
 
 
 def test_the_unit_in_effect_is_the_packaged_one_or_where_it_comes_from():
@@ -134,19 +115,18 @@ def test_the_unit_in_effect_is_the_packaged_one_or_where_it_comes_from():
     checkout = ServiceState(
         True, "active", True, unit=user_unit, program="/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
     )
+    program = "/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
     assert unit_status(checkout, overrides=False) == Status(
-        "from /home/me/xtouch-daemon/.venv/bin/xtouch-daemon", Tone.NEUTRAL, f"The unit {user_unit}"
+        "own unit", Tone.NEUTRAL, f"The unit {user_unit}, which starts {program}"
     )
     # it hides the package's
     assert unit_status(checkout, overrides=True) == Status(
-        "from /home/me/xtouch-daemon/.venv/bin/xtouch-daemon",
-        Tone.WARN,
-        f"The unit {user_unit}, which overrides the one of the package",
+        "own unit", Tone.WARN, f"The unit {user_unit}, which starts {program}; it overrides the one of the package"
     )
     # systemd did not tell the program
     unknown = unit_status(ServiceState(True, "inactive", True, unit=user_unit), overrides=False)
     assert unknown is not None
-    assert unknown.text == f"from {user_unit}"
+    assert unknown.tip == f"The unit {user_unit}"
 
 
 def versioned(version: str | None) -> Snapshot:

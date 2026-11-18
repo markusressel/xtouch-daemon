@@ -26,19 +26,15 @@ def test_the_running_daemon_reloads(service: RecordingInstance, path: Path):
 def test_a_daemon_started_elsewhere_reloads_too(path: Path):
     daemon = RecordingInstance(4242, path.resolve(), systemd=False)
 
-    applied = apply(daemon, path, ("device",))
+    applied = apply(daemon, path)
 
     assert daemon.reloads == [4242]
-    assert applied == Applied(
-        "Saved and reloaded. The device name changed: restart the daemon (process 4242) for that to take effect.",
-        reloaded=True,
-        restart_needed=True,
-    )
+    assert applied == Applied("Saved and reloaded: the device shows the new configuration.", reloaded=True)
 
 
 def test_a_changed_mqtt_section_is_not_reloaded(service: RecordingInstance, path: Path):
     # the daemon would keep the whole old configuration
-    applied = apply(service, path, ("device", "mqtt"))
+    applied = apply(service, path, ("mqtt",))
 
     assert applied == Applied(
         "Saved. The [mqtt] section changed: restart the service to use the configuration.",

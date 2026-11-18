@@ -36,18 +36,25 @@ def anchors(page: Path) -> set[str]:
 
 
 def source(path: str) -> Path:
-    """The Markdown file of a page of the site: `configuration/strips/` is `configuration/strips.md`."""
+    """
+    The Markdown file of a page of the site: `configuration/behavior/` is `configuration/behavior.md`,
+    `configuration/channels/` the index of its folder, `configuration/channels/index.md`.
+    """
     page = path.strip("/")
-    return DOCS / (f"{page}.md" if page else "index.md")
+    if not page:
+        return DOCS / "index.md"
+    file = DOCS / f"{page}.md"
+    return file if file.is_file() else DOCS / page / "index.md"
 
 
-def test_the_anchors_are_those_of_the_site():
+def test_the_anchors_are_those_of_the_site(tmp_path: Path):
     assert slug("100 % at the 0 dB mark") == "100-at-the-0-db-mark"
     assert slug('`fader = "homeassistant"`') == "fader-homeassistant"
     assert slug("`[mqtt]`") == "mqtt"
     assert slug("Devices: `output` and `input` strips") == "devices-output-and-input-strips"
-    gui = anchors(DOCS / "gui.md")
-    assert {"the-service", "the-service_1"} <= gui
+    page = tmp_path / "page.md"
+    page.write_text("## The service\n\n## The service\n")
+    assert anchors(page) == {"the-service", "the-service_1"}
     # a comment in a code block is no heading
     assert "strips-7-and-8-are-not-configured-they-are-auto-strips" not in anchors(DOCS / "configuration/index.md")
 
@@ -78,9 +85,12 @@ def test_the_linked_options_exist():
 
 def test_links_are_addresses_on_the_site():
     assert docs.DOCS_URL == "https://markusressel.github.io/xtouch-daemon/"
-    assert docs.page_link("mqtt") == "https://markusressel.github.io/xtouch-daemon/home-assistant/#mqtt"
+    assert (
+        docs.page_link("mqtt")
+        == f"https://markusressel.github.io/xtouch-daemon/{docs.DOCS_VERSION}/guides/home-assistant/#mqtt"
+    )
     assert docs.page_link("strips") is None
-    assert docs.strip_type_link("auto") == docs.url("configuration/channels/applications/#auto")
+    assert docs.strip_type_link("auto") == docs.url("configuration/channels/applications/#apps-and-auto")
     assert docs.strip_type_link("pipewire") is None
     assert docs.option_link("strip", "rec", "input") == docs.url("configuration/strip/leds/#indicators")
     # a type may link an option elsewhere

@@ -36,7 +36,7 @@ def test_the_slots_and_why():
 
 def test_who_waits():
     result = invoke("simulate", str(OLDER), *(arg for app in "abcdefg" for arg in ("--playing", app)))
-    assert result.output.splitlines()[-1] == "waiting for a slot of auto: g"
+    assert result.output.splitlines()[-1] == "waiting for a slot of apps: g"
     result = invoke("simulate", str(OLDER), "--mode", "gaming", "--person", "Bob", "--person", "Al")
     # people share the slots of auto from the right, in the order they came
     assert "6  people:Bob" in result.output

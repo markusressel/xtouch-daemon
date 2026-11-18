@@ -13,7 +13,17 @@ from PyQt6.QtNetwork import QLocalSocket
 from PyQt6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import Dialogs, FakeLiveDaemon, MakeWindow, click, row, show_channel, strip_state, type_into
+from tests.support.gui import (
+    Dialogs,
+    FakeLiveDaemon,
+    MakeWindow,
+    click,
+    pill,
+    row,
+    show_channel,
+    strip_state,
+    type_into,
+)
 from tests.support.instance import RecordingInstance
 from xtouch_daemon.gui.qt import live_preview as live_preview_module
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -68,7 +78,7 @@ class PreviewingDaemon(FakeLiveDaemon):
     @property
     def previews(self) -> list[str]:
         """The configurations sent for a preview."""
-        return [request.config for request in self.requests if isinstance(request, StartPreview)]
+        return [request.config for request in self.requests if isinstance(request, StartPreview) and request.config]
 
     def ends(self) -> int:
         return sum(isinstance(request, EndPreview) for request in self.requests)
@@ -112,7 +122,6 @@ def test_the_switch_is_off_until_a_daemon_can_preview(
     assert not alone.preview_switch.isEnabled()
     assert not alone.preview_switch.isChecked()
     assert alone.preview_switch.toolTip().startswith("No daemon runs")
-    assert not alone.preview_pill.isVisible()
 
     # a daemon from before the live preview
     window = make_window(live_socket=previewing.path)
@@ -124,7 +133,7 @@ def test_the_switch_is_off_until_a_daemon_can_preview(
 
     previewing.send(snapshot(window))
     qtbot.waitUntil(lambda: window.preview_switch.isEnabled())
-    assert window.preview_switch.toolTip().startswith("The device runs the changes in the editor")
+    assert window.preview_switch.toolTip().startswith("Runs the changes on the device before they are saved")
     assert not window.live_preview.on
 
 
@@ -136,7 +145,7 @@ def test_the_device_follows_the_editor_while_the_live_preview_is_on(
     switch_on(qtbot, window)
     # nothing to preview yet: the device runs the file
     assert previewing.requests == []
-    assert window.preview_pill.text() == "Live preview"
+    assert pill(window.changes_pill) == "Saved, on the device"
 
     type_into(qtbot, row(window, "label").line, "Boxes")
     qtbot.waitUntil(lambda: bool(previewing.previews))
@@ -145,7 +154,7 @@ def test_the_device_follows_the_editor_while_the_live_preview_is_on(
     (text,) = previewing.previews
     assert 'label = "Boxes"' in text
     assert text.startswith("# my mixer")
-    assert window.preview_pill.text() == "Previewing unsaved changes"
+    assert pill(window.changes_pill) == "Sending to the device…"
     # sending again changes nothing: the daemon has it already
     window.live_preview.send()
     assert len(previewing.previews) == 1
@@ -153,7 +162,7 @@ def test_the_device_follows_the_editor_while_the_live_preview_is_on(
     # the daemon runs it
     previewing.send(snapshot(window, preview=True))
     qtbot.waitUntil(lambda: window.live.snapshot is not None and window.live.snapshot.preview)
-    assert window.sync_label.text() == "The device runs the unsaved changes (live preview). Save to keep them."
+    assert pill(window.changes_pill) == "On the device, not saved"
     assert not window.grab().isNull()
 
     # undone: back to the file; redone: previewed again
@@ -170,7 +179,7 @@ def test_the_device_follows_the_editor_while_the_live_preview_is_on(
     # off: back to the file
     click(qtbot, window.preview_switch)
     qtbot.waitUntil(lambda: previewing.ends() == 2)
-    assert not window.preview_pill.isVisible()
+    assert pill(window.changes_pill) == "Unsaved changes"
     # no heartbeat without a preview
     count = len(previewing.requests)
     window.live_preview._beat()
@@ -212,7 +221,7 @@ def test_a_document_with_problems_is_not_previewed(qtbot: QtBot, make_window: Ma
     window.live_preview.debounce.timeout.emit()
 
     assert previewing.previews == []
-    assert window.preview_pill.text() == "Live preview paused"
+    assert pill(window.changes_pill) == "Paused: problems"
 
 
 def test_saving_makes_the_preview_the_file(
@@ -234,7 +243,7 @@ def test_saving_makes_the_preview_the_file(
     assert window.live_preview.on
     assert not window.live_preview.running
     assert not window.preview_message.isVisible()
-    assert window.preview_pill.text() == "Live preview"
+    assert pill(window.changes_pill) == "Applying…"
 
     type_into(qtbot, row(window, "label").line, "Desk")
     qtbot.waitUntil(lambda: len(previewing.previews) == 2)
@@ -252,7 +261,7 @@ def test_the_daemon_ends_the_preview_for_another_window(
     qtbot.waitUntil(lambda: not window.live_preview.on)
 
     assert not window.preview_switch.isChecked()
-    assert window.preview_message.text() == "The live preview ended: another window previews now."
+    assert window.preview_message.text() == "Trying the changes on the device ended: another window previews now."
     # it ended already: the window does not end it again
     assert previewing.ends() == 0
 
@@ -283,7 +292,9 @@ def test_closing_goes_back_to_the_file(
 
     assert window.close()
 
-    assert "The device runs them now (live preview): without saving, it goes back to the file." in isolated.shown[-1]
+    assert (
+        "The device runs them now (Try on the device): without saving, it goes back to the file." in isolated.shown[-1]
+    )
     qtbot.waitUntil(lambda: previewing.ends() == 1)
 
 

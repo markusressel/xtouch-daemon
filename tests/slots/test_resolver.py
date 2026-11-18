@@ -30,7 +30,7 @@ tags = ["media"]
 [channel.voip]
 type = "apps"
 match = ["discord"]
-in_auto = false
+in_pool = false
 
 [channel.alice]
 type = "person"
@@ -97,13 +97,18 @@ def test_a_hidden_channel_takes_an_auto_slot_as_a_whole():
 def test_a_channel_goes_to_its_highest_rank_then_to_the_left():
     result = run('[slots]\n1 = ["spotify if call", "browser"]\n2 = ["browser"]\n3 = ["browser"]', "call")
     assert shows(result, [1, 2, 3]) == ["spotify", "browser", "auto"]
-    assert result.why[3] == ("browser: on slot 2 (tie, to the left)", "shows auto")
+    assert result.why[3] == (
+        "browser: on slot 2 (tie, to the left)",
+        "auto: none left for this slot",
+        "shows nothing: auto has none left",
+    )
     result = run('[slots]\n1 = ["spotify if call", "browser"]\n2 = ["browser"]')
     assert shows(result, [1, 2]) == ["auto", "browser"]
     assert result.why[1] == (
         "spotify if call: doesn't hold (call is off)",
         "browser: on slot 2 (rank 1 there, 2 here)",
-        "shows auto",
+        "auto: none left for this slot",
+        "shows nothing: auto has none left",
     )
 
 
@@ -131,7 +136,11 @@ def test_a_held_slot_keeps_its_channel_and_the_others_resolve_around_it():
     assert shows(before, [2, 8]) == ["spotify", "browser"]
     after = run(text, previous=before, fixed=frozenset({8}))
     assert shows(after, [2, 8]) == ["auto", "browser"]
-    assert after.why[2][-2:] == ("browser: browser is on a held slot", "shows auto")
+    assert after.why[2][-3:] == (
+        "browser: browser is on a held slot",
+        "auto: none left for this slot",
+        "shows nothing: auto has none left",
+    )
     assert after.why[8] == ("held", "shows browser")
     # a held slot is nothing without a result before (the start)
     assert shows(run(text, fixed=frozenset({8})), [2, 8]) == ["browser", "auto"]
@@ -157,7 +166,7 @@ def test_applications_keep_their_slots_and_wait_when_a_call_takes_one():
     assert shows(before, range(3, 9)) == ["auto:a", "auto:b", "auto:c", "auto:d", "auto:e", "auto:f"]
     during = run(text, "call", observation=playing, previous=before)
     assert shows(during, range(3, 9)) == ["auto:a", "auto:b", "auto:c", "auto:d", "voip", "alice"]
-    assert during.waiting == {"auto": (App("e"), App("f"))}
+    assert during.waiting == {"apps": (App("e"), App("f"))}
     # the others don't move when one stops: the slot of b takes the next one
     later = run(text, "call", observation=Observation(playing=("a", "c", "d", "e", "f")), previous=during)
     assert shows(later, range(3, 7)) == ["auto:a", "auto:e", "auto:c", "auto:d"]
@@ -168,7 +177,7 @@ def test_applications_keep_their_slots_and_wait_when_a_call_takes_one():
 def test_what_auto_takes():
     playing = Observation(playing=("firefox", "discord", "spotify-client", "mpv"))
     result = run('[slots]\n1 = "spotify"', observation=playing)
-    # the browser as a whole, not discord (in_auto = false), not spotify (it has a slot)
+    # the browser as a whole, not discord (in_pool = false), not spotify (it has a slot)
     assert shows(result, [1, 2, 3, 4]) == ["spotify", "auto:browser", "auto:mpv", "auto"]
 
 
@@ -194,7 +203,7 @@ def test_people_share_the_slots_of_auto():
     assert shows(result, [7, 8]) == ["people:Bob", "people:alice"]
     assert result.slots[8] == Shown(0, channel="alice", pool="people", member=Person("id-Alice", "Alice", "alice"))
     # unless it opts out
-    read = scene(SCENE.replace('person = "Alice"', 'person = "Alice"\nin_auto = false'))
+    read = scene(SCENE.replace('person = "Alice"', 'person = "Alice"\nin_pool = false'))
     assert shows(resolve(read, Inputs(states(read), ALL, bob)), [7, 8]) == ["auto", "people:Bob"]
     waiting = run("[slots]\n" + "".join(f'{slot} = "-"\n' for slot in range(1, 8)), observation=bob)
     assert shows(waiting, [8]) == ["people:alice"]
@@ -203,7 +212,7 @@ def test_people_share_the_slots_of_auto():
     nowhere = run(
         "[slots]\n" + "".join(f'{slot} = "-"\n' for slot in range(1, 9)), observation=Observation(playing=("mpv",))
     )
-    assert nowhere.waiting == {"auto": (App("mpv"),)}
+    assert nowhere.waiting == {"apps": (App("mpv"),)}
 
 
 def test_a_pool_of_channels_fills_by_its_order():

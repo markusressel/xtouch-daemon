@@ -11,7 +11,7 @@ from xtouch_daemon.slots.outcomes import Outcome, dimensions, outcomes, states_f
 
 
 def test_the_table_in_the_design_is_the_one_of_its_example():
-    text = (DOCS / "design" / "channels-states-slots.md").read_text()
+    text = (DOCS / "development" / "design" / "channels-states-slots.md").read_text()
     match = re.search(r"```\n(when .*?)```", text, re.DOTALL)
     assert match is not None
     assert match.group(1) == table(outcomes(example())) + "\n"
@@ -54,16 +54,17 @@ apps = ["mpv"]
     )
     # quiet follows from night: no row has one without the other
     assert table(outcomes(read)) == (
-        "when                          1     2         3     4-8\n"
-        "default                       buds  wireless  auto  auto\n"
-        "night                         buds  -         auto  auto\n"
-        "video                         buds  wireless  out   auto\n"
-        "buds absent                   out   auto      auto  auto\n"
-        "video and night               buds  -         out   auto\n"
-        "night, buds absent            out   -         auto  auto\n"
+        # wireless has none left for slot 2 (buds is on slot 1): auto gets it
+        "when                          1     2     3     4-8\n"
+        "default                       buds  auto  auto  auto\n"
+        "night                         buds  -     auto  auto\n"
+        "video                         buds  auto  out   auto\n"
+        "buds absent                   out   auto  auto  auto\n"
+        "video and night               buds  -     out   auto\n"
+        "night, buds absent            out   -     auto  auto\n"
         # out ranks higher on slot 3: slot 1 goes on to auto
-        "video, buds absent            auto  auto      out   auto\n"
-        "video and night, buds absent  auto  -         out   auto"
+        "video, buds absent            auto  auto  out   auto\n"
+        "video and night, buds absent  auto  -     out   auto"
     )
     # a composed state named on is on, whatever it names (simulate --state quiet)
     assert states_for(read, DEFAULT, ["quiet"])["quiet"]

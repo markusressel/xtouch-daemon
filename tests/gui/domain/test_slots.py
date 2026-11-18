@@ -27,9 +27,10 @@ def test_the_mode_and_its_tip() -> None:
     assert slots_status(snapshot(None)) is None
     status = slots_status(snapshot(SLOTS))
     assert status is not None
-    assert (status.text, status.tone) == ("Mode gaming", Tone.NEUTRAL)
-    assert status.tip.splitlines() == [
-        "The rules pick the mode.",
+    assert (status.text, status.tone) == ("Mode: gaming", Tone.NEUTRAL)
+    lines = status.tip.splitlines()
+    assert lines[0].endswith("The rules pick it now.")
+    assert lines[1:] == [
         "",
         "mode gaming: on (mygame runs)",
         "state call: off, override off",
@@ -46,5 +47,5 @@ def test_a_mode_by_hand() -> None:
 
     status = slots_status(snapshot(dataclasses.replace(SLOTS, mode_pick="gaming")))
     assert status is not None
-    assert (status.text, status.tone) == ("Mode gaming · by hand", Tone.WARN)
-    assert status.tip.startswith("The mode was picked by hand.")
+    assert (status.text, status.tone) == ("Mode: gaming · by hand", Tone.WARN)
+    assert status.tip.splitlines()[0].endswith("It was picked by hand.")

@@ -34,7 +34,7 @@ def test_why_a_slot_shows_what_it_shows():
 
 def test_why_a_channel_is_where_it_is():
     assert why(SLOTS, "browser") == (
-        "browser: on 1; not 2 (doesn't hold (call is off)); not 2 (on slot 1 (tie, to the left))"
+        "browser: on slot 1; not slot 2 (doesn't hold (call is off)); not slot 2 (on slot 1 (tie, to the left))"
     )
-    assert why(SLOTS, "app:firefox") == "app:firefox: on 2; on 3"
+    assert why(SLOTS, "app:firefox") == "app:firefox: on slot 2; on slot 3"
     assert why(SLOTS, "mic") == "mic: on no slot, and no slot asks for it"

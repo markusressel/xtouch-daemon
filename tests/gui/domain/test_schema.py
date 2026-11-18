@@ -1,3 +1,4 @@
+import dataclasses
 from typing import Annotated, Literal
 
 import pytest
@@ -17,7 +18,7 @@ from xtouch_daemon.gui.domain.schema import (
     strip_options,
     strip_type_help,
 )
-from xtouch_daemon.slots.model import PoolConfig, StateConfig
+from xtouch_daemon.slots.model import AppsConfig, StateConfig
 
 
 def strip_option(strip_type: str, name: str) -> Option:
@@ -25,16 +26,11 @@ def strip_option(strip_type: str, name: str) -> Option:
 
 
 def test_options_come_from_the_models_with_bounds_defaults_and_help():
-    assert options(BehaviorConfig)[0] == Option(
-        name="max_volume",
-        kind=Kind.INTEGER,
-        help="The volume of a fader at the top, in percent: above 100 % the audio is amplified in software. Strips may "
-        "have a\nrange of their own (`min_volume`, `max_volume`). 130 puts 100 % at the 0 dB mark of the device (see "
-        "`unity_at`)\nwith the same slope above it as below, so the fader is linear over its whole travel.",
-        default=130,
-        required=False,
-        minimum=100,
-        maximum=200,
+    max_volume = options(BehaviorConfig)[0]
+    # the help is the docstring of the field
+    assert max_volume.help.startswith("The volume, in percent, with a fader at the top.")
+    assert dataclasses.replace(max_volume, help="") == Option(
+        name="max_volume", kind=Kind.INTEGER, help="", default=130, required=False, minimum=100, maximum=200
     )
     assert [(o.name, o.kind) for o in options(BehaviorConfig)] == [
         ("max_volume", Kind.INTEGER),
@@ -46,7 +42,7 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
     ]
     unity = options(BehaviorConfig)[1]
     assert (unity.default, unity.minimum, unity.maximum) == (77, 10, 95)
-    assert "0 dB at about\n77" in unity.help
+    assert "0 dB at about 77" in unity.help
     name, _virtual, touch_required, touchless, startup, shutdown = options(DeviceConfig)
     assert (touch_required.kind, touch_required.default) == (Kind.SWITCH, True)
     assert name.default == "X-Touch-Ext"
@@ -103,6 +99,7 @@ def test_every_strip_type_has_its_model_and_options():
         _,
         fader,
         min_volume,
+        _,
     ) = strip_options("input")
     assert (meter_point.kind, meter_point.default, meter_point.choices) == (
         Kind.CHOICE,
@@ -256,7 +253,7 @@ def test_the_default_for_people():
 
 def test_lists_of_names_say_which_presets_they_take():
     assert strip_option("apps", "match").presets == PresetKind.STREAMS
-    assert next(item for item in options(PoolConfig) if item.name == "exclude").presets == PresetKind.STREAMS
+    assert next(item for item in options(AppsConfig) if item.name == "exclude").presets == PresetKind.STREAMS
     state = {item.name: item for item in options(StateConfig)}
     assert state["apps"].presets == PresetKind.STREAMS
     assert state["processes"].presets == PresetKind.PROCESSES

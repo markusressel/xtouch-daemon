@@ -6,7 +6,7 @@ import pytest
 
 from tests.support.slots import example, scene
 from xtouch_daemon.config.base import ConfigError
-from xtouch_daemon.slots.model import AUTO, Candidate, ChannelConfig, Launch
+from xtouch_daemon.slots.model import AUTO, Candidate, ChannelConfig, Launch, PoolConfig
 
 CHANNELS = """
 [channel.out]
@@ -84,11 +84,8 @@ def test_stacks_in_all_forms():
         ("[channel.state_x]\ntype = 'output'", "channel.state_x: state_x is reserved"),
         ("[state.default]\nmanual = 1", "state.default.manual: Extra inputs are not permitted"),
         ("[state.present]\nprocesses = ['x']", "state.present: present is reserved"),
-        ("[channel.people]\ntype = 'output'", "channel.people: people is built in: [people]"),
-        ("[pool.people]\ncolor = 'red'", "pool.people: people is built in: [people]"),
+        ("[channel.people]\ntype = 'output'", "channel.people: people is a built-in pool"),
         ("[channel.auto]\ntype = 'output'", "channel.auto: auto is a built-in pool"),
-        ("[slots]\n1 = 'people'", "slots.1[0]: people is no candidate: the people share the slots of auto"),
-        ("[slots]\n1 = 'auto if present(people)'", 'slots.1[0]: "present(people)": people is no channel or pool'),
         (
             "[slots]\n1 = [{ show = 'auto', talking_color = 'red' }]",
             "slots.1[0]: talking_color is no option of a place",
@@ -118,9 +115,10 @@ def test_stacks_in_all_forms():
             "[controls]\n1 = { rec = 'homeassistant' }\n[slots]\n1 = [{ show = 'out', rec = 'mute' }]",
             "slots.1[0]: rec: the slot's controls claim it ([controls])",
         ),
-        ("[people]\nlaunch = ['mumble']", "people: launch: the strips of people have none"),
-        ("[people]\nlaunch_when_running = true", "people: launch: the strips of people have none"),
-        ("[people]\nlabel = 'Friend'", "people: label: only on a person channel"),
+        ("[people]\ncolor = 'red'", "people: the section is [pool.people] now"),
+        ("[pool.people]\nlaunch = ['mumble']", "pool.people: launch: the strips of people have none"),
+        ("[pool.people]\nlaunch_when_running = true", "pool.people: launch: the strips of people have none"),
+        ("[pool.people]\nlabel = 'Friend'", "pool.people: label: only on a person channel"),
         (
             "[controls]\n1 = { select = { launch = [] } }",
             "controls.1.select.Launch.launch: Tuple should have at least 1",
@@ -156,7 +154,9 @@ def test_problems(added: str, problem: str):
 
 def test_tags_stand_for_their_channels_in_the_order_of_the_file():
     read = scene(CHANNELS + "[pool.media]\nchannels = ['out', '#media', 'spotify']")
-    assert read.members_of(read.pools["media"].channels) == ("out", "spotify", "radio")
+    media = read.pools["media"]
+    assert isinstance(media, PoolConfig)
+    assert read.members_of(media.channels) == ("out", "spotify", "radio")
 
 
 def test_the_devices_and_people_of_channels():

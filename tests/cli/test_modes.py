@@ -129,7 +129,7 @@ def test_why_asks_the_daemon(live_socket: Path) -> None:
     fake.close()
     live_socket.unlink()
     fake = FakeModes(live_socket, dataclasses.replace(SLOTS, slots=views))
-    assert invoke("why", "out").output.strip() == "out: on 1"
+    assert invoke("why", "out").output.strip() == "out: on slot 1"
     fake.close()
 
 

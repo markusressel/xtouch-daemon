@@ -307,6 +307,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The GUI said the pools `apps` and `people` were not used by a slot while slots showed `auto`, which shares them;
+  and the help of a list of streams named `exclude` of `[pool.auto]`, which is on `[pool.apps]`.
 - The GUI window jumped around when it opened and the first time a candidate of a slot was picked: the help of
   every option showed as a window of its own for a moment, and the desktop made room for each. The window also
   opens at a size the screen has room for, and the drawing of the device gets smaller (down to about a third), so

@@ -25,7 +25,7 @@ def test_numbers_switches_and_choices(qtbot: QtBot, window: MainWindow):
     hold = row(window, "hold").spin
     assert isinstance(hold, QDoubleSpinBox)
     hold.setValue(2.5)
-    assert window.document.get(("pool", "auto", "hold")) == 2.5
+    assert window.document.get(("pool", "apps", "hold")) == 2.5
     # a number without a default: a step below the minimum is "not set"
     show_channel(window, "out")
     absent = row(window, "absent_after").spin

@@ -77,8 +77,12 @@ def test_options_by_path_and_the_text_keeps_its_comments(tmp_path: Path) -> None
 def test_removing_and_renaming(tmp_path: Path) -> None:
     doc = document(tmp_path)
     doc.unset(("state", "call", "voice_chat"))
-    # the state is gone with its last option
-    assert doc.get(("state",)) is None
+    # a state without options stays (on only by an override, or being set up)
+    assert doc.get(("state",)) == {"call": {}}
+    # an emptied channel goes
+    doc.set(("channel", "tmp"), {"type": "output"})
+    doc.unset(("channel", "tmp", "type"))
+    assert "tmp" not in doc.get(("channel",))
     doc.unset(("slots", "2", 0))
     assert doc.get(("slots", "2")) == ["auto"]
     doc.unset(("nothing", "here"))
@@ -89,7 +93,7 @@ def test_removing_and_renaming(tmp_path: Path) -> None:
     doc.rename(("channel", "out"), "speaker")
     assert list(doc.get(("channel",))) == ["speaker", "mic"]
     text = doc.render()
-    assert "[state" not in text
+    assert "[state.call]\n" in text
     assert "[channel.speaker]" in text
     assert text.count("[[channel.speaker.choices]]") == 1
 

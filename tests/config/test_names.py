@@ -9,9 +9,10 @@ from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.sections import BehaviorConfig
+from xtouch_daemon.slots.model import AppsConfig
 
 PRESETS_CONFIG = """\
-[pool.auto]
+[pool.apps]
 exclude = ["@music", "notification"]
 
 [channel.web]
@@ -35,7 +36,9 @@ def test_presets_stand_for_their_names_and_keep_how_they_are_written():
     assert strip.written("match") == ("@browsers", "netsurf")
     # states and pools keep them as written, the slots expand them
     scene = config.slots.scene
-    assert scene.pools["auto"].exclude == ("@music", "notification")
+    apps = scene.pools["apps"]
+    assert isinstance(apps, AppsConfig)
+    assert apps.exclude == ("@music", "notification")
     assert scene.states["gaming"].processes == ("@steam-games", "lutris")
 
 
@@ -61,7 +64,7 @@ def test_the_processes_of_an_apps_strip_are_those_of_its_presets():
             "@music, @video",
         ),
         ('[state.x]\nprocesses = ["@nope"]', "state.x.processes: @nope is no preset; "),
-        ('[pool.auto]\nexclude = ["@"]', "pool.auto.exclude: @ is no preset; "),
+        ('[pool.apps]\nexclude = ["@"]', "pool.apps.exclude: @ is no preset; "),
     ],
 )
 def test_an_unknown_preset_is_an_error_of_its_option(text: str, message: str):
@@ -73,7 +76,7 @@ def test_a_preset_in_a_list_it_is_not_for_says_where_it_fits(monkeypatch: pytest
     message = errors_of('[state.x]\nprocesses = ["@toys"]\napps = ["@toys"]')
     assert (
         "state.x.processes: @toys is not for `processes` of states; use it in `match` of apps channels, `apps` of "
-        "states and `exclude` of `[pool.auto]`" in message
+        "states and `exclude` of `[pool.apps]`" in message
     )
     assert "state.x.apps" not in message
 

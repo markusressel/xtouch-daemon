@@ -27,7 +27,7 @@ tags = ["media"]
 [channel.voip]
 type = "apps"
 match = ["discord", "fire"]
-in_auto = false
+in_pool = false
 
 [channel.alice]
 type = "person"
@@ -36,7 +36,7 @@ person = ["Alice", "alice-phone"]
 [channel.lights]
 type = "homeassistant"
 
-[pool.auto]
+[pool.apps]
 exclude = ["speech-dispatcher"]
 
 [pool.media]
@@ -112,7 +112,7 @@ def test_pools_are_present_before_slots_are_assigned():
     # people share the slots of auto: anyone in the voice chat (before the slots are assigned)
     assert pool_present(read, "auto", Observation(people=attendees("Alice")), frozenset())
     # not someone whose person channel never goes into auto
-    hidden = scene('[channel.alice]\ntype = "person"\nperson = "Alice"\nin_auto = false\n')
+    hidden = scene('[channel.alice]\ntype = "person"\nperson = "Alice"\nin_pool = false\n')
     assert not pool_present(hidden, "auto", Observation(people=attendees("Alice")), frozenset())
     assert not pool_present(read, "media", Observation(), frozenset({"out"}))
     assert pool_present(read, "media", Observation(), frozenset({"browser"}))

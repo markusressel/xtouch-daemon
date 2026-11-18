@@ -8,12 +8,12 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QListWidgetItem
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import CONFIG, Dialogs, MakeWindow, click, row, show_channel, type_into
+from tests.support.gui import CONFIG, Dialogs, MakeWindow, click, pill, row, show_channel, type_into
 from tests.support.instance import RecordingInstance
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config.files import Problem
-from xtouch_daemon.gui.qt.pages.channels import AUTO, PEOPLE
+from xtouch_daemon.gui.qt.pages.channels import APPS, AUTO, PEOPLE
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
 
@@ -23,18 +23,20 @@ def items(window: MainWindow) -> list[QListWidgetItem]:
 
 
 def test_the_window_shows_the_configuration(window: MainWindow, path: Path):
-    assert window.audio_label.text() == "Sound server: 2 outputs, 1 input, 2 applications"
-    assert window.path_label.text() == f"{path}  ·  saved"
+    assert pill(window.audio_label) == "Sound server: 2 outputs, 1 input, 2 applications"
+    assert window.windowTitle() == path.name
     assert not window.save_button.isEnabled()
     assert not window.problems_button.isVisible()
     assert window.service_controls.pill.text() == "running"
     assert window.current_page == "slots"
-    # the channels, then auto and the people
+    # the channels, then the built-in pools
     assert [item.text().split("\n")[0] for item in items(window)] == [
         "Speaker  ·  out",
         "Browser  ·  browser",
-        "Auto",
+        "Applications",
         "People",
+        "Devices",
+        "Auto",
     ]
     assert [item.text().split("\n")[1] for item in items(window)[:2]] == ["slot 1", "slot 2"]
     assert not window.grab().isNull()
@@ -46,15 +48,15 @@ def test_without_the_sound_server_names_are_typed_by_hand(make_window: MakeWindo
 
     window = make_window(unreachable)
 
-    assert window.audio_label.text() == "Sound server not reachable: type names by hand"
-    assert window.audio_label.toolTip() == "can't reach the sound server: no socket"
+    assert pill(window.audio_label) == "Sound server not reachable: type names by hand"
+    assert window.audio_label.toolTip().startswith("can't reach the sound server: no socket")
 
 
 def test_a_channel_is_picked_edited_and_saved(qtbot: QtBot, window: MainWindow, path: Path, daemon: RecordingInstance):
     window.show_page("channels")
     page = window.channels_page
-    # auto first, until a channel is picked
-    assert page.title.text() == "Auto: [pool.auto]"
+    # the first built-in pool, until a channel is picked
+    assert page.title.text() == "Applications: [pool.apps]"
     assert page.used.text() == "Used by: slot 2"
     page.list.setCurrentItem(items(window)[1])
     assert page.selection == ("channel", "browser")
@@ -62,19 +64,20 @@ def test_a_channel_is_picked_edited_and_saved(qtbot: QtBot, window: MainWindow, 
     assert page.used.text() == "Used by: slot 2"
 
     type_into(qtbot, row(window, "label").line, "Web")
-    assert window.path_label.text().endswith("unsaved changes")
+    assert window.windowTitle() == f"• {path.name}"
     assert items(window)[1].text().startswith("Web  ·  browser")
     click(qtbot, window.save_button)
 
     assert 'label = "Web"' in path.read_text()
     assert path.read_text().startswith("# my mixer\n")
     assert daemon.reloads == [1234]
-    assert window.path_label.text().endswith("saved")
+    assert window.windowTitle() == path.name
     # the people: no id, no use
     page.list.setCurrentItem(items(window)[3])
     assert page.selection == PEOPLE
     assert page.id_edit.isHidden()
-    assert page.used.isHidden()
+    # the people sit on the slots of auto
+    assert page.used.text() == "Used by: slot 2"
     assert not page.remove_button.isEnabled()
 
 
@@ -116,7 +119,7 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
 
     click(qtbot, page.remove_button)
     assert "mic" not in window.document.get(("channel",))
-    assert page.selection == AUTO
+    assert page.selection == APPS
     window.undo()
     assert "mic" in window.document.get(("channel",))
 
@@ -158,8 +161,8 @@ def test_a_problem_leads_to_its_place(window: MainWindow):
 
 def test_problems_of_other_parts_lead_to_their_pages(window: MainWindow):
     for path, page in (
-        (("pool", "auto", "hold"), "channels"),
-        (("people", "order"), "channels"),
+        (("pool", "apps", "hold"), "channels"),
+        (("pool", "people", "order"), "channels"),
         (("state", "call", "delay_on"), "states"),
         (("slots", "1", 0), "slots"),
         (("aliases", "x"), "aliases"),
@@ -168,7 +171,7 @@ def test_problems_of_other_parts_lead_to_their_pages(window: MainWindow):
         assert window.current_page == page, path
     window.go_to(Problem(("pool", "auto"), "wrong", "invalid"))
     assert window.channels_page.selection == AUTO
-    window.go_to(Problem(("people",), "wrong", "invalid"))
+    window.go_to(Problem(("pool", "people"), "wrong", "invalid"))
     assert window.channels_page.selection == PEOPLE
     # a problem of the whole file: the section it names
     window.go_to(Problem((), "channels of Home Assistant need an [mqtt] section", "invalid"))

@@ -55,7 +55,7 @@ type = "input"
 device = "mic"
 label = "Mic"
 
-[pool.auto]
+[pool.apps]
 hold = 0
 
 [state.gaming]

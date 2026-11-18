@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import FakeLiveDaemon, MakeWindow, snapshot, strip_state
+from tests.support.gui import FakeLiveDaemon, MakeWindow, pill, snapshot, strip_state
 from tests.support.instance import RecordingInstance
 from xtouch_daemon.system.instance import Instance
 
@@ -29,8 +29,8 @@ def test_the_preview_shows_the_device_live(
     qtbot.waitUntil(lambda: window.device_view.preview.strips[0].face.live)
 
     assert window.device_view.preview.strips[0].face.state == first
-    assert window.mode_pill.text() == "Live"
-    assert window.sync_label.text() == "The device runs the saved file."
+    assert pill(window.device_view.live_pill) == "Live"
+    assert pill(window.changes_pill) == "Saved, on the device"
     # Select flashes
     assert window.device_view.preview.blinker.isActive()
     blink = window.device_view.preview.blink
@@ -42,27 +42,27 @@ def test_the_preview_shows_the_device_live(
     window.document.set(("channel", "out", "label"), "Boxes")
     window.editor.edited()
     assert window.device_view.preview.strips[0].face.live
-    assert window.sync_label.text() == "The device runs the saved file. There are unsaved changes."
+    assert pill(window.changes_pill) == "Unsaved changes"
     assert not window.device_view.preview.grab().isNull()
 
     # saved: the daemon takes a moment
     assert window.save()
     assert daemon.reloads == [1234]
-    assert window.sync_label.text() == "Applying the saved file…"
+    assert pill(window.changes_pill) == "Applying…"
     # it did not take it
     window.applying.stop()
     window.applying.timeout.emit()
-    assert window.sync_label.text() == "The device does not run the saved file yet."
-    assert "journalctl --user -u xtouch-daemon" in window.sync_label.toolTip()
+    assert pill(window.changes_pill) == "Not on the device yet"
+    assert "journalctl --user -u xtouch-daemon" in window.changes_pill.toolTip()
     # it did
     live_daemon.send(snapshot(window, first, device=False))
-    qtbot.waitUntil(lambda: window.sync_label.text() == "The device runs the saved file.")
-    assert window.mode_pill.text() == "Live · X-Touch-Ext not connected"
+    qtbot.waitUntil(lambda: pill(window.changes_pill) == "Saved, on the device")
+    assert pill(window.device_view.live_pill) == "Live · not connected"
 
     # the daemon ended: the file again
     live_daemon.close()
     qtbot.waitUntil(lambda: window.live.snapshot is None)
-    assert window.mode_pill.text() == "File preview"
+    assert pill(window.device_view.live_pill) == "File preview"
     assert not window.device_view.preview.strips[0].face.live
 
 
@@ -72,7 +72,7 @@ def test_the_live_view_ends_with_the_daemon(qtbot: QtBot, make_window: MakeWindo
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     live_daemon.send(snapshot(window, strip_state()))
     qtbot.waitUntil(lambda: window.live.snapshot is not None)
-    assert window.sync_label.text() == "The daemon reads /elsewhere.toml, not this file."
+    assert pill(window.changes_pill) == "Runs another file"
     # a line of another version means nothing
     live_daemon.send_line(b'{"version": 99}\n')
     qtbot.wait(20)
@@ -82,5 +82,5 @@ def test_the_live_view_ends_with_the_daemon(qtbot: QtBot, make_window: MakeWindo
     window.refresh_service()
 
     assert window.live.snapshot is None
-    assert window.mode_pill.text() == "File preview"
-    assert window.sync_label.text() == "Nothing runs this file."
+    assert pill(window.device_view.live_pill) == "File preview"
+    assert pill(window.changes_pill) == "Not running"

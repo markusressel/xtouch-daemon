@@ -94,9 +94,9 @@ def test_where_the_window_device_is_stays_for_the_next_start(make_window: MakeWi
 
 
 def test_the_bars_stay_where_they_are(window: MainWindow):
-    # the header, the rail and the footer can't be moved or hidden like the bars of a toolbar
+    # the header and the footer can't be moved or hidden like the bars of a toolbar
     assert window.contextMenuPolicy() == Qt.ContextMenuPolicy.PreventContextMenu
-    for name in ("header", "rail", "footer"):
+    for name in ("header", "footer"):
         bar = window.findChild(QToolBar, name)
         assert bar is not None
         assert not bar.isMovable()

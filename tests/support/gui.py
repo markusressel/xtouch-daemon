@@ -4,6 +4,8 @@ a fake live view, and clicking and typing.
 """
 
 import dataclasses
+import html
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QAbstractButton,
+    QLabel,
     QLineEdit,
     QMessageBox,
     QWidget,
@@ -111,6 +114,16 @@ class Dialogs:
 
 
 type MakeWindow = Callable[..., MainWindow]
+
+
+def plain(text: str) -> str:
+    """Rich text without its markup (the colors of the help), as it reads."""
+    return html.unescape(re.sub(r"<[^>]+>", "", text))
+
+
+def pill(widget: QLabel | QAbstractButton) -> str:
+    """The text of a pill, without the ▾ of one that opens a popover."""
+    return widget.text().removesuffix("  ▾")
 
 
 NO_MUMBLE = mumble.Setup(bundle=None, buildable=False, installed=None, mumble=False)

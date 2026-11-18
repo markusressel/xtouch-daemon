@@ -43,7 +43,8 @@ def test_stacks_are_written_in_the_smallest_form():
 
 def test_what_a_place_can_show_and_take():
     values = {"channel": {"out": {}, "mic": {}}, "pool": {"auto": {}, "games": {}}}
-    assert choices(values) == ["out", "mic", "auto", "games", "-"]
+    # the channels, the built-in pools, the pools of the file, nothing
+    assert choices(values) == ["out", "mic", "auto", "apps", "people", "devices", "games", "-"]
     assert "encoder" in place_options("auto")
     assert "encoder" not in place_options("out")
     assert "color" in place_options("out")

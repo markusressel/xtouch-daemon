@@ -24,7 +24,7 @@ class Kind(StrEnum):
 
 
 WHERE: dict[Kind, str] = {
-    Kind.STREAMS: "`match` of apps channels, `apps` of states and `exclude` of `[pool.auto]`",
+    Kind.STREAMS: "`match` of apps channels, `apps` of states and `exclude` of `[pool.apps]`",
     Kind.PROCESSES: "`processes` of states",
 }
 """The lists of each kind, for people."""
