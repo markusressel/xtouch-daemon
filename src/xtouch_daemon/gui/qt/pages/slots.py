@@ -332,11 +332,17 @@ class SlotsPanel(Page):
         controls = controls_text(self.document.values, self.slot)
         if controls:
             text = f"`[controls]` claims parts of slot {self.slot}: " + "; ".join(controls) + "."
-        else:
+        elif not stack:
             text = (
-                f"Its buttons, encoder and fader work as what it shows: `[controls]` claims none of slot {self.slot}."
+                f"Slot {self.slot} has no candidate: it shows `auto`, the next application that plays or person of "
+                "the voice chat. Add a candidate (+ on its card) to show a channel here, e.g. an output."
             )
+        elif self.candidate is None:
+            text = "Pick a candidate to edit it. The first one whose condition holds is shown; + adds one at the end."
+        else:
+            text = ""
         set_text(self.controls, _help(text))
+        self.controls.setVisible(bool(text))
         self._show_crumbs(stack)
         for widget in (self.show_box, self.when_edit):
             widget.parentWidget().setVisible(self.candidate is not None)  # pyright: ignore[reportOptionalMemberAccess]

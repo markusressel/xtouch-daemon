@@ -50,4 +50,4 @@ xtouch-daemon-gui -c FILE    # another one
 
 Without the extra, `xtouch-daemon gui` says how to install it.
 
-Next: [First steps](first-steps.md).
+Next: [First steps](first-steps.md), then the [Setup tour](tour.md).

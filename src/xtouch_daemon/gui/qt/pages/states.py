@@ -78,6 +78,13 @@ def _check(group: QButtonGroup, index: int) -> None:
         button.setChecked(True)
 
 
+TEMPLATES: tuple[tuple[str, str, bool, dict[str, Any]], ...] = (
+    ("In a call (state)", "call", False, {"voice_chat": True, "recording": ["@voip"], "delay_off": 5}),
+    ("Gaming (mode)", "gaming", True, {"label": "Gaming", "processes": ["@steam-games"]}),
+)
+"""The starting points in the menu Add: text, id, whether a mode, and the options."""
+
+
 class StatesPage(Page):
     def __init__(
         self,
@@ -121,6 +128,11 @@ class StatesPage(Page):
             action = menu.addAction(icon("view-dashboard-outline" if mode else "toggle-switch-outline"), text)
             assert action is not None
             action.triggered.connect(lambda _=False, mode=mode: self.add(mode))
+        menu.addSeparator()
+        for text, name, mode, preset in TEMPLATES:
+            action = menu.addAction(icon("view-dashboard-outline" if mode else "toggle-switch-outline"), text)
+            assert action is not None
+            action.triggered.connect(lambda _=False, name=name, mode=mode, preset=preset: self.add(mode, name, preset))
         self.add_button.setMenu(menu)
         self.remove_button = button("delete-outline", "Remove", "error", "danger")
         self.remove_button.clicked.connect(self.remove)
@@ -160,7 +172,13 @@ class StatesPage(Page):
         self.form, layout = card()
         self._build_form(layout)
         inspector.addWidget(self.form)
-        self.empty = label("No states yet: Add makes one.", "hint")
+        self.empty = label(
+            "No states yet. A state is when something matters: slots can show a channel only while it is on "
+            '("voip if call"). Add makes one; "In a call" and "Gaming" in its menu start from the usual '
+            "ones. Slots work without any.",
+            "hint",
+            wrap=True,
+        )
         inspector.addWidget(self.empty)
         inspector.addStretch()
         pane = QWidget()
@@ -437,8 +455,8 @@ class StatesPage(Page):
 
     # -- editing --------------------------------------------------------------------------------------------------
 
-    def add(self, mode: bool) -> None:
-        self.select(self.editor.add_state(mode))
+    def add(self, mode: bool, name: str | None = None, options: dict[str, Any] | None = None) -> None:
+        self.select(self.editor.add_state(mode, name, options))
 
     def remove(self) -> None:
         assert self.selection is not None

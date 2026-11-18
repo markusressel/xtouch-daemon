@@ -92,10 +92,10 @@ def simulated(setup: SlotsSetup, what_if: WhatIf) -> SlotsState:
     return SlotsState(what_if.mode, None, views, states, waiting)
 
 
-def simulated_faces(setup: SlotsSetup, slots: SlotsState) -> tuple[StripFace, ...]:
+def simulated_faces(setup: SlotsSetup, slots: SlotsState, note: str = SIMULATED) -> tuple[StripFace, ...]:
     """
     The strips with the label and color of what each slot would show, dark for nothing; an application or a person
-    with their name.
+    with their name. `note` is the bottom line of the LCDs.
     """
     faces: list[StripFace] = []
     for view in slots.slots[: protocol.STRIPS]:
@@ -104,7 +104,9 @@ def simulated_faces(setup: SlotsSetup, slots: SlotsState) -> tuple[StripFace, ..
         member = view.member if view.channel is None else None
         label = member or getattr(strip, "label", None) or name
         color = getattr(strip, "color", "white") if name != "-" else "off"
-        state = dataclasses.replace(DARK, color=color, text=(label[: protocol.LCD_CELL_WIDTH], SIMULATED[:7]))
+        state = dataclasses.replace(
+            DARK, color=color, text=(label[: protocol.LCD_CELL_WIDTH], note[: protocol.LCD_CELL_WIDTH])
+        )
         look = StripLook("slot", label, f"Would show {name}", color, printed=name)
         faces.append(StripFace(look, state, live=False, dimmed=color == "off"))
     return tuple(faces)

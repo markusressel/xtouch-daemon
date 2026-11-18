@@ -65,7 +65,8 @@ def preview_status(
         return Status(
             "File preview",
             Tone.NEUTRAL,
-            "The daemon is not running: the strips show what the configuration would show.",
+            "The daemon is not running: the strips show what the file shows in the default situation (no state on, "
+            "nothing plays). Simulate changes the situation.",
         )
     return Status(
         "File preview",

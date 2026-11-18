@@ -3,6 +3,7 @@ The sound server: its devices (`list-devices`) and the applications that play, w
 (`list-apps`).
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -23,13 +24,38 @@ def _audio_state() -> AudioState:
         raise click.ClickException(str(e)) from e
 
 
+def snippet(state: AudioState) -> str:
+    """A channel for each output and input, to paste into the configuration: Bluetooth devices by a wildcard."""
+    blocks: list[str] = []
+    seen: set[str] = set()
+    for direction in (Direction.OUTPUT, Direction.INPUT):
+        for device in state.devices(direction):
+            bluetooth = device.name.startswith("bluez_")
+            name = f"bluez_{direction.value}.*" if bluetooth else device.name
+            if name in seen:
+                continue
+            seen.add(name)
+            words = re.sub(r"[^a-z0-9]+", "_", device.description.lower()).strip("_")
+            ident = f"{direction.value}_{'_'.join(words.split('_')[:2])}".strip("_")
+            note = "  # any Bluetooth device" if bluetooth else ""
+            blocks.append(
+                f'[channel.{ident}]\ntype = "{direction.value}"\ndevice = "{name}"{note}\n# {device.description}'
+            )
+    return "\n\n".join(blocks)
+
+
 @click.command("list-devices")
-def list_devices() -> None:
+@click.option("--snippet", "as_snippet", is_flag=True, help="Print a channel for each device, to paste into the file.")
+def list_devices(as_snippet: bool) -> None:
     """
     List the outputs and inputs, with the names to use as `device` (* marks the defaults), and the sound cards with
-    their profiles (* marks the active ones), for `card` and `profile` of `choices`.
+    their profiles (* marks the active ones), for `card` and `profile` of `choices`. With `--snippet`: a channel for
+    each device instead.
     """
     state = _audio_state()
+    if as_snippet:
+        click.echo(snippet(state))
+        return
     for direction, title in ((Direction.OUTPUT, "Outputs"), (Direction.INPUT, "Inputs")):
         click.echo(f"{title}:")
         for device in state.devices(direction):

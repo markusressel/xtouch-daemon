@@ -55,9 +55,9 @@ def test_without_the_sound_server_names_are_typed_by_hand(make_window: MakeWindo
 def test_a_channel_is_picked_edited_and_saved(qtbot: QtBot, window: MainWindow, path: Path, daemon: RecordingInstance):
     window.show_page("channels")
     page = window.channels_page
-    # the first built-in pool, until a channel is picked
-    assert page.title.text() == "Applications: [pool.apps]"
-    assert page.used.text() == "Used by: slot 2"
+    # the first channel, until another is picked
+    assert page.title.text() == "Output"
+    assert page.used.text() == "Used by: slot 1"
     page.list.setCurrentItem(items(window)[1])
     assert page.selection == ("channel", "browser")
     assert (page.title.text(), page.id_edit.text()) == ("Applications", "browser")
@@ -92,6 +92,9 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
         "Applications",
         "Person",
         "Home Assistant",
+        "",
+        "Output from the sound server",
+        "Input from the sound server",
     ]
     menu.actions()[1].trigger()
     assert page.selection == ("channel", "input")

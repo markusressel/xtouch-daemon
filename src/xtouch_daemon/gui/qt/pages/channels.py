@@ -41,11 +41,15 @@ POOLS = tuple(("pool", name) for name, *_ in BUILT_IN_POOLS)
 _ID = re.compile(r"[a-z0-9_]+")
 
 
+DIRECTIONS = (Direction.OUTPUT, Direction.INPUT)
+
+
 class ChannelsPage(Page):
     def __init__(self, editor: Editor, audio: Audio, snapshot: Callable[[], Snapshot | None]):
         super().__init__(editor, audio)
         self.snapshot = snapshot
-        self.selection: OptionPath = POOLS[0]
+        first = next(iter(self.channels), None)
+        self.selection: OptionPath = ("channel", first) if first is not None else POOLS[0]
         """What the form shows: `("channel", <id>)` or a built-in pool (`("pool", <id>)`)."""
         header = QHBoxLayout()
         header.addWidget(label("Channels", "section"))
@@ -58,6 +62,15 @@ class ChannelsPage(Page):
                 docs.page_link("channels"),
             )
         )
+        self.start = help_label(
+            "No channel in the file yet. Without one the default output is on slot 8 and the default input on slot 7. "
+            'Add makes a channel: an output, an input, applications, a person or Home Assistant; "from the sound '
+            'server" picks one of the devices there are now. A slot shows a channel once you name it on the page '
+            "Slots.",
+            "hint",
+            docs.page_link("channels"),
+        )
+        self.layout_.addWidget(self.start)
         side = QVBoxLayout()
         self.list = QListWidget()
         self.list.setMinimumWidth(160)
@@ -74,6 +87,11 @@ class ChannelsPage(Page):
             assert action is not None
             action.setToolTip(kind.help)
             action.triggered.connect(lambda _=False, name=kind.name: self.add(name))
+        menu.addSeparator()
+        self.device_menus = {
+            direction: menu.addMenu(f"{direction.value.capitalize()} from the sound server") for direction in DIRECTIONS
+        }
+        menu.aboutToShow.connect(self._list_devices)
         self.add_button.setMenu(menu)
         self.duplicate_button = button("content-copy", "Duplicate")
         self.duplicate_button.clicked.connect(self.duplicate)
@@ -239,6 +257,7 @@ class ChannelsPage(Page):
         if self.selection not in POOLS and self.selection[1] not in self.channels:
             self.selection = POOLS[0]
         self._show_list()
+        self.start.setVisible(not self.channels)
         key = self._form_key()
         is_channel = self.selection[0] == "channel"
         if is_channel:
@@ -255,6 +274,10 @@ class ChannelsPage(Page):
         set_text(self.used, f"Used by: {', '.join(where)}" if where else "Not used by a slot, pool or state yet.")
         self.forms.show_part(self.form_widgets[key])
         self._load_rows(self.rows)
+        for option_row in self.rows:
+            if option_row.option.name == "profiles":
+                # the older way to switch devices, kept for files that have it: `choices` does the same
+                option_row.setVisible(bool(self.document.get((*self.selection, "profiles"))))
         self._show_previews()
         self.show_problems(self.editor.validation)
 
@@ -265,7 +288,11 @@ class ChannelsPage(Page):
             kind = CHANNEL_TYPES.get(str(channel.get("type")))
             tags = ", ".join(channel.get("tags", ()))
             where = ", ".join(uses(self.document.values, name)) or "not used"
-            text = f"{channel.get('label') or name}  ·  {name}" + (f"  [{tags}]" if tags else "") + f"\n{where}"
+            text = (
+                (f"{channel['label']}  ·  {name}" if channel.get("label") else name)
+                + (f"  [{tags}]" if tags else "")
+                + f"\n{where}"
+            )
             entries.append((("channel", name), text, kind.icon if kind else "help", kind.title if kind else "?"))
         for pool, title, icon_name, what in BUILT_IN_POOLS:
             entries.append((("pool", pool), f"{title}\n{what}", icon_name, f"[pool.{pool}]"))
@@ -309,8 +336,24 @@ class ChannelsPage(Page):
 
     # -- editing --------------------------------------------------------------------------------------------------
 
-    def add(self, channel_type: str) -> None:
-        self.select(("channel", self.editor.add_channel(channel_type)))
+    def add(self, channel_type: str, options: dict[str, Any] | None = None) -> None:
+        self.select(("channel", self.editor.add_channel(channel_type, options)))
+
+    def _list_devices(self) -> None:
+        """The outputs and inputs the sound server has now, each adds a channel for that device."""
+        state = self.audio()
+        for direction, menu in self.device_menus.items():
+            menu.clear()
+            devices = state.devices(direction)
+            menu.setEnabled(bool(devices))
+            menu.setToolTip("" if devices else "The sound server has none (or is not reachable)")
+            for device in devices:
+                action = menu.addAction(device.description)
+                assert action is not None
+                action.setToolTip(device.name)
+                action.triggered.connect(
+                    lambda _=False, kind=direction.value, name=device.name: self.add(kind, {"device": name})
+                )
 
     def duplicate(self) -> None:
         self.select(("channel", self.editor.duplicate_channel(str(self.selection[1]))))

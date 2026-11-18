@@ -32,25 +32,30 @@ DAWs that use it.
 ## Write a configuration
 
 Without a configuration file the daemon uses the example configuration: the default input on slot 7, the default
-output on slot 8, and `auto` on the others (the next application that plays). The easiest way to change it is the
-[GUI](../guides/gui.md) (`xtouch-daemon-gui` or `xtouch-daemon gui`): it creates the file, shows every option with
-its help, and applies what you save. On the command line, write the example to `~/.config/xtouch-daemon/config.toml`
-and edit it:
+output on slot 8, and `auto` on the others (the next application that plays). So it is useful right away. To make it
+yours, the easiest way is the [GUI](../guides/gui.md) (`xtouch-daemon-gui` or `xtouch-daemon gui`): it shows what the
+file shows in the default situation, every option with its help, and what a change does (**Simulate**); its
+"Save and apply" writes the file and loads it into the running daemon.
+
+[Setup tour](tour.md) builds a whole configuration that way, step by step, with the file it writes.
+
+By hand, write the example to `~/.config/xtouch-daemon/config.toml` and edit it:
 
 ```shell
-xtouch-daemon init-config     # writes ~/.config/xtouch-daemon/config.toml
-xtouch-daemon list-devices    # the names to use for device channels, and the profiles of the sound cards
-xtouch-daemon list-apps       # the applications that play now, and which channel or slot takes them
-xtouch-daemon check-config    # validates the file and shows what each slot shows when
+xtouch-daemon init-config                 # writes ~/.config/xtouch-daemon/config.toml
+xtouch-daemon list-devices [--snippet]    # the names to use for device channels (--snippet: channels to paste)
+xtouch-daemon list-apps                   # the applications that play now, and which channel or slot takes them
+xtouch-daemon check-config                # validates the file (with the line of each error) and shows what each slot shows when
 ```
 
 A channel is something a strip can control, a slot is a strip of the device, and states (in a call, gaming) decide
-what each slot shows. For example:
+what each slot shows. For example, Bluetooth headphones on slot 1 while they are connected, and VoIP on slot 2 during a
+call:
 
 ```toml
 [channel.buds]
 type = "output"
-device = "bluez_output.4C_D7_3A_EA_02_76.1"
+device = "bluez_output.*"   # any Bluetooth headphones (their name holds an address; list-devices shows it)
 label = "Buds"
 color = "green"
 

@@ -55,7 +55,7 @@ def problems_of(error: ConfigError) -> list[Problem]:
             if option is not None:
                 path = (*path, *(int(part) if part.isdigit() else part for part in option["option"].split(".")))
                 message = option["message"]
-            kind = "extra_forbidden" if message == "Extra inputs are not permitted" else "invalid"
+            kind = "extra_forbidden" if message.startswith("Extra inputs are not permitted") else "invalid"
             problems.append(Problem(path, message, kind))
     return problems
 

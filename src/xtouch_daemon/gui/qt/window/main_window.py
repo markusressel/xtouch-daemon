@@ -948,7 +948,7 @@ class MainWindow(QMainWindow):
         without a restart), and the virtual device opened here.
         """
         if self.daemon is None or self.document.path.resolve() != self.daemon.config:
-            self.status.setText("The daemon reads another file: set Virtual on the page Device of that one.")
+            self.status.setText("The daemon reads another file: set Virtual on the page Extender of that one.")
             return
         self.document.set(("device", "virtual"), True)
         self.editor.edited(Change(Scope.VALUE, ("device", "virtual")))

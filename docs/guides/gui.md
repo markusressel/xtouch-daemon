@@ -4,7 +4,8 @@
 `xtouch-daemon-gui` (the Arch Linux package) or `xtouch-daemon gui`, `-c FILE` for another file; see
 [Install](../getting-started/install.md#the-gui).
 
-It edits [channels, states and slots](../configuration/slots.md).
+It edits [channels, states and slots](../configuration/slots.md). New here? The [Setup tour](../getting-started/tour.md)
+builds a configuration with it, page by page; this page is the reference.
 
 ![The GUI: the window Device at the top, the slots and the inspector of slot 3 below](../images/gui.png)
 
@@ -25,7 +26,7 @@ them again; the GUI remembers it):
   what the daemon says about it right now (since when, from which source), its override (a mode: picked by hand),
   and which stacks and controls use it.
 - **Settings:** `[behavior]`, `[aliases]`, `[mqtt]` (as "Home Assistant"), `[switching]` (as "Modes and chord"),
-  `[voip]` (as "Voice chat") and `[device]`. "Voice chat" also tells whether Mumble is connected, lists the steps of
+  `[voip]` (as "Voice chat") and `[device]` (as "Extender": the sound card of the extender, touch sensors, start-up). "Voice chat" also tells whether Mumble is connected, lists the steps of
   its setup, and installs the [Mumble plugin](mumble.md) with "Install Mumble plugin".
 
 Slots, Channels and States have a list or the slots on the left and what is picked on the right. The handle between
@@ -102,7 +103,7 @@ the selected slot and the page stay. The zoom is on top of a `QT_SCALE_FACTOR` o
 ## Live view
 
 While the daemon runs, the drawing shows what the device shows right now ("Live", in a pill on the right of the bar of
-the window Device), read from the daemon's live view. Without a running daemon it is dark, and the window says so. A
+the window Device), read from the daemon's live view. Without a running daemon it shows what the file shows in the default situation (no state on, nothing plays; the LCDs say "file"), and the pill says "File preview"; Simulate changes the situation. A
 daemon that runs while the device is not connected shows "Live · not connected": the strips show what the device will
 show once it is there.
 

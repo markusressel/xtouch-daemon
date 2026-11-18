@@ -123,8 +123,8 @@ class Tables(QWidget):
         self._edit(index, name, text)
 
     def add(self) -> None:
+        # a line with nothing in it is not the document's yet: its first value is (no "required" before one is typed)
         self.show_values([*self.values, {}])
-        self.changed.emit([dict(value) for value in self.values])
         self.lines[-1][0].setFocus()
 
     def remove(self, index: int) -> None:

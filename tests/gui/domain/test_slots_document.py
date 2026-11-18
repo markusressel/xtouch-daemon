@@ -107,7 +107,9 @@ def test_problems_have_the_paths_of_their_options(tmp_path: Path) -> None:
     # the options of a section are checked first
     assert [problem.path for problem in validation.problems] == [("state", "call", "delay_off")]
     doc.unset(("state", "call", "delay_off"))
-    assert doc.validate().at("slots") == [Problem(("slots", "2", 0), "nope is no channel or pool", "invalid")]
+    assert doc.validate().at("slots") == [
+        Problem(("slots", "2", 0), "nope is no channel or pool (a channel is defined in [channel.nope])", "invalid")
+    ]
     assert path_of("controls.2.select") == ("controls", "2", "select")
     assert path_of("slots.3[0]") == ("slots", "3", 0)
     error = ConfigError("config has errors:\n  slots.3[0] (radio): a problem\n  something else")

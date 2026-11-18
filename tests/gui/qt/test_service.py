@@ -430,7 +430,10 @@ def test_without_a_daemon_saving_only_saves(make_window: MakeWindow, systemctl: 
 
     assert window.save()
 
-    assert window.status.text() == "Saved. The daemon is not running: start it to use the configuration."
+    assert (
+        window.status.text()
+        == "Saved. The daemon is not running: the button next to the service (top right) starts it."
+    )
     assert window.restart_button.isHidden()
 
 
@@ -558,7 +561,7 @@ def test_the_rail_shows_one_page_at_a_time(qtbot: QtBot, window: MainWindow):
         "Home Assistant",
         "Modes and chord",
         "Voice chat",
-        "Device",
+        "Extender",
     ]
     click(qtbot, window.rail_buttons["settings"])
     assert window.current_page == "behavior"
@@ -672,10 +675,11 @@ def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindo
     menu.actions()[0].trigger()
     assert tables.lines[0][1].text() == "output:analog-stereo"
 
-    # one profile is not enough, and a label is required
+    # one profile is not enough; a new line is not in the file until it has something, then a label is required
     click(qtbot, tables.add_button)
-    assert profiles.error.text() == "2. label: Field required\n2. profile: Field required"
+    assert "at least two" in profiles.error.text()
     type_into(qtbot, tables.lines[1][0], "Digital")
+    assert profiles.error.text() == "2. profile: Field required"
     completer = tables.lines[1][1].completer()
     assert completer is not None
     completer.activated.emit("output:iec958-stereo")

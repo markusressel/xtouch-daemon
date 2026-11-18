@@ -175,7 +175,8 @@ will call it (usually `alsa_output.<card>.<profile output>`, e.g. `iec958-stereo
 - With [`[mqtt]`](../../guides/home-assistant.md#choices), Home Assistant has a select for the choice.
 
 At least two choices, and not together with `device` or `profiles`; `select = false` does not go with them either.
-`profiles` (below) still works, but `choices` does the same with one button.
+`profiles` (below) still works, but `choices` does the same with one button; the GUI shows `profiles` only for a channel
+that has it.
 
 ## Profiles
 

@@ -48,10 +48,10 @@ class Editor(QObject):
         self.document.unset(path)
         self.edited()
 
-    def add_channel(self, channel_type: str) -> str:
-        """Adds a channel of the type, with an id after it; returns the id."""
+    def add_channel(self, channel_type: str, options: dict[str, Any] | None = None) -> str:
+        """Adds a channel of the type, with an id after it and these options; returns the id."""
         name = free_id(self.document.get(("channel",), {}), CHANNEL_TYPES[channel_type].strip)
-        self.document.set(("channel", name), {"type": channel_type})
+        self.document.set(("channel", name), {"type": channel_type, **(options or {})})
         self.edited(Change(Scope.CHANNELS))
         return name
 
@@ -72,10 +72,10 @@ class Editor(QObject):
         self.document.rename(("channel", name), new)
         self.edited(Change(Scope.CHANNELS))
 
-    def add_state(self, mode: bool) -> str:
-        """Adds a state (or a mode), with an id after it; returns the id."""
-        name = free_id(self.document.get(("state",), {}), "mode" if mode else "state")
-        self.document.set(("state", name), {"mode": True} if mode else {})
+    def add_state(self, mode: bool, name: str | None = None, options: dict[str, Any] | None = None) -> str:
+        """Adds a state (or a mode) with an id after `name` (default: its kind) and these options; returns the id."""
+        name = free_id(self.document.get(("state",), {}), name or ("mode" if mode else "state"))
+        self.document.set(("state", name), {**({"mode": True} if mode else {}), **(options or {})})
         self.edited(Change(Scope.STATES))
         return name
 

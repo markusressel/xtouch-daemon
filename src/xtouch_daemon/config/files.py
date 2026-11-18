@@ -3,6 +3,7 @@ Reading the configuration file, and its errors for people.
 """
 
 import os
+import re
 import tomllib
 from dataclasses import dataclass
 from importlib import resources
@@ -12,7 +13,7 @@ from pydantic import (
     ValidationError,
 )
 
-from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.base import ConfigError, hinted
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.slots import setup, split
 
@@ -63,22 +64,64 @@ def problems_of(error: ValidationError) -> list[Problem]:
     return problems
 
 
-def parse_config(text: str, source: str = "config") -> Config:
+def parse_config(text: str, source: str = "config", line_numbers: bool = False) -> Config:
+    """The configuration of `text`; ConfigError with its problems, each with its line in the file if `line_numbers`."""
     try:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"{source} is not valid TOML: {e}") from e
     rest, slots = split(data)
+
+    def place(line: str) -> str:
+        return located(text, line) if line_numbers else line
+
     try:
         config = Config.model_validate(rest)
     except ValidationError as e:
-        problems = "\n".join(f"  {problem}" for problem in problems_of(e))
+        problems = "\n".join(f"  {place(hinted(str(problem)))}" for problem in problems_of(e))
         raise ConfigError(f"{source} has errors:\n{problems}") from e
     try:
         return setup(config, slots or {})
     except ConfigError as e:
-        problems = "\n".join(f"  {line}" for line in str(e).splitlines())
+        problems = "\n".join(f"  {place(hinted(line))}" for line in str(e).splitlines())
         raise ConfigError(f"{source} has errors:\n{problems}") from e
+
+
+_WHERE = re.compile(r"^(?P<path>[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)(?P<rest>(?:\[\d+\])?(?: \([^)]*\))?:.*)$")
+
+
+def located(text: str, line: str) -> str:
+    """`line` (`channel.mic: ...`) with the line of the file it is about: `channel.mic (line 12): ...`."""
+    match = _WHERE.match(line)
+    if match is None:
+        return line
+    parts = match["path"].split(".")
+    lines = text.splitlines()
+    for count in range(len(parts), 0, -1):
+        number = _line_of(lines, parts[:count])
+        if number is not None:
+            # the index of a candidate (`slots.3[0]`) stays at the path
+            index = re.match(r"^\[\d+\]", match["rest"])
+            kept = index[0] if index else ""
+            return f"{match['path']}{kept} (line {number}){match['rest'][len(kept) :]}"
+    return line
+
+
+def _line_of(lines: list[str], parts: list[str]) -> int | None:
+    """The line of the table `[a.b]` (or the key `b = ` below `[a]`) in the file, counted from 1."""
+    header = re.compile(r"^\s*\[\[?" + r"\.".join(re.escape(part) for part in parts) + r"(?:\.[^\]]*)?\]\]?")
+    for number, text in enumerate(lines, start=1):
+        if header.match(text):
+            return number
+    if len(parts) == 2:
+        key = re.compile(r"^\s*" + re.escape(parts[1]) + r"\s*=")
+        table = False
+        for number, text in enumerate(lines, start=1):
+            if text.strip().startswith("["):
+                table = text.strip() == f"[{parts[0]}]"
+            elif table and key.match(text):
+                return number
+    return None
 
 
 def load_config(path: Path | None = None) -> Config:
@@ -96,4 +139,4 @@ def load_config(path: Path | None = None) -> Config:
         return parse_config(example_config(), "the example configuration")
     except OSError as e:
         raise ConfigError(f"can't read {path}: {e}") from e
-    return parse_config(text, str(path))
+    return parse_config(text, str(path), line_numbers=True)

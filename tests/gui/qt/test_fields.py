@@ -22,6 +22,7 @@ def test_numbers_switches_and_choices(qtbot: QtBot, window: MainWindow):
     spin.setValue(3)
     assert window.document.get(("behavior", "encoder_step")) == 3
 
+    window.channels_page.select(("pool", "apps"))
     hold = row(window, "hold").spin
     assert isinstance(hold, QDoubleSpinBox)
     hold.setValue(2.5)

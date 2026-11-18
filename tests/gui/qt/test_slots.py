@@ -72,7 +72,7 @@ def test_the_cards_show_the_stacks(window: MainWindow):
     assert texts(page.lists[1]) == ["1 when call → browser", "2 when app or person without a slot → auto"]
     assert texts(page.lists[2]) == ["auto (no entry)"]
     assert page.title.text() == "Slot 1"
-    assert plain(page.controls.text()).endswith("[controls] claims none of slot 1.")
+    assert plain(page.controls.text()).startswith("Pick a candidate to edit it.")
 
     window.device_view.select(1)
     assert (page.slot, page.candidate) == (2, 0)

@@ -88,13 +88,15 @@ Writes the example configuration with [channels, states and slots](../configurat
 ## `list-devices`
 
 ```shell
-xtouch-daemon list-devices
+xtouch-daemon list-devices [--snippet]
 ```
 
 Lists the outputs and inputs with the node names to use as `device`, their descriptions, volumes and states; `*`
 marks the defaults. Then it lists each sound card by its name and description, with its devices and its profiles
 (name and description), for `card` and `profile` of [`choices`](../configuration/channels/devices.md#choices) and for
-[`profiles`](../configuration/channels/devices.md#profiles); `*` marks the active ones:
+[`profiles`](../configuration/channels/devices.md#profiles); `*` marks the active ones. `--snippet` prints a
+`[channel.<id>]` for each device instead, ready to paste into the file (Bluetooth devices by a wildcard like
+`bluez_output.*`, since their names hold the address of the device):
 
 ```
 Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa_output.pci-0000_11_00.4.analog-stereo):

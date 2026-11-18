@@ -6,7 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- The GUI helps a first configuration: without a daemon the drawing shows what the file shows in the default
+  situation (it was dark); Channels has "Output from the sound server" and "Input from the sound server" in its Add
+  menu, a hint while the file has no channel, and opens on the first channel; States has the starting points "In a
+  call" and "Gaming" in its Add menu, and says what a state is while there is none; an empty slot says what it shows.
+- `list-devices --snippet` prints a channel for every output and input, ready to paste (Bluetooth devices by a
+  wildcard).
+- A Setup tour in the docs builds a whole configuration, step by step, in the GUI and in the file.
+- Errors of a file name its line (`slots.7[0] (line 12): ...`), and say what is likely meant: the closest channel,
+  option or state, and "two names in a row" for a condition like `in call`; a label that is missing says what it is
+  for.
+
 ### Changed
+
+- The page Device of Settings is called Extender, so "Device" is only the drawing of the device.
+- A new line in a table of the GUI (choices, profiles) is not part of the file until you type in it, so it shows no
+  "required" error before; `profiles` shows only on a channel that has it (`choices` does the same).
+- After "Save and apply" without a running daemon the GUI points at the button that starts the service.
 
 - The GUI: a click on the pill of the service opens the service (Restart, Stop), its unit (the package's or your own,
   with its path and the program it starts, and Use the packaged unit) and the connections of the daemon. The header

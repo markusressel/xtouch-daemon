@@ -14,7 +14,7 @@ from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.looks import device_faces
-from xtouch_daemon.gui.domain.simulate import simulated_faces
+from xtouch_daemon.gui.domain.simulate import WhatIf, simulated, simulated_faces
 from xtouch_daemon.gui.domain.slots import MODES
 from xtouch_daemon.gui.domain.status import Reason, Status, Tone, play_unavailable
 from xtouch_daemon.gui.qt.fields.basics import label, show_status
@@ -116,7 +116,7 @@ class DeviceView(QWidget):
         set_icon(self.virtual_button, "monitor-shimmer")
         self.virtual_button.setToolTip(
             "The daemon runs, but finds no device: it drives the virtual device instead, here in the window, without a "
-            "restart. Saves the file with `[device] virtual = true` (Virtual, on the page Device)."
+            "restart. Saves the file with `[device] virtual = true` (Virtual, on the page Extender)."
         )
         self.virtual_button.clicked.connect(self.use_virtual_device.emit)
         self.virtual_button.hide()
@@ -207,6 +207,9 @@ class DeviceView(QWidget):
         config = self.slots.editor.validation.config
         if simulation is not None and config is not None and not self.slots.on_device:
             faces = simulated_faces(config.slots, simulation)
+        elif snapshot is None and config is not None:
+            # no daemon: what the file shows in the default situation (no state on, nothing plays)
+            faces = simulated_faces(config.slots, simulated(config.slots, WhatIf()), "file")
         else:
             # the device, also while it shows the situation of Simulate
             faces = device_faces(snapshot)

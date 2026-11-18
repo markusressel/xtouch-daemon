@@ -39,7 +39,7 @@ shutdown = "curtain"
 Only a touched fader changes a value (see [Hardware](../reference/hardware.md#motor-faders)), so a fader whose touch sensor
 failed goes back to its value shortly after every move. Until it is repaired, `touchless_faders` lets it work without the
 sensor: a move counts as a touch, and half a second without a move as letting go. In the GUI these are the toggles of
-`touchless_faders` under Settings, Device.
+`touchless_faders` under Settings, Extender.
 
 ```toml
 [device]

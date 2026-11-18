@@ -488,7 +488,9 @@ class Scene:
             for name in sorted(condition.states - states):
                 problems.append(f'{where}: "{condition.text}": unknown state {name}{_did_you_mean(name, states)}')
             for target in sorted(t for t in condition.presence if t is not None and t not in known):
-                problems.append(f'{where}: "{condition.text}": {target} is no channel or pool')
+                problems.append(
+                    f'{where}: "{condition.text}": {target} is no channel or pool{_undefined(target, known)}'
+                )
             if where.startswith("state.") and condition.presence:
                 problems.append(
                     f'{where}: "{condition.text}": present is only for candidates of slots, a state '
@@ -605,7 +607,7 @@ def _candidate(
             problems.append(f'{where}: "{condition.text}": present of - (nothing) means nothing')
         return Candidate(None, condition)
     if show not in channels and show not in pools:
-        problems.append(f"{where}: {show} is no channel or pool")
+        problems.append(f"{where}: {show} is no channel or pool{_undefined(show, [*channels, *pools])}")
         return None
     problems.extend(
         f"{where}: {problem}" for problem in _look_problems(show, options, place_options(show), f"a place for {show}")
@@ -800,8 +802,22 @@ def _condition(where: str, text: str, problems: list[str]) -> Condition | None:
     try:
         return parse(text.strip())
     except ExpressionError as e:
-        problems.append(f"{where}: {e} (at {e.position + 1})")
+        problems.append(f"{where}: {e} (at {e.position + 1}){_in_a_row(e, text)}")
         return None
+
+
+def _undefined(name: str, known: Iterable[str]) -> str:
+    """What to say about a channel or pool that does not exist: a typo, or one that is still to be defined."""
+    known = list(known)
+    return _did_you_mean(name, known) or f" (a channel is defined in [channel.{name}])"
+
+
+def _in_a_row(error: ExpressionError, text: str) -> str:
+    """The hint for two names side by side (`in call`): ids have no spaces, `and` and `or` join conditions."""
+    token = text[error.position :].split(maxsplit=1)[0] if text[error.position :].strip() else ""
+    if token.isidentifier() and token not in ("and", "or", "not", "if", "present"):
+        return ": two names in a row. An id has no spaces (`in_call`), and `and` or `or` joins two conditions"
+    return ""
 
 
 def _did_you_mean(name: str, known: Iterable[str]) -> str:

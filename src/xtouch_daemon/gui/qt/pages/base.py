@@ -23,7 +23,7 @@ from xtouch_daemon.gui.qt.theme.tokens import Space
 
 type Audio = Callable[[], AudioState]
 
-PAGE_TITLES = {"mqtt": "Home Assistant", "switching": "Modes and chord", "voip": "Voice chat"}
+PAGE_TITLES = {"device": "Extender", "mqtt": "Home Assistant", "switching": "Modes and chord", "voip": "Voice chat"}
 """The names of the settings for people: the MQTT broker is how Home Assistant is reached."""
 SETTINGS_PAGES = ("behavior", "aliases", "mqtt", "switching", "voip", "device")
 """The settings, the ones changed most often first: `[device]` is set once, if ever."""
