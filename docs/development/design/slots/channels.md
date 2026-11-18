@@ -38,8 +38,7 @@ label = "Mum"
 - **`tags`**: free-form names for grouping channels, used by pools (`#media`) and the `channels` source of states.
   They are no conditions; name them after what the channels are (`media`, `games`), not after states.
 - **Presence**: whether the channel has something to control: its device is there, an application of the group has a
-  stream, the person is in the voice chat; always for `homeassistant`. `absent_after` (default
-  `behavior.absent_after`, 3 s) delays "absent", so a reconnecting Bluetooth device does not flap; it is present again
+  stream, the person is in the voice chat; always for `homeassistant`. `absent_after` (default 3 s) delays "absent", so a reconnecting Bluetooth device does not flap; it is present again
   at once.
 - **`in_pool`** (default `true`, `apps` and `person` channels): whether the channel joins the pools while it is present
   and no slot shows it: an `apps` channel `apps` and `auto` (as a whole: its label, volume and entities, as in DAW

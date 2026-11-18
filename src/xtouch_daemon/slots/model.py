@@ -33,16 +33,18 @@ MEMBER_OPTIONS = frozenset({"channels", "exclude", "hold", "from", "order"})
 """Options of pools that are about their members and their slots, not about the look of their strips."""
 
 STATE_DELAY_OFF = 3.0
-"""Seconds a state stays on after its sources stopped (`behavior.state_delay_off`)."""
+"""Seconds a state stays on after its sources stopped, without `delay_off`."""
 MODE_DELAY_OFF = 10.0
 """The same for modes (today's `switching.hold`)."""
 ABSENT_AFTER = 3.0
-"""Seconds a channel stays present after it had nothing to control any more (`behavior.absent_after`)."""
+"""Seconds a channel stays present after it had nothing to control any more, without `absent_after`."""
 
 LOOK_OPTIONS = frozenset({"label", "color", "lit_when_idle", "rec", "solo", "meter", "meter_point"})
 """Options of a place that change only how a candidate looks there."""
 PEOPLE_LOOK_OPTIONS = frozenset({"color", "meter", "meter_point"})
 """The options of a place of `people`: the strips of people show their names and have no Rec or Solo of their own."""
+PEOPLE_POOL_OPTIONS = PEOPLE_LOOK_OPTIONS | {"talking_color", "max_volume"}
+"""The look of the strips of people in `[pool.people]`: that of a place, and how they look talking and how loud."""
 APP_OPTIONS = frozenset({"encoder", "min_volume", "max_volume"})
 """
 Options of an `apps` or `auto` place for the applications without a channel it shows (an `encoder` that acts on the
@@ -528,6 +530,15 @@ def _parse_pools(raw: Mapping[str, Mapping[str, Any]], problems: list[str]) -> d
                 problems.append(f"{where}: {error['msg'].removeprefix('Value error, ')}")
             # still a pool: the slots that show it have no problems of their own
             pools[name] = model.model_validate({})
+            continue
+        if name in BUILT_IN:
+            # the rest is the look of its strips: what a place of it takes
+            own = {field.alias or key for key, field in model.model_fields.items()}
+            look = {key: value for key, value in raw.get(name, {}).items() if key not in own}
+            allowed = PEOPLE_POOL_OPTIONS if name == PEOPLE else place_options(name)
+            problems.extend(
+                f"pool.{name}: {problem}" for problem in _look_problems(name, look, allowed, f"[pool.{name}]")
+            )
     return pools
 
 
@@ -596,9 +607,26 @@ def _candidate(
     if show not in channels and show not in pools:
         problems.append(f"{where}: {show} is no channel or pool")
         return None
-    allowed = place_options(show)
+    problems.extend(
+        f"{where}: {problem}" for problem in _look_problems(show, options, place_options(show), f"a place for {show}")
+    )
+    return Candidate(show, condition, options)
+
+
+def _look_problems(show: str, options: Mapping[str, Any], allowed: frozenset[str], what: str) -> list[str]:
+    """
+    What is wrong with the options of a place of `show`, or of the built-in pool `show` (`what` says which): the
+    `allowed` ones only, and no control of Home Assistant, which belongs to the slot.
+    """
+    problems: list[str] = []
     for option in sorted(set(options) - allowed):
-        if show == PEOPLE and option in LOOK_OPTIONS | APP_OPTIONS:
+        if show == PEOPLE and option == "label":
+            why = " (only on a person channel; the strips of people show their names)"
+        elif show == DEVICES and option == "label":
+            why = " (its strips show the names of their devices)"
+        elif option == "label":
+            why = " (its strips show the names of their applications; [aliases] renames them)"
+        elif show == PEOPLE and option in LOOK_OPTIONS | APP_OPTIONS:
             why = " (the strips of people show their names; people have no Rec, Solo or encoder of a place)"
         elif option in APP_OPTIONS:
             why = " (it belongs to the channel)"
@@ -606,10 +634,10 @@ def _candidate(
             why = " (a control of the slot: [controls])"
         else:
             why = ""
-        problems.append(f"{where}: {option} is no option of a place for {show}{why}")
+        problems.append(f"{option} is no option of {what}{why}")
     if options.get("encoder") == "homeassistant":
-        problems.append(f'{where}: encoder = "homeassistant" is a control of the slot: [controls]')
-    return Candidate(show, condition, options)
+        problems.append('encoder = "homeassistant" is a control of the slot: [controls]')
+    return problems
 
 
 def place_options(show: str) -> frozenset[str]:
@@ -620,8 +648,10 @@ def place_options(show: str) -> frozenset[str]:
     if show == PEOPLE:
         return PEOPLE_LOOK_OPTIONS
     if show == DEVICES:
-        return LOOK_OPTIONS | DEVICE_OPTIONS
-    return LOOK_OPTIONS | (APP_OPTIONS if show in (APPS, AUTO) else frozenset())
+        return (LOOK_OPTIONS - {"label"}) | DEVICE_OPTIONS
+    if show in (APPS, AUTO):
+        return (LOOK_OPTIONS - {"label"}) | APP_OPTIONS
+    return LOOK_OPTIONS
 
 
 def _check_chains(stacks: Mapping[int, tuple[Candidate, ...]], pools: Mapping[str, Pool], problems: list[str]) -> None:

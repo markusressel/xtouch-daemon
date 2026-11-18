@@ -266,3 +266,20 @@ def strip_options(strip_type: str) -> tuple[Option, ...]:
             key=lambda option: STRIP_OPTION_ORDER.index(option.name),
         )
     )
+
+
+def look_options(strip_type: str, allowed: frozenset[str]) -> tuple[Option, ...]:
+    """
+    The options of a strip of the type that a place or a built-in pool takes (`allowed`, see
+    `slots.model.place_options()`), none of them required: the encoder without `homeassistant`, which is a control of
+    the slot (`[controls]`).
+    """
+    return tuple(
+        dataclasses.replace(
+            option,
+            required=False,
+            choices=tuple(choice for choice in option.choices if choice != "homeassistant"),
+        )
+        for option in strip_options(strip_type)
+        if option.name in allowed
+    )

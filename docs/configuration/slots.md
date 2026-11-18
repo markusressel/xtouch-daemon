@@ -50,9 +50,12 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   the right). `apps` and `people` are each of them alone. A slot without an entry is `auto`, and so is a stack whose
   candidates all don't hold.
 - `-` is nothing: the slot is dark.
-- The table form `{ show = ..., when = ..., ... }` takes options of the look at this place (`label`, `color`,
-  `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`); on `apps` and `auto` also `encoder`, `min_volume` and
-  `max_volume`; on `people` only `color`, `meter` and `meter_point`.
+- The table form `{ show = ..., when = ..., ... }` takes options of the look at this place: `color`,
+  `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`, and on a channel `label`. On `apps` and `auto` also
+  `encoder`, `min_volume` and `max_volume` (for the applications without a channel); on `devices` those and
+  `select`; on `people` only `color`, `meter` and `meter_point`. The built-in pools (`[pool.apps]`, `[pool.auto]`,
+  `[pool.devices]`, `[pool.people]`) take the same for all their places. A control for Home Assistant or a launch
+  is a control of the slot: [`[controls]`](#controls-and-the-chord).
 - The GUI's page Slots simulates other modes and states (Simulate), in the drawing or on the device.
 - `xtouch-daemon why 2` says why slot 2 shows what it shows, `xtouch-daemon why voip` where the channel is and
   why.
@@ -119,8 +122,10 @@ processes = ["@steam-games"]
 ```
 
 A state is on while any of its sources is: `apps` (playing), `recording`, `voice_chat`, `processes`, `devices`,
-`channels`, `homeassistant` (a switch in Home Assistant), or `when` (a [condition](#conditions) of other states). `delay_on` and
-`delay_off` smooth it. Modes are states with `mode = true`: the one with the highest `priority` whose sources are
+`channels`, `homeassistant` (a switch in Home Assistant), or `when` (a [condition](#conditions) of other states). `delay_on`
+(default 0) and `delay_off` (default 3 seconds, 10 for a mode) smooth it: the state goes on only after its sources
+were on that long, and off only after they were off that long. A state with `when` has no delays of its own: it
+follows the states it names. Modes are states with `mode = true`: the one with the highest `priority` whose sources are
 on is the mode, else `default`. When the mode changes, the LCDs show its `label` across the strips for
 `switching.banner` seconds.
 

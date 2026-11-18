@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import (
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
-from xtouch_daemon.gui.domain.schema import Option, strip_options
+from xtouch_daemon.gui.domain.schema import Option, look_options
 from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text, simulated
 from xtouch_daemon.gui.domain.slot_stacks import (
     EMPTY,
@@ -482,11 +482,7 @@ class SlotsPanel(Page):
             layout = QVBoxLayout(form)
             layout.setContentsMargins(0, 0, 0, 0)
             # at a place every option is optional: the channel has its own
-            option_rows = [
-                self._place_row(dataclasses.replace(option, required=False))
-                for option in strip_options(strip)
-                if option.name in allowed
-            ]
+            option_rows = [self._place_row(option) for option in look_options(strip, allowed)]
             for option_row in option_rows:
                 layout.addWidget(option_row)
             self.place_forms[key] = form, option_rows

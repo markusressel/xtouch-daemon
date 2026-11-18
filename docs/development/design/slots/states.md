@@ -35,7 +35,7 @@ homeassistant = true        # Home Assistant feeds it: switch.xtouch_state_night
 | `when` | The expression holds. Not with other sources: a state is either composed or has sources. |
 
 - A state with several sources is on while any of them is. Without sources it is only what its override says.
-- **Delays**: `delay_on` (default 0) and `delay_off` (default `behavior.state_delay_off`, 3 s; 10 s for modes) apply to
+- **Delays**: `delay_on` (default 0) and `delay_off` (default 3 s; 10 s for modes) apply to
   the sources, not to the override. A composed state has none of its own: its expression has the delays of what it
   names, so `call` and `not call` never overlap.
 - References between states and modes must not form a loop; `check-config` names it.

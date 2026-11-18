@@ -22,9 +22,13 @@ The device has 8 slots, one per strip, numbered 1 to 8 from the left. Each has a
   it gets in the end. A candidate without a condition always holds: an absent channel is shown dark and keeps its
   place, an empty pool hands down or is dark. `"spotify if present"` holds only while there is something.
 - **Options for this place**, in the table form `{ show = "...", when = "...", ... }`:
-  - on any candidate, its look here: `label`, `color`, `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`;
+  - on a channel, its look here: `label`, `color`, `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`; on a
+    pool the same without `label` (its strips show the names of their members);
   - on `apps` and `auto` also what acts on an application without a channel: `encoder` (`pick`, `media`, `volume`,
-    `balance`), `min_volume`, `max_volume`; on `people` only `color`, `meter` and `meter_point`.
+    `balance`), `min_volume`, `max_volume`; on `devices` `encoder` (`balance`, `volume`), `min_volume`, `max_volume`,
+    `select`; on `people` only `color`, `meter` and `meter_point`.
+  - The built-in pools (`[pool.apps]`, ...) take the same options as their places. A Home Assistant encoder or fader,
+    `launch` and an `id` are controls of the slot, in [`[controls]`](#controls).
   - They apply to the members without a channel. A channel shown as a member looks and works as the channel; the
     place only fills in what it leaves open. What a control does whatever the slot shows is in
     [`[controls]`](#controls).
