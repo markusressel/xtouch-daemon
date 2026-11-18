@@ -9,7 +9,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QProcess, QRect, QSignalBlocker, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QProcess, QSignalBlocker, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
@@ -93,7 +93,7 @@ from xtouch_daemon.gui.qt.window.hover_tips import HoverTips
 from xtouch_daemon.gui.qt.window.input_filter import InputFilter
 from xtouch_daemon.gui.qt.window.rail import RAIL_PAGES, Rail, SettingsPages
 from xtouch_daemon.gui.qt.window.service import ServiceControls
-from xtouch_daemon.gui.qt.window.session import Session
+from xtouch_daemon.gui.qt.window.session import Session, from_screen, to_screen
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.simulator.server import AlreadyServed
 from xtouch_daemon.system import instance
@@ -253,14 +253,7 @@ class MainWindow(QMainWindow):
         """Goes on where the window before the zoom left off."""
         self.audio = session.audio
         self.show_page(session.page)
-        ratio = self.devicePixelRatioF()
-        geometry = session.geometry
-        self.setGeometry(
-            round(geometry.x() / ratio),
-            round(geometry.y() / ratio),
-            round(geometry.width() / ratio),
-            round(geometry.height() / ratio),
-        )
+        self.setGeometry(from_screen(session.geometry, self.devicePixelRatioF()))
         if session.maximized:
             self.setWindowState(Qt.WindowState.WindowMaximized)
         self.refresh_preview()
@@ -832,17 +825,11 @@ class MainWindow(QMainWindow):
 
     def session(self) -> Session:
         """What the next window needs to go on where this one is."""
-        ratio = self.devicePixelRatioF()
         geometry = self.normalGeometry() if self.isMaximized() else self.geometry()
         return Session(
             history=self.history,
             page=self.current_page,
-            geometry=QRect(
-                round(geometry.x() * ratio),
-                round(geometry.y() * ratio),
-                round(geometry.width() * ratio),
-                round(geometry.height() * ratio),
-            ),
+            geometry=to_screen(geometry, self.devicePixelRatioF()),
             maximized=self.isMaximized(),
             audio=self.audio,
             live_preview=self.live_preview.on,
