@@ -51,6 +51,7 @@ from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, help_text, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
+from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
@@ -153,6 +154,7 @@ class SlotsPanel(Page):
         self.card_scroll.setWidgetResizable(True)
         self.card_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.card_scroll.setWidget(cards)
+        scroll_shadows(self.card_scroll)
         self.lists: list[StackList] = []
         self.card_frames: list[QFrame] = []
         self.card_contents: list[tuple[list[Row], int | None, dict[int, str], bool, tuple[str, str] | None] | None] = [

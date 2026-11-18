@@ -15,6 +15,7 @@ from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.slots_document import OptionPath, SlotsDocument, Validation
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, label
+from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -56,6 +57,7 @@ def scrolled(widget: QWidget) -> QScrollArea:
     scroll.setFrameShape(QFrame.Shape.NoFrame)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     scroll.setWidget(widget)
+    scroll_shadows(scroll)
     return scroll
 
 

@@ -22,6 +22,7 @@ from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.voip import participants
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label
+from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.preview.part_view import PartPreview
@@ -60,6 +61,7 @@ class ChannelsPage(Page):
         side = QVBoxLayout()
         self.list = QListWidget()
         self.list.setMinimumWidth(160)
+        scroll_shadows(self.list)
         self.listed: list[tuple[OptionPath, str, str, str]] = []
         """The lines of the list: (path, text, icon, tip)."""
         self.list.currentItemChanged.connect(self._picked)

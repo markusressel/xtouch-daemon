@@ -191,6 +191,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The inspector of a slot starts with the path of its candidates (`Slot 3 › 1 games › 2 apps`, the one it shows
   with a dot, a click picks one) instead of "Slot 3 · candidate 2", then a box of what goes on: why it shows what it
   shows a step a line, what the candidate shows and where it is now, and `[controls]`. The form comes after it.
+- Depth: lists and pages that scroll cast a soft shadow at an edge where more is hidden, popovers a shadow on the
+  window. The help colors people and applications (and `apps`, `devices`, `present`) too, and the controls of the
+  device (Select, the fader, ...) stand out.
 - Dragging the handle between the panes of a page no longer lags: where it was left is written once, when it is let
   go, not on every move.
 - An icon: four strips of the device (encoders, LCDs, faders), in the README, the documentation and the GUI's header

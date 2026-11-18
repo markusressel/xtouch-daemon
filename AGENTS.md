@@ -80,7 +80,9 @@ Technical English):
 - One example at most, at the end, with "e.g.".
 - Edge cases, reasons and how it works go to the docs page the "Learn more" link opens.
 - The same word for the same thing, the words of the GUI: state, mode, channel, pool, slot, strip, candidate.
-  The GUI colors them (and their sections in `code`, e.g. `[state.gaming]`), so write them out.
+  The GUI colors them (and their sections in `code`, e.g. `[state.gaming]`, the pools `apps`, `people`, `devices`,
+  and `present`), so write them out; people and applications have the color of the channels. Write the controls of
+  the device as they are printed (Select, Mute, Solo, Rec) or as words (fader, encoder, LCD): they stand out too.
 - Options, values, commands and sections in backticks.
 - Headings and titles (popovers, their rows, pages, docks) are short noun phrases in sentence case: "Connections",
   "Mode and states", "File"; no "The ...", no "What ...". A pill's popover doesn't repeat the pill: it explains it.

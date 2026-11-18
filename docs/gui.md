@@ -74,7 +74,12 @@ connected").
 
 States, channels and slots have a color each, in the whole window: states (and modes) violet, channels (and what
 else a slot can show: pools, people) teal, slots orange. The icons of their pages on the rail, the chips of the
-slots, the state bar and the words and sections in the help (`[state.gaming]`, "the slot") have them.
+slots, the state bar and the words and sections in the help (`[state.gaming]`, "the slot", "an application",
+`apps`) have them; a condition of presence (`present`) is yellow. The controls of the device (Select, Mute, the
+fader, the encoder, ...) stand out from the help in the color of the text.
+
+Lists and pages that scroll cast a soft shadow at an edge where more of them is hidden, and popovers a shadow on the
+window under them.
 
 The menus have what is used now and then: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window
 Device, the dark or the light theme, the [zoom](#zoom)) and Help (this documentation).

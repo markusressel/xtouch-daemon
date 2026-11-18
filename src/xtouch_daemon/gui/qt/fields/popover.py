@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButto
 
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, help_text, label, show_status
+from xtouch_daemon.gui.qt.fields.depth import lift
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 
@@ -59,6 +60,7 @@ def show_popover(
     assert window is not None
     popup = _Popover(anchor, window)
     set_role(popup, "popup")
+    lift(popup)
     popup.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
     layout = QVBoxLayout(popup)
     layout.setContentsMargins(Space.M, Space.M, Space.M, Space.M)

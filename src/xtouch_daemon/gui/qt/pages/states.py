@@ -32,6 +32,7 @@ from xtouch_daemon.gui.domain.states import OVERRIDES, describe_live, live_state
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import LABEL_WIDTH, Suggest, flat_button, help_label, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
+from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
@@ -109,6 +110,7 @@ class StatesPage(Page):
         side = QVBoxLayout()
         self.list = QListWidget()
         self.list.setMinimumWidth(160)
+        scroll_shadows(self.list)
         self.list.currentItemChanged.connect(self._picked)
         side.addWidget(self.list, 1)
         buttons = QHBoxLayout()

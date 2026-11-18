@@ -115,16 +115,32 @@ def show_status(pill: QLabel, status: Status, more: bool = False) -> None:
     set_role(pill, status.tone.value, "tone")
 
 
-_ENTITY_WORDS = re.compile(r"\b(states?|modes?|channels?|pools?|slots?)\b", re.IGNORECASE)
-"""The words for the things of the configuration, in their colors in the help."""
-_ENTITY_CODE = re.compile(r"\[?(state|mode|channel|pool|people|slots?|controls)\b")
-"""Their sections and paths in `code`, e.g. `[state.gaming]` or `channel.out`."""
+_ENTITY_WORDS = re.compile(r"\b(states?|modes?|channels?|pools?|slots?|people|persons?|applications?)\b", re.IGNORECASE)
+"""
+The words for the things of the configuration, in their colors in the help: people and applications are what the
+pools hand out to the slots, so they have the color of the channels.
+"""
+_CONTROL_WORDS = re.compile(r"\b(?:Select|Mute|Solo|Rec)\b|\b(?:faders?|encoders?|LCDs?|LED rings?)\b")
+"""
+The controls of the device, in the color of the text and a heavier weight, apart from the muted help around them
+(the hues are taken: states, channels, slots, presence, the accent and the tones).
+"""
+_ENTITY_CODE = re.compile(r"\[?(state|mode|channel|pool|people|person|apps|devices|present|slots?|controls)\b")
+"""
+Their sections and paths in `code`, e.g. `[state.gaming]` or `channel.out`, the pools and the condition of presence.
+Not `auto`: it is also the value of an override.
+"""
 _ENTITY_OF = {
     "state": Entity.STATE,
     "mode": Entity.STATE,
     "channel": Entity.CHANNEL,
     "pool": Entity.CHANNEL,
     "people": Entity.CHANNEL,
+    "person": Entity.CHANNEL,
+    "apps": Entity.CHANNEL,
+    "devices": Entity.CHANNEL,
+    "present": Entity.PRESENCE,
+    "application": Entity.CHANNEL,
     "slot": Entity.SLOT,
     "controls": Entity.SLOT,
 }
@@ -137,8 +153,8 @@ def _entity(word: str) -> Entity:
 
 def help_text(text: str) -> str:
     """
-    Help from a docstring, with `code` in a monospace font, and the states, channels and slots it is about in their
-    colors (see `Entity`): the words, and their sections in `code`.
+    Help from a docstring, with `code` in a monospace font, the states, channels and slots it is about in their
+    colors (see `Entity`): the words, and their sections in `code`; the controls of the device stand out.
     """
     colors = current_colors()
 
@@ -148,6 +164,9 @@ def help_text(text: str) -> str:
     parts: list[str] = []
     for index, part in enumerate(html.escape(part) for part in text.split("`")):
         if not index % 2:
+            part = _CONTROL_WORDS.sub(
+                lambda match: f'<span style="color: {colors.text}; font-weight: 600">{match[0]}</span>', part
+            )
             parts.append(_ENTITY_WORDS.sub(colored, part))
         elif match := _ENTITY_CODE.match(part):
             parts.append(f'<code style="color: {getattr(colors, _entity(match[1]).value)}">{part}</code>')
