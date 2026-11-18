@@ -181,6 +181,23 @@ def ring_angle(led: int) -> float:
     return 90 + RING_SPAN / 2 - led * RING_SPAN / (RING_LEDS - 1)
 
 
+KNOB_RADIUS = 15.5
+"""The black knob in the middle of the ring."""
+
+
+def ring_led_at(point: QPointF) -> int | None:
+    """The LED of the ring (0..12) nearest to `point` of a strip, outside the knob; None on the knob or in the gap."""
+    line = QLineF(ENCODER, point)
+    if line.length() <= KNOB_RADIUS:
+        return None
+    # counterclockwise from the right, as `ring_angle`, but from the first LED on: 0 at the bottom left
+    from_first = (90 + RING_SPAN / 2 - line.angle()) % 360
+    pitch = RING_SPAN / (RING_LEDS - 1)
+    if from_first > RING_SPAN + pitch / 2:
+        return None
+    return round(min(from_first, RING_SPAN) / pitch)
+
+
 def ring_led(led: int) -> tuple[QPointF, QPointF]:
     """Where the LED `led` of the ring (0..12) starts and ends."""
     angle = radians(ring_angle(led))

@@ -225,18 +225,17 @@ def _saved_status(
 
 def unit_status(state: ServiceState, overrides: bool) -> Status | None:
     """
-    Which unit the service has: the release package's, or one in the user's configuration, with the program it starts.
-    `overrides`: that one hides the package's. None while it is not installed.
+    Which unit the service has (its path is `state.unit`): the release package's, or one in the user's configuration,
+    with the program it starts. `overrides`: that one hides the package's. None while it is not installed.
     """
     if state.unit is None:
         return None
     if state.packaged:
-        return Status("packaged", Tone.NEUTRAL, f"The unit of the package: {state.unit}")
-    tip = f"The unit {state.unit}"
+        return Status("packaged", Tone.NEUTRAL, "The unit of the package.")
+    tip = "Your own unit"
     if state.program:
-        tip += f", which starts {state.program}"
-    if overrides:
-        tip += "; it overrides the one of the package"
+        tip += f", which starts `{state.program}`"
+    tip += ". It overrides the unit of the package." if overrides else "."
     return Status("own unit", Tone.WARN if overrides else Tone.NEUTRAL, tip)
 
 

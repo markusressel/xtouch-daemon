@@ -260,8 +260,12 @@ def test_the_wheel_turns_the_encoder(qtbot: QtBot, preview: Preview) -> None:
     hand = Hand()
     play(preview, hand)
     assert wheel(240)
-    assert not wheel(30)
     assert hand.done == [("turn", 3, 2)]
+    # a smooth wheel or a touchpad sends parts of a notch: they add up, the same both ways
+    hand.done.clear()
+    for delta in (30, 30, 30, 30, -30, -30, -30, -30, -30):
+        wheel(delta)
+    assert hand.done == [("turn", 3, 1), ("turn", 3, -1)]
 
 
 def test_play_opens_the_virtual_device_the_daemon_waits_for(

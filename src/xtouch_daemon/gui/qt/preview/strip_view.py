@@ -4,6 +4,7 @@ the mouse and keys on it.
 """
 
 import dataclasses
+from collections.abc import Callable
 from itertools import pairwise
 from math import cos, radians, sin
 from typing import TYPE_CHECKING, Protocol
@@ -34,6 +35,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 
 from xtouch_daemon.gui.domain.looks import UNKNOWN, StripFace, StripLook, meter_leds, ring_leds
+from xtouch_daemon.gui.qt.preview.encoder_hand import EncoderHand
 from xtouch_daemon.gui.qt.preview.geometry import (
     BODY,
     CAP_AREA,
@@ -42,6 +44,7 @@ from xtouch_daemon.gui.qt.preview.geometry import (
     ENCODER,
     HEIGHT,
     KIND,
+    KNOB_RADIUS,
     LCD,
     LCD_CELLS,
     LED_GLOW,
@@ -165,6 +168,13 @@ class StripView(QWidget):
         self.picture: _Picture | None = None
         """The picture of the whole strip: the one of what it shows, with what moves over it."""
         self.held: tuple[Part, bool] | None = None
+        self.encoder = EncoderHand(
+            self,
+            turn=lambda steps: self._hand_does(lambda hand: hand.turn(self.index, steps)),
+            push=lambda pressed: self._hand_does(lambda hand: hand.push(self.index, pressed)),
+            position=lambda: self.face.state.ring,
+        )
+        """The mouse on the encoder, while the window is a hand on the device."""
         """The part the mouse holds on a device it is a hand on, and whether a hand does it (no Alt), None for none."""
         self.lifted = False
         """Whether it is being dragged."""
@@ -416,7 +426,7 @@ class StripView(QWidget):
         side.setColorAt(0, QColor(HW.knob_top))
         side.setColorAt(1, QColor(HW.knob_bottom))
         painter.setBrush(side)
-        painter.drawEllipse(center, 15.5, 15.5)
+        painter.drawEllipse(center, KNOB_RADIUS, KNOB_RADIUS)
         painter.setPen(QPen(QColor(0, 0, 0, 120), 1))
         for rib in range(32):
             angle = radians(rib * 360 / 32)
@@ -631,7 +641,7 @@ class StripView(QWidget):
                 hand.move(self.index, self.dragged_fader, hand=touching)
                 self.update()
             case "encoder":
-                hand.push(self.index, True)
+                self.encoder.press(point)
             case row:
                 hand.press(self.index, list(Button)[row], True)
 
@@ -646,10 +656,14 @@ class StripView(QWidget):
                 mover.start_drag(self.index, self._press.x() / self.preview.scale)
                 mover.drag_to(self.mapToParent(point).x())
             return
-        if self.preview.hand is not None and self.held is not None and self.held[0] == "fader":
+        if self.preview.hand is None or self.held is None:
+            return
+        if self.held[0] == "fader":
             self.dragged_fader = fraction_at(event.position().y() / self.preview.scale)
             self.preview.hand.move(self.index, self.dragged_fader, self.held[1])
             self.update()
+        elif self.held[0] == "encoder":
+            self.encoder.move(event.position() / self.preview.scale, DRAG_DISTANCE() / self.preview.scale)
 
     def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
         self._press = None
@@ -666,18 +680,22 @@ class StripView(QWidget):
                 self.dragged_fader = None
                 self.update()
             case "encoder":
-                hand.push(self.index, False)
+                self.encoder.release()
             case row:
                 hand.press(self.index, list(Button)[row], False)
+
+    def _hand_does(self, action: Callable[[Hand], None]) -> None:
+        # a timer of the encoder can go off after the window stopped being a hand
+        if self.preview.hand is not None:
+            action(self.preview.hand)
 
     def wheelEvent(self, event: QWheelEvent | None) -> None:
         """On a device the mouse is a hand on, the wheel turns the encoder (a notch is a step)."""
         assert event is not None
-        steps = event.angleDelta().y() // 120
-        if self.preview.hand is None or not steps:
+        if self.preview.hand is None or not event.angleDelta().y():
             event.ignore()
             return
-        self.preview.hand.turn(self.index, steps)
+        self.encoder.wheel(event.angleDelta().y())
 
     def contextMenuEvent(self, a0: QContextMenuEvent | None) -> None:
         assert a0 is not None

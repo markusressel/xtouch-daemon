@@ -68,17 +68,19 @@ Device, the dark or the light theme, the [zoom](#zoom)) and Help (this documenta
 
 ## The service
 
-The service button installs, starts and restarts the systemd user service, the same as
-`xtouch-daemon install-service`. It asks before it installs or starts it. While the service runs, "Stop" next to it
-stops it (`systemctl --user stop`): it stays enabled, so it starts again with the next session, or with "Start".
+The pill of the service in the header tells its state ("running", "stopped", "not installed", and the worst problem
+of a connection of the daemon). A click on it opens what goes with it: the service with Install and start, Start or
+Restart (the same as `xtouch-daemon install-service`) and, while it runs, Stop (`systemctl --user stop`: it stays
+enabled, so it starts again with the next session, or with "Start"); the unit systemd uses; and the connections of the
+daemon, each with its settings. Installing and starting ask first. What the service needs (Install and start, Start,
+or Restart after an upgrade) also has its button next to the pill.
 
 A daemon that runs outside systemd (e.g. from a terminal or an IDE) is found too: the header shows "running
 elsewhere", and saving reloads it. The GUI does not start, restart or stop that one: restart it where it runs.
 
-Next to the state of the service, the header shows which unit systemd uses: "packaged" for the one of the Arch Linux
-package (`/usr/lib/systemd/user/xtouch-daemon.service`), or "own unit" for a unit in `~/.config/systemd/user`, which
-[`install-service`](../reference/commands.md#install-service) wrote, e.g. for a checkout; its tooltip has the unit and the program it
-starts.
+The unit is "packaged" for the one of the Arch Linux package (`/usr/lib/systemd/user/xtouch-daemon.service`), or
+"own unit" for a unit in `~/.config/systemd/user`, which [`install-service`](../reference/commands.md#install-service)
+wrote, e.g. for a checkout; the popover has its path and the program it starts.
 
 - **Install and start** takes the unit of the package when the GUI is the one of the package: it enables and starts
   it, and writes no file. Any other GUI writes a unit for its own `xtouch-daemon` to `~/.config/systemd/user`.
@@ -130,7 +132,9 @@ A bar above the drawing of the device switches what the mouse does on it:
   - a fader: press to touch it, drag to move it, release to let go; Alt-drag moves it without a touch, like the
     device moving it by itself (the daemon puts it back);
   - a button: held while the mouse button is down;
-  - an encoder: the wheel turns it, a click pushes it.
+  - an encoder: the wheel turns it (a touchpad too), and so does a drag on the knob (up or right turns it
+    clockwise); a click pushes it, and holding the knob still holds it down; holding on an LED of the ring turns it
+    until the ring lights that LED.
 
 Play works on the virtual device the window hosts, and on the device of a running daemon: then the daemon takes what
 the mouse does as if the device sent it, so the mixer acts and a motorized fader follows once it is let go. The fader

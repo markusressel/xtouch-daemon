@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The GUI: a click on the pill of the service opens the service (Restart, Stop), its unit (the package's or your own,
+  with its path and the program it starts, and Use the packaged unit) and the connections of the daemon. The header
+  keeps only what the service needs: Install and start, Start, or Restart after an upgrade.
+- Play: a drag on the knob of an encoder turns it (up or right is clockwise), holding the knob holds it down, and
+  holding on an LED of the ring turns the encoder until the ring lights it.
+
+### Fixed
+
+- Play: the mouse wheel turned an encoder only to the left with a touchpad or a smooth wheel; parts of a notch now add
+  up, the same both ways.
+- A slot card too narrow for its candidates showed a scroll bar over its last candidate; the column of the cards
+  scrolls instead.
+
 ## [0.1.0] - 2026-11-18
 
 ### Added
@@ -303,6 +320,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A documentation site (Zensical, published to GitHub Pages): getting started, a page per topic of the
   configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 
+[Unreleased]: https://github.com/markusressel/xtouch-daemon/compare/0.1.0...HEAD
 [0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/0.1.0
 
 ### Fixed

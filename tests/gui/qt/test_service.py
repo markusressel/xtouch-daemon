@@ -34,6 +34,9 @@ from tests.support.gui import (
     strip_state,
     type_into,
 )
+from tests.support.gui import (
+    pill as pill_text,
+)
 from tests.support.instance import RecordingInstance
 from tests.support.packaging import install_package
 from tests.support.systemd import FakeSystemctl
@@ -41,8 +44,10 @@ from xtouch_daemon.gui import qt
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.channels import channel_options
 from xtouch_daemon.gui.domain.schema import Kind, Option
+from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.popover import Entry
 from xtouch_daemon.gui.qt.fields.tables import Tables
 from xtouch_daemon.gui.qt.theme.style import current_mode, load_theme_mode
 from xtouch_daemon.gui.qt.theme.tokens import (
@@ -78,13 +83,15 @@ def test_the_service_is_shown_and_controlled(
     systemctl.properties = properties
     window = make_window()
     assert (
-        window.service_controls.pill.text(),
+        pill_text(window.service_controls.pill),
         window.service_controls.pill.property("tone"),
         window.service_controls.service_button.text(),
     ) == (pill, tone, button)
+    # it needs doing: next to the pill; Restart is in the popover only
+    assert window.service_controls.service_button.isHidden() is (properties == RUNNING)
     isolated.answer = QMessageBox.StandardButton.Yes
 
-    click(qtbot, window.service_controls.service_button)
+    do(window, button)
 
     assert command in systemctl.commands
     assert window.status.text().endswith("the service.")
@@ -116,29 +123,30 @@ def test_only_a_running_service_can_be_stopped(
 
     window = make_window()
 
-    assert window.service_controls.stop_button.isHidden() is not stop
+    assert ("Stop" in actions(window)) is stop
 
 
 def test_the_service_is_stopped_and_can_be_started_again(
     qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl, isolated: Dialogs
 ):
-    assert window.service_controls.stop_button.focusPolicy() == Qt.FocusPolicy.NoFocus
-
     def stop(command: list[str]) -> str:
         if command[2] == "stop":
             systemctl.properties = STOPPED
         return systemctl(command)
 
     window.service._run = stop
-    click(qtbot, window.service_controls.stop_button)
+    do(window, "Stop")
 
     assert ["systemctl", "--user", "stop", UNIT_NAME] in systemctl.commands
     # stopped, not disabled: it starts again with the next session
     assert ["systemctl", "--user", "disable", UNIT_NAME] not in systemctl.commands
     assert window.status.text() == "Stopped the service."
     assert isolated.shown == []
-    assert (window.service_controls.pill.text(), window.service_controls.service_button.text()) == ("stopped", "Start")
-    assert window.service_controls.stop_button.isHidden()
+    assert (pill_text(window.service_controls.pill), window.service_controls.service_button.text()) == (
+        "stopped",
+        "Start",
+    )
+    assert actions(window) == ["Start"]
 
 
 def test_a_failing_stop_is_reported(qtbot: QtBot, window: MainWindow, isolated: Dialogs):
@@ -146,20 +154,37 @@ def test_a_failing_stop_is_reported(qtbot: QtBot, window: MainWindow, isolated: 
         raise ServiceError("systemctl --user stop failed: nope")
 
     window.service._run = fail
-    click(qtbot, window.service_controls.stop_button)
+    do(window, "Stop")
 
     assert isolated.shown == ["systemctl --user stop failed: nope"]
     assert window.status.text() == ""
-    assert window.service_controls.stop_button.isHidden()
+    assert actions(window) == []
 
 
 def test_a_daemon_elsewhere_can_not_be_stopped_here(make_window: MakeWindow, path: Path):
     window = make_window(find_daemon=lambda: RecordingInstance(4242, path.resolve(), systemd=False))
 
-    assert window.service_controls.stop_button.isHidden()
+    assert actions(window) == []
 
 
 CHECKOUT = "/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
+
+
+def details(window: MainWindow, title: str) -> Entry | None:
+    """The entry `title` of the popover of the service pill."""
+    return next((entry for entry in window.service_controls.details() if entry.title == title), None)
+
+
+def actions(window: MainWindow, title: str = "Service") -> list[str]:
+    entry = details(window, title)
+    return [text for text, _ in entry.actions] if entry is not None else []
+
+
+def do(window: MainWindow, text: str, title: str = "Service") -> None:
+    """Clicks the button `text` of the entry `title` in the popover of the service pill."""
+    entry = details(window, title)
+    assert entry is not None
+    dict(entry.actions)[text]()
 
 
 def unit_properties(state: str, unit: Path, program: str) -> str:
@@ -178,20 +203,23 @@ def test_the_header_shows_which_unit_runs_the_service(make_window: MakeWindow, s
     )
     window = make_window()
 
-    assert window.service_controls.unit_label.text() == "own unit"
-    assert window.service_controls.unit_label.toolTip() == (
-        f"The unit /home/me/.config/systemd/user/xtouch-daemon.service, which starts {CHECKOUT}"
-    )
+    unit = details(window, "Unit")
+    assert unit is not None
+    assert unit.status == Status("own unit", Tone.NEUTRAL, f"Your own unit, which starts `{CHECKOUT}`.")
+    assert unit.path == "/home/me/.config/systemd/user/xtouch-daemon.service"
     # without a package there is nothing it overrides
-    assert window.service_controls.override_button.isHidden()
+    assert actions(window, "Unit") == []
 
     systemctl.properties = unit_properties(RUNNING, systemd.PACKAGED_UNIT, "/usr/bin/xtouch-daemon")
     window.refresh_service()
-    assert window.service_controls.unit_label.text() == "packaged"
+    unit = details(window, "Unit")
+    assert unit is not None
+    assert unit.status is not None
+    assert unit.status.text == "packaged"
 
     systemctl.properties = MISSING
     window.refresh_service()
-    assert window.service_controls.unit_label.isHidden()
+    assert details(window, "Unit") is None
 
 
 @pytest.mark.parametrize("answer", [QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No])
@@ -206,13 +234,13 @@ def test_the_unit_that_overrides_the_package_can_be_removed(
     write_user_unit()
     systemctl.properties = unit_properties(RUNNING, unit_path(), CHECKOUT)
     window = make_window()
-    assert not window.service_controls.override_button.isHidden()
-    assert window.service_controls.unit_label.property("role") == "hint"
-    assert window.service_controls.unit_label.toolTip().endswith("; it overrides the one of the package")
-    assert window.service_controls.override_button.focusPolicy() == Qt.FocusPolicy.NoFocus
+    unit = details(window, "Unit")
+    assert unit is not None
+    assert unit.status is not None
+    assert unit.status.tip.endswith("It overrides the unit of the package.")
     isolated.answer = answer
 
-    click(qtbot, window.service_controls.override_button)
+    do(window, "Use the packaged unit", "Unit")
 
     assert isolated.shown[0].startswith(f"Remove {unit_path()}?")
     if answer == QMessageBox.StandardButton.No:
@@ -222,7 +250,7 @@ def test_the_unit_that_overrides_the_package_can_be_removed(
     assert not unit_path().exists()
     assert ["systemctl", "--user", "restart", UNIT_NAME] in systemctl.commands
     assert window.status.text() == f"Removed {unit_path()}: the service uses the unit of the package."
-    assert window.service_controls.override_button.isHidden()
+    assert actions(window, "Unit") == []
 
 
 def test_a_failing_removal_of_the_override_is_reported(
@@ -230,6 +258,7 @@ def test_a_failing_removal_of_the_override_is_reported(
 ):
     install_package()
     write_user_unit()
+    systemctl.properties = unit_properties(RUNNING, unit_path(), CHECKOUT)
     window = make_window()
 
     def fail(command: list[str]) -> str:
@@ -239,7 +268,7 @@ def test_a_failing_removal_of_the_override_is_reported(
 
     window.service._run = fail
     isolated.answer = QMessageBox.StandardButton.Yes
-    click(qtbot, window.service_controls.override_button)
+    do(window, "Use the packaged unit", "Unit")
 
     assert isolated.shown[1:] == ["systemctl --user disable failed: nope"]
     assert window.status.text() == ""
@@ -289,6 +318,7 @@ def test_restart_stands_out_when_the_daemon_runs_an_older_version(
     window.refresh_service()
 
     assert window.service_controls.service_button.text() == "Restart"
+    assert not window.service_controls.service_button.isHidden()
     assert window.service_controls.service_button.property("variant") == "primary"
     assert window.service_controls.service_button.toolTip() == (
         "The daemon runs version 0.1.0, 0.2.0 is installed: restart it to run 0.2.0"
@@ -310,9 +340,9 @@ def test_a_failing_systemctl_is_reported(qtbot: QtBot, make_window: MakeWindow, 
         raise ServiceError("systemctl --user restart failed: nope")
 
     window.service._run = fail
-    click(qtbot, window.service_controls.service_button)
+    do(window, "Restart")
     assert isolated.shown == ["systemctl --user restart failed: nope"]
-    assert window.service_controls.pill.text() == "unavailable"
+    assert pill_text(window.service_controls.pill) == "unavailable"
     assert window.service_controls.service_button.isHidden()
 
 
@@ -373,14 +403,14 @@ def test_a_daemon_started_elsewhere_is_shown_and_reloaded(qtbot: QtBot, make_win
     daemon = RecordingInstance(4242, path.resolve(), systemd=False)
     window = make_window(find_daemon=lambda: daemon)
 
-    assert (window.service_controls.pill.text(), window.service_controls.pill.property("tone")) == (
+    assert (pill_text(window.service_controls.pill), window.service_controls.pill.property("tone")) == (
         "running elsewhere",
         "good",
     )
     assert "process 4242" in window.service_controls.pill.toolTip()
     assert window.service_controls.service_button.isHidden()
-    assert window.service_controls.unit_label.isHidden()
-    assert window.service_controls.override_button.isHidden()
+    assert [entry.title for entry in window.service_controls.details()] == ["Service"]
+    assert actions(window) == []
 
     window.document.set(("device", "name"), "Other")
     window.editor.edited()

@@ -27,7 +27,7 @@ def test_the_window_shows_the_configuration(window: MainWindow, path: Path):
     assert window.windowTitle() == path.name
     assert not window.save_button.isEnabled()
     assert not window.problems_button.isVisible()
-    assert window.service_controls.pill.text() == "running"
+    assert window.service_controls.pill.text() == "running  ▾"
     assert window.current_page == "slots"
     # the channels, then the built-in pools
     assert [item.text().split("\n")[0] for item in items(window)] == [
