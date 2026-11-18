@@ -3,6 +3,8 @@
 A pass over the code for structure, without changing what anything does. The steps are ranked by value against risk;
 each is one commit, checked with ruff, pyright and the tests that cover it.
 
+Status: all eight steps are done (2026-11-18).
+
 ## Survey
 
 - 26 000 lines in `src/`. The layers hold: no Qt in `gui/domain`, nothing outside `gui/` imports the GUI, `pyright`
