@@ -68,6 +68,10 @@ commit next to the project.
    release of the tag with the tarballs, `sha256sums.txt` and the section of the changelog. A release that exists
    already (e.g. created by hand) gets the tarballs added.
 
+   The [Documentation workflow](.github/workflows/docs.yml) publishes the documentation of the tag as its version
+   (`/0.2.0/`), moves the alias `latest` to it and makes it the default of the site. `main` is the version `dev`.
+   Each version is built once, when it is pushed, and stays as it is (with mike, on the branch `gh-pages`).
+
 4. **Publish the AUR packages** once the workflow has passed. On an Arch Linux machine with your AUR SSH key:
 
    ```shell

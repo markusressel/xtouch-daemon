@@ -39,6 +39,22 @@ docs:
 docs-serve port="8001":
     uv run --group docs zensical serve --dev-addr localhost:{{port}}
 
+# serve the documentation of a commit, tag or branch on http://localhost:<port>, from a temporary worktree
+docs-at ref port="8001":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir="$(mktemp -d)"
+    git worktree add --detach "$dir" "{{ref}}"
+    trap 'git worktree remove --force "$dir"' EXIT
+    cd "$dir"
+    # the Zensical of today: the ref may be older than the docs group
+    uvx zensical serve --dev-addr localhost:{{port}}
+
+# serve the published versions (the branch gh-pages, as fetched from origin) on http://localhost:<port>
+docs-versions port="8001":
+    git fetch origin gh-pages:gh-pages
+    uv run --group docs mike serve --dev-addr localhost:{{port}}
+
 # render the screenshots of the documentation into docs/images/ (offscreen, with a demo configuration)
 screenshot out="docs/images":
     uv run --extra gui python scripts/screenshot.py {{out}}

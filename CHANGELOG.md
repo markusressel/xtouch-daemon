@@ -159,6 +159,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and Play works on it. The switch is there while Simulate is open, the pill says "On the device · simulated", and
   Home Assistant never sees the situation. `StartPreview` takes a `situation` and no `config` (the file's), snapshots
   tell `simulated`. See `docs/design/try-and-simulate.md`.
+- The documentation has a version per release (and `dev` for main) with a version selector, built once per version
+  with mike to the branch `gh-pages`; `just docs-at <ref>` serves the documentation of any commit locally.
 - A built-in pool `devices`: the outputs and inputs no channel has (a USB headset, Bluetooth speakers), on the slots
   that name `devices`, each as the `output` or `input` strip of that device. A channel without `device` has the
   default device of its direction. `[pool.devices]` takes `from` (left by default), `exclude` (node names or

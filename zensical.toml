@@ -1,7 +1,8 @@
 # The documentation site, built with Zensical (https://zensical.org):
 #   uv run --group docs zensical serve        # preview on http://localhost:8000
 #   uv run --group docs zensical build --clean --strict
-# .github/workflows/docs.yml publishes it to GitHub Pages.
+# .github/workflows/docs.yml publishes it to GitHub Pages, a version per release (see the [project.extra.version]
+# section and CONTRIBUTING.md).
 
 [project]
 site_name = "xtouch-daemon"
@@ -82,3 +83,15 @@ toggle.name = "Switch to system preference"
 
 [project.theme.icon]
 logo = "lucide/sliders-vertical"
+
+# A version selector in the header: the versions are deployed with mike (Zensical's fork, until Zensical versions
+# documentation itself) to the branch gh-pages, `dev` for main and X.Y.Z for each release, the newest one also as
+# `latest`.
+[project.extra.version]
+provider = "mike"
+alias = true
+
+[project.plugins.mike]
+# an alias (latest) redirects to its version; GitHub Pages doesn't need to follow symlinks
+alias_type = "redirect"
+canonical_version = "latest"

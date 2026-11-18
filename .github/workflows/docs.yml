@@ -1,34 +1,51 @@
-# Builds the documentation with Zensical and publishes it to GitHub Pages, as https://zensical.org/docs/publish-your-site/
-# describes it. GitHub Pages must be set to publish with GitHub Actions (Settings > Pages > Source).
+# Publishes the documentation a version at a time with mike (Zensical's fork, until Zensical versions documentation
+# itself) to the branch gh-pages, which GitHub Pages serves (Settings > Pages > Source: Deploy from a branch,
+# gh-pages, / (root)). main is the version "dev"; a tag X.Y.Z is the version X.Y.Z, also as "latest", which the root
+# of the site redirects to once a release exists (before that: dev). Each run builds only its own version: the others
+# stay as they were built, with the Zensical of their time.
 name: Documentation
 
 on:
   push:
     branches:
       - main
+    tags:
+      - '*.*.*'
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
+
+# one deployment at a time: each one commits to gh-pages
+concurrency:
+  group: docs
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/configure-pages@v6
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: 3.x
-      - run: pip install zensical
-      # --strict: a broken link or anchor fails the build
+      - run: pip install zensical "mike @ git+https://github.com/squidfunk/mike.git@2d4ad799442f4592db8ad53b179bfb33db8c69ac"
+      # --strict: a broken link or anchor fails the build (mike builds without it)
       - run: zensical build --clean --strict
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: site
-      - uses: actions/deploy-pages@v5
-        id: deployment
+      - name: Prepare gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # the versions deployed so far; none before the first deployment
+          git fetch origin gh-pages --depth=1 || true
+      - name: Deploy dev
+        if: github.ref_type == 'branch'
+        run: |
+          mike deploy --push dev
+          if ! mike list latest > /dev/null 2>&1; then
+            mike set-default --push dev
+          fi
+      - name: Deploy the release
+        if: github.ref_type == 'tag'
+        run: |
+          mike deploy --push --update-aliases "$GITHUB_REF_NAME" latest
+          mike set-default --push latest

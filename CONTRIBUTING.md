@@ -28,6 +28,8 @@ just check       # runs everything CI runs
 | `just release-build [OUT]` | Builds the release tarballs into `dist/` (see [RELEASING.md](RELEASING.md)). |
 | `just pin-haad-mqtt-autodiscovery` | Pins the commit of `../haad-mqtt-autodiscovery` that CI and releases build. |
 | `just docs-serve` | Serves the documentation on http://localhost:8001 (`just docs-serve 8002` for another port) and rebuilds it on changes. |
+| `just docs-at <ref>` | Serves the documentation of a commit, tag or branch (`just docs-at 0.1.0 8002`), from a temporary worktree, with today's Zensical. |
+| `just docs-versions` | Serves the published versions (the branch `gh-pages`, fetched from GitHub) with their version selector, as GitHub Pages does. |
 | `just screenshot` | Renders the screenshots of the README and the documentation (`docs/images/`) offscreen, with the demo configuration in `scripts/screenshot.py`. Run it after changes to the look of the GUI and commit the images. |
 
 Optional: `uvx pre-commit install` runs ruff before every commit.
