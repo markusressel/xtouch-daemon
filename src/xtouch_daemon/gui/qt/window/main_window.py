@@ -51,7 +51,7 @@ from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.connections import connections
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import previewed, unavailable
-from xtouch_daemon.gui.domain.schema import SECTIONS
+from xtouch_daemon.gui.domain.problems import place_of
 from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
 from xtouch_daemon.gui.domain.status import (
@@ -102,7 +102,6 @@ from xtouch_daemon.gui.qt.window.device_view import DeviceView
 from xtouch_daemon.gui.qt.window.hover_tips import HoverTips
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session
-from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.simulator.server import AlreadyServed
 from xtouch_daemon.system import instance
@@ -795,32 +794,19 @@ class MainWindow(QMainWindow):
         self.show_page("channels")
 
     def go_to(self, problem: Problem) -> None:
-        """Shows the page of the problem."""
-        match problem.path:
-            case ("channel", str(name), *_):
-                self.channels_page.select(("channel", name))
-                self.show_page("channels")
-            case ("pool", "auto" | "apps" | "people" as pool, *_):
-                self.channels_page.select(("pool", pool))
-                self.show_page("channels")
-            case ("people", *_):
-                # today's [pool.people]: its message is there
-                self.channels_page.select(("pool", "people"))
-                self.show_page("channels")
-            case ("state", str(name), *_):
-                self.states_page.select(name)
-                self.show_page("states")
-            case ("slots" | "controls", str(slot), *_) if slot.isdigit() and 1 <= int(slot) <= protocol.STRIPS:
-                self.device_view.select(int(slot) - 1)
-            case ("slots" | "controls", *_):
-                self.show_page("slots")
-            case (str(name), *_) if name in SECTIONS or name == "aliases":
-                self.show_page(name)
-            case _:
-                # a problem of the whole configuration, e.g. homeassistant channels without [mqtt]
-                for name in SECTIONS:
-                    if f"[{name}]" in problem.message:
-                        self.show_page(name)
+        """Shows the page of the problem (see `place_of`)."""
+        place = place_of(problem)
+        if place is None:
+            return
+        if place.slot is not None:
+            # the strip on the drawing, which picks its card on the page Slots
+            self.device_view.select(place.slot - 1)
+            return
+        if place.channel is not None:
+            self.channels_page.select(place.channel)
+        if place.state is not None:
+            self.states_page.select(place.state)
+        self.show_page(place.page)
 
     def set_theme(self, mode: ThemeMode) -> None:
         apply_theme(mode)
