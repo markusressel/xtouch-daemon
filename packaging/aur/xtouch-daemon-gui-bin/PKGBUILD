@@ -4,7 +4,7 @@
 # and published to the AUR with packaging/aur/publish.sh (see RELEASING.md). Don't edit it on the AUR directly.
 pkgname=xtouch-daemon-gui-bin
 _pkgname=xtouch-daemon-gui
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="The GUI of xtouch-daemon: edit the configuration of the X-Touch Extender, with a live view of the device"
 arch=('any')

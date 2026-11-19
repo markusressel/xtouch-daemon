@@ -4,7 +4,7 @@
 # and published to the AUR with packaging/aur/publish.sh (see RELEASING.md). Don't edit it on the AUR directly.
 pkgname=xtouch-daemon-bin
 _pkgname=xtouch-daemon
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Use a Behringer X-Touch Extender as a hardware mixer for PipeWire: motor faders, meters, scribble strips"
 arch=('x86_64')
