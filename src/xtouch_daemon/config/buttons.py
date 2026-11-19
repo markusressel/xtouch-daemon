@@ -104,7 +104,9 @@ def table_of(name: str, value: object) -> object:
 
 
 def _shorthand(name: ButtonName) -> BeforeValidator:
-    return BeforeValidator(lambda value: table_of(name, value))
+    # the JSON Schema of the file (`config.json_schema`) takes the short forms too
+    written = bool | LedShows | ButtonConfig if name == "select" else LedShows | ButtonConfig
+    return BeforeValidator(lambda value: table_of(name, value), json_schema_input_type=written)
 
 
 SelectButton = Annotated[ButtonConfig, _shorthand("select")]

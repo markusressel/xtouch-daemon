@@ -50,6 +50,9 @@ xtouch-daemon list-apps                   # the applications that play now, and 
 xtouch-daemon check-config                # validates the file (with the line of each error) and shows what each slot shows when
 ```
 
+An editor with a TOML language server completes the options of the file and shows their help: see
+[Editors and AI assistants](../configuration/index.md#editors-and-ai-assistants).
+
 For example, Bluetooth headphones on slot 1 while they are connected, and VoIP on slot 2 during a call:
 
 ```toml

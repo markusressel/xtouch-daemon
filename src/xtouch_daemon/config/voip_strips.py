@@ -36,7 +36,11 @@ class VoipStripConfig(Model):
     """
 
     type: Annotated[Literal["voip"], STRIP_TYPE_MEANINGS]
-    person: Annotated[tuple[str, ...], BeforeValidator(_one_or_more), AfterValidator(_person_names)] = ()
+    person: Annotated[
+        tuple[str, ...],
+        BeforeValidator(_one_or_more, json_schema_input_type=str | list[str]),
+        AfterValidator(_person_names),
+    ] = ()
     """
     The participant the strip always shows: their name in the voice chat (any case), or several names of the same
     person, e.g. "Alice" and "alice-phone". While they are away, the name shows dark.

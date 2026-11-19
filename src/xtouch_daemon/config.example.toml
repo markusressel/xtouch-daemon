@@ -1,3 +1,4 @@
+#:schema https://markusressel.github.io/xtouch-daemon/latest/config.schema.json
 # xtouch-daemon configuration: channels, states and slots
 #
 # `xtouch-daemon check-config` checks it and shows what each slot shows when; apply changes with

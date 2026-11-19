@@ -40,6 +40,10 @@ docs: docs-icon
 docs-icon:
     cp src/xtouch_daemon/gui/qt/theme/images/icon.svg docs/images/icon.svg
 
+# write the JSON Schema of the configuration that the documentation publishes (a test checks that it is current)
+schema:
+    uv run xtouch-daemon schema > docs/config.schema.json
+
 # serve the documentation on http://localhost:<port>, rebuilt on changes (8000 is often taken)
 docs-serve port="8001": docs-icon
     uv run --group docs zensical serve --dev-addr localhost:{{port}}

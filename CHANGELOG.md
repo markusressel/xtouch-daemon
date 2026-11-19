@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- A JSON Schema of the configuration, published with the documentation and printed by `xtouch-daemon schema`. The
+  example configuration points to it (`#:schema`), so editors with a TOML language server (Taplo, Tombi) complete the
+  options, show their help on hover and mark mistakes while typing.
 - `xtouch-daemon test`: after the sweep every strip answers its own controls, so each output of the device can be
   checked by hand: the meter follows the fader, a button steps its LED through on, flashing and off, the encoder
   changes the position and the mode of the ring (also with the two LEDs at its ends), the color of the LCD and the motor

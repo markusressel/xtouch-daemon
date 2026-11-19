@@ -1,6 +1,6 @@
 """
-The configuration file: writing the example (`init-config`), and checking it and telling what each strip does
-(`check-config`).
+The configuration file: writing the example (`init-config`), checking it and telling what each strip does
+(`check-config`), and its JSON Schema for editors (`schema`).
 """
 
 import shlex
@@ -14,6 +14,7 @@ from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.buttons import BUTTON_NAMES, describe_action
 from xtouch_daemon.config.files import default_config_path, example_config
+from xtouch_daemon.config.json_schema import schema_text
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
@@ -143,3 +144,12 @@ def init_config(path: Path | None, force: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(example_config(), encoding="utf-8")
     click.echo(f"Wrote {path}. Edit it, then check it with: xtouch-daemon check-config")
+
+
+@click.command("schema")
+def schema() -> None:
+    """
+    Print the JSON Schema of the configuration file. Editors with a TOML language server (Taplo, Tombi) complete
+    options from it, show their help and mark mistakes; the example configuration points to the published one.
+    """
+    click.echo(schema_text(), nl=False)
