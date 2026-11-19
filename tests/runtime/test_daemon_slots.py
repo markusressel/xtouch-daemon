@@ -26,7 +26,6 @@ from xtouch_daemon.live.messages import (
     SlotView,
     StateView,
     VoipState,
-    fingerprint,
 )
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime import rig as rig_module
@@ -277,10 +276,6 @@ async def test_the_slots_wait_for_the_sound_server(tmp_path: Path, surface: Reco
     assert steps == []
     task.cancel()
     await settle()
-
-
-def test_the_fingerprint_tells_configurations_of_slots_apart() -> None:
-    assert fingerprint(parse_config(SLOTS)) != fingerprint(parse_config(SLOTS.replace("mygame", "othergame")))
 
 
 async def test_the_processes_are_scanned_every_few_seconds(

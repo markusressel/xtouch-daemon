@@ -164,7 +164,7 @@ async def test_the_states_the_mode_and_the_slots(setup: tuple[FakeBroker, MqttBr
     entities.close()
 
 
-async def test_a_person_without_a_channel_on_a_slot(setup: tuple[FakeBroker, MqttBridge]) -> None:
+async def test_a_person_without_a_channel_is_published_as_a_person(setup: tuple[FakeBroker, MqttBridge]) -> None:
     _, bridge = setup
     config = parse_config(CONFIG.replace('provider = "demo"', 'provider = "demo"\nparticipants = ["Ann"]'))
     assert config.slots is not None

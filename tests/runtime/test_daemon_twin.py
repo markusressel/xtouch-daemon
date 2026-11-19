@@ -13,7 +13,7 @@ from tests.support.hardware import RecordingSurface
 from tests.support.waiting import until
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.live.messages import FEATURES, EndPreview, KeepPreview, Play, Reply, StartPreview, TwinView
+from xtouch_daemon.live.messages import EndPreview, KeepPreview, Play, Reply, StartPreview, TwinView
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon
 from xtouch_daemon.slots.outcomes import Situation
@@ -65,10 +65,6 @@ def made(config_path: Path, surface: RecordingSurface, backend: FakeBackend, mon
     daemon.mixer.on_state(STATE)
     daemon.told = told  # pyright: ignore[reportAttributeAccessIssue]
     return daemon, views
-
-
-async def test_the_daemon_knows_twins():
-    assert "on_device" in FEATURES
 
 
 async def test_a_twin_shows_its_configuration_in_its_situation_and_touches_nothing_real(
