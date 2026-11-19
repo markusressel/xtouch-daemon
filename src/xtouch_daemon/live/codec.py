@@ -10,7 +10,9 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import (
     VERSION,
     EndPreview,
+    EndTwin,
     KeepPreview,
+    KeepTwin,
     MqttState,
     Play,
     Reply,
@@ -21,8 +23,10 @@ from xtouch_daemon.live.messages import (
     SlotView,
     Snapshot,
     StartPreview,
+    StartTwin,
     StateView,
     StripState,
+    TwinView,
     VoipState,
 )
 from xtouch_daemon.slots.outcomes import Situation
@@ -41,26 +45,19 @@ def decode(line: bytes) -> Snapshot | None:
     return message if isinstance(message, Snapshot) else None
 
 
-def decode_message(line: bytes) -> Snapshot | Reply | None:
-    """A line of the daemon: a snapshot or a reply, None for a snapshot of another version."""
+def decode_message(line: bytes) -> Snapshot | Reply | TwinView | None:
+    """A line of the daemon: a snapshot, a reply or the view of a twin, None for a snapshot of another version."""
     data = json.loads(line)
     if "reply" in data:
         return Reply(data["reply"], bool(data["ok"]), str(data.get("message", "")))
+    if "twin" in data:
+        twin = data["twin"]
+        slots = _slots(twin["slots"])
+        assert slots is not None, "a twin always has slots"
+        return TwinView(twin["config"], _strips(twin["strips"]), slots)
     if data.get("version") != VERSION:
         return None
-    strips = tuple(
-        StripState(
-            color=strip["color"],
-            text=(strip["text"][0], strip["text"][1]),
-            leds=dict(strip["leds"]),
-            ring=strip["ring"],
-            ring_mode=strip["ring_mode"],
-            fader=strip["fader"],
-            touched=strip["touched"],
-            meter=strip["meter"],
-        )
-        for strip in data["strips"]
-    )
+    strips = _strips(data["strips"])
     mqtt_state = data.get("mqtt_state")
     return Snapshot(
         data["config"],
@@ -77,6 +74,27 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
         bool(data.get("virtual", False)),
         bool(data.get("simulated", False)),
     )
+
+
+def _strips(values: list[dict[str, Any]]) -> tuple[StripState, ...]:
+    return tuple(
+        StripState(
+            color=strip["color"],
+            text=(strip["text"][0], strip["text"][1]),
+            leds=dict(strip["leds"]),
+            ring=strip["ring"],
+            ring_mode=strip["ring_mode"],
+            fader=strip["fader"],
+            touched=strip["touched"],
+            meter=strip["meter"],
+        )
+        for strip in values
+    )
+
+
+def encode_twin(view: TwinView) -> bytes:
+    """The view of a twin, one line for its client."""
+    return json.dumps({"twin": asdict(view)}, separators=(",", ":")).encode() + b"\n"
 
 
 def _slots(value: dict[str, Any] | None) -> SlotsState | None:
@@ -113,6 +131,9 @@ _REQUEST_NAMES: dict[type, str] = {
     StartPreview: "preview",
     KeepPreview: "keep_preview",
     EndPreview: "end_preview",
+    StartTwin: "twin",
+    KeepTwin: "keep_twin",
+    EndTwin: "end_twin",
     SetMode: "mode",
     SetOverride: "override",
     Play: "play",
@@ -134,21 +155,15 @@ def encode_request(request: Request) -> bytes:
     if isinstance(request, StartPreview):
         data["config"] = request.config
         if request.situation is not None:
-            situation = request.situation
-            data["situation"] = {
-                "mode": situation.mode,
-                "on": sorted(situation.on),
-                "flipped": sorted(situation.flipped),
-                "people": situation.people,
-                "apps": situation.apps,
-                "devices": situation.devices,
-            }
+            data["situation"] = _situation_data(request.situation)
+    elif isinstance(request, StartTwin):
+        data |= {"config": request.config, "situation": _situation_data(request.situation)}
     elif isinstance(request, SetMode):
         data["mode"] = request.mode
     elif isinstance(request, SetOverride):
         data |= {"state": request.state, "value": request.value}
     elif isinstance(request, Play):
-        data |= {"event": _EVENT_NAMES[type(request.event)]} | asdict(request.event)
+        data |= {"event": _EVENT_NAMES[type(request.event)], "twin": request.twin} | asdict(request.event)
     return json.dumps(data).encode() + b"\n"
 
 
@@ -162,6 +177,12 @@ def decode_request(line: bytes) -> Request:
         case {"request": "preview", "config": str() | None as config}:
             situation = data.get("situation")
             return StartPreview(config, None if situation is None else _situation(situation))
+        case {"request": "twin", "config": str(config), "situation": situation}:
+            return StartTwin(config, _situation(situation))
+        case {"request": "keep_twin"}:
+            return KeepTwin()
+        case {"request": "end_twin"}:
+            return EndTwin()
         case {"request": "keep_preview"}:
             return KeepPreview()
         case {"request": "end_preview"}:
@@ -173,9 +194,20 @@ def decode_request(line: bytes) -> Request:
         case {"request": "play", "event": str(name), "strip": int(strip)} if name in _EVENTS:
             if not 0 <= strip < protocol.STRIPS:
                 raise ValueError(f"no strip {strip}")
-            return Play(_play_event(name, strip, data))
+            return Play(_play_event(name, strip, data), bool(data.get("twin", False)))
         case _:
             raise ValueError("unknown")
+
+
+def _situation_data(situation: Situation) -> dict[str, Any]:
+    return {
+        "mode": situation.mode,
+        "on": sorted(situation.on),
+        "flipped": sorted(situation.flipped),
+        "people": situation.people,
+        "apps": situation.apps,
+        "devices": situation.devices,
+    }
 
 
 def _situation(value: Any) -> Situation:

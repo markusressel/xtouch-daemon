@@ -15,12 +15,23 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.live import server as server_module
-from xtouch_daemon.live.codec import decode, decode_message, decode_request, encode, encode_reply, encode_request
+from xtouch_daemon.live.codec import (
+    decode,
+    decode_message,
+    decode_request,
+    encode,
+    encode_reply,
+    encode_request,
+    encode_twin,
+)
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
+    EndTwin,
     KeepPreview,
+    KeepTwin,
     MqttState,
+    Play,
     Reply,
     Request,
     SetMode,
@@ -29,13 +40,16 @@ from xtouch_daemon.live.messages import (
     SlotView,
     Snapshot,
     StartPreview,
+    StartTwin,
     StateView,
     StripState,
+    TwinView,
     VoipState,
     fingerprint,
 )
 from xtouch_daemon.live.server import INTERVAL, MAX_BUFFER, LiveServer, peer_uid, strip_states
 from xtouch_daemon.simulator.device import METER_FALL
+from xtouch_daemon.slots.outcomes import Situation
 
 
 @pytest.fixture(autouse=True)
@@ -253,6 +267,13 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
         EndPreview(),
         SetMode("gaming"),
         SetOverride("call", "on"),
+        StartTwin(
+            "[slots]\n", Situation("gaming", frozenset({"call"}), frozenset({"mic"}), people=2, apps=1, devices=3)
+        ),
+        KeepTwin(),
+        EndTwin(),
+        Play(protocol.ButtonPressed(2, Button.MUTE, True), twin=True),
+        Play(protocol.FaderTouched(1, False)),
     ):
         line = encode_request(request)
         assert line.count(b"\n") == 1
@@ -268,6 +289,7 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
 
     reply = Reply("preview", False, "strip[1].type: wrong")
     assert decode_message(encode_reply(reply)) == reply
+
     # a GUI that knows no replies ignores them like lines of another version
     assert decode(encode_reply(reply)) is None
     assert b'"version"' not in encode_reply(reply)
@@ -279,6 +301,24 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
     decoded = decode(older)
     assert decoded is not None
     assert (decoded.preview, decoded.features) == (False, ())
+
+
+def test_the_view_of_a_twin_goes_through_a_line_and_is_no_snapshot():
+    state = StripState(
+        color="cyan",
+        text=("Out", "50%"),
+        leds={"rec": "off", "solo": "off", "mute": "on", "select": "flash"},
+        ring=3,
+        ring_mode="dot",
+        fader=0.5,
+        touched=False,
+        meter=2,
+    )
+    view = TwinView("abc", (state,), SlotsState("default", None, (), (), {}))
+    line = encode_twin(view)
+    assert line.count(b"\n") == 1
+    assert decode_message(line) == view
+    assert decode(line) is None
 
 
 class Requests:

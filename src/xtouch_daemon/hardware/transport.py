@@ -72,3 +72,13 @@ class SocketPort:
             raise
         sock.setblocking(False)
         return RawMidi(self.path, on_data=on_data, on_closed=on_closed, fd=sock.detach()), str(self.path)
+
+
+class NoPort:
+    """A device that is never there: a `Surface` on it shows everything in its mirror only (the virtual twin)."""
+
+    def __init__(self, name: str = "the virtual twin"):
+        self.name = name
+
+    def open(self, on_data: Callable[[bytes], None], on_closed: Callable[[], None]) -> tuple[Transport, str]:
+        raise LookupError(f"{self.name} has no device")

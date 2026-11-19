@@ -29,7 +29,7 @@ from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
 from xtouch_daemon.gui.domain.schema import Option, look_options
-from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text, simulated
+from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text
 from xtouch_daemon.gui.domain.slot_stacks import (
     EMPTY,
     Row,
@@ -49,7 +49,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
 )
 from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
-from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.domain.status import Reason, Status, Tone
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, help_text, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
@@ -88,9 +88,15 @@ def _clear(bar: QHBoxLayout) -> None:
         widget.deleteLater()
 
 
+SIMULATE_TIP = (
+    "What the slots would show in other modes and states, on a virtual twin of the device in the daemon; on the "
+    "device too with Try on the device (Esc ends it)"
+)
+
+
 class SlotsPanel(Page):
     simulated = pyqtSignal(arguments=[])
-    """Simulate started, changed or ended: the drawing shows the simulation (`simulation`) or the device again."""
+    """Simulate started, changed or ended: the virtual twin runs `what_if` (see `TwinSession`), or ends."""
 
     def __init__(
         self,
@@ -99,12 +105,19 @@ class SlotsPanel(Page):
         snapshot: Callable[[], Snapshot | None],
         request: Callable[[Request], bool],
         show_channel: Callable[[str], None],
+        twin_slots: Callable[[], SlotsState | None] = lambda: None,
+        simulate_unavailable: Callable[[], Reason | None] = lambda: None,
     ):
-        """`show_channel` opens a channel on the page Channels."""
+        """
+        `show_channel` opens a channel on the page Channels, `twin_slots` tells the slots of the virtual twin (what
+        Simulate shows) and `simulate_unavailable` why Simulate can't run.
+        """
         super().__init__(editor, audio)
         self.snapshot = snapshot
         self.request = request
         self.show_channel = show_channel
+        self.twin_slots = twin_slots
+        self.simulate_unavailable = simulate_unavailable
         self.slot = 1
         """The slot picked (1 for the leftmost one)."""
         self.candidate: int | None = None
@@ -112,8 +125,6 @@ class SlotsPanel(Page):
         self.shown_live: tuple[object, ...] | None = None
         self.what_if: WhatIf | None = None
         """What Simulate shows, None while the cards show what the daemon tells."""
-        self.simulation: SlotsState | None = None
-        """The slots of `what_if`, as the GUI resolves them."""
         self.on_device = False
         """Whether the device shows `what_if` (Try on the device): then the cards show the daemon's slots."""
         self.device_note = label("", "hint")
@@ -138,10 +149,7 @@ class SlotsPanel(Page):
         self.simulate_button = button("flask-outline", "Simulate")
         set_role(self.simulate_button, "segment", "variant")
         self.simulate_button.setCheckable(True)
-        self.simulate_button.setToolTip(
-            "What the slots would show in other modes and states; on the device too with Try on the device "
-            "(Esc ends it)"
-        )
+        self.simulate_button.setToolTip(SIMULATE_TIP)
         self.simulate_button.clicked.connect(lambda checked: self.simulate(WhatIf() if checked else None))
         # first: it stays where it is while the what-ifs take the place of the states
         top.insertWidget(0, self.simulate_button)
@@ -274,15 +282,25 @@ class SlotsPanel(Page):
 
     def _show(self) -> None:
         config = self.editor.validation.config
-        self.simulate_button.setEnabled(config is not None)
-        self.simulate_button.setToolTip(
-            self.simulate_button.toolTip() if config is not None else "Only for a file without problems"
-        )
-        if self.what_if is not None:
-            self.simulate(self.what_if if config is not None else None)
+        if self.what_if is not None and config is None:
+            self.simulate(None)
+        self._show_simulate_button()
         self._show_state_bar()
         self._show_cards()
         self._show_inspector()
+
+    def _show_simulate_button(self) -> None:
+        """Simulate needs a file without problems and a daemon with a twin for it; the button says what is missing."""
+        config = self.editor.validation.config
+        reason = self.simulate_unavailable()
+        if config is None:
+            tip = "Only for a file without problems"
+        elif reason is not None:
+            tip = f"{reason.why}\n\n{SIMULATE_TIP}"
+        else:
+            tip = SIMULATE_TIP
+        self.simulate_button.setEnabled((config is not None and reason is None) or self.what_if is not None)
+        self.simulate_button.setToolTip(tip)
 
     def _show_state_bar(self) -> None:
         _clear(self.state_bar)
@@ -422,7 +440,7 @@ class SlotsPanel(Page):
         live = self.shown_slots()
         view = self._views().get(self.slot) if live is not None else None
         steps = why_steps(view.why) if view is not None else ()
-        key = (live is not None, self.simulation is not None, steps)
+        key = (live is not None, self.what_if is not None, steps)
         if key == self.shown_steps:
             return
         self.shown_steps = key
@@ -434,7 +452,7 @@ class SlotsPanel(Page):
         if live is None:
             set_role(self.status_box, Tone.NEUTRAL.value, "tone")
             return
-        heading = "What if" if self.simulation is not None else "Now"
+        heading = "What if" if self.what_if is not None else "Now"
         self.why_rows.addWidget(label(heading, "hint"), 0, 0, 1, 3)
         if not steps:
             self.why_rows.addWidget(label(f"The daemon tells nothing about slot {self.slot}.", "hint"), 1, 0, 1, 3)
@@ -554,10 +572,10 @@ class SlotsPanel(Page):
             option_row.show_problems(validation.at("slots", str(self.slot), self.candidate, option_row.option.name))
 
     def shown_slots(self, snapshot: Snapshot | None = None) -> SlotsState | None:
-        """What the cards show: the simulation (the daemon's while it runs it on the device), else what it tells."""
+        """What the cards show: the virtual twin's slots while Simulate is open (the device's while it runs them)."""
         snapshot = snapshot if snapshot is not None else self.snapshot()
-        if self.simulation is not None and not (self.on_device and snapshot is not None and snapshot.slots):
-            return self.simulation
+        if self.what_if is not None and not (self.on_device and snapshot is not None and snapshot.slots):
+            return self.twin_slots()
         return snapshot.slots if snapshot is not None else None
 
     def show_on_device(self, on_device: bool, possible: bool) -> None:
@@ -579,6 +597,7 @@ class SlotsPanel(Page):
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         """The states in the bar, and the dot on the candidates the device shows (or would), when they changed."""
+        self._show_simulate_button()
         slots = self.shown_slots(snapshot)
         live = (
             (
@@ -615,12 +634,13 @@ class SlotsPanel(Page):
     def simulate(self, what_if: WhatIf | None) -> None:
         """Shows what the slots would show in `what_if`; None goes back to what the daemon tells."""
         config = self.editor.validation.config
+        if config is None or (what_if is not None and self.simulate_unavailable() is not None):
+            what_if = None
         self.what_if = what_if
-        self.simulation = simulated(config.slots, what_if) if what_if is not None and config is not None else None
-        self.simulate_button.setChecked(self.simulation is not None)
-        self.state_bar_row.setVisible(self.simulation is None)
-        self.what_if_row.setVisible(self.simulation is not None)
-        self.device_note.setVisible(self.simulation is not None)
+        self.simulate_button.setChecked(what_if is not None)
+        self.state_bar_row.setVisible(what_if is None)
+        self.what_if_row.setVisible(what_if is not None)
+        self.device_note.setVisible(what_if is not None)
         if config is not None and what_if is not None:
             self._show_what_if_bar(Inputs.of(config.slots), what_if)
         self.shown_live = None

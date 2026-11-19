@@ -139,8 +139,7 @@ A bar above the drawing of the device switches what the mouse does on it:
 
 Play works on the virtual device the window hosts, and on the device of a running daemon: then the daemon takes what
 the mouse does as if the device sent it, so the mixer acts and a motorized fader follows once it is let go. The fader
-under the mouse is drawn there at once. Play is off while Simulate shows only the drawing (it works when Simulate runs on
-the device, see [Try on the device](#try-on-the-device)), without a daemon (or with one of another user, or too old to
+under the mouse is drawn there at once. While Simulate is open, Play acts on its virtual twin in the daemon (see Simulate below). Play is off without a daemon (or with one of another user, or too old to
 take it) and while the device is not connected; the bar says why next to it ("Play: device not connected").
 With a daemon that drives the virtual device (`[device] virtual = true`) while it doesn't run, Play opens it in the
 window and plays on it.
@@ -190,7 +189,7 @@ next changes until it is turned off or the window closes; a new window starts wi
   and dwells apply as they really do. The drawing shows the device then, the cards the daemon's slots and why, Play
   works, and the pill says "On the device · simulated". Ending Simulate (Esc) shows what really happens again. Home
   Assistant never sees it: its slot and state sensors stay as they really are, and nothing of it is kept. With the
-  switch off, Simulate only draws; its bar says "Only in the drawing".
+  switch off, the device is untouched and only the virtual twin shows the what-if; its bar says "Only in the drawing".
 - **One window at a time:** a second window that turns it on takes over, and the first one's switch goes off.
 - **Home Assistant:** channels the changes do not have keep their entities in Home Assistant (with their state; only
   nothing drives them), so they are as before once the file runs again. Entities of channels only the changes had are
@@ -244,9 +243,12 @@ Clicking a strip in the window Device (or Left, Right, Home, End) picks its card
 
 **Simulate** shows what the slots would show in another mode, with other states on, with channels absent (`auto
 plays`: an application plays; `people fill`, `apps fill`: as many as there are slots), or with so many people in the
-call and applications that play (the two counts; the strips show their names): a frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar,
-and the drawing, the cards and the box of the inspector follow it. With "Try on the device" on, the device shows it too (see
-[Try on the device](#try-on-the-device)); else nothing is sent to the daemon. Esc, or Simulate again, ends it.
+call and applications that play (the two counts; the strips show their names). Simulate runs on a **virtual twin** of the device in the daemon: a second, complete
+set of strips that drives no real sound, voice chat, Home Assistant or device. A frame goes around the drawing in the
+window Device, a bar of what-ifs replaces the state bar, and the drawing, the cards and the box of the inspector show
+the twin, which Play can operate. Simulate needs a running daemon of your user: without one its button is off and says
+how to start it. With "Try on the device" on, the real device shows the situation too (see
+[Try on the device](#try-on-the-device)). Esc, or Simulate again, ends it.
 
 ## Editing options
 

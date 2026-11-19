@@ -1,6 +1,6 @@
 # Design: the virtual twin
 
-Status: **agreed** (2026-11-19). It adds a twin to [Try changes and situations](try-and-simulate.md), which stays as it
+Status: **built** (2026-11-19). It adds a twin to [Try changes and situations](try-and-simulate.md), which stays as it
 is, and replaces the drawing that the GUI made without a device (what it shows instead: [A simulated
 device](device-simulator.md#4-the-mirror-what-the-gui-shows)).
 
@@ -35,8 +35,8 @@ flowchart LR
         RS[Surface] --> RM[mirror]
         RE[SlotEngine] --> RX[SlotMixer / Desk] --> RS
         SS[sound server] --> RE
-        TW[World of a Situation] --> TE[SlotEngine]
-        TE --> TX[SlotMixer / Desk] --> TS[Surface, no port] --> TM[mirror]
+        TW[World of a Situation] --> TN[SlotEngine]
+        TN --> TX[SlotMixer / Desk] --> TS[Surface, no port] --> TM[mirror]
     end
     RM -- "Snapshot: strips, slots" --> GUI
     TM -- "TwinView: strips, slots" --> GUI
@@ -57,7 +57,7 @@ each part of the real path becomes:
 |---|---|
 | `AudioBackend` (the sound server) | `TwinBackend`: holds an `AudioState`, `set_*` change that state and report it like the sound server does. |
 | `AudioState` | Made from the situation and the real names (see [The world](#the-world-of-a-situation)). The real state is never passed on. |
-| `VoipProvider` (the plugin) | `TwinVoip`: participants from the situation, volume and mute stay in its memory. |
+| `VoipProvider` (the plugin) | `DemoProvider` (the provider of the demo mode): people from the situation, volume and mute stay in its memory. |
 | Meters (`pw-record` per target) | A signal generator fed through the same `Meter.feed_from()`, scaled by the gain of the target. |
 | `Launcher` (`launch`) | The `Launcher` with a `spawn` that does nothing (it takes one already). |
 | MQTT bridge, Home Assistant | None: `bridge=None`. Home Assistant never sees the twin. |
@@ -113,35 +113,35 @@ strips at another time. Tests give the names.
 ```python
 class Twin:
     """The strips of a configuration in a situation, on a device of their own."""
+
     def __init__(self, config: Config, situation: Situation): ...
-    def set_situation(self, situation: Situation) -> None: ...   # a new world, same engine and strips
-    def set_names(self, names: Names) -> None: ...               # the real applications and people changed
-    def reconfigure(self, config: Config) -> None: ...           # like a reload: ids carry over
-    def play(self, event: StripEvent) -> None: ...               # a hand on the twin
-    def view(self) -> TwinView: ...                              # strips of the mirror + slots, states, why
-    async def run(self) -> None: ...                             # the steps, the meters; cancelled by close()
+    def set_situation(self, situation: Situation) -> None: ...  # a new world, same engine and strips
+    def set_names(self, names: Names) -> None: ...  # the real applications and people changed
+    def reconfigure(self, config: Config) -> None: ...  # like a reload: ids carry over
+    def play(self, event: StripEvent) -> None: ...  # a hand on the twin
+    def view(self) -> TwinView: ...  # strips of the mirror + slots, states, why
+    async def run(self) -> None: ...  # the steps, the meters; cancelled by close()
     def close(self) -> None: ...
 ```
 
-It owns a `Surface(port=NoPort())`, a `Desk(surface, chord, on_chord, capture=synthetic)`, a `SlotEngine(config,
-state_dir=None)`, a `SlotMixer(surface, TwinBackend, config, engine, desk, TwinVoip, bridge=None, players=None,
+It owns a `Surface(port=NoPort())`, a `Desk(surface, chord, on_chord, capturer=pulse)`, a `SlotEngine(config,
+state_dir=None, logger=...)`, a `SlotMixer(surface, TwinBackend, config, engine, desk, DemoProvider, bridge=None, players=None,
 launcher=Launcher(spawn=...))`, and a task that steps the engine like `Daemon._follow_slots` does (wake on a change
 of the world, the deadline of a delay or a dwell, every `PROCESS_INTERVAL`). The loop that both need is factored out
 of the daemon (`runtime/follow.py`, `follow_slots(wake, deadline, step)`); the step itself differs (the daemon has
 banner, entities and the real sources, the twin its world) and stays in each.
 
-The twin shows its strips like the device after a connect: `Surface.light_up()` (the `send_colors()` of a connect, new
-and public) once at the start, since the strips are dark until their colors are sent.
+The twin's strips are lit by the first step: `Surface` writes every color and text into its mirror, connected or not.
 
 ### Seams that the twin needs in the existing code
 
 | Where | Change |
 |---|---|
-| `hardware/surface.py` | `NoPort` (a `Port` that is never there), `light_up()`. Nothing else: `Surface` already mirrors without a transport. |
-| `audio/meter.py`, `runtime/desk.py` | `Meter(..., capture=capture)` and `Desk(..., capture=...)`: the function that feeds peaks of a target. The default is `capture()` (a process); the twin's feeds a fixed, slowly changing pattern while the target plays. |
+| `hardware/surface.py` | `NoPort` (a `Port` that is never there), `hand(data)` (bytes as if the device sent them). Nothing else: `Surface` already mirrors without a transport. |
+| `audio/meter.py`, `runtime/desk.py` | `Meter(..., capturer=...)` and `Desk(..., capturer=...)`: the function that feeds peaks of a target (`Capturer`, with the gain it is told). The default is `capture()` (a process); the twin's feeds a fixed, slowly changing pattern while the target plays. |
 | `runtime/slots.py` | `SlotEngine(..., logger=...)`. The situation (`what_if`, `simulate()`, `active`) stays: it is the real device's. |
 | `slots/outcomes.py`, `slots/world.py` | `Situation.observation()` stays for the real device; `slots/world.py` is new (the twin's world). `simulate()` and `outcomes()` stay: `check-config` and the table of Simulate's inputs use them. |
-| `voip/` | `TwinVoip(VoipProvider)`: `update()` with the people of the world; `set_volume` and `set_muted` keep them in the provider. |
+| `voip/` | `DemoProvider.set_people(names)`: the people of the world, volume and mute of those who stay are kept. |
 | `runtime/daemon.py` | Twins by client, fed with the real names. `preview()` and `snapshot().simulated` stay. |
 | `live/messages.py`, `codec.py`, `server.py` | See [The protocol](#the-protocol). |
 
@@ -154,22 +154,28 @@ owner only.
 @dataclass(frozen=True)
 class StartTwin:
     """Run `config` (the whole TOML text) in `situation` on a twin of your own; again: the twin follows."""
+
     config: str
     situation: Situation
 
-class KeepTwin: ...   # the heartbeat, as KeepPreview
-class EndTwin: ...    # the twin is gone
+
+class KeepTwin: ...  # the heartbeat, as KeepPreview
+
+
+class EndTwin: ...  # the twin is gone
+
 
 @dataclass(frozen=True)
-class Play:           # gets `twin: bool = False`: the hand is on the twin
+class Play:  # gets `twin: bool = False`: the hand is on the twin
     event: StripEvent
     twin: bool = False
 
+
 @dataclass(frozen=True)
 class TwinView:
-    config: str                 # fingerprint(config) of the twin, as Snapshot.config
+    config: str  # fingerprint(config) of the twin, as Snapshot.config
     strips: tuple[StripState, ...]
-    slots: SlotsState           # slots, states, mode, why and who waits: the twin's
+    slots: SlotsState  # slots, states, mode, why and who waits: the twin's
 ```
 
 - Replies: `Reply("twin", ok, message)` to `StartTwin` (the errors of the configuration as in "preview"),
@@ -181,7 +187,7 @@ class TwinView:
 - One twin per connection. A twin ends with `EndTwin`, with its connection, and after `TWIN_TIMEOUT` (10 s) without
   `KeepTwin`.
 - Security: as `StartPreview`, only the user's own clients (`peer_uid`). The configuration text may hold secrets
-  (`[mqtt]`); the twin ignores `[mqtt]` and `[voip]` providers (it builds `TwinVoip`, never a socket).
+  (`[mqtt]`); the twin ignores `[mqtt]` and `[voip]` providers (it builds a `DemoProvider`, never a socket).
 
 ### The twin's own hands
 
@@ -223,8 +229,8 @@ sets the overrides and the mode picked again, so the bar wins when it is clicked
 
 ## Implementation order
 
-1. Seams: `NoPort`, `light_up()`, `Meter`/`Desk` capture, `SlotEngine` logger, `follow_slots()`.
-2. `slots/world.py` and `TwinBackend`, `TwinVoip`; `Twin`, unit-tested without a daemon: a twin of the example
+1. Seams: `NoPort`, `hand()`, `Meter`/`Desk` capture, `SlotEngine` logger, `follow_slots()`.
+2. `slots/world.py` and `TwinBackend`, `DemoProvider`; `Twin`, unit-tested without a daemon: a twin of the example
    configuration shows its slots; the real backend of the daemon is never called.
 3. Protocol: messages, codec, `LiveServer.tell_view`, the daemon's twins.
 4. GUI: Simulate on the twin, the drawing, the cards, Play; delete `simulated()` / `simulated_faces()`.

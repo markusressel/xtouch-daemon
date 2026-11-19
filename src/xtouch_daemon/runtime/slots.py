@@ -52,8 +52,13 @@ class SlotEngine:
         state_dir: Path | None = None,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
+        logger: logging.Logger = _LOGGER,
     ):
-        """`state_dir` keeps the choices and the people (None: nowhere); `wall_clock` is the clock of the files."""
+        """
+        `state_dir` keeps the choices and the people (None: nowhere); `wall_clock` is the clock of the files; `logger`
+        is where the states and slots are logged (a twin logs elsewhere).
+        """
+        self.logger = logger
         self.config = config
         self.scene = config.slots.scene
         self.state_dir = state_dir
@@ -312,19 +317,17 @@ class SlotEngine:
         self._chosen = choices
         write_choices(self.state_dir / CHOICES_FILE_NAME, choices)
 
-    @staticmethod
-    def _log_states(before: States | None, after: States) -> None:
+    def _log_states(self, before: States | None, after: States) -> None:
         if before is None:
             on = [name for name, value in after.values.items() if value]
-            _LOGGER.info(f"States at the start: {', '.join(on) or 'none'}")
+            self.logger.info(f"States at the start: {', '.join(on) or 'none'}")
             return
         for name, value in after.values.items():
             if before.values.get(name) != value:
                 why = f" ({after.reasons[name]})" if value and after.reasons.get(name) else ""
-                _LOGGER.info(f"State {name} {'on' if value else 'off'}{why}")
+                self.logger.info(f"State {name} {'on' if value else 'off'}{why}")
 
-    @staticmethod
-    def _log_slots(before: Result | None, after: Result) -> None:
+    def _log_slots(self, before: Result | None, after: Result) -> None:
         changes = [
             f"{slot} {shown}"
             for slot, shown in after.slots.items()
@@ -332,10 +335,10 @@ class SlotEngine:
         ]
         if not changes:
             return
-        _LOGGER.info(f"Slots: {', '.join(changes)}")
+        self.logger.info(f"Slots: {', '.join(changes)}")
         for slot in after.slots:
             if before is None or str(before.slots[slot]) != str(after.slots[slot]):
-                _LOGGER.debug(f"Slot {slot}: {'; '.join(after.why[slot])}")
+                self.logger.debug(f"Slot {slot}: {'; '.join(after.why[slot])}")
 
 
 class EngineSlot:

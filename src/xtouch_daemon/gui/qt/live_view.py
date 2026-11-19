@@ -8,7 +8,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtNetwork import QLocalSocket
 
 from xtouch_daemon.live.codec import decode_message, encode_request
-from xtouch_daemon.live.messages import Reply, Request, Snapshot
+from xtouch_daemon.live.messages import Reply, Request, Snapshot, TwinView
 from xtouch_daemon.live.server import peer_uid
 
 
@@ -21,6 +21,8 @@ class LiveView(QObject):
 
     changed = pyqtSignal(object, arguments=["snapshot"])
     replied = pyqtSignal(object, arguments=["reply"])
+    twin_changed = pyqtSignal(object, arguments=["view"])
+    """Every new view of the virtual twin of this window (see `StartTwin`), None when it is gone."""
 
     def __init__(self, path: Path, parent: QObject | None = None):
         """`parent` is the window it belongs to: it ends with it, so the socket tells nothing to a closed window."""
@@ -28,6 +30,8 @@ class LiveView(QObject):
         super().__init__(parent)  # pyright: ignore[reportArgumentType]
         self.path = path
         self.snapshot: Snapshot | None = None
+        self.twin: TwinView | None = None
+        """The latest view of the virtual twin of this window, None without one."""
         self.owned = False
         """
         Whether the daemon at the other end runs as this user, so requests (which carry the configuration with its
@@ -64,18 +68,31 @@ class LiveView(QObject):
     def _read(self) -> None:
         # only the latest complete snapshot counts, each is the whole state; every reply counts
         latest: Snapshot | None = None
+        view: TwinView | None = None
         while self.socket.canReadLine():
             message = decode_message(bytes(self.socket.readLine().data()))
             if isinstance(message, Reply):
                 self.replied.emit(message)
+            elif isinstance(message, TwinView):
+                view = message
             elif message is not None:
                 latest = message
+        if view is not None:
+            self.twin = view
+            self.twin_changed.emit(view)
         if latest is not None:
             self.snapshot = latest
             self.changed.emit(latest)
 
+    def forget_twin(self) -> None:
+        """The twin is gone (ended, or its window closed): its last view is not shown any more."""
+        if self.twin is not None:
+            self.twin = None
+            self.twin_changed.emit(None)
+
     def _lost(self) -> None:
         self.owned = False
+        self.forget_twin()
         if self.snapshot is None:
             return
         self.snapshot = None

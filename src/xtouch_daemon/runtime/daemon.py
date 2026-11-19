@@ -14,6 +14,7 @@ import logging
 import signal
 import time
 from collections.abc import Callable, Coroutine
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, assert_never
 
@@ -27,13 +28,14 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path, load_config, parse_config
 from xtouch_daemon.config.model import Config
-from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.hardware.transport import AlsaPort, Port, SocketPort
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
+    EndTwin,
     KeepPreview,
+    KeepTwin,
     MqttState,
     Play,
     Reply,
@@ -42,19 +44,24 @@ from xtouch_daemon.live.messages import (
     SetOverride,
     Snapshot,
     StartPreview,
-    VoipState,
+    StartTwin,
+    TwinView,
     fingerprint,
 )
-from xtouch_daemon.live.server import LiveServer, strip_states
+from xtouch_daemon.live.server import LiveServer, strip_states, voip_state
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.binder import SlotMixer
-from xtouch_daemon.runtime.desk import Desk
+from xtouch_daemon.runtime.desk import Desk, touchless
+from xtouch_daemon.runtime.follow import follow_slots
 from xtouch_daemon.runtime.homeassistant import SlotEntities
 from xtouch_daemon.runtime.slots import BATCH as SLOTS_BATCH
 from xtouch_daemon.runtime.slots import PROCESS_INTERVAL, SlotEngine
+from xtouch_daemon.runtime.twin import Twin
 from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Situation
+from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.states import Override
+from xtouch_daemon.slots.world import Names
 from xtouch_daemon.system import instance, systemd
 from xtouch_daemon.system.processes import running_processes
 from xtouch_daemon.voip import VoipProvider, build_provider
@@ -65,6 +72,10 @@ SHUTDOWN_TIMEOUT = 4.0
 """How long the faders may take to move down when the daemon stops (they go slowly, see FADER_SLOW_SMOOTH_TIME)."""
 PREVIEW_TIMEOUT = 10.0
 """How long a preview runs without a request of its GUI (`live.KeepPreview`) before the daemon goes back to the file."""
+TWIN_TIMEOUT = 10.0
+"""How long a virtual twin runs without a request of its GUI (`live.KeepTwin`) before the daemon ends it."""
+TWIN_INTERVAL = 0.1
+"""How often the views of the twins go to their clients (and their heartbeats are checked)."""
 PREVIEW_CHECK = 1.0
 """How often a running preview checks for its GUI and whether the configuration file changed."""
 MANUAL = "manual"
@@ -85,19 +96,6 @@ def mqtt_state(bridge: MqttBridge) -> MqttState:
     )
 
 
-def voip_state(provider: VoipProvider) -> VoipState:
-    """The voice chat, for the live view."""
-    return VoipState(
-        provider=provider.name,
-        connected=provider.connected,
-        client=provider.client,
-        channel=provider.channel,
-        participants=len(provider.participants),
-        names=tuple(participant.name for participant in provider.participants),
-        ids=tuple(participant.id for participant in provider.participants),
-    )
-
-
 def device_port(name: str, virtual: bool) -> Port:
     """How to reach the device named `name`, or the virtual device (`[device] virtual`)."""
     return SocketPort(instance.virtual_device_socket_file()) if virtual else AlsaPort(name)
@@ -108,11 +106,16 @@ def device_surface(name: str, virtual: bool) -> Surface:
     return Surface(port=device_port(name, virtual))
 
 
-def touchless(config: Config) -> frozenset[int]:
-    """The strips (from 0) whose fader moves count without a touch: all of them without `touch_required`."""
-    if not config.device.touch_required:
-        return frozenset(range(protocol.STRIPS))
-    return frozenset(number - 1 for number in config.device.touchless_faders)
+@dataclass
+class TwinSession:
+    """The virtual twin of a client of the live view."""
+
+    twin: Twin
+    task: asyncio.Task[None]
+    seen: float
+    """When the client sent its last request for it (the time of the event loop)."""
+    last: TwinView | None = None
+    """What the client was sent last."""
 
 
 class Daemon:
@@ -150,6 +153,8 @@ class Daemon:
         self._preview_seen = 0.0
         """When the previewer sent its last request (the time of the event loop)."""
         self._watchdog: asyncio.Task[None] | None = None
+        self._twins: dict[object, TwinSession] = {}
+        """The virtual twins (see `runtime.twin`), by the client of the live view that asked for them."""
         self._file_stamp = self._stamp()
         self.backend = backend
         self.surface = surface or device_surface(config.device.name, config.device.virtual)
@@ -357,22 +362,15 @@ class Daemon:
             self.slots.toggle(action.removeprefix("toggle:"))
 
     async def _follow_slots(self) -> None:
-        """
-        Resolves the slots: SLOTS_BATCH after a change (what comes together goes together), when a delay or a dwell
-        ends, and every PROCESS_INTERVAL for the processes.
-        """
-        while True:
-            timeout = PROCESS_INTERVAL
-            if (deadline := self.slots.deadline()) is not None:
-                timeout = min(timeout, max(0.0, deadline - time.monotonic()))
-            with contextlib.suppress(TimeoutError):
-                # at least a moment: a deadline that is due must not keep the others from their turn
-                await asyncio.wait_for(self._slots_wake.wait(), max(timeout, 0.001))
-            if self._slots_wake.is_set():
-                await asyncio.sleep(SLOTS_BATCH)
-                self._slots_wake.clear()
-            if self.mixer.state.connected:
-                self._step_slots()
+        """Resolves the slots, see `follow_slots()`."""
+        await follow_slots(
+            self._slots_wake,
+            self.slots.deadline,
+            self._step_slots,
+            PROCESS_INTERVAL,
+            SLOTS_BATCH,
+            lambda: self.mixer.state.connected,
+        )
 
     def _step_slots(self) -> None:
         """One step of the slots: the slots that changed show their new controllers, the banner if the mode did."""
@@ -407,6 +405,15 @@ class Daemon:
         match request:
             case StartPreview(config=text, situation=situation):
                 return self.preview(client, text, situation)
+            case StartTwin(config=text, situation=situation):
+                return self.start_twin(client, text, situation)
+            case KeepTwin():
+                if (session := self._twins.get(client)) is not None:
+                    session.seen = asyncio.get_running_loop().time()
+                return None
+            case EndTwin():
+                self._end_twin(client, None)
+                return None
             case KeepPreview():
                 if client is self._previewer:
                     self._preview_seen = asyncio.get_running_loop().time()
@@ -419,6 +426,10 @@ class Daemon:
                 return self.request_mode(name)
             case SetOverride(state=name, value=value):
                 return self.request_override(name, value)
+            case Play(event=event, twin=True):
+                if (session := self._twins.get(client)) is not None:
+                    session.twin.play(event)
+                return None
             case Play(event=event):
                 self.surface.play(event)
                 return None
@@ -427,6 +438,7 @@ class Daemon:
 
     def on_client_closed(self, client: object) -> None:
         """A client of the live view went away; if it previewed (the GUI was closed or crashed), the file runs again."""
+        self._end_twin(client, None)
         if client is self._previewer:
             self._back_to_file("the GUI went away")
 
@@ -475,6 +487,66 @@ class Daemon:
         ):
             return Reply("preview", True, "The device name and virtual change when the file is saved.")
         return Reply("preview", True)
+
+    # -- virtual twins ----------------------------------------------------------------------------------------------
+
+    def _names(self) -> Names:
+        """What is real right now, as plain strings, for the stand-ins of a twin."""
+        return Names.of(Observer().observe(self.mixer.state, frozenset(), voip_state(self.voip), time.monotonic()))
+
+    def start_twin(self, client: object, text: str, situation: Situation) -> Reply:
+        """
+        Runs the configuration `text` in `situation` on a twin of `client` (a new one, or the one it has: it follows).
+        One with errors is not used: the reply tells them, and the twin it had keeps running.
+        """
+        try:
+            config = parse_config(text, "The configuration of the twin")
+        except ConfigError as e:
+            return Reply("twin", False, str(e))
+        if situation.mode not in (DEFAULT, *config.slots.scene.modes):
+            return Reply("twin", False, f"No mode {situation.mode} in the configuration.")
+        now = asyncio.get_running_loop().time()
+        session = self._twins.get(client)
+        if session is None:
+            twin = Twin(config, situation, self._names())
+            task = asyncio.create_task(twin.run(), name="virtual twin")
+            self._twins[client] = TwinSession(twin, task, now)
+            _LOGGER.debug("A virtual twin for a client of the live view")
+            return Reply("twin", True)
+        session.seen = now
+        if fingerprint(config) != fingerprint(session.twin.config):
+            session.twin.reconfigure(config)
+        session.twin.set_situation(situation)
+        return Reply("twin", True)
+
+    def _end_twin(self, client: object, why: str | None) -> None:
+        """Ends the twin of a client, if it has one; with a `why` the client is told."""
+        session = self._twins.pop(client, None)
+        if session is None:
+            return
+        session.task.cancel()
+        session.twin.close()
+        if why is not None and self.live is not None:
+            self.live.tell(client, Reply("twin_ended", True, why))
+        _LOGGER.debug(f"A virtual twin ended: {why or 'the client asked, or went away'}")
+
+    async def _follow_twins(self) -> None:
+        """Sends each client the view of its twin when it changed, and ends the twins that nobody keeps."""
+        while True:
+            await asyncio.sleep(TWIN_INTERVAL)
+            if not self._twins:
+                continue
+            now = asyncio.get_running_loop().time()
+            names = self._names()
+            for client, session in list(self._twins.items()):
+                if now - session.seen > TWIN_TIMEOUT:
+                    self._end_twin(client, f"no word from the GUI for {TWIN_TIMEOUT:.0f} s")
+                    continue
+                session.twin.set_names(names)
+                view = session.twin.view()
+                if view is not None and view != session.last and self.live is not None:
+                    session.last = view
+                    self.live.tell_view(client, view)
 
     def _end_preview(self, reason: str) -> bool:
         """Ends the preview (the previewer is told why) without changing what runs; False when none ran."""
@@ -527,6 +599,7 @@ class Daemon:
         self._start_mixer()
         self._start_voip()
         self._in_background(self._follow_slots(), "slots")
+        self._in_background(self._follow_twins(), "virtual twins")
         if self.live is not None:
             # not one of the parts: the daemon works without it
             self._in_background(self.live.run(), "live view")
@@ -568,6 +641,8 @@ class Daemon:
         """
         _LOGGER.info("Stopping")
         self.surface.on_event = lambda event: None
+        for client in list(self._twins):
+            self._end_twin(client, "the daemon stops")
         self.mixer.close()
         self.desk.close()
         if self.bridge is not None:

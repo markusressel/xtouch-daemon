@@ -436,6 +436,13 @@ class Surface:
         if strip.fader is not None:
             self.glide(strip)
 
+    def hand(self, data: bytes) -> None:
+        """
+        What a hand on a device without one (a virtual twin) sends: taken as the device's own bytes, so the touch
+        grace, the touchless faders and the mirror work as for a device.
+        """
+        self._on_data(data)
+
     def play(self, event: protocol.StripEvent) -> None:
         """
         An event of a hand from elsewhere (the GUI's, see `live.Play`), taken as if the device sent it: a fader is

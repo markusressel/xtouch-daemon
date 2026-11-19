@@ -11,8 +11,9 @@ import asyncio
 from collections.abc import Callable, Sequence
 from typing import Protocol, assert_never
 
-from xtouch_daemon.audio.meter import PW_RECORD, CaptureTarget, Meter, Reading, leds_of
+from xtouch_daemon.audio.meter import PW_RECORD, Capturer, CaptureTarget, Meter, Reading, leds_of
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
+from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.values import MeterPoint
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
@@ -57,6 +58,13 @@ class Presenter(Hands, Protocol):
     def held_meter(self, point: MeterPoint) -> Reading | None: ...
 
 
+def touchless(config: Config) -> frozenset[int]:
+    """The strips (from 0) whose fader moves count without a touch: all of them without `touch_required`."""
+    if not config.device.touch_required:
+        return frozenset(range(protocol.STRIPS))
+    return frozenset(number - 1 for number in config.device.touchless_faders)
+
+
 class Desk:
     """
     The strips of the device and the hands on them. `bind()` gives a strip (from 0) its presenter; `hands_free` are
@@ -71,6 +79,7 @@ class Desk:
         chord: frozenset[int] = frozenset(),
         on_chord: Callable[[], None] = lambda: None,
         capture_command: str = PW_RECORD,
+        capturer: Capturer | None = None,
     ):
         self.surface = surface
         self.chord = chord
@@ -89,11 +98,11 @@ class Desk:
         self._held_solos: set[int] = set()
         self.state: AudioState = DISCONNECTED
         """The audio state the presenters show, for the meters (see `watch()`)."""
-        self.meters = [self._meter(strip, capture_command) for strip in range(len(surface.strips))]
+        self.meters = [self._meter(strip, capture_command, capturer) for strip in range(len(surface.strips))]
         """The meter of each strip of the device."""
         surface.on_event = self.dispatch
 
-    def _meter(self, strip: int, command: str) -> Meter:
+    def _meter(self, strip: int, command: str, capturer: Capturer | None) -> Meter:
         def playing(target: CaptureTarget) -> bool:
             presenter = self.presenters[strip]
             return presenter is not None and presenter.is_playing(target, self.state)
@@ -102,7 +111,7 @@ class Desk:
             presenter = self.presenters[strip]
             return presenter.target_gain(target, self.state) if presenter is not None else None
 
-        return Meter(playing, command, gain=gain)
+        return Meter(playing, command, gain=gain, capturer=capturer)
 
     def bind(self, strip: int, presenter: Presenter | None, meter_point: MeterPoint = "pre_fader") -> None:
         """

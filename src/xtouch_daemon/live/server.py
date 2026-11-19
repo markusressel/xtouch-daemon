@@ -15,8 +15,9 @@ from pathlib import Path
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.surface import Surface
-from xtouch_daemon.live.codec import decode_request, encode, encode_reply
-from xtouch_daemon.live.messages import Reply, Request, Snapshot, StripState
+from xtouch_daemon.live.codec import decode_request, encode, encode_reply, encode_twin
+from xtouch_daemon.live.messages import Reply, Request, Snapshot, StripState, TwinView, VoipState
+from xtouch_daemon.voip.provider import VoipProvider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,6 +59,19 @@ def strip_states(surface: Surface, now: float) -> tuple[StripState, ...]:
             )
         )
     return tuple(states)
+
+
+def voip_state(provider: VoipProvider) -> VoipState:
+    """The voice chat, for the live view."""
+    return VoipState(
+        provider=provider.name,
+        connected=provider.connected,
+        client=provider.client,
+        channel=provider.channel,
+        participants=len(provider.participants),
+        names=tuple(participant.name for participant in provider.participants),
+        ids=tuple(participant.id for participant in provider.participants),
+    )
 
 
 def _led_name(led: Led) -> str:
@@ -125,6 +139,12 @@ class LiveServer:
         if client in self.clients:
             assert isinstance(client, asyncio.StreamWriter)
             self._send(client, encode_reply(reply))
+
+    def tell_view(self, client: object, view: TwinView) -> None:
+        """Sends the view of the twin of `client` to it alone. Nothing for one that is gone."""
+        if client in self.clients:
+            assert isinstance(client, asyncio.StreamWriter)
+            self._send(client, encode_twin(view))
 
     def _publish(self, line: bytes) -> None:
         if line == self._last:

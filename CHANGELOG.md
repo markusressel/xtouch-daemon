@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Simulate runs on a virtual twin of the device in the daemon: a second set of strips with its own made-up sound
+  server and voice chat (real names first), driven by the real engine, that touches nothing real. The drawing is only
+  ever a mirror of a device the daemon drives; Play works on the twin. Simulate needs a running daemon: without one
+  the GUI says how to install and start it.
 - Pools of your own for applications and people: `[pool.<id>]` with `kind = "apps"` (`match`, `exclude`, `from`,
   `hold`, look) or `kind = "people"` (`people`, `from`, look). Each member gets a strip, a pool takes its members
   before `apps`, `people` and `auto`, and only while a slot names it. The GUI adds "Pool of applications" and "Pool of

@@ -17,7 +17,7 @@ VERSION = 1
 """Changes when a line means something else; a client ignores lines of another version."""
 
 
-FEATURES = ("preview", "mode", "override", "play", "situation")
+FEATURES = ("preview", "mode", "override", "play", "situation", "twin")
 """The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 
 
@@ -156,6 +156,19 @@ class Snapshot:
 
 
 @dataclass(frozen=True)
+class TwinView:
+    """
+    What the virtual twin of a client shows (see `StartTwin`): its strips as its mirror of the device has them, and
+    its slots, states and mode. Sent to the client that asked for the twin only.
+    """
+
+    config: str
+    """The `fingerprint()` of the configuration the twin runs."""
+    strips: tuple[StripState, ...]
+    slots: SlotsState
+
+
+@dataclass(frozen=True)
 class StartPreview:
     """
     Run this configuration (the whole TOML text, None: the file's) instead of the file, without writing the file,
@@ -167,6 +180,29 @@ class StartPreview:
 
     config: str | None
     situation: Situation | None = None
+
+
+@dataclass(frozen=True)
+class StartTwin:
+    """
+    Run `config` (the whole TOML text) in `situation` on a virtual twin of this client (see
+    `docs/development/design/virtual-twin.md`); sent again, the twin follows. The daemon answers with a `Reply` of
+    kind "twin" and from then on sends the client a `TwinView` with every change. The twin ends with `EndTwin`, with
+    the connection, and without a request for `daemon.TWIN_TIMEOUT` (see `KeepTwin`).
+    """
+
+    config: str
+    situation: Situation
+
+
+@dataclass(frozen=True)
+class KeepTwin:
+    """The heartbeat of a twin."""
+
+
+@dataclass(frozen=True)
+class EndTwin:
+    """The twin of this client is not needed any more."""
 
 
 @dataclass(frozen=True)
@@ -205,11 +241,13 @@ class Play:
     """
 
     event: StripEvent
+    twin: bool = False
+    """The hand is on the virtual twin of this client, not on the device."""
 
 
-type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride | Play
+type Request = StartPreview | KeepPreview | EndPreview | StartTwin | KeepTwin | EndTwin | SetMode | SetOverride | Play
 
-type ReplyKind = Literal["preview", "ended", "mode", "override", "error"]
+type ReplyKind = Literal["preview", "ended", "twin", "twin_ended", "mode", "override", "error"]
 
 
 @dataclass(frozen=True)
@@ -217,8 +255,9 @@ class Reply:
     """
     An answer of the daemon, or news for a client. "preview": whether a `StartPreview` runs now (`message` says why
     not, e.g. the errors of the configuration, as `check-config` tells them). "ended": the preview of this client
-    ended, `message` says why. "mode" and "override": whether a `SetMode` (`message` is the mode then, or why not)
-    or a `SetOverride` was carried out. "error": a request could not
+    ended, `message` says why. "twin": whether a `StartTwin` runs now (`message` says why not); "twin_ended": the twin
+    of this client ended, `message` says why. "mode" and "override": whether a `SetMode` (`message` is the mode then,
+    or why not) or a `SetOverride` was carried out. "error": a request could not
     be read, or is not allowed.
     """
 

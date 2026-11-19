@@ -2,17 +2,34 @@
 The slots on the page Device: the state bar, a card per slot, the inspector, and editing the stacks.
 """
 
+import dataclasses
+
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QDropEvent
 from PyQt6.QtWidgets import QComboBox, QFrame, QPushButton, QToolButton
 from PyQt6.QtWidgets import QLabel as QLabelType
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import click, pill, plain
+from tests.support.gui import FakeLiveDaemon, MakeWindow, click, pill, plain, strip_state
+from tests.support.gui import snapshot as device_snapshot
+from xtouch_daemon.gui.domain.simulate import WhatIf
 from xtouch_daemon.gui.qt.pages.slot_cards import CandidateRow, StackList
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
-from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot, StateView
+from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.live.messages import (
+    EndTwin,
+    Play,
+    Request,
+    SetMode,
+    SetOverride,
+    SlotsState,
+    SlotView,
+    Snapshot,
+    StartTwin,
+    StateView,
+    TwinView,
+)
 
 
 def panel(window: MainWindow) -> SlotsPanel:
@@ -239,47 +256,68 @@ def test_controls_of_a_slot_are_listed(window: MainWindow):
     assert plain(panel(window).controls.text()) == "[controls] claims parts of slot 1: select: toggle:call."
 
 
-def test_simulate_shows_what_the_slots_would_show(qtbot: QtBot, window: MainWindow):
+def test_simulate_needs_a_daemon(window: MainWindow):
+    page = panel(window)
+    assert not page.simulate_button.isEnabled()
+    assert "no daemon runs" in page.simulate_button.toolTip()
+    page.simulate(WhatIf())
+    assert page.what_if is None
+
+
+def test_simulate_runs_on_the_virtual_twin_of_the_daemon(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
+):
+    window = make_window(live_socket=live_daemon.path)
     page = panel(window)
     device = window.device_view
     window.document.set(("state", "gaming"), {"mode": True, "processes": ["steam"]})
     window.document.set(("slots", "3"), ["browser if gaming", "-"])
     window.editor.edited()
-    sent: list[Request] = []
-    page.request = lambda request: sent.append(request) is None
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    first = strip_state(("Real", "1%"), color="cyan")
+    live_daemon.send(dataclasses.replace(device_snapshot(window, first), features=("twin",)))
+    qtbot.waitUntil(lambda: page.simulate_button.isEnabled())
 
     page.simulate_button.click()
     assert page.what_if is not None
     assert device.preview.simulating
     assert page.state_bar_row.isHidden()
     assert not page.what_if_row.isHidden()
-    # no state is on and nothing waits for a slot: auto has nothing, so the strip is dark
-    assert texts(page.lists[1]) == [
-        "1 when call → browser ✗ call is off",
-        "2 when app or person without a slot → auto ✗ no app or person without a slot",
-        "▶ nothing to show: the strip is dark",
-    ]
-    assert texts(page.lists[2]) == ["1 when gaming → browser ✗ gaming is off", "▶ 2 otherwise → -"]
-    # no daemon: the drawing is dark (only the device shows strips), the cards simulate
-    assert device.preview.strips[0].face.look.printed == ""
-    assert device.preview.strips[2].face.state.color == "off"
+    qtbot.waitUntil(lambda: any(isinstance(request, StartTwin) for request in live_daemon.requests))
+    (start,) = [request for request in live_daemon.requests if isinstance(request, StartTwin)]
+    assert dataclasses.asdict(start.situation) == dataclasses.asdict(page.what_if)  # pyright: ignore[reportArgumentType]
+    assert "[slots]" in start.config
 
-    # the bar of what-ifs: the mode, the states, the presence the stacks ask about
+    # until the twin shows something the drawing is what it was, and the real device is not drawn
+    assert device.preview.strips[0].face.state.text == ("Real", "1%")
+    twin_first = strip_state(("Twin", "2%"), color="green")
+    slots = SlotsState(mode="default", mode_pick=None, slots=(), states=(), waiting={})
+    live_daemon.send_twin(TwinView(start.config, (twin_first, *(strip_state() for _ in range(7))), slots))
+    qtbot.waitUntil(lambda: device.preview.strips[0].face.state == twin_first)
+
+    # the bar of what-ifs goes to the twin again
     (mode,) = page.what_if_row.findChildren(QComboBox)
     mode.setCurrentText("gaming")
-    assert texts(page.lists[2]) == ["▶ 1 when gaming → browser", "2 otherwise → -"]
-    toggles = {toggle.text(): toggle for toggle in page.what_if_row.findChildren(QPushButton)}
-    toggles["call"].click()
-    assert texts(page.lists[1])[0] == "▶ 1 when call → browser"
-    assert why(page)[0] == "What if"
-    assert sent == []
+    qtbot.waitUntil(lambda: sum(isinstance(request, StartTwin) for request in live_daemon.requests) == 2)
+    last = live_daemon.requests[-1]
+    assert isinstance(last, StartTwin)
+    assert last.situation is not None
+    assert last.situation.mode == "gaming"
 
-    # Esc ends it
+    # Play plays on the twin
+    window.device_view.play_button.setChecked(True)
+    window.device_view.preview.device_hand.press(0, Button.MUTE, True)  # pyright: ignore[reportOptionalMemberAccess]
+    qtbot.waitUntil(lambda: any(isinstance(request, Play) and request.twin for request in live_daemon.requests))
+    window.device_view.select_button.setChecked(True)
+
+    # Esc ends it: the twin ends, the device is drawn again
     device.preview.strips[0].setFocus()
     qtbot.keyClick(device.preview.strips[0], Qt.Key.Key_Escape)
     assert page.what_if is None
     assert not device.preview.simulating
     assert not page.simulate_button.isChecked()
+    qtbot.waitUntil(lambda: any(isinstance(request, EndTwin) for request in live_daemon.requests))
+    assert device.preview.strips[0].face.state.text == ("Real", "1%")
 
     # a file with problems has nothing to simulate
     page.simulate_button.click()

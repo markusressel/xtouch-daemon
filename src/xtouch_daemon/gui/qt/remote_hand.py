@@ -10,22 +10,23 @@ from xtouch_daemon.live.messages import Play
 
 
 class RemoteHand:
-    """A `Hand` (see `Preview`) through the live view of the daemon."""
+    """A `Hand` (see `Preview`) through the live view of the daemon; with `twin`, on the virtual twin of this window."""
 
-    def __init__(self, live: LiveView):
+    def __init__(self, live: LiveView, twin: bool = False):
         self.live = live
+        self.twin = twin
 
     def touch(self, strip: int, touched: bool) -> None:
-        self.live.send(Play(protocol.FaderTouched(strip, touched)))
+        self.live.send(Play(protocol.FaderTouched(strip, touched), twin=self.twin))
 
     def move(self, strip: int, fraction: float, hand: bool = True) -> None:
-        self.live.send(Play(protocol.FaderMoved(strip, protocol.fader_value(fraction))))
+        self.live.send(Play(protocol.FaderMoved(strip, protocol.fader_value(fraction)), twin=self.twin))
 
     def press(self, strip: int, button: Button, pressed: bool) -> None:
-        self.live.send(Play(protocol.ButtonPressed(strip, button, pressed)))
+        self.live.send(Play(protocol.ButtonPressed(strip, button, pressed), twin=self.twin))
 
     def turn(self, strip: int, steps: int) -> None:
-        self.live.send(Play(protocol.EncoderTurned(strip, steps)))
+        self.live.send(Play(protocol.EncoderTurned(strip, steps), twin=self.twin))
 
     def push(self, strip: int, pressed: bool) -> None:
-        self.live.send(Play(protocol.EncoderPressed(strip, pressed)))
+        self.live.send(Play(protocol.EncoderPressed(strip, pressed), twin=self.twin))

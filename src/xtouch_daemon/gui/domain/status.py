@@ -89,15 +89,11 @@ PLAY = "play"
 def play_unavailable(snapshot: Snapshot | None, owned: bool, hosting: bool, simulating: bool) -> Reason | None:
     """
     Why the mouse can't be a hand on the device, None when it can: on the virtual device the GUI hosts, or on the
-    device of a daemon of this user that takes `Play` and has it connected. `simulating`: Simulate shows only the
-    drawing (it is not on the device), with no device to play on.
+    device of a daemon of this user that takes `Play` and has it connected. `simulating`: Simulate shows its virtual
+    twin in the daemon, which Play can always use (Simulate needs the daemon anyway).
     """
     if simulating:
-        return Reason(
-            "only in the drawing",
-            "Simulate shows what the slots would show, only in the drawing: turn on Try on the device to play it on "
-            "the device, or end it (Esc).",
-        )
+        return None
     if hosting:
         return None
     if snapshot is None:

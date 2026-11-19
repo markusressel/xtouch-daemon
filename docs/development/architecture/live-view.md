@@ -18,7 +18,7 @@ that on the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon.sock` (mode 0600, next t
   - the `fingerprint()` of the configuration in use;
   - `slots` (`SlotsState`): the mode and the one picked by hand; per slot the candidate, channel, pool, member and
     why; per state its value, `since`, `source` and override; per pool the members that wait;
-  - `preview`, `simulated` and `features` (what the daemon takes: `mode`, `override`, `play`, `preview`, `situation`).
+  - `preview`, `simulated` and `features` (what the daemon takes: `mode`, `override`, `play`, `preview`, `situation`, `twin`).
 - **Applied or not.** The fingerprint is a hash of the whole configuration (secrets included). The GUI compares it
   with the one of the saved file, so it can say whether the daemon took the file instead of assuming a reload worked
   (it keeps the old configuration when the new one has errors or a changed `[mqtt]`).
@@ -42,6 +42,16 @@ A client may send requests, a line of JSON each. Otherwise the GUI changes the d
 
 The GUI reads the socket with a `QLocalSocket`, without a thread, and connects again while the daemon runs. Without a
 daemon it shows what the file would show, and says so.
+
+## Virtual twin
+
+Simulate runs on a twin per client (`runtime/twin.py`, `Daemon.start_twin()`): a `Surface(port=NoPort())`, its own
+`Desk`, `SlotEngine`, `SlotMixer`, an in-memory `TwinBackend` and a `DemoProvider` as voice chat. It is built from the
+`Config` and the real `Names` (applications, people, devices, used as stand-ins first) only, so it touches nothing real.
+`slots/world.py` turns a `Situation` into its sound server and people. The protocol: `StartTwin`, `KeepTwin`, `EndTwin`,
+`Play(event, twin=True)`; replies `twin` and `twin_ended`; the view goes as a separate line `{"twin": ...}` to the owning
+client only (`LiveServer.tell_view`). A twin ends with its connection or after `TWIN_TIMEOUT` (10 s) without a request;
+the GUI beats every 3 s (`gui/qt/twin.py`). The design: [Virtual twin](../design/virtual-twin.md).
 
 ## Live preview
 

@@ -55,6 +55,7 @@ from xtouch_daemon.gui.domain.status import (
     preview_status,
     runs_older,
 )
+from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
 from xtouch_daemon.gui.qt.fields.controls import Switch
@@ -87,6 +88,7 @@ from xtouch_daemon.gui.qt.theme.settings import (
 )
 from xtouch_daemon.gui.qt.theme.style import apply_theme, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
+from xtouch_daemon.gui.qt.twin import TwinSession
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice
 from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.device_view import DeviceView
@@ -161,6 +163,7 @@ class MainWindow(QMainWindow):
         self.live = LiveView(live_socket or instance.socket_file(), self)
         self.live.changed.connect(lambda _: self.refresh_preview())
         self.live_preview = LivePreview(self.live, document)
+        self.twin = TwinSession(self.live, document)
         self.live_preview.changed.connect(self.refresh_preview)
         self.shown = False
         """Whether the window was shown: the first time the keys go to the strips."""
@@ -328,16 +331,29 @@ class MainWindow(QMainWindow):
             return self.audio
 
         self.slots_page = slots = SlotsPanel(
-            self.editor, audio, lambda: self.live.snapshot, self.live.send, self.show_channel
+            self.editor,
+            audio,
+            lambda: self.live.snapshot,
+            self.live.send,
+            self.show_channel,
+            lambda: self.live.twin.slots if self.live.twin is not None else None,
+            lambda: twin_unavailable(self.live.snapshot, self.live.owned),
         )
-        self.device_view = DeviceView(slots, RemoteHand(self.live), lambda: self.live.owned)
+        self.device_view = DeviceView(
+            slots,
+            RemoteHand(self.live),
+            RemoteHand(self.live, twin=True),
+            lambda: self.live.twin,
+            lambda: self.live.owned,
+        )
         self.device_view.close_virtual_device.connect(self.close_virtual_device)
         self.device_view.picked.connect(self.show_slot)
         self.device_view.moved.connect(self.move_slot)
         self.device_view.try_without_device.connect(self.try_without_device)
         self.device_view.use_virtual_device.connect(self.use_virtual_device)
         self.device_view.live_clicked.connect(self._mode_clicked)
-        slots.simulated.connect(lambda: self.live_preview.set_situation(slots.what_if if slots.simulation else None))
+        slots.simulated.connect(self._simulated)
+        self.live.twin_changed.connect(lambda _view: self.device_view.show_live(self.live.snapshot))
         self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
         self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
         self.pages: dict[str, Page] = {"slots": slots, "channels": self.channels_page, "states": self.states_page}
@@ -559,6 +575,7 @@ class MainWindow(QMainWindow):
         for widget in (self.redo_button, self.redo_action):
             widget.setEnabled(self.history.can_redo)
         self.live_preview.document_changed()
+        self.twin.document_changed()
         self.refresh_preview()
 
     def refresh_preview(self) -> None:
@@ -640,6 +657,12 @@ class MainWindow(QMainWindow):
         for widget in (self.save_button, self.save_action):
             widget.setEnabled(savable)
 
+    def _simulated(self) -> None:
+        """Simulate started, changed or ended: the virtual twin and (Try on the device) the device follow."""
+        situation = self.slots_page.what_if
+        self.twin.set_situation(situation)
+        self.live_preview.set_situation(situation)
+
     def _show_live_preview(self, snapshot: Snapshot | None) -> None:
         """
         The switch "Try on the device": there while there are changes to try (or they run), off and disabled while
@@ -654,7 +677,7 @@ class MainWindow(QMainWindow):
             preview.set_on(True)
         # without changes or a situation to show, the device runs the file anyway: nothing to switch (it stays on for
         # the next change)
-        simulating = self.slots_page.simulation is not None
+        simulating = self.slots_page.what_if is not None
         self.try_box.setVisible(self.document.modified or simulating or preview.running)
         self.slots_page.show_on_device(
             preview.on and preview.simulating and snapshot is not None and snapshot.simulated, reason is None

@@ -1,10 +1,9 @@
 """
-The device as it is right now (the live view of the daemon), or what Simulate on the page Slots shows (drawn by the
-GUI, or on the device with Try on the device): the window
-Device, docked or on its own, on every page. A bar above the drawing switches between Select (a click picks a slot,
-a drag moves it) and Play (the mouse is a hand on the device), and offers to try it without a device while no daemon
-runs; on its right the mode the device shows and whether the drawing is live. While the GUI hosts the virtual device,
-a second bar has what the mouse can't do on it.
+The device as it is right now (the live view of the daemon), or what Simulate on the page Slots shows (the virtual
+twin in the daemon, or the device with Try on the device): the window Device, docked or on its own, on every page. A
+bar above the drawing switches between Select (a click picks a slot, a drag moves it) and Play (the mouse is a hand on
+the device), and offers to try it without a device while no daemon runs; on its right the mode the device shows and
+whether the drawing is live. While the GUI hosts the virtual device, a second bar has what the mouse can't do on it.
 """
 
 from collections.abc import Callable
@@ -13,8 +12,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
-from xtouch_daemon.gui.domain.looks import device_faces
-from xtouch_daemon.gui.domain.simulate import simulated_faces
+from xtouch_daemon.gui.domain.looks import StripFace, device_faces, twin_faces
 from xtouch_daemon.gui.domain.slots import MODES
 from xtouch_daemon.gui.domain.status import Reason, Status, Tone, play_unavailable
 from xtouch_daemon.gui.qt.fields.basics import label, show_status
@@ -25,7 +23,7 @@ from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDeviceBar
-from xtouch_daemon.live.messages import SetMode, Snapshot
+from xtouch_daemon.live.messages import SetMode, Snapshot, TwinView
 from xtouch_daemon.slots.model import DEFAULT
 
 SELECT_TIP = "Select: a click picks a strip and its slot, dragging a strip (or Ctrl+Left/Right) moves its slot."
@@ -49,13 +47,27 @@ class DeviceView(QWidget):
     use_virtual_device = pyqtSignal(arguments=[])
     """"Use the virtual device": the daemon finds no device, so it drives the virtual one, hosted here."""
 
-    def __init__(self, slots: SlotsPanel, remote: Hand, owned: Callable[[], bool]) -> None:
-        """`remote`: the hand on the daemon's device; `owned`: whether the daemon runs as this user."""
+    def __init__(
+        self,
+        slots: SlotsPanel,
+        remote: Hand,
+        twin_hand: Hand,
+        twin: Callable[[], TwinView | None],
+        owned: Callable[[], bool],
+    ) -> None:
+        """
+        `remote`: the hand on the daemon's device; `twin_hand` and `twin`: the hand on the virtual twin of the window
+        and its latest view; `owned`: whether the daemon runs as this user.
+        """
         super().__init__()
         self.view_layout = layout = QVBoxLayout(self)
         layout.setContentsMargins(Space.S, Space.S, Space.S, Space.S)
         self.hosted: HostedDevice | None = None
         self.remote = remote
+        self.twin_hand = twin_hand
+        self.twin = twin
+        self.faces: tuple[StripFace, ...] = device_faces(None)
+        """What the drawing shows."""
         self.owned = owned
         self.daemon_runs = True
         """Whether a daemon runs (see `show_daemon`): without one, it offers to try without a device."""
@@ -204,23 +216,28 @@ class DeviceView(QWidget):
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         self.snapshot = snapshot
-        simulation = self.slots.simulation
-        config = self.slots.editor.validation.config
-        if simulation is not None and config is not None and snapshot is not None and not self.slots.on_device:
-            faces = simulated_faces(config.slots, simulation)
+        simulating = self.slots.what_if is not None
+        twin = self.twin()
+        if simulating and not self.slots.on_device:
+            # the virtual twin, until its first view the drawing stays as it is
+            faces = twin_faces(twin) if twin is not None else self.faces
         else:
             # the device as the daemon mirrors it, also while it shows the situation of Simulate; dark without a daemon
             faces = device_faces(snapshot)
-        self.preview.show_faces(faces, self.selected, simulating=simulation is not None)
+        self.faces = faces
+        self.preview.show_faces(faces, self.selected, simulating=simulating)
         self.slots.show_live(snapshot)
         self._show_mode()
 
     def _show_mode(self) -> None:
         """Which hand Play has (the hosted virtual device first), and why none while it has none."""
         hosting = self.hosted is not None
-        drawn = self.slots.simulation is not None and not self.slots.on_device
+        drawn = self.slots.what_if is not None and not self.slots.on_device
         reason = play_unavailable(self.snapshot, self.owned(), hosting, drawn)
-        self.preview.device_hand = None if reason is not None else self.hosted or self.remote
+        if reason is not None:
+            self.preview.device_hand = None
+        else:
+            self.preview.device_hand = self.twin_hand if drawn else self.hosted or self.remote
         if reason is not None and self.play_button.isChecked():
             self.select_button.setChecked(True)
         if self._opens_virtual_device():

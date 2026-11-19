@@ -26,8 +26,8 @@ from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
-from xtouch_daemon.live.codec import encode
-from xtouch_daemon.live.messages import Snapshot, StripState, fingerprint
+from xtouch_daemon.live.codec import decode_request, encode, encode_twin
+from xtouch_daemon.live.messages import Request, Snapshot, StripState, TwinView, fingerprint
 from xtouch_daemon.voip import mumble
 
 CONFIG = """\
@@ -175,6 +175,8 @@ class FakeLiveDaemon:
         self.server = QLocalServer()
         assert self.server.listen(str(path)), self.server.errorString()
         self.clients: list[QLocalSocket] = []
+        self.requests: list[Request] = []
+        """What the window asked for, in order."""
         self.server.newConnection.connect(self._connected)
 
     @property
@@ -186,6 +188,11 @@ class FakeLiveDaemon:
             client = self.server.nextPendingConnection()
             assert client is not None
             self.clients.append(client)
+            client.readyRead.connect(lambda client=client: self._read(client))
+
+    def _read(self, client: QLocalSocket) -> None:
+        while client.canReadLine():
+            self.requests.append(decode_request(bytes(client.readLine().data())))
 
     def send_line(self, line: bytes) -> None:
         for client in self.clients:
@@ -194,6 +201,9 @@ class FakeLiveDaemon:
 
     def send(self, snapshot: Snapshot) -> None:
         self.send_line(encode(snapshot))
+
+    def send_twin(self, view: TwinView) -> None:
+        self.send_line(encode_twin(view))
 
     def close(self) -> None:
         for client in self.clients:
