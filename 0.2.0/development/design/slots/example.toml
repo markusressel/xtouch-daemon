@@ -1,0 +1,77 @@
+# The complete example of docs/development/design/slots/index.md: the author's configuration in the format of
+# channels, states and slots. `xtouch-daemon simulate docs/development/design/slots/example.toml --table` prints what it
+# shows; a test keeps the table in the design in line with it.
+
+[channel.out]
+type = "output"
+color = "cyan"
+
+[[channel.out.choices]]
+label = "Phones"
+device = "alsa_output.pci-0000_11_00.4.analog-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:analog-stereo+input:analog-stereo"
+
+[[channel.out.choices]]
+label = "Speaker"
+device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
+card = "alsa_card.pci-0000_11_00.4"
+profile = "output:iec958-stereo+input:analog-stereo"
+max_volume = 200
+
+[[channel.out.choices]]
+label = "Buds"
+device = "bluez_output.*"
+
+[channel.browser]
+type = "apps"
+match = ["@browsers"]
+label = "Browser"
+color = "blue"
+meter = true
+
+[channel.game]
+type = "apps"
+match = ["@games"]
+label = "Game"
+
+[channel.voip]
+type = "apps"
+match = ["@voip"]
+label = "VoIP"
+color = "yellow"
+lit_when_idle = true
+in_pool = false             # notification sounds of Discord don't take an auto slot
+
+[channel.mic]
+type = "input"
+device = "alsa_input.pci-0000_11_00.4.analog-stereo"
+label = "Mic"
+color = "red"
+encoder = "balance"
+
+[pool.auto]
+color = "white"
+
+[pool.people]               # they take auto slots from the right (next to VoIP), applications from the left
+color = "yellow"
+
+[state.gaming]
+mode = true
+label = "Gaming"
+processes = ["@steam-games"]
+apps = ["@games"]
+
+[state.call]
+voice_chat = true
+recording = ["discord", "vesktop"]
+delay_on = 0               # voice_chat and recording have no blips to swallow
+delay_off = 5               # VoIP and Mic stay through a reconnect, not much longer
+
+[slots]
+1 = "out"                       # always the speaker/phones/buds
+2 = "browser"
+3 = ["game if gaming", "auto"]  # the game next to the browser
+4 = [{ show = "auto", rec = "recording" }]
+7 = ["voip if call", "auto"]
+8 = ["mic if call", "auto"]

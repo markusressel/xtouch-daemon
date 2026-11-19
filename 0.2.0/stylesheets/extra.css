@@ -1,0 +1,142 @@
+/*
+ * The colors of the GUI (src/xtouch_daemon/gui/qt/theme.py): One Dark for the dark scheme, GitHub's light colors for
+ * the light one. The body text is a little softer than the GUI's, for long reading: about 9:1 in the dark scheme and
+ * 12:1 in the light one (WCAG AA asks for 4.5:1), instead of the 15..20:1 of pure white on black or black on white.
+ */
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 220;
+  --md-default-bg-color: #282c34;
+  --md-default-bg-color--light: #282c34b3;
+  --md-default-bg-color--lighter: #282c344d;
+  --md-default-bg-color--lightest: #282c341f;
+  --md-default-fg-color: #d4d8de;
+  --md-default-fg-color--light: #a9b1bd;
+  --md-default-fg-color--lighter: #a9b1bd80;
+  --md-default-fg-color--lightest: #a9b1bd29;
+  --md-typeset-color: #c8cdd5;
+  --md-typeset-a-color: #61afef;
+  --md-primary-fg-color: #21252b;
+  --md-primary-fg-color--light: #2e333d;
+  --md-primary-fg-color--dark: #1b1f24;
+  --md-primary-bg-color: #d4d8de;
+  --md-primary-bg-color--light: #a9b1bd;
+  --md-accent-fg-color: #7cbdf2;
+  --md-accent-fg-color--transparent: #61afef1f;
+  --md-code-bg-color: #21252b;
+  --md-code-fg-color: #c8cdd5;
+  --md-footer-bg-color: #21252b;
+  --md-footer-bg-color--dark: #1b1f24;
+  --md-footer-fg-color: #d4d8de;
+  --md-footer-fg-color--light: #a9b1bd;
+  --md-footer-fg-color--lighter: #8f96a3;
+  --md-typeset-table-color: #3b414d;
+  --md-admonition-bg-color: #2e333d;
+}
+
+/* the theme makes the headings of the dark scheme pure white */
+[data-md-color-scheme="slate"] .md-typeset :is(h1, h2, h3, h4, h5, h6),
+[data-md-color-scheme="slate"] .md-header__title {
+  color: #e6e6e6;
+}
+
+[data-md-color-scheme="default"] {
+  --md-default-bg-color: #fbfcfd;
+  --md-default-fg-color: #1f2328;
+  --md-default-fg-color--light: #59636e;
+  --md-typeset-color: #2d333a;
+  --md-typeset-a-color: #0969da;
+  --md-primary-fg-color: #f6f8fa;
+  --md-primary-fg-color--light: #ffffff;
+  --md-primary-fg-color--dark: #eaeef2;
+  --md-primary-bg-color: #1f2328;
+  --md-primary-bg-color--light: #59636e;
+  --md-accent-fg-color: #0860ca;
+  --md-accent-fg-color--transparent: #0969da1a;
+  --md-code-bg-color: #f0f3f6;
+  --md-code-fg-color: #1f2328;
+  --md-footer-bg-color: #f6f8fa;
+  --md-footer-bg-color--dark: #eaeef2;
+  --md-footer-fg-color: #1f2328;
+  --md-footer-fg-color--light: #59636e;
+  --md-footer-fg-color--lighter: #59636e;
+  --md-typeset-table-color: #d0d7de;
+}
+
+/* the backlights of the device's LCDs, from strip 1 to 8, as a thin line under the header */
+.md-header {
+  box-shadow: none;
+}
+
+.md-header::after {
+  content: "";
+  display: block;
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    #ff4d4d 0 12.5%,
+    #ffd23f 12.5% 25%,
+    #3ee06a 25% 37.5%,
+    #3fe0e6 37.5% 50%,
+    #5a86ff 50% 62.5%,
+    #e64dff 62.5% 75%,
+    #eef1f4 75% 87.5%,
+    #ff4d4d 87.5% 100%
+  );
+  opacity: 0.85;
+}
+
+[data-md-color-scheme="default"] .md-header {
+  border-bottom: 1px solid #d0d7de;
+}
+
+/* tables and code blocks with the borders of the GUI's cards */
+.md-typeset table:not([class]) {
+  border: 1px solid var(--md-typeset-table-color);
+  border-radius: 6px;
+}
+
+.md-typeset pre > code {
+  border: 1px solid var(--md-typeset-table-color);
+  border-radius: 6px;
+}
+
+/*
+ * The words of the configuration in the colors the GUI gives them (src/xtouch_daemon/gui/qt/theme/tokens.py), marked
+ * by javascripts/entities.js: states and modes, channels (and pools, people, applications), slots, presence, and the
+ * controls of the device in the color of the text, a little bolder.
+ */
+[data-md-color-scheme="slate"] {
+  --xt-state: #d48fe7;
+  --xt-channel: #56b6c2;
+  --xt-slot: #d19a66;
+  --xt-presence: #b5c25a;
+}
+
+[data-md-color-scheme="default"] {
+  --xt-state: #8250df;
+  --xt-channel: #0f7b84;
+  --xt-slot: #bc4c00;
+  --xt-presence: #5c6f00;
+}
+
+.md-typeset .xt-state {
+  color: var(--xt-state);
+}
+
+.md-typeset .xt-channel {
+  color: var(--xt-channel);
+}
+
+.md-typeset .xt-slot {
+  color: var(--xt-slot);
+}
+
+.md-typeset .xt-presence {
+  color: var(--xt-presence);
+}
+
+.md-typeset .xt-control {
+  color: var(--md-default-fg-color);
+  font-weight: 600;
+}

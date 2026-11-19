@@ -1,0 +1,3362 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Use a Behringer X-Touch Extender as a hardware mixer for PipeWire">
+      
+      
+        <meta name="author" content="Markus Ressel">
+      
+      
+        <link rel="canonical" href="https://markusressel.github.io/xtouch-daemon/latest/guides/gui/">
+      
+      
+      
+        <link rel="prev" href="../../concepts/">
+      
+      
+        <link rel="next" href="../home-assistant/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/icon.svg">
+      <meta name="generator" content="zensical-0.1.2">
+    
+    
+      
+        <title>GUI - xtouch-daemon</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="xtouch-daemon" class="md-header__button md-logo" aria-label="xtouch-daemon" data-md-component="logo">
+      
+  <img src="../../images/icon.svg" alt="xtouch-daemon">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            xtouch-daemon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              GUI
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/markusressel/xtouch-daemon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    markusressel/xtouch-daemon
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="xtouch-daemon" class="md-nav__button md-logo" aria-label="xtouch-daemon" data-md-component="logo">
+      
+  <img src="../../images/icon.svg" alt="xtouch-daemon">
+
+    </a>
+    xtouch-daemon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/markusressel/xtouch-daemon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    markusressel/xtouch-daemon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Getting started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-steps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  First steps
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Setup tour
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/without-a-device/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Without a device
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Concepts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Guides
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Guides
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  GUI
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  GUI
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-window" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The window
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The service
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zoom" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Zoom
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#live-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Live view
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#select-and-play" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Select and Play
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-virtual-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The virtual device
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Preview
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-slots" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The slots
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#editing-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Editing options
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#suggestions-from-the-sound-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Suggestions from the sound server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#undo" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Undo
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyboard
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#save-and-apply" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Save and apply
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../home-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home Assistant
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mumble/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mumble
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../configuration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Configuration
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/slots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels, states and slots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../configuration/channels/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Channels
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/channels/devices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Devices
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/channels/applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/channels/people/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  People and the voice chat
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Parts of a strip
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Parts of a strip
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/strip/encoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Encoders
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/strip/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Buttons and LEDs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Presets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Behavior, device and aliases
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/hardware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hardware and protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/voice-chat-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Voice chat bridge
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../development/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Development
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../development/architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Architecture
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/architecture/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Audio
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/architecture/live-view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Live view
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/architecture/gui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  GUI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/architecture/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/mumble-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mumble plugin
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/haad-controller/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home Assistant controller
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Design
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Design
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../development/design/slots/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels, states and slots
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_5_1" id="__nav_7_5_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_5_1_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_5_1">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Channels, states and slots
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/slots/channels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels and pools
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/slots/states/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  States and modes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/slots/slots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Slots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/slots/people/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Where the people sit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/slots/pools-of-your-own/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Pools of your own
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/slots/daemon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  In the daemon
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/previews/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Previews
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/device-simulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A simulated device
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/control-previews/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Previews of the controls
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/channel-form/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The form of a channel
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/choices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Output choices
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/launch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Launching applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Presets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/voice-chat/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The voice chat
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/interactive-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  An interactive device test
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  History
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  History
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/history/slots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Channels, states and slots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/history/layouts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Layouts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/history/dynamic-strips/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Strips that move
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/history/refactoring-2026-11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Refactoring, November 2026
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/history/try-and-simulate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Try changes and situations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/history/virtual-twin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The virtual twin
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-window" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The window
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The service
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zoom" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Zoom
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#live-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Live view
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#select-and-play" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Select and Play
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-virtual-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The virtual device
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Preview
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-slots" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The slots
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#editing-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Editing options
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#suggestions-from-the-sound-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Suggestions from the sound server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#undo" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Undo
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyboard
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#save-and-apply" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Save and apply
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="././" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Guides
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+    <a href="https://github.com/markusressel/xtouch-daemon/edit/main/docs/guides/gui.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="gui">GUI<a class="headerlink" href="#gui" title="Permanent link">&para;</a></h1>
+<p><code>xtouch-daemon gui</code> edits the configuration file in a window and applies it to the running daemon. It starts with
+<code>xtouch-daemon-gui</code> (the Arch Linux package) or <code>xtouch-daemon gui</code>, <code>-c FILE</code> for another file; see
+<a href="../../getting-started/install/#the-gui">Install</a>.</p>
+<p>It edits <a href="../../configuration/slots/">channels, states and slots</a>. New here? The <a href="../../getting-started/tour/">Setup tour</a>
+builds a configuration with it, page by page; this page is the reference.</p>
+<p><img alt="The GUI: the window Device at the top, the slots and the inspector of slot 3 below" src="../../images/gui.png" /></p>
+<h2 id="the-window">The window<a class="headerlink" href="#the-window" title="Permanent link">&para;</a></h2>
+<p>The window <strong>Configuration</strong> has a rail of four pages on its left, icons only (» at its foot shows their names, « hides
+them again; the GUI remembers it):</p>
+<ul>
+<li><strong>Slots:</strong> what each slot shows when, see <a href="#the-slots">The slots</a>.</li>
+<li><strong>Channels:</strong> two groups: the channels (each takes one strip), then the pools (each supplies a member to every slot that names it): the built-in <code>[pool.apps]</code>, <code>[pool.people]</code>, <code>[pool.auto]</code> and <code>[pool.devices]</code>. The box Shows of a candidate on the page Slots has the same two groups.
+  Add (by type, or a pool of channels of your own), Duplicate and Remove; the id of a channel or pool can be renamed (the slots, conditions, pools and controls that name it follow). Each says where it is used (<code>slot 2</code>, <code>pool games</code>, <code>state call</code>).</li>
+<li><strong>States:</strong> the modes first, then the other states. The form asks in order: State or Mode (a mode has a label and
+  a priority), and On while: Sources or Condition, never both. Sources lists only the ones the state has, each with
+  ✕ to remove it; Add source offers the others ("An application plays", "You are in the voice chat", ...), and the
+  state is on while any of them is. Condition takes a <a href="../../configuration/slots/#conditions">condition</a> of other states
+  and modes, in the field of the page Slots. Switching between them asks before it removes what the other had.
+  Delays and overrides (<code>delay_on</code>, <code>delay_off</code>, <code>persist</code>) are folded away until a state has one. Above the form:
+  what the daemon says about it right now (since when, from which source), its override (a mode: picked by hand),
+  and which stacks and controls use it.</li>
+<li><strong>Settings:</strong> <code>[behavior]</code>, <code>[aliases]</code>, <code>[mqtt]</code> (as "<a href="../home-assistant/">Home Assistant</a>"), <code>[switching]</code> (as "Modes and chord"),
+  <code>[voip]</code> (as "Voice chat") and <code>[device]</code> (as "Extender": the sound card of the extender, touch sensors, start-up). "Voice chat" also tells whether Mumble is connected, lists the steps of
+  its setup, and installs the <a href="../mumble/">Mumble plugin</a> with "Install Mumble plugin".</li>
+</ul>
+<p>Slots, Channels and States have a list or the slots on the left and what is picked on the right. The handle between
+them (the short upright bar) gives either side more room; each page keeps its share for the next start.</p>
+<p>The window <strong>Device</strong> shows the device on every page, above the window Configuration at first. The title bar of either
+moves it to another side of the window, next to the other one, or out of it as a window of its own (e.g. on another
+screen); View → Device closes and opens the device (Configuration always stays open). The GUI keeps where they are for
+the next start. Clicking a strip of it (or Left, Right, Home, End) shows its slot on the
+page Slots.</p>
+<p>The drawing of the device shows the <a href="../../configuration/strip/encoders/">encoder</a> with its ring of 13 <a href="../../configuration/strip/leds/">LEDs</a> (Mackie Control lights the middle 11), the LCD
+(the backlight in the strip's color shines around a dark panel and through its characters, as on the device), the
+meter next to Rec, Solo, Mute and Select, and the fader with its dB scale: the middle of the cap marks the value, -∞
+at the bottom, 0 dB at 77 % of the travel (<code>behavior.unity_at</code>). What each slot shows is printed under its LCD.</p>
+<p>The footer shows the problems, whether the device runs the file, the control <a href="#preview">Preview</a>
+while there are unsaved changes or Simulate is open, and the buttons Undo, Redo, Revert and "Save and apply". The title of the window
+names the file, with • while there are unsaved changes. The header has the state of the service with buttons to
+install, start, restart or stop it (see <a href="#the-service">The service</a>), and what the sound server has.</p>
+<p><strong>Help where you look:</strong> while the mouse is on something with a tooltip, the footer shows its first sentence at once,
+in place of the status line; the tooltip itself follows after a moment, with the states, channels and slots it
+names in their colors. A pill with ▾ opens what it means in full on
+a click, with what can be done about it: a row per thing, with a bar in the color of how it does (a problem is
+also tinted and its fix is the main button). A control that is off says why next to it (e.g. "Play: device not
+connected").</p>
+<p>States, channels and slots have a color each, in the whole window: states (and modes) violet, channels (and what
+else a slot can show: pools, people) teal, slots orange. The icons of their pages on the rail, the chips of the
+slots, the state bar and the words and sections in the help (<code>[state.gaming]</code>, "the slot", "an application",
+<code>apps</code>) have them; a condition of presence (<code>present</code>) is yellow. The controls of the device (Select, Mute, the
+fader, the encoder, ...) stand out from the help in the color of the text.</p>
+<p>Lists and pages that scroll cast a soft shadow at an edge where more of them is hidden, and popovers a shadow on the
+window under them.</p>
+<p>The menus have what is used now and then: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window
+Device, the dark or the light theme, the <a href="#zoom">zoom</a>) and Help (this documentation).</p>
+<h2 id="the-service">The service<a class="headerlink" href="#the-service" title="Permanent link">&para;</a></h2>
+<p>The pill of the service in the header tells its state ("running", "stopped", "not installed", and the worst problem
+of a connection of the daemon). A click on it opens what goes with it: the service with Install and start, Start or
+Restart (the same as <code>xtouch-daemon install-service</code>) and, while it runs, Stop (<code>systemctl --user stop</code>: it stays
+enabled, so it starts again with the next session, or with "Start"); the unit systemd uses; and the connections of the
+daemon, each with its settings. Installing and starting ask first. What the service needs (Install and start, Start,
+or Restart after an upgrade) also has its button next to the pill.</p>
+<p>A daemon that runs outside systemd (e.g. from a terminal or an IDE) is found too: the header shows "running
+elsewhere", and saving reloads it. The GUI does not start, restart or stop that one: restart it where it runs.</p>
+<p>The unit is "packaged" for the one of the Arch Linux package (<code>/usr/lib/systemd/user/xtouch-daemon.service</code>), or
+"own unit" for a unit in <code>~/.config/systemd/user</code>, which <a href="../../reference/commands/#install-service"><code>install-service</code></a>
+wrote, e.g. for a checkout; the popover has its path and the program it starts.</p>
+<ul>
+<li><strong>Install and start</strong> takes the unit of the package when the GUI is the one of the package: it enables and starts
+  it, and writes no file. Any other GUI writes a unit for its own <code>xtouch-daemon</code> to <code>~/.config/systemd/user</code>.</li>
+<li><strong>Use the packaged unit</strong> shows while a unit in <code>~/.config/systemd/user</code> overrides the one of the package. It removes
+  that file; an enabled service stays enabled, and a running one restarts with the program of the package.</li>
+<li><strong>Restart</strong> stands out (with a tooltip that names both versions) when the daemon runs another version than the one
+  installed, e.g. after an upgrade of the package: the daemon keeps running the old version until it restarts. This
+  needs a daemon that tells its version (0.1.0 and later), and only counts for the service of the installation the
+  GUI runs from.</li>
+</ul>
+<h2 id="zoom">Zoom<a class="headerlink" href="#zoom" title="Permanent link">&para;</a></h2>
+<p>Ctrl++ (or Ctrl+=) makes the whole window larger, Ctrl+- smaller, Ctrl+0 goes back to 100 %; View → Zoom has the
+levels from 67 % to 300 %. The GUI keeps the zoom for the next start, like the theme.</p>
+<p>Qt scales a window only when it opens, so a new zoom opens the window again at the new size: unsaved changes, undo,
+the selected slot and the page stay. The zoom is on top of a <code>QT_SCALE_FACTOR</code> of the environment.</p>
+<h2 id="live-view">Live view<a class="headerlink" href="#live-view" title="Permanent link">&para;</a></h2>
+<p>While the daemon runs, the drawing shows what the device shows right now ("Live", in a pill on the right of the bar of
+the window Device), read from the daemon's live view. Without a running daemon the strips are dark and the pill says "No daemon": the drawing is the device, and only the daemon drives it. Start it (<code>xtouch-daemon install-service --now</code>), or use "Try without a device", which starts a daemon with the virtual device. A
+daemon that runs while the device is not connected shows "Live · not connected": the strips show what the device will
+show once it is there.</p>
+<p>With the <a href="../../getting-started/without-a-device/">virtual device</a> (<code>run --virtual-device</code>), the pill says "Live · virtual
+device" once the daemon drives it, and "virtual device not running · Open it" while the daemon waits for it: a click
+opens it in the window (see <a href="#the-virtual-device">below</a>).</p>
+<p>Next to it, a pill shows the <a href="../../configuration/slots/#states-and-modes">mode</a> the device shows ("Mode: gaming", "No mode" while no mode is on, "· by hand" when
+it was picked by hand). A mode is a state with <code>mode = true</code>: one at a time is on. A click lists the states, with what
+turned each on, and picks a mode by hand ("Pick gaming", "Pick no mode", "Back to the rules").</p>
+<p>The pill of the service at the top tells what the daemon is connected to: "running" while all is well, else the worst
+problem, e.g. "running · Home Assistant not authorized" or "running · device not connected". A click lists each
+connection (the device, the sound server, Home Assistant with an <code>[mqtt]</code> section, the voice chat with <code>[voip]</code>), how
+it is doing and why (for Home Assistant the broker's own words and what to check), with a button to its settings.</p>
+<h2 id="select-and-play">Select and Play<a class="headerlink" href="#select-and-play" title="Permanent link">&para;</a></h2>
+<p>A bar above the drawing of the device switches what the mouse does on it:</p>
+<ul>
+<li><strong>Select:</strong> a click picks a strip, and with it its <a href="../../configuration/slots/">slot</a> on the page Slots. Dragging a strip moves its slot to
+  another place: the strip lifts out of the row, the others glide aside, and a dashed place shows where it goes;
+  Escape puts it back. Ctrl+Left/Right and the context menu (Move left, Move right) do the same. A slot takes its
+  candidates (<code>[slots]</code>) and its controls (<code>[controls]</code>) along, the slots in between make room; Ctrl+Z moves it back.
+  Comments above the slots in the file stay where they are.</li>
+<li><strong>Play:</strong> the mouse is a hand on the device, and the drawing looks like the device: no strip is selected, and
+  there are no outlines of the selection, the focus or the mouse (the selection comes back with Select):</li>
+<li>a fader: press to touch it, drag to move it, release to let go; Alt-drag moves it without a touch, like the
+    device moving it by itself (the daemon puts it back);</li>
+<li>a button: held while the mouse button is down;</li>
+<li>an encoder: the wheel turns it (a touchpad too), and so does a drag on the knob (up or right turns it
+    clockwise); a click pushes it, and holding the knob still holds it down; holding on an LED of the ring turns it
+    until the ring lights that LED.</li>
+</ul>
+<p>Play works on the <a href="#the-virtual-device">virtual device</a> the window hosts, and on the device of a running daemon: then the daemon takes what
+the mouse does as if the device sent it, so the mixer acts and a motorized fader follows once it is let go. The fader
+under the mouse is drawn there at once. While the drawing shows the preview in the GUI, Play acts on the virtual twin
+in the daemon (see <a href="#preview">Preview</a>). Play is off without a daemon (or with one of another user, or too old to
+take it) and while the device is not connected; the bar says why next to it ("Play: device not connected").
+With a daemon that drives the virtual device (<code>[device] virtual = true</code>) while it doesn't run, Play opens it in the
+window and plays on it.</p>
+<p>While no daemon runs, "Try without a device" starts one with the virtual device on this file (saved first if it is
+new) and opens the device in the window, in Play: to set everything up and try it before there is a device. That
+daemon ends with the window.</p>
+<h2 id="the-virtual-device">The virtual device<a class="headerlink" href="#the-virtual-device" title="Permanent link">&para;</a></h2>
+<p>While the window hosts the virtual device, Play is on (see <a href="#select-and-play">Select and Play</a>).</p>
+<p>A bar above the drawing unplugs it and plugs it in again, switches it off and on (the faders go down by themselves,
+as on the device), and breaks the touch sensor of faders ("Broken touch"), to try <code>touchless_faders</code>. "Close" closes
+it, and so does closing the window: for the daemon it is unplugged. What the drawing shows still comes from the
+daemon, which is what reached the device.</p>
+<h2 id="preview">Preview<a class="headerlink" href="#preview" title="Permanent link">&para;</a></h2>
+<p>Next to Save and apply, a pill says what the device runs: "Saved, on the device", "Unsaved changes" (the device
+runs the saved file), "In the GUI, not saved", "On the device, not saved", or what is wrong (e.g. "Not running",
+"Not on the device yet"). A click tells it in full, with the path of the file ("Copy the path", "Open the folder") and
+the file the daemon reads when that is another one.</p>
+<p>While there are unsaved changes, or Simulate is open, the control "Preview" sits next to it. It decides where the
+changes (and Simulate, which always includes them) show before they are saved, a moment after each change (undo and
+redo too). The file is not written.</p>
+<ul>
+<li><strong>In the GUI</strong> (the default): the window shows the preview on a <strong>virtual twin</strong> of the device in the daemon. The
+  twin is a second, complete set of strips that drives no real sound, voice chat, <a href="../home-assistant/">Home Assistant</a> or device. The drawing,
+  the cards of the page Slots and Play show the twin, with a frame around the drawing. Without Simulate, the twin runs
+  the changes in the situation of now: the mode and the states the device has, and the applications, people and
+  devices there are. The device keeps running the saved file. The pill says "In the GUI, not saved".</li>
+<li><strong>On the device:</strong> the device runs the preview, before it is saved: pick it to try the changes for real. The
+  drawing shows the device, and the pill "On the device, not saved" ("Sending to the device…" for a moment after a
+  change).</li>
+<li><strong>Off:</strong> the drawing shows the device as it is, running the saved file, for when you can't see the device. The
+  changes show nowhere until you save them or pick another place. Opening Simulate moves the preview to In the GUI,
+  and ending it back to Off.</li>
+</ul>
+<p>The place stays as it is set for the next changes until the window closes; a new window starts with In the GUI.</p>
+<ul>
+<li><strong>Save and apply</strong> makes it the configuration: the daemon loads the saved file, which is what the preview showed.</li>
+<li><strong>Back to the file:</strong> another place, closing the window (it asks about unsaved changes as usual, and says when the
+  device runs them) or "Revert" brings back the saved file. So does a window that crashed: the daemon goes back to the
+  file when the connection of the window ends, or when the window does not answer for 10 seconds. On the device, the
+  file also comes back when it changes on disk, or the daemon is reloaded; then the preview goes back to In the GUI
+  and the window says why.</li>
+<li><strong>What the daemon does not take</strong> shows in red under the status bar at the top, and the preview keeps the version
+  before. On the device it can't change <code>[mqtt]</code> (that takes a save and a restart), nor <code>[device] name</code> and <code>virtual</code>
+  (they take a save). A configuration with problems is not sent at all: the pill says "Paused: problems" until they
+  are fixed.</li>
+<li><strong>Channels, states and slots</strong> are all part of it: a stack changed in the editor shows in the preview as it is.</li>
+<li><strong>Simulate:</strong> its situation shows where the preview shows. On the device, the device shows the what-if of Simulate
+  instead of what really happens: the states and the mode it sets, its channels present or absent, and its people,
+  applications and devices (real ones first, so their faders move real audio; made-up ones for the rest, <code>App 1</code>,
+  <code>Device 1</code>). Delays and dwells apply as they really do. The pill says "On the device · simulated". Home Assistant
+  never sees it: its slot and state sensors stay as they really are, and nothing of it is kept.</li>
+<li><strong>One window on the device at a time:</strong> a second window that picks On the device takes over, and the first one's
+  preview goes back to In the GUI.</li>
+<li><strong>Home Assistant:</strong> channels the changes do not have keep their entities in Home Assistant (with their state; only
+  nothing drives them), so they are as before once the file runs again. Entities of channels only the changes had are
+  removed again when it ends.</li>
+</ul>
+<p>The places say why they are off in their tooltips: In the GUI needs a running daemon of your user; On the device
+also needs one that reads this file. A daemon from before this feature has neither (restart it to run the installed
+version).</p>
+<h2 id="the-slots">The slots<a class="headerlink" href="#the-slots" title="Permanent link">&para;</a></h2>
+<p>On the page Slots:</p>
+<ul>
+<li><strong>The state bar</strong> lists the states and modes: ● on, ○ off, with the override in brackets. A click on one shows what
+  turned it on, its override (real, like Home Assistant or <code>xtouch-daemon mode</code>: <code>auto</code>, <code>on</code>, <code>off</code>, or for a mode
+  picking it and back to the rules), and Simulate with it the other way (nothing changes).</li>
+<li><strong>A card per slot</strong> lists its candidates as rules, read from the top like "if, else if, else": the first whose
+  condition holds wins. <code>when gaming → auto</code> shows <code>auto</code> while <code>gaming</code> is on, <code>otherwise → browser</code> below it <code>browser</code>
+  the rest of the time (<code>always</code> for a lone candidate without a condition). A pool without a condition reads <code>when app
+  without a slot → apps</code> (an outlined chip): it shows only while it has a member no other slot has, else the slot goes
+  on to the next candidate. A tiny LCD after what it shows has the color of the strip: the candidate's own <code>color</code>, else
+  the channel's or the pool's, else white (two for <code>auto</code>: applications and people; one per color for a pool of
+  channels; dark for <code>-</code>). Its tooltip says where the color comes from. A rail on the left joins the candidates from the
+  top, with "else" between two and a node on each: green on the one the device shows (or Simulate would). Above it, the
+  candidates are dimmed with why they did not win (<code>✗ browser doesn't play</code>, <code>✗ browser is on slot 3</code>); below it, dimmed
+  more: not reached. When none of them has anything to show (e.g. the last is a pool with no member left), all are
+  dimmed with why (<code>✗ no person without a slot</code>) and the rail ends in a row of its own, "nothing to show: the strip is
+  dark", which is the one shown. On the one shown, the chip of a pool names what it hands out there (<code>apps · firefox</code>,
+  <code>people · Alice</code>), and its tooltip who else waits for a slot. A card that gets a line more or less grows or shrinks
+  smoothly. Conditions are outlined chips, what the slot shows a filled one. The states are violet (<code>call</code>, <code>not
+  gaming</code>, one per <code>or</code>). <code>present</code> is spelled out in an olive chip (green in the light theme), in what it means for the
+  type of the channel or pool: <code>browser if present</code> reads <code>when browser plays → browser</code>, <code>mic if present</code> <code>mic is
+  connected</code>, <code>mum if present</code> <code>mum is in the voice chat</code>, <code>present(people)</code> <code>someone is in the voice chat</code>. What the
+  slot shows is teal (see <a href="#the-window">the colors</a>), and the green node is on the row that shows (on <code>people</code> while a
+  person sits there, also when <code>apps</code> is above it). Options of the strip in that slot only follow as in the file (<code>color
+  = white, rec = recording</code>). + adds <code>auto</code> at the end, the bin (or Del) removes the candidate picked. Drag a
+  candidate, or move it with Ctrl+Up and Ctrl+Down. A slot without candidates shows <code>auto</code>.</li>
+<li><strong>The inspector</strong> starts with the path of the slot's candidates (<code>Slot 3 › 1 games › 2 apps</code>: the one picked
+  highlighted, ● the one the slot shows, ○ the one it came to that has none left; a click picks one) and a box of
+  what goes on: why the slot shows what it shows, a step a line (✗ a candidate passed over and why, → what it shows,
+  the same as <code>xtouch-daemon why 3</code>), which channel the candidate shows, where else that is used and where it is
+  now, or what a pool hands out and from which side, with "Edit the channel" to its page, and what <code>[controls]</code>
+  claims of the slot. Below it, it edits the candidate picked: what it shows (a channel, a pool such as <code>apps</code>, <code>people</code> or
+  <code>auto</code>, <code>-</code>), when (the
+  <a href="../../configuration/slots/#conditions">condition</a>:
+  states violet, channels in <code>present(...)</code> teal, a mistake underlined in red with what is wrong in its tooltip;
+  typing offers the states, keywords and channels that fit, Ctrl+Space all of them),
+  and the options of its place (look, on <code>apps</code> and <code>auto</code> the encoder and the volume range, on <code>people</code> the look of
+  a person's strip).</li>
+</ul>
+<p>Clicking a strip in the window Device (or Left, Right, Home, End) picks its card, with the candidate it shows.</p>
+<p><strong>Simulate</strong> shows what the slots would show in another mode, with other states on, with channels absent (<code>auto
+plays</code>: an application plays; <code>people fill</code>, <code>apps fill</code>: as many as there are slots), or with so many people in the
+call and applications that play (the two counts; the strips show their names). Simulate includes the unsaved changes
+and shows where the <a href="#preview">preview</a> shows: in the GUI, on the virtual twin of the device in the daemon, or on the
+device. A frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar, and the
+drawing, the cards and the box of the inspector show it, and Play can operate it. Simulate needs a running daemon of
+your user: without one its button is off and says how to start it. Esc, or Simulate again, ends it.</p>
+<h2 id="editing-options">Editing options<a class="headerlink" href="#editing-options" title="Permanent link">&para;</a></h2>
+<p>The forms come from the options of the configuration, so every option has a field. The options of a <a href="../../configuration/channels/">channel</a> are in
+cards in the order of the device, from top to bottom: what it controls, the <a href="../../configuration/strip/encoders/">encoder</a>, the display, the buttons (Rec,
+Solo and Select each with what a press does, what a hold does and what the LED shows; unset, each shows the default
+of the type), the fader and the meter, then those about slots (<code>tags</code>, <code>in_pool</code>, ...).</p>
+<p>The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip, which shows
+what the options do on the device in a few steps (‹ and › go through them), each with a caption: the ring as the encoder turns and is pushed, the LCD while audio
+plays (with the label of each choice), while muted and with nothing to control, which LEDs light while audio plays, an application records or the
+strip is muted and after a press or a hold of each button that does something, and the volume at the bottom, at the 0 dB mark and at the top of the fader, with what the meter shows
+there. It follows the values in the form at once, saved or not, at the step shown.</p>
+<ul>
+<li>switches for on/off options, numbers with their ranges, choices, color swatches, lists as chips, masked fields for
+  secrets, and file pickers;</li>
+<li>the help of each option under its field, with its default and, where the documentation explains more, a
+  "Learn more" link to that section; a button sets the option back to its default;</li>
+<li><code>choices</code> (and <code>profiles</code>) as a list of entries, each with its label, its device and what it needs. The pencil or a
+  double click opens an entry with its fields, with the devices, the sound cards and the profiles of its card
+  to pick from; the card and the profile are under "Switch the sound card first". Drag ⠿ (or Ctrl+Up/Down) to change
+  the order, which is the order Select goes through them. While a channel has <code>choices</code>, <code>device</code> and <code>profiles</code> are
+  hidden, and the other way around: a channel has one or the other;</li>
+<li>the meter as one choice: the level before the fader, after it, or off;</li>
+<li>for choices, what the chosen value does (e.g. <code>recording</code> for the Rec LED), and each value says it as a tooltip in
+  the list;</li>
+<li>the mouse wheel scrolls the page, also over a number or a choice: it never changes a value;</li>
+<li>the errors next to the options they belong to, with the same messages as <code>xtouch-daemon check-config</code>. The
+  problems button in the footer lists them all; a click opens the page of the problem. An unknown option can be
+  removed from there.</li>
+</ul>
+<p><code>[mqtt]</code> can be added and removed on its page. Above its options, the page shows how the daemon's connection is
+doing (or that the daemon runs without the section, which it reads only when it starts), and "Test connection"
+connects once with the settings as they are in the editor, saved or not, and says what is wrong if that fails.</p>
+<h2 id="suggestions-from-the-sound-server">Suggestions from the sound server<a class="headerlink" href="#suggestions-from-the-sound-server" title="Permanent link">&para;</a></h2>
+<p>The GUI reads the sound server and suggests what it has. A click into a field opens the list, and typing narrows it
+down (by any part of a name or a description, or a pattern with <code>*</code> and <code>?</code>), with the parts that match highlighted;
+each line says what it is, where it is known from (the default, the active profile, a preset) and below it the name
+that goes into the option. Under <code>device</code>, <code>card</code> and <code>profile</code> of a choice, a line says what the value matches, e.g.
+"Matches 2: ..." for <code>bluez_output.*</code>, or "Matches nothing known" (a device can come later).</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Suggestions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>device</code></td>
+<td>The outputs or inputs by node name, with their descriptions; the default is marked. Then the devices that another profile of their sound card would make (e.g. the digital output while the card is in its analog profile): picked for a choice, they fill in its card and profile. Then the devices the daemon saw that are not there now, e.g. Bluetooth headphones that are off ("seen 3 days ago"); Delete in the list forgets one.</td>
+</tr>
+<tr>
+<td><code>card</code>, <code>profile</code> of a choice</td>
+<td>The sound cards (by description, or the devices they have), and the profiles of the card of the choice.</td>
+</tr>
+<tr>
+<td><code>profiles</code></td>
+<td>The profiles of the sound cards of those devices; the active one is marked.</td>
+</tr>
+<tr>
+<td><code>match</code>, <code>exclude</code> of <code>[pool.apps]</code>, <code>apps</code> and <code>recording</code> of a state</td>
+<td>The <a href="../../configuration/presets/">presets</a> (<code>@browsers</code>, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined.</td>
+</tr>
+<tr>
+<td><code>processes</code> of a state</td>
+<td>The presets for processes.</td>
+</tr>
+<tr>
+<td><code>[aliases]</code></td>
+<td>The names of the applications that play.</td>
+</tr>
+<tr>
+<td><code>person</code> of a <code>person</code> channel</td>
+<td>The people in the voice chat now, as the running daemon tells them.</td>
+</tr>
+</tbody>
+</table>
+<p>The pill "Sound server: ..." says how much the GUI read; a click lists the outputs, inputs and applications, with
+"Read again" (also the refresh button next to it), e.g. after you started an application. Without a
+sound server, type the names by hand. The people of the voice chat come from the daemon's live view: without a
+running daemon (or nobody in the channel), type the names by hand.</p>
+<h2 id="undo">Undo<a class="headerlink" href="#undo" title="Permanent link">&para;</a></h2>
+<p>Every edit can be undone: Ctrl+Z undoes, Ctrl+Shift+Z redoes. That includes removing a channel and reverting the file,
+so neither asks first. Typing into one option is one step. Ctrl+Z undoes in the document also while a text field has
+the focus.</p>
+<p>Closing the window with unsaved changes asks whether to save them.</p>
+<h2 id="keyboard">Keyboard<a class="headerlink" href="#keyboard" title="Permanent link">&para;</a></h2>
+<p>Help → Keyboard shortcuts lists the keys. The keys of the menus follow the desktop; these are the usual ones:</p>
+<table>
+<thead>
+<tr>
+<th>Keys</th>
+<th>What they do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ctrl+S</td>
+<td>Save and apply</td>
+</tr>
+<tr>
+<td>Ctrl+Z, Ctrl+Shift+Z</td>
+<td>Undo, redo</td>
+</tr>
+<tr>
+<td>Ctrl+1 to Ctrl+4</td>
+<td>Slots, Channels, States, Settings</td>
+</tr>
+<tr>
+<td>Del (or Backspace)</td>
+<td>Remove the candidate, channel, pool or state picked, as its button Remove does</td>
+</tr>
+<tr>
+<td>Ctrl+C, Ctrl+X, Ctrl+V</td>
+<td>Copy, cut, paste it</td>
+</tr>
+<tr>
+<td>Ctrl+D</td>
+<td>Duplicate it</td>
+</tr>
+<tr>
+<td>F2</td>
+<td>Rename it: the focus goes to its id (on a candidate: to Shows)</td>
+</tr>
+<tr>
+<td>Ctrl+Up, Ctrl+Down</td>
+<td>Move the candidate picked, or the entry of a table</td>
+</tr>
+<tr>
+<td>Left, Right, Home, End</td>
+<td>Pick a strip of the drawing; Ctrl+Left, Ctrl+Right move its slot</td>
+</tr>
+<tr>
+<td>Esc</td>
+<td>End Simulate, close a popover</td>
+</tr>
+</tbody>
+</table>
+<p>Del, Ctrl+C and the others of the menu Edit are for the list that has the focus: the cards on Slots, the lists on
+Channels and States. In a field they edit its text. Copy puts the entry on the clipboard as in the file: a channel as
+<code>[channel.mic]</code> with its options, a candidate as the value of the list of its slot (<code>"browser if call"</code>). Paste takes
+that back, also from a text editor, and gives a channel, pool or state whose id is taken one after it (<code>mic_2</code>). A
+candidate goes after the one picked; channels, pools and states go at the end.</p>
+<h2 id="save-and-apply">Save and apply<a class="headerlink" href="#save-and-apply" title="Permanent link">&para;</a></h2>
+<p>"Save and apply" (Ctrl+S) writes the file and reloads the daemon:</p>
+<ul>
+<li>It saves only a file without problems: the daemon would not take one with problems.</li>
+<li>Unchanged values keep their place and their comments, and a stack keeps its form (a string, a list, tables) where
+  it did not change. The file is written in place, so a symlinked configuration stays one.</li>
+<li>It reloads the running daemon when that reads the saved file: the service, or one started from a terminal or an
+  IDE.</li>
+<li>Without changes it is there too while the daemon runs another version of the file, e.g. one edited outside the
+  GUI: then it only reloads the daemon.</li>
+<li>A changed <code>[mqtt]</code> section is not reloaded at all: the window offers "Restart the service" for the service;
+  restart a daemon that runs elsewhere where it runs. A changed <code>[device] name</code> or <code>virtual</code> is: the daemon switches
+  to that device.</li>
+<li>It then tells whether the device runs the saved file: "The device runs the saved file", or "The device does not run
+  the saved file yet". If that stays, the daemon did not take the file, and its log says why
+  (<code>journalctl --user -u xtouch-daemon</code>).</li>
+</ul>
+<p>"Revert" drops the changes and reads the file again (Undo brings them back).</p>
+<p>Next: <a href="../../reference/commands/">Commands</a> for the same things on the command line, <a href="../troubleshooting/">Troubleshooting</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../../concepts/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Concepts">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Concepts
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../home-assistant/" class="md-footer__link md-footer__link--next" aria-label="Next: Home Assistant">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Home Assistant
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Markus Ressel, AGPL-3.0-or-later
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.action.edit","content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      
+        <script src="../../javascripts/entities.js"></script>
+      
+    
+  </body>
+</html>
