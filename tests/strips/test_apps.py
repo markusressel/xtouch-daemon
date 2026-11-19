@@ -6,7 +6,7 @@ import pytest
 from tests.support.audio import FakeBackend, stream
 from tests.support.hardware import RecordingSurface
 from tests.support.launch import FakeLauncher
-from tests.support.strips import ID, build
+from tests.support.strips import ID, build, leds
 from tests.support.tasks import settle
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Capture, Direction
@@ -393,7 +393,7 @@ async def test_the_rec_led_of_a_group_shows_whether_one_of_its_applications_reco
         env,
         ID,
         ("discord",),
-        Look("VoIP", indicators={Button.REC: "recording", Button.SOLO: "playing"}),
+        Look("VoIP", buttons=leds({Button.REC: "recording", Button.SOLO: "playing"})),
     )
 
     # it records without playing anything: the strip is idle, the LED is on all the same
@@ -408,7 +408,7 @@ async def test_the_rec_led_of_a_group_shows_whether_one_of_its_applications_reco
 
 async def test_the_rec_led_of_an_auto_strip_follows_its_application(surface: RecordingSurface, env: StripEnv) -> None:
     strip = AutoStrip(
-        surface.strips[0], env, ID, {}, Look(indicators={Button.REC: "recording", Button.SOLO: "default"})
+        surface.strips[0], env, ID, {}, Look(buttons=leds({Button.REC: "recording", Button.SOLO: "default"}))
     )
     capturing = AudioState(captures=(recording("Discord", "discord"),))
 

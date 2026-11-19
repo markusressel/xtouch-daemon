@@ -1,6 +1,6 @@
 # Design: the form of a channel
 
-Status: **steps 1 to 3 built** (2026-11-19), the buttons proposed (see Order). Builds on [Previews of the controls](control-previews.md) and [Output
+Status: **built** (2026-11-19), not released; the meter is open (see Open). Builds on [Previews of the controls](control-previews.md) and [Output
 choices](choices.md).
 
 ## Problem
@@ -140,7 +140,17 @@ hold, a range) only if it turns out to be missing.
    lists of chips (`device` of a channel) have the list without it.
 3. Built. Remembered devices (`runtime/device_memory.py`, a line `known_devices` of the live view of its own rather
    than a field of every snapshot, and `ForgetDevice`).
-4. The buttons (configuration, daemon, GUI): its own design, from 5.
+4. Built. The buttons (`config/buttons.py`; `VolumeStrip.on_button`/`act()` in `strips/base.py`, the kinds of
+   strips add `do()`; `mute_others` mutes through the binder, the mode actions go to the `SlotEngine` through
+   `StripEnv.actions`). Where it differs from 5:
+   - The LED takes `press` too (what the press does: the default, the profile, the application runs, the mode, held),
+     the default of Select, and of Rec with `profiles`.
+   - A place in `[slots]` sets only the LED of a button: what a button does belongs to the channel.
+   - `homeassistant` sends events for the press and the release (`select_pressed`, ...); its LED is `led`, not an
+     entity of Home Assistant. `talk`, `mute_others` and `homeassistant` last while held and take no `hold`.
+   - On the strips of the chord, Solo does the chord as well as its action.
+   - The GUI: a row per button with three lists (press and hold take typed actions too), the defaults of the type as
+     placeholders; a part set alone keeps the short form (`rec = "muted"`, `select = false`).
 
 ## Decisions (2026-11-19)
 

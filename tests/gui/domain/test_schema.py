@@ -114,7 +114,12 @@ def test_every_strip_type_has_its_model_and_options():
     )
     assert (fader.kind, fader.default) == (Kind.CHOICE, "volume")
     assert (min_volume.kind, min_volume.default, min_volume.minimum, min_volume.maximum) == (Kind.INTEGER, None, 0, 200)
-    assert (rec.kind, rec.default) == (Kind.CHOICE, "recording")
+    assert (rec.kind, rec.default) == (Kind.BUTTON, None)
+    assert [(column.name, column.kind) for column in rec.columns] == [
+        ("press", Kind.ACTION),
+        ("hold", Kind.ACTION),
+        ("led", Kind.CHOICE),
+    ]
     assert color.kind == Kind.COLOR
     assert color.choices == ("off", "red", "green", "yellow", "blue", "magenta", "cyan", "white")
     assert color.default == "white"
@@ -222,7 +227,7 @@ def test_every_choice_explains_each_of_its_values():
 
 
 def test_a_choice_says_what_its_value_means():
-    rec = next(o for o in strip_options("input") if o.name == "rec")
+    rec = next(o for o in next(o for o in strip_options("input") if o.name == "rec").columns if o.name == "led")
     assert rec.meaning("muted") == "Lit while the strip is muted, like the Mute LED."
     assert rec.meaning("loud") == ""
     startup, shutdown = (o for o in options(DeviceConfig) if o.name in ("startup", "shutdown"))

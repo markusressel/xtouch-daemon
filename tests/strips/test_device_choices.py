@@ -13,6 +13,7 @@ from tests.support.tasks import settle
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Card, Direction, Profile
 from xtouch_daemon.config.audio_strips import ChoiceConfig
+from xtouch_daemon.config.buttons import ButtonSetup
 from xtouch_daemon.hardware.protocol import Button, Led
 from xtouch_daemon.strips.base import Look, StripEnv
 from xtouch_daemon.strips.device import ChoiceStrip, _options
@@ -60,7 +61,9 @@ def sound(
 def make_choices(
     surface: RecordingSurface, env: StripEnv, choices: tuple[ChoiceConfig, ...] = CHOICES, label: str | None = None
 ) -> ChoiceStrip:
-    return ChoiceStrip(surface.strips[0], env, ID, Direction.OUTPUT, choices, Look(label, "cyan"))
+    # Select as the configuration has it: it makes the choice the default
+    look = Look(label, "cyan", buttons={Button.SELECT: ButtonSetup("default", led="press")})
+    return ChoiceStrip(surface.strips[0], env, ID, Direction.OUTPUT, choices, look)
 
 
 async def test_the_choice_of_the_default_shows_with_its_label_and_range(

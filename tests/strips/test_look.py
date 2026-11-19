@@ -5,7 +5,7 @@ does and its volume range.
 
 from tests.support.audio import stream
 from tests.support.hardware import RecordingSurface
-from tests.support.strips import ID, STATE, make
+from tests.support.strips import ID, STATE, leds, make
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.hardware.protocol import Button, Color
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
@@ -17,12 +17,12 @@ async def test_a_device_strip_takes_another_look_and_place(surface: RecordingSur
     strip = make(surface, env, label="Out")
     strip.update(STATE)
     assert isinstance(strip.knob, VolumeKnob)
-    strip.set_look(Look("Boxes", "red", indicators={Button.SOLO: "default"}))
+    strip.set_look(Look("Boxes", "red", buttons=leds({Button.SOLO: "default"})))
     strip.set_place("balance", 10, 90)
     strip.update(STATE)
     assert surface.strips[0].text[0] == "Boxes"
     assert surface.strips[0].color == Color.RED
-    assert strip.indicators == {Button.SOLO: "default"}
+    assert strip.look.buttons == leds({Button.SOLO: "default"})
     assert isinstance(strip.knob, BalanceKnob)
     assert strip.volume_range() == (10, 90)
     # without a label of its own: the description of the device

@@ -87,8 +87,10 @@ volume on the other control and gets these entities of the [list below](#entitie
 |---|---|
 | `encoder = "homeassistant"` | `number.<ns>_<id>_encoder`, and `event.<ns>_<id>_buttons` with `encoder_pressed`, `encoder_released`. |
 | `fader = "homeassistant"` | `number.<ns>_<id>_fader`, and `event.<ns>_<id>_buttons` with `fader_touched`, `fader_released`. |
+| `select = { press = "homeassistant" }` (also `rec`, `solo`) | `event.<ns>_<id>_buttons` with `select_pressed`, `select_released`. |
 
-The LCD, the LEDs and the buttons stay with PipeWire. The channel's id names the entities, its `label` starts their
+The LCD and the LEDs stay with PipeWire, and so do the buttons unless they say `homeassistant` (see
+[Buttons](../configuration/strip/leds.md#buttons)). The channel's id names the entities, its `label` starts their
 names. See [Encoders](../configuration/strip/encoders.md#homeassistant) for the details.
 
 ```toml

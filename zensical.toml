@@ -44,7 +44,7 @@ nav = [
     ] },
     { "Parts of a strip" = [
       { "Encoders" = "configuration/strip/encoders.md" },
-      { "LEDs" = "configuration/strip/leds.md" },
+      { "Buttons and LEDs" = "configuration/strip/leds.md" },
     ] },
     { "Presets" = "configuration/presets.md" },
     { "Behavior, device and aliases" = "configuration/behavior.md" },

@@ -37,6 +37,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Errors of a file name its line (`slots.7[0] (line 12): ...`), and say what is likely meant: the closest channel,
   option or state, and "two names in a row" for a condition like `in call`; a label that is missing says what it is
   for.
+- Buttons of channels: `select`, `rec` and `solo` each take a table of what a press does, what a hold (longer than
+  half a second) does and what the LED shows: `default`, `next` (shows the next device, the default stays),
+  `profile`, `launch`, `talk` (push to talk), `mute_others` (a solo while held), `homeassistant` (events), the actions
+  of `[controls]` (`cycle_modes`, `mode:<id>`, `toggle:<id>`, `{ launch = [...] }`) and `off`; the LED takes the
+  indicators, `press` (what the press does) and `shown` (after `next`). `select = true`/`false` and `rec = "playing"`
+  stay as short forms. A place in `[slots]` sets only what an LED shows. The GUI has a row per button with the
+  three, showing the defaults of the type, and the preview of the Buttons card shows what a press and a hold lead to.
 
 ### Changed
 

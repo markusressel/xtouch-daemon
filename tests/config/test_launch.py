@@ -77,7 +77,7 @@ def test_a_channel_switches_between_choices() -> None:
             + '[[channel.c.profiles]]\nlabel = "B"\nprofile = "b"\n',
             "use either choices or device/profiles",
         ),
-        (CHOICES + "select = false\n", "select: with choices, Select is how the strip switches between them"),
+        (CHOICES + "select = false\n", "choices: no button switches between them"),
         (
             '[channel.c]\ntype = "output"\nchoices = [{ device = "a", card = "c" }, { device = "b" }]\n',
             "channel.c: choices.0: card and profile go together",

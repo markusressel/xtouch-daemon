@@ -3,13 +3,16 @@ Helpers for the tests of the strips.
 """
 
 import tomllib
+from collections.abc import Mapping
 
 from pydantic import TypeAdapter
 
 from tests.support.audio import output, source
 from tests.support.hardware import RecordingSurface
 from xtouch_daemon.audio.model import AudioState, Direction
+from xtouch_daemon.config.buttons import ButtonSetup
 from xtouch_daemon.config.strips import StripConfig
+from xtouch_daemon.config.values import Indicator
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips import build_strip, look_of
@@ -42,6 +45,11 @@ def build(
     return build_strip(config, strip, env, aliases or {}, identity, look_of(config))
 
 
+def leds(indicators: Mapping[Button, Indicator]) -> dict[Button, ButtonSetup]:
+    """Buttons that do nothing, whose LEDs show the indicators."""
+    return {button: ButtonSetup(led=indicator) for button, indicator in indicators.items()}
+
+
 def make(
     surface: RecordingSurface,
     env: StripEnv,
@@ -50,11 +58,16 @@ def make(
     **kwargs: object,
 ) -> DeviceStrip:
     devices = () if device is None else (device,) if isinstance(device, str) else device
+    buttons = leds(kwargs.pop("indicators", None) or {})  # type: ignore[arg-type]
+    # as the configuration has them: Select makes the device the default, Rec switches the profiles
+    buttons[Button.SELECT] = ButtonSetup("default" if kwargs.pop("select", True) and devices else "off", led="press")
+    if kwargs.get("profiles"):
+        buttons[Button.REC] = ButtonSetup("profile", led="press")
     look = Look(
         kwargs.pop("label", None),  # type: ignore[arg-type]
         "cyan",
         kwargs.pop("meter", True),  # type: ignore[arg-type]
-        indicators=kwargs.pop("indicators", None) or {},  # type: ignore[arg-type]
+        buttons=buttons,
     )
     return DeviceStrip(surface.strips[0], env, ID, direction, devices, look, **kwargs)  # type: ignore[arg-type]
 
@@ -67,4 +80,4 @@ STATE = AudioState(
 )
 
 
-REC_SOLO = {Button.REC: "recording", Button.SOLO: "playing"}
+REC_SOLO: dict[Button, Indicator] = {Button.REC: "recording", Button.SOLO: "playing"}

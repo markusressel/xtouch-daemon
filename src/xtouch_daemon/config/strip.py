@@ -7,18 +7,30 @@ from typing import Annotated
 from pydantic import model_validator
 
 from xtouch_daemon.config.base import Meanings, Model
+from xtouch_daemon.config.buttons import (
+    BUTTON_NAMES,
+    WHILE_HELD,
+    Action,
+    ButtonConfig,
+    ButtonName,
+    ButtonSetup,
+    RecButton,
+    SelectButton,
+    SoloButton,
+    default_setup,
+    describe_action,
+    resolved,
+)
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import (
     COLORS,
     ENCODER_MODES,
     ENCODERS,
     FADER_MODES,
-    INDICATORS,
     METER_POINTS,
     ColorName,
     EncoderMode,
     FaderMode,
-    Indicator,
     MeterPoint,
     Volume,
 )
@@ -39,10 +51,21 @@ class BaseStripConfig(Model):
     Where the meter takes the level: before the volume and Mute of the strip, or after them. By default
     `behavior.meter_point`.
     """
-    rec: Annotated[Indicator, INDICATORS] = "recording"
-    """What the LED of the Rec button shows. The button does nothing, except with `profiles`."""
-    solo: Annotated[Indicator, INDICATORS] = "off"
-    """What the LED of the Solo button shows. The button does nothing."""
+    select: SelectButton = ButtonConfig()
+    """
+    What Select does (`press`, `hold`) and what its LED shows (`led`). By default it makes the device the default
+    (with `device` or `choices`) or starts `launch`, and its LED shows that. `true`/`false` stand for that or nothing.
+    """
+    rec: RecButton = ButtonConfig()
+    """
+    What Rec does (`press`, `hold`) and what its LED shows (`led`). By default it switches `profiles`; its LED shows
+    the profile, or else a recording. An indicator alone (`rec = "playing"`) sets the LED.
+    """
+    solo: SoloButton = ButtonConfig()
+    """
+    What Solo does (`press`, `hold`) and what its LED shows (`led`). By default nothing. An indicator alone (`solo =
+    "muted"`) sets the LED.
+    """
     min_volume: Volume | None = None
     """The volume, in percent, with the fader at the bottom. E.g. 50 gives the whole fader to the upper half."""
     max_volume: Volume | None = None
@@ -57,7 +80,55 @@ class BaseStripConfig(Model):
 
     @property
     def uses_home_assistant(self) -> bool:
-        return "homeassistant" in (self.fader, self.encoder)
+        return "homeassistant" in (self.fader, self.encoder) or bool(self.home_assistant_buttons)
+
+    @property
+    def home_assistant_buttons(self) -> tuple[ButtonName, ...]:
+        """The buttons that belong to Home Assistant (`press = "homeassistant"`)."""
+        return tuple(name for name in BUTTON_NAMES if self.button(name).press == "homeassistant")
+
+    def button(self, name: ButtonName) -> ButtonSetup:
+        """What a button does: its table, the rest as the strip type does it (see `buttons.default_setup`)."""
+        default = default_setup(
+            name,
+            str(getattr(self, "type", "")),
+            devices=bool(getattr(self, "device", ()) or getattr(self, "choices", ())),
+            profiles=bool(getattr(self, "profiles", ())),
+            launch=getattr(self, "launch", None) is not None,
+        )
+        return resolved(getattr(self, name), default)
+
+    @model_validator(mode="after")
+    def _buttons_can(self) -> BaseStripConfig:
+        """Each action of a button needs what it acts on: devices, profiles, a program, an input."""
+        for name in BUTTON_NAMES:
+            setup = self.button(name)
+            for part, action in (("press", setup.press), ("hold", setup.hold)):
+                if (problem := self._cannot(action)) is not None:
+                    raise ValueError(f"{name}.{part}: {describe_action(action)} {problem}")
+            if setup.press in WHILE_HELD and setup.hold != "off":
+                raise ValueError(f"{name}.hold: {setup.press} lasts while the button is held, it takes no hold")
+            if setup.hold == "homeassistant":
+                raise ValueError(f'{name}.hold: "homeassistant" takes the whole button: set it as press')
+        return self
+
+    def _cannot(self, action: Action) -> str | None:
+        """Why the strip can't do the action, None if it can."""
+        strip_type = str(getattr(self, "type", ""))
+        devices = bool(getattr(self, "device", ()) or getattr(self, "choices", ()))
+        match action:
+            case "default" | "next" if strip_type not in ("output", "input"):
+                return "is for output and input strips"
+            case "default" | "next" if not devices:
+                return "needs device or choices"
+            case "profile" if not getattr(self, "profiles", ()):
+                return "needs profiles"
+            case "launch" if getattr(self, "launch", None) is None:
+                return "needs launch"
+            case "talk" if strip_type != "input":
+                return "is for input strips"
+            case _:
+                return None
 
     @model_validator(mode="after")
     def _encoder_of_the_type(self) -> BaseStripConfig:

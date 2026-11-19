@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from tests.support.config import MQTT, errors_of
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.buttons import ButtonConfig, ButtonSetup
 from xtouch_daemon.config.files import (
     Problem,
     default_config_path,
@@ -72,7 +73,7 @@ def test_reads_every_option():
     assert not config.behavior.meters
     assert config.aliases == {"WEBRTC VoiceEngine": "Discord"}
     assert config.slots.channels["out"] == DeviceStripConfig(
-        type="output", device=("alsa_output.analog",), label="Speaker", color="cyan", select=False
+        type="output", device=("alsa_output.analog",), label="Speaker", color="cyan", select=ButtonConfig(press="off")
     )
     assert config.slots.channels["voip"] == AppsStripConfig(
         type="apps", match=("discord", "mumble"), label="VoIP", color="off", meter=False
@@ -249,10 +250,9 @@ def test_a_device_channel_switches_between_two_or_more_profiles_with_rec() -> No
     assert [p.label for p in config.slots.channels["c"].profiles] == ["Analog", "Digital"]  # type: ignore[union-attr]
 
     assert "channel.c: profiles: at least two to switch between" in errors_of(strip + analog)
-    # its LED shows the profile
-    assert "rec: with profiles its LED shows the profile" in errors_of(
-        strip.replace("\ndevice", '\nrec = "playing"\ndevice') + profiles
-    )
+    # Rec switches them; an indicator of its own replaces the profile on its LED
+    rec = parse_config(strip.replace("\ndevice", '\nrec = "playing"\ndevice') + profiles).slots.channels["c"]
+    assert rec.button("rec") == ButtonSetup("profile", led="playing")  # type: ignore[union-attr]
     assert "channel.c: profiles.0.label" in errors_of(strip + profiles.replace('"Analog"', '"Analog Stereo"'))
 
 

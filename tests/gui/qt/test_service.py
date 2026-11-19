@@ -616,13 +616,14 @@ def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):
 
 def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
     show_channel(window, "out")
-    rec = row(window, "rec")
+    rec = row(window, "rec").buttons
     assert not rec.meaning.isHidden()
     assert "recording: Lit while an application records" in plain(rec.meaning.text())
-    rec.combo.setCurrentText("muted")
+    led = rec.combos["led"]
+    led.setCurrentText("muted")
     assert "Lit while the strip is muted" in plain(rec.meaning.text())
     # each value says it in the list too
-    tip = rec.combo.itemData(rec.combo.findText("recording"), Qt.ItemDataRole.ToolTipRole)
+    tip = led.itemData(led.findText("recording"), Qt.ItemDataRole.ToolTipRole)
     assert "screen recorder" in tip
     # an encoder that is not set: what the default does
     encoder = row(window, "encoder")
@@ -631,7 +632,7 @@ def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
     # a value that is no choice means nothing
     window.document.set(("channel", "out", "rec"), "loud")
     window.editor.edited()
-    assert row(window, "rec").meaning.isHidden()
+    assert row(window, "rec").buttons.meaning.isHidden()
     assert row(window, "color").colors.swatches["off"].toolTip() == "off: No backlight."
     assert row(window, "color").colors.swatches["red"].toolTip() == "red"
 
@@ -639,8 +640,9 @@ def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
 def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
     show_channel(window, "out")
     rec = row(window, "rec")
-    assert "Default: <code>recording</code>." in rec.help.text()
-    assert f'<a href="{docs.url("configuration/strip/leds/#indicators")}">Learn more</a>' in rec.help.text()
+    # a button: the default of each part in its list
+    assert rec.buttons.combos["led"].placeholderText() == "default: recording"
+    assert f'<a href="{docs.url("configuration/strip/leds/#buttons")}">Learn more</a>' in rec.help.text()
     assert rec.help.openExternalLinks()
     # an option without a section in the docs: its help says it all
     assert "Learn more" not in row(window, "lit_when_idle").help.text()

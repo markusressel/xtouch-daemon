@@ -41,8 +41,9 @@ into a place in a slot, for the strips they show; a place of `apps`, `auto` or `
 | `lit_when_idle` | `false` | Whether the LCD keeps its backlight while the strip has nothing to control: no application of an `apps` group plays, the device is not there, an `auto` strip has no application. The fader stays down all the same. |
 | `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). |
 | `meter_point` | `behavior.meter_point` | Where the meter takes the level: `"pre_fader"` before the volume and Mute of the strip, `"post_fader"` after them, see [Meters](#meters). |
-| `rec` | `"recording"` | What the LED of the Rec button shows: `recording`, `playing`, `default`, `muted` or `off`, see [LEDs](../strip/leds.md). |
-| `solo` | `"off"` | What the LED of the Solo button shows, the same values, see [LEDs](../strip/leds.md). |
+| `rec` | `"recording"` | What the Rec button does and what its LED shows; an indicator alone (`recording`, `playing`, `default`, `muted` or `off`) sets the LED, see [Buttons and LEDs](../strip/leds.md). |
+| `solo` | `"off"` | The same for Solo, see [Buttons and LEDs](../strip/leds.md). |
+| `select` | what the type does | The same for Select, see [Buttons and LEDs](../strip/leds.md#buttons). |
 | `min_volume` | `0` | The volume of the fader at the bottom, 0..200 percent. |
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
 | `encoder` | depends on the type | What the encoder does, see [Encoders](../strip/encoders.md). |
@@ -115,8 +116,9 @@ top. The GUI has the option under Settings, Behavior.
 | Fader | Sets the volume. Follows changes made elsewhere. Only a touched fader changes the volume. |
 | Encoder | What `encoder` says, see [Encoders](../strip/encoders.md). |
 | Mute | Toggles mute. Its LED is on while muted. |
-| Rec, Solo | Their LEDs are [indicators](../strip/leds.md). The buttons do nothing, except Rec with [profiles](devices.md#profiles); [`[controls]`](../slots.md#controls-and-the-chord) can give them an action. |
-| Select | On device strips: makes the device the default, or with [`choices`](devices.md#choices) goes to the next one. On application strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. [`[controls]`](../slots.md#controls-and-the-chord) can give it another action. |
+| Rec, Solo | Their LEDs are [indicators](../strip/leds.md#indicators). By default the buttons do nothing, except Rec with [profiles](devices.md#profiles). |
+| Select | On device strips: makes the device the default, or with [`choices`](devices.md#choices) goes to the next one. On application strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. |
+| | Every channel can give Rec, Solo and Select other actions, for a press and a hold: see [Buttons](../strip/leds.md#buttons). [`[controls]`](../slots.md#controls-and-the-chord) gives the buttons of a slot an action whatever it shows. |
 | LCD | Top: the label. Bottom: the volume, or `muted`, `idle`, `off`. The backlight in `color`, dark while the strip has nothing to control. |
 | Ring | What the encoder controls. |
 | Meter | The level of what the strip controls, see [Meters](#meters). |

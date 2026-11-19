@@ -55,9 +55,9 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 
   | Candidate | Options |
   |---|---|
-  | a channel | `color`, `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`, `label` |
+  | a channel | `color`, `lit_when_idle`, `rec`, `solo` (what their LEDs show), `meter`, `meter_point`, `label` |
   | `apps`, `auto` | the look (not `label`), and for the applications without a channel `encoder`, `min_volume`, `max_volume` |
-  | `devices` | those of `apps`, and `select` |
+  | `devices` | those of `apps`, and `select = false` |
   | `people` | `color`, `meter`, `meter_point` |
 
   A control for Home Assistant, or one that starts an application (`{ launch = [...] }`), is a control of the slot, not

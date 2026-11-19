@@ -36,6 +36,7 @@ from xtouch_daemon.gui.qt.fields.basics import (
     label,
     set_help,
 )
+from xtouch_daemon.gui.qt.fields.buttons import ButtonField
 from xtouch_daemon.gui.qt.fields.chips import Chips
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Switch
 from xtouch_daemon.gui.qt.fields.names import NameCompleter
@@ -185,7 +186,7 @@ class OptionRow(QWidget):
             self.top.addWidget(self.reset, 1, 1)
         else:
             # a list of entries: its name and reset at the top, not beside its middle
-            top = Qt.AlignmentFlag.AlignTop if self.option.kind == Kind.TABLES else Qt.AlignmentFlag(0)
+            top = Qt.AlignmentFlag.AlignTop if self.option.kind in (Kind.TABLES, Kind.BUTTON) else Qt.AlignmentFlag(0)
             self.title.setFixedWidth(self.title_width)
             self.top.addWidget(self.title, 0, 0, top)
             self.top.addWidget(self.field, 0, 1)
@@ -199,7 +200,7 @@ class OptionRow(QWidget):
 
     def _field(self, option: Option, suggest: Suggest | TableSuggest | None) -> QWidget:
         match option.kind:
-            case Kind.TEXT | Kind.SECRET | Kind.PATH:
+            case Kind.TEXT | Kind.SECRET | Kind.PATH | Kind.ACTION:
                 return self._text_field(option, None if isinstance(suggest, Mapping) else suggest)
             case Kind.INTEGER:
                 self.spin: QSpinBox | QDoubleSpinBox = QSpinBox(self)
@@ -263,6 +264,11 @@ class OptionRow(QWidget):
                 self.tables.changed.connect(self._edit)
                 self.input = self.tables
                 return self.tables
+            case Kind.BUTTON:
+                self.buttons = ButtonField(option.name, option.columns)
+                self.buttons.changed.connect(self._edit)
+                self.input = self.buttons
+                return self.buttons
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -346,7 +352,7 @@ class OptionRow(QWidget):
         self._loading = True
         try:
             match self.option.kind:
-                case Kind.TEXT | Kind.SECRET | Kind.PATH:
+                case Kind.TEXT | Kind.SECRET | Kind.PATH | Kind.ACTION:
                     self.line.setText(value if isinstance(value, str) else "")
                     self._show_matches()
                     default = self._placeholder() if self._placeholder else self.option.default
@@ -381,6 +387,8 @@ class OptionRow(QWidget):
                     # a value of another type shows none; its problem says what is wrong
                     tables = shown if isinstance(shown, list | tuple) else ()
                     self.tables.show_values([dict(table) for table in tables if isinstance(table, dict)])
+                case Kind.BUTTON:
+                    self.buttons.show_value(value)
                 case _ as unreachable:
                     assert_never(unreachable)
         finally:

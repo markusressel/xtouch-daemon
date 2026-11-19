@@ -105,8 +105,18 @@ class SlotMixer:
         self.processes: frozenset[str] = frozenset()
         """The processes that run, while a channel launches an application (`launch`), every PROCESS_INTERVAL."""
         self.env = StripEnv(
-            backend, config.behavior, bridge, players, voip, launcher or Launcher(), lambda: self.processes
+            backend,
+            config.behavior,
+            bridge,
+            players,
+            voip,
+            launcher or Launcher(),
+            lambda: self.processes,
+            engine,
+            self._solo,
         )
+        self._soloed: list[VolumeStrip] = []
+        """The strips `mute_others` muted, unmuted again when its button is let go."""
         self.state: AudioState = DISCONNECTED
         self._numbers = itertools.count()
         self.places: dict[Key, Place] = {}
@@ -333,6 +343,24 @@ class SlotMixer:
             self.refresh()
         # nothing to follow: until the mixer is closed
         await asyncio.Event().wait()
+
+    def _solo(self, soloist: StripController, on: bool) -> None:
+        """
+        `mute_others`: mutes what the other slots show while the button is held (what is muted already stays so), and
+        unmutes it again when the button is let go.
+        """
+        for strip in self._soloed:
+            strip.run_command(strip.apply_mute(False), "the solo ends")
+        self._soloed = []
+        if not on:
+            return
+        for slot in SLOTS:
+            strip = self._at(slot)
+            if not isinstance(strip, VolumeStrip) or strip is soloist or not strip.active or strip.level is None:
+                continue
+            if not strip.level.muted:
+                self._soloed.append(strip)
+                strip.run_command(strip.apply_mute(True), f"a solo of {soloist.identity.name}")
 
     def close(self) -> None:
         self.controls.close()

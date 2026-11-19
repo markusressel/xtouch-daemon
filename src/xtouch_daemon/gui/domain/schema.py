@@ -17,6 +17,7 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from xtouch_daemon.config.base import Meanings
+from xtouch_daemon.config.buttons import ActionValue, ButtonConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.names import Presets
 from xtouch_daemon.config.presets import Kind as PresetKind
@@ -41,6 +42,10 @@ class Kind(StrEnum):
     """Some of the whole numbers from `minimum` to `maximum`, e.g. faders."""
     TABLES = "tables"
     """A list of tables with texts (`Option.columns`), e.g. the profiles of a strip."""
+    BUTTON = "button"
+    """What a button does (`ButtonConfig`): a table of its press, hold and LED (`Option.columns`)."""
+    ACTION = "action"
+    """An action of a button: a word of its choices, `mode:<id>`, `toggle:<state>`, or a table with `launch`."""
 
 
 @dataclass(frozen=True)
@@ -115,6 +120,10 @@ def _table_model(annotation: Any) -> type[BaseModel] | None:
 def _kind(annotation: Any) -> Kind:
     if _table_model(annotation) is not None:
         return Kind.TABLES
+    if annotation is ButtonConfig:
+        return Kind.BUTTON
+    if annotation == ActionValue:
+        return Kind.ACTION
     if annotation == ColorName:
         return Kind.COLOR
     if get_origin(annotation) is Literal:
@@ -159,14 +168,16 @@ def option(name: str, field: FieldInfo) -> Option:
             case _:
                 # the remaining ones are checked by validation only, e.g. the pattern of a label
                 pass
+    default = None if field.default is PydanticUndefined or kind == Kind.BUTTON else field.default
+    columns = options(ButtonConfig) if kind == Kind.BUTTON else ()
     return Option(
         name=name,
         kind=kind,
         help=field.description or "",
-        default=None if field.default is PydanticUndefined else field.default,
+        default=default,
         required=field.is_required(),
         choices=get_args(annotation) if kind in (Kind.CHOICE, Kind.COLOR) else (),
-        columns=options(table) if (table := _table_model(annotation)) is not None else (),
+        columns=options(table) if (table := _table_model(annotation)) is not None else columns,
         **bounds,
     )
 

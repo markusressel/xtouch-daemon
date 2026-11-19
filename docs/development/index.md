@@ -19,7 +19,7 @@ How the daemon works inside and why. To set up the project and run the tests, se
 | [Previews, in the GUI or on the device](design/previews.md) | Built, not released |
 | [A simulated device](design/device-simulator.md) | Built (0.1.0) |
 | [Previews of the controls](design/control-previews.md) | Built (0.1.0) |
-| [The form of a channel](design/channel-form.md) | Step 1 built, not released |
+| [The form of a channel](design/channel-form.md) | Built, not released; the meter is open |
 | [Output choices](design/choices.md) | Built (0.1.0) |
 | [Launching applications](design/launch.md) | Built (0.1.0) |
 | [Presets](design/presets.md) | Built (0.1.0) |

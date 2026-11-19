@@ -47,9 +47,12 @@ def test_numbers_switches_and_choices(qtbot: QtBot, window: MainWindow):
     assert window.document.get(("behavior", "meters")) is None
     assert meters.switch.isChecked()
 
-    rec = row(window, "rec")
-    rec.combo.setCurrentText("muted")
+    rec = row(window, "rec").buttons
+    rec.combos["led"].setCurrentText("muted")
+    # the LED alone: the short form
     assert window.document.get(("channel", "out", "rec")) == "muted"
+    rec.combos["press"].setEditText("mute_others")
+    assert window.document.get(("channel", "out", "rec")) == {"press": "mute_others", "led": "muted"}
 
 
 def test_switches_and_swatches_show_focus_and_disabled(qtbot: QtBot, window: MainWindow):

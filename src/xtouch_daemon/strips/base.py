@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Protocol, assert_never
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 
@@ -12,13 +12,14 @@ from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.meter import CaptureTarget, Reading
 from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.config.buttons import HOLD_TIME, WHILE_HELD, Action, ButtonSetup, LaunchAction, indicator
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import ColorName, EncoderMode, Indicator, MeterPoint, color_of
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips.knobs import BalanceKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
-from xtouch_daemon.system.launch import Launcher
+from xtouch_daemon.system.launch import LaunchButton, Launcher
 from xtouch_daemon.voip.provider import VoipProvider
 
 if TYPE_CHECKING:
@@ -31,6 +32,17 @@ NOTICE_TIME = 2.0
 Seconds the second line of the LCD shows the exact value of what the encoder did (e.g. the balance or the position in
 the track, see `VolumeStrip.notify`) instead of the volume.
 """
+
+
+class SlotActions(Protocol):
+    """What buttons ask of the slots (the `SlotEngine`): modes and overrides, as the buttons of `[controls]` do."""
+
+    @property
+    def mode(self) -> str: ...
+    def value(self, name: str) -> bool: ...
+    def cycle_modes(self) -> None: ...
+    def choose_mode(self, mode: str) -> None: ...
+    def toggle(self, name: str) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -49,6 +61,10 @@ class StripEnv:
     """Starts the applications of strips with `launch`."""
     processes: Callable[[], frozenset[str]] = frozenset
     """The names of the processes that run (see `processes.running_processes()`), as the mixer saw them last."""
+    actions: SlotActions | None = None
+    """The modes and states of the slots, for buttons with `mode:`, `toggle:` and `cycle_modes`."""
+    solo: Callable[[StripController, bool], None] = lambda strip, on: None
+    """Mutes the strips but this one (True), and unmutes them again (False): `mute_others`."""
 
 
 @dataclass(frozen=True)
@@ -72,8 +88,8 @@ class Look:
     meter: bool = True
     """Whether the LED meter shows the level (if `behavior.meters` is on)."""
     meter_point: MeterPoint = "pre_fader"
-    indicators: Mapping[Button, Indicator] = field(default_factory=dict[Button, Indicator])
-    """What the LEDs of Rec and Solo show."""
+    buttons: Mapping[Button, ButtonSetup] = field(default_factory=dict[Button, ButtonSetup])
+    """What Select, Rec and Solo do and what their LEDs show."""
     lit_when_idle: bool = False
     """Whether the LCD keeps its backlight while the strip is idle."""
 
@@ -227,8 +243,10 @@ class VolumeStrip(StripController):
     """
     A strip that controls a volume: the fader sets it, the mute button mutes, the encoder does what `encoder` says
     (`knobs.py`: e.g. fine steps of the volume, or the balance). The LCD shows the label and the volume (or
-    "muted"), the ring what the encoder controls, and the LEDs in `indicators` show what they are configured to (e.g.
-    the rec LED whether an application records).
+    "muted"), the ring what the encoder controls, and the LEDs of the buttons (`Look.buttons`) what they are
+    configured to (e.g. the rec LED whether an application records). Select, Rec and Solo do what their press and hold
+    say (`act()`): a hold once the button is down for HOLD_TIME, a press when it is let go before (at once without a
+    hold).
 
     The fader goes from `min_volume` at the bottom to `max_volume` at the top (by default 0 and `behavior.max_volume`),
     the encoder stays in that range too.
@@ -257,9 +275,9 @@ class VolumeStrip(StripController):
             controls.on_change = self.show
         self.min_volume = min_volume
         self.max_volume = max_volume
-        self.own_leds: frozenset[Button] = frozenset()
-        """The LEDs the kind of strip shows something of its own on, not the indicators of the look."""
         self.level: Level | None = None
+        self.state_known: AudioState | None = None
+        """The state of the last `update()`, for the LEDs of the buttons after a press."""
         self.active = False
         self._wanted: int | None = None
         self._setter: asyncio.Task[None] | None = None
@@ -269,10 +287,41 @@ class VolumeStrip(StripController):
         self.encoder_mode: EncoderMode = encoder
         """What the encoder does by the configuration; while the fader is taken, it sets the volume (see `knob`)."""
         self.knob = self.make_knob(encoder)
+        self._holds: dict[Button, asyncio.TimerHandle] = {}
+        """The buttons pressed whose hold comes once HOLD_TIME is over."""
+        self._acting: dict[Button, Action] = {}
+        """The buttons held whose action lasts until they are let go (`WHILE_HELD`)."""
+        self._talking = False
+        """Mute went off for `talk`: it goes on again when the button is let go."""
+        self._launches: dict[Button, LaunchButton] = {}
+        self._make_launches()
 
     def set_look(self, look: Look) -> None:
         super().set_look(look)
         self.label = look.label or self.label
+        self._make_launches()
+
+    @property
+    def launches(self) -> bool:
+        """Whether a button starts a program of its own (`{ launch = [...] }`)."""
+        return bool(self._launches)
+
+    def _make_launches(self) -> None:
+        """A `LaunchButton` per button that starts a program of its own (`{ launch = [...] }`)."""
+        launches: dict[Button, LaunchButton] = {}
+        for button, setup in self.look.buttons.items():
+            for action in (setup.press, setup.hold):
+                if isinstance(action, LaunchAction):
+                    before = self._launches.get(button)
+                    keep = before is not None and before.command == action.launch
+                    launches[button] = (
+                        before
+                        if keep and before is not None
+                        else LaunchButton(
+                            action.launch, self.env.launcher, self.identity.name, action.launch_when_running
+                        )
+                    )
+        self._launches = launches
 
     def set_place(self, encoder: EncoderMode, min_volume: int | None, max_volume: int | None) -> None:
         """What the encoder does and the volume range: those of the place the strip is on now."""
@@ -296,10 +345,6 @@ class VolumeStrip(StripController):
     def _make_knob(self) -> None:
         self.knob.close()
         self.knob = self.make_knob(self._knob_mode())
-
-    @property
-    def indicators(self) -> dict[Button, Indicator]:
-        return {button: indicator for button, indicator in self.look.indicators.items() if button not in self.own_leds}
 
     # -- for the kinds of strips ----------------------------------------------------------------------------------
 
@@ -360,10 +405,52 @@ class VolumeStrip(StripController):
     # -- showing --------------------------------------------------------------------------------------------------
 
     def update(self, state: AudioState) -> None:
+        self.state_known = state
         self.level, self.active = self.current(state)
         self.show()
-        for button, indicator in self.indicators.items():
-            self.strip.set_led(button, Led.ON if self.indicates(indicator, state) else Led.OFF)
+        self.show_buttons(state)
+
+    def show_buttons(self, state: AudioState) -> None:
+        """The LEDs of Select, Rec and Solo, as their `led` says."""
+        for button, setup in self.look.buttons.items():
+            self.strip.set_led(button, self.button_led(button, setup, state))
+
+    def button_led(self, button: Button, setup: ButtonSetup, state: AudioState) -> Led:
+        if (shown := indicator(setup.led)) is not None:
+            return Led.ON if self.indicates(shown, state) else Led.OFF
+        if setup.led == "shown":
+            return Led.ON if self.shows_other() else Led.OFF
+        return self.action_led(button, setup.press, state)
+
+    def action_led(self, button: Button, action: Action, state: AudioState) -> Led:
+        """What the LED of a button shows for its press (`led = "press"`)."""
+        match action:
+            case LaunchAction():
+                launch = self._launches[button]
+                return launch.led(launch.program_runs(self.env.processes()))
+            case "off" | "homeassistant":
+                return Led.OFF
+            case "talk" | "mute_others":
+                return Led.ON if button in self._acting else Led.OFF
+            case "cycle_modes":
+                return Led.ON if self.env.actions is not None and self.env.actions.mode != "default" else Led.OFF
+            case str() if action.startswith(("mode:", "toggle:")):
+                actions = self.env.actions
+                if actions is None:
+                    return Led.OFF
+                if action.startswith("mode:"):
+                    return Led.ON if actions.mode == action.removeprefix("mode:") else Led.OFF
+                return Led.ON if actions.value(action.removeprefix("toggle:")) else Led.OFF
+            case _:
+                return Led.ON if self.action_lit(action, state) else Led.OFF
+
+    def action_lit(self, action: str, state: AudioState) -> bool:
+        """Whether the LED of an action of the kind of strip is lit (`default`, `next`, `profile`, `launch`)."""
+        return False
+
+    def shows_other(self) -> bool:
+        """Whether the strip shows another device than the default one (after `next`)."""
+        return False
 
     def indicates(self, indicator: Indicator, state: AudioState) -> bool:
         match indicator:
@@ -483,12 +570,103 @@ class VolumeStrip(StripController):
         super().close()
         self._end_notice_timer()
         self.knob.close()
+        for timer in self._holds.values():
+            timer.cancel()
+        self._holds.clear()
+        for button in list(self._acting):
+            self._end_action(button)
         if self.controls is not None:
             self.controls.close()
 
     def on_button(self, button: Button, pressed: bool) -> None:
-        if pressed and button == Button.MUTE and self.level is not None and self.accepts_input():
-            self.run_command(self.apply_mute(not self.level.muted), "mute")
+        if button == Button.MUTE:
+            if pressed and self.level is not None and self.accepts_input():
+                self.run_command(self.apply_mute(not self.level.muted), "mute")
+            return
+        setup = self.look.buttons.get(button)
+        if setup is None or not setup.acts:
+            return
+        if pressed:
+            if setup.hold == "off":
+                self._start_action(button, setup.press)
+            else:
+                self._cancel_hold(button)
+                self._holds[button] = asyncio.get_running_loop().call_later(HOLD_TIME, self._held, button, setup.hold)
+            return
+        timer = self._holds.pop(button, None)
+        if timer is not None:
+            # let go before the hold: a press
+            timer.cancel()
+            self._start_action(button, setup.press)
+        self._end_action(button)
+
+    def _cancel_hold(self, button: Button) -> None:
+        timer = self._holds.pop(button, None)
+        if timer is not None:
+            timer.cancel()
+
+    def _held(self, button: Button, action: Action) -> None:
+        self._holds.pop(button, None)
+        self._start_action(button, action)
+
+    def _start_action(self, button: Button, action: Action) -> None:
+        if isinstance(action, str) and action in WHILE_HELD:
+            self._acting[button] = action
+        self.act(button, action, True)
+        if self.state_known is not None:
+            self.show_buttons(self.state_known)
+
+    def _end_action(self, button: Button) -> None:
+        action = self._acting.pop(button, None)
+        if action is None:
+            return
+        self.act(button, action, False)
+        if self.state_known is not None:
+            self.show_buttons(self.state_known)
+
+    def act(self, button: Button, action: Action, down: bool) -> None:
+        """
+        Does an action of a button: once (`down`), or for an action that lasts while held (`WHILE_HELD`) its start
+        and its end.
+        """
+        actions = self.env.actions
+        match action:
+            case "off":
+                pass
+            case LaunchAction():
+                launch = self._launches[button]
+                launch.press(launch.program_runs(self.env.processes()))
+            case "talk":
+                self.talk(down)
+            case "mute_others":
+                self.env.solo(self, down)
+            case "homeassistant":
+                self.ha_event(f"{button.name.lower()}_{'pressed' if down else 'released'}")
+            case str() if action == "cycle_modes" or action.startswith(("mode:", "toggle:")):
+                if actions is None:
+                    _LOGGER.warning(f"{self.identity.name}: {action} needs the slots")
+                elif action == "cycle_modes":
+                    actions.cycle_modes()
+                elif action.startswith("mode:"):
+                    actions.choose_mode(action.removeprefix("mode:"))
+                else:
+                    actions.toggle(action.removeprefix("toggle:"))
+            case _:
+                self.do(action)
+
+    def do(self, action: str) -> None:
+        """An action of the kind of strip: `default`, `next`, `profile`, `launch`."""
+        _LOGGER.debug(f"{self.identity.name}: {type(self).__name__} can't {action}")
+
+    def talk(self, down: bool) -> None:
+        """Push to talk: Mute goes off while the button is held, and on again when it is let go."""
+        if down:
+            if self.level is not None and self.level.muted and self.accepts_input():
+                self._talking = True
+                self.run_command(self.apply_mute(False), "talk")
+        elif self._talking:
+            self._talking = False
+            self.run_command(self.apply_mute(True), "talk ends")
 
     def _shown_fraction(self) -> float:
         return self._fraction(self._wanted) if self._wanted is not None else 0.0

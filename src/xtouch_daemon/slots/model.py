@@ -471,6 +471,7 @@ class Scene:
         stacks = _parse_stacks(file.slots, file.channel, pools, problems)
         _check_chains(stacks, pools, problems)
         controls, control_conditions = _parse_controls(file, stacks, problems)
+        _check_channel_buttons(file, problems)
         if chord is not None:
             strips, action = chord
             _check_action("switching.chord.action", action, file, problems, chord=True)
@@ -738,6 +739,12 @@ def _look_problems(show: str, options: Mapping[str, Any], allowed: frozenset[str
         problems.append(f"{option} is no option of {what}{why}")
     if options.get("encoder") == "homeassistant":
         problems.append('encoder = "homeassistant" is a control of the slot: [controls]')
+    for button in ("select", "rec", "solo"):
+        value = options.get(button)
+        if isinstance(value, Mapping) and {"press", "hold"} & set(value):
+            problems.append(
+                f"{button}: a place sets only what its LED shows (led); what the button does belongs to the channel"
+            )
     return problems
 
 
@@ -811,6 +818,19 @@ def _check_action(where: str, action: str, file: _File, problems: list[str], cho
         problems.append(f"{where}: {action}: no mode {action[5:]}")
     elif action.startswith("toggle:") and action[7:] not in file.state:
         problems.append(f"{where}: {action}: no state or mode {action[7:]}")
+
+
+def _check_channel_buttons(file: _File, problems: list[str]) -> None:
+    """The actions of the buttons of channels that name modes and states (`mode:<id>`, `toggle:<state>`)."""
+    for name, channel in file.channel.items():
+        for button in ("select", "rec", "solo"):
+            table = (channel.model_extra or {}).get(button)
+            if not isinstance(table, Mapping):
+                continue
+            for part in ("press", "hold"):
+                action = table.get(part)
+                if isinstance(action, str) and (action == "cycle_modes" or action.startswith(("mode:", "toggle:"))):
+                    _check_action(f"channel.{name}.{button}.{part}", action, file, problems)
 
 
 def _parse_controls(

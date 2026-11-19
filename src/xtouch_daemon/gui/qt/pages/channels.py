@@ -12,6 +12,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QMenu, QVBoxLayout, QWidget
 
 from xtouch_daemon.audio.model import Direction
+from xtouch_daemon.config.buttons import ButtonSetup, default_setup
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
 from xtouch_daemon.config.values import METER_POINTS, default_encoder
@@ -236,16 +237,17 @@ class ChannelsPage(Page):
                 if option.name == "meter":
                     fields.addWidget(self._meter_row(path, strip, rows))
                     continue
-                fields.addWidget(
-                    self._row(
-                        option,
-                        path,
-                        table_suggest.get(option.name) or suggest.get(option.name),
-                        placeholders.get(option.name),
-                        docs.option_link("strip", option.name, strip),
-                        rows,
-                    )
+                option_row = self._row(
+                    option,
+                    path,
+                    table_suggest.get(option.name) or suggest.get(option.name),
+                    placeholders.get(option.name),
+                    docs.option_link("strip", option.name, strip),
+                    rows,
                 )
+                if option.kind == Kind.BUTTON:
+                    self._button_row(option_row, option.name, path, strip)
+                fields.addWidget(option_row)
             body.box.addLayout(fields, 1)
             layout.addWidget(body)
             cards.addWidget(frame)
@@ -287,6 +289,27 @@ class ChannelsPage(Page):
         option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, path("meter"))))
         rows.append(option_row)
         return option_row
+
+    def _button_row(self, option_row: OptionRow, name: str, path: Callable[[str], OptionPath], strip: str) -> None:
+        """A button shows what the strip type does without its table, and offers the modes and states there are."""
+
+        def defaults() -> ButtonSetup:
+            return default_setup(
+                name,  # pyright: ignore[reportArgumentType]: a button option is named like its button
+                strip,
+                devices=bool(self.document.get(path("device")) or self.document.get(path("choices"))),
+                profiles=bool(self.document.get(path("profiles"))),
+                launch=self.document.get(path("launch")) is not None,
+            )
+
+        def modes_and_states() -> list[str]:
+            states: dict[str, Any] = self.document.get(("state",), {})
+            modes = [f"mode:{state}" for state, options in states.items() if options.get("mode")]
+            return [*(["cycle_modes", *modes, "mode:default"] if modes else []), *(f"toggle:{s}" for s in states)]
+
+        option_row.buttons.defaults = defaults
+        option_row.buttons.extra = modes_and_states
+        option_row.load()
 
     def _resolved(self, path: Callable[[str], OptionPath], option: Option) -> Any:
         """The value of an option in the document, or its default."""

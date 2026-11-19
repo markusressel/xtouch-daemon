@@ -1,0 +1,161 @@
+"""
+The field of a button (`select`, `rec`, `solo`): what a press does, what a hold does and what its LED shows, each a
+list of its choices; unset, each shows what the strip type does by default.
+"""
+
+from collections.abc import Callable, Mapping
+from typing import Any
+
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import QComboBox, QGridLayout, QWidget
+
+from xtouch_daemon.config.buttons import ButtonSetup, describe_action, table_of
+from xtouch_daemon.gui.domain.schema import Kind, Option
+from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label, set_help
+from xtouch_daemon.gui.qt.theme.tokens import Space
+
+PART_TITLES = {"press": "Press", "hold": "Hold", "led": "LED"}
+"""The names of the parts of a button, for people."""
+
+
+def parts_of(name: str, value: object) -> dict[str, Any]:
+    """The parts of a button in the file (see `table_of`): {} for a value that is no table."""
+    table = table_of(name, value)
+    return dict(table) if isinstance(table, Mapping) else {}
+
+
+def launch_text(table: Mapping[str, Any]) -> str:
+    """A launch of a button as the list shows it: the program and its arguments."""
+    command = table.get("launch", ())
+    return "launch: " + (command if isinstance(command, str) else " ".join(map(str, command)))
+
+
+class ButtonField(QWidget):
+    """
+    The press, the hold and the LED of a button, each a list (press and hold take typed actions too, e.g.
+    `mode:gaming`). `changed` has the table (None: none of them is set). `defaults` tells what the strip type does
+    without a table, `extra` the actions of the modes and states there are.
+    """
+
+    changed = pyqtSignal(object, arguments=["value"])
+
+    def __init__(self, name: str, columns: tuple[Option, ...]):
+        super().__init__()
+        self.name = name
+        self.columns = columns
+        self.defaults: Callable[[], ButtonSetup] = ButtonSetup
+        self.extra: Callable[[], list[str]] = list
+        self._unknown: set[str] = set()
+        """Parts whose value in the file is none of the list: they mean nothing (their problem says why)."""
+        self._kept: dict[str, Any] = {}
+        """Parts that are no text (a launch table): kept while their text in the list stays."""
+        self._loading = False
+        grid = QGridLayout(self)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(Space.S)
+        grid.setVerticalSpacing(Space.XS)
+        self.combos: dict[str, QComboBox] = {}
+        for row, column in enumerate(columns):
+            combo = QComboBox(self)
+            combo.setMinimumWidth(180)
+            combo.setToolTip(help_text(column.help))
+            if column.kind == Kind.ACTION:
+                combo.setEditable(True)
+                combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+                combo.editTextChanged.connect(self._edited)
+            else:
+                combo.currentTextChanged.connect(self._edited)
+            self.combos[column.name] = combo
+            grid.addWidget(label(PART_TITLES.get(column.name, column.title)), row, 0)
+            grid.addWidget(combo, row, 1)
+        grid.setColumnStretch(2, 1)
+        # what the parts that are set (or their defaults) mean
+        self.meaning = help_label("", "meaning")
+        grid.addWidget(self.meaning, len(columns), 0, 1, 3)
+
+    def _fill(self, combo: QComboBox, column: Option) -> None:
+        combo.clear()
+        choices = [*column.choices, *(name for name, _ in column.meanings if name not in column.choices)]
+        if column.kind == Kind.ACTION:
+            choices += [extra for extra in self.extra() if extra not in choices]
+        for index, choice in enumerate(choices):
+            combo.addItem(choice)
+            combo.setItemData(index, help_text(column.meaning(choice)), Qt.ItemDataRole.ToolTipRole)
+
+    def show_value(self, value: object) -> None:
+        """Shows the table of the button in the file (or a shorthand of it), the defaults as placeholders."""
+        parts = parts_of(self.name, value)
+        defaults = self.defaults()
+        self._loading = True
+        try:
+            self._kept = {}
+            self._unknown = set()
+            for column in self.columns:
+                combo = self.combos[column.name]
+                self._fill(combo, column)
+                part = parts.get(column.name)
+                default = getattr(defaults, column.name)
+                placeholder = f"default: {describe_action(default) if column.kind == Kind.ACTION else default}"
+                if isinstance(part, Mapping):
+                    self._kept[column.name] = dict(part)
+                    part = launch_text(part)
+                text = "" if part is None else str(part)
+                if combo.isEditable():
+                    combo.setCurrentIndex(-1)
+                    combo.setEditText(text)
+                    edit = combo.lineEdit()
+                    if edit is not None:
+                        edit.setPlaceholderText(placeholder)
+                else:
+                    combo.setCurrentIndex(combo.findText(text) if text else -1)
+                    if text and combo.currentIndex() < 0:
+                        self._unknown.add(column.name)
+                    combo.setPlaceholderText(placeholder)
+        finally:
+            self._loading = False
+        self._show_meaning()
+
+    def value(self) -> dict[str, Any] | str | bool | None:
+        """The table of the button: the parts that are set (or its short form); None for none."""
+        table: dict[str, Any] = {}
+        for name, combo in self.combos.items():
+            text = combo.currentText().strip() if combo.isEditable() or combo.currentIndex() >= 0 else ""
+            kept = self._kept.get(name)
+            if kept is not None and text == launch_text(kept):
+                table[name] = kept
+            elif text:
+                table[name] = text
+        # the shorthands where they say it all: `rec = "muted"`, `select = false`
+        if self.name != "select" and set(table) == {"led"} and isinstance(table["led"], str):
+            return table["led"]
+        if self.name == "select" and table == {"press": "off"}:
+            return False
+        return table or None
+
+    def _edited(self, _text: str) -> None:
+        if self._loading:
+            return
+        self._unknown = {name for name in self._unknown if self.combos[name].currentIndex() < 0}
+        self._show_meaning()
+        self.changed.emit(self.value())
+
+    def _show_meaning(self) -> None:
+        defaults = self.defaults()
+        lines: list[str] = []
+        for column in self.columns:
+            combo = self.combos[column.name]
+            text = combo.currentText().strip() if combo.isEditable() or combo.currentIndex() >= 0 else ""
+            if not text and column.name in self._unknown:
+                continue
+            shown = text or (describe_action(getattr(defaults, column.name)))
+            meaning = column.meaning(shown) or (
+                "Picks the mode."
+                if shown.startswith("mode:")
+                else "Turns the state or mode on and back."
+                if shown.startswith("toggle:")
+                else ""
+            )
+            if meaning and shown != "off":
+                lines.append(f"{PART_TITLES.get(column.name, column.title)} `{shown}`: {meaning}")
+        set_help(self.meaning, " ".join(lines))
+        self.meaning.setVisible(bool(lines))

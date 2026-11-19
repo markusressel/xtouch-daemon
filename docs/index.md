@@ -45,7 +45,7 @@ are, and a strip you are touching keeps what it shows until you let go.
 Every strip has a motor fader that glides to new values and stays still under your finger, a volume range up to 200 %,
 an LCD with a label and the volume, an encoder (balance, volume, picking an application, or the media player),
 LEDs for Mute, Select, Rec and Solo, and a level meter that never wakes a device or switches Bluetooth headphones
-into headset mode. See [Encoders](configuration/strip/encoders.md) and [LEDs](configuration/strip/leds.md).
+into headset mode. See [Encoders](configuration/strip/encoders.md) and [Buttons and LEDs](configuration/strip/leds.md).
 
 ## Tools
 

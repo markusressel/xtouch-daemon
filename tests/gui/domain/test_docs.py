@@ -92,7 +92,7 @@ def test_links_are_addresses_on_the_site():
     assert docs.page_link("strips") is None
     assert docs.strip_type_link("auto") == docs.url("configuration/channels/applications/#apps-and-auto")
     assert docs.strip_type_link("pipewire") is None
-    assert docs.option_link("strip", "rec", "input") == docs.url("configuration/strip/leds/#indicators")
+    assert docs.option_link("strip", "rec", "input") == docs.url("configuration/strip/leds/#buttons")
     # a type may link an option elsewhere
     assert docs.option_link("strip", "label", "voip") == docs.url(
         "configuration/channels/people/#strips-for-one-person"

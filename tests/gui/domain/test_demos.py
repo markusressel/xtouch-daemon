@@ -117,16 +117,20 @@ def test_a_home_assistant_display_shows_its_value():
 
 
 def test_each_led_lights_in_the_situations_of_its_indicator():
-    frames = scene("buttons", strip("output", rec="recording", solo="playing"))
+    frames = scene("buttons", strip("output", device=["speaker"], rec="recording", solo="playing"))
     assert captions(frames) == [
         "Audio plays: Solo",
         "An application records: Rec, Solo",
         "The default device: Select",
         "Muted: Solo, Mute",
         "Nothing plays: all dark",
+        # then what the buttons do: Select makes the device the default
+        "Select pressed (makes it the default): Solo, Select",
     ]
     # without select, Select stays dark; applications are never the default
-    assert scene("buttons", strip("output", select=False))[2].caption == "The default device: all dark"
+    assert scene("buttons", strip("output", device=["speaker"], select=False))[2].caption == (
+        "The default device: all dark"
+    )
     apps = scene("buttons", strip("apps", rec="default"))
     assert "The default device" not in " ".join(captions(apps))
     assert all(frame.state.leds["rec"] == "off" for frame in apps)

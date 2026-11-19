@@ -12,7 +12,7 @@ from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Card, Device, Direction
 from xtouch_daemon.config.audio_strips import ChoiceConfig, ProfileConfig
 from xtouch_daemon.config.values import EncoderMode
-from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH, Button, Led
+from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips.base import Identity, Level, Look, StripEnv, VolumeStrip
 
@@ -37,16 +37,16 @@ class _Switch:
 class DeviceStrip(VolumeStrip):
     """
     The volume of a device (`devices` holds its node name or description), or of the default device without
-    `devices`, which follows when the default changes. With `select`, the select button makes the device the default,
-    and its LED is on while it is. A device that is not there (e.g. headphones that are switched off) shows "off" on a
-    dark LCD.
+    `devices`, which follows when the default changes. A device that is not there (e.g. headphones that are switched
+    off) shows "off" on a dark LCD. Its buttons do what their actions say (by default Select `default`, Rec
+    `profile`):
 
-    With several devices (or wildcards, e.g. every pair of Bluetooth headphones) the strip shows one of those that are
-    there: the default one, or else the one it showed last (or the first). Select makes it the default; on the default
-    one, it switches to the next one and makes that the default.
-
-    With `profiles`, the rec button switches the sound card of the device to the next of them (e.g. from analog to
-    digital output), and its LED is on for every profile but the first. The label of the profile is the label of the
+    - `default` makes the device the default. With several devices (or wildcards, e.g. every pair of Bluetooth
+      headphones) the strip shows one of those that are there: the default one, or else the one it showed last (or
+      the first); on the default one, `default` switches to the next one and makes that the default.
+    - `next` shows (and controls) the next of them, the default stays; until the default changes.
+    - `profile` switches the sound card of the device to the next of `profiles` (e.g. from analog to digital output);
+      its LED is on for every profile but the first. The label of the profile is the label of the
     strip (e.g. "Phones" for the analog output, "Speaker" for the digital one), from the press on. The devices of the
     card change with it: if the old one was the default, the new one becomes the default. A profile may have a volume
     range of its own (e.g. up to 200 % for weak speakers).
@@ -60,7 +60,6 @@ class DeviceStrip(VolumeStrip):
         direction: Direction,
         devices: tuple[str, ...],
         look: Look,
-        select: bool = True,
         profiles: tuple[ProfileConfig, ...] = (),
         min_volume: int | None = None,
         max_volume: int | None = None,
@@ -71,7 +70,6 @@ class DeviceStrip(VolumeStrip):
         self.label = look.label or ("Output" if direction == Direction.OUTPUT else "Input")
         self.direction = direction
         self.devices = devices
-        self.select = select and bool(devices)
         self.device: Device | None = None
         self.candidates: tuple[Device, ...] = ()
         """The devices of `devices` that are there."""
@@ -79,9 +77,8 @@ class DeviceStrip(VolumeStrip):
         self.default = False
         """Whether the device shown is the default one."""
         self.profiles = profiles
-        if profiles:
-            # its LED shows the profile
-            self.own_leds = frozenset({Button.REC})
+        self.pinned: str | None = None
+        """The device `next` went to (by name), shown instead of the default one; None: the default one."""
         self.card: Card | None = None
         """The sound card of the device shown."""
         self._switch: _Switch | None = None
@@ -90,6 +87,10 @@ class DeviceStrip(VolumeStrip):
         if not self.devices:
             return state.device(self.direction, None)
         candidates = state.devices_matching(self.direction, self.devices)
+        pinned = next((device for device in candidates if device.name == self.pinned), None)
+        if pinned is not None and not state.is_default(pinned):
+            return pinned
+        self.pinned = None
         default = next((device for device in candidates if state.is_default(device)), None)
         last = next((device for device in candidates if self.device and device.name == self.device.name), None)
         return default or last or next(iter(candidates), None)
@@ -106,9 +107,6 @@ class DeviceStrip(VolumeStrip):
     def update(self, state: AudioState) -> None:
         super().update(state)
         self.default = self.is_default(state)
-        self.strip.set_led(Button.SELECT, Led.ON if self.select and self.default else Led.OFF)
-        if self.profiles:
-            self.strip.set_led(Button.REC, Led.ON if self.profile_index() not in (None, 0) else Led.OFF)
         switch = self._switch
         # the device of the profile switched to is there
         if self.card is not None and self.device is not None and switch is not None:
@@ -184,17 +182,49 @@ class DeviceStrip(VolumeStrip):
         device = state.device(self.direction, target.node)
         return None if device is None else device.gain
 
-    def on_button(self, button: Button, pressed: bool) -> None:
-        super().on_button(button, pressed)
-        if pressed and button == Button.REC and self.profiles:
-            self._switch_profile()
-        if not (pressed and button == Button.SELECT and self.select and self.device is not None):
+    def action_lit(self, action: str, state: AudioState) -> bool:
+        match action:
+            case "default":
+                return self.is_default(state)
+            case "next":
+                return self.shows_other()
+            case "profile":
+                return self.profile_index() not in (None, 0)
+            case _:
+                return False
+
+    def shows_other(self) -> bool:
+        return self.pinned is not None
+
+    def do(self, action: str) -> None:
+        match action:
+            case "default":
+                self.make_default()
+            case "next":
+                self.show_next()
+            case "profile" if self.profiles:
+                self._switch_profile()
+            case _:
+                super().do(action)
+
+    def make_default(self) -> None:
+        """The device shown becomes the default; when it is, the next one of the devices."""
+        if not self.devices or self.device is None:
             return
         target = self.device
         if self.default and len(self.candidates) > 1:
             # the next one of them
             target = self.candidates[(self.candidates.index(target) + 1) % len(self.candidates)]
+        self.pinned = None
         self.run_command(self.env.backend.set_default(self.direction, target.name), "make default")
+
+    def show_next(self) -> None:
+        """The strip shows the next of the devices that are there; the default stays (see `pinned`)."""
+        if self.device is None or len(self.candidates) < 2 or self.state_known is None:
+            return
+        target = self.candidates[(self.candidates.index(self.device) + 1) % len(self.candidates)]
+        self.pinned = target.name
+        self.update(self.state_known)
 
     def _switch_profile(self) -> None:
         card = self.card
@@ -289,7 +319,6 @@ class ChoiceStrip(DeviceStrip):
             encoder=encoder,
             controls=controls,
         )
-        self.select = True
         self.choices = choices
         self.options = _options(choices)
         """The names of the choices in Home Assistant: their labels (or devices), made unique."""
@@ -300,6 +329,8 @@ class ChoiceStrip(DeviceStrip):
         self._devices: dict[int, Device] = {}
         """The device of each choice that is there."""
         self._choosing: _Choosing | None = None
+        self.pinned_choice: int | None = None
+        """The choice `next` went to, shown instead of the default one; None: the default one."""
         self._state = AudioState()
         self.ha_select: MQTTSelect | None = None
         if env.bridge is not None:
@@ -329,6 +360,10 @@ class ChoiceStrip(DeviceStrip):
     def _active(self, state: AudioState) -> int | None:
         if self._choosing is not None:
             return self._choosing.choice
+        pinned = self._devices.get(self.pinned_choice) if self.pinned_choice is not None else None
+        if pinned is not None and not state.is_default(pinned):
+            return self.pinned_choice
+        self.pinned_choice = None
         defaults = [index for index, device in self._devices.items() if state.is_default(device)]
         if defaults:
             return self.choice if self.choice in defaults else defaults[0]
@@ -415,10 +450,14 @@ class ChoiceStrip(DeviceStrip):
 
     # -- switching --------------------------------------------------------------------------------------------------
 
-    def on_button(self, button: Button, pressed: bool) -> None:
-        VolumeStrip.on_button(self, button, pressed)
-        if not (pressed and button == Button.SELECT) or not self.available:
+    def shows_other(self) -> bool:
+        return self.pinned_choice is not None
+
+    def make_default(self) -> None:
+        """The choice shown becomes the default; when it is, the next choice there is (see `choose`)."""
+        if not self.available:
             return
+        self.pinned_choice = None
         if self._choosing is None and self.choice in self._devices and not self.default:
             # the one shown, which is not the default: it becomes the default
             self.choose(self.choice)
@@ -427,8 +466,18 @@ class ChoiceStrip(DeviceStrip):
         after = [index for index in self.available if base is None or index > base]
         self.choose((after or list(self.available))[0])
 
+    def show_next(self) -> None:
+        """The strip shows the next choice whose device is there; the default stays (see `pinned_choice`)."""
+        there = sorted(self._devices)
+        if self.choice is None or len(there) < 2 or self._choosing is not None:
+            return
+        after = [index for index in there if index > self.choice]
+        self.pinned_choice = (after or there)[0]
+        self.update(self._state)
+
     def choose(self, index: int) -> None:
         """Switches to the choice: its profile first, if its card is in another one, then the default."""
+        self.pinned_choice = None
         state = self._state
         choice = self.choices[index]
         device = self._devices.get(index)
@@ -499,7 +548,14 @@ class ChoiceStrip(DeviceStrip):
         """Home Assistant shows the choice of the strip: a state that says otherwise is put right."""
         select = self.ha_select
         bridge = self.env.bridge
-        if select is None or bridge is None or not bridge.ready or self.choice is None:
+        if (
+            select is None
+            or bridge is None
+            or not bridge.ready
+            or self.choice is None
+            or self.pinned_choice is not None
+        ):
+            # (a choice `next` shows is not the one chosen)
             return
         option = self.options[self.choice]
         if select.target_state != option:

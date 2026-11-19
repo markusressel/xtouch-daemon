@@ -171,7 +171,8 @@ class SlotsDocument:
     def rename_references(self, old: str, new: str) -> None:
         """
         Follows a renamed channel, pool or state: the stacks and conditions that name it, the lists of channels of
-        pools and states, and the actions of `[controls]` and the chord (`toggle:old`, `mode:old`).
+        pools and states, and the actions of `[controls]`, of the buttons of channels and of the chord (`toggle:old`,
+        `mode:old`).
         """
         word = re.compile(rf"(?<![\w#@-]){re.escape(old)}(?![\w-])")
 
@@ -211,6 +212,10 @@ class SlotsDocument:
                 changes.append(
                     (("pool", name, "channels"), [new if item == old else item for item in pool["channels"]])
                 )
+        for name, channel in self.get(("channel",), {}).items():
+            for button in ("select", "rec", "solo"):
+                if isinstance(table := channel.get(button), dict):
+                    changes.append((("channel", name, button), action(table)))
         chord = self.get(("switching", "chord", "action"))
         if chord is not None:
             changes.append((("switching", "chord", "action"), action(chord)))

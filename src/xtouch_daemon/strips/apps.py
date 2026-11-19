@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, Protocol
 
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Stream
+from xtouch_daemon.config.buttons import Action
 from xtouch_daemon.config.values import EncoderMode
-from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.hardware.protocol import Button, Led
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips.base import Identity, Level, Look, StripEnv, VolumeStrip
 from xtouch_daemon.strips.knobs import Knob, MediaKnob, PickKnob
@@ -63,23 +64,22 @@ class AppStrip(VolumeStrip):
 
     @property
     def launches(self) -> bool:
-        return self.launch is not None
+        return self.launch is not None or super().launches
 
     def update(self, state: AudioState) -> None:
         self.state = state
         super().update(state)
-        if self.launch is not None:
-            self._show_launch(self.launch, state)
 
-    def _show_launch(self, launch: LaunchButton, state: AudioState) -> None:
-        self.strip.set_led(Button.SELECT, launch.led(self.runs(state)))
+    def action_led(self, button: Button, action: Action, state: AudioState) -> Led:
+        if action == "launch" and self.launch is not None:
+            return self.launch.led(self.runs(state))
+        return super().action_led(button, action, state)
 
-    def on_button(self, button: Button, pressed: bool) -> None:
-        if pressed and button == Button.SELECT and self.launch is not None and self.state is not None:
-            if self.launch.press(self.runs(self.state)):
-                self._show_launch(self.launch, self.state)
+    def do(self, action: str) -> None:
+        if action == "launch" and self.launch is not None and self.state is not None:
+            self.launch.press(self.runs(self.state))
             return
-        super().on_button(button, pressed)
+        super().do(action)
 
     def inactive_text(self) -> str:
         return "idle"

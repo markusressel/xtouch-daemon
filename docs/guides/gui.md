@@ -264,12 +264,13 @@ your user: without one its button is off and says how to start it. Esc, or Simul
 
 The forms come from the options of the configuration, so every option has a field. The options of a channel are in
 cards in the order of the device, from top to bottom: what it controls, the encoder, the display, the buttons (Rec,
-Solo, Mute, Select), the fader and the meter, then those about slots (`tags`, `in_pool`, ...).
+Solo and Select each with what a press does, what a hold does and what the LED shows; unset, each shows the default
+of the type), the fader and the meter, then those about slots (`tags`, `in_pool`, ...).
 
 The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip, which shows
 what the options do on the device in a few steps (‹ and › go through them), each with a caption: the ring as the encoder turns and is pushed, the LCD while audio
 plays (with the label of each choice), while muted and with nothing to control, which LEDs light while audio plays, an application records or the
-strip is muted, and the volume at the bottom, at the 0 dB mark and at the top of the fader, with what the meter shows
+strip is muted and after a press or a hold of each button that does something, and the volume at the bottom, at the 0 dB mark and at the top of the fader, with what the meter shows
 there. It follows the values in the form at once, saved or not, at the step shown.
 
 - switches for on/off options, numbers with their ranges, choices, color swatches, lists as chips, masked fields for
