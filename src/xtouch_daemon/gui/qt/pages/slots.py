@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QKeySequence, QShortcut, QStandardItemModel
+from PyQt6.QtGui import QIcon, QKeySequence, QShortcut, QStandardItemModel
 from PyQt6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -52,7 +52,16 @@ from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
 from xtouch_daemon.gui.domain.status import Reason, Status, Tone
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, help_text, indent_text, label
+from xtouch_daemon.gui.qt.fields.basics import (
+    DOT_ICON,
+    dot_icon,
+    entity_label,
+    flat_button,
+    help_label,
+    help_text,
+    indent_text,
+    label,
+)
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.meter import meter_row
@@ -652,13 +661,18 @@ class SlotsPanel(Page):
         self.shown_live = live
         picked = real.mode_pick if real is not None else None
         states = {state.name: state for state in real.states} if real is not None else {}
+        hue = getattr(current_colors(), Entity.STATE)
         for name, state_button in self.state_buttons.items():
             state = states.get(name)
-            dot = "" if state is None else "● " if state.value else "○ "
             override = "" if state is None or state.override == "auto" else f" ({state.override})"
             if picked == name:
                 override = " (picked)"
-            state_button.setText(f"{dot}{self.document.get(('state', name, 'label')) or name}{override}  ▾")
+            # the dot (on or off) once the daemon tells the state
+            state_button.setProperty("on", None if state is None else state.value)
+            state_button.setIcon(QIcon() if state is None else dot_icon(state.value, hue))
+            state_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+            state_button.setIconSize(DOT_ICON)
+            state_button.setText(f"{self.document.get(('state', name, 'label')) or name}{override}  ▾")
             tip = f"{name}: {state.source or 'off'}" if state is not None else name
             state_button.setToolTip(f"{tip}\n\nClick for its override, or to simulate it the other way.")
         self._show_cards()

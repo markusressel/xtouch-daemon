@@ -7,8 +7,8 @@ import html
 import re
 from collections.abc import Callable, Mapping
 
-from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QColor, QPainter, QPaintEvent
+from PyQt6.QtCore import QPointF, QSize, Qt
+from PyQt6.QtGui import QBrush, QColor, QIcon, QPainter, QPaintEvent, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
     QLabel,
@@ -257,6 +257,36 @@ def refresh_help(root: QWidget) -> None:
         source = widget.property(_HELP_PROPERTY)
         if source is not None:
             widget.setText(help_html(*source))
+
+
+DOT = 8
+"""The size of the dot of a state: filled while it is on, a ring while off."""
+
+
+def paint_dot(painter: QPainter, center: QPointF, on: bool, color: str) -> None:
+    """The dot of a state, drawn rather than a glyph: the font has none, and the fallback's sit below the middle."""
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor(color), 1.5))
+    painter.setBrush(QBrush(QColor(color)) if on else QBrush(Qt.BrushStyle.NoBrush))
+    radius = DOT / 2 - 0.75
+    painter.drawEllipse(center, radius, radius)
+    painter.restore()
+
+
+DOT_ICON = QSize(DOT + Space.XS, DOT)
+"""The size of `dot_icon`: the dot, and room before the text after it."""
+
+
+def dot_icon(on: bool, color: str, ratio: float = 2.0) -> QIcon:
+    """The dot of a state as an icon of `DOT_ICON`, e.g. before the text of a button."""
+    pixmap = QPixmap(int(DOT_ICON.width() * ratio), int(DOT_ICON.height() * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    paint_dot(painter, QPointF(DOT / 2, DOT / 2), on, color)
+    painter.end()
+    return QIcon(pixmap)
 
 
 def flat_button(icon: str, tip: str, parent: QWidget | None = None) -> QToolButton:

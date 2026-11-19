@@ -36,6 +36,7 @@ from xtouch_daemon.gui.qt.fields.basics import Suggest, flat_button, help_label,
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, divider, text_width
+from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE, DotItemDelegate
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -120,6 +121,7 @@ class StatesPage(Page):
         self.list = QListWidget()
         self.list.setMinimumWidth(160)
         set_role(self.list, "side")
+        self.list.setItemDelegate(DotItemDelegate(self.list))
         # the lines fit the width (or are cut short): no scrolling sideways
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll_shadows(self.list)
@@ -411,12 +413,13 @@ class StatesPage(Page):
         for name in ordered(self.states):
             mode = bool(self.document.get(("state", name, "mode")))
             live = live_state(snapshot, name)
-            value = "" if live is None else "  ●" if live.value else "  ○"
-            text = f"{self.document.get(('state', name, 'label')) or name}{value}\n{'mode' if mode else 'state'}"
+            text = f"{self.document.get(('state', name, 'label')) or name}\n{'mode' if mode else 'state'}"
             if self.editor.validation.at("state", name):
                 text += "  ⚠"
             item = QListWidgetItem(icon("view-dashboard-outline" if mode else "toggle-switch-outline"), text)
             item.setData(Qt.ItemDataRole.UserRole, name)
+            # the dot after the name, drawn by `DotItemDelegate`
+            item.setData(DOT_ROLE, None if live is None else live.value)
             self.list.addItem(item)
             if name == self.selection:
                 self.list.setCurrentItem(item)

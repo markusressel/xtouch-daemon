@@ -774,6 +774,9 @@ class MainWindow(QMainWindow):
         # the icons are drawn in the colors of the theme
         refresh_icons(self)
         refresh_help(self)
+        # and the dots of the states in the bar of Slots
+        self.slots_page.shown_live = None
+        self.slots_page.show_live(self.slots_page.snapshot())
         self.device_view.preview.update()
 
     # -- editing --------------------------------------------------------------------------------------------------

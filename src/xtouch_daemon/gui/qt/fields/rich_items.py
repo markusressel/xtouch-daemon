@@ -10,9 +10,9 @@ from PyQt6.QtCore import QModelIndex, QPointF, QRectF, Qt
 from PyQt6.QtGui import QAbstractTextDocumentLayout, QColor, QPainter, QTextDocument
 from PyQt6.QtWidgets import QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
-from xtouch_daemon.gui.qt.fields.basics import help_text
+from xtouch_daemon.gui.qt.fields.basics import DOT, help_text, paint_dot
 from xtouch_daemon.gui.qt.theme.style import current_colors
-from xtouch_daemon.gui.qt.theme.tokens import Entity
+from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 
 LINES_ROLE = Qt.ItemDataRole.UserRole + 1
 
@@ -47,6 +47,35 @@ class EntityItemDelegate(QStyledItemDelegate):
         painter.setClipRect(QRectF(0, 0, rect.width(), document.size().height()))
         document.documentLayout().draw(painter, QAbstractTextDocumentLayout.PaintContext())  # pyright: ignore[reportOptionalMemberAccess]
         painter.restore()
+
+
+DOT_ROLE = Qt.ItemDataRole.UserRole + 2
+"""Whether the state of an item is on (True), off (False) or not told (None)."""
+
+
+class DotItemDelegate(QStyledItemDelegate):
+    """Draws an item as usual, and the dot of its state (`DOT_ROLE`) after the text of its first line."""
+
+    def paint(self, painter: QPainter | None, option: QStyleOptionViewItem, index: QModelIndex) -> None:
+        super().paint(painter, option, index)
+        on = index.data(DOT_ROLE)
+        if painter is None or on is None:
+            return
+        item = QStyleOptionViewItem(option)
+        self.initStyleOption(item, index)
+        widget = option.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        assert style is not None
+        rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, item, widget)
+        # the item view writes the line breaks as U+2028
+        lines = (item.text or "").replace("\n", "\u2028").split("\u2028")
+        metrics = item.fontMetrics
+        # the lines are centered together; the dot goes in the middle of the first one
+        top = rect.top() + (rect.height() - len(lines) * metrics.lineSpacing()) / 2
+        # the text starts a little inside its rectangle (the margin of the style)
+        margin = style.pixelMetric(QStyle.PixelMetric.PM_FocusFrameHMargin, None, widget) + 1
+        x = rect.left() + margin + metrics.horizontalAdvance(lines[0]) + Space.S + DOT / 2
+        paint_dot(painter, QPointF(x, top + metrics.lineSpacing() / 2), bool(on), item.palette.text().color().name())
 
 
 def _document(lines: Lines, item: QStyleOptionViewItem, width: int) -> QTextDocument:

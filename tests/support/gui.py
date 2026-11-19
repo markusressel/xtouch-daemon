@@ -122,8 +122,13 @@ def plain(text: str) -> str:
 
 
 def pill(widget: QLabel | QAbstractButton) -> str:
-    """The text of a pill, without the ▾ of one that opens a popover."""
-    return widget.text().removesuffix("  ▾")
+    """
+    The text of a pill, without the ▾ of one that opens a popover, after the dot of a state (drawn, `on`) as it looks:
+    ● on, ○ off.
+    """
+    on = widget.property("on")
+    dot = "" if on is None else "● " if on else "○ "
+    return dot + widget.text().removesuffix("  ▾")
 
 
 NO_MUMBLE = mumble.Setup(bundle=None, buildable=False, installed=None, mumble=False)

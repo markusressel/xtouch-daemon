@@ -119,6 +119,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   a place of `apps`, `auto` or `devices` says why instead of "Extra inputs are not permitted" on every slot. The GUI
   no longer offers those on a pool or a place.
 - The node on the rail of a slot card sat a little above the text of the first candidate; it is in its middle now.
+- The dot of a state (in the bar of Slots and the list of States) sat below the middle of its text: the font has
+  no ○ and ●, and the fallback's sit low. The dot is drawn now.
 - The Solo buttons of the mode chord held their slots, so a mode picked by the chord changed those two strips only
   after the release. They hold nothing, as designed.
 

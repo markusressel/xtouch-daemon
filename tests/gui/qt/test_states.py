@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QListWidgetItem
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import click, row, type_into
+from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, Snapshot, StateView
 
@@ -98,7 +99,10 @@ def test_the_daemon_tells_the_values_and_takes_overrides(window: MainWindow):
     page.show_live(snapshot)
     assert page.live.text() == "on since 21:04 (mumble runs), override on"
     assert page.override_buttons["on"].isChecked()
-    assert [item.text() for item in items(window)] == ["gaming  ○\nmode", "call  ●\nstate"]
+    assert [(item.text(), item.data(DOT_ROLE)) for item in items(window)] == [
+        ("gaming\nmode", False),
+        ("call\nstate", True),
+    ]
     page.override_buttons["auto"].click()
     assert sent == [SetOverride("call", "auto")]
 
