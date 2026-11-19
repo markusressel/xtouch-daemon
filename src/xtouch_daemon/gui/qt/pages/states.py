@@ -119,6 +119,8 @@ class StatesPage(Page):
         side = QVBoxLayout()
         self.list = QListWidget()
         self.list.setMinimumWidth(160)
+        # the lines fit the width (or are cut short): no scrolling sideways
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll_shadows(self.list)
         self.list.currentItemChanged.connect(self._picked)
         side.addWidget(self.list, 1)

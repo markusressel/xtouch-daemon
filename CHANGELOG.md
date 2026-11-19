@@ -54,6 +54,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   selection, the focus or the mouse, and strips nobody configured are not dimmed. The selection comes back with Select.
 - GUI: the text of number fields starts where the text of the other fields does, and the chips of a list field have
   the same space to the edge of the field all around.
+- GUI: the lists of Channels and States have round corners like the cards, and their selected line is a tint that
+  keeps the colors of its text. The shadow at the edge of a scrolled list fades out at its ends.
 - GUI, form of a channel: it starts with what its type is (e.g. what an output channel controls); a narrow window puts
   the name of an option above its field, and the drawing of a part above its options, so nothing is cut off.
   `choices` and `profiles` are a list of entries that open into their fields (volumes as numbers in %, the card and

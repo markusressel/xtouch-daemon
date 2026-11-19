@@ -7,7 +7,7 @@ import html
 from typing import NamedTuple
 
 from PyQt6.QtCore import QModelIndex, QPointF, QRectF, Qt
-from PyQt6.QtGui import QAbstractTextDocumentLayout, QColor, QPainter, QPalette, QTextDocument
+from PyQt6.QtGui import QAbstractTextDocumentLayout, QColor, QPainter, QTextDocument
 from PyQt6.QtWidgets import QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from xtouch_daemon.gui.qt.fields.basics import help_text
@@ -41,8 +41,7 @@ class EntityItemDelegate(QStyledItemDelegate):
         assert style is not None
         style.drawControl(QStyle.ControlElement.CE_ItemViewItem, item, painter, widget)
         rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, item, widget)
-        selected = bool(item.state & QStyle.StateFlag.State_Selected)
-        document = _document(lines, item, selected, rect.width())
+        document = _document(lines, item, rect.width())
         painter.save()
         painter.translate(QPointF(rect.left(), rect.top() + (rect.height() - document.size().height()) / 2))
         painter.setClipRect(QRectF(0, 0, rect.width(), document.size().height()))
@@ -50,16 +49,16 @@ class EntityItemDelegate(QStyledItemDelegate):
         painter.restore()
 
 
-def _document(lines: Lines, item: QStyleOptionViewItem, selected: bool, width: int) -> QTextDocument:
+def _document(lines: Lines, item: QStyleOptionViewItem, width: int) -> QTextDocument:
+    # the selected row is a tint (see the style sheet): the hues keep their contrast on it
     colors = current_colors()
-    name = item.palette.color(QPalette.ColorRole.HighlightedText).name() if selected else getattr(colors, lines.entity)
-    below = name if selected else colors.text_muted
+    name = getattr(colors, lines.entity)
+    below = colors.text_muted
     document = QTextDocument()
     document.setDefaultFont(item.font)
     document.setDocumentMargin(0)
     document.setTextWidth(width)
-    # on the selected row the hues would lose their contrast: plain text
-    text = html.escape(lines.below) if selected else help_text(lines.below)
+    text = help_text(lines.below)
     document.setHtml(
         f'<span style="color: {name}">{html.escape(lines.name)}</span><br>'
         f'<span style="color: {QColor(below).name()}">{text}</span>'

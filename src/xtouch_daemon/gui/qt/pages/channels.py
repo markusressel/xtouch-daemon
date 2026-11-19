@@ -106,6 +106,8 @@ class ChannelsPage(Page):
         side = QVBoxLayout()
         self.list = QListWidget()
         self.list.setMinimumWidth(160)
+        # the lines fit the width (or are cut short): no scrolling sideways
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.list.setItemDelegate(EntityItemDelegate(self.list))
         scroll_shadows(self.list)
         self.listed: list[tuple[OptionPath, str, str, str]] = []

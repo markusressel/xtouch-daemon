@@ -5,8 +5,8 @@ Style sheets have no shadows; a QGraphicsEffect on every card would render each 
 make scrolling and the handles slow), so the cards have none.
 """
 
-from PyQt6.QtCore import QEvent, QObject, QPointF, Qt
-from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPaintEvent
+from PyQt6.QtCore import QEvent, QObject, QPointF, QSize, Qt
+from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPaintEvent, QPixmap
 from PyQt6.QtWidgets import QAbstractScrollArea, QGraphicsDropShadowEffect, QWidget
 
 from xtouch_daemon.gui.qt.theme.style import current_colors
@@ -14,6 +14,10 @@ from xtouch_daemon.gui.qt.theme.tokens import Space
 
 EDGE = Space.S
 """How far the shadow at an edge reaches into the list."""
+FADE = Space.XL
+"""How far the ends of a shadow fade out to the sides: no hard corners where the cards have round ones."""
+FALLOFF = ((0.0, 1.0), (0.25, 0.55), (0.6, 0.18), (1.0, 0.0))
+"""How the shadow fades from the edge into the list (where, how dark): eased, so the edge reads as no line."""
 
 
 def _dark() -> bool:
@@ -35,12 +39,28 @@ class _Edge(QWidget):
         self.hide()
 
     def paintEvent(self, event: QPaintEvent | None) -> None:
-        painter = QPainter(self)
+        # drawn apart first: fading its ends on the widget itself would erase what is under it
+        ratio = self.devicePixelRatioF()
+        shadow = QPixmap(QSize(round(self.width() * ratio), round(self.height() * ratio)))
+        shadow.setDevicePixelRatio(ratio)
+        shadow.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(shadow)
         start, end = (0.0, float(self.height())) if self.top else (float(self.height()), 0.0)
-        gradient = QLinearGradient(QPointF(0, start), QPointF(0, end))
-        gradient.setColorAt(0, _shadow(90, 40))
-        gradient.setColorAt(1, QColor(0, 0, 0, 0))
-        painter.fillRect(self.rect(), gradient)
+        down = QLinearGradient(QPointF(0, start), QPointF(0, end))
+        dark = _shadow(70, 32)
+        for at, share in FALLOFF:
+            down.setColorAt(at, QColor(0, 0, 0, round(dark.alpha() * share)))
+        painter.fillRect(self.rect(), down)
+        fade = min(FADE / max(self.width(), 1), 0.5)
+        across = QLinearGradient(QPointF(0, 0), QPointF(self.width(), 0))
+        across.setColorAt(0, QColor(0, 0, 0, 0))
+        across.setColorAt(fade, QColor(0, 0, 0, 255))
+        across.setColorAt(1 - fade, QColor(0, 0, 0, 255))
+        across.setColorAt(1, QColor(0, 0, 0, 0))
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationIn)
+        painter.fillRect(self.rect(), across)
+        painter.end()
+        QPainter(self).drawPixmap(0, 0, shadow)
 
 
 class _ScrollShadows(QObject):
