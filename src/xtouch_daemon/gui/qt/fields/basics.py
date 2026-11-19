@@ -8,7 +8,7 @@ import re
 from collections.abc import Callable, Mapping
 
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QPainter, QPaintEvent
+from PyQt6.QtGui import QColor, QPainter, QPaintEvent
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
     QLabel,
@@ -188,13 +188,44 @@ def help_text(text: str) -> str:
 LEARN_MORE = "Learn more"
 
 
-def help_html(text: str, link: str | None = None) -> str:
-    """Help from a docstring, and a link to where the documentation explains more."""
-    more = f'<a href="{html.escape(link)}">{LEARN_MORE}</a>' if link else ""
-    return " ".join(part for part in (help_text(text), more) if part)
+CHIP_SHARE = 0.14
+"""How much of the text color the background of a value in help has, over the card: a chip in both themes."""
 
 
-def help_label(text: str, role: str, link: str | None = None) -> QLabel:
+def _chip_color() -> str:
+    """A solid color (rich text takes no transparency): the card with a little of the text over it."""
+    colors = current_colors()
+    card, text = QColor(colors.raised), QColor(colors.text)
+    mixed = QColor(
+        *(round(a + (b - a) * CHIP_SHARE) for a, b in zip(card.getRgb()[:3], text.getRgb()[:3], strict=True))
+    )
+    return mixed.name()
+
+
+def help_tail(default: str | None = None, link: str | None = None) -> str:
+    """
+    The end of a help, set apart from its text on the same line: what an unset option takes (a muted DEFAULT and the
+    value as a chip) and the link to the documentation, each kept whole where the text wraps.
+    """
+    colors = current_colors()
+    parts: list[str] = []
+    if default:
+        value = html.escape(default).replace(" ", "&nbsp;")
+        parts.append(
+            f'<span style="color: {colors.text_muted}; font-size: small; font-weight: 700">DEFAULT</span>&nbsp;'
+            f'<code style="background-color: {_chip_color()}; color: {colors.text}">&nbsp;{value}&nbsp;</code>'
+        )
+    if link:
+        parts.append(f'<a href="{html.escape(link)}">{LEARN_MORE.replace(" ", "&nbsp;")}&nbsp;↗</a>')
+    return "&emsp;".join(parts)
+
+
+def help_html(text: str, link: str | None = None, default: str | None = None) -> str:
+    """Help from a docstring, then what an unset option takes and a link to the documentation (see `help_tail`)."""
+    return "&emsp;".join(part for part in (help_text(text), help_tail(default, link)) if part)
+
+
+def help_label(text: str, role: str, link: str | None = None, default: str | None = None) -> QLabel:
     """
     A label with help from a docstring, and a link to the documentation, opened in the browser; always rich text, as
     Qt would show text without tags as it is.
@@ -202,22 +233,22 @@ def help_label(text: str, role: str, link: str | None = None) -> QLabel:
     widget = label("", role, wrap=True)
     widget.setTextFormat(Qt.TextFormat.RichText)
     widget.setOpenExternalLinks(True)
-    set_help(widget, text, link)
+    set_help(widget, text, link, default)
     return widget
 
 
 _HELP_PROPERTY = "help_source"
 
 
-def set_help(widget: QLabel, text: str, link: str | None = None) -> None:
+def set_help(widget: QLabel, text: str, link: str | None = None, default: str | None = None) -> None:
     """
     Shows help from a docstring (see `help_html`) in `widget`, and keeps it to draw it again in the colors of
     another theme (see `refresh_help`). The same help again does nothing: it would lay out the window again.
     """
-    if widget.property(_HELP_PROPERTY) == (text, link):
+    if widget.property(_HELP_PROPERTY) == (text, link, default):
         return
-    widget.setProperty(_HELP_PROPERTY, (text, link))
-    widget.setText(help_html(text, link))
+    widget.setProperty(_HELP_PROPERTY, (text, link, default))
+    widget.setText(help_html(text, link, default))
 
 
 def refresh_help(root: QWidget) -> None:

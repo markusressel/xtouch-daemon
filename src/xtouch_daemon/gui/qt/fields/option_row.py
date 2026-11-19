@@ -171,8 +171,7 @@ class OptionRow(QWidget):
         self.matches = label("", "help", wrap=True)
         self.matches.hide()
         details.addWidget(self.matches)
-        help_parts = [option.help, f"Default: `{option.default_text}`." if option.default_text else ""]
-        self.help = help_label(" ".join(part for part in help_parts if part), "help", link)
+        self.help = help_label(option.help, "help", link, option.default_text or None)
         if not (option.help or option.default_text or link):
             # hidden only: shown before it is in the row, a widget without a parent is a window of its own
             self.help.hide()

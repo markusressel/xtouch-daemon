@@ -28,7 +28,7 @@ from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import LEARN_MORE, Suggest, help_label, label, set_help, show_status
+from xtouch_daemon.gui.qt.fields.basics import Suggest, help_label, help_tail, label, set_help, show_status
 from xtouch_daemon.gui.qt.fields.option_row import add_rows, align_titles
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, page_title, row, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -314,7 +314,7 @@ class MumbleBox(QFrame):
         self.install_button.setEnabled(setup.installable and not installing)
         self.install_button.setToolTip(install_hint(setup))
         steps = "".join(f"<li>{html.escape(step)}</li>" for step in install_steps(setup))
-        link = f' <a href="{html.escape(docs.guide_link("mumble"))}">{LEARN_MORE}</a>'
+        link = f"&emsp;{help_tail(link=docs.guide_link('mumble'))}"
         set_text(self.steps, f"Set up the plugin once:<ol>{steps}</ol>{install_hint(setup)}{link}")
         self.result.setVisible(result is not None)
         if result is not None:

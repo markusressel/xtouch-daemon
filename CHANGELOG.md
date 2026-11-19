@@ -62,6 +62,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   preview in the GUI. The daemon sends the live view when something changed instead of checking 20 times a second
   (10 for the twins), so nothing runs while nothing changes. A GUI needs a daemon of this version (the live view is
   version 2).
+- GUI: the help of an option ends with what it takes when unset (a muted DEFAULT and the value as a chip) and
+  Learn more ↗, set apart from the text on the same line.
 - GUI: Device and Choices of an output or input channel are one list, Device. It writes `device` while its entries
   are devices alone, and `choices` once one has a label, a profile or a volume range.
 - GUI, form of a channel: it starts with what its type is (e.g. what an output channel controls); a narrow window puts

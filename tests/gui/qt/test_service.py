@@ -542,7 +542,7 @@ def test_launch_is_a_list_of_the_parts_of_the_command(window: MainWindow):
         "Add… (none: Select starts nothing; the program, then each argument)"
     )
     link = docs.url("configuration/channels/applications/#launching-the-application")
-    assert f'<a href="{link}">Learn more</a>' in launch.help.text()
+    assert f'<a href="{link}">Learn&nbsp;more&nbsp;↗</a>' in launch.help.text()
     assert "It runs without a shell, so nothing is expanded." in plain(launch.help.text())
     # a part per entry
     launch.chips.add("mumble")
@@ -642,10 +642,10 @@ def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
     rec = row(window, "rec")
     # a button: the default of each part in its list
     assert rec.buttons.combos["led"].placeholderText() == "default: recording"
-    assert f'<a href="{docs.url("configuration/strip/leds/#buttons")}">Learn more</a>' in rec.help.text()
+    assert f'<a href="{docs.url("configuration/strip/leds/#buttons")}">Learn&nbsp;more&nbsp;↗</a>' in rec.help.text()
     assert rec.help.openExternalLinks()
     # an option without a section in the docs: its help says it all
-    assert "Learn more" not in row(window, "lit_when_idle").help.text()
+    assert "<a href" not in row(window, "lit_when_idle").help.text()
     # the pages
     for page in ("channels", "device", "behavior", "aliases", "mqtt"):
         link = docs.page_link(page)
