@@ -15,7 +15,7 @@ import pytest
 from tests.support.cli import invoke
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import example_config, parse_config
-from xtouch_daemon.config.json_schema import SCHEMA_URL, config_schema, schema_text
+from xtouch_daemon.config.json_schema import SCHEMA_URL, _strip_options, config_schema, schema_text
 
 ROOT = Path(__file__).parent.parent.parent
 DOCS = ROOT / "docs"
@@ -150,3 +150,25 @@ def test_options_have_their_help():
     assert "description" in schema["$defs"][channel["properties"]["color"]["$ref"].removeprefix("#/$defs/")]
     assert "description" in channel["properties"]["tags"]
     assert "description" in schema["$defs"]["StateConfig"]["properties"]["voice_chat"]
+
+
+def test_an_option_of_several_types_of_strip_takes_what_any_of_them_takes():
+    output = {
+        "properties": {"type": {"const": "output"}, "color": {"type": "string", "default": "white", "title": "C"}}
+    }
+    voip = {
+        "properties": {
+            "type": {"const": "voip"},
+            "color": {"type": "string", "default": "cyan", "description": "The backlight."},
+            "fader": {"type": "integer"},
+        }
+    }
+    apps = {"properties": {"type": {"const": "apps"}, "fader": {"type": "string"}}}
+
+    options = _strip_options([output, voip, apps])
+
+    # the same kind of value with defaults of their own: no default, the help of the one that has it
+    assert options["color"] == {"type": "string", "description": "The backlight."}
+    # values of other kinds: either, and no help where none has it
+    assert options["fader"] == {"anyOf": [{"type": "integer"}, {"type": "string"}]}
+    assert "type" not in options
