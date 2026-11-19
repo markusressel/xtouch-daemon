@@ -25,8 +25,3 @@ I like the startup sequience we have, especially the show, but can we make it ev
 Also: The GUI still shows something, even if no virtual device is started. I thought we removed that? 
 We want the virtual device to be able to show the startup sequence (works already) and also the shutdown sequence (doesn't work currently).
 So the user can see that when a device disconnects, its faders return to 0 (do they actually do that, or do they return to 0 on reconnect?).
-
-## Log Viewer for the running daemon in the GUI
-
-As the title states. An optional window in the GUI that shows the log of the running daemon, with highlighting, a filter for log level and a search function.
-
