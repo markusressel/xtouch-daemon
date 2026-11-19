@@ -1,4 +1,4 @@
-# Design: previews, on the device or only in the GUI
+# Design: previews, in the GUI or on the device
 
 Status: **proposed** (2026-11-19). It replaces [Try changes and situations](try-and-simulate.md) and [The virtual
 twin](virtual-twin.md), which describe what is built now; once this is built, they move to `history/`.
@@ -14,7 +14,7 @@ Two features of the GUI show something that isn't real yet, and both grew a way 
 So edits can only be tried on the device, Simulate in both places, and two protocols with their own heartbeat, timeout
 and ending do the same thing for different targets. On top of that, four things all looked like "the device" in the
 discussion: the real device, the `SimulatedDevice`, the twin and the drawing. This design names each of them once and
-puts both features behind one preview with one switch.
+puts both features behind one preview with one control: where the preview shows.
 
 ## Terms
 
@@ -29,7 +29,7 @@ One word for one thing, in the code, the docs and here.
 | **rig** | The strips of a configuration on one surface: the hands on them (`Desk`), the slots (`SlotEngine`), the controllers (`SlotMixer`) and the loop that steps them. | `runtime/rig.py` |
 | **twin** | A second rig in the daemon, one per GUI window that asks for it. Its surface has no device, and its sound server and voice chat are made up. Its mirror is all there is of it. | `runtime/twin.py` |
 | **drawing** | What the window Device of the GUI paints: always a mirror that the daemon sends, of the device or of the window's twin. | `gui/qt/window/device_view.py` |
-| **preview** | What a window shows that isn't real: its unsaved edits, its situation (Simulate), or both. | |
+| **preview** | What a window shows that isn't real yet: its unsaved edits, with the situation of Simulate while it is open. Simulate always includes the edits. | |
 | **situation** | A what-if of Simulate: the mode, the states on, the channels and pools present, and how many people, applications and devices. | `slots.outcomes.Situation` |
 
 ```mermaid
@@ -46,72 +46,75 @@ flowchart LR
 
 ## Rules
 
-1. **The daemon drives everything that is drawn.** The GUI computes no strips. The drawing is a mirror of the device or
+1. **The drawing is a device preview first.** It can always mirror what the device shows right now.
+2. **The daemon drives everything that is drawn.** The GUI computes no strips. The drawing is a mirror of the device or
    of the window's twin. Without a daemon, the strips are dark and the GUI says how to start the daemon.
-2. **One model of a device.** The virtual device, every mirror and the tests use the device model.
-3. **One rig, two uses.** The daemon's strips and a twin are both a `Rig`, so they behave the same: steps, delays,
+3. **One model of a device.** The virtual device, every mirror and the tests use the device model.
+4. **One rig, two uses.** The daemon's strips and a twin are both a `Rig`, so they behave the same: steps, delays,
    banners, controllers, meters.
-4. **One preview per window**: a configuration (the editor's) and a situation (Simulate's, or the real one).
-5. **One switch decides where the preview runs**: on the device, or only in the GUI. A new preview starts only in the
-   GUI.
-6. **Home Assistant never sees a preview.** Its entities show the file and the real situation.
+5. **One preview per window**: the editor's configuration, in the situation of Simulate while it is open.
+6. **One control decides where the preview shows**, for the edits and Simulate alike. "In the GUI" is the default.
+   "On the device" is the user's approval that the device changes before the configuration is saved.
+7. **Home Assistant never sees a preview.** Its entities show the file and the real situation.
 
-## Where a preview runs
+## Where the preview shows
 
-The switch is "On the device", next to Save and apply. It shows while the window has a preview. Off means "only in the
-GUI"; it starts off in every window and stays as it is set until the window closes.
+The control "Preview" sits next to Save and apply, while the window has a preview (unsaved edits, or Simulate open).
+It has three positions:
 
-| The window has | Only in the GUI (switch off) | On the device (switch on) |
-|---|---|---|
-| Nothing (no edits, no Simulate) | No preview. The device runs the file, the drawing shows the device. | The same: the switch is gone. |
-| Unsaved edits | The twin runs the edits in the situation of now (see below). The device runs the file. | The device runs the edits in the real situation. |
-| Simulate | The twin runs the configuration in the situation of Simulate. The device runs the file. | The device runs the configuration in the situation of Simulate. |
-| Both | The twin runs the edits in the situation of Simulate. | The device runs the edits in the situation of Simulate. |
+| Position | The device runs | A twin runs | The drawing shows | Meant for |
+|---|---|---|---|---|
+| **In the GUI** (the default) | The file, in reality | The preview | The twin | Seeing the edits and Simulate without touching the device. |
+| **On the device** | The preview | Nothing | The device, which shows the preview | Trying it for real: an intentional choice, the device changes before a save. |
+| **Off** | The file, in reality | Nothing | The device, as it is | A user who can't see the device and wants to see what it shows. Rarely used. |
 
-In every row:
-
-- **The drawing** shows where the preview runs: the twin, or the device. A frame in the accent color marks a preview,
-  and the bar above the drawing says where it runs ("Only in the GUI", "On the device").
+- **Without a preview** (no edits, Simulate closed) the control is gone. The device runs the file, and the drawing
+  mirrors it: there is nothing else to show.
+- **A new window** starts with "In the GUI". The position stays as it is set until the window closes.
+- **Simulate opened while "Off"** moves the control to "In the GUI"; closing Simulate (Esc) moves it back to "Off".
 - **The cards** of the page Slots (what a slot shows, why, who waits) are the slots of what the drawing shows.
 - **Play** acts on what the drawing shows: the twin's strips, or the device's.
-- **The configuration** sent is the editor's document. Without edits, it is the file. The twin needs no daemon that
-  reads this file; "On the device" needs one, as now.
+- **The configuration** of the preview is the editor's document. The twin needs no daemon that reads this file; "On
+  the device" needs one, as now.
 
-### The twin without Simulate
+### The situation of a twin
 
-Edits only in the GUI need a situation for the twin, and the user picked none. The twin then runs **the situation of
-now**: the daemon takes it from its real slots at every step (the mode, the states that are on, the channels present,
-how many people, applications and devices). So the twin shows what the device would show with the edits, right now,
-and follows when reality changes. A state or channel that only the edits have starts as Simulate would start it (off,
-present). Its sound server stays made up: the twin touches nothing real (see
-[The twin](#the-twin)).
+- **Simulate open:** the situation of Simulate.
+- **Simulate closed** (only edits): the situation of now. The daemon takes it from its real slots at every step: the
+  mode, the states that are on, the channels present, and how many people, applications and devices. So the twin shows
+  what the device would show with the edits right now, and follows when reality changes. A state or channel that only
+  the edits have starts as Simulate would start it (off, present).
 
-### Turning the switch
+Either way its sound server is made up: the twin touches nothing real (see [The twin](#the-twin)).
 
-- **Off to on:** the daemon runs the preview on the device (as `StartPreview` does now), and the window's twin ends.
-  The drawing shows the device.
-- **On to off:** the device goes back to the file and the real situation, and a twin starts with the preview.
-  The drawing shows the twin.
-- **Another window turns it on:** the device runs that window's preview. The first window is told, and its preview goes
-  back to its twin (its switch goes off).
+### Changing the position
+
+- **To "On the device":** the daemon runs the preview on the device (as `StartPreview` does now). The window's twin
+  ends, and the drawing shows the device.
+- **From "On the device":** the device goes back to the file and the real situation.
+- **To "In the GUI":** a twin starts with the preview, and the drawing shows it.
+- **To "Off":** the twin ends, and the drawing shows the device.
+- **Another window chooses "On the device":** the device runs that window's preview. The first window is told, and
+  goes back to "In the GUI".
 
 ### How a preview ends
 
-- **Save and apply:** the daemon loads the file. The edits are no preview any more. Simulate stays open, so its
-  situation stays a preview where it ran.
-- **Revert, and Simulate closed (Esc):** nothing is left to preview. The twin ends, or the device runs the file again.
-- **The window closes or stops answering** (`PREVIEW_TIMEOUT`, 10 s): the daemon ends its twin and, if it had the
-  device, runs the file on it again.
-- **The file changes on disk, or the daemon is reloaded:** a preview on the device ends, and the window is told why. A
-  twin keeps running: it doesn't use the file.
+- **Save and apply:** the daemon loads the file. The edits are no preview any more. If Simulate is open, its situation
+  stays a preview where the control says.
+- **Revert, and Simulate closed (Esc):** nothing is left to preview. The control is gone, the twin ends, and the
+  device runs the file again.
+- **The window closes or stops answering** (`PREVIEW_TIMEOUT`, 10 s): the daemon ends its twin and, if the window had
+  the device, runs the file on it again.
+- **The file changes on disk, or the daemon is reloaded:** someone acted on the file on purpose, so the device runs it.
+  A window that had the device is told why and goes back to "In the GUI". A twin keeps running the window's document.
 - **The daemon stops or restarts:** the window loses its preview. Once a daemon is there again, the window asks again
-  where its switch says.
+  where its control says.
 
 ### Without a device, without a daemon
 
-- **A daemon, no device connected:** both places work. On the device, the mirror shows what the device will show once
-  it is connected, and the bar says it isn't.
-- **No daemon:** no preview, no Simulate, no drawing. The switch and Simulate are off and say how to start the daemon
+- **A daemon, no device connected:** every position works. On the device, the mirror shows what the device will show
+  once it is connected, and the bar above the drawing says it isn't.
+- **No daemon:** no preview, no Simulate, no drawing. The control and Simulate are off and say how to start the daemon
   (`xtouch-daemon install-service --now`), or offer "Try without a device".
 
 ## The twin
@@ -163,7 +166,10 @@ One preview per client replaces `StartPreview`/`StartTwin`, `KeepPreview`/`KeepT
 ```python
 @dataclass(frozen=True)
 class StartPreview:
-    """Run `config` (None: the file's) in `situation` (None: the real one) where `on_device` says; sent again, it follows."""
+    """
+    Run `config` (None: the file's) in `situation` (None: the situation of now) on the device or on a twin of this
+    client; sent again, it follows. "Off" sends `EndPreview`.
+    """
 
     config: str | None
     situation: Situation | None
@@ -194,40 +200,55 @@ class Play:
 
 ## The GUI
 
-- **The switch "On the device"** next to Save and apply, while there is a preview. It replaces "Try on the device"
-  and the bar "Only in the drawing".
-- **The pill** next to it says where the preview runs and what it is: "Only in the GUI, not saved", "On the device ·
-  simulated", "Sending…", "Paused: problems".
+- **The control "Preview"** next to Save and apply: "In the GUI", "On the device", "Off", while there is a preview. It
+  replaces the switch "Try on the device" and the bar "Only in the drawing". Each position has a tooltip that says what
+  the device and the drawing show.
+- **The pill** next to it says where the preview shows and what it is: "In the GUI, not saved", "On the device ·
+  simulated", "Off: the device runs the file", "Sending…", "Paused: problems".
+- **The bar above the drawing** says what the drawing shows: "Preview in the GUI", "The device (preview)", "The
+  device".
 - **Simulate** needs a daemon of this user, as now. Esc ends it.
-- **Edits** start a preview a moment after the first change (debounced, as now); a document with problems is not
-  sent, and the preview keeps the last one that was.
+- **Edits** reach the preview a moment after each change (debounced, as now). A document with problems is not sent:
+  the preview keeps the last one that was.
 
 ## Decisions (2026-11-19)
 
-1. **One switch for edits and Simulate**: where the preview runs, on the device or only in the GUI.
-2. **A preview starts only in the GUI.** The device changes only when the switch is turned on.
-3. **One rig for the device and the twins** (`Rig`). A twin's mode and states are the situation's only.
-4. **Real names first on the twin**, following reality. Its strips may change while the situation stays.
-5. **Simulate needs a daemon.** There is no rig in the GUI.
-6. **One twin per window, no limit.** The device takes one window's preview at a time.
+1. **The drawing is a device preview first**: "Off" always shows the device as it is.
+2. **One control for edits and Simulate**, with three positions: "In the GUI", "On the device", "Off". Simulate always
+   includes the edits and shows where they show.
+3. **"In the GUI" is the default.** "On the device" is an intentional choice: the user approves that the device
+   changes before a save. "Off" is for a user who can't see the device.
+4. **Simulate opened while "Off"** moves to "In the GUI", and back when it closes.
+5. **One rig for the device and the twins** (`Rig`). A twin's mode and states are the situation's only.
+6. **Real names first on the twin**, following reality. Its strips may change while the situation stays.
+7. **Simulate needs a daemon.** There is no rig in the GUI.
+8. **One twin per window, no limit.** The device takes one window's preview at a time.
 
 ## What changes from what is built
 
 1. **Protocol**: one `StartPreview` with `on_device`, `Play(preview=...)`, the view line `preview`; the twin
    messages go. The daemon's preview and twins become one session per client.
 2. **Daemon**: a twin with no situation runs the situation of now (`Situation` from the real slots at each step).
-3. **GUI**: the switch "On the device", off by default; edits preview on the twin; the drawing, cards and Play follow
-   the switch; the pill's texts.
+3. **GUI**: the control "Preview" ("In the GUI" by default); edits preview on the twin; the drawing, cards and Play
+   follow the control; the pill's and the bar's texts.
 4. **Docs**: the GUI guide (Try on the device, Simulate), the architecture of the live view, the changelog; the two
    designs it replaces move to `history/`.
 
 ## Tests
 
-- **Where**: for each row of [the table](#where-a-preview-runs), what the device runs and what the window is sent.
-- **The switch**: off to on ends the twin and previews on the device; on to off brings the file back and starts a twin;
-  a second window takes the device, and the first one goes back to its twin.
-- **The situation of now**: a twin without a situation follows a change of the real states and members.
+- **Where**: for each position, with edits, with Simulate and with both: what the device runs, whether a twin runs,
+  and what the window is sent.
+- **Changing the position**: each change ends or starts what it should; a second window takes the device, and the first
+  one goes back to "In the GUI"; Simulate opened while "Off" moves to "In the GUI" and back.
+- **The situation of now**: a twin without Simulate follows a change of the real states and members.
 - **Inertness**: a twin with Play and a reconfigure calls nothing real; the real strips and slots stay as they are.
-- **Ending**: Save, Revert and Esc, the window gone, a missed heartbeat, a failed twin, the daemon restarted.
-- **GUI**: with a fake daemon, the switch sends `on_device`; the drawing, the cards and Play follow it; without a
+- **Ending**: Save, Revert and Esc, the window gone, a missed heartbeat, a failed twin, the file changed, the daemon
+  restarted.
+- **GUI**: with a fake daemon, the control sends what it should; the drawing, the cards and Play follow it; without a
   daemon, the guidance.
+
+## Not in this design
+
+- **The GUI doesn't notice when the file changes on disk.** A Save then overwrites a change the user never saw. A file
+  watcher with "The file changed on disk: Load it / Keep my changes" is needed with or without previews; it gets a
+  design of its own.
