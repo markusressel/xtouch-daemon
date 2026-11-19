@@ -29,8 +29,10 @@ from xtouch_daemon.live.codec import (
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
+    EndTest,
     ForgetDevice,
     KeepPreview,
+    KeepTest,
     KnownDevice,
     KnownDevices,
     MqttState,
@@ -43,6 +45,7 @@ from xtouch_daemon.live.messages import (
     SlotView,
     Snapshot,
     StartPreview,
+    StartTest,
     StateView,
     StripState,
     TwinView,
@@ -327,6 +330,23 @@ def test_the_devices_the_daemon_remembers_go_through_a_line_and_are_no_snapshot(
 def test_a_device_to_forget_goes_through_a_line():
     request = ForgetDevice("bluez_output.buds", "output")
     assert decode_request(encode_request(request)) == request
+
+
+@pytest.mark.parametrize("request_", [StartTest(), KeepTest(), EndTest()])
+def test_the_requests_of_the_test_go_through_a_line(request_: StartTest | KeepTest | EndTest):
+    assert decode_request(encode_request(request_)) == request_
+
+
+def test_a_snapshot_of_a_test_with_the_led_below_the_ring_goes_through_a_line(surface: RecordingSurface):
+    surface.strips[0].set_ring(6, RingMode.SPREAD, center=True)
+    snapshot = dataclasses.replace(snapshot_of(surface), test=True)
+    assert snapshot.strips[0].ring_center
+    assert decode(encode(snapshot)) == snapshot
+    # of a daemon of 0.2.0, which tells neither
+    line = encode(snapshot).replace(b',"test":true', b"").replace(b',"ring_center":true', b"")
+    assert decode(line) == dataclasses.replace(
+        snapshot, test=False, strips=(dataclasses.replace(snapshot.strips[0], ring_center=False), *snapshot.strips[1:])
+    )
 
 
 @pytest.mark.parametrize(

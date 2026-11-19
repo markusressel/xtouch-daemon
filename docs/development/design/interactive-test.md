@@ -1,6 +1,9 @@
 # Design: an interactive device test
 
-Status: designed (2026-11-18), not built yet. See TODO.md.
+Status: built (2026-11-19). Differences from the design below: the top line of the LCD always names the strip, the
+bottom line shows what the encoder edits (`ring 6`, `dot+c`, `cyan`, `fad 60%`) or, for 2 s, the last input; a turn
+shows the new value rather than `enc +1`. The command with a running daemon doesn't print the inputs, the daemon's log
+has them. The center bit lights the two LEDs at the ends of the ring, as measured before (`reference/hardware.md`).
 
 ## Problem
 

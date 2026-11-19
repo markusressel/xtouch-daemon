@@ -29,13 +29,18 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path, load_config, parse_config
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.hardware.protocol import StripEvent
+from xtouch_daemon.hardware.selftest import TestBench, sweep
+from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.hardware.transport import AlsaPort, Port, SocketPort
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
+    EndTest,
     ForgetDevice,
     KeepPreview,
+    KeepTest,
     MqttState,
     Play,
     Reply,
@@ -44,6 +49,7 @@ from xtouch_daemon.live.messages import (
     SetOverride,
     Snapshot,
     StartPreview,
+    StartTest,
     TwinView,
     fingerprint,
     steady,
@@ -73,6 +79,8 @@ PREVIEW_TIMEOUT = 10.0
 """How long a preview runs without a request of its GUI (`live.KeepPreview`) before the daemon goes back to the file."""
 PREVIEW_CHECK = 1.0
 """How often a running preview checks for its GUI and whether the configuration file changed."""
+TEST_TIMEOUT = 10.0
+"""How long the test of the device runs without a request of its client (`live.KeepTest`)."""
 FILE_CHECK = 1.0
 """
 How often the daemon looks at the configuration file (its time and size). A change is loaded once the file looked the
@@ -156,6 +164,14 @@ class Daemon(Rig):
         self._preview_seen = 0.0
         """When the previewer sent its last request (the time of the event loop)."""
         self._watchdog: asyncio.Task[None] | None = None
+        self._tester: object | None = None
+        """The client of the live view whose test of the device runs (see `start_test()`), None while none does."""
+        self._test_seen = 0.0
+        """When the tester sent its last request (the time of the event loop)."""
+        self._test: asyncio.Task[None] | None = None
+        """Runs the test: the sweep, then the bench until the tester is gone."""
+        self._bench: TestBench | None = None
+        """The strips answering their controls, after the sweep."""
         self._twins: dict[object, TwinSession] = {}
         """The virtual twins (see `runtime.twin`), by the client of the live view that asked for them."""
         self._closing: set[asyncio.Task[None]] = set()
@@ -358,6 +374,16 @@ class Daemon(Rig):
             case Play(event=event):
                 self.surface.play(event)
                 return None
+            case StartTest():
+                return self.start_test(client)
+            case KeepTest():
+                if client is self._tester:
+                    self._test_seen = asyncio.get_running_loop().time()
+                return None
+            case EndTest():
+                if client is self._tester:
+                    self.end_test("the GUI ended it", tell=False)
+                return None
             case ForgetDevice(name=name, direction=direction):
                 if self.devices_seen.forget(name, direction) and self.live is not None:
                     self.live.publish_known()
@@ -366,8 +392,13 @@ class Daemon(Rig):
                 assert_never(unreachable)
 
     def on_client_closed(self, client: object) -> None:
-        """A client of the live view went away; if it previewed (the GUI was closed or crashed), the file runs again."""
+        """
+        A client of the live view went away; if it previewed (the GUI was closed or crashed), the file runs again, if it
+        tested the device, the device shows the slots again.
+        """
         self._end_twin(client, None)
+        if client is self._tester:
+            self.end_test("the GUI went away", tell=False)
         if client is self._previewer:
             self._back_to_file("the GUI went away")
 
@@ -392,6 +423,7 @@ class Daemon(Rig):
                 "A preview can't change the [mqtt] section: save it and restart the daemon, or undo the change.",
             )
         self._end_twin(client, None)
+        self.end_test("a preview on the device took it")
         previous = self._previewer
         if previous is not None and previous is not client and self.live is not None:
             self.live.tell(previous, Reply("ended", True, "another window previews on the device now"))
@@ -575,6 +607,77 @@ class Daemon(Rig):
                 self._back_to_file(f"no word from the GUI for {PREVIEW_TIMEOUT:.0f} s")
                 return
 
+    # -- the test of the device -----------------------------------------------------------------------------------
+
+    @property
+    def testing(self) -> bool:
+        """Whether the device runs its test (see `start_test()`)."""
+        return self._tester is not None
+
+    def start_test(self, client: object) -> Reply:
+        """
+        Runs the test of the device for `client` (see `hardware.selftest`): the sweep, then every strip answers its
+        controls. The slots go on, but nothing of theirs reaches the device until `end_test()`. A preview on the device
+        ends; another client that runs the test takes it over, and the first one is told.
+        """
+        if not self.surface.connected:
+            return Reply("test", False, "The device is not connected.")
+        now = asyncio.get_running_loop().time()
+        previous = self._tester
+        self._tester = client
+        self._test_seen = now
+        if previous is not None:
+            if previous is not client and self.live is not None:
+                self.live.tell(previous, Reply("test_ended", True, "another window tests the device now"))
+            return Reply("test", True)
+        self._back_to_file("the device is tested now")
+        strips = self.surface.lend()
+        self.surface.on_event = self._test_event
+        self._test = asyncio.create_task(self._run_test(strips), name="test of the device")
+        _LOGGER.info("Testing the device: the slots go on, but don't show on it until the test ends")
+        systemd.notify(self._status())
+        return Reply("test", True)
+
+    def end_test(self, reason: str, tell: bool = True) -> bool:
+        """Ends the test, if one runs (`tell`: its client learns why): the device shows the slots again."""
+        tester = self._tester
+        if tester is None:
+            return False
+        self._tester = None
+        task, self._test = self._test, None
+        if task is not None and task is not asyncio.current_task():
+            task.cancel()
+        bench, self._bench = self._bench, None
+        if bench is not None:
+            bench.close()
+        self.surface.take_back()
+        self.surface.on_event = self.desk.dispatch
+        if tell and self.live is not None:
+            self.live.tell(tester, Reply("test_ended", True, reason))
+        _LOGGER.info(f"The test of the device ended, {reason}")
+        systemd.notify(self._status())
+        self._changed()
+        return True
+
+    async def _run_test(self, strips: list[Strip]) -> None:
+        """The sweep, then the bench, until the tester sends nothing for TEST_TIMEOUT."""
+        await sweep(self.surface, strips=strips)
+        self._bench = TestBench(strips, lambda line: _LOGGER.info(f"Test: {line}"))
+        self._bench.start()
+        loop = asyncio.get_running_loop()
+        # the time of the sweep doesn't count against the GUI
+        self._test_seen = max(self._test_seen, loop.time())
+        while True:
+            await asyncio.sleep(PREVIEW_CHECK)
+            if loop.time() - self._test_seen > TEST_TIMEOUT:
+                self.end_test(f"no word from the GUI for {TEST_TIMEOUT:.0f} s")
+                return
+
+    def _test_event(self, event: StripEvent) -> None:
+        """An input on the device while the test has it: the bench answers (nothing during the sweep)."""
+        if self._bench is not None:
+            self._bench.handle(event)
+
     async def _watch_file(self) -> None:
         """
         Loads the configuration file once it changed and rested (see FILE_CHECK), like a reload (SIGHUP): a file
@@ -650,6 +753,7 @@ class Daemon(Rig):
         the surface closes.
         """
         _LOGGER.info("Stopping")
+        self.end_test("the daemon stops")
         self.surface.on_event = lambda event: None
         for client in list(self._twins):
             # not news: the window loses its connection and asks the next daemon
@@ -690,6 +794,8 @@ class Daemon(Rig):
             systemd.notify(self._status())
 
     def _on_connection(self, connected: bool) -> None:
+        if not connected:
+            self.end_test("the device went away")
         # the surface shows everything again by itself after a connect
         systemd.notify(self._status())
         if self.bridge is not None:
@@ -728,6 +834,7 @@ class Daemon(Rig):
             slots=self.slots.view(),
             virtual=isinstance(self.surface.port, SocketPort),
             simulated=self.slots.situation is not None,
+            test=self.testing,
         )
 
     def _status(self) -> str:
@@ -738,4 +845,5 @@ class Daemon(Rig):
         if self.bridge is not None:
             mqtt = ", MQTT connected" if self.bridge.connected else ", waiting for MQTT"
         preview = ", previewing unsaved changes of the GUI" if self.previewing else ""
-        return f"STATUS={surface}, {sound}{mqtt}{preview}"
+        test = ", testing the device" if self.testing else ""
+        return f"STATUS={surface}, {sound}{mqtt}{preview}{test}"

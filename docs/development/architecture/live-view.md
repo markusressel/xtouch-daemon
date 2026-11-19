@@ -50,6 +50,7 @@ A client may send requests, a line of JSON each. Otherwise the GUI changes the d
 | `{"request": "play", "event": "fader_moved", "strip": 2, "value": 8000}` | A hand from the GUI: taken by the `Surface` as if the device sent it (`Surface.play()`), while a device is connected. Also `fader_touched` (`touched`), `button_pressed` (`button`, its note, and `pressed`), `encoder_turned` (`steps`), `encoder_pressed` (`pressed`). No answer. |
 | `{"request": "forget_device", "name": "bluez_output.1", "direction": "output"}` | Forgets a device it saw (Delete in the list of the GUI). The clients get the devices again. No answer. |
 | `StartPreview`, `KeepPreview`, `EndPreview` | The [live preview](#live-preview). |
+| `StartTest`, `KeepTest`, `EndTest` | The test of the device (`hardware/selftest.py`): the `Surface` lends the test its own strips (`Surface.lend()`), the strips of the slots keep what is drawn on them without showing it until `take_back()`. Answered with a `Reply` of kind `test`; `test_ended` tells why the daemon ended it (timeout `TEST_TIMEOUT`, device gone, a preview on the device, another client). The snapshot says `test`. |
 
 - **Of the user only.** The daemon takes requests only from processes of its own user (`SO_PEERCRED`: root can connect
   to a socket of mode 0600), in lines of at most `MAX_REQUEST` (1 MiB): a longer one ends the connection.

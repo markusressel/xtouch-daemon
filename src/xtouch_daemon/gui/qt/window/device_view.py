@@ -2,8 +2,9 @@
 The device as it is right now (the live view of the daemon), or the preview of the window (the unsaved changes, and
 Simulate while it is open) on its virtual twin in the daemon: the window Device, docked or on its own, on every page. A
 bar above the drawing switches between Select (a click picks a slot, a drag moves it) and Play (the mouse is a hand on
-the device), and offers to try it without a device while no daemon runs; on its right the mode the device shows and
-whether the drawing is live. While the GUI hosts the virtual device, a second bar has what the mouse can't do on it.
+the device), and offers to try it without a device while no daemon runs; on its right the mode the device shows,
+whether the drawing is live, and the test of the device. While the GUI hosts the virtual device, a second bar has what
+the mouse can't do on it; while the test runs, one says what each control does.
 """
 
 from collections.abc import Callable
@@ -14,7 +15,7 @@ from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout,
 
 from xtouch_daemon.gui.domain.looks import device_faces, twin_faces
 from xtouch_daemon.gui.domain.slots import MODES
-from xtouch_daemon.gui.domain.status import Reason, Status, Tone, play_unavailable
+from xtouch_daemon.gui.domain.status import Reason, Status, Tone, play_unavailable, test_unavailable
 from xtouch_daemon.gui.qt.fields.basics import label, show_status
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
@@ -27,6 +28,16 @@ from xtouch_daemon.live.messages import SetMode, Snapshot, TwinView
 from xtouch_daemon.slots.model import DEFAULT
 
 SELECT_TIP = "Select: a click picks a strip and its slot, dragging a strip (or Ctrl+Left/Right) moves its slot."
+TEST_TIP = (
+    "Tests the device: every strip answers its own controls, on the device and here, so you can check each LED, the "
+    "ring, the LCD colors, the motors and the touch of the faders. The slots go on, but show again only when the test "
+    "ends."
+)
+TEST_HELP = (
+    "Testing the device. Fader: the meter follows it. Rec, Solo, Mute, Select: the LED goes on, flashing, off. "
+    "Encoder: turn it to change, push it for the next of ring, mode (+c: also the LEDs at its ends), LCD color, motor "
+    "fader. The LCD shows the last input. Play works on the drawing too."
+)
 PLAY_TIP = (
     "Play: the mouse is a hand on the device. Drag a fader (Alt: without a touch), click a button, turn an encoder "
     "with the wheel and push it with a click."
@@ -46,6 +57,8 @@ class DeviceView(QWidget):
     """"Try without a device": a daemon with the virtual device, hosted here."""
     use_virtual_device = pyqtSignal(arguments=[])
     """"Use the virtual device": the daemon finds no device, so it drives the virtual one, hosted here."""
+    test_toggled = pyqtSignal(bool, arguments=["on"])
+    """"Test the device" was clicked: start the test (True) or end it."""
 
     def __init__(
         self,
@@ -80,7 +93,13 @@ class DeviceView(QWidget):
         self.slots = slots
         """The slots: what Simulate shows instead of the device."""
         self.preview = Preview()
+        self.testing = False
+        """Whether the test of this window runs (see `show_test()`)."""
         layout.addWidget(self._mode_bar())
+        self.test_bar = label(TEST_HELP, "hint", wrap=True)
+        """What each control does while the test runs."""
+        self.test_bar.hide()
+        layout.addWidget(self.test_bar)
         self.virtual_bar: VirtualDeviceBar | None = None
         self.preview.clicked.connect(self.select)
         self.preview.moved.connect(lambda source, target: self.moved.emit(source + 1, target + 1))
@@ -105,7 +124,13 @@ class DeviceView(QWidget):
         layout.addWidget(self.play_button)
         layout.addSpacing(Space.S)
         self.mode_hint = label("", "hint")
-        layout.addWidget(self.mode_hint, 1)
+        layout.addWidget(self.mode_hint)
+        layout.addSpacing(Space.XS)
+        self.hand_pill = label("", "pill")
+        """In Play: what the mouse plays on, the device, the virtual device or the twin of the preview."""
+        self.hand_pill.hide()
+        layout.addWidget(self.hand_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addStretch(1)
         self.slots_pill = label("", "pill")
         """The mode the device shows; a click: the modes to pick and the states."""
         self.slots_pill.hide()
@@ -120,6 +145,13 @@ class DeviceView(QWidget):
         self.slots_status: Status | None = None
         layout.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         layout.addSpacing(Space.S)
+        self.test_button = QPushButton("Test the device")
+        set_icon(self.test_button, "test-tube")
+        self.test_button.setCheckable(True)
+        self.test_button.setToolTip(TEST_TIP)
+        self.test_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.test_button.clicked.connect(lambda: self.test_toggled.emit(self.test_button.isChecked()))
+        layout.addWidget(self.test_button)
         self.try_button = QPushButton("Try without a device")
         set_icon(self.try_button, "play-circle-outline")
         self.try_button.setToolTip(
@@ -248,9 +280,11 @@ class DeviceView(QWidget):
         else:
             self.play_button.setEnabled(reason is None)
         self.play_button.setToolTip(PLAY_TIP if reason is None else f"{reason.why}\n\n{PLAY_TIP}")
-        if self.play_button.isChecked():
-            where = "the virtual device" if hosting else "the device, through the daemon"
-            hint = f"Playing on {where}"
+        playing = self.play_button.isChecked()
+        self.hand_pill.setVisible(playing)
+        if playing:
+            show_status(self.hand_pill, self._hand_status(hosting, drawn))
+            hint = "Playing on"
         else:
             hint = "Drag a strip to move its slot"
             if reason is not None:
@@ -260,6 +294,10 @@ class DeviceView(QWidget):
         self.mode_hint.setToolTip(reason.why if reason is not None and not self.play_button.isChecked() else "")
         self.try_button.setVisible(not self.daemon_runs and not hosting)
         snapshot = self.snapshot
+        test_reason = test_unavailable(snapshot, self.owned())
+        self.test_button.setVisible(self.daemon_runs)
+        self.test_button.setEnabled(self.testing or test_reason is None)
+        self.test_button.setToolTip(TEST_TIP if test_reason is None else f"{test_reason.why}\n\n{TEST_TIP}")
         self.virtual_button.setVisible(
             self.daemon_runs
             and snapshot is not None
@@ -268,6 +306,43 @@ class DeviceView(QWidget):
             and self.owned()
             and not hosting
         )
+
+    def _hand_status(self, hosting: bool, drawn: bool) -> Status:
+        """What the mouse plays on in Play, in the order the hand is picked (see `_show_mode`)."""
+        if drawn:
+            return Status(
+                "the twin of the preview",
+                Tone.NEUTRAL,
+                "The drawing shows the preview in the GUI: the mouse plays on its virtual twin in the daemon, which "
+                "runs the changes in the editor. The device is not touched.",
+            )
+        if hosting:
+            return Status(
+                "the virtual device",
+                Tone.WARN,
+                "The virtual device, here in the window: the daemon drives it like the real one, and what the mouse "
+                "does acts on the sound server.",
+            )
+        if self.snapshot is not None and self.snapshot.virtual:
+            return Status(
+                "the virtual device",
+                Tone.WARN,
+                "The daemon drives the virtual device (`[device] virtual = true`): the mouse plays on it through the "
+                "daemon, and what it does acts on the sound server.",
+            )
+        return Status(
+            "the device",
+            Tone.GOOD,
+            "The X-Touch Extender, through the daemon: the mouse is a hand on it, and what it does acts on the sound "
+            "server.",
+        )
+
+    def show_test(self, running: bool) -> None:
+        """Whether the test of this window runs: the button checked, and the bar of what each control does."""
+        self.testing = running
+        self.test_button.setChecked(running)
+        self.test_bar.setVisible(running)
+        self._show_mode()
 
     def host(self, hosted: HostedDevice | None) -> None:
         """The GUI hosts the virtual device (None: not any more): its bar, and Play on it."""

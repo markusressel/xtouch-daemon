@@ -52,9 +52,10 @@ def strip_states(surface: Surface, now: float) -> tuple[StripState, ...]:
     mirror.advance(now)
     states: list[StripState] = []
     for index, strip in enumerate(mirror.strips):
-        position, mode, _ = strip.ring
+        position, mode, center = strip.ring
         top, bottom = mirror.text(index)
-        motion = surface.strips[index].glide
+        # the strips of the test while it has the device
+        motion = surface.front[index].glide
         glide: Glide | None = None
         if motion is not None and strip.known:
             # from where the daemon has it, which the motor follows: the GUI draws the rest of the way
@@ -75,11 +76,12 @@ def strip_states(surface: Surface, now: float) -> tuple[StripState, ...]:
                 ring_mode=mode.name.lower(),
                 fader=fader,
                 # the surface's touch: on a fader without a working sensor a move is one
-                touched=surface.strips[index].touched,
+                touched=surface.front[index].touched,
                 meter=strip.meter,
                 # a dark meter has nothing to fall from: when it was set again does not matter
                 meter_at=strip.meter_at if strip.meter else None,
                 glide=glide,
+                ring_center=center,
             )
         )
     return tuple(states)

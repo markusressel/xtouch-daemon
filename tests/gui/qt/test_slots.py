@@ -321,6 +321,7 @@ def test_simulate_runs_on_the_virtual_twin_of_the_daemon(
 
     # Play plays on the twin
     window.device_view.play_button.setChecked(True)
+    assert window.device_view.hand_pill.text() == "the twin of the preview"
     window.device_view.preview.device_hand.press(0, Button.MUTE, True)  # pyright: ignore[reportOptionalMemberAccess]
     qtbot.waitUntil(lambda: any(isinstance(request, Play) and request.preview for request in live_daemon.requests))
     window.device_view.select_button.setChecked(True)

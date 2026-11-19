@@ -127,11 +127,26 @@ xtouch-daemon test [-c FILE] [--no-events] [--virtual-device]
 ```
 
 Lights up everything on the device and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
-meter, and moves its fader up and down. Then it shows what you do on the device (faders, touches, buttons, encoders),
-and the messages from the device the daemon doesn't use, until Ctrl+C. `--no-events` ends after the test.
+meter, and moves its fader up and down. Then every strip answers its own controls, until Ctrl+C, so you can check each
+LED, the ring, the colors, the motor and the touch of every fader:
 
-It takes the name of the device from `[device]` of the configuration. Stop the daemon first
-(`systemctl --user stop xtouch-daemon`): only one program can use the device. `--virtual-device` (or
+| Input on a strip | What the strip shows |
+|---|---|
+| Fader moved | The meter follows the fader. |
+| Fader touched, let go | `touch`, `let go` |
+| Rec, Solo, Mute, Select pressed | Its [LED](../configuration/strip/leds.md) goes on, flashing, off (`mute on`, `mute fl`, `mute off`). |
+| Encoder turned | Changes what the [encoder](../configuration/strip/encoders.md) edits, wrapping around, and shows its value. |
+| Encoder pushed | The next thing the encoder edits: the position of the ring (`ring 7`), its mode with and without the two LEDs at the ends of the ring (`dot`, `boost`, `wrap`, `spread`, `dot+c` ...), the color of the LCD, the motor fader in steps of 10 % (`fad 60%`). |
+
+The top line of the LCD names the strip, the bottom line shows the last input for 2 seconds, then what the encoder
+edits. The command prints every input with the answer, and the messages from the device the daemon doesn't use.
+`--no-events` ends after the sweep.
+
+While the daemon runs, it has the device: `test` asks it to run the test instead (the GUI's "Test the device" does the
+same). The slots go on, but show on the device again only when the test ends; the daemon's log shows the inputs
+(`journalctl --user -u xtouch-daemon -f`). `--no-events` needs the daemon stopped.
+
+Without a daemon it takes the name of the device from `[device]` of the configuration. `--virtual-device` (or
 `[device] virtual = true`) tests the [virtual device](#virtual-device), which has to run (in another terminal).
 
 ## `virtual-device`

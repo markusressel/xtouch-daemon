@@ -150,6 +150,24 @@ While no daemon runs, "Try without a device" starts one with the virtual device 
 new) and opens the device in the window, in Play: to set everything up and try it before there is a device. That
 daemon ends with the window.
 
+## Test the device
+
+"Test the device", above the drawing, asks the daemon to test the device: the strips light up one after the other
+(the sweep), then every strip answers its own controls, on the device and in the drawing, so the two can be compared.
+A bar says what each control does:
+
+| Input on a strip | What the strip shows |
+|---|---|
+| Fader moved | The meter follows the fader. |
+| Fader touched, let go | `touch`, `let go` |
+| Rec, Solo, Mute, Select pressed | Its LED goes on, flashing, off (`mute on`, `mute fl`, `mute off`). |
+| Encoder turned | Changes what the encoder edits, wrapping around, and shows its value. |
+| Encoder pushed | The next thing the encoder edits: the position of the ring (`ring 7`), its mode with and without the two LEDs at the ends of the ring (`dot`, `boost`, `wrap`, `spread`, `dot+c` ...), the color of the LCD, the motor fader in steps of 10 % (`fad 60%`). |
+
+Play works on the drawing during the test, and so does the hosted virtual device. The slots go on meanwhile (Home
+Assistant still sees them), but show on the device only again when the test ends: a click on the button, closing the
+window, a preview "On the device", or the device going away. The footer says why it ended.
+
 ## The virtual device
 
 While the window hosts the virtual device, Play is on (see [Select and Play](#select-and-play)).

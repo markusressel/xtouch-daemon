@@ -725,3 +725,28 @@ async def test_a_flash_shows_on_one_strip_for_a_while_and_gives_way_to_a_banner(
     assert surface.strips[3].overlay == banner
     surface.end_banner()
     assert surface.strips[1].overlay is None
+
+
+async def test_a_test_borrows_the_device_and_the_strips_show_again_after_it(surface: RecordingSurface) -> None:
+    strip = surface.strips[0]
+    strip.set_text(0, "Speaker")
+    strip.set_color(Color.CYAN)
+    surface.flash(0, "Boxes", "call", 5)
+
+    (borrowed, *_) = surface.lend()
+
+    # the flash ended with it; the test has the LCD, the strip keeps what is drawn on it
+    assert surface.mirror.text(0)[0] == " " * protocol.LCD_CELL_WIDTH
+    borrowed.set_text(0, "strip 1")
+    strip.set_text(0, "Desk")
+    surface.flash(0, "Boxes", "call", 5)
+    surface.banner("gaming", "", 5)
+    assert surface.mirror.text(0)[0] == "strip 1"
+    assert surface.front[0] is borrowed
+
+    surface.take_back()
+    surface.take_back()
+
+    assert surface.mirror.text(0)[0] == "Desk".ljust(protocol.LCD_CELL_WIDTH)
+    assert surface.mirror.strips[0].color == Color.CYAN
+    assert surface.front[0] is strip

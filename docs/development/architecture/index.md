@@ -36,7 +36,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `hardware/transport.py` | How the `Surface` reaches the device: `AlsaPort` (the raw MIDI device), `SocketPort` (the virtual device's socket). |
 | `hardware/strip.py` | `Strip`: what a strip shows, sending only what changed; the motor fader glides to its target and stays still while touched. `VirtualStrip`: a strip that waits off the device. |
 | `hardware/surface.py` | `Surface`: the connection to the device (again after it was unplugged), its events, touches, the startup and shutdown sequences. Keeps a `SimulatedDevice` as the mirror of the device, which the live view shows. |
-| `hardware/selftest.py` | `xtouch-daemon test`: lights up the device and echoes what happens on it. |
+| `hardware/selftest.py` | The test of the device: the sweep, then the `TestBench` (every strip answers its controls), for `xtouch-daemon test` and the daemon (`StartTest`). |
 | `audio/` | `model` (`AudioState`, an immutable snapshot of devices, streams and defaults), `backend` (`AudioBackend`, the interface of the strips), `pulse` (`PulseBackend`), `meter` (levels from passive `pw-record` captures, see [Audio](audio.md)), `media` (MPRIS players, for `encoder = "media"`). |
 | `config/` | The TOML configuration, validated with pydantic: `files`, `model` (`Config`), `sections`, `slots` (the strip of every candidate), the strip types (`strip`, `strips`, `audio_strips`, `voip_strips`), `values`, `names` and `presets` ([Design: presets](../design/presets.md)). |
 | `strips/` | The controllers of a strip: `DeviceStrip` (`ChoiceStrip` for `choices`), `AppGroupStrip`, `AutoStrip`, `VoipStrip` (a person), `HomeAssistantStrip`, `EmptyStrip`, on the base `VolumeStrip`. A controller gets its `Identity` (entity ids and names) and its `Look` (label, color, meter, LEDs) from the binder (`look_of()`). |
@@ -51,7 +51,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `mqtt.py` | `MqttBridge`: announces the entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
 | `simulator/` | The virtual device: `device` (`SimulatedDevice`, without IO) and `server` (on a Unix socket). See [Design: a simulated device](../design/device-simulator.md). |
 | `system/` | `processes` (from `/proc`), `launch` ([Design: launching applications](../design/launch.md)), `instance` (the runtime file and sockets of the running daemon), `systemd` (notify, journal levels, the unit, the user service). |
-| `live/` | The live view: `messages`, `codec` (lines of JSON), `server` (`LiveServer`). See [Live view](live-view.md). |
+| `live/` | The live view: `messages`, `codec` (lines of JSON), `server` (`LiveServer`), `device_test` (`xtouch-daemon test` through a running daemon). See [Live view](live-view.md). |
 | `voip/` | `VoipProvider`: the people of a voice chat, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). `voip/mumble.py` and `integrations/mumble/` build and install the Mumble plugin (C). See [Design: the voice chat](../design/voice-chat.md). |
 | `cli/` | The command line: a module per topic, put together by `main` in `cli/__init__.py`. |
 | `gui/domain/` | The editor without a toolkit. See [GUI](gui.md). |

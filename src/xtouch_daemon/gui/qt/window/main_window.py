@@ -59,6 +59,7 @@ from xtouch_daemon.gui.domain.status import (
     runs_older,
 )
 from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
+from xtouch_daemon.gui.qt.device_test import DeviceTest
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
@@ -183,6 +184,9 @@ class MainWindow(QMainWindow):
         self.live.changed.connect(lambda _: self.refresh_preview())
         self.live_preview = LivePreview(self.live, document)
         self.live_preview.changed.connect(self.refresh_preview)
+        self.device_test = DeviceTest(self.live)
+        """The test of the device, which the daemon runs for this window (the button in the window Device)."""
+        self.device_test.changed.connect(self._test_changed)
         self.shown = False
         """Whether the window was shown: the first time the keys go to the strips."""
         self.trying: QProcess | None = None
@@ -378,13 +382,15 @@ class MainWindow(QMainWindow):
             RemoteHand(self.live, preview=True),
             lambda: self.live.twin,
             lambda: self.live.owned,
-            lambda: self.live_preview.in_gui,
+            # the device while it is tested, also with a preview in the GUI
+            lambda: self.live_preview.in_gui and not self.device_test.running,
             self._previewing,
         )
         self.device_view.close_virtual_device.connect(self.close_virtual_device)
         self.device_view.picked.connect(self.show_slot)
         self.device_view.moved.connect(self.move_slot)
         self.device_view.try_without_device.connect(self.try_without_device)
+        self.device_view.test_toggled.connect(self.toggle_test)
         self.device_view.use_virtual_device.connect(self.use_virtual_device)
         self.device_view.live_clicked.connect(self._mode_clicked)
         slots.simulated.connect(self._simulated)
@@ -1200,6 +1206,23 @@ class MainWindow(QMainWindow):
         self.status.setText(f"The daemon for trying without a device ended (exit code {code}).")
         self.refresh_service()
 
+    def toggle_test(self, on: bool) -> None:
+        """ "Test the device": the daemon tests it for this window (on), or the device shows the slots again."""
+        if on:
+            self.device_test.start()
+        else:
+            self.device_test.stop()
+
+    def _test_changed(self) -> None:
+        self.device_view.show_test(self.device_test.running)
+        if self.device_test.message is not None:
+            self.status.setText(self.device_test.message)
+        elif self.device_test.running:
+            self.status.setText("Testing the device: every strip answers its own controls.")
+        else:
+            self.status.setText("The test ended: the device shows the slots again.")
+        self.refresh_preview()
+
     def use_virtual_device(self) -> None:
         """
         For a daemon that finds no device: `[device] virtual = true`, saved (the daemon takes it when it reloads,
@@ -1264,6 +1287,7 @@ class MainWindow(QMainWindow):
         # back to the file (the daemon would notice the closed connection too); after a new zoom the next window
         # previews again (see `Session`)
         self.live_preview.stop()
+        self.device_test.stop()
         self.hover_tips.stop()
         self.close_virtual_device()
         if self.trying is not None and self.rezoom is not None:
