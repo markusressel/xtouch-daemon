@@ -59,10 +59,10 @@ def test_the_preview_shows_the_device_live(
     qtbot.waitUntil(lambda: pill(window.changes_pill) == "Saved, on the device")
     assert pill(window.device_view.live_pill) == "Live · not connected"
 
-    # the daemon ended: the file again
+    # the daemon ended: dark strips
     live_daemon.close()
     qtbot.waitUntil(lambda: window.live.snapshot is None)
-    assert pill(window.device_view.live_pill) == "File preview"
+    assert pill(window.device_view.live_pill) == "No live view"
     assert not window.device_view.preview.strips[0].face.live
 
 
@@ -82,5 +82,5 @@ def test_the_live_view_ends_with_the_daemon(qtbot: QtBot, make_window: MakeWindo
     window.refresh_service()
 
     assert window.live.snapshot is None
-    assert pill(window.device_view.live_pill) == "File preview"
+    assert pill(window.device_view.live_pill) == "No daemon"
     assert pill(window.changes_pill) == "Not running"

@@ -36,7 +36,7 @@ def test_the_preview_says_whether_it_is_live():
     assert (waiting.text, waiting.tone) == ("Live · not connected", Tone.WARN)
     assert "X-Touch-Ext" in waiting.tip
     alone = preview_status(None, None, "X-Touch-Ext")
-    assert (alone.text, alone.tone) == ("File preview", Tone.NEUTRAL)
+    assert (alone.text, alone.tone) == ("No daemon", Tone.WARN)
     assert alone.tip.startswith("The daemon is not running")
     # a daemon from before the live view
     assert "process 42" in preview_status(DAEMON, None, "X-Touch-Ext").tip

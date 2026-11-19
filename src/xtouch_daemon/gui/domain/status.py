@@ -63,16 +63,17 @@ def preview_status(
         return Status("Live", Tone.GOOD, "The strips show what the device shows right now.")
     if daemon is None:
         return Status(
-            "File preview",
-            Tone.NEUTRAL,
-            "The daemon is not running: the strips show what the file shows in the default situation (no state on, "
-            "nothing plays). Simulate changes the situation.",
+            "No daemon",
+            Tone.WARN,
+            "The daemon is not running, so the strips are dark: they show what the device shows, and only the daemon "
+            "drives it. Install and start it with `xtouch-daemon install-service --now` (or run `xtouch-daemon run`), "
+            "or try without a device.",
         )
     return Status(
-        "File preview",
-        Tone.NEUTRAL,
-        f"No live view from the daemon (process {daemon.pid}); a restart of a daemon started before the live view "
-        "existed gives one. The strips show what the configuration would show.",
+        "No live view",
+        Tone.WARN,
+        f"The daemon (process {daemon.pid}) gives no live view; restart a daemon started before the live view "
+        "existed. The strips are dark until it does.",
     )
 
 

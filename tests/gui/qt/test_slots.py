@@ -260,7 +260,8 @@ def test_simulate_shows_what_the_slots_would_show(qtbot: QtBot, window: MainWind
         "▶ nothing to show: the strip is dark",
     ]
     assert texts(page.lists[2]) == ["1 when gaming → browser ✗ gaming is off", "▶ 2 otherwise → -"]
-    assert device.preview.strips[0].face.look.printed == "out"
+    # no daemon: the drawing is dark (only the device shows strips), the cards simulate
+    assert device.preview.strips[0].face.look.printed == ""
     assert device.preview.strips[2].face.state.color == "off"
 
     # the bar of what-ifs: the mode, the states, the presence the stacks ask about

@@ -16,8 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with a form for their channels (ids and `#tags`) and side, and can be renamed and removed.
 - Documentation: a "Concepts" page (channels, slots, states, pools, and the words that look alike, such as `apps`,
   `auto` and `device`); the start page and the README explain the model with an example and say what a pool is.
-- The GUI helps a first configuration: without a daemon the drawing shows what the file shows in the default
-  situation (it was dark); Channels has "Output from the sound server" and "Input from the sound server" in its Add
+- The GUI helps a first configuration: Channels has "Output from the sound server" and "Input from the sound server" in its Add
   menu, a hint while the file has no channel, and opens on the first channel; States has the starting points "In a
   call" and "Gaming" in its Add menu, and says what a state is while there is none; an empty slot says what it shows.
 - `list-devices --snippet` prints a channel for every output and input, ready to paste (Bluetooth devices by a
@@ -32,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: without a daemon the strips are dark and the pill says "No daemon", with how to start one. The drawing is only ever the device (the daemon's mirror), never a second rendering made in the GUI.
 - GUI: the encoder of a place shows its default (`default: pick`) instead of staying blank, a pool of applications of your own offers no `pick`, and the columns of the choices table fit their titles.
 - Documentation: the plugin internals and the haad controller sketch moved to Development; Troubleshooting has Voice chat and GUI; pages end with a "Next" pointer; the place options of a slot are a table.
 

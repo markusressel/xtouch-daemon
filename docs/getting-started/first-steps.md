@@ -35,8 +35,7 @@ Only one program can use the device. If the daemon already runs as a service, st
 A configuration names **channels** (what a strip can control), **states** (in a call, gaming) and, for each of the 8
 slots, what its strip shows when. [Concepts](../concepts.md) explains these words. Without a file the daemon uses the
 [example configuration](../configuration/index.md): the default input on slot 7, the default output on slot 8, and
-`auto` (the next application that plays) on the others. To make it yours, the easiest way is the [GUI](../guides/gui.md) (`xtouch-daemon-gui` or `xtouch-daemon gui`): it shows what the
-file shows in the default situation, every option with its help, and what a change does (**Simulate**); its
+`auto` (the next application that plays) on the others. To make it yours, the easiest way is the [GUI](../guides/gui.md) (`xtouch-daemon-gui` or `xtouch-daemon gui`): it shows the device live, every option with its help, and what a change does (**Simulate**); its
 "Save and apply" writes the file and loads it into the running daemon.
 
 [Setup tour](tour.md) builds a whole configuration that way, step by step, with the file it writes.

@@ -103,7 +103,7 @@ the selected slot and the page stay. The zoom is on top of a `QT_SCALE_FACTOR` o
 ## Live view
 
 While the daemon runs, the drawing shows what the device shows right now ("Live", in a pill on the right of the bar of
-the window Device), read from the daemon's live view. Without a running daemon it shows what the file shows in the default situation (no state on, nothing plays; the LCDs say "file"), and the pill says "File preview"; Simulate changes the situation. A
+the window Device), read from the daemon's live view. Without a running daemon the strips are dark and the pill says "No daemon": the drawing is the device, and only the daemon drives it. Start it (`xtouch-daemon install-service --now`), or use "Try without a device", which starts a daemon with the virtual device. A
 daemon that runs while the device is not connected shows "Live · not connected": the strips show what the device will
 show once it is there.
 

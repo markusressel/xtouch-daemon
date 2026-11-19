@@ -13,8 +13,8 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
-from xtouch_daemon.gui.domain.looks import StripFace, device_faces
-from xtouch_daemon.gui.domain.simulate import WhatIf, simulated, simulated_faces
+from xtouch_daemon.gui.domain.looks import device_faces
+from xtouch_daemon.gui.domain.simulate import simulated_faces
 from xtouch_daemon.gui.domain.slots import MODES
 from xtouch_daemon.gui.domain.status import Reason, Status, Tone, play_unavailable
 from xtouch_daemon.gui.qt.fields.basics import label, show_status
@@ -60,7 +60,6 @@ class DeviceView(QWidget):
         self.daemon_runs = True
         """Whether a daemon runs (see `show_daemon`): without one, it offers to try without a device."""
         self.snapshot: Snapshot | None = None
-        self._file_faces: tuple[StripFace, ...] | None = None
         """What the file showed last, while it is valid: kept while it has problems."""
         self.slots = slots
         """The slots: what Simulate shows instead of the device."""
@@ -207,17 +206,10 @@ class DeviceView(QWidget):
         self.snapshot = snapshot
         simulation = self.slots.simulation
         config = self.slots.editor.validation.config
-        if simulation is not None and config is not None and not self.slots.on_device:
+        if simulation is not None and config is not None and snapshot is not None and not self.slots.on_device:
             faces = simulated_faces(config.slots, simulation)
-        elif snapshot is None and config is not None:
-            # no daemon: what the file shows in the default situation (no state on, nothing plays)
-            faces = simulated_faces(config.slots, simulated(config.slots, WhatIf()), "file")
-            self._file_faces = faces
-        elif snapshot is None and self._file_faces is not None:
-            # a file with problems: the drawing keeps what the file showed before
-            faces = self._file_faces
         else:
-            # the device, also while it shows the situation of Simulate
+            # the device as the daemon mirrors it, also while it shows the situation of Simulate; dark without a daemon
             faces = device_faces(snapshot)
         self.preview.show_faces(faces, self.selected, simulating=simulation is not None)
         self.slots.show_live(snapshot)
