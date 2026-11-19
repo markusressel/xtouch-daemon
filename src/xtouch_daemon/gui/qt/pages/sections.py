@@ -11,6 +11,7 @@ from typing import Any
 
 from pydantic import ValidationError
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtGui import QShowEvent
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -234,6 +235,11 @@ class VoipPage(SectionPage):
 
     def __init__(self, editor: Editor, audio: Audio, installer: MumbleInstaller):
         self.installer = installer
+        self.setup = installer.setup()
+        """
+        The setup of the plugin: looked up when the page shows and after an install, not with every snapshot of the
+        daemon (60 a second), as it searches the disk.
+        """
         self.snapshot: Snapshot | None = None
         self.result: Status | None = None
         self.installing = False
@@ -256,7 +262,13 @@ class VoipPage(SectionPage):
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         self.snapshot = snapshot
-        self.box.show_state(voip_status(snapshot), self.installer.setup(), self.result, self.installing)
+        self.box.show_state(voip_status(snapshot), self.setup, self.result, self.installing)
+
+    def showEvent(self, event: QShowEvent | None) -> None:
+        # Mumble or the plugin may have come or gone while the page was hidden
+        self.setup = self.installer.setup()
+        self.show_live(self.snapshot)
+        super().showEvent(event)
 
     def install(self) -> None:
         self.installing = True
@@ -267,6 +279,7 @@ class VoipPage(SectionPage):
     def _installed(self, status: Status) -> None:
         self.installing = False
         self.result = status
+        self.setup = self.installer.setup()
         self.show_live(self.snapshot)
 
 

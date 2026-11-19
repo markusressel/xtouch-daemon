@@ -57,7 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: the lists of Channels and States have round corners like the cards, and their selected line is a tint that
   keeps the colors of its text. The shadow at the edge of a scrolled list fades out at its ends. Scroll bars have
   round ends.
-- Simulate and the preview in the GUI update the drawing 20 times a second (was 10), as often as the device's: meters
+- The drawing of the GUI updates 60 times a second (was 20, and 10 for Simulate and the preview in the GUI): meters
   and moving faders no longer step.
 - GUI: Device and Choices of an output or input channel are one list, Device. It writes `device` while its entries
   are devices alone, and `choices` once one has a label, a profile or a volume range.

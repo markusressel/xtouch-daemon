@@ -22,10 +22,14 @@ from xtouch_daemon.voip.provider import VoipProvider
 _LOGGER = logging.getLogger(__name__)
 
 
-INTERVAL = 0.05
-"""How often the state is checked for changes: 20 times a second, enough for a fader that glides."""
-MAX_BUFFER = 256 * 1024
-"""Bytes a client may lag behind (about 100 states) before it is dropped."""
+INTERVAL = 1 / 60
+"""
+How often the state is checked for changes: 60 times a second, as often as a screen shows a new picture, so the
+drawing of a fader that glides and of a meter that falls is smooth. The device itself has no rate of its own: its
+motors and LEDs follow what the daemon sends (the faders every `FADER_TICK`, the meters every `METER_INTERVAL`).
+"""
+MAX_BUFFER = 768 * 1024
+"""Bytes a client may lag behind (about 300 states, 5 s) before it is dropped."""
 MAX_REQUEST = 1024 * 1024
 """
 The longest line a client may send; a configuration has a few KB. A longer one ends the connection: the daemon reads

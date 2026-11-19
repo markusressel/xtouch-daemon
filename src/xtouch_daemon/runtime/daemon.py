@@ -46,6 +46,7 @@ from xtouch_daemon.live.messages import (
     TwinView,
     fingerprint,
 )
+from xtouch_daemon.live.server import INTERVAL as LIVE_INTERVAL
 from xtouch_daemon.live.server import LiveServer, strip_states, voip_state
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.binder import SlotMixer
@@ -69,10 +70,10 @@ SHUTDOWN_TIMEOUT = 4.0
 """How long the faders may take to move down when the daemon stops (they go slowly, see FADER_SLOW_SMOOTH_TIME)."""
 PREVIEW_TIMEOUT = 10.0
 """How long a preview runs without a request of its GUI (`live.KeepPreview`) before the daemon goes back to the file."""
-TWIN_INTERVAL = 0.05
+TWIN_INTERVAL = LIVE_INTERVAL
 """
 How often the views of the twins go to their clients (and their heartbeats are checked): as often as the snapshots
-of the device (`live.server.INTERVAL`), or meters and moving faders in the drawing step.
+of the device, or meters and moving faders in the drawing step.
 """
 PREVIEW_CHECK = 1.0
 """How often a running preview checks for its GUI and whether the configuration file changed."""
