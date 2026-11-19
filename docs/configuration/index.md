@@ -16,6 +16,32 @@ Unknown options are errors, so a typo does not go unnoticed. `check-config` name
 
 The [GUI](../guides/gui.md) edits the same options in a window and shows the same errors next to them.
 
+## Editors and AI assistants
+
+The options are also published as a [JSON Schema](https://json-schema.org/), [config.schema.json](../config.schema.json).
+A TOML language server, e.g. [Taplo](https://taplo.tamasfe.dev/) (Even Better TOML in VS Code) or
+[Tombi](https://tombi-toml.github.io/tombi/), reads it: it completes the options, shows their help on hover and marks a
+wrong option while you type. The first line of the example configuration points to the schema of the latest release;
+add it to a file that has none:
+
+```toml
+#:schema https://markusressel.github.io/xtouch-daemon/latest/config.schema.json
+```
+
+For the schema of the installed version, write it next to the file and point to that instead:
+
+```shell
+xtouch-daemon schema > ~/.config/xtouch-daemon/config.schema.json
+```
+
+```toml
+#:schema ./config.schema.json
+```
+
+An AI assistant that edits the file finds the options and their help there too. The schema checks each option on its
+own; `check-config` checks the rest, e.g. that a slot names a channel that exists, or that an option fits the type of
+the channel.
+
 ## Sections
 
 | Section | What it configures | Page |

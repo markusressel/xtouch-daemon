@@ -110,7 +110,7 @@ class DeviceStripConfig(BaseStripConfig):
     profile but the first. `device` must match the device of every profile, e.g. `alsa_output.pci-0000_11_00.4.*`.
     """
 
-    @field_validator("device", mode="before")
+    @field_validator("device", mode="before", json_schema_input_type=str | list[str])
     @classmethod
     def _one_or_several(cls, value: object) -> object:
         return (value,) if isinstance(value, str) else value

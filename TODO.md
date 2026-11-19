@@ -15,13 +15,6 @@ before. Two possible causes, not checked yet:
 Next time a game starts: `pactl list sink-inputs` shows its `application.name` and the volume it starts with. If
 PipeWire doesn't restore it, remember the volume per game ourselves.
 
-## AI support
-
-Is there anything we should add to either the daemon or the GUI to help AI work with them?
-Or is it enough that we have a config and documentation up online?
-If we can avoid implementing features for AI, that would be best, but if there is something that would add real value to a user, it is worth it.
-I was able to edit the config to my liking with AI pretty easily, but maybe there is still something to make it easier for less smart models?
-
 ## Startup sequence on the device
 
 The wave of `show` (light and faders together, see `Surface._wave()`) is tested on the virtual device only. On the
@@ -32,3 +25,8 @@ device, check:
 - the meter going down: each level is sent, but the device lets meters fall by itself too.
 - a disconnect: pull only the USB cable while the device stays on. Do its faders, LCDs and LEDs stay as they were, or
   does it reset them? (`docs/reference/hardware.md`, "Disconnect", says it is not known yet.)
+
+## Log Viewer for the running daemon in the GUI
+
+As the title states. An optional window in the GUI that shows the log of the running daemon, with highlighting, a filter for log level and a search function.
+
