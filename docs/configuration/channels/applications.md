@@ -40,7 +40,7 @@ and mix with names of your own (`match = ["@voip", "my-voice-app"]`).
 |---|---|
 | Fader | Sets every stream of the group to the same volume. A stream that starts later gets that volume too. Shows the loudest stream. |
 | Encoder | See [Encoders](../strip/encoders.md), for all streams. |
-| Mute | Mutes all streams, or unmutes them when all are muted. The LED is on while all are muted. |
+| Mute | Mutes all streams, or unmutes them when all are muted. The [LED](../strip/leds.md) is on while all are muted. |
 | Select | Nothing, or with `launch` it starts the application. The LED flashes while it starts and is on while it runs, see [Launching the application](#launching-the-application). |
 | LCD | Top: the label. Bottom: the volume, `muted`, or `idle` while no stream of the group is there. |
 | Ring | What the encoder controls. |
@@ -72,9 +72,9 @@ color = "cyan"                # the look of the applications on every auto slot
 ```
 
 The look options of every audio channel go into `[pool.apps]`, `[pool.auto]` or a place; a place of `apps` or `auto`
-also takes `encoder`
-(`pick` by default: `pick`, `media`, `volume`, `balance` or `homeassistant`, see [Encoders](../strip/encoders.md)),
-`min_volume` and `max_volume`. There is no `label`: the label is the application's alias from
+also takes `encoder` (`pick` by default: `pick`, `media`, `volume` or `balance`, see
+[Encoders](../strip/encoders.md)), `min_volume` and `max_volume`. An encoder or fader for Home Assistant on such a
+slot is a control of the slot: `5 = { encoder = "homeassistant" }` in [`[controls]`](../slots.md#controls-and-the-chord). There is no `label`: the label is the application's alias from
 [`[aliases]`](../behavior.md#aliases), or its name.
 
 How `apps` and `auto` get their applications:
@@ -91,8 +91,7 @@ How `apps` and `auto` get their applications:
 With the default `encoder = "pick"`, the encoder chooses the application and a push pins it, so it stays after it
 stopped playing. See [Encoders](../strip/encoders.md#pick).
 
-A slot of `apps` or `auto` works like an `apps` channel for its application. Without an application it is dark, blank, and does
-nothing.
+A slot of `apps` or `auto` works like an `apps` channel for its application. Without an application it is dark and does nothing.
 
 ## Launching the application
 
@@ -131,7 +130,7 @@ launch = ["mumble", "mumble://markus@voice.example.org/Gaming"]
 
 ### Mumble
 
-Mumble connects to a server and joins a channel when it gets a `mumble://` URL
+[Mumble](../../guides/mumble.md) connects to a server and joins a channel when it gets a `mumble://` URL
 ([Mumble's documentation](https://www.mumble.info/documentation/user/mumble-url/)):
 
 ```
@@ -147,3 +146,5 @@ mumble://[username[:password]@]<address>[:port]/[channel[/subchannel...]]
   servers, and certificates need no password.
 - For Mumble as a Flatpak (`launch = ["flatpak", "run", "info.mumble.Mumble", "mumble://..."]`), keep `mumble` in
   `match`: the program of `launch` is `flatpak` then.
+
+Next: [People](people.md), [Presets](../presets.md), or the [slots](../slots.md) that show them.

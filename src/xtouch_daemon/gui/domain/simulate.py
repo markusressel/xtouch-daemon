@@ -1,20 +1,15 @@
 """
-Simulate on the page Slots: what the slots would show with other modes, states and presence (a what-if), from the
-resolver; with Try on the device, the daemon runs it on the device too (`live.StartPreview`).
+Simulate on the page Slots: what the slots would show with other modes, states and presence (a what-if). The daemon
+runs it where the preview shows (`live.StartPreview`): on a virtual twin, or on the device.
 """
 
 import dataclasses
 from dataclasses import dataclass
 
 from xtouch_daemon.config.slots import SlotsSetup
-from xtouch_daemon.gui.domain.looks import DARK, StripFace, StripLook
-from xtouch_daemon.hardware import protocol
-from xtouch_daemon.live.messages import SlotsState, SlotView, StateView
+from xtouch_daemon.live.messages import SlotsState
 from xtouch_daemon.slots.model import AUTO, BUILT_IN, DEFAULT
-from xtouch_daemon.slots.outcomes import Situation, dimensions, simulate, states_for
-
-SIMULATED = "what if"
-"""The source of a state that is on in a simulation."""
+from xtouch_daemon.slots.outcomes import Situation, dimensions
 
 
 @dataclass(frozen=True)
@@ -66,45 +61,3 @@ def presence_text(name: str) -> str:
     if name == AUTO:
         return f"{name} plays"
     return f"{name} fill" if name in BUILT_IN else f"{name} absent"
-
-
-def simulated(setup: SlotsSetup, what_if: WhatIf) -> SlotsState:
-    """The slots and states as the live view would tell them in the what-if."""
-    scene = setup.scene
-    result = simulate(scene, what_if.mode, what_if.on, what_if.flipped, what_if.people, what_if.apps, what_if.devices)
-    views = tuple(
-        SlotView(
-            slot,
-            shown.candidate,
-            shown.channel,
-            shown.pool,
-            str(shown.member) if shown.member is not None else None,
-            result.why[slot],
-        )
-        for slot, shown in result.slots.items()
-    )
-    values = states_for(scene, what_if.mode, what_if.on)
-    states = tuple(
-        StateView(name, values[name], config.mode, None, SIMULATED if values[name] else None, "auto")
-        for name, config in scene.states.items()
-    )
-    waiting = {pool: tuple(str(member) for member in members) for pool, members in result.waiting.items()}
-    return SlotsState(what_if.mode, None, views, states, waiting)
-
-
-def simulated_faces(setup: SlotsSetup, slots: SlotsState) -> tuple[StripFace, ...]:
-    """
-    The strips with the label and color of what each slot would show, dark for nothing; an application or a person
-    with their name.
-    """
-    faces: list[StripFace] = []
-    for view in slots.slots[: protocol.STRIPS]:
-        name = view.channel or view.pool or "-"
-        strip = setup.strips.get((view.slot, view.candidate or 0, view.channel))
-        member = view.member if view.channel is None else None
-        label = member or getattr(strip, "label", None) or name
-        color = getattr(strip, "color", "white") if name != "-" else "off"
-        state = dataclasses.replace(DARK, color=color, text=(label[: protocol.LCD_CELL_WIDTH], SIMULATED[:7]))
-        look = StripLook("slot", label, f"Would show {name}", color, printed=name)
-        faces.append(StripFace(look, state, live=False, dimmed=color == "off"))
-    return tuple(faces)

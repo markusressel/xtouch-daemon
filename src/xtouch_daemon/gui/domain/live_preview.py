@@ -1,9 +1,10 @@
 """
-The live preview: while it is on, the daemon runs the configuration in the editor instead of the file (see
-`live.StartPreview`), so the device follows every edit before it is saved. Here: whether it can be turned on, and what
-the window says about it.
+The preview of the window: the unsaved edits, with the situation of Simulate while it is open, in the GUI (on a twin in
+the daemon), on the device, or nowhere (see `live.StartPreview`, `docs/development/design/previews.md`). Here: where it
+can show, and what the window says about it.
 """
 
+from enum import StrEnum
 from pathlib import Path
 
 from xtouch_daemon.config.model import Config
@@ -12,22 +13,33 @@ from xtouch_daemon.live.messages import Snapshot, fingerprint
 from xtouch_daemon.system.instance import Instance
 
 FEATURE = "preview"
-"""The feature of the daemon (`Snapshot.features`) that the live preview needs."""
+"""The feature of the daemon (`Snapshot.features`) that a preview on the device needs."""
+
+
+class Place(StrEnum):
+    """Where the preview shows: the positions of the control "Preview"."""
+
+    GUI = "gui"
+    """On a virtual twin in the daemon, drawn in the window: the device runs the file (the default)."""
+    DEVICE = "device"
+    """On the device, before it is saved."""
+    OFF = "off"
+    """Nowhere: the drawing shows the device as it is."""
 
 
 def unavailable(daemon: Instance | None, snapshot: Snapshot | None, path: Path, owned: bool) -> Reason | None:
     """
-    Why the live preview can't be turned on, None when it can: a daemon has to run this file, tell what the device
+    Why the preview can't go to the device, None when it can: a daemon has to run this file, tell what the device
     shows (`snapshot`), run as this user (`owned`, see `LiveView.owned`) and know previews.
     """
     if daemon is None:
-        return Reason("no daemon", "No daemon runs: start the service to try the changes on the device.")
+        return Reason("no daemon", "No daemon runs: start the service to preview the changes on the device.")
     if path.resolve() != daemon.config:
         return Reason("the daemon runs another file", f"The daemon runs {daemon.config}, not this file.")
     if snapshot is None:
         return Reason(
             "no live view",
-            f"No live view from the daemon (process {daemon.pid}): restart it to try changes on the device.",
+            f"No live view from the daemon (process {daemon.pid}): restart it to preview changes on the device.",
         )
     if not owned:
         return Reason(
@@ -37,7 +49,8 @@ def unavailable(daemon: Instance | None, snapshot: Snapshot | None, path: Path, 
     if FEATURE not in snapshot.features:
         return Reason(
             "daemon too old",
-            "The daemon that runs is too old to try changes on the device: restart it to run the installed version.",
+            "The daemon that runs is too old to preview changes on the device: restart it to run the installed "
+            "version.",
         )
     return None
 

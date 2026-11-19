@@ -3,18 +3,19 @@
 | Command | What it does |
 |---|---|
 | [`xtouch-daemon run`](#run) | Runs the daemon in the foreground. |
-| [`xtouch-daemon check-config`](#check-config) | Validates the configuration and lists what each strip does. |
+| [`xtouch-daemon check-config`](#check-config) | Validates the configuration, describes its channels and shows what the slots show when. |
 | [`xtouch-daemon init-config`](#init-config) | Writes the example configuration. |
 | [`xtouch-daemon list-devices`](#list-devices) | Lists outputs, inputs, and the sound cards with their profiles. |
-| [`xtouch-daemon list-apps`](#list-apps) | Lists the applications that play, and which strip takes each one. |
+| [`xtouch-daemon list-apps`](#list-apps) | Lists the applications that play, and which channel or slot takes each one. |
 | [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the device. |
+| [`xtouch-daemon virtual-device`](#virtual-device) | Runs a virtual X-Touch Extender, for trying the daemon without the device. |
 | [`xtouch-daemon mode`](#mode) | Shows the running daemon's mode, or picks another one. |
 | [`xtouch-daemon why`](#why) | Says why a slot shows what it shows, or where a channel is and why. |
-| [`xtouch-daemon mumble-plugin`](#mumble-plugin) | Shows, builds or installs the Mumble plugin of `voip` strips. |
+| [`xtouch-daemon mumble-plugin`](#mumble-plugin) | Shows, builds or installs the Mumble plugin for the strips of people. |
 | [`xtouch-daemon install-service`](#install-service) | Sets the daemon up as a systemd user service. |
 | [`xtouch-daemon gui`](#gui) | Edits the configuration in a window. |
-| [`xtouch-daemon simulate`](#simulate) | Prototype: what the slots of a configuration in the format of channels, states and slots show. |
-| [`xtouch-daemon observe`](#observe) | Prototype: records what plays, records and runs, for `simulate --replay`. |
+| [`xtouch-daemon simulate`](#simulate) | What the slots of a configuration show in a situation you give it. |
+| [`xtouch-daemon observe`](#observe) | Records what plays, records and runs, for `simulate --replay`. |
 
 Every command takes `-h`/`--help`. `xtouch-daemon -V` (`--version`) shows the version.
 
@@ -23,7 +24,7 @@ Every command takes `-h`/`--help`. `xtouch-daemon -V` (`--version`) shows the ve
 ## `run`
 
 ```shell
-xtouch-daemon run [-c FILE] [-l LEVEL]
+xtouch-daemon run [-c FILE] [-l LEVEL] [--virtual-device]
 ```
 
 Runs the daemon in the foreground. `install-service` sets it up as a systemd user service instead.
@@ -32,6 +33,7 @@ Runs the daemon in the foreground. `install-service` sets it up as a systemd use
 |---|---|
 | `-c`, `--config FILE` | The configuration file. |
 | `-l`, `--log-level LEVEL` | `debug`, `info` (default), `warning` or `error`. `debug` also logs the messages of the device the daemon doesn't use. |
+| `--virtual-device` | Drives the [virtual device](#virtual-device) instead of the real one, as `[device] virtual = true`. |
 
 The daemon notes its process and configuration file in `$XDG_RUNTIME_DIR/xtouch-daemon.json` while it runs, and
 serves what the device shows on `$XDG_RUNTIME_DIR/xtouch-daemon.sock` for the [GUI](../guides/gui.md). A second daemon does not
@@ -47,7 +49,7 @@ Signals:
 ## `check-config`
 
 ```shell
-xtouch-daemon check-config [-c FILE]
+xtouch-daemon check-config [-c FILE] [--all]
 ```
 
 Validates the configuration, describes each channel and shows a table of what the slots show in which states.
@@ -70,9 +72,12 @@ A channel with [`choices`](../configuration/channels/devices.md#choices) lists t
 `output: Phones, Speaker or Buds (Select switches)`. A channel whose meter shows the level after its fader
 (`meter_point = "post_fader"`, see [Meters](../configuration/channels/index.md#meters)) says `meter post-fader`.
 
-A file with errors names the place of each one, e.g. `channel.mic.label: String should have at most 7 characters`, and
-the command fails. The command lists the channels and shows the
-table of what the slots show in which states.
+A table of more than 12 rows shows the situations that differ in one thing; `--all` shows every combination.
+
+A file with errors names the place of each one and its line in the file, e.g.
+`channel.mic (line 12): label: String should have at most 7 characters`, with what is likely meant where it can be
+guessed (`browsr is no channel or pool (did you mean browser?)`), and the command fails. After the table, `Notes:` lists candidates that can never show (e.g. a channel below a pool
+without a condition) and people with no slot to sit on.
 
 ## `init-config`
 
@@ -86,13 +91,15 @@ Writes the example configuration with [channels, states and slots](../configurat
 ## `list-devices`
 
 ```shell
-xtouch-daemon list-devices
+xtouch-daemon list-devices [--snippet]
 ```
 
 Lists the outputs and inputs with the node names to use as `device`, their descriptions, volumes and states; `*`
 marks the defaults. Then it lists each sound card by its name and description, with its devices and its profiles
 (name and description), for `card` and `profile` of [`choices`](../configuration/channels/devices.md#choices) and for
-[`profiles`](../configuration/channels/devices.md#profiles); `*` marks the active ones:
+[`profiles`](../configuration/channels/devices.md#profiles); `*` marks the active ones. `--snippet` prints a
+`[channel.<id>]` for each device instead, ready to paste into the file (Bluetooth devices by a wildcard like
+`bluez_output.*`, since their names hold the address of the device):
 
 ```
 Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa_output.pci-0000_11_00.4.analog-stereo):
@@ -109,14 +116,14 @@ xtouch-daemon list-apps [-c FILE]
 ```
 
 Lists the applications that play now: their names (and aliases), the [presets](../configuration/presets.md) they are
-part of (e.g. `Brave (@browsers)`), binaries and volumes, and which strip takes each one: an `apps` strip, an `auto`
-strip, "ignored" (`behavior.ignore`) or no strip. Use the names and binaries, or the presets, for `match`, `ignore`
-and `[aliases]`.
+part of (e.g. `Brave (@browsers)`), binaries and volumes, and where each one goes: the `apps` channel that has it,
+an `auto` or `apps` slot, "ignored" (`exclude` of `[pool.apps]`) or no slot. Use the names and binaries, or the
+presets, for `match`, `exclude` and `[aliases]`.
 
 ## `test`
 
 ```shell
-xtouch-daemon test [-c FILE] [--no-events]
+xtouch-daemon test [-c FILE] [--no-events] [--virtual-device]
 ```
 
 Lights up everything on the device and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
@@ -124,7 +131,8 @@ meter, and moves its fader up and down. Then it shows what you do on the device 
 and the messages from the device the daemon doesn't use, until Ctrl+C. `--no-events` ends after the test.
 
 It takes the name of the device from `[device]` of the configuration. Stop the daemon first
-(`systemctl --user stop xtouch-daemon`): only one program can use the device.
+(`systemctl --user stop xtouch-daemon`): only one program can use the device. `--virtual-device` (or
+`[device] virtual = true`) tests the [virtual device](#virtual-device), which has to run (in another terminal).
 
 ## `virtual-device`
 
@@ -177,7 +185,7 @@ The GUI shows the same above the inspector of a slot on the page Slots.
 xtouch-daemon mumble-plugin [--build] [--install]
 ```
 
-The [Mumble plugin](../guides/mumble.md) that gives `voip` strips the people of your Mumble channel. Without
+The [Mumble plugin](../guides/mumble.md) that gives the strips of people the people of your Mumble channel. Without
 options it tells where the plugin is, whether Mumble is installed, and whether Mumble has the plugin:
 
 ```
@@ -227,7 +235,7 @@ Edits the configuration in a window, and applies it. Needs the `gui` extra, or t
 ## `simulate`
 
 ```shell
-xtouch-daemon simulate FILE [--mode NAME] [--state NAME]... [--absent CHANNEL]... [--playing APP]... [--person NAME]... [--table]
+xtouch-daemon simulate FILE [--mode NAME] [--state NAME]... [--absent CHANNEL]... [--playing APP]... [--person NAME]... [--table | --replay LOG]
 ```
 
 What the 8 slots of FILE show in the given states, and why not the candidates above (see

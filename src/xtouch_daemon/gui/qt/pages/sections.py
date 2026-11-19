@@ -11,6 +11,7 @@ from typing import Any
 
 from pydantic import ValidationError
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtGui import QShowEvent
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -27,7 +28,8 @@ from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import LEARN_MORE, Suggest, help_label, label, set_help, show_status
+from xtouch_daemon.gui.qt.fields.basics import Suggest, help_label, help_tail, label, set_help, show_status
+from xtouch_daemon.gui.qt.fields.option_row import add_rows, align_titles
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, page_title, row, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -69,15 +71,19 @@ class SectionPage(Page):
         self._above_options(present)
         frame, layout = card()
         suggest: dict[str, Suggest] = {"ignore": lambda: sources.patterns(self.audio())}
-        for option in options(self.section.model):
-            layout.addWidget(
+        add_rows(
+            layout,
+            [
                 self._row(
                     option,
                     lambda option_name: (name, option_name),
                     suggest.get(option.name),
                     link=docs.option_link(name, option.name),
                 )
-            )
+                for option in options(self.section.model)
+            ],
+        )
+        align_titles(self.option_rows)
         if name == "device":
             layout.addWidget(label("A changed name takes a restart of the service.", "help"))
         present.addWidget(frame)
@@ -229,6 +235,11 @@ class VoipPage(SectionPage):
 
     def __init__(self, editor: Editor, audio: Audio, installer: MumbleInstaller):
         self.installer = installer
+        self.setup = installer.setup()
+        """
+        The setup of the plugin: looked up when the page shows and after an install, not with every snapshot of the
+        daemon (60 a second), as it searches the disk.
+        """
         self.snapshot: Snapshot | None = None
         self.result: Status | None = None
         self.installing = False
@@ -251,7 +262,13 @@ class VoipPage(SectionPage):
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         self.snapshot = snapshot
-        self.box.show_state(voip_status(snapshot), self.installer.setup(), self.result, self.installing)
+        self.box.show_state(voip_status(snapshot), self.setup, self.result, self.installing)
+
+    def showEvent(self, event: QShowEvent | None) -> None:
+        # Mumble or the plugin may have come or gone while the page was hidden
+        self.setup = self.installer.setup()
+        self.show_live(self.snapshot)
+        super().showEvent(event)
 
     def install(self) -> None:
         self.installing = True
@@ -262,6 +279,7 @@ class VoipPage(SectionPage):
     def _installed(self, status: Status) -> None:
         self.installing = False
         self.result = status
+        self.setup = self.installer.setup()
         self.show_live(self.snapshot)
 
 
@@ -296,7 +314,7 @@ class MumbleBox(QFrame):
         self.install_button.setEnabled(setup.installable and not installing)
         self.install_button.setToolTip(install_hint(setup))
         steps = "".join(f"<li>{html.escape(step)}</li>" for step in install_steps(setup))
-        link = f' <a href="{html.escape(docs.guide_link("mumble"))}">{LEARN_MORE}</a>'
+        link = f"&emsp;{help_tail(link=docs.guide_link('mumble'))}"
         set_text(self.steps, f"Set up the plugin once:<ol>{steps}</ol>{install_hint(setup)}{link}")
         self.result.setVisible(result is not None)
         if result is not None:

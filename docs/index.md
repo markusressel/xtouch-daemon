@@ -1,79 +1,78 @@
 # xtouch-daemon
 
 xtouch-daemon turns a Behringer X-Touch Extender into a hardware mixer for PipeWire on Linux. Its motor faders, LED
-meters and scribble strips control your devices and applications. A strip can also belong to Home Assistant instead,
-for lights, speakers in other rooms or scenes.
+meters and scribble strips control your devices, your applications and the people of your voice chat. A strip can
+also belong to Home Assistant instead, for lights, speakers in other rooms or scenes. It needs the extender (in MC
+mode, on USB) and a Linux desktop with PipeWire; there is no Windows or macOS version.
 
 ![The GUI: the device as it is, the slots and the inspector of the slot picked](images/gui.png)
 
-## Features
+## How it works
 
-### Strips
+The device has 8 strips, and the configuration has a **slot** for each. A slot lists what its strip can show, top
+first, and **states** such as "in a call" or "gaming" decide which entry wins now:
 
-- **Device strips** (`output`, `input`) control an output or an input, or whatever is the default. **Select** makes
-  the device the default, and its LED shows which one is. See [Devices](configuration/channels/devices.md).
-- **Several devices on one strip:** a list or a `*` wildcard (e.g. `bluez_output.*` for any Bluetooth headphones).
-  The strip shows the one that is there, and Select switches between them.
-- **Sound card profiles:** Rec switches the card between profiles, e.g. analog and digital output. The label of the
-  active profile names the strip, and each profile can have its own volume range.
-- **Application strips** (`apps`) control all streams of a group of applications at once, e.g. every browser. A
-  stream that starts later gets the strip's volume. See [Applications](configuration/channels/applications.md).
-- **Auto strips** (`auto`) pick up the next application that plays and has no strip of its own. They keep it for a
-  few seconds after it stops, so it does not jump between strips from track to track. The encoder picks another
-  application, a push pins it. Aliases give applications readable names.
-- **Home Assistant strips** (`homeassistant`) turn a strip into entities for your automations over MQTT discovery: the
-  motor fader, the encoder, the LCD lines and color, the LEDs, and events for every button press. See
-  [Home Assistant](guides/home-assistant.md).
-- **Empty strips** (`empty`) stay dark and do nothing.
+```toml
+[slots]
+1 = ["buds if present", "auto"]   # Bluetooth headphones while they are connected, else the next application
+2 = ["game if gaming", "auto"]    # the game while you play, else the next application
+```
 
-### On every strip
+What a slot names is a **channel** or a **pool**. A channel is something you define that takes one strip: an output,
+an input, a group of applications, a person or Home Assistant. A pool supplies members to every slot that names it:
+`auto` and `apps` the applications that play, `people` the people of the voice chat, `devices` outputs without a
+channel.
 
-- **Motor faders** glide to new values smoothly, follow changes made anywhere else, and stay still while your finger
-  is on them. Only a touched fader changes a value.
-- **Volume ranges:** the fader covers `min_volume` to `max_volume`, up to 200 % (amplified in software). See
-  [Strips](configuration/channels/index.md#volume-range).
-- **Scribble strips** show a label and the volume (or `muted`, `idle`, `off`) on a backlight in the strip's color. A
-  strip whose device or applications are not there goes dark.
-- **Mute** button with LED.
-- **Encoder modes:** the encoder sets the balance, fine-tunes the volume, picks the application of an `auto`
-  strip, or seeks and plays/pauses the media player of the applications. Its LED ring shows what it controls.
-- **Home Assistant controls on audio strips:** the encoder (or the fader) becomes an entity in Home Assistant, e.g. to
-  dim a light, while the other control keeps the volume. See [Encoders](configuration/strip/encoders.md).
-- **Rec and Solo LEDs as indicators:** recording, playing, default or muted. See
-  [LEDs](configuration/strip/leds.md).
-- **LED meters** show the level of each strip, before or after its fader (`meter_point`), and light their red LED for
-  half a second when the audio clips (a peak at full scale). They are passive: they never wake a device, never light your desktop's microphone indicator,
-  and never switch Bluetooth headphones into headset mode.
+So the device follows what you do: the game gets a fader while it runs, the voice chat and the microphone while you
+are in a call, and the next application that plays takes a free strip. When one strip changes the others stay as they
+are, and a strip you are touching keeps what it shows until you let go.
 
-### Around it
+[Concepts](concepts.md) explains each of these words and the ones that look alike.
 
-- **GUI editor** (`xtouch-daemon gui`): the eight strips as the device shows them right now, editing with errors next
-  to the options, suggestions from the sound server, drag to reorder, undo, "Try on the device" that runs the unsaved
-  changes on the device, and save-and-apply that keeps the comments of the file. See [GUI](guides/gui.md).
-- **Command line tools:** a device self-test, lists of devices, profiles and applications, a configuration check. See
-  [Commands](reference/commands.md).
-- **Robust:** survives unplugging or switching off the device and restarts of the sound server and the MQTT broker,
-  and shows everything again when they are back.
-- **A proper service:** a systemd user service with readiness notification (`Type=notify`). `systemctl --user reload`
-  applies a changed configuration without a restart, and the log goes to the journal with levels. Startup and
-  shutdown sequences light the strips up and turn them dark: one after the other, all at once, like a curtain or
-  behind a wave of light. When it stops, it leaves the
-  surface dark.
+## What a strip can control
+
+- **Devices** (`output`, `input`): an output or input, whichever of several is there, or the default one. With
+  `choices`, Select switches between devices, e.g. headphones, speakers and Bluetooth buds. See
+  [Devices](configuration/channels/devices.md).
+- **Applications** (`apps`): every stream of a group of applications at once, e.g. every browser, with
+  [presets](configuration/presets.md) for browsers, voice chats, games, music and video players. Select can start the
+  application. See [Applications](configuration/channels/applications.md).
+- **The people of the voice chat**: a strip per person in your Mumble channel, with their name, their voice on the
+  meter and their volume on the fader. See [People](configuration/channels/people.md) and [Mumble](guides/mumble.md).
+- **Home Assistant**: a strip whose fader, encoder, LCD, LEDs and buttons are entities for your automations, e.g. to
+  dim a light or set the volume of a speaker in another room. See [Home Assistant](guides/home-assistant.md).
+
+Every strip has a motor fader that glides to new values and stays still under your finger, a volume range up to 200 %,
+an LCD with a label and the volume, an encoder (balance, volume, picking an application, or the media player),
+LEDs for Mute, Select, Rec and Solo, and a level meter that never wakes a device or switches Bluetooth headphones
+into headset mode. See [Encoders](configuration/strip/encoders.md) and [Buttons and LEDs](configuration/strip/leds.md).
+
+## Tools
+
+- **A GUI** (`xtouch-daemon gui`): the device as it is right now, every option with its help and errors, suggestions
+  from the sound server, Simulate (what the slots show in another situation), and a preview of the changes, in the
+  window or on the device, before you save. See [GUI](guides/gui.md).
+- **No device needed to start**: a virtual device stands in for it. See
+  [Without a device](getting-started/without-a-device.md).
+- **Command line**: a device test, a check of the configuration with a table of what the slots show when, and why a
+  slot shows what it shows. See [Commands](reference/commands.md).
+- **A systemd user service** that recovers when the device is unplugged or the sound server restarts, applies a
+  changed configuration without a restart, and leaves the device dark when it stops.
 
 ## Requirements
 
 - Linux with PipeWire and `pipewire-pulse` (or PulseAudio).
 - `pw-record` (part of PipeWire) for the meters.
-- Python 3.14.
+- Python 3.14 (the Arch Linux package brings its own).
 - A Behringer X-Touch Extender in **MC** mode on **USB** (see [Getting started](getting-started/first-steps.md#set-up-the-device)).
-- For Home Assistant strips: an MQTT broker that Home Assistant uses (e.g. the Mosquitto add-on).
+- For Home Assistant: an MQTT broker that Home Assistant uses (e.g. the Mosquitto add-on).
 
 ## Where to go next
 
 | Section | What it covers |
 |---|---|
-| [Getting started](getting-started/install.md) | Install, set up and test the device, write a first configuration, run the service; or try it [without a device](getting-started/without-a-device.md). |
+| [Getting started](getting-started/install.md) | Install, set up and test the device, write a first configuration, run the service; or try it [without a device](getting-started/without-a-device.md). Start here. |
+| [Concepts](concepts.md) | Channels, slots, states, pools and the words that look alike. |
 | Guides | The [GUI](guides/gui.md), [Home Assistant](guides/home-assistant.md), [Mumble](guides/mumble.md), and [Troubleshooting](guides/troubleshooting.md). |
 | [Configuration](configuration/index.md) | The file, applying changes, and every option: [channels, states and slots](configuration/slots.md), the [channel types](configuration/channels/index.md), the parts of a strip. |
 | Reference | Every [command](reference/commands.md), the [hardware and its protocol](reference/hardware.md), the [voice chat bridge](reference/voice-chat-bridge.md). |
-| Development | How it works inside ([Architecture](development/architecture.md)) and why ([Design documents](development/design/channels-states-slots.md)). |

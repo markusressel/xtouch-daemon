@@ -68,6 +68,34 @@ def smooth_damp(position: float, velocity: float, target: float, smooth_time: fl
     return position, velocity
 
 
+GLIDE_TICKS_MAX = 1000
+"""The most ticks `glided()` takes (10 s): a glide arrives long before, this only bounds a stale one."""
+
+
+def glide_step(position: float, velocity: float, target: float, slow: bool) -> tuple[float, float, bool]:
+    """
+    One FADER_TICK of a fader that glides to `target` (fader steps, 0..FADER_MAX): the new position and velocity, and
+    whether it arrived (then it is at `target`, at rest).
+    """
+    smooth_time = FADER_SLOW_SMOOTH_TIME if slow else FADER_SMOOTH_TIME
+    position, velocity = smooth_damp(position, velocity, target, smooth_time, FADER_TICK)
+    if abs(target - position) <= FADER_SNAP and abs(velocity) <= FADER_SNAP_SPEED:
+        return float(target), 0.0, True
+    return position, velocity, False
+
+
+def glided(position: float, velocity: float, target: float, slow: bool, seconds: float) -> float:
+    """Where a gliding fader is `seconds` later, in the ticks of the daemon (see `glide_step()`)."""
+    ticks = int(seconds / FADER_TICK)
+    if ticks > GLIDE_TICKS_MAX:
+        return float(target)
+    for _ in range(ticks):
+        position, velocity, arrived = glide_step(position, velocity, target, slow)
+        if arrived:
+            break
+    return position
+
+
 class Strip:
     """What one strip shows. Everything is remembered and shown again after a reconnect."""
 
@@ -200,6 +228,18 @@ class Strip:
             self._confirm_at = [now, *(now + delay for delay in FADER_CONFIRM_DELAYS)]
             self._surface.glide(self)
 
+    @property
+    def glide(self) -> tuple[float, float, int, bool] | None:
+        """
+        How the fader glides now: its position and velocity (fader steps, per second), its target and whether it
+        moves slowly; None while it doesn't (a finger holds it, it is at its target, or it is not known yet).
+        """
+        if self.touched or self.held or self.fader is None or self._position is None:
+            return None
+        if self._position == self.fader and self._velocity == 0.0:
+            return None
+        return self._position, self._velocity, self.fader, self._slow
+
     def moved_by_hand(self, value: int) -> None:
         self._position = value
         self._velocity = 0.0
@@ -228,16 +268,8 @@ class Strip:
                 self._confirm_at.pop(0)
                 self._surface.send(protocol.fader(self.index, self.fader))
             return bool(self._confirm_at)
-        self._position, self._velocity = smooth_damp(
-            self._position,
-            self._velocity,
-            self.fader,
-            FADER_SLOW_SMOOTH_TIME if self._slow else FADER_SMOOTH_TIME,
-            FADER_TICK,
-        )
-        if abs(self.fader - self._position) <= FADER_SNAP and abs(self._velocity) <= FADER_SNAP_SPEED:
-            self._position = self.fader
-            self._velocity = 0.0
+        self._position, self._velocity, arrived = glide_step(self._position, self._velocity, self.fader, self._slow)
+        if arrived:
             self._slow = False
             self._confirm_at = [now + delay for delay in FADER_CONFIRM_DELAYS]
         self._surface.send(protocol.fader(self.index, round(self._position)))

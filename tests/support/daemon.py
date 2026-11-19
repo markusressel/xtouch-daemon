@@ -2,7 +2,6 @@
 Helpers for the tests of the daemon: its configuration file, and starting it with fakes.
 """
 
-import asyncio
 from pathlib import Path
 
 from tests.support.audio import FakeBackend, output
@@ -37,14 +36,6 @@ QUIET = "true"
 
 def make(config_path: Path, surface: RecordingSurface, backend: FakeBackend) -> Daemon:
     return Daemon(parse_config(config_path.read_text()), backend, surface, config_path, capture_command=QUIET)
-
-
-async def until(condition: object) -> None:
-    for _ in range(100):
-        if callable(condition) and condition():
-            return
-        await asyncio.sleep(0.005)
-    raise AssertionError("the condition never became true")
 
 
 HOME_ASSISTANT = (

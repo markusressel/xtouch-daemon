@@ -63,15 +63,17 @@ def preview_status(
         return Status("Live", Tone.GOOD, "The strips show what the device shows right now.")
     if daemon is None:
         return Status(
-            "File preview",
-            Tone.NEUTRAL,
-            "The daemon is not running: the strips show what the configuration would show.",
+            "No daemon",
+            Tone.WARN,
+            "The daemon is not running, so the strips are dark: they show what the device shows, and only the daemon "
+            "drives it. Install and start it with `xtouch-daemon install-service --now` (or run `xtouch-daemon run`), "
+            "or try without a device.",
         )
     return Status(
-        "File preview",
-        Tone.NEUTRAL,
-        f"No live view from the daemon (process {daemon.pid}); a restart of a daemon started before the live view "
-        "existed gives one. The strips show what the configuration would show.",
+        "No live view",
+        Tone.WARN,
+        f"The daemon (process {daemon.pid}) gives no live view; restart a daemon started before the live view "
+        "existed. The strips are dark until it does.",
     )
 
 
@@ -87,15 +89,11 @@ PLAY = "play"
 def play_unavailable(snapshot: Snapshot | None, owned: bool, hosting: bool, simulating: bool) -> Reason | None:
     """
     Why the mouse can't be a hand on the device, None when it can: on the virtual device the GUI hosts, or on the
-    device of a daemon of this user that takes `Play` and has it connected. `simulating`: Simulate shows only the
-    drawing (it is not on the device), with no device to play on.
+    device of a daemon of this user that takes `Play` and has it connected. `simulating`: the drawing shows the virtual
+    twin of the window (the preview in the GUI), which Play can always use (it needs the daemon anyway).
     """
     if simulating:
-        return Reason(
-            "only in the drawing",
-            "Simulate shows what the slots would show, only in the drawing: turn on Try on the device to play it on "
-            "the device, or end it (Esc).",
-        )
+        return None
     if hosting:
         return None
     if snapshot is None:
@@ -127,6 +125,25 @@ def runs_older(daemon: Instance | None, snapshot: Snapshot | None, path: Path, s
     )
 
 
+def drawing_status(live: Status, in_gui: bool, on_device: bool) -> Status:
+    """
+    The pill of the drawing (`live`, see `preview_status()`) while it shows a preview of this window: on its twin
+    (`in_gui`), or on the device (`on_device`).
+    """
+    if in_gui:
+        return Status(
+            "Preview in the GUI",
+            Tone.NEUTRAL,
+            "The strips show the preview on a twin of the device in the daemon: the changes, and Simulate while it is "
+            "open. The device runs the saved file; Preview: Off shows it here.",
+        )
+    if on_device:
+        return Status(
+            f"{live.text} · preview", live.tone, f"{live.tip} The device runs the preview of this window, not the file."
+        )
+    return live
+
+
 def changes_status(
     daemon: Instance | None,
     snapshot: Snapshot | None,
@@ -138,14 +155,35 @@ def changes_status(
     trying: bool = False,
     problems: bool = False,
     simulated: bool = False,
+    place: str = "device",
+    what_if: bool = False,
 ) -> Status:
     """
     The pill next to Save and apply: whether the device runs the saved file, the unsaved changes (the live preview,
-    "Try on the device"), or neither, in a few words, the rest in its tip. `applying` is true for a moment after a
+    "Preview: On the device"), or neither, in a few words, the rest in its tip. `applying` is true for a moment after a
     reload, which takes the daemon a moment; `previewed`: the device runs the document as it is; `trying`: the live
     preview is on; `problems`: the document has some, so it does not go to the device; `simulated`: the device shows
-    the situation of Simulate.
+    the situation of Simulate. `place`: where the preview shows (a `live_preview.Place`); `what_if`: Simulate is open.
     """
+    if place == "gui" and (modified or what_if):
+        if modified and problems:
+            return Status(
+                "Paused: problems",
+                Tone.WARN,
+                "The changes have problems, so the preview keeps the last version without them. Fix them to go on.",
+            )
+        text = "In the GUI, not saved" if modified else "In the GUI"
+        tip = (
+            "The window shows the preview on a twin of the device; the device runs the saved file. Save and apply "
+            "keeps the changes; Preview: On the device tries them there."
+        )
+        return Status(f"{text} · simulated" if what_if else text, Tone.NEUTRAL, tip)
+    if place == "off" and modified:
+        return Status(
+            "Off: the device runs the file",
+            Tone.NEUTRAL,
+            "The changes show nowhere until you save them, or pick In the GUI or On the device for the preview.",
+        )
     status = _changes_status(daemon, snapshot, path, saved, modified, applying, previewed, trying, problems)
     if not simulated:
         return status
@@ -172,7 +210,7 @@ def _changes_status(
         return Status(
             "On the device, not saved",
             Tone.WARN,
-            "The device runs the changes in the editor. Save and apply keeps them; turning off Try on the device, or "
+            "The device runs the changes in the editor. Save and apply keeps them; another place for the preview, or "
             "closing the window, brings back the saved file.",
         )
     if trying and modified and problems:
@@ -190,7 +228,7 @@ def _changes_status(
         return Status(
             "Unsaved changes",
             Tone.NEUTRAL,
-            "The device runs the saved file. Try on the device runs the changes there before you save them.",
+            "The device runs the saved file. Preview: On the device runs the changes there before you save them.",
         )
     return Status("Unsaved changes", base.tone, f"{base.text}. {base.tip}".strip())
 
@@ -225,18 +263,17 @@ def _saved_status(
 
 def unit_status(state: ServiceState, overrides: bool) -> Status | None:
     """
-    Which unit the service has: the release package's, or one in the user's configuration, with the program it starts.
-    `overrides`: that one hides the package's. None while it is not installed.
+    Which unit the service has (its path is `state.unit`): the release package's, or one in the user's configuration,
+    with the program it starts. `overrides`: that one hides the package's. None while it is not installed.
     """
     if state.unit is None:
         return None
     if state.packaged:
-        return Status("packaged", Tone.NEUTRAL, f"The unit of the package: {state.unit}")
-    tip = f"The unit {state.unit}"
+        return Status("packaged", Tone.NEUTRAL, "The unit of the package.")
+    tip = "Your own unit"
     if state.program:
-        tip += f", which starts {state.program}"
-    if overrides:
-        tip += "; it overrides the one of the package"
+        tip += f", which starts `{state.program}`"
+    tip += ". It overrides the unit of the package." if overrides else "."
     return Status("own unit", Tone.WARN if overrides else Tone.NEUTRAL, tip)
 
 

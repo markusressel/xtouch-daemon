@@ -13,6 +13,7 @@ from tests.support.launch import FakeLauncher
 from tests.support.mqtt import FakeBroker
 from tests.support.slots import Rig
 from tests.support.tasks import finish_tasks, settle
+from tests.support.waiting import until
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
@@ -164,14 +165,6 @@ def bridge(monkeypatch: pytest.MonkeyPatch) -> MqttBridge:
     monkeypatch.setattr(homeassistant_module, "FADER_PUBLISH_INTERVAL", 0.001)
     broker = FakeBroker()
     return MqttBridge(parse_config('[mqtt]\nhost = "broker"\n').mqtt, client_factory=broker.client)  # type: ignore[arg-type]
-
-
-async def until(condition) -> None:
-    for _ in range(500):
-        if condition():
-            return
-        await asyncio.sleep(0.002)
-    raise AssertionError("the condition never became true")
 
 
 async def test_a_fader_an_encoder_and_buttons_in_home_assistant(surface: RecordingSurface, bridge: MqttBridge) -> None:

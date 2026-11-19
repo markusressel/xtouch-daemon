@@ -4,6 +4,135 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- GUI: keys for the lists of Slots, Channels and States, in the menu Edit: Del (or Backspace) removes the candidate,
+  channel, pool or state picked, Ctrl+C, Ctrl+X and Ctrl+V copy, cut and paste it as TOML (as in the file, so a text
+  editor takes it, and TOML from the file can be pasted), Ctrl+D duplicates it, F2 goes to its id. In a field they
+  edit its text. Ctrl+1 to Ctrl+4 show the pages. Help → Keyboard shortcuts lists the keys; the tooltips of the
+  buttons name theirs.
+- GUI: States has a button Duplicate.
+- GUI: the control "Preview" next to Save and apply says where unsaved edits and Simulate show: "In the GUI" (the
+  default), "On the device" (the device runs them before they are saved) or "Off" (the drawing mirrors the device).
+  In the GUI they run on a virtual twin of the device in the daemon: a second set of strips with its own made-up sound
+  server and voice chat, driven by the real engine, that touches nothing real. Its applications and people take the
+  real names first and follow them; without Simulate it runs the real mode and states. Play, the cards and the
+  why-panel follow the drawing. Simulate always includes the edits; opened while "Off", it shows in the GUI until it
+  closes. A second window that takes the device moves the first one back to "In the GUI". Simulate and the preview
+  in the GUI need a running daemon: without one the GUI says how to install and start it. Replaces "Try on the
+  device".
+- Pools of your own for applications and people: `[pool.<id>]` with `kind = "apps"` (`match`, `exclude`, `from`,
+  `hold`, look) or `kind = "people"` (`people`, `from`, look). Each member gets a strip, a pool takes its members
+  before `apps`, `people` and `auto`, and only while a slot names it. The GUI adds "Pool of applications" and "Pool of
+  people" to the Add menu of Channels; Simulate and `check-config` know them.
+- GUI: Channels has "Pool of channels" in its Add menu; the pools of channels of the file are listed under "Pools",
+  with a form for their channels (ids and `#tags`) and side, and can be renamed and removed.
+- Documentation: a "Concepts" page (channels, slots, states, pools, and the words that look alike, such as `apps`,
+  `auto` and `device`); the start page and the README explain the model with an example and say what a pool is.
+- Documentation: pages link the words of the project (slots, encoders, LEDs, Home Assistant, the GUI, ...) to where
+  they are explained, at their first mention; a test checks that a page that uses a word three times links it.
+- The GUI helps a first configuration: Channels has "Output from the sound server" and "Input from the sound server" in its Add
+  menu, a hint while the file has no channel, and opens on the first channel; States has the starting points "In a
+  call" and "Gaming" in its Add menu, and says what a state is while there is none; an empty slot says what it shows.
+- `list-devices --snippet` prints a channel for every output and input, ready to paste (Bluetooth devices by a
+  wildcard).
+- `test --virtual-device` (and `[device] virtual = true`) runs the self-test on the virtual device; its error without a
+  device says so.
+- `check-config --all`: a table of more than 12 rows shows only the situations that differ in one thing by default.
+- A Setup tour in the docs builds a whole configuration, step by step, in the GUI and in the file.
+- Errors of a file name its line (`slots.7[0] (line 12): ...`), and say what is likely meant: the closest channel,
+  option or state, and "two names in a row" for a condition like `in call`; a label that is missing says what it is
+  for.
+- Buttons of channels: `select`, `rec` and `solo` each take a table of what a press does, what a hold (longer than
+  half a second) does and what the LED shows: `default`, `next` (shows the next device, the default stays),
+  `profile`, `launch`, `talk` (push to talk), `mute_others` (a solo while held), `homeassistant` (events), the actions
+  of `[controls]` (`cycle_modes`, `mode:<id>`, `toggle:<id>`, `{ launch = [...] }`) and `off`; the LED takes the
+  indicators, `press` (what the press does) and `shown` (after `next`). `select = true`/`false` and `rec = "playing"`
+  stay as short forms. A place in `[slots]` sets only what an LED shows. The GUI has a row per button with the
+  three, showing the defaults of the type, and the preview of the Buttons card shows what a press and a hold lead to.
+
+### Changed
+
+- GUI: Duplicate on Channels copies pools of your own too, and a copy of `mic_2` is `mic_3` (was `mic_2_2`).
+- GUI: "Used by" of a channel or state shows the slots as a row of small strips, lit where a slot shows it
+  (outlined where only its controls use it); a click shows the slot. Pools and states that use it follow in words.
+- GUI: the options of a form are set apart by a thin line. A place in Slots groups its options like the cards of a
+  channel (Encoder, Display, Buttons, Fader and meter), has the meter as one choice, and its buttons show only what
+  their LED shows (Select also `press = "off"`): what a button does belongs to the channel.
+- GUI: in Play, a click on the drawing selects no strip, and the drawing looks like the device: no outline of the
+  selection, the focus or the mouse, and strips nobody configured are not dimmed. The selection comes back with Select.
+- GUI: the text of number fields starts where the text of the other fields does, and the chips of a list field have
+  the same space to the edge of the field all around.
+- GUI: the lists of Channels and States have round corners like the cards, and their selected line is a tint that
+  keeps the colors of its text. The shadow at the edge of a scrolled list fades out at its ends. Scroll bars have
+  round ends.
+- The drawing of the GUI moves at the rate of the screen: meters fall and faders glide in the GUI itself, from what
+  the daemon told once (the level and when it was set, where a fader goes and how fast), also in Simulate and the
+  preview in the GUI. The daemon sends the live view when something changed instead of checking 20 times a second
+  (10 for the twins), so nothing runs while nothing changes. A GUI needs a daemon of this version (the live view is
+  version 2).
+- GUI: the help of an option ends with what it takes when unset (a muted DEFAULT and the value as a chip) and
+  Learn more ↗, set apart from the text on the same line.
+- GUI: Device and Choices of an output or input channel are one list, Device. It writes `device` while its entries
+  are devices alone, and `choices` once one has a label, a profile or a volume range.
+- GUI, form of a channel: it starts with what its type is (e.g. what an output channel controls); a narrow window puts
+  the name of an option above its field, and the drawing of a part above its options, so nothing is cut off.
+  `choices` and `profiles` are a list of entries that open into their fields (volumes as numbers in %, the card and
+  profile folded under "Switch the sound card first"), dragged into their order; the Display card shows the label of
+  each. The meter is one choice (before the fader, after it, off) instead of a switch and an empty list. Remove is a
+  trash can everywhere. The names of the options of a form line up in a column as wide as the longest one.
+- GUI: fields for names (devices, cards, profiles, applications, people) open their list on a click and narrow it down
+  while typing, by any part of a name or description or a pattern, with the matches highlighted; each line says what
+  it is and where it is known from. The ▾ menus next to the fields are gone. Under a device, card or profile of a
+  choice, a line says what the value matches. The devices of the profiles of a card that are not active are
+  suggested too, and picking one for a choice fills in its card and profile.
+- The daemon remembers the outputs and inputs it saw (`devices.json` in its state directory, for 90 days), and the GUI
+  suggests them while they are not there, e.g. Bluetooth headphones that are off. Delete in the list forgets one.
+- GUI: without a daemon the strips are dark and the pill says "No daemon", with how to start one. The drawing is only ever the device (the daemon's mirror), never a second rendering made in the GUI.
+- GUI: the encoder of a place shows its default (`default: pick`) instead of staying blank, a pool of applications of your own offers no `pick`, and the columns of the choices table fit their titles.
+- Documentation: the plugin internals and the haad controller sketch moved to Development; Troubleshooting has Voice chat and GUI; pages end with a "Next" pointer; the place options of a slot are a table.
+
+- GUI: the list of Channels and the box Shows of a slot candidate have two groups, "Channels" (one strip each) and
+  "Pools" (a member for each slot that names them: the built-in ones and your own); the Simulate bar says "apps" instead of "applications" so that it fits; the
+  description of a pool no longer repeats the help of Shows; the lines of the Channels list show the names in the
+  color of channels and the states and slots they name in theirs.
+- A new file in the GUI starts empty instead of with the example's channels and slots 7 and 8.
+- Renaming a channel or state in the GUI renames it in the slots, conditions, pools and controls that name it (they
+  went red before).
+- A file the GUI writes for the first time is written anew: sections in order, slots by number, no leftovers of the
+  example's comments in the middle of your slots. The drawing keeps what the file showed while the file has problems.
+- The page Device of Settings is called Extender, so "Device" is only the drawing of the device.
+- A new line in a table of the GUI (choices, profiles) is not part of the file until you type in it, so it shows no
+  "required" error before; `profiles` shows only on a channel that has it (`choices` does the same).
+- After "Save and apply" without a running daemon the GUI points at the button that starts the service.
+
+- The GUI: a click on the pill of the service opens the service (Restart, Stop), its unit (the package's or your own,
+  with its path and the program it starts, and Use the packaged unit) and the connections of the daemon. The header
+  keeps only what the service needs: Install and start, Start, or Restart after an upgrade.
+- Play: a drag on the knob of an encoder turns it (up or right is clockwise), holding the knob holds it down, and
+  holding on an LED of the ring turns the encoder until the ring lights it.
+- The development docs: the architecture is split by topic (audio, live view, GUI, testing), the design of channels,
+  states and slots into a page per concept with only what holds now, and replaced designs (layouts, strips that move,
+  how the slots were built) are under History.
+
+### Fixed
+
+- Play: the mouse wheel turned an encoder only to the left with a touchpad or a smooth wheel; parts of a notch now add
+  up, the same both ways.
+- A slot card too narrow for its candidates showed a scroll bar over its last candidate; the column of the cards
+  scrolls instead.
+- The built-in pools take what their places take: `[pool.apps]`, `[pool.auto]` and `[pool.devices]` refuse a
+  `launch`, a `fader` and `encoder = "homeassistant"` (controls of a slot: `[controls]`), and `label` on them or on
+  a place of `apps`, `auto` or `devices` says why instead of "Extra inputs are not permitted" on every slot. The GUI
+  no longer offers those on a pool or a place.
+- The node on the rail of a slot card sat a little above the text of the first candidate; it is in its middle now.
+- The dot of a state (in the bar of Slots and the list of States) sat below the middle of its text: the font has
+  no ○ and ●, and the fallback's sit low. The dot is drawn now.
+- The Solo buttons of the mode chord held their slots, so a mode picked by the chord changed those two strips only
+  after the release. They hold nothing, as designed.
+
 ## [0.1.0] - 2026-11-18
 
 ### Added
@@ -16,7 +145,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   [Hardware](docs/reference/hardware.md#the-virtual-device) knows. The live view shows the daemon's mirror of the device (the
   same model), so the GUI draws what reached the device, banners and flashes included, with the motors and meters
   moving as on it. See `docs/development/design/device-simulator.md`.
-- Channels, states and slots (see the page Channels, states and slots and `docs/development/design/channels-states-slots.md`):
+- Channels, states and slots (see the page Channels, states and slots and `docs/development/design/slots/index.md`):
   `[channel.*]` say what a strip can control, `[state.*]` what goes on (a call, a game, a mode), and `[slots]` what
   each of the 8 strips shows, as candidates with conditions (`"voip if call"`, `"mum if present"`). A slot gets
   another strip when what it shows changes, the others stay as they are (no blank texts), a slot that shows another
@@ -148,7 +277,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `check-config` names the old spellings. `present(apps)` and `present(people)` work in conditions,
   `present(auto)` holds while either does. `check-config` notes candidates that never show and people that can
   sit nowhere, `xtouch-daemon why people` tells who sits where and who waits, and the GUI's Simulate takes a
-  number of people in the call and of applications that play. See `docs/development/design/people-slots.md`.
+  number of people in the call and of applications that play. See `docs/development/design/slots/people.md`.
 - Select and Play above the drawing of the device in the GUI. Select: dragging a strip moves its slot (candidates and
   controls) to another place, the others glide aside, as do Ctrl+Left/Right and the context menu. Play: the mouse is a
   hand on the device, on the virtual device the GUI hosts or on the device of a running daemon, which takes a new
@@ -158,7 +287,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with its delays and dwells, real applications, people and devices as stand-ins first and made-up ones for the rest,
   and Play works on it. The switch is there while Simulate is open, the pill says "On the device · simulated", and
   Home Assistant never sees the situation. `StartPreview` takes a `situation` and no `config` (the file's), snapshots
-  tell `simulated`. See `docs/development/design/try-and-simulate.md`.
+  tell `simulated`. See `docs/development/history/try-and-simulate.md`.
 - The GUI's pages are a window Configuration, like the window Device: each docks at any side or floats as a window of
   its own (e.g. on another screen). Its rail shows icons only, » shows their names.
 - The GUI's pills moved to what they are about: "Live" and the mode ("Mode: gaming", "No mode") to the bar of the
@@ -303,6 +432,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A documentation site (Zensical, published to GitHub Pages): getting started, a page per topic of the
   configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 
+[Unreleased]: https://github.com/markusressel/xtouch-daemon/compare/0.1.0...HEAD
 [0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/0.1.0
 
 ### Fixed

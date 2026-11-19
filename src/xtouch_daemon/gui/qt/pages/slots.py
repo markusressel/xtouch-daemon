@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtGui import QIcon, QKeySequence, QShortcut, QStandardItemModel
 from PyQt6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -24,19 +24,23 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
-from xtouch_daemon.gui.domain.schema import Option, strip_options
-from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text, simulated
+from xtouch_daemon.gui.domain.clipboard import candidates_text, parse_candidates
+from xtouch_daemon.gui.domain.demos import GROUPS, group_of
+from xtouch_daemon.gui.domain.schema import Kind, Option, look_options
+from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text
 from xtouch_daemon.gui.domain.slot_stacks import (
     EMPTY,
     Row,
     StepKind,
-    choices,
+    choice_groups,
     controls_text,
     member_summary,
     place_options,
+    pool_kind,
     pool_strip,
     pool_text,
     reasons,
@@ -47,12 +51,22 @@ from xtouch_daemon.gui.domain.slot_stacks import (
 )
 from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
-from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.domain.status import Reason, Status, Tone
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, help_text, label
+from xtouch_daemon.gui.qt.fields.basics import (
+    DOT_ICON,
+    dot_icon,
+    entity_label,
+    flat_button,
+    help_label,
+    help_text,
+    indent_text,
+    label,
+)
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
-from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.meter import meter_row
+from xtouch_daemon.gui.qt.fields.option_row import OptionRow, add_groups, align_titles
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import StackList
@@ -61,7 +75,7 @@ from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
-from xtouch_daemon.slots.model import AUTO, DEFAULT, DEVICES
+from xtouch_daemon.slots.model import AUTO, BUILT_IN, DEFAULT, DEVICES
 from xtouch_daemon.slots.why import where
 
 SHOWS_HELP = (
@@ -86,9 +100,15 @@ def _clear(bar: QHBoxLayout) -> None:
         widget.deleteLater()
 
 
+SIMULATE_TIP = (
+    "What the slots would show in other modes and states, with the changes, where the preview shows: in the GUI or on "
+    "the device (Esc ends it)"
+)
+
+
 class SlotsPanel(Page):
     simulated = pyqtSignal(arguments=[])
-    """Simulate started, changed or ended: the drawing shows the simulation (`simulation`) or the device again."""
+    """Simulate started, changed or ended: the virtual twin runs `what_if` (see `TwinSession`), or ends."""
 
     def __init__(
         self,
@@ -97,23 +117,29 @@ class SlotsPanel(Page):
         snapshot: Callable[[], Snapshot | None],
         request: Callable[[Request], bool],
         show_channel: Callable[[str], None],
+        twin_slots: Callable[[], SlotsState | None] = lambda: None,
+        simulate_unavailable: Callable[[], Reason | None] = lambda: None,
+        shows_twin: Callable[[], bool] = lambda: False,
     ):
-        """`show_channel` opens a channel on the page Channels."""
+        """
+        `show_channel` opens a channel on the page Channels, `twin_slots` tells the slots of the virtual twin of the
+        window (the preview in the GUI), `shows_twin` whether the drawing shows it, and `simulate_unavailable` why
+        Simulate can't run.
+        """
         super().__init__(editor, audio)
         self.snapshot = snapshot
         self.request = request
         self.show_channel = show_channel
+        self.twin_slots = twin_slots
+        self.simulate_unavailable = simulate_unavailable
+        self.shows_twin = shows_twin
         self.slot = 1
         """The slot picked (1 for the leftmost one)."""
         self.candidate: int | None = None
         """The candidate of the slot the inspector shows, None for none."""
-        self.shown_live: tuple[object, ...] | None = None
+        self.shown_live: object = None
         self.what_if: WhatIf | None = None
         """What Simulate shows, None while the cards show what the daemon tells."""
-        self.simulation: SlotsState | None = None
-        """The slots of `what_if`, as the GUI resolves them."""
-        self.on_device = False
-        """Whether the device shows `what_if` (Try on the device): then the cards show the daemon's slots."""
         self.device_note = label("", "hint")
         self.layout_.setContentsMargins(0, Space.S, 0, 0)
         end = QShortcut(QKeySequence(Qt.Key.Key_Escape), self, context=Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -136,10 +162,7 @@ class SlotsPanel(Page):
         self.simulate_button = button("flask-outline", "Simulate")
         set_role(self.simulate_button, "segment", "variant")
         self.simulate_button.setCheckable(True)
-        self.simulate_button.setToolTip(
-            "What the slots would show in other modes and states; on the device too with Try on the device "
-            "(Esc ends it)"
-        )
+        self.simulate_button.setToolTip(SIMULATE_TIP)
         self.simulate_button.clicked.connect(lambda checked: self.simulate(WhatIf() if checked else None))
         # first: it stays where it is while the what-ifs take the place of the states
         top.insertWidget(0, self.simulate_button)
@@ -219,7 +242,7 @@ class SlotsPanel(Page):
         inspector.addWidget(self.problem)
         self.place = Stack()
         inspector.addWidget(self.place)
-        self.place_forms: dict[tuple[str, frozenset[str]], tuple[QWidget, list[OptionRow]]] = {}
+        self.place_forms: dict[tuple[str, frozenset[str], bool], tuple[QWidget, list[OptionRow]]] = {}
         """The forms of the options of a place, by strip type and the options it takes: built once, then reused."""
         self.place_rows: list[OptionRow] = []
         """The rows of the form shown."""
@@ -249,7 +272,7 @@ class SlotsPanel(Page):
         add = flat_button("plus", "Add a candidate (at the end; Ctrl+Up moves it up)")
         add.clicked.connect(lambda: self.add(slot))
         header.addWidget(add)
-        remove = flat_button("delete-outline", "Remove the candidate picked")
+        remove = flat_button("delete-outline", "Remove the candidate picked (Del)")
         remove.clicked.connect(lambda: self.remove(slot))
         header.addWidget(remove)
         layout.addWidget(row(header))
@@ -272,15 +295,25 @@ class SlotsPanel(Page):
 
     def _show(self) -> None:
         config = self.editor.validation.config
-        self.simulate_button.setEnabled(config is not None)
-        self.simulate_button.setToolTip(
-            self.simulate_button.toolTip() if config is not None else "Only for a file without problems"
-        )
-        if self.what_if is not None:
-            self.simulate(self.what_if if config is not None else None)
+        if self.what_if is not None and config is None:
+            self.simulate(None)
+        self._show_simulate_button()
         self._show_state_bar()
         self._show_cards()
         self._show_inspector()
+
+    def _show_simulate_button(self) -> None:
+        """Simulate needs a file without problems and a daemon with a twin for it; the button says what is missing."""
+        config = self.editor.validation.config
+        reason = self.simulate_unavailable()
+        if config is None:
+            tip = "Only for a file without problems"
+        elif reason is not None:
+            tip = f"{reason.why}\n\n{SIMULATE_TIP}"
+        else:
+            tip = SIMULATE_TIP
+        self.simulate_button.setEnabled((config is not None and reason is None) or self.what_if is not None)
+        self.simulate_button.setToolTip(tip)
 
     def _show_state_bar(self) -> None:
         _clear(self.state_bar)
@@ -332,11 +365,17 @@ class SlotsPanel(Page):
         controls = controls_text(self.document.values, self.slot)
         if controls:
             text = f"`[controls]` claims parts of slot {self.slot}: " + "; ".join(controls) + "."
-        else:
+        elif not stack:
             text = (
-                f"Its buttons, encoder and fader work as what it shows: `[controls]` claims none of slot {self.slot}."
+                f"Slot {self.slot} has no candidate: it shows `auto`, the next application that plays or person of "
+                "the voice chat. Add a candidate (+ on its card) to show a channel here, e.g. an output."
             )
+        elif self.candidate is None:
+            text = "Pick a candidate to edit it. The first one whose condition holds is shown; + adds one at the end."
+        else:
+            text = ""
         set_text(self.controls, _help(text))
+        self.controls.setVisible(bool(text))
         self._show_crumbs(stack)
         for widget in (self.show_box, self.when_edit):
             widget.parentWidget().setVisible(self.candidate is not None)  # pyright: ignore[reportOptionalMemberAccess]
@@ -353,7 +392,16 @@ class SlotsPanel(Page):
         set_text(self.title, f"Slot {self.slot}")
         self.show_box.blockSignals(True)
         self.show_box.clear()
-        self.show_box.addItems(choices(self.document.values))
+        for title, names in choice_groups(self.document.values):
+            if title and names:
+                # a title of a group: it can't be picked
+                self.show_box.addItem(title)
+                model = self.show_box.model()
+                assert isinstance(model, QStandardItemModel)
+                header = model.item(self.show_box.count() - 1)
+                assert header is not None
+                header.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.show_box.addItems(names)
         self.show_box.setCurrentText(candidate.show)
         self.show_box.blockSignals(False)
         self.when_edit.set_names([*self.document.values.get("state", {}), DEFAULT], targets(self.document.values))
@@ -377,9 +425,13 @@ class SlotsPanel(Page):
                 else pool_text(self.document.values, candidate.show) + self._channel_why(candidate.show)
             )
             set_text(self.channel, _help(text))
-            strip = pool_strip(candidate.show)
+            strip = pool_strip(candidate.show, self.document.values)
         if strip is not None:
-            form, self.place_rows = self._place_form(strip, place_options(candidate.show))
+            # a pool of applications of your own has no `pick` encoder
+            own = pool_kind(self.document.values, candidate.show) == "apps" and candidate.show not in BUILT_IN
+            form, self.place_rows = self._place_form(
+                strip, place_options(candidate.show, self.document.values), pick=not own
+            )
             self.place.show_part(form)
             self.place.setVisible(True)
             self._load_rows(self.place_rows)
@@ -401,7 +453,7 @@ class SlotsPanel(Page):
         live = self.shown_slots()
         view = self._views().get(self.slot) if live is not None else None
         steps = why_steps(view.why) if view is not None else ()
-        key = (live is not None, self.simulation is not None, steps)
+        key = (live is not None, self.what_if is not None, self.shows_twin(), steps)
         if key == self.shown_steps:
             return
         self.shown_steps = key
@@ -413,7 +465,7 @@ class SlotsPanel(Page):
         if live is None:
             set_role(self.status_box, Tone.NEUTRAL.value, "tone")
             return
-        heading = "What if" if self.simulation is not None else "Now"
+        heading = "What if" if self.what_if is not None else "Preview" if self.shows_twin() else "Now"
         self.why_rows.addWidget(label(heading, "hint"), 0, 0, 1, 3)
         if not steps:
             self.why_rows.addWidget(label(f"The daemon tells nothing about slot {self.slot}.", "hint"), 1, 0, 1, 3)
@@ -474,49 +526,94 @@ class SlotsPanel(Page):
             crumb.clicked.connect(lambda _=False, index=index: self.lists[self.slot - 1].setCurrentRow(index))
             self.crumbs.addWidget(crumb)
 
-    def _place_form(self, strip: str, allowed: frozenset[str]) -> tuple[QWidget, list[OptionRow]]:
-        """The form of the options of a place of `strip`, for the candidate picked."""
-        key = (strip, allowed)
+    def _place_form(self, strip: str, allowed: frozenset[str], pick: bool = True) -> tuple[QWidget, list[OptionRow]]:
+        """The form of the options of a place of `strip`, for the candidate picked; `pick`: the encoder may pick."""
+        key = (strip, allowed, pick)
         if key not in self.place_forms:
             form = QWidget()
             layout = QVBoxLayout(form)
             layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(Space.XS)
             # at a place every option is optional: the channel has its own
-            option_rows = [
-                self._place_row(dataclasses.replace(option, required=False))
-                for option in strip_options(strip)
-                if option.name in allowed
-            ]
-            for option_row in option_rows:
-                layout.addWidget(option_row)
+            option_rows: list[OptionRow] = []
+            groups: dict[str, list[QWidget]] = {}
+            for option in look_options(strip, allowed):
+                if option.name == "meter_point":
+                    # one choice with `meter`
+                    continue
+                if option.name == "meter":
+                    option_row = self._place_meter_row()
+                elif option.kind == Kind.BUTTON:
+                    option_row = self._place_button_row(option)
+                else:
+                    option_row = self._place_row(
+                        dataclasses.replace(option, choices=tuple(c for c in option.choices if pick or c != "pick")),
+                        # unset, the encoder does what its strip does by default
+                        (lambda: default_encoder("apps" if not pick else strip)) if option.name == "encoder" else None,
+                    )
+                option_rows.append(option_row)
+                groups.setdefault(group_of(option.name), []).append(option_row)
+            titles = dict(GROUPS)
+            add_groups(layout, [(titles[group], groups[group]) for group, _ in GROUPS if group in groups])
+            align_titles(option_rows)
             self.place_forms[key] = form, option_rows
         return self.place_forms[key]
 
-    def _place_row(self, option: Option) -> OptionRow:
-        """A row for an option of the place of the candidate picked, whichever it is when it is shown or edited."""
-        name = option.name
+    def _place_option(self, name: str) -> Any:
+        """An option of the place of the candidate picked."""
+        assert self.candidate is not None
+        return rows(self.document.values, self.slot)[self.candidate].options.get(name)
 
-        def get() -> Any:
-            assert self.candidate is not None
-            return rows(self.document.values, self.slot)[self.candidate].options.get(name)
+    def _set_place_option(self, name: str, value: Any) -> None:
+        """Sets an option of the place of the candidate picked (None: removes it)."""
+        assert self.candidate is not None
+        stack = rows(self.document.values, self.slot)
+        candidate = stack[self.candidate]
+        options = {key: each for key, each in candidate.options.items() if key != name}
+        if value is not None:
+            options[name] = value
+        stack[self.candidate] = Row(candidate.show, candidate.when, options)
+        self._put(self.slot, stack)
 
-        def put(value: Any) -> None:
-            assert self.candidate is not None
-            stack = rows(self.document.values, self.slot)
-            candidate = stack[self.candidate]
-            options = {key: each for key, each in candidate.options.items() if key != name}
-            if value is not None:
-                options[name] = value
-            stack[self.candidate] = Row(candidate.show, candidate.when, options)
-            self._put(self.slot, stack)
-
-        option_row = OptionRow(option, get, put)
-
+    def _place_edited(self, option_row: OptionRow, name: str) -> OptionRow:
         def edited() -> None:
             assert self.candidate is not None
             self.editor.edited(Change(Scope.VALUE, ("slots", str(self.slot), self.candidate, name)))
 
         option_row.edited.connect(edited)
+        return option_row
+
+    def _place_row(self, option: Option, placeholder: Callable[[], str] | None = None) -> OptionRow:
+        """A row for an option of the place of the candidate picked, whichever it is when it is shown or edited."""
+        name = option.name
+        option_row = OptionRow(
+            option,
+            lambda: self._place_option(name),
+            lambda value: self._set_place_option(name, value),
+            placeholder=placeholder,
+        )
+        return self._place_edited(option_row, name)
+
+    def _place_meter_row(self) -> OptionRow:
+        """`meter` and `meter_point` of the place as one choice; unset, those of the channel."""
+        option_row = meter_row(self._place_option, self._set_place_option, lambda: "the channel's")
+        return self._place_edited(option_row, "meter")
+
+    def _place_button_row(self, option: Option) -> OptionRow:
+        """
+        A button of the place: only what its LED shows (and for Select whether it does something); what a button does
+        belongs to the channel. Unset, the channel's.
+        """
+        parts = ("press", "led") if option.name == "select" else ("led",)
+        button = option.title
+        help_text = f"What the LED of {button} shows at this place; unset, what it shows on the channel." + (
+            ' `press = "off"`: Select does nothing here.' if option.name == "select" else ""
+        )
+        option = dataclasses.replace(
+            option, help=help_text, columns=tuple(c for c in option.columns if c.name in parts)
+        )
+        option_row = self._place_row(option)
+        option_row.buttons.inherited = "the channel's"
         return option_row
 
     def show_problems(self, validation: Validation) -> None:
@@ -530,53 +627,53 @@ class SlotsPanel(Page):
             option_row.show_problems(validation.at("slots", str(self.slot), self.candidate, option_row.option.name))
 
     def shown_slots(self, snapshot: Snapshot | None = None) -> SlotsState | None:
-        """What the cards show: the simulation (the daemon's while it runs it on the device), else what it tells."""
+        """What the cards show: the slots of what the drawing shows, the twin's or the device's."""
         snapshot = snapshot if snapshot is not None else self.snapshot()
-        if self.simulation is not None and not (self.on_device and snapshot is not None and snapshot.slots):
-            return self.simulation
+        if self.shows_twin():
+            return self.twin_slots()
         return snapshot.slots if snapshot is not None else None
 
-    def show_on_device(self, on_device: bool, possible: bool) -> None:
-        """
-        Whether the device shows the situation of Simulate (Try on the device), and whether it could (a daemon that
-        takes it runs): the note in the bar of Simulate.
-        """
-        if on_device != self.on_device:
-            # the daemon's slots instead of the GUI's, or back
+    def show_place(self, note: str) -> None:
+        """Where Simulate shows (the place of the preview): the note in its bar."""
+        if note != self.device_note.text():
+            # the twin's slots instead of the device's, or back
             self.shown_live = None
-        self.on_device = on_device
-        if on_device:
-            note = "On the device"
-        elif possible:
-            note = "Only in the drawing: Try on the device shows it on the device"
-        else:
-            note = "Only in the drawing"
         self.device_note.setText(note)
 
     def show_live(self, snapshot: Snapshot | None) -> None:
-        """The states in the bar, and the dot on the candidates the device shows (or would), when they changed."""
+        """
+        The states in the bar (the device's: the bar picks its mode and overrides), and the dot on the candidates the
+        drawing shows (the device's, or the preview's), when they changed.
+        """
+        self._show_simulate_button()
         slots = self.shown_slots(snapshot)
+        real = snapshot.slots if snapshot is not None else None
         live = (
             (
-                *((state.name, state.value, state.override) for state in slots.states),
-                slots.mode_pick,
-                *(view.candidate for view in slots.slots),
+                *((state.name, state.value, state.override) for state in real.states),
+                real.mode_pick,
             )
-            if slots is not None
-            else None
+            if real is not None
+            else None,
+            tuple(view.candidate for view in slots.slots) if slots is not None else None,
         )
         if live == self.shown_live:
             return
         self.shown_live = live
-        picked = slots.mode_pick if slots is not None else None
-        states = {state.name: state for state in slots.states} if slots is not None else {}
+        picked = real.mode_pick if real is not None else None
+        states = {state.name: state for state in real.states} if real is not None else {}
+        hue = getattr(current_colors(), Entity.STATE)
         for name, state_button in self.state_buttons.items():
             state = states.get(name)
-            dot = "" if state is None else "● " if state.value else "○ "
             override = "" if state is None or state.override == "auto" else f" ({state.override})"
             if picked == name:
                 override = " (picked)"
-            state_button.setText(f"{dot}{self.document.get(('state', name, 'label')) or name}{override}  ▾")
+            # the dot (on or off) once the daemon tells the state
+            state_button.setProperty("on", None if state is None else state.value)
+            state_button.setIcon(QIcon() if state is None else dot_icon(state.value, hue))
+            state_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+            state_button.setIconSize(DOT_ICON)
+            state_button.setText(f"{self.document.get(('state', name, 'label')) or name}{override}  ▾")
             tip = f"{name}: {state.source or 'off'}" if state is not None else name
             state_button.setToolTip(f"{tip}\n\nClick for its override, or to simulate it the other way.")
         self._show_cards()
@@ -591,12 +688,13 @@ class SlotsPanel(Page):
     def simulate(self, what_if: WhatIf | None) -> None:
         """Shows what the slots would show in `what_if`; None goes back to what the daemon tells."""
         config = self.editor.validation.config
+        if config is None or (what_if is not None and self.simulate_unavailable() is not None):
+            what_if = None
         self.what_if = what_if
-        self.simulation = simulated(config.slots, what_if) if what_if is not None and config is not None else None
-        self.simulate_button.setChecked(self.simulation is not None)
-        self.state_bar_row.setVisible(self.simulation is None)
-        self.what_if_row.setVisible(self.simulation is not None)
-        self.device_note.setVisible(self.simulation is not None)
+        self.simulate_button.setChecked(what_if is not None)
+        self.state_bar_row.setVisible(what_if is None)
+        self.what_if_row.setVisible(what_if is not None)
+        self.device_note.setVisible(what_if is not None)
         if config is not None and what_if is not None:
             self._show_what_if_bar(Inputs.of(config.slots), what_if)
         self.shown_live = None
@@ -625,7 +723,7 @@ class SlotsPanel(Page):
         # members of the pools: a call with so many people, so many applications that play, devices plugged in
         counts: list[tuple[str, int, str, Callable[[int], WhatIf]]] = [
             ("people", what_if.people, "The people in the voice chat", lambda n: what_if.counted(people=n)),
-            ("applications", what_if.apps, "The applications that play", lambda n: what_if.counted(apps=n)),
+            ("apps", what_if.apps, "The applications that play", lambda n: what_if.counted(apps=n)),
         ]
         if DEVICES in inputs.presence:
             counts.append(
@@ -633,6 +731,7 @@ class SlotsPanel(Page):
             )
         for text, value, tip, counted in counts:
             count = QSpinBox()
+            indent_text(count)
             count.setRange(0, 2 * protocol.STRIPS)
             count.setValue(value)
             count.setSuffix(f" {text}")
@@ -703,6 +802,59 @@ class SlotsPanel(Page):
         stack = rows(self.document.values, slot)
         self._write(slot, [stack[index] for index in order], current)
 
+    def _insert(self, slot: int, candidates: list[Row]) -> int:
+        """Puts candidates after the one picked in the slot (at the end when none is), picks the first; how many."""
+        if not candidates:
+            return 0
+        stack = rows(self.document.values, slot)
+        index = self.candidate + 1 if slot == self.slot and self.candidate is not None else len(stack)
+        stack[index:index] = candidates
+        self._write(slot, stack, index)
+        return len(candidates)
+
+    # -- the entries, for the menu Edit ---------------------------------------------------------------------------
+
+    ENTRIES = "candidates"
+
+    def _focused_slot(self) -> int | None:
+        """The slot whose card has the focus, None for none."""
+        return next((slot for slot, stack in enumerate(self.lists, start=1) if stack.hasFocus()), None)
+
+    def _focused_candidate(self) -> Row | None:
+        """The candidate picked in the card that has the focus, None for none."""
+        if self._focused_slot() != self.slot or self.candidate is None:
+            return None
+        return self._candidate_row()
+
+    def entries_focused(self) -> bool:
+        return self._focused_slot() is not None
+
+    def copy_entry(self) -> str | None:
+        candidate = self._focused_candidate()
+        return candidates_text([candidate]) if candidate is not None else None
+
+    def paste_entries(self, text: str) -> int:
+        slot = self._focused_slot()
+        return self._insert(slot, parse_candidates(text)) if slot is not None else 0
+
+    def duplicate_entry(self) -> bool:
+        candidate = self._focused_candidate()
+        return candidate is not None and self._insert(self.slot, [candidate]) > 0
+
+    def remove_entry(self) -> bool:
+        if self._focused_candidate() is None:
+            return False
+        self.remove(self.slot)
+        return True
+
+    def rename_entry(self) -> bool:
+        """A candidate has no id: the focus goes to what it shows."""
+        if self._focused_candidate() is None:
+            return False
+        self.show_box.setFocus()
+        self.show_box.lineEdit().selectAll()  # pyright: ignore[reportOptionalMemberAccess]
+        return True
+
     def _edit_show(self) -> None:
         candidate = self._candidate_row()
         show = self.show_box.currentText().strip()
@@ -719,7 +871,7 @@ class SlotsPanel(Page):
         assert self.candidate is not None
         stack = rows(self.document.values, self.slot)
         # options that the new place does not take go
-        allowed = place_options(candidate.show)
+        allowed = place_options(candidate.show, self.document.values)
         stack[self.candidate] = Row(
             candidate.show, candidate.when, {key: value for key, value in candidate.options.items() if key in allowed}
         )

@@ -107,7 +107,9 @@ def test_problems_have_the_paths_of_their_options(tmp_path: Path) -> None:
     # the options of a section are checked first
     assert [problem.path for problem in validation.problems] == [("state", "call", "delay_off")]
     doc.unset(("state", "call", "delay_off"))
-    assert doc.validate().at("slots") == [Problem(("slots", "2", 0), "nope is no channel or pool", "invalid")]
+    assert doc.validate().at("slots") == [
+        Problem(("slots", "2", 0), "nope is no channel or pool (a channel is defined in [channel.nope])", "invalid")
+    ]
     assert path_of("controls.2.select") == ("controls", "2", "select")
     assert path_of("slots.3[0]") == ("slots", "3", 0)
     error = ConfigError("config has errors:\n  slots.3[0] (radio): a problem\n  something else")
@@ -137,10 +139,10 @@ def test_saving_writes_only_a_valid_file(tmp_path: Path) -> None:
     assert doc.get(("slots", "1")) == "out"
 
 
-def test_without_a_file_the_example(tmp_path: Path) -> None:
+def test_without_a_file_it_starts_clean(tmp_path: Path) -> None:
     doc = SlotsDocument.open(tmp_path / "new" / "config.toml")
     assert not doc.exists
-    assert doc.get(("channel", "out", "type")) == "output"
+    assert doc.values == {}
     doc.save()
     assert doc.exists
     assert (tmp_path / "new" / "config.toml").exists()
@@ -169,3 +171,60 @@ def test_undo(tmp_path: Path) -> None:
     assert doc.get(("channel", "out", "label")) == "Speaker"
     history.redo()
     assert doc.get(("channel", "out", "label")) == "Boxes"
+
+
+REFERENCES = """
+[channel.out]
+type = "output"
+select = { press = "toggle:call", when = "call" }
+
+[channel.mic]
+type = "input"
+
+[state.call]
+when = "present(out) and not calling"
+channels = ["out", "mic"]
+
+[pool.media]
+channels = ["out", "#out", "mic"]
+
+[switching.chord]
+action = "mode:call"
+
+[slots]
+1 = ["out if call", { show = "mic", when = "call or out_of_reach" }]
+2 = "auto"
+
+[controls]
+1 = { select = "toggle:call", rec = ["mode:call", "mode:callers"] }
+"""
+
+
+def test_a_renamed_name_is_followed_where_it_is_named(tmp_path: Path) -> None:
+    doc = document(tmp_path, REFERENCES)
+    doc.rename_references("call", "meeting")
+    doc.rename_references("out", "speaker")
+
+    assert doc.get(("slots",)) == {
+        "1": ["speaker if meeting", {"show": "mic", "when": "meeting or out_of_reach"}],
+        "2": "auto",
+    }
+    # actions and conditions of the buttons, names in lists; not a tag nor a word that only starts with it
+    assert doc.get(("controls", "1")) == {"select": "toggle:meeting", "rec": ["mode:meeting", "mode:callers"]}
+    assert doc.get(("channel", "out", "select")) == {"press": "toggle:meeting", "when": "meeting"}
+    assert doc.get(("state", "call")) == {"when": "present(speaker) and not calling", "channels": ["speaker", "mic"]}
+    assert doc.get(("pool", "media", "channels")) == ["speaker", "#out", "mic"]
+    assert doc.get(("switching", "chord", "action")) == "mode:meeting"
+
+
+def test_a_moved_slot_takes_its_candidates_and_controls_along(tmp_path: Path) -> None:
+    doc = document(tmp_path, REFERENCES)
+    doc.set(("slots", "3"), "mic")
+    doc.move_slot(1, 3)
+
+    assert doc.get(("slots",)) == {
+        "1": "auto",
+        "2": "mic",
+        "3": ["out if call", {"show": "mic", "when": "call or out_of_reach"}],
+    }
+    assert list(doc.get(("controls",))) == ["3"]

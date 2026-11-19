@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import RingMode
-from xtouch_daemon.live.messages import SlotView, Snapshot, StripState
+from xtouch_daemon.live.messages import SlotsState, SlotView, Snapshot, StripState, TwinView
 
 
 @dataclass(frozen=True)
@@ -63,9 +63,19 @@ def device_faces(snapshot: Snapshot | None) -> tuple[StripFace, ...]:
     """The strips as the device shows them right now, with what each slot shows; dark without the daemon."""
     if snapshot is None:
         return (UNKNOWN,) * protocol.STRIPS
-    views = snapshot.slots.slots if snapshot.slots is not None else ()
+    return faces_of(snapshot.strips, snapshot.slots)
+
+
+def twin_faces(view: TwinView) -> tuple[StripFace, ...]:
+    """The strips of a virtual twin as it shows them right now, with what each slot shows."""
+    return faces_of(view.strips, view.slots)
+
+
+def faces_of(strips: tuple[StripState, ...], slots: SlotsState | None) -> tuple[StripFace, ...]:
+    """The strips as a mirror of a device shows them, with what each slot of `slots` shows."""
+    views = slots.slots if slots is not None else ()
     result: list[StripFace] = []
-    for index, state in enumerate(snapshot.strips[: protocol.STRIPS]):
+    for index, state in enumerate(strips[: protocol.STRIPS]):
         view = next((view for view in views if view.slot == index + 1), None)
         printed = (view.channel or view.pool or "-") if view is not None else ""
         detail = f"Shows {shown(view)}" if view is not None else ""

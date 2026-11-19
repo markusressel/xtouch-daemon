@@ -25,7 +25,10 @@ def apply(instance: Instance | None, path: Path, restart_sections: tuple[str, ..
     the whole old configuration when `[mqtt]` changed, so that is not reloaded at all.
     """
     if instance is None:
-        return Applied("Saved. The daemon is not running: start it to use the configuration.", reloaded=False)
+        return Applied(
+            "Saved. The daemon is not running: the button next to the service (top right) starts it.",
+            reloaded=False,
+        )
     daemon = describe(instance)
     if path.resolve() != instance.config:
         return Applied(f"Saved. {daemon.capitalize()} reads {instance.config}, not this file.", reloaded=False)

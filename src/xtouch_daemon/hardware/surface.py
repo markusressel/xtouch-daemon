@@ -114,6 +114,11 @@ class Surface:
         self.mirror.forget_faders()
         self.on_event: EventHandler = lambda event: None
         self.on_connection: ConnectionHandler = lambda connected: None
+        self.on_change: Callable[[], None] = lambda: None
+        """
+        Called whenever what the device shows (the mirror), the touches of the faders or the connection may have
+        changed: for the live view, which sends a snapshot then.
+        """
         self._unconfirmed: dict[int, tuple[int, asyncio.TimerHandle]] = {}
         """The faders that moved without a touch: where to, and the timer that gives up waiting (TOUCH_GRACE)."""
         self._fingers: dict[int, asyncio.TimerHandle] = {}
@@ -187,6 +192,7 @@ class Surface:
         self.mirror.receive(message, time.monotonic())
         if self._midi is not None:
             self._midi.write(message)
+        self.on_change()
 
     def send_colors(self) -> None:
         self.send(
@@ -347,6 +353,7 @@ class Surface:
         self.send_colors()
         self._revealer = asyncio.create_task(self._reveal(), name="startup sequence")
         self.on_connection(True)
+        self.on_change()
 
     async def close(self) -> None:
         """Sends what is still on its way and closes the device."""
@@ -370,9 +377,11 @@ class Surface:
         self._midi = None
         self._disconnected.set()
         self.on_connection(False)
+        self.on_change()
 
     def _on_data(self, data: bytes) -> None:
         self.mirror.observe(data, time.monotonic())
+        self.on_change()
         for message in self._parser.feed(data):
             event = protocol.decode(message)
             if event is None:
@@ -432,9 +441,17 @@ class Surface:
         del self._unconfirmed[index]
         strip = self.strips[index]
         strip.held = False
+        self.on_change()
         _LOGGER.debug(f"Fader {index + 1} moved without a touch: back to its value")
         if strip.fader is not None:
             self.glide(strip)
+
+    def hand(self, data: bytes) -> None:
+        """
+        What a hand on a device without one (a virtual twin) sends: taken as the device's own bytes, so the touch
+        grace, the touchless faders and the mirror work as for a device.
+        """
+        self._on_data(data)
 
     def play(self, event: protocol.StripEvent) -> None:
         """
@@ -462,3 +479,4 @@ class Surface:
             _LOGGER.exception(f"Handling {event} failed")
         if isinstance(event, protocol.FaderTouched) and not event.touched:
             strip.touch(False)
+        self.on_change()

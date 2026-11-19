@@ -45,7 +45,7 @@ def test_test_explains_why_the_device_can_not_be_used(
 def test_test_runs_the_selftest_and_ends_quietly_on_ctrl_c(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[object, ...]] = []
 
-    async def selftest(device_name: str, echo: object, show_events: bool) -> None:
+    async def selftest(device_name: str, echo: object, show_events: bool, surface: object = None) -> None:
         calls.append((device_name, show_events))
         raise KeyboardInterrupt
 

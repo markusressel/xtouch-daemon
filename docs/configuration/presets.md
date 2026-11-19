@@ -55,3 +55,5 @@ applications that play, and the [GUI](../guides/gui.md) suggests the presets tha
 
 Missing an application? Add its name next to the preset (`match = ["@browsers", "netsurf"]`), and open an issue,
 so the preset gets it.
+
+Next: [Applications](channels/applications.md) uses them in `match`.

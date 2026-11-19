@@ -8,7 +8,17 @@ from typing import Any
 
 from PyQt6.QtCore import QEvent, QObject, QSize, Qt
 from PyQt6.QtGui import QResizeEvent
-from PyQt6.QtWidgets import QFrame, QLabel, QLayout, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QBoxLayout,
+    QFrame,
+    QLabel,
+    QLayout,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.changes import Change, Scope
@@ -23,7 +33,7 @@ from xtouch_daemon.gui.qt.theme.tokens import Space
 
 type Audio = Callable[[], AudioState]
 
-PAGE_TITLES = {"mqtt": "Home Assistant", "switching": "Modes and chord", "voip": "Voice chat"}
+PAGE_TITLES = {"device": "Extender", "mqtt": "Home Assistant", "switching": "Modes and chord", "voip": "Voice chat"}
 """The names of the settings for people: the MQTT broker is how Home Assistant is reached."""
 SETTINGS_PAGES = ("behavior", "aliases", "mqtt", "switching", "voip", "device")
 """The settings, the ones changed most often first: `[device]` is set once, if ever."""
@@ -59,6 +69,29 @@ def scrolled(widget: QWidget) -> QScrollArea:
     scroll.setWidget(widget)
     scroll_shadows(scroll)
     return scroll
+
+
+class Flip(QWidget):
+    """
+    Widgets side by side (e.g. the preview of a part and the options about it) while there is room for them, at least
+    `wide` pixels, and one above the other below that.
+    """
+
+    def __init__(self, wide: int, spacing: int = Space.L):
+        super().__init__()
+        self.wide = wide
+        self.box = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self.box.setContentsMargins(0, 0, 0, 0)
+        self.box.setSpacing(spacing)
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        super().resizeEvent(event)
+        side_by_side = self.box.direction() == QBoxLayout.Direction.LeftToRight
+        # a margin both ways: the scroll bar that comes with a taller form must not switch it back
+        if side_by_side and self.width() < self.wide:
+            self.box.setDirection(QBoxLayout.Direction.TopToBottom)
+        elif not side_by_side and self.width() > self.wide + Space.M:
+            self.box.setDirection(QBoxLayout.Direction.LeftToRight)
 
 
 class Sideways(QScrollArea):
@@ -217,3 +250,35 @@ class Page(QWidget):
     def _show_rest(self, rest: list[str]) -> None:
         set_text(self.problem, "\n".join(rest))
         self.problem.setVisible(bool(rest))
+
+    # -- the entries of the page, for the menu Edit (see `MainWindow`) ----------------------------------------------
+
+    ENTRIES = ""
+    """What the list of the page holds, for the window to name it: "candidates", "states"; "" for no list."""
+
+    def entries_focused(self) -> bool:
+        """
+        Whether the list of the page (candidates, channels, states) has the focus: Copy, Paste, Del and the others
+        of the menu Edit are for it then. In a field they edit its text.
+        """
+        return False
+
+    def copy_entry(self) -> str | None:
+        """The entry picked as TOML text, as in the file; None without one."""
+        return None
+
+    def paste_entries(self, text: str) -> int:
+        """Adds the entries of the page in `text` (TOML) after the one picked, and picks the first; how many."""
+        return 0
+
+    def duplicate_entry(self) -> bool:
+        """Adds a copy of the entry picked after it, and picks it; False without one."""
+        return False
+
+    def remove_entry(self) -> bool:
+        """Removes the entry picked, as its button Remove does; False without one."""
+        return False
+
+    def rename_entry(self) -> bool:
+        """Puts the focus on the id of the entry picked, to type another one; False where it has none."""
+        return False

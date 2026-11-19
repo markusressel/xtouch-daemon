@@ -4,7 +4,8 @@
 `xtouch-daemon-gui` (the Arch Linux package) or `xtouch-daemon gui`, `-c FILE` for another file; see
 [Install](../getting-started/install.md#the-gui).
 
-It edits [channels, states and slots](../configuration/slots.md).
+It edits [channels, states and slots](../configuration/slots.md). New here? The [Setup tour](../getting-started/tour.md)
+builds a configuration with it, page by page; this page is the reference.
 
 ![The GUI: the window Device at the top, the slots and the inspector of slot 3 below](../images/gui.png)
 
@@ -14,8 +15,8 @@ The window **Configuration** has a rail of four pages on its left, icons only (�
 them again; the GUI remembers it):
 
 - **Slots:** what each slot shows when, see [The slots](#the-slots).
-- **Channels:** the channels of the file, then the built-in pools `[pool.apps]`, `[pool.people]`, `[pool.auto]` and `[pool.devices]`.
-  Add (by type), Duplicate and Remove; the id can be renamed. Each says where it is used (`slot 2`, `pool games`, `state call`).
+- **Channels:** two groups: the channels (each takes one strip), then the pools (each supplies a member to every slot that names it): the built-in `[pool.apps]`, `[pool.people]`, `[pool.auto]` and `[pool.devices]`. The box Shows of a candidate on the page Slots has the same two groups.
+  Add (by type, or a pool of channels of your own), Duplicate and Remove; the id of a channel or pool can be renamed (the slots, conditions, pools and controls that name it follow). Each says where it is used (`slot 2`, `pool games`, `state call`).
 - **States:** the modes first, then the other states. The form asks in order: State or Mode (a mode has a label and
   a priority), and On while: Sources or Condition, never both. Sources lists only the ones the state has, each with
   ✕ to remove it; Add source offers the others ("An application plays", "You are in the voice chat", ...), and the
@@ -24,8 +25,8 @@ them again; the GUI remembers it):
   Delays and overrides (`delay_on`, `delay_off`, `persist`) are folded away until a state has one. Above the form:
   what the daemon says about it right now (since when, from which source), its override (a mode: picked by hand),
   and which stacks and controls use it.
-- **Settings:** `[behavior]`, `[aliases]`, `[mqtt]` (as "Home Assistant"), `[switching]` (as "Modes and chord"),
-  `[voip]` (as "Voice chat") and `[device]`. "Voice chat" also tells whether Mumble is connected, lists the steps of
+- **Settings:** `[behavior]`, `[aliases]`, `[mqtt]` (as "[Home Assistant](home-assistant.md)"), `[switching]` (as "Modes and chord"),
+  `[voip]` (as "Voice chat") and `[device]` (as "Extender": the sound card of the extender, touch sensors, start-up). "Voice chat" also tells whether Mumble is connected, lists the steps of
   its setup, and installs the [Mumble plugin](mumble.md) with "Install Mumble plugin".
 
 Slots, Channels and States have a list or the slots on the left and what is picked on the right. The handle between
@@ -37,13 +38,13 @@ screen); View → Device closes and opens the device (Configuration always stays
 the next start. Clicking a strip of it (or Left, Right, Home, End) shows its slot on the
 page Slots.
 
-The drawing of the device shows the encoder with its ring of 13 LEDs (Mackie Control lights the middle 11), the LCD
+The drawing of the device shows the [encoder](../configuration/strip/encoders.md) with its ring of 13 [LEDs](../configuration/strip/leds.md) (Mackie Control lights the middle 11), the LCD
 (the backlight in the strip's color shines around a dark panel and through its characters, as on the device), the
 meter next to Rec, Solo, Mute and Select, and the fader with its dB scale: the middle of the cap marks the value, -∞
 at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`). What each slot shows is printed under its LCD.
 
-The footer shows the problems, whether the device runs the file, the switch [Try on the device](#try-on-the-device)
-while there are unsaved changes, and the buttons Undo, Redo, Revert and "Save and apply". The title of the window
+The footer shows the problems, whether the device runs the file, the control [Preview](#preview)
+while there are unsaved changes or Simulate is open, and the buttons Undo, Redo, Revert and "Save and apply". The title of the window
 names the file, with • while there are unsaved changes. The header has the state of the service with buttons to
 install, start, restart or stop it (see [The service](#the-service)), and what the sound server has.
 
@@ -68,17 +69,19 @@ Device, the dark or the light theme, the [zoom](#zoom)) and Help (this documenta
 
 ## The service
 
-The service button installs, starts and restarts the systemd user service, the same as
-`xtouch-daemon install-service`. It asks before it installs or starts it. While the service runs, "Stop" next to it
-stops it (`systemctl --user stop`): it stays enabled, so it starts again with the next session, or with "Start".
+The pill of the service in the header tells its state ("running", "stopped", "not installed", and the worst problem
+of a connection of the daemon). A click on it opens what goes with it: the service with Install and start, Start or
+Restart (the same as `xtouch-daemon install-service`) and, while it runs, Stop (`systemctl --user stop`: it stays
+enabled, so it starts again with the next session, or with "Start"); the unit systemd uses; and the connections of the
+daemon, each with its settings. Installing and starting ask first. What the service needs (Install and start, Start,
+or Restart after an upgrade) also has its button next to the pill.
 
 A daemon that runs outside systemd (e.g. from a terminal or an IDE) is found too: the header shows "running
 elsewhere", and saving reloads it. The GUI does not start, restart or stop that one: restart it where it runs.
 
-Next to the state of the service, the header shows which unit systemd uses: "packaged" for the one of the Arch Linux
-package (`/usr/lib/systemd/user/xtouch-daemon.service`), or "own unit" for a unit in `~/.config/systemd/user`, which
-[`install-service`](../reference/commands.md#install-service) wrote, e.g. for a checkout; its tooltip has the unit and the program it
-starts.
+The unit is "packaged" for the one of the Arch Linux package (`/usr/lib/systemd/user/xtouch-daemon.service`), or
+"own unit" for a unit in `~/.config/systemd/user`, which [`install-service`](../reference/commands.md#install-service)
+wrote, e.g. for a checkout; the popover has its path and the program it starts.
 
 - **Install and start** takes the unit of the package when the GUI is the one of the package: it enables and starts
   it, and writes no file. Any other GUI writes a unit for its own `xtouch-daemon` to `~/.config/systemd/user`.
@@ -100,7 +103,7 @@ the selected slot and the page stay. The zoom is on top of a `QT_SCALE_FACTOR` o
 ## Live view
 
 While the daemon runs, the drawing shows what the device shows right now ("Live", in a pill on the right of the bar of
-the window Device), read from the daemon's live view. Without a running daemon it is dark, and the window says so. A
+the window Device), read from the daemon's live view. Without a running daemon the strips are dark and the pill says "No daemon": the drawing is the device, and only the daemon drives it. Start it (`xtouch-daemon install-service --now`), or use "Try without a device", which starts a daemon with the virtual device. A
 daemon that runs while the device is not connected shows "Live · not connected": the strips show what the device will
 show once it is there.
 
@@ -108,7 +111,7 @@ With the [virtual device](../getting-started/without-a-device.md) (`run --virtua
 device" once the daemon drives it, and "virtual device not running · Open it" while the daemon waits for it: a click
 opens it in the window (see [below](#the-virtual-device)).
 
-Next to it, a pill shows the mode the device shows ("Mode: gaming", "No mode" while no mode is on, "· by hand" when
+Next to it, a pill shows the [mode](../configuration/slots.md#states-and-modes) the device shows ("Mode: gaming", "No mode" while no mode is on, "· by hand" when
 it was picked by hand). A mode is a state with `mode = true`: one at a time is on. A click lists the states, with what
 turned each on, and picks a mode by hand ("Pick gaming", "Pick no mode", "Back to the rules").
 
@@ -121,21 +124,24 @@ it is doing and why (for Home Assistant the broker's own words and what to check
 
 A bar above the drawing of the device switches what the mouse does on it:
 
-- **Select:** a click picks a strip, and with it its slot on the page Slots. Dragging a strip moves its slot to
+- **Select:** a click picks a strip, and with it its [slot](../configuration/slots.md) on the page Slots. Dragging a strip moves its slot to
   another place: the strip lifts out of the row, the others glide aside, and a dashed place shows where it goes;
   Escape puts it back. Ctrl+Left/Right and the context menu (Move left, Move right) do the same. A slot takes its
   candidates (`[slots]`) and its controls (`[controls]`) along, the slots in between make room; Ctrl+Z moves it back.
   Comments above the slots in the file stay where they are.
-- **Play:** the mouse is a hand on the device:
+- **Play:** the mouse is a hand on the device, and the drawing looks like the device: no strip is selected, and
+  there are no outlines of the selection, the focus or the mouse (the selection comes back with Select):
   - a fader: press to touch it, drag to move it, release to let go; Alt-drag moves it without a touch, like the
     device moving it by itself (the daemon puts it back);
   - a button: held while the mouse button is down;
-  - an encoder: the wheel turns it, a click pushes it.
+  - an encoder: the wheel turns it (a touchpad too), and so does a drag on the knob (up or right turns it
+    clockwise); a click pushes it, and holding the knob still holds it down; holding on an LED of the ring turns it
+    until the ring lights that LED.
 
-Play works on the virtual device the window hosts, and on the device of a running daemon: then the daemon takes what
+Play works on the [virtual device](#the-virtual-device) the window hosts, and on the device of a running daemon: then the daemon takes what
 the mouse does as if the device sent it, so the mixer acts and a motorized fader follows once it is let go. The fader
-under the mouse is drawn there at once. Play is off while Simulate shows only the drawing (it works when Simulate runs on
-the device, see [Try on the device](#try-on-the-device)), without a daemon (or with one of another user, or too old to
+under the mouse is drawn there at once. While the drawing shows the preview in the GUI, Play acts on the virtual twin
+in the daemon (see [Preview](#preview)). Play is off without a daemon (or with one of another user, or too old to
 take it) and while the device is not connected; the bar says why next to it ("Play: device not connected").
 With a daemon that drives the virtual device (`[device] virtual = true`) while it doesn't run, Play opens it in the
 window and plays on it.
@@ -153,46 +159,56 @@ as on the device), and breaks the touch sensor of faders ("Broken touch"), to tr
 it, and so does closing the window: for the daemon it is unplugged. What the drawing shows still comes from the
 daemon, which is what reached the device.
 
-## Try on the device
+## Preview
 
 Next to Save and apply, a pill says what the device runs: "Saved, on the device", "Unsaved changes" (the device
-runs the saved file), "On the device, not saved", or what is wrong (e.g. "Not running", "Not on the device yet"). A
-click tells it in full, with the path of the file ("Copy the path", "Open the folder") and the file the daemon reads
-when that is another one.
+runs the saved file), "In the GUI, not saved", "On the device, not saved", or what is wrong (e.g. "Not running",
+"Not on the device yet"). A click tells it in full, with the path of the file ("Copy the path", "Open the folder") and
+the file the daemon reads when that is another one.
 
-While there are unsaved changes, the switch "Try on the device" sits next to it: the device runs the configuration in
-the editor before it is saved, and follows every change a moment after it (undo and redo too). The file is not
-written. Without unsaved changes the switch is gone: the device runs the file anyway. Once on, it stays on for the
-next changes until it is turned off or the window closes; a new window starts with it off.
+While there are unsaved changes, or Simulate is open, the control "Preview" sits next to it. It decides where the
+changes (and Simulate, which always includes them) show before they are saved, a moment after each change (undo and
+redo too). The file is not written.
 
-- **While it is on**, the pill says "On the device, not saved" ("Sending to the device…" for a moment after a change).
-- **Save and apply** makes it the configuration: the daemon loads the saved file, which is what the device shows
-  already.
-- **Back to the file:** turning the switch off, closing the window (it asks about unsaved changes as usual, and says
-  that the device runs them) or "Revert" brings back the saved file. So does a window that crashed: the daemon goes
-  back to the file when the connection of the window ends, or when the window does not answer for 10 seconds. The
-  file also comes back when it changes on disk, or the daemon is reloaded; then the switch goes off and the window
-  says why.
-- **What the daemon does not take** shows in red under the status bar at the top, and the device keeps the version
-  before. It can't change `[mqtt]` (that takes a save and a restart), nor `[device] name` and `virtual` (they take
-  a save). A configuration with problems is not sent at all: the pill says "Paused: problems" until they are
-  fixed.
-- **Channels, states and slots** are all part of it: a stack changed in the editor shows on the device as it is.
-- **Simulate on the device:** while Simulate is open on the page Slots, the switch is there too (also without unsaved
-  changes), and turned on, the device shows the what-if of Simulate instead of what really happens, with the changes
-  if there are any: the states and the mode it sets, its channels present or absent, and its people, applications and
-  devices (real ones first, so their faders move real audio; made-up ones for the rest, `App 1`, `Device 1`). Delays
-  and dwells apply as they really do. The drawing shows the device then, the cards the daemon's slots and why, Play
-  works, and the pill says "On the device · simulated". Ending Simulate (Esc) shows what really happens again. Home
-  Assistant never sees it: its slot and state sensors stay as they really are, and nothing of it is kept. With the
-  switch off, Simulate only draws; its bar says "Only in the drawing".
-- **One window at a time:** a second window that turns it on takes over, and the first one's switch goes off.
+- **In the GUI** (the default): the window shows the preview on a **virtual twin** of the device in the daemon. The
+  twin is a second, complete set of strips that drives no real sound, voice chat, [Home Assistant](home-assistant.md) or device. The drawing,
+  the cards of the page Slots and Play show the twin, with a frame around the drawing. Without Simulate, the twin runs
+  the changes in the situation of now: the mode and the states the device has, and the applications, people and
+  devices there are. The device keeps running the saved file. The pill says "In the GUI, not saved".
+- **On the device:** the device runs the preview, before it is saved: pick it to try the changes for real. The
+  drawing shows the device, and the pill "On the device, not saved" ("Sending to the device…" for a moment after a
+  change).
+- **Off:** the drawing shows the device as it is, running the saved file, for when you can't see the device. The
+  changes show nowhere until you save them or pick another place. Opening Simulate moves the preview to In the GUI,
+  and ending it back to Off.
+
+The place stays as it is set for the next changes until the window closes; a new window starts with In the GUI.
+
+- **Save and apply** makes it the configuration: the daemon loads the saved file, which is what the preview showed.
+- **Back to the file:** another place, closing the window (it asks about unsaved changes as usual, and says when the
+  device runs them) or "Revert" brings back the saved file. So does a window that crashed: the daemon goes back to the
+  file when the connection of the window ends, or when the window does not answer for 10 seconds. On the device, the
+  file also comes back when it changes on disk, or the daemon is reloaded; then the preview goes back to In the GUI
+  and the window says why.
+- **What the daemon does not take** shows in red under the status bar at the top, and the preview keeps the version
+  before. On the device it can't change `[mqtt]` (that takes a save and a restart), nor `[device] name` and `virtual`
+  (they take a save). A configuration with problems is not sent at all: the pill says "Paused: problems" until they
+  are fixed.
+- **Channels, states and slots** are all part of it: a stack changed in the editor shows in the preview as it is.
+- **Simulate:** its situation shows where the preview shows. On the device, the device shows the what-if of Simulate
+  instead of what really happens: the states and the mode it sets, its channels present or absent, and its people,
+  applications and devices (real ones first, so their faders move real audio; made-up ones for the rest, `App 1`,
+  `Device 1`). Delays and dwells apply as they really do. The pill says "On the device · simulated". Home Assistant
+  never sees it: its slot and state sensors stay as they really are, and nothing of it is kept.
+- **One window on the device at a time:** a second window that picks On the device takes over, and the first one's
+  preview goes back to In the GUI.
 - **Home Assistant:** channels the changes do not have keep their entities in Home Assistant (with their state; only
   nothing drives them), so they are as before once the file runs again. Entities of channels only the changes had are
   removed again when it ends.
 
-The switch is disabled, and its label says why ("Try on the device: no daemon"), while no daemon runs, while the
-daemon reads another file, and for a daemon from before this feature (restart it to run the installed version).
+The places say why they are off in their tooltips: In the GUI needs a running daemon of your user; On the device
+also needs one that reads this file. A daemon from before this feature has neither (restart it to run the installed
+version).
 
 ## The slots
 
@@ -220,8 +236,8 @@ On the page Slots:
   connected`, `mum if present` `mum is in the voice chat`, `present(people)` `someone is in the voice chat`. What the
   slot shows is teal (see [the colors](#the-window)), and the green node is on the row that shows (on `people` while a
   person sits there, also when `apps` is above it). Options of the strip in that slot only follow as in the file (`color
-  = white, rec = recording`). + adds `auto` at the end, the bin removes the candidate picked. Drag a candidate, or move
-  it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
+  = white, rec = recording`). + adds `auto` at the end, the bin (or Del) removes the candidate picked. Drag a
+  candidate, or move it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
 - **The inspector** starts with the path of the slot's candidates (`Slot 3 › 1 games › 2 apps`: the one picked
   highlighted, ● the one the slot shows, ○ the one it came to that has none left; a click picks one) and a box of
   what goes on: why the slot shows what it shows, a step a line (✗ a candidate passed over and why, → what it shows,
@@ -239,29 +255,35 @@ Clicking a strip in the window Device (or Left, Right, Home, End) picks its card
 
 **Simulate** shows what the slots would show in another mode, with other states on, with channels absent (`auto
 plays`: an application plays; `people fill`, `apps fill`: as many as there are slots), or with so many people in the
-call and applications that play (the two counts; the strips show their names): a frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar,
-and the drawing, the cards and the box of the inspector follow it. With "Try on the device" on, the device shows it too (see
-[Try on the device](#try-on-the-device)); else nothing is sent to the daemon. Esc, or Simulate again, ends it.
+call and applications that play (the two counts; the strips show their names). Simulate includes the unsaved changes
+and shows where the [preview](#preview) shows: in the GUI, on the virtual twin of the device in the daemon, or on the
+device. A frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar, and the
+drawing, the cards and the box of the inspector show it, and Play can operate it. Simulate needs a running daemon of
+your user: without one its button is off and says how to start it. Esc, or Simulate again, ends it.
 
 ## Editing options
 
-The forms come from the options of the configuration, so every option has a field. The options of a channel are in
-cards in the order of the device, from top to bottom: what it controls, the encoder, the display, the buttons (Rec,
-Solo, Mute, Select), the fader and the meter, then those about slots (`tags`, `in_pool`, ...).
+The forms come from the options of the configuration, so every option has a field. The options of a [channel](../configuration/channels/index.md) are in
+cards in the order of the device, from top to bottom: what it controls, the [encoder](../configuration/strip/encoders.md), the display, the buttons (Rec,
+Solo and Select each with what a press does, what a hold does and what the LED shows; unset, each shows the default
+of the type), the fader and the meter, then those about slots (`tags`, `in_pool`, ...).
 
 The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip, which shows
 what the options do on the device in a few steps (‹ and › go through them), each with a caption: the ring as the encoder turns and is pushed, the LCD while audio
-plays, while muted and with nothing to control, which LEDs light while audio plays, an application records or the
-strip is muted, and the volume at the bottom, at the 0 dB mark and at the top of the fader, with what the meter shows
+plays (with the label of each choice), while muted and with nothing to control, which LEDs light while audio plays, an application records or the
+strip is muted and after a press or a hold of each button that does something, and the volume at the bottom, at the 0 dB mark and at the top of the fader, with what the meter shows
 there. It follows the values in the form at once, saved or not, at the step shown.
 
 - switches for on/off options, numbers with their ranges, choices, color swatches, lists as chips, masked fields for
   secrets, and file pickers;
 - the help of each option under its field, with its default and, where the documentation explains more, a
   "Learn more" link to that section; a button sets the option back to its default;
-- `choices` as a table, with the devices, the sound cards and the profiles of the card of each line to pick from.
-  While a channel has `choices`, `device` and `profiles` are hidden, and the other way around: a channel has one or
-  the other;
+- `choices` (and `profiles`) as a list of entries, each with its label, its device and what it needs. The pencil or a
+  double click opens an entry with its fields, with the devices, the sound cards and the profiles of its card
+  to pick from; the card and the profile are under "Switch the sound card first". Drag ⠿ (or Ctrl+Up/Down) to change
+  the order, which is the order Select goes through them. While a channel has `choices`, `device` and `profiles` are
+  hidden, and the other way around: a channel has one or the other;
+- the meter as one choice: the level before the fader, after it, or off;
 - for choices, what the chosen value does (e.g. `recording` for the Rec LED), and each value says it as a tooltip in
   the list;
 - the mouse wheel scrolls the page, also over a number or a choice: it never changes a value;
@@ -275,11 +297,16 @@ connects once with the settings as they are in the editor, saved or not, and say
 
 ## Suggestions from the sound server
 
-The GUI reads the sound server and suggests what it has:
+The GUI reads the sound server and suggests what it has. A click into a field opens the list, and typing narrows it
+down (by any part of a name or a description, or a pattern with `*` and `?`), with the parts that match highlighted;
+each line says what it is, where it is known from (the default, the active profile, a preset) and below it the name
+that goes into the option. Under `device`, `card` and `profile` of a choice, a line says what the value matches, e.g.
+"Matches 2: ..." for `bluez_output.*`, or "Matches nothing known" (a device can come later).
 
 | Option | Suggestions |
 |---|---|
-| `device` | The outputs or inputs by node name, with their descriptions; the default is marked. |
+| `device` | The outputs or inputs by node name, with their descriptions; the default is marked. Then the devices that another profile of their sound card would make (e.g. the digital output while the card is in its analog profile): picked for a choice, they fill in its card and profile. Then the devices the daemon saw that are not there now, e.g. Bluetooth headphones that are off ("seen 3 days ago"); Delete in the list forgets one. |
+| `card`, `profile` of a choice | The sound cards (by description, or the devices they have), and the profiles of the card of the choice. |
 | `profiles` | The profiles of the sound cards of those devices; the active one is marked. |
 | `match`, `exclude` of `[pool.apps]`, `apps` and `recording` of a state | The [presets](../configuration/presets.md) (`@browsers`, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined. |
 | `processes` of a state | The presets for processes. |
@@ -298,6 +325,29 @@ so neither asks first. Typing into one option is one step. Ctrl+Z undoes in the 
 the focus.
 
 Closing the window with unsaved changes asks whether to save them.
+
+## Keyboard
+
+Help → Keyboard shortcuts lists the keys. The keys of the menus follow the desktop; these are the usual ones:
+
+| Keys | What they do |
+|---|---|
+| Ctrl+S | Save and apply |
+| Ctrl+Z, Ctrl+Shift+Z | Undo, redo |
+| Ctrl+1 to Ctrl+4 | Slots, Channels, States, Settings |
+| Del (or Backspace) | Remove the candidate, channel, pool or state picked, as its button Remove does |
+| Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut, paste it |
+| Ctrl+D | Duplicate it |
+| F2 | Rename it: the focus goes to its id (on a candidate: to Shows) |
+| Ctrl+Up, Ctrl+Down | Move the candidate picked, or the entry of a table |
+| Left, Right, Home, End | Pick a strip of the drawing; Ctrl+Left, Ctrl+Right move its slot |
+| Esc | End Simulate, close a popover |
+
+Del, Ctrl+C and the others of the menu Edit are for the list that has the focus: the cards on Slots, the lists on
+Channels and States. In a field they edit its text. Copy puts the entry on the clipboard as in the file: a channel as
+`[channel.mic]` with its options, a candidate as the value of the list of its slot (`"browser if call"`). Paste takes
+that back, also from a text editor, and gives a channel, pool or state whose id is taken one after it (`mic_2`). A
+candidate goes after the one picked; channels, pools and states go at the end.
 
 ## Save and apply
 
@@ -318,3 +368,5 @@ Closing the window with unsaved changes asks whether to save them.
   (`journalctl --user -u xtouch-daemon`).
 
 "Revert" drops the changes and reads the file again (Undo brings them back).
+
+Next: [Commands](../reference/commands.md) for the same things on the command line, [Troubleshooting](troubleshooting.md).

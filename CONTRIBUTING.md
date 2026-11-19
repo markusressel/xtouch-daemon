@@ -18,7 +18,7 @@ just check       # runs everything CI runs
 |---|---|
 | `just sync` | Installs the project and the dev tools. |
 | `just test [ARGS]` | Runs pytest in parallel (`-n auto`), e.g. `just test -k fader`. `uv run pytest -k fader` runs them in one process, quicker for a few tests and for a debugger. |
-| `just coverage` | Runs the tests in parallel with coverage; fails below 90 % (lines and branches). |
+| `just coverage` | Runs the tests in parallel with coverage; fails below 93 % (lines and branches), or below 98 % without the Qt widgets (`gui/qt`). |
 | `just lint` | `ruff check`, `ruff format --check` and `codespell` (false positives go to `ignore-words-list` in `pyproject.toml`). |
 | `just fmt` | Fixes what ruff can fix and formats the code. |
 | `just typecheck` | `pyright`. |
@@ -49,11 +49,11 @@ In PyCharm, use `.venv` as the interpreter. `.run/` holds run configurations for
   `tests/support/`.
 - Asyncio tests run in virtual time ([looptime](https://github.com/nolar/looptime)): `asyncio.sleep(10)` takes no
   time. Tests with real processes or devices are marked `@pytest.mark.looptime(False)`.
-- Coverage stays at 90 % or above.
+- Coverage stays at 93 % or above, and at 98 % or above without the Qt widgets (`gui/qt`).
 - Type hints everywhere; `pyright` and `ruff` must pass.
 - Add a line to `CHANGELOG.md` under the topmost version for anything a user notices.
 
 To try a change on the device, stop the service first (`systemctl --user stop xtouch-daemon`): only one program can
 open the device. Then `just run -l debug`.
 
-See [docs/development/architecture.md](docs/development/architecture.md) for how the parts fit together.
+See [docs/development/architecture/index.md](docs/development/architecture/index.md) for how the parts fit together.

@@ -10,7 +10,7 @@ from typing import BinaryIO
 import click
 
 from xtouch_daemon.live.codec import decode_message, encode_request
-from xtouch_daemon.live.messages import Reply, SetMode, SlotsState, Snapshot
+from xtouch_daemon.live.messages import KnownDevices, Reply, SetMode, SlotsState, Snapshot, TwinView
 from xtouch_daemon.slots.why import why as explain
 from xtouch_daemon.system import instance
 
@@ -18,15 +18,16 @@ TIMEOUT = 3.0
 """Seconds `mode` waits for the daemon."""
 
 
-def _live_lines(lines: BinaryIO) -> Iterator[Snapshot | Reply]:
-    """The snapshots and replies of the live view, until the daemon closes the connection."""
+def _live_lines(lines: BinaryIO) -> Iterator[Snapshot | Reply | TwinView]:
+    """The snapshots, replies and twin views of the live view, until the daemon closes the connection."""
     for line in lines:
         message = decode_message(line)
-        if message is not None:
+        # the devices the daemon remembers are for the GUI
+        if message is not None and not isinstance(message, KnownDevices):
             yield message
 
 
-def _slots(messages: Iterator[Snapshot | Reply]) -> SlotsState:
+def _slots(messages: Iterator[Snapshot | Reply | TwinView]) -> SlotsState:
     """The slots of the first snapshot of the daemon."""
     try:
         current = next(message for message in messages if isinstance(message, Snapshot))

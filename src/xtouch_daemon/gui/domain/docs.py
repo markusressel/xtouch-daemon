@@ -48,8 +48,9 @@ STRIP_TYPES: dict[str, str] = {
 """The strip types."""
 
 STRIP_OPTIONS: dict[str, str] = {
-    "rec": "configuration/strip/leds/#indicators",
-    "solo": "configuration/strip/leds/#indicators",
+    "rec": "configuration/strip/leds/#buttons",
+    "solo": "configuration/strip/leds/#buttons",
+    "select": "configuration/strip/leds/#buttons",
     "min_volume": "configuration/channels/#volume-range",
     "max_volume": "configuration/channels/#volume-range",
     "encoder": "configuration/strip/encoders/",

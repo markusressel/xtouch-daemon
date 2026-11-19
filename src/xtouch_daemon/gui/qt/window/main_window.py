@@ -9,10 +9,11 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QProcess, QSignalBlocker, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QProcess, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
+    QClipboard,
     QCloseEvent,
     QDesktopServices,
     QKeySequence,
@@ -20,6 +21,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QDockWidget,
     QFrame,
     QHBoxLayout,
@@ -43,7 +45,7 @@ from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.connections import connections
 from xtouch_daemon.gui.domain.history import History
-from xtouch_daemon.gui.domain.live_preview import previewed, unavailable
+from xtouch_daemon.gui.domain.live_preview import Place, previewed, unavailable
 from xtouch_daemon.gui.domain.problems import place_of
 from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
@@ -51,13 +53,14 @@ from xtouch_daemon.gui.domain.status import (
     Status,
     Tone,
     changes_status,
+    drawing_status,
     offers_virtual_device,
     preview_status,
     runs_older,
 )
+from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
-from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
@@ -92,7 +95,7 @@ from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.device_view import DeviceView
 from xtouch_daemon.gui.qt.window.hover_tips import HoverTips
 from xtouch_daemon.gui.qt.window.input_filter import InputFilter
-from xtouch_daemon.gui.qt.window.rail import RAIL_PAGES, Rail, SettingsPages
+from xtouch_daemon.gui.qt.window.rail import RAIL_PAGES, RAIL_TITLES, Rail, SettingsPages
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session, from_screen, to_screen
 from xtouch_daemon.live.messages import Snapshot
@@ -105,6 +108,23 @@ from xtouch_daemon.system.systemd import (
 )
 
 SERVICE_POLL_MS = 3000
+PLACE_TEXTS = {Place.GUI: "In the GUI", Place.DEVICE: "On the device", Place.OFF: "Off"}
+"""The positions of the control "Preview", from the left."""
+PLACE_TIPS = {
+    Place.GUI: (
+        "Shows the changes, and Simulate while it is open, here in the window: on a twin of the device in the daemon. "
+        "The device keeps running the saved file."
+    ),
+    Place.DEVICE: (
+        "Runs the changes, and Simulate while it is open, on the device before they are saved: the device changes. "
+        "It runs the saved file again once you pick another place or close the window."
+    ),
+    Place.OFF: (
+        "Shows the device as it is: it runs the saved file. The changes show nowhere until you save them or pick "
+        "another place."
+    ),
+}
+"""What each position of the control "Preview" does."""
 APPLY_GRACE_MS = 2000
 """How long a reload may take before the window says that the daemon did not take the file."""
 LOGO_SIZE = 44
@@ -168,8 +188,8 @@ class MainWindow(QMainWindow):
         """The daemon started by "Try without a device", with the virtual device; it ends with the window."""
         if session is not None and session.trying is not None:
             self._keep_trying(session.trying)
-        self.resume_live_preview = session is not None and session.live_preview
-        """Turns the live preview on once it can be: it was on in the window before the zoom."""
+        self.resume_place = Place(session.preview) if session is not None else None
+        """Where the preview showed in the window before the zoom: it goes there once it can."""
 
         root = QWidget()
         body = QVBoxLayout(root)
@@ -217,6 +237,8 @@ class MainWindow(QMainWindow):
         self.input_filter = InputFilter()
         """The document's undo also while a text field has the focus, the wheel on the page rather than in a field."""
         app.installEventFilter(self.input_filter)
+        # Cut, Copy, Paste ... follow the focus: for the list of a page, not for a field
+        app.focusChanged.connect(self._focus_changed)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh_service)
         self.timer.start(SERVICE_POLL_MS)
@@ -283,24 +305,32 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.service_controls)
         return header
 
-    def _try_switch(self) -> QWidget:
+    def _preview_control(self) -> QWidget:
         """
-        "Try on the device", next to Save and apply: the device runs the changes in the editor before they are saved
-        (the live preview). Only there while there are changes to try.
+        "Preview", next to Save and apply: where the changes in the editor (and Simulate) show before they are saved.
+        In the GUI (on a twin in the daemon), on the device, or Off (the drawing shows the device as it is). Only there
+        while there is something to preview.
         """
         box = QWidget()
         layout = QHBoxLayout(box)
         layout.setContentsMargins(0, 0, Space.S, 0)
-        layout.setSpacing(Space.S)
-        self.preview_switch = Switch()
-        # a key typed into the window must not turn it on: Enter in a field would send the changes to the device
-        self.preview_switch.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.preview_switch.setAccessibleName("Try on the device")
-        self.preview_switch.toggled.connect(self.live_preview.set_on)
-        self.preview_label = label("Try on the device", "hint")
-        self.preview_label.setBuddy(self.preview_switch)
+        layout.setSpacing(0)
+        self.preview_label = label("Preview", "hint")
         layout.addWidget(self.preview_label)
-        layout.addWidget(self.preview_switch)
+        layout.addSpacing(Space.S)
+        self.place_group = QButtonGroup(self)
+        self.place_buttons: dict[Place, QPushButton] = {}
+        for index, (place, text) in enumerate(PLACE_TEXTS.items()):
+            segment = QPushButton(text)
+            set_role(segment, "segment", "variant")
+            segment.setCheckable(True)
+            # a key typed into the window must not press it: Enter in a field would send the changes to the device
+            segment.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            segment.setAccessibleName(f"Preview: {text}")
+            self.place_group.addButton(segment, index)
+            self.place_buttons[place] = segment
+            layout.addWidget(segment)
+        self.place_group.idClicked.connect(lambda index: self.live_preview.set_place(list(PLACE_TEXTS)[index]))
         return box
 
     def _preview_status(self) -> QHBoxLayout:
@@ -328,18 +358,39 @@ class MainWindow(QMainWindow):
             return self.audio
 
         self.slots_page = slots = SlotsPanel(
-            self.editor, audio, lambda: self.live.snapshot, self.live.send, self.show_channel
+            self.editor,
+            audio,
+            lambda: self.live.snapshot,
+            self.live.send,
+            self.show_channel,
+            lambda: self.live.twin.slots if self.live.twin is not None else None,
+            lambda: twin_unavailable(self.live.snapshot, self.live.owned),
+            lambda: self.live_preview.in_gui,
         )
-        self.device_view = DeviceView(slots, RemoteHand(self.live), lambda: self.live.owned)
+        self.device_view = DeviceView(
+            slots,
+            RemoteHand(self.live),
+            RemoteHand(self.live, preview=True),
+            lambda: self.live.twin,
+            lambda: self.live.owned,
+            lambda: self.live_preview.in_gui,
+            self._previewing,
+        )
         self.device_view.close_virtual_device.connect(self.close_virtual_device)
         self.device_view.picked.connect(self.show_slot)
         self.device_view.moved.connect(self.move_slot)
         self.device_view.try_without_device.connect(self.try_without_device)
         self.device_view.use_virtual_device.connect(self.use_virtual_device)
         self.device_view.live_clicked.connect(self._mode_clicked)
-        slots.simulated.connect(lambda: self.live_preview.set_situation(slots.what_if if slots.simulation else None))
-        self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
+        slots.simulated.connect(self._simulated)
+        self.live.twin_changed.connect(lambda _view: self.device_view.show_live(self.live.snapshot))
+        self.channels_page = ChannelsPage(
+            self.editor, audio, lambda: self.live.snapshot, lambda: self.live.known, self.live.send
+        )
         self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
+        # a strip of "Used by" shows its slot
+        self.channels_page.used.strips.picked.connect(self.show_slot)
+        self.states_page.used.strips.picked.connect(self.show_slot)
         self.pages: dict[str, Page] = {"slots": slots, "channels": self.channels_page, "states": self.states_page}
         for name in SETTINGS_PAGES:
             if name == "aliases":
@@ -428,8 +479,24 @@ class MainWindow(QMainWindow):
         assert edit is not None
         self.undo_action = action(edit, "&Undo", self.undo, QKeySequence.StandardKey.Undo)
         self.redo_action = action(edit, "&Redo", self.redo, QKeySequence.StandardKey.Redo)
+        edit.addSeparator()
+        # for the entry picked in the list of the page (a candidate, a channel, a state) while the list has the focus;
+        # off in a field, where the keys edit its text
+        self.entry_actions = (
+            action(edit, "Cu&t", self.cut_entry, QKeySequence.StandardKey.Cut),
+            action(edit, "&Copy", self.copy_entry, QKeySequence.StandardKey.Copy),
+            action(edit, "&Paste", self.paste_entries, QKeySequence.StandardKey.Paste),
+            action(edit, "&Duplicate", self.duplicate_entry, "Ctrl+D"),
+            action(edit, "Re&move", self.remove_entry, QKeySequence.StandardKey.Delete, "Backspace"),
+            action(edit, "Re&name", self.rename_entry, "F2"),
+        )
+        edit.aboutToShow.connect(self._show_entry_actions)
+        self._show_entry_actions()
         view = bar.addMenu("&View")
         assert view is not None
+        for number, (name, title) in enumerate(zip(RAIL_PAGES, RAIL_TITLES, strict=True), start=1):
+            action(view, f"&{title}", lambda name=name: self.show_page(name), f"Ctrl+{number}")
+        view.addSeparator()
         device = self.device_dock.toggleViewAction()
         assert device is not None
         device.setText("&Device")
@@ -469,6 +536,53 @@ class MainWindow(QMainWindow):
             lambda: QDesktopServices.openUrl(QUrl(docs.DOCS_URL)),
             QKeySequence.StandardKey.HelpContents,
         )
+        action(help_menu, "&Keyboard shortcuts", self.show_keys)
+
+    def show_keys(self) -> None:
+        """
+        The keys of the window, under the menus: those of the menus as the desktop has them, the lists and the
+        drawing.
+        """
+        bar = self.menuBar()
+        assert bar is not None
+
+        def keys(menu: QMenu | None) -> tuple[tuple[str, str], ...]:
+            assert menu is not None
+            found: list[tuple[str, str]] = []
+            for entry in menu.actions():
+                if entry.menu() is not None:
+                    found.extend(keys(entry.menu()))
+                elif not entry.shortcut().isEmpty():
+                    text = entry.shortcut().toString(QKeySequence.SequenceFormat.NativeText)
+                    found.append((text, entry.text().replace("&", "")))
+            return tuple(found)
+
+        menus = [entry.menu() for entry in bar.actions()]
+        entries = [
+            Entry("Window", items=keys(menus[0]) + keys(menus[2]) + keys(menus[3])),
+            Entry(
+                "Edit",
+                text="Cut, Copy, Paste, Duplicate, Remove and Rename are for the candidate, channel or state picked "
+                "in the list that has the focus. In a field, the keys edit its text.",
+                items=keys(menus[1]),
+            ),
+            Entry(
+                "Lists",
+                items=(
+                    ("Up, Down", "Pick the one above or below"),
+                    ("Ctrl+Up, Ctrl+Down", "Move the candidate (Slots), the entry of a table"),
+                ),
+            ),
+            Entry(
+                "Device",
+                items=(
+                    ("Left, Right, Home, End", "Pick a strip"),
+                    ("Ctrl+Left, Ctrl+Right", "Move its slot"),
+                    ("Esc", "End Simulate, close a popover"),
+                ),
+            ),
+        ]
+        show_popover(bar, "Keyboard shortcuts", entries)
 
     def _footer(self) -> QWidget:
         footer = QWidget()
@@ -500,7 +614,7 @@ class MainWindow(QMainWindow):
         self.changes: Status | None = None
         make_clickable(self.changes_pill, self._show_changes)
         layout.addWidget(self.changes_pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.try_box = self._try_switch()
+        self.try_box = self._preview_control()
         layout.addWidget(self.try_box)
         self.undo_button = flat_button("undo", "Undo (Ctrl+Z)")
         self.undo_button.clicked.connect(self.undo)
@@ -574,8 +688,9 @@ class MainWindow(QMainWindow):
         saved = self.document.saved_config
         device = saved.device.name if saved is not None else "the device"
         hosting = self.hosted is not None
+        on_device = self.live_preview.on and (shows_document or self._device_simulates(snapshot))
         self.device_view.show_status(
-            preview_status(self.daemon, snapshot, device, hosting),
+            drawing_status(preview_status(self.daemon, snapshot, device, hosting), self.live_preview.in_gui, on_device),
             offers_virtual_device(snapshot, hosting),
             slots_status(snapshot),
         )
@@ -593,7 +708,9 @@ class MainWindow(QMainWindow):
             shows_document and self.document.modified,
             self.live_preview.on,
             self.validation.config is None,
-            self.slots_page.on_device,
+            self._device_simulates(snapshot),
+            self.live_preview.place.value,
+            self.slots_page.what_if is not None,
         )
         self.changes = changes
         show_status(self.changes_pill, changes, more=True)
@@ -640,42 +757,46 @@ class MainWindow(QMainWindow):
         for widget in (self.save_button, self.save_action):
             widget.setEnabled(savable)
 
+    def _simulated(self) -> None:
+        """Simulate started, changed or ended: the preview follows, where it shows."""
+        self.live_preview.set_situation(self.slots_page.what_if)
+
+    def _device_simulates(self, snapshot: Snapshot | None) -> bool:
+        """Whether the device shows the situation of Simulate of this window."""
+        preview = self.live_preview
+        return preview.on and preview.simulating and snapshot is not None and snapshot.simulated
+
+    def _previewing(self) -> bool:
+        """Whether the drawing shows a preview of this window: on its twin, or on the device."""
+        preview = self.live_preview
+        snapshot = self.live.snapshot
+        on_device = previewed(snapshot, self.validation.config, preview.running) or self._device_simulates(snapshot)
+        return preview.in_gui or (preview.on and on_device)
+
     def _show_live_preview(self, snapshot: Snapshot | None) -> None:
         """
-        The switch "Try on the device": there while there are changes to try (or they run), off and disabled while
-        they can't go to the device; and what the daemon said.
+        The control "Preview": there while there is something to preview (or it runs); a place it can't show in is
+        disabled and says why; and what the daemon said.
         """
         preview = self.live_preview
-        reason = unavailable(self.daemon, snapshot, self.document.path, self.live.owned)
-        if reason is not None:
-            preview.set_on(False)
-        elif self.resume_live_preview:
-            self.resume_live_preview = False
-            preview.set_on(True)
-        # without changes or a situation to show, the device runs the file anyway: nothing to switch (it stays on for
-        # the next change)
-        simulating = self.slots_page.simulation is not None
-        self.try_box.setVisible(self.document.modified or simulating or preview.running)
-        self.slots_page.show_on_device(
-            preview.on and preview.simulating and snapshot is not None and snapshot.simulated, reason is None
+        device_reason = unavailable(self.daemon, snapshot, self.document.path, self.live.owned)
+        gui_reason = twin_unavailable(snapshot, self.live.owned)
+        if device_reason is not None and preview.place == Place.DEVICE:
+            preview.set_place(Place.GUI)
+        elif self.resume_place is not None and (device_reason is None or self.resume_place != Place.DEVICE):
+            place, self.resume_place = self.resume_place, None
+            preview.set_place(place)
+        self.try_box.setVisible(preview.wanted or preview.running)
+        self.slots_page.show_place(
+            "On the device" if preview.on else "In the GUI" if gui_reason is None else f"Nowhere: {gui_reason.short}"
         )
-        self.preview_switch.setEnabled(reason is None)
-        with QSignalBlocker(self.preview_switch):
-            self.preview_switch.setChecked(preview.on)
-        tip = (
-            reason.why
-            if reason is not None
-            else (
-                "Runs the changes on the device before they are saved, and what Simulate shows while it is open; the "
-                "saved file and the real situation again once this is off or the window closes. It stays on for the "
-                "next changes."
-            )
-        )
-        for widget in (self.preview_switch, self.preview_label):
-            widget.setToolTip(tip)
-        # why it is off, next to it rather than in its tooltip only
-        self.preview_label.setText("Try on the device" if reason is None else f"Try on the device: {reason.short}")
-        message = f"The device keeps the version before: {preview.error}" if preview.error else preview.notice
+        reasons = {Place.GUI: gui_reason, Place.DEVICE: device_reason, Place.OFF: None}
+        for place, segment in self.place_buttons.items():
+            reason = reasons[place]
+            segment.setEnabled(reason is None)
+            segment.setChecked(place == preview.place)
+            segment.setToolTip(PLACE_TIPS[place] if reason is None else f"{reason.why}\n\n{PLACE_TIPS[place]}")
+        message = f"The preview keeps the version before: {preview.error}" if preview.error else preview.notice
         self.preview_message.setVisible(message is not None)
         self.preview_message.setText(message or "")
 
@@ -722,6 +843,9 @@ class MainWindow(QMainWindow):
         # the icons are drawn in the colors of the theme
         refresh_icons(self)
         refresh_help(self)
+        # and the dots of the states in the bar of Slots
+        self.slots_page.shown_live = None
+        self.slots_page.show_live(self.slots_page.snapshot())
         self.device_view.preview.update()
 
     # -- editing --------------------------------------------------------------------------------------------------
@@ -733,6 +857,59 @@ class MainWindow(QMainWindow):
     def redo(self) -> None:
         if self.editor.redo():
             self.status.setText("Redone.")
+
+    def _entry_page(self) -> Page | None:
+        """The page whose list has the focus: the menu Edit cuts, copies, pastes ... its entries."""
+        page = self.pages.get(self.current_page)
+        return page if page is not None and page.entries_focused() else None
+
+    def _focus_changed(self, _old: QWidget | None, _new: QWidget | None) -> None:
+        self._show_entry_actions()
+
+    def _show_entry_actions(self) -> None:
+        """Cut, Copy, Paste ... only while the list of a page has the focus: in a field the keys edit its text."""
+        page = self._entry_page()
+        for entry_action in self.entry_actions:
+            entry_action.setEnabled(page is not None)
+
+    def copy_entry(self) -> None:
+        page = self._entry_page()
+        text = page.copy_entry() if page is not None else None
+        if text is not None:
+            _clipboard().setText(text)
+            self.status.setText("Copied, as in the file: Ctrl+V pastes it after the one picked, or into a text editor.")
+
+    def cut_entry(self) -> None:
+        page = self._entry_page()
+        text = page.copy_entry() if page is not None else None
+        if page is not None and text is not None and page.remove_entry():
+            _clipboard().setText(text)
+            self.status.setText("Cut: Ctrl+V pastes it after the one picked, Ctrl+Z brings it back.")
+
+    def paste_entries(self) -> None:
+        page = self._entry_page()
+        if page is None:
+            return
+        count = page.paste_entries(_clipboard().text())
+        if count:
+            self.status.setText(f"Pasted {count}. Ctrl+Z takes {'them' if count > 1 else 'it'} out again.")
+        else:
+            self.status.setText(f"The clipboard has no {page.ENTRIES}: copy them here, or from the file.")
+
+    def duplicate_entry(self) -> None:
+        page = self._entry_page()
+        if page is not None:
+            page.duplicate_entry()
+
+    def remove_entry(self) -> None:
+        page = self._entry_page()
+        if page is not None and page.remove_entry():
+            self.status.setText("Removed. Ctrl+Z brings it back.")
+
+    def rename_entry(self) -> None:
+        page = self._entry_page()
+        if page is not None:
+            page.rename_entry()
 
     # -- the sound server -----------------------------------------------------------------------------------------
 
@@ -901,7 +1078,7 @@ class MainWindow(QMainWindow):
             geometry=to_screen(geometry, self.devicePixelRatioF()),
             maximized=self.isMaximized(),
             audio=self.audio,
-            live_preview=self.live_preview.on,
+            preview=self.live_preview.place.value,
             trying=self.trying,
         )
 
@@ -948,7 +1125,7 @@ class MainWindow(QMainWindow):
         without a restart), and the virtual device opened here.
         """
         if self.daemon is None or self.document.path.resolve() != self.daemon.config:
-            self.status.setText("The daemon reads another file: set Virtual on the page Device of that one.")
+            self.status.setText("The daemon reads another file: set Virtual on the page Extender of that one.")
             return
         self.document.set(("device", "virtual"), True)
         self.editor.edited(Change(Scope.VALUE, ("device", "virtual")))
@@ -989,8 +1166,10 @@ class MainWindow(QMainWindow):
         if self.document.modified and self.rezoom is None:
             buttons = QMessageBox.StandardButton
             question = "Save the changes before closing?"
-            if self.live_preview.running:
-                question += " The device runs them now (Try on the device): without saving, it goes back to the file."
+            if self.live_preview.running and self.live_preview.on:
+                question += (
+                    " The device runs them now (Preview: On the device): without saving, it goes back to the file."
+                )
             answer = QMessageBox.question(
                 self,
                 "Unsaved changes",
@@ -1003,7 +1182,7 @@ class MainWindow(QMainWindow):
                 return
         # back to the file (the daemon would notice the closed connection too); after a new zoom the next window
         # previews again (see `Session`)
-        self.live_preview.set_on(False)
+        self.live_preview.stop()
         self.hover_tips.stop()
         self.close_virtual_device()
         if self.trying is not None and self.rezoom is not None:
@@ -1017,4 +1196,11 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         assert app is not None
         app.removeEventFilter(self.input_filter)
+        app.focusChanged.disconnect(self._focus_changed)
         event.accept()
+
+
+def _clipboard() -> QClipboard:
+    clipboard = QApplication.clipboard()
+    assert clipboard is not None
+    return clipboard

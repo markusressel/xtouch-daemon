@@ -29,8 +29,11 @@ had nothing to control, for `if present`).
 
 ## Options of every audio channel
 
-These options apply to `output`, `input` and `apps` channels, and to `auto` in a slot. `homeassistant` channels have
-only `color` of them.
+These options apply to `output`, `input` and `apps` channels. The look among them (`color`, `lit_when_idle`, `meter`,
+`meter_point`, `rec`, `solo`) also goes into the built-in pools (`[pool.apps]`, `[pool.auto]`, `[pool.devices]`) and
+into a place in a slot, for the strips they show; a place of `apps`, `auto` or `devices` also takes `encoder`,
+`min_volume` and `max_volume`. `homeassistant` channels have only `color` of them, `person` channels their own
+([People](people.md#the-strips-of-people)).
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -38,8 +41,9 @@ only `color` of them.
 | `lit_when_idle` | `false` | Whether the LCD keeps its backlight while the strip has nothing to control: no application of an `apps` group plays, the device is not there, an `auto` strip has no application. The fader stays down all the same. |
 | `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). |
 | `meter_point` | `behavior.meter_point` | Where the meter takes the level: `"pre_fader"` before the volume and Mute of the strip, `"post_fader"` after them, see [Meters](#meters). |
-| `rec` | `"recording"` | What the LED of the Rec button shows: `recording`, `playing`, `default`, `muted` or `off`, see [LEDs](../strip/leds.md). |
-| `solo` | `"off"` | What the LED of the Solo button shows, the same values, see [LEDs](../strip/leds.md). |
+| `rec` | `"recording"` | What the Rec button does and what its LED shows; an indicator alone (`recording`, `playing`, `default`, `muted` or `off`) sets the LED, see [Buttons and LEDs](../strip/leds.md). |
+| `solo` | `"off"` | The same for Solo, see [Buttons and LEDs](../strip/leds.md). |
+| `select` | what the type does | The same for Select, see [Buttons and LEDs](../strip/leds.md#buttons). |
 | `min_volume` | `0` | The volume of the fader at the bottom, 0..200 percent. |
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
 | `encoder` | depends on the type | What the encoder does, see [Encoders](../strip/encoders.md). |
@@ -57,9 +61,10 @@ Where the label comes from:
 
 | Strip | Label |
 |---|---|
-| `output`, `input` | The label of the active [profile](devices.md#profiles), else `label`. Without both: the start of the device's description with `device`, `"Output"`/`"Input"` without it. |
+| `output`, `input` | The label of the [choice](devices.md#choices) shown, or of the active [profile](devices.md#profiles), else `label`. Without one: the start of the device's description with `device`, `"Output"`/`"Input"` without it. |
 | `apps` | `label` (required). |
-| `auto` | The alias of the application from [`[aliases]`](../behavior.md#aliases), or its name. |
+| `apps`, `auto` in a slot | The alias of the application from [`[aliases]`](../behavior.md#aliases), or its name; an `apps` channel it hands out keeps its own `label`. |
+| `devices` in a slot | The start of the device's description. |
 | `person` | `label`, else the first name of `person`; people of `auto` show their name. |
 | `homeassistant` | What Home Assistant sets, until then `label`. |
 
@@ -102,7 +107,7 @@ max_volume = 200   # the top 23 % of the travel amplify by up to 100 %
 
 With the default `max_volume = 130` the two parts have the same slope: the fader is linear from 0 % to 130 %, with
 100 % at the mark. Strips whose range ends at 100 % (`max_volume = 100`) are not affected: their 100 % is at the
-top. The GUI shows the option in "Global settings", "Behavior".
+top. The GUI has the option under Settings, Behavior.
 
 ## Elements of a strip
 
@@ -111,8 +116,9 @@ top. The GUI shows the option in "Global settings", "Behavior".
 | Fader | Sets the volume. Follows changes made elsewhere. Only a touched fader changes the volume. |
 | Encoder | What `encoder` says, see [Encoders](../strip/encoders.md). |
 | Mute | Toggles mute. Its LED is on while muted. |
-| Rec, Solo | Their LEDs are [indicators](../strip/leds.md). The buttons do nothing, except Rec with [profiles](devices.md#profiles). |
-| Select | On device strips: makes the device the default. On application strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. [`[controls]`](../slots.md#controls-and-the-chord) can give it another action. |
+| Rec, Solo | Their LEDs are [indicators](../strip/leds.md#indicators). By default the buttons do nothing, except Rec with [profiles](devices.md#profiles). |
+| Select | On device strips: makes the device the default, or with [`choices`](devices.md#choices) goes to the next one. On application strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. |
+| | Every channel can give Rec, Solo and Select other actions, for a press and a hold: see [Buttons](../strip/leds.md#buttons). [`[controls]`](../slots.md#controls-and-the-chord) gives the buttons of a slot an action whatever it shows. |
 | LCD | Top: the label. Bottom: the volume, or `muted`, `idle`, `off`. The backlight in `color`, dark while the strip has nothing to control. |
 | Ring | What the encoder controls. |
 | Meter | The level of what the strip controls, see [Meters](#meters). |

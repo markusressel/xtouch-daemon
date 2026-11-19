@@ -1,6 +1,6 @@
 import asyncio
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 
 import pytest
 
@@ -10,6 +10,7 @@ from tests.support.mqtt import FakeBroker
 from tests.support.slots import Rig
 from tests.support.strips import build, strips_of
 from tests.support.tasks import finish_tasks, settle
+from tests.support.waiting import until
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState, Direction
@@ -27,14 +28,6 @@ TOPIC = "homeassistant/{component}/xtouch/lights_{part}/{kind}"
 
 def topic(component: str, part: str, kind: str = "state") -> str:
     return TOPIC.format(component=component, part=part, kind=kind)
-
-
-async def until(condition: Callable[[], bool]) -> None:
-    for _ in range(300):
-        if condition():
-            return
-        await asyncio.sleep(0.002)
-    raise AssertionError("the condition never became true")
 
 
 @pytest.fixture
@@ -273,7 +266,7 @@ async def test_a_closed_strip_no_longer_follows_home_assistant(
 
 async def test_a_strip_without_label_is_named_by_its_position(surface: RecordingSurface, bridge: MqttBridge) -> None:
     env = StripEnv(FakeBackend(), BehaviorConfig(), bridge)
-    (config,) = strips_of('[[strip]]\ntype = "homeassistant"\n' * 3)[2:]
+    (config,) = strips_of("".join(f'[channel.{name}]\ntype = "homeassistant"\n' for name in "abc"))[2:]
     strip = build(config, surface.strips[2], env)
     assert isinstance(strip, HomeAssistantStrip)
 
@@ -369,7 +362,7 @@ running: list[asyncio.Task[None]] = []
 async def test_the_encoder_of_an_audio_strip_is_a_number_of_home_assistant(
     surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
 ) -> None:
-    strip = audio_strip(surface, bridge, '[[strip]]\ntype = "output"\ndevice = "speaker"\nencoder = "homeassistant"\n')
+    strip = audio_strip(surface, bridge, '[channel.l]\ntype = "output"\ndevice = "speaker"\nencoder = "homeassistant"')
     strip.update(SPEAKER)
     # not there yet: the encoder does nothing
     strip.on_encoder(1)
@@ -403,7 +396,7 @@ async def test_the_encoder_of_an_audio_strip_is_a_number_of_home_assistant(
 async def test_with_the_fader_in_home_assistant_the_encoder_sets_the_volume(
     surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
 ) -> None:
-    strip = audio_strip(surface, bridge, '[[strip]]\ntype = "output"\ndevice = "speaker"\nfader = "homeassistant"\n')
+    strip = audio_strip(surface, bridge, '[channel.l]\ntype = "output"\ndevice = "speaker"\nfader = "homeassistant"\n')
     backend = strip.env.backend
     assert isinstance(backend, FakeBackend)
     strip.update(SPEAKER)
@@ -438,7 +431,7 @@ CHOICES_CONFIG = """
 [mqtt]
 host = "broker"
 
-[[strip]]
+[channel.out]
 type = "output"
 choices = [{ label = "Phones", device = "phones" }, { label = "Speaker", device = "speaker" }, { device = "buds" }]
 """
@@ -493,8 +486,7 @@ async def test_a_new_mixer_publishes_the_choice_before_it_runs(
     """A new configuration on a connected bridge: the state of the choice goes out at once."""
     task = asyncio.create_task(bridge.run())
     await until(lambda: bridge.ready)
-    channel = CHOICES_CONFIG.replace("[[strip]]", "[channel.out]")
-    rig = Rig(surface, parse_config(channel + '[slots]\n1 = "out"\n[voip]\nprovider = "demo"\n'), bridge=bridge)
+    rig = Rig(surface, parse_config(CHOICES_CONFIG + '[slots]\n1 = "out"\n[voip]\nprovider = "demo"\n'), bridge=bridge)
     rig.step(AudioState(outputs=(output("phones"),), default_output="phones"))
     await until(lambda: broker.last("homeassistant/select/xtouch/out_output/state") == "Phones")
     rig.mixer.close()

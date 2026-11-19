@@ -10,22 +10,25 @@ from xtouch_daemon.live.messages import Play
 
 
 class RemoteHand:
-    """A `Hand` (see `Preview`) through the live view of the daemon."""
+    """
+    A `Hand` (see `Preview`) through the live view of the daemon; with `preview`, on the virtual twin of this window.
+    """
 
-    def __init__(self, live: LiveView):
+    def __init__(self, live: LiveView, preview: bool = False):
         self.live = live
+        self.preview = preview
 
     def touch(self, strip: int, touched: bool) -> None:
-        self.live.send(Play(protocol.FaderTouched(strip, touched)))
+        self.live.send(Play(protocol.FaderTouched(strip, touched), preview=self.preview))
 
     def move(self, strip: int, fraction: float, hand: bool = True) -> None:
-        self.live.send(Play(protocol.FaderMoved(strip, protocol.fader_value(fraction))))
+        self.live.send(Play(protocol.FaderMoved(strip, protocol.fader_value(fraction)), preview=self.preview))
 
     def press(self, strip: int, button: Button, pressed: bool) -> None:
-        self.live.send(Play(protocol.ButtonPressed(strip, button, pressed)))
+        self.live.send(Play(protocol.ButtonPressed(strip, button, pressed), preview=self.preview))
 
     def turn(self, strip: int, steps: int) -> None:
-        self.live.send(Play(protocol.EncoderTurned(strip, steps)))
+        self.live.send(Play(protocol.EncoderTurned(strip, steps), preview=self.preview))
 
     def push(self, strip: int, pressed: bool) -> None:
-        self.live.send(Play(protocol.EncoderPressed(strip, pressed)))
+        self.live.send(Play(protocol.EncoderPressed(strip, pressed), preview=self.preview))

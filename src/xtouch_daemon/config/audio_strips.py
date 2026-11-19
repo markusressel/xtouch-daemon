@@ -9,6 +9,7 @@ from pydantic import Field, field_validator, model_validator
 
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.base import Model
+from xtouch_daemon.config.buttons import BUTTON_NAMES
 from xtouch_daemon.config.names import StreamNames, WithPresets
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS, BaseStripConfig
@@ -98,11 +99,6 @@ class DeviceStripConfig(BaseStripConfig):
     The top line of the LCD; by default "Output", "Input" or the start of the description of the device. The label
     of the active profile comes first.
     """
-    select: bool = True
-    """
-    Select makes the device the default; with several devices, it switches to the next one. Its LED is lit while the
-    device is the default. Needs `device` or `choices`.
-    """
     choices: tuple[ChoiceConfig, ...] = ()
     """
     The devices Select switches between, each maybe in a profile of its sound card. E.g. headphones on the analog
@@ -148,19 +144,14 @@ class DeviceStripConfig(BaseStripConfig):
         return ranges
 
     @model_validator(mode="after")
-    def _profiles_take_rec(self) -> DeviceStripConfig:
-        if self.profiles and "rec" in self.model_fields_set:
-            raise ValueError("rec: with profiles its LED shows the profile")
-        return self
-
-    @model_validator(mode="after")
     def _choices_alone(self) -> DeviceStripConfig:
         if not self.choices:
             return self
         if self.device or self.profiles:
             raise ValueError("use either choices or device/profiles")
-        if not self.select:
-            raise ValueError("select: with choices, Select is how the strip switches between them")
+        actions = [action for name in BUTTON_NAMES for action in (self.button(name).press, self.button(name).hold)]
+        if not any(action in ("default", "next") for action in actions):
+            raise ValueError("choices: no button switches between them (`default` or `next`, Select by default)")
         return self
 
     @property

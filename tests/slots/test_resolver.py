@@ -246,7 +246,7 @@ def test_shown_as_text():
     assert str(Shown(0, pool="auto", member=App("mpv"))) == "auto:mpv"
 
 
-# -- the code review -----------------------------------------------------------------------------------------------
+# -- pins, pools and held slots together ---------------------------------------------------------------------------
 
 
 def test_a_held_slot_keeps_a_channel_it_shows_as_a_member_of_auto():

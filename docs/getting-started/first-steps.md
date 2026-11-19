@@ -26,28 +26,35 @@ xtouch-daemon test
 Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader. Afterwards the command shows what
 you do on the device: faders, buttons and encoders. Ctrl+C stops it.
 
-Only one program can use the device. Stop the daemon before the test (`systemctl --user stop xtouch-daemon`), and close
-DAWs that use it.
+Only one program can use the device. If the daemon already runs as a service, stop it before the test
+(`systemctl --user stop xtouch-daemon`), and close DAWs that use the device. Without a device, start the virtual one in another terminal (`xtouch-daemon virtual-device`) and run
+`xtouch-daemon test --virtual-device`; see [Without a device](without-a-device.md).
 
 ## Write a configuration
 
-Without a configuration file the daemon uses the example configuration: six `auto` slots, the default input and the
-default output. To change it, write the example to `~/.config/xtouch-daemon/config.toml` and edit it:
+A configuration names **channels** (what a strip can control), **states** (in a call, gaming) and, for each of the 8
+slots, what its strip shows when. [Concepts](../concepts.md) explains these words. Without a file the daemon uses the
+[example configuration](../configuration/index.md): the default input on slot 7, the default output on slot 8, and
+`auto` (the next application that plays) on the others. To make it yours, the easiest way is the [GUI](../guides/gui.md) (`xtouch-daemon-gui` or `xtouch-daemon gui`): it shows the device live, every option with its help, and what a change does (**Simulate**); its
+"Save and apply" writes the file and loads it into the running daemon.
+
+[Setup tour](tour.md) builds a whole configuration that way, step by step, with the file it writes.
+
+By hand, write the example to `~/.config/xtouch-daemon/config.toml` and edit it:
 
 ```shell
-xtouch-daemon init-config     # writes ~/.config/xtouch-daemon/config.toml
-xtouch-daemon list-devices    # the names to use for device channels, and the profiles of the sound cards
-xtouch-daemon list-apps       # the applications that play now, and which channel or slot takes them
-xtouch-daemon check-config    # validates the file and shows what each slot shows when
+xtouch-daemon init-config                 # writes ~/.config/xtouch-daemon/config.toml
+xtouch-daemon list-devices [--snippet]    # the names to use for device channels (--snippet: channels to paste)
+xtouch-daemon list-apps                   # the applications that play now, and which channel or slot takes them
+xtouch-daemon check-config                # validates the file (with the line of each error) and shows what each slot shows when
 ```
 
-A channel is something a strip can control, a slot is a strip of the device, and states (in a call, gaming) decide
-what each slot shows. For example:
+For example, Bluetooth headphones on slot 1 while they are connected, and VoIP on slot 2 during a call:
 
 ```toml
 [channel.buds]
 type = "output"
-device = "bluez_output.4C_D7_3A_EA_02_76.1"
+device = "bluez_output.*"   # any Bluetooth headphones (their name holds an address; list-devices shows it)
 label = "Buds"
 color = "green"
 
@@ -65,8 +72,20 @@ voice_chat = true   # in a channel of Mumble (with the plugin)
 # slots 3 to 8 have no entry: "auto", the next application that plays
 ```
 
+`check-config` shows what this file does, as a table:
+
+```
+when               1     2     3-8
+default            buds  auto  auto
+call               buds  voip  auto
+buds absent        auto  auto  auto
+call, buds absent  auto  voip  auto
+```
+
+A row for each situation the slots ask about (`call`, whether `buds` is there) that changes something.
+
 [Channels, states and slots](../configuration/slots.md) explains the format, [Configuration](../configuration/index.md)
-every option. The GUI (`xtouch-daemon gui`) edits it in a window; see [GUI](../guides/gui.md).
+every option.
 
 ## Run it as a service
 
@@ -84,8 +103,8 @@ package. The same without the command:
 systemctl --user enable --now xtouch-daemon
 ```
 
-A unit in `~/.config/systemd/user` (e.g. from an installation from the source) overrides the one of the package.
-`xtouch-daemon install-service --remove-override` removes it, so does "Use the packaged unit" in the [GUI](../guides/gui.md#the-service).
+A unit in `~/.config/systemd/user` overrides the one of the package; see
+[`install-service`](../reference/commands.md#install-service).
 
 | Task | Command |
 |---|---|
@@ -100,3 +119,5 @@ To run it in the foreground instead, e.g. to watch the log while you try somethi
 ```shell
 xtouch-daemon run -l debug
 ```
+
+Next: the [Setup tour](tour.md), then [Concepts](../concepts.md).

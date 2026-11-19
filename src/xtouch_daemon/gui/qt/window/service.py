@@ -2,13 +2,15 @@
 The controls of the systemd user service in the header of the window.
 """
 
+from collections.abc import Callable
+
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QMessageBox, QPushButton, QWidget
 
 from xtouch_daemon import installed_version
 from xtouch_daemon.gui.domain.connections import Connection, worst
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, unit_status
-from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, label, show_status
+from xtouch_daemon.gui.qt.fields.basics import label, show_status
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.live.messages import Snapshot
@@ -27,8 +29,9 @@ from xtouch_daemon.system.systemd import (
 
 class ServiceControls(QWidget):
     """
-    The state of the systemd user service, and what can be done with it: install and start, restart, stop, use the
-    unit of the package instead of one in ~/.config.
+    The state of the systemd user service in a pill, which opens what can be done with it (restart, stop, use the
+    unit of the package instead of one in ~/.config) and the connections of the daemon. What needs doing (install and
+    start, start, restart after an upgrade) also has a button next to the pill.
     """
 
     settings_asked = pyqtSignal(str, arguments=["page"])
@@ -47,28 +50,22 @@ class ServiceControls(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(label("Service", "hint"))
         self.pill = label("…", "pill")
-        self.pill.mousePressEvent = lambda event: self.show_connections_list()  # type: ignore[method-assign]
+        self.pill.mousePressEvent = lambda event: self.show_details()  # type: ignore[method-assign]
+        self.pill.setCursor(Qt.CursorShape.PointingHandCursor)
         layout.addWidget(self.pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self.service_status = Status("…", Tone.NEUTRAL)
         """The state of the service alone, without the connections of the daemon."""
         self.connections: tuple[Connection, ...] = ()
-        self.unit_label = ElidedLabel("", "hint")
-        """Which unit is in effect: the package's, or one in ~/.config and the program it starts."""
-        layout.addWidget(self.unit_label)
+        self.unit: Status | None = None
+        """Which unit is in effect: the package's, or one in ~/.config and the program it starts; None for none."""
+        self.overrides = False
+        """Whether a unit in ~/.config hides the one of the package."""
         self.service_button = QPushButton()
+        """What the service needs (install and start, start, restart after an upgrade); in the popover always."""
         # a key typed into the window right after it opened must not install or start a service
         self.service_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.service_button.clicked.connect(self._service_action)
         layout.addWidget(self.service_button)
-        self.override_button = QPushButton("Use the packaged unit")
-        self.override_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.override_button.clicked.connect(self._remove_override)
-        layout.addWidget(self.override_button)
-        self.stop_button = QPushButton("Stop")
-        self.stop_button.setToolTip("Stop the daemon: the device goes dark until the service starts again")
-        self.stop_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.stop_button.clicked.connect(self._stop)
-        layout.addWidget(self.stop_button)
 
     def show_state(self, daemon: Instance | None, snapshot: Snapshot | None) -> None:
         """Shows the state of the service, or of the daemon `daemon` that runs outside of it."""
@@ -80,14 +77,14 @@ class ServiceControls(QWidget):
                 f"and reads {daemon.config}. Saving reloads it; restart it where it runs."
             )
             self._show_service(Status("running elsewhere", Tone.GOOD, tip))
-            self._hide_service_controls()
+            self._no_service_controls()
             return
         try:
             state = self.service.state()
         except ServiceError as e:
             self.state = None
             self._show_service(Status("unavailable", Tone.BAD, str(e)))
-            self._hide_service_controls()
+            self._no_service_controls()
             return
         self.state = state
         highlight = False
@@ -106,20 +103,14 @@ class ServiceControls(QWidget):
         else:
             tone = Tone.BAD if state.active == "failed" else Tone.NEUTRAL
             text, tip = "Start", "Enable the service and start it"
-        self._show_service(Status(state.describe(), tone, f"systemctl --user status {UNIT_NAME}"))
+        self.overrides = overrides_packaged_unit()
+        self.unit = unit_status(state, self.overrides)
         self.service_button.setText(text)
         self.service_button.setToolTip(tip)
         set_role(self.service_button, "primary" if highlight else "", "variant")
-        self.service_button.show()
-        self.stop_button.setVisible(state.running)
-        overrides = overrides_packaged_unit()
-        unit = unit_status(state, overrides)
-        self.unit_label.setVisible(unit is not None)
-        if unit is not None:
-            self.unit_label.setText(unit.text)
-            self.unit_label.setToolTip(unit.tip)
-        self.override_button.setToolTip(f"Remove {unit_path()}, which overrides the unit of the package")
-        self.override_button.setVisible(overrides)
+        # a running service needs nothing, unless it runs an older version: Restart and Stop are in the popover
+        self.service_button.setVisible(not state.running or highlight)
+        self._show_service(Status(state.describe(), tone, f"`systemctl --user status {UNIT_NAME}` tells more."))
 
     def _show_service(self, status: Status) -> None:
         self.service_status = status
@@ -142,31 +133,44 @@ class ServiceControls(QWidget):
                 problem.status.tone,
                 f"{problem.status.tip}\n\n{status.tip}",
             )
-        show_status(self.pill, status, more=bool(self.connections))
-        self.pill.setCursor(Qt.CursorShape.PointingHandCursor if self.connections else Qt.CursorShape.ArrowCursor)
+        show_status(self.pill, status, more=True)
 
-    def show_connections_list(self) -> None:
-        """Under the pill: each connection of the daemon, how it is doing and why, with its settings."""
-        if not self.connections:
-            return
-        show_popover(
-            self.pill,
-            "Connections",
-            [
-                Entry(
-                    connection.name,
-                    connection.status,
-                    actions=(("Settings", lambda page=connection.settings: self.settings_asked.emit(page)),)
-                    if connection.settings is not None
-                    else (),
-                )
-                for connection in self.connections
-            ],
-        )
+    def details(self) -> list[Entry]:
+        """
+        What the pill opens: the service with what can be done with it, its unit, and each connection of the daemon,
+        how it is doing and why, with its settings.
+        """
+        state = self.state
+        actions: tuple[tuple[str, Callable[[], object]], ...] = ()
+        if state is not None:
+            actions = ((self.service_button.text(), self._service_action),)
+            if state.running:
+                actions += (("Stop", self._stop),)
+        service = self.service_status
+        entries = [Entry("Service", service, actions=actions)]
+        if state is not None and self.unit is not None:
+            remove = (("Use the packaged unit", self._remove_override),) if self.overrides else ()
+            entries.append(Entry("Unit", self.unit, path=str(state.unit), actions=remove))
+        entries += [
+            Entry(
+                connection.name,
+                connection.status,
+                actions=(("Settings", lambda page=connection.settings: self.settings_asked.emit(page)),)
+                if connection.settings is not None
+                else (),
+            )
+            for connection in self.connections
+        ]
+        return entries
 
-    def _hide_service_controls(self) -> None:
-        for widget in (self.unit_label, self.service_button, self.override_button, self.stop_button):
-            widget.hide()
+    def show_details(self) -> None:
+        """Under the pill: the service, its unit and the connections of the daemon (see `details`)."""
+        show_popover(self.pill, "Service", self.details())
+
+    def _no_service_controls(self) -> None:
+        self.unit = None
+        self.overrides = False
+        self.service_button.hide()
 
     def _service_action(self) -> None:
         state = self.state

@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
@@ -26,15 +27,18 @@ from PyQt6.QtWidgets import (
 
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
+from xtouch_daemon.gui.domain.clipboard import Tables, parse_tables, tables_text
 from xtouch_daemon.gui.domain.schema import options
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.sources import patterns
 from xtouch_daemon.gui.domain.states import OVERRIDES, describe_live, live_state, ordered, state_uses
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import LABEL_WIDTH, Suggest, flat_button, help_label, label
+from xtouch_daemon.gui.qt.fields.basics import Suggest, flat_button, help_label, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
-from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, divider, text_width
+from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE, DotItemDelegate
+from xtouch_daemon.gui.qt.fields.used_by import UsedBy
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -78,6 +82,13 @@ def _check(group: QButtonGroup, index: int) -> None:
         button.setChecked(True)
 
 
+TEMPLATES: tuple[tuple[str, str, bool, dict[str, Any]], ...] = (
+    ("In a call (state)", "call", False, {"voice_chat": True, "recording": ["@voip"], "delay_off": 5}),
+    ("Gaming (mode)", "gaming", True, {"label": "Gaming", "processes": ["@steam-games"]}),
+)
+"""The starting points in the menu Add: text, id, whether a mode, and the options."""
+
+
 class StatesPage(Page):
     def __init__(
         self,
@@ -111,6 +122,10 @@ class StatesPage(Page):
         side = QVBoxLayout()
         self.list = QListWidget()
         self.list.setMinimumWidth(160)
+        set_role(self.list, "side")
+        self.list.setItemDelegate(DotItemDelegate(self.list))
+        # the lines fit the width (or are cut short): no scrolling sideways
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll_shadows(self.list)
         self.list.currentItemChanged.connect(self._picked)
         side.addWidget(self.list, 1)
@@ -121,10 +136,20 @@ class StatesPage(Page):
             action = menu.addAction(icon("view-dashboard-outline" if mode else "toggle-switch-outline"), text)
             assert action is not None
             action.triggered.connect(lambda _=False, mode=mode: self.add(mode))
+        menu.addSeparator()
+        for text, name, mode, preset in TEMPLATES:
+            action = menu.addAction(icon("view-dashboard-outline" if mode else "toggle-switch-outline"), text)
+            assert action is not None
+            action.triggered.connect(lambda _=False, name=name, mode=mode, preset=preset: self.add(mode, name, preset))
         self.add_button.setMenu(menu)
+        self.duplicate_button = button("content-copy", "Duplicate")
+        self.duplicate_button.setToolTip("Add a copy, with an id after its own (Ctrl+D)")
+        self.duplicate_button.clicked.connect(self.duplicate_entry)
         self.remove_button = button("delete-outline", "Remove", "error", "danger")
+        self.remove_button.setToolTip("Remove the state or mode (Del)")
         self.remove_button.clicked.connect(self.remove)
         buttons.addWidget(self.add_button)
+        buttons.addWidget(self.duplicate_button)
         buttons.addWidget(self.remove_button)
         buttons.addStretch()
         side.addLayout(buttons)
@@ -140,7 +165,8 @@ class StatesPage(Page):
         title.addWidget(self.id_edit)
         title.addStretch()
         inspector.addWidget(row(title))
-        self.used = label("", "hint", wrap=True)
+        self.used = UsedBy()
+        """Where it is used: the slots as small strips (a click shows one), then the rest."""
         inspector.addWidget(self.used)
         live = QHBoxLayout()
         self.live = label("", wrap=True)
@@ -160,7 +186,13 @@ class StatesPage(Page):
         self.form, layout = card()
         self._build_form(layout)
         inspector.addWidget(self.form)
-        self.empty = label("No states yet: Add makes one.", "hint")
+        self.empty = label(
+            "No states yet. A state is when something matters: slots can show a channel only while it is on "
+            '("voip if call"). Add makes one; "In a call" and "Gaming" in its menu start from the usual '
+            "ones. Slots work without any.",
+            "hint",
+            wrap=True,
+        )
         inspector.addWidget(self.empty)
         inspector.addStretch()
         pane = QWidget()
@@ -175,6 +207,10 @@ class StatesPage(Page):
         The form of a state, in the order of the questions: a state or a mode (a mode has a label and a priority),
         on while its sources are on or while a condition holds (never both), and the delays and the override.
         """
+        self._titles: list[QLabel] = []
+        """The names of the fields that are no `OptionRow`, in the same column (see `_align`)."""
+        self._under: list[QLabel] = []
+        """What goes under those fields, from where the fields start."""
         found = {option.name: option for option in options(StateConfig)}
         suggest: dict[str, Suggest] = {
             "apps": lambda: patterns(self.audio()),
@@ -190,6 +226,7 @@ class StatesPage(Page):
         self.mode_rows = [option_row("label"), option_row("priority")]
         for widget in self.mode_rows:
             layout.addWidget(widget)
+        layout.addWidget(divider())
         self.on_while = self._segments(
             layout, "On while", ("Sources", "Condition"), lambda index: self._set_composed(index == 1), ON_WHILE_HELP
         )
@@ -206,7 +243,7 @@ class StatesPage(Page):
             # ✕ removes it
             source.resettable = False
             line.addWidget(source, 1)
-            remove = flat_button("close", "Remove this source")
+            remove = flat_button("delete-outline", "Remove this source")
             remove.clicked.connect(lambda _=False, name=name: self._remove_source(name))
             line.addWidget(remove, 0, Qt.AlignmentFlag.AlignTop)
             holder = row(line)
@@ -226,7 +263,7 @@ class StatesPage(Page):
         condition.setSpacing(Space.XS)
         line = QHBoxLayout()
         title = label("Condition")
-        title.setFixedWidth(LABEL_WIDTH)
+        self._titles.append(title)
         line.addWidget(title)
         self.when_edit = ConditionEdit(present=False)
         self.when_edit.setPlaceholderText("e.g. call and not gaming")
@@ -234,13 +271,14 @@ class StatesPage(Page):
         line.addWidget(self.when_edit, 1)
         condition.addWidget(row(line))
         self.when_error = label("", "error", wrap=True)
-        self.when_error.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        self._under.append(self.when_error)
         self.when_error.hide()
         condition.addWidget(self.when_error)
         when_help = help_label(WHEN_HELP, "help", docs.guide_link("conditions"))
-        when_help.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        self._under.append(when_help)
         condition.addWidget(when_help)
         layout.addWidget(self.condition_box)
+        layout.addWidget(divider())
         self.delays_button = QToolButton()
         self.delays_button.setText("Delays and overrides")
         self.delays_button.setCheckable(True)
@@ -251,10 +289,19 @@ class StatesPage(Page):
         self.delay_rows = [option_row("delay_on"), option_row("delay_off"), option_row("persist")]
         for widget in self.delay_rows:
             layout.addWidget(widget)
+        self._align()
         self.added: set[str] = set()
         """Sources added to the state shown that have no value yet."""
         self.composed: dict[str, bool] = {}
         """States set to Condition (or Sources) that have neither a condition nor sources yet."""
+
+    def _align(self) -> None:
+        """One column of names for the form, as wide as its longest name."""
+        width = align_titles(self.option_rows, least=max(text_width(title) for title in self._titles))
+        for title in self._titles:
+            title.setFixedWidth(width)
+        for under in self._under:
+            under.setContentsMargins(width + Space.S, 0, 0, 0)
 
     def _segments(
         self, layout: QVBoxLayout, title: str, texts: tuple[str, ...], picked: Callable[[int], None], help: str
@@ -263,7 +310,7 @@ class StatesPage(Page):
         line = QHBoxLayout()
         line.setSpacing(Space.S)
         name = label(title)
-        name.setFixedWidth(LABEL_WIDTH)
+        self._titles.append(name)
         line.addWidget(name)
         group = QButtonGroup(self)
         for index, text in enumerate(texts):
@@ -276,7 +323,7 @@ class StatesPage(Page):
         group.idClicked.connect(picked)
         layout.addWidget(row(line))
         hint = help_label(help, "help")
-        hint.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        self._under.append(hint)
         layout.addWidget(hint)
         return group
 
@@ -337,7 +384,7 @@ class StatesPage(Page):
             self.selection = names[0] if names else None
         self._show_list()
         name = self.selection
-        for widget in (self.form, self.id_edit, self.used, self.live, self.remove_button):
+        for widget in (self.form, self.id_edit, self.used, self.live, self.duplicate_button, self.remove_button):
             widget.setVisible(name is not None)
         self.empty.setVisible(name is None)
         if name is None:
@@ -350,7 +397,7 @@ class StatesPage(Page):
         set_text(self.title, "Mode" if mode else "State")
         self.id_edit.setText(name)
         where = state_uses(self.document.values, name)
-        set_text(self.used, f"Used by: {', '.join(where)}" if where else "No slot or control asks about it yet.")
+        self.used.show_uses(where, "No slot or control asks about it yet.")
         self._load_rows(self.rows)
         if name != self.arranged:
             # another state: its delays open if it has any, sources added to the last one are gone
@@ -374,12 +421,13 @@ class StatesPage(Page):
         for name in ordered(self.states):
             mode = bool(self.document.get(("state", name, "mode")))
             live = live_state(snapshot, name)
-            value = "" if live is None else "  ●" if live.value else "  ○"
-            text = f"{self.document.get(('state', name, 'label')) or name}{value}\n{'mode' if mode else 'state'}"
+            text = f"{self.document.get(('state', name, 'label')) or name}\n{'mode' if mode else 'state'}"
             if self.editor.validation.at("state", name):
                 text += "  ⚠"
             item = QListWidgetItem(icon("view-dashboard-outline" if mode else "toggle-switch-outline"), text)
             item.setData(Qt.ItemDataRole.UserRole, name)
+            # the dot after the name, drawn by `DotItemDelegate`
+            item.setData(DOT_ROLE, None if live is None else live.value)
             self.list.addItem(item)
             if name == self.selection:
                 self.list.setCurrentItem(item)
@@ -437,12 +485,55 @@ class StatesPage(Page):
 
     # -- editing --------------------------------------------------------------------------------------------------
 
-    def add(self, mode: bool) -> None:
-        self.select(self.editor.add_state(mode))
+    def add(self, mode: bool, name: str | None = None, options: dict[str, Any] | None = None) -> None:
+        self.select(self.editor.add_state(mode, name, options))
 
     def remove(self) -> None:
         assert self.selection is not None
         self.editor.remove_state(self.selection)
+
+    def _picked_table(self) -> Tables:
+        """The state picked, as tables to copy; none without one."""
+        if self.selection is None:
+            return {}
+        return {"state": {self.selection: self.document.get(("state", self.selection)) or {}}}
+
+    def _add(self, tables: Tables) -> int:
+        """Adds the states, picks the first one; how many."""
+        added = self.editor.add_tables(tables)
+        if added:
+            self.select(added[0][1])
+        return len(added)
+
+    # -- the entries, for the menu Edit ---------------------------------------------------------------------------
+
+    ENTRIES = "states"
+
+    def entries_focused(self) -> bool:
+        return self.list.hasFocus()
+
+    def copy_entry(self) -> str | None:
+        tables = self._picked_table()
+        return tables_text(tables) if tables else None
+
+    def paste_entries(self, text: str) -> int:
+        return self._add(parse_tables(text, ("state",)))
+
+    def duplicate_entry(self) -> bool:
+        return self._add(self._picked_table()) > 0
+
+    def remove_entry(self) -> bool:
+        if self.selection is None:
+            return False
+        self.remove()
+        return True
+
+    def rename_entry(self) -> bool:
+        if self.selection is None:
+            return False
+        self.id_edit.setFocus()
+        self.id_edit.selectAll()
+        return True
 
     def override(self, value: str) -> None:
         """Asks the daemon to override the state, or to pick the mode (`auto`: the rules decide again)."""

@@ -4,6 +4,7 @@ from typing import assert_never
 
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
+from xtouch_daemon.config.buttons import ButtonName
 from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
@@ -25,6 +26,9 @@ class EmptyStrip(StripController):
         self.strip.reset()
 
 
+BUTTONS: dict[Button, ButtonName] = {Button.SELECT: "select", Button.REC: "rec", Button.SOLO: "solo"}
+
+
 def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
     """The look of a strip configuration; `meter_point` is where its meter takes the level (`Config.meter_point()`)."""
     match config:
@@ -40,7 +44,7 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
                 config.color,
                 config.meter,
                 meter_point,
-                {Button.REC: config.rec, Button.SOLO: config.solo},
+                {button: config.button(name) for button, name in BUTTONS.items()},
                 config.lit_when_idle,
             )
         case _ as unreachable:
@@ -86,6 +90,7 @@ def build_strip(
             identity,
             fader=config.fader == "homeassistant",
             encoder=encoder == "homeassistant",
+            buttons=config.home_assistant_buttons,
         )
     match config:
         case DeviceStripConfig(choices=choices) if choices:
@@ -109,7 +114,6 @@ def build_strip(
                 Direction(config.type),
                 config.device,
                 look,
-                select=config.select,
                 profiles=config.profiles,
                 min_volume=config.min_volume,
                 max_volume=config.max_volume,

@@ -29,20 +29,22 @@ DEFAULT = "default"
 BUILT_IN = (AUTO, APPS, PEOPLE, DEVICES)
 AUTO_EXCLUDE = ("speech-dispatcher",)
 """What `apps` and `auto` never take unless `[pool.apps] exclude` says otherwise: the voice of screen readers."""
-MEMBER_OPTIONS = frozenset({"channels", "exclude", "hold", "from", "order"})
+MEMBER_OPTIONS = frozenset({"kind", "channels", "match", "people", "exclude", "hold", "from", "order"})
 """Options of pools that are about their members and their slots, not about the look of their strips."""
 
 STATE_DELAY_OFF = 3.0
-"""Seconds a state stays on after its sources stopped (`behavior.state_delay_off`)."""
+"""Seconds a state stays on after its sources stopped, without `delay_off`."""
 MODE_DELAY_OFF = 10.0
 """The same for modes (today's `switching.hold`)."""
 ABSENT_AFTER = 3.0
-"""Seconds a channel stays present after it had nothing to control any more (`behavior.absent_after`)."""
+"""Seconds a channel stays present after it had nothing to control any more, without `absent_after`."""
 
 LOOK_OPTIONS = frozenset({"label", "color", "lit_when_idle", "rec", "solo", "meter", "meter_point"})
 """Options of a place that change only how a candidate looks there."""
 PEOPLE_LOOK_OPTIONS = frozenset({"color", "meter", "meter_point"})
 """The options of a place of `people`: the strips of people show their names and have no Rec or Solo of their own."""
+PEOPLE_POOL_OPTIONS = PEOPLE_LOOK_OPTIONS | {"talking_color", "max_volume"}
+"""The look of the strips of people in `[pool.people]`: that of a place, and how they look talking and how loud."""
 APP_OPTIONS = frozenset({"encoder", "min_volume", "max_volume"})
 """
 Options of an `apps` or `auto` place for the applications without a channel it shows (an `encoder` that acts on the
@@ -143,7 +145,7 @@ SIDES = Meanings({"left": "Slot 1 first.", "right": "Slot 8 first."})
 
 
 class PoolConfig(_Open):
-    """`[pool.<id>]`: a pool of channels."""
+    """`[pool.<id>]`: a pool of channels (without `kind`)."""
 
     channels: tuple[str, ...] = ()
     """The channels the pool hands out, by id or tag, in this order."""
@@ -155,6 +157,69 @@ class PoolConfig(_Open):
     def _of_channels(cls, data: Any) -> Any:
         _refuse(data, {"exclude": "an option of [pool.apps]", "hold": "an option of [pool.apps]"})
         _refuse(data, {"order": "an option of [pool.people]"})
+        _refuse(data, {"match": "an option of kind apps", "people": "an option of kind people"})
+        return data
+
+
+class AppsPoolConfig(_Open):
+    """`[pool.<id>]` with `kind = "apps"`: the applications of a group that play, one strip each."""
+
+    kind: Literal["apps"]
+    """What the pool hands out: `apps`, the applications that match, or `people`, listed people of the voice chat."""
+    match: Streams = ()
+    """The applications it takes: parts of names or binaries, ignoring case, or presets like `@music`."""
+    exclude: Streams = ()
+    """Applications it never takes, though they match."""
+    from_: Annotated[Side, SIDES] = Field("left", alias="from")
+    """The side the applications fill their slots from."""
+    hold: float = 5.0
+    """Seconds a slot keeps an application after it stopped playing."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _of_apps_pool(cls, data: Any) -> Any:
+        if isinstance(data, Mapping):
+            if not data.get("match"):
+                raise ValueError("match: kind apps needs match")
+            if data.get("encoder") == "pick":
+                raise ValueError("encoder: pick is for apps and auto; a pool of your own has no pick")
+        _refuse(
+            data,
+            {"channels": "kind apps takes applications", "people": "an option of kind people", "order": "not here"},
+        )
+        return data
+
+
+class PeoplePoolConfig(_Open):
+    """`[pool.<id>]` with `kind = "people"`: listed people of the voice chat, one strip each."""
+
+    kind: Literal["people"]
+    """What the pool hands out: `apps`, the applications that match, or `people`, listed people of the voice chat."""
+    people: tuple[str, ...] = ()
+    """Who it takes, by name as in the voice chat (ignoring case); this is their order."""
+    from_: Annotated[Side, SIDES] = Field("right", alias="from")
+    """The side the people fill their slots from."""
+
+    @field_validator("people", mode="before")
+    @classmethod
+    def _one_or_several(cls, value: object) -> object:
+        return (value,) if isinstance(value, str) else value
+
+    @model_validator(mode="before")
+    @classmethod
+    def _of_people_pool(cls, data: Any) -> Any:
+        if isinstance(data, Mapping) and not data.get("people"):
+            raise ValueError("people: kind people needs people")
+        _refuse(
+            data,
+            {
+                "channels": "kind people takes people of the voice chat",
+                "match": "an option of kind apps",
+                "exclude": "an option of kind apps",
+                "hold": "people stay absent_after seconds after they left",
+                "order": "the list of people is their order",
+            },
+        )
         return data
 
 
@@ -255,7 +320,8 @@ class DevicesConfig(_Open):
         return data
 
 
-type Pool = PoolConfig | AppsConfig | PeopleConfig | AutoConfig | DevicesConfig
+BUILT_IN_TYPES = (AppsConfig, PeopleConfig, AutoConfig, DevicesConfig)
+type Pool = PoolConfig | AppsPoolConfig | PeoplePoolConfig | AppsConfig | PeopleConfig | AutoConfig | DevicesConfig
 
 
 def _refuse(data: Any, options: Mapping[str, str]) -> None:
@@ -318,7 +384,7 @@ class StateConfig(_Section):
     delay_on: float = 0.0
     """Seconds its sources must be on before the state is."""
     delay_off: float | None = None
-    """Seconds the state stays on after its sources went off; by default 3, for modes 10."""
+    """Seconds the state stays on after its sources went off; by default 3, for modes 10, for `when` 0."""
     persist: bool = False
     """An override lasts until you set it back, not only until the sources change."""
 
@@ -405,6 +471,7 @@ class Scene:
         stacks = _parse_stacks(file.slots, file.channel, pools, problems)
         _check_chains(stacks, pools, problems)
         controls, control_conditions = _parse_controls(file, stacks, problems)
+        _check_channel_buttons(file, problems)
         if chord is not None:
             strips, action = chord
             _check_action("switching.chord.action", action, file, problems, chord=True)
@@ -443,6 +510,23 @@ class Scene:
         pool = self.pools[DEVICES]
         assert isinstance(pool, DevicesConfig)
         return pool
+
+    @property
+    def apps_pools(self) -> tuple[str, ...]:
+        """The pools of applications of your own, in the order of the file."""
+        return tuple(name for name, pool in self.pools.items() if isinstance(pool, AppsPoolConfig))
+
+    @property
+    def people_pools(self) -> tuple[str, ...]:
+        """The pools of people of your own, in the order of the file."""
+        return tuple(name for name, pool in self.pools.items() if isinstance(pool, PeoplePoolConfig))
+
+    @property
+    def named(self) -> frozenset[str]:
+        """The pools some slot names (in any stack): only those take members."""
+        return frozenset(
+            candidate.show for stack in self.stacks.values() for candidate in stack if candidate.show is not None
+        )
 
     def channels_of(self, pool: str) -> tuple[str, ...]:
         """The channels of a pool of channels, in its order; none for the built-in pools."""
@@ -486,7 +570,9 @@ class Scene:
             for name in sorted(condition.states - states):
                 problems.append(f'{where}: "{condition.text}": unknown state {name}{_did_you_mean(name, states)}')
             for target in sorted(t for t in condition.presence if t is not None and t not in known):
-                problems.append(f'{where}: "{condition.text}": {target} is no channel or pool')
+                problems.append(
+                    f'{where}: "{condition.text}": {target} is no channel or pool{_undefined(target, known)}'
+                )
             if where.startswith("state.") and condition.presence:
                 problems.append(
                     f'{where}: "{condition.text}": present is only for candidates of slots, a state '
@@ -519,7 +605,19 @@ def _parse_pools(raw: Mapping[str, Mapping[str, Any]], problems: list[str]) -> d
     pools: dict[str, Pool] = {}
     models: dict[str, type[Pool]] = {AUTO: AutoConfig, APPS: AppsConfig, PEOPLE: PeopleConfig, DEVICES: DevicesConfig}
     for name in (*BUILT_IN, *(name for name in raw if name not in BUILT_IN)):
-        model = models.get(name, PoolConfig)
+        kind = raw.get(name, {}).get("kind")
+        if name in BUILT_IN and kind is not None:
+            problems.append(f"pool.{name}.kind: {name} is a built-in pool; kind is for pools of your own")
+        if kind is None or name in BUILT_IN:
+            model = models.get(name, PoolConfig)
+        elif kind == "apps":
+            model = AppsPoolConfig
+        elif kind == "people":
+            model = PeoplePoolConfig
+        else:
+            problems.append(f"pool.{name}.kind: {kind!r} is no kind of pool: apps or people (or none, for channels)")
+            pools[name] = PoolConfig.model_validate({})
+            continue
         try:
             pools[name] = model.model_validate(raw.get(name, {}))
         except ValidationError as e:
@@ -527,7 +625,21 @@ def _parse_pools(raw: Mapping[str, Mapping[str, Any]], problems: list[str]) -> d
                 where = ".".join(("pool", name, *(str(part) for part in error["loc"])))
                 problems.append(f"{where}: {error['msg'].removeprefix('Value error, ')}")
             # still a pool: the slots that show it have no problems of their own
-            pools[name] = model.model_validate({})
+            fallback: dict[str, Any] = {}
+            if model is AppsPoolConfig:
+                fallback = {"kind": "apps", "match": ["_"]}
+            elif model is PeoplePoolConfig:
+                fallback = {"kind": "people", "people": ["_"]}
+            pools[name] = model.model_validate(fallback)
+            continue
+        if name in BUILT_IN or kind is not None:
+            # the rest is the look of its strips: what a place of it takes
+            own = {field.alias or key for key, field in model.model_fields.items()}
+            look = {key: value for key, value in raw.get(name, {}).items() if key not in own}
+            allowed = PEOPLE_POOL_OPTIONS if name == PEOPLE or model is PeoplePoolConfig else place_options(name, pools)
+            problems.extend(
+                f"pool.{name}: {problem}" for problem in _look_problems(name, look, allowed, f"[pool.{name}]")
+            )
     return pools
 
 
@@ -594,11 +706,29 @@ def _candidate(
             problems.append(f'{where}: "{condition.text}": present of - (nothing) means nothing')
         return Candidate(None, condition)
     if show not in channels and show not in pools:
-        problems.append(f"{where}: {show} is no channel or pool")
+        problems.append(f"{where}: {show} is no channel or pool{_undefined(show, [*channels, *pools])}")
         return None
-    allowed = place_options(show)
+    problems.extend(
+        f"{where}: {problem}"
+        for problem in _look_problems(show, options, place_options(show, pools), f"a place for {show}")
+    )
+    return Candidate(show, condition, options)
+
+
+def _look_problems(show: str, options: Mapping[str, Any], allowed: frozenset[str], what: str) -> list[str]:
+    """
+    What is wrong with the options of a place of `show`, or of the built-in pool `show` (`what` says which): the
+    `allowed` ones only, and no control of Home Assistant, which belongs to the slot.
+    """
+    problems: list[str] = []
     for option in sorted(set(options) - allowed):
-        if show == PEOPLE and option in LOOK_OPTIONS | APP_OPTIONS:
+        if show == PEOPLE and option == "label":
+            why = " (only on a person channel; the strips of people show their names)"
+        elif show == DEVICES and option == "label":
+            why = " (its strips show the names of their devices)"
+        elif option == "label":
+            why = " (its strips show the names of their applications; [aliases] renames them)"
+        elif show == PEOPLE and option in LOOK_OPTIONS | APP_OPTIONS:
             why = " (the strips of people show their names; people have no Rec, Solo or encoder of a place)"
         elif option in APP_OPTIONS:
             why = " (it belongs to the channel)"
@@ -606,22 +736,31 @@ def _candidate(
             why = " (a control of the slot: [controls])"
         else:
             why = ""
-        problems.append(f"{where}: {option} is no option of a place for {show}{why}")
+        problems.append(f"{option} is no option of {what}{why}")
     if options.get("encoder") == "homeassistant":
-        problems.append(f'{where}: encoder = "homeassistant" is a control of the slot: [controls]')
-    return Candidate(show, condition, options)
+        problems.append('encoder = "homeassistant" is a control of the slot: [controls]')
+    for button in ("select", "rec", "solo"):
+        value = options.get(button)
+        if isinstance(value, Mapping) and {"press", "hold"} & set(value):
+            problems.append(
+                f"{button}: a place sets only what its LED shows (led); what the button does belongs to the channel"
+            )
+    return problems
 
 
-def place_options(show: str) -> frozenset[str]:
+def place_options(show: str, pools: Mapping[str, Pool] | None = None) -> frozenset[str]:
     """
     The options a place takes for what it shows: its look, and for `apps`, `auto` and `devices` how it acts on what it
-    shows (the encoder, the volume range).
+    shows (the encoder, the volume range). `pools` tells what the pools of your own are.
     """
-    if show == PEOPLE:
+    pool = pools.get(show) if pools is not None else None
+    if show == PEOPLE or isinstance(pool, PeoplePoolConfig):
         return PEOPLE_LOOK_OPTIONS
     if show == DEVICES:
-        return LOOK_OPTIONS | DEVICE_OPTIONS
-    return LOOK_OPTIONS | (APP_OPTIONS if show in (APPS, AUTO) else frozenset())
+        return (LOOK_OPTIONS - {"label"}) | DEVICE_OPTIONS
+    if show in (APPS, AUTO) or isinstance(pool, AppsPoolConfig):
+        return (LOOK_OPTIONS - {"label"}) | APP_OPTIONS
+    return LOOK_OPTIONS
 
 
 def _check_chains(stacks: Mapping[int, tuple[Candidate, ...]], pools: Mapping[str, Pool], problems: list[str]) -> None:
@@ -632,7 +771,7 @@ def _check_chains(stacks: Mapping[int, tuple[Candidate, ...]], pools: Mapping[st
     for slot, stack in stacks.items():
         built_in: str | None = None
         for index, candidate in enumerate(stack):
-            if candidate.show is None or candidate.show not in pools:
+            if candidate.show is None or not isinstance(pools.get(candidate.show), (*BUILT_IN_TYPES, PoolConfig)):
                 built_in = None
             elif candidate.show in BUILT_IN:
                 built_in = built_in or candidate.show
@@ -679,6 +818,19 @@ def _check_action(where: str, action: str, file: _File, problems: list[str], cho
         problems.append(f"{where}: {action}: no mode {action[5:]}")
     elif action.startswith("toggle:") and action[7:] not in file.state:
         problems.append(f"{where}: {action}: no state or mode {action[7:]}")
+
+
+def _check_channel_buttons(file: _File, problems: list[str]) -> None:
+    """The actions of the buttons of channels that name modes and states (`mode:<id>`, `toggle:<state>`)."""
+    for name, channel in file.channel.items():
+        for button in ("select", "rec", "solo"):
+            table = (channel.model_extra or {}).get(button)
+            if not isinstance(table, Mapping):
+                continue
+            for part in ("press", "hold"):
+                action = table.get(part)
+                if isinstance(action, str) and (action == "cycle_modes" or action.startswith(("mode:", "toggle:"))):
+                    _check_action(f"channel.{name}.{button}.{part}", action, file, problems)
 
 
 def _parse_controls(
@@ -770,8 +922,22 @@ def _condition(where: str, text: str, problems: list[str]) -> Condition | None:
     try:
         return parse(text.strip())
     except ExpressionError as e:
-        problems.append(f"{where}: {e} (at {e.position + 1})")
+        problems.append(f"{where}: {e} (at {e.position + 1}){_in_a_row(e, text)}")
         return None
+
+
+def _undefined(name: str, known: Iterable[str]) -> str:
+    """What to say about a channel or pool that does not exist: a typo, or one that is still to be defined."""
+    known = list(known)
+    return _did_you_mean(name, known) or f" (a channel is defined in [channel.{name}])"
+
+
+def _in_a_row(error: ExpressionError, text: str) -> str:
+    """The hint for two names side by side (`in call`): ids have no spaces, `and` and `or` join conditions."""
+    token = text[error.position :].split(maxsplit=1)[0] if text[error.position :].strip() else ""
+    if token.isidentifier() and token not in ("and", "or", "not", "if", "present"):
+        return ": two names in a row. An id has no spaces (`in_call`), and `and` or `or` joins two conditions"
+    return ""
 
 
 def _did_you_mean(name: str, known: Iterable[str]) -> str:

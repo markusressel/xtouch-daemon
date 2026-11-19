@@ -8,17 +8,19 @@ from dataclasses import dataclass
 from typing import Any
 
 from xtouch_daemon.config.slots import CHANNEL_ONLY
-from xtouch_daemon.gui.domain.schema import Option, option, options, strip_options
+from xtouch_daemon.gui.domain.schema import Option, look_options, option, options, strip_options
 from xtouch_daemon.slots.model import (
     APPS,
     AUTO,
     DEVICES,
     PEOPLE,
+    PEOPLE_POOL_OPTIONS,
     AppsConfig,
     AutoConfig,
     ChannelConfig,
     DevicesConfig,
     PeopleConfig,
+    place_options,
 )
 
 
@@ -46,11 +48,6 @@ CHANNEL_TYPES = {
 }
 """The types of channels, in the order the page offers them."""
 
-NOT_ON_PEOPLE = frozenset({"label", "person"})
-"""What the strips of people have no use for: they show the name of the person, who is who it is."""
-NOT_ON_DEVICES = frozenset({"device", "choices", "profiles", "label"})
-"""What the strips of devices of `devices` have no use for: each is its own device, with its own name."""
-
 
 def channel_options(channel_type: str) -> tuple[Option, ...]:
     """The options of a channel of the type: its strip's, then those about slots (`tags`, `in_pool`, ...)."""
@@ -66,12 +63,10 @@ def pool_options(pool: str) -> tuple[Option, ...]:
     only that).
     """
     if pool == PEOPLE:
-        look = tuple(each for each in strip_options("voip") if each.name not in NOT_ON_PEOPLE)
-        return (*options(PeopleConfig), *look)
+        return (*options(PeopleConfig), *look_options("voip", PEOPLE_POOL_OPTIONS))
     if pool == DEVICES:
-        look = tuple(each for each in strip_options("output") if each.name not in NOT_ON_DEVICES)
-        return (*options(DevicesConfig), *look)
-    return (*options(AppsConfig if pool == APPS else AutoConfig), *strip_options("auto"))
+        return (*options(DevicesConfig), *look_options("output", place_options(DEVICES)))
+    return (*options(AppsConfig if pool == APPS else AutoConfig), *look_options("auto", place_options(pool)))
 
 
 BUILT_IN_POOLS = (

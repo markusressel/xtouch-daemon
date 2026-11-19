@@ -11,9 +11,10 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend, output, source, stream
-from tests.support.daemon import QUIET, Notifications, until
+from tests.support.daemon import QUIET, Notifications
 from tests.support.hardware import RecordingSurface
 from tests.support.tasks import settle
+from tests.support.waiting import until
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
@@ -25,9 +26,9 @@ from xtouch_daemon.live.messages import (
     SlotView,
     StateView,
     VoipState,
-    fingerprint,
 )
 from xtouch_daemon.runtime import daemon as daemon_module
+from xtouch_daemon.runtime import rig as rig_module
 from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.runtime.daemon import Daemon
 from xtouch_daemon.runtime.slots import SlotEngine
@@ -92,7 +93,8 @@ class Processes:
 
 @pytest.fixture(autouse=True)
 def fast(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(daemon_module, "SLOTS_BATCH", 0.002)
+    monkeypatch.setattr(rig_module, "BATCH", 0.002)
+    monkeypatch.setattr(rig_module, "PROCESS_INTERVAL", 0.002)
     monkeypatch.setattr(daemon_module, "PROCESS_INTERVAL", 0.002)
 
 
@@ -267,17 +269,13 @@ async def test_the_slots_wait_for_the_sound_server(tmp_path: Path, surface: Reco
     path.write_text(SLOTS)
     daemon = make(path, surface, Processes(), states=())
     steps: list[int] = []
-    daemon._step_slots = lambda: steps.append(1)  # type: ignore[method-assign]
+    daemon.step = lambda: steps.append(1)  # type: ignore[method-assign]
     task = asyncio.create_task(daemon.run())
-    daemon._wake_slots()
+    daemon.wake_slots()
     await asyncio.sleep(0.05)
     assert steps == []
     task.cancel()
     await settle()
-
-
-def test_the_fingerprint_tells_configurations_of_slots_apart() -> None:
-    assert fingerprint(parse_config(SLOTS)) != fingerprint(parse_config(SLOTS.replace("mygame", "othergame")))
 
 
 async def test_the_processes_are_scanned_every_few_seconds(

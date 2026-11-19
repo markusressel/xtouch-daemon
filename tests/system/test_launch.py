@@ -72,8 +72,8 @@ def test_a_start_that_fails_is_a_warning(caplog: pytest.LogCaptureFixture):
     assert "Strip 1: can't launch mumble: [Errno 13] Permission denied" in caplog.text
 
 
-def test_the_default_spawn_is_used_late():
-    # the tests replace it (conftest.no_launches): nothing starts for real
+def test_the_spawn_is_looked_up_at_launch_so_tests_launch_nothing():
+    # the tests replace it (conftest.no_launches) after the Launcher was made: nothing starts for real
     with pytest.raises(AssertionError, match="a test would launch"):
         Launcher(which=lambda program: program, user_manager=lambda: False).launch(("true",), "Strip 1")
 

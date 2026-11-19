@@ -50,6 +50,8 @@ class PartDrawing(QWidget):
         crop = CROPS[part]
         self.scale = min(SIZE[0] / crop.width(), SIZE[1] / crop.height())
         self.blink = True
+        self.now = 0.0
+        """The demos tell levels that stay: no time passes for them."""
         self.view = StripView(self, 0)
         self.view.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.view.setFocusPolicy(Qt.FocusPolicy.NoFocus)

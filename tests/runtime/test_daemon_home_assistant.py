@@ -9,9 +9,10 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend
-from tests.support.daemon import HOME_ASSISTANT, QUIET, STATE, Notifications, make, make_with_mqtt, until
+from tests.support.daemon import HOME_ASSISTANT, QUIET, STATE, Notifications, make, make_with_mqtt
 from tests.support.hardware import RecordingSurface
 from tests.support.mqtt import FakeBroker
+from tests.support.waiting import until
 from xtouch_daemon import __version__
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.live.codec import decode

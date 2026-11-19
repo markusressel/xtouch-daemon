@@ -7,14 +7,12 @@ import html
 import re
 from collections.abc import Callable, Mapping
 
-from PyQt6.QtCore import QSize, QStringListModel, Qt
-from PyQt6.QtGui import QAction, QPainter, QPaintEvent
+from PyQt6.QtCore import QPointF, QSize, Qt
+from PyQt6.QtGui import QBrush, QColor, QIcon, QPainter, QPaintEvent, QPen, QPixmap
 from PyQt6.QtWidgets import (
-    QCompleter,
+    QAbstractSpinBox,
     QLabel,
     QLayout,
-    QLineEdit,
-    QMenu,
     QToolButton,
     QWidget,
 )
@@ -24,7 +22,7 @@ from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions
 from xtouch_daemon.gui.domain.status import Status
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
-from xtouch_daemon.gui.qt.theme.tokens import Entity, Radius
+from xtouch_daemon.gui.qt.theme.tokens import Entity, Radius, Space
 
 type Suggest = Callable[[], tuple[Suggestion, ...]]
 """What the sound server has now for an option, asked for every time it is needed."""
@@ -44,6 +42,17 @@ CHIP_HEIGHT = 2 * Radius.PILL
 
 LABEL_WIDTH = 144
 """The width of the names of the options, so the fields line up (on the 8 px grid)."""
+
+
+def indent_text(spin: QAbstractSpinBox) -> QAbstractSpinBox:
+    """
+    A spin box with its text where the other fields have theirs: the style sheet's padding does not reach the line
+    edit in it, which would draw the text at the border.
+    """
+    edit = spin.lineEdit()
+    if edit is not None:
+        edit.setTextMargins(Space.S, 0, 0, 0)
+    return spin
 
 
 def label(text: str, role: str = "", wrap: bool = False) -> QLabel:
@@ -179,13 +188,44 @@ def help_text(text: str) -> str:
 LEARN_MORE = "Learn more"
 
 
-def help_html(text: str, link: str | None = None) -> str:
-    """Help from a docstring, and a link to where the documentation explains more."""
-    more = f'<a href="{html.escape(link)}">{LEARN_MORE}</a>' if link else ""
-    return " ".join(part for part in (help_text(text), more) if part)
+CHIP_SHARE = 0.14
+"""How much of the text color the background of a value in help has, over the card: a chip in both themes."""
 
 
-def help_label(text: str, role: str, link: str | None = None) -> QLabel:
+def _chip_color() -> str:
+    """A solid color (rich text takes no transparency): the card with a little of the text over it."""
+    colors = current_colors()
+    card, text = QColor(colors.raised), QColor(colors.text)
+    mixed = QColor(
+        *(round(a + (b - a) * CHIP_SHARE) for a, b in zip(card.getRgb()[:3], text.getRgb()[:3], strict=True))
+    )
+    return mixed.name()
+
+
+def help_tail(default: str | None = None, link: str | None = None) -> str:
+    """
+    The end of a help, set apart from its text on the same line: what an unset option takes (a muted DEFAULT and the
+    value as a chip) and the link to the documentation, each kept whole where the text wraps.
+    """
+    colors = current_colors()
+    parts: list[str] = []
+    if default:
+        value = html.escape(default).replace(" ", "&nbsp;")
+        parts.append(
+            f'<span style="color: {colors.text_muted}; font-size: small; font-weight: 700">DEFAULT</span>&nbsp;'
+            f'<code style="background-color: {_chip_color()}; color: {colors.text}">&nbsp;{value}&nbsp;</code>'
+        )
+    if link:
+        parts.append(f'<a href="{html.escape(link)}">{LEARN_MORE.replace(" ", "&nbsp;")}&nbsp;↗</a>')
+    return "&emsp;".join(parts)
+
+
+def help_html(text: str, link: str | None = None, default: str | None = None) -> str:
+    """Help from a docstring, then what an unset option takes and a link to the documentation (see `help_tail`)."""
+    return "&emsp;".join(part for part in (help_text(text), help_tail(default, link)) if part)
+
+
+def help_label(text: str, role: str, link: str | None = None, default: str | None = None) -> QLabel:
     """
     A label with help from a docstring, and a link to the documentation, opened in the browser; always rich text, as
     Qt would show text without tags as it is.
@@ -193,22 +233,22 @@ def help_label(text: str, role: str, link: str | None = None) -> QLabel:
     widget = label("", role, wrap=True)
     widget.setTextFormat(Qt.TextFormat.RichText)
     widget.setOpenExternalLinks(True)
-    set_help(widget, text, link)
+    set_help(widget, text, link, default)
     return widget
 
 
 _HELP_PROPERTY = "help_source"
 
 
-def set_help(widget: QLabel, text: str, link: str | None = None) -> None:
+def set_help(widget: QLabel, text: str, link: str | None = None, default: str | None = None) -> None:
     """
     Shows help from a docstring (see `help_html`) in `widget`, and keeps it to draw it again in the colors of
     another theme (see `refresh_help`). The same help again does nothing: it would lay out the window again.
     """
-    if widget.property(_HELP_PROPERTY) == (text, link):
+    if widget.property(_HELP_PROPERTY) == (text, link, default):
         return
-    widget.setProperty(_HELP_PROPERTY, (text, link))
-    widget.setText(help_html(text, link))
+    widget.setProperty(_HELP_PROPERTY, (text, link, default))
+    widget.setText(help_html(text, link, default))
 
 
 def refresh_help(root: QWidget) -> None:
@@ -219,67 +259,42 @@ def refresh_help(root: QWidget) -> None:
             widget.setText(help_html(*source))
 
 
+DOT = 8
+"""The size of the dot of a state: filled while it is on, a ring while off."""
+
+
+def paint_dot(painter: QPainter, center: QPointF, on: bool, color: str) -> None:
+    """The dot of a state, drawn rather than a glyph: the font has none, and the fallback's sit below the middle."""
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor(color), 1.5))
+    painter.setBrush(QBrush(QColor(color)) if on else QBrush(Qt.BrushStyle.NoBrush))
+    radius = DOT / 2 - 0.75
+    painter.drawEllipse(center, radius, radius)
+    painter.restore()
+
+
+DOT_ICON = QSize(DOT + Space.XS, DOT)
+"""The size of `dot_icon`: the dot, and room before the text after it."""
+
+
+def dot_icon(on: bool, color: str, ratio: float = 2.0) -> QIcon:
+    """The dot of a state as an icon of `DOT_ICON`, e.g. before the text of a button."""
+    pixmap = QPixmap(int(DOT_ICON.width() * ratio), int(DOT_ICON.height() * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    paint_dot(painter, QPointF(DOT / 2, DOT / 2), on, color)
+    painter.end()
+    return QIcon(pixmap)
+
+
 def flat_button(icon: str, tip: str, parent: QWidget | None = None) -> QToolButton:
     button = QToolButton(parent)
     set_icon(button, icon)
     button.setToolTip(tip)
     button.setAutoRaise(True)
     set_role(button, "flat", "variant")
-    return button
-
-
-def completer(edit: QLineEdit, suggest: Suggest) -> QCompleter:
-    """Completes what the sound server has, by any part of it."""
-    model = QStringListModel(edit)
-    result = QCompleter(model, edit)
-    result.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-    result.setFilterMode(Qt.MatchFlag.MatchContains)
-    edit.setCompleter(result)
-    edit.textEdited.connect(lambda _: model.setStringList([suggestion.value for suggestion in suggest()]))
-    return result
-
-
-MENU_TIP = "Pick from what the sound server has now"
-PRESETS_MENU_TIP = "Pick a preset, or from what the sound server has now"
-
-
-def suggestion_menu(
-    parent: QWidget,
-    suggest: Suggest,
-    pick: Callable[[str], None],
-    empty: str,
-    tip: str = MENU_TIP,
-) -> QToolButton:
-    """
-    A button with a menu of what the sound server has now; picking one calls `pick` with its value. Presets come
-    first, under a heading of their own, with what they stand for as their tooltips.
-    """
-    button = flat_button("menu-down", tip, parent)
-    button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-    menu = QMenu(button)
-    menu.setToolTipsVisible(True)
-    button.setMenu(menu)
-
-    def fill() -> None:
-        menu.clear()
-        suggestions = suggest()
-        if not suggestions:
-            action = QAction(empty, menu)
-            action.setEnabled(False)
-            menu.addAction(action)
-        named = [suggestion for suggestion in suggestions if suggestion.preset]
-        others = [suggestion for suggestion in suggestions if not suggestion.preset]
-        for heading, group in (("Presets", named), ("Names", others)):
-            if named and group:
-                menu.addSection(heading)
-            for suggestion in group:
-                text = f"{suggestion.value}    {suggestion.detail}" if suggestion.detail else suggestion.value
-                action = QAction(text, menu)
-                action.setToolTip(suggestion.tip or text)
-                action.triggered.connect(lambda _=False, value=suggestion.value: pick(value))
-                menu.addAction(action)
-
-    menu.aboutToShow.connect(fill)
     return button
 
 

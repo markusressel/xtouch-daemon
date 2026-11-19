@@ -38,11 +38,11 @@ def test_the_preview_shows_the_device_live(
     assert window.device_view.preview.blink != blink
     assert not window.device_view.preview.grab().isNull()
 
-    # an edit: the device runs the file until it is saved
+    # an edit: the preview shows it in the GUI, the device runs the file until it is saved
     window.document.set(("channel", "out", "label"), "Boxes")
     window.editor.edited()
     assert window.device_view.preview.strips[0].face.live
-    assert pill(window.changes_pill) == "Unsaved changes"
+    assert pill(window.changes_pill) == "In the GUI, not saved"
     assert not window.device_view.preview.grab().isNull()
 
     # saved: the daemon takes a moment
@@ -59,10 +59,10 @@ def test_the_preview_shows_the_device_live(
     qtbot.waitUntil(lambda: pill(window.changes_pill) == "Saved, on the device")
     assert pill(window.device_view.live_pill) == "Live · not connected"
 
-    # the daemon ended: the file again
+    # the daemon ended: dark strips
     live_daemon.close()
     qtbot.waitUntil(lambda: window.live.snapshot is None)
-    assert pill(window.device_view.live_pill) == "File preview"
+    assert pill(window.device_view.live_pill) == "No live view"
     assert not window.device_view.preview.strips[0].face.live
 
 
@@ -82,5 +82,5 @@ def test_the_live_view_ends_with_the_daemon(qtbot: QtBot, make_window: MakeWindo
     window.refresh_service()
 
     assert window.live.snapshot is None
-    assert pill(window.device_view.live_pill) == "File preview"
+    assert pill(window.device_view.live_pill) == "No daemon"
     assert pill(window.changes_pill) == "Not running"

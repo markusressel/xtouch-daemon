@@ -3,10 +3,10 @@
 What the device shows: **channels** are what a strip can control (an output, a group of applications, a person),
 each strip of the device (a **slot**) has a short list of the channels it can show, and **states** (in a call,
 gaming) decide which. A slot changes only when what it shows changes; the others stay as they are. The
-[design](../development/design/channels-states-slots.md) has every detail.
+[design](../development/design/slots/index.md) has every detail.
 
-`xtouch-daemon init-config` writes a small example. `xtouch-daemon check-config` shows a table of what each slot
-shows in which states.
+[`xtouch-daemon init-config`](../reference/commands.md) writes a small example. `xtouch-daemon check-config` shows a table of what each slot
+shows in which states, and `xtouch-daemon why 3` why slot 3 shows what it shows now.
 
 ## Channels
 
@@ -50,10 +50,20 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   the right). `apps` and `people` are each of them alone. A slot without an entry is `auto`, and so is a stack whose
   candidates all don't hold.
 - `-` is nothing: the slot is dark.
-- The table form `{ show = ..., when = ..., ... }` takes options of the look at this place (`label`, `color`,
-  `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point`); on `apps` and `auto` also `encoder`, `min_volume` and
-  `max_volume`; on `people` only `color`, `meter` and `meter_point`.
-- The GUI's page Slots simulates other modes and states (Simulate), in the drawing or on the device.
+- The table form `{ show = ..., when = ..., ... }` takes options of the look at this place. The built-in pools
+  (`[pool.apps]`, `[pool.auto]`, `[pool.devices]`, `[pool.people]`) take the same for all their places.
+
+  | Candidate | Options |
+  |---|---|
+  | a channel | `color`, `lit_when_idle`, `rec`, `solo` (what their LEDs show), `meter`, `meter_point`, `label` |
+  | `apps`, `auto` | the look (not `label`), and for the applications without a channel `encoder`, `min_volume`, `max_volume` |
+  | `devices` | those of `apps`, and `select = false` |
+  | `people` | `color`, `meter`, `meter_point` |
+
+  A control for Home Assistant, or one that starts an application (`{ launch = [...] }`), is a control of the slot, not
+  a place option: [`[controls]`](#controls-and-the-chord). How to start an application with Select:
+  [Launching the application](channels/applications.md#launching-the-application).
+- The [GUI](../guides/gui.md)'s page Slots simulates other modes and states (Simulate), in the drawing or on the device.
 - `xtouch-daemon why 2` says why slot 2 shows what it shows, `xtouch-daemon why voip` where the channel is and
   why.
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
@@ -67,6 +77,87 @@ applications on its slots, `[pool.devices]` `from`, `hold`, `exclude` and the lo
 
 A pool that has no member for a slot hands it to the pool (or `-`) right below it: `["people", "apps"]` is a person,
 else an application. A slot that two pools could fill goes to the one higher in its stack.
+
+### Pools of channels
+
+A pool of your own hands out channels: the first of its list that is present gets the first of its slots, the next
+one the next, and so on. Use it for things of which only some are there at a time, e.g. several outputs:
+
+```toml
+[channel.speaker]
+type = "output"
+device = "alsa_output.pci-0000_11_00.4.analog-stereo"
+
+[channel.phones]
+type = "output"
+device = "alsa_output.usb-headset*"
+tags = ["outs"]
+
+[channel.buds]
+type = "output"
+device = "bluez_output.*"
+tags = ["outs"]
+
+[pool.outs]
+channels = ["speaker", "#outs"]   # channel ids, or "#tag" for every channel with that tag
+from = "left"                     # the side it fills its slots from (default)
+
+[slots]
+1 = "outs"
+2 = "outs"
+```
+
+- A channel of the list that a slot of its own shows (`3 = "buds"`) is not handed out by the pool.
+- Unlike `apps`, a pool of channels fills by its order every time: when an earlier channel comes back, the others
+  move on one slot. For channels that should keep their strip, give each a slot of its own
+  (`["buds if present", "auto"]`).
+- A pool of channels goes above the built-in pools in a stack: `["outs", "auto"]`, not `["auto", "outs"]`.
+- It has no look of its own: its channels bring theirs.
+
+### Pools of applications and of people
+
+`kind` makes a pool of your own hand out members instead of channels: `kind = "apps"` the applications that play and
+match, `kind = "people"` listed people of the voice chat, each on a strip of its own. Use them to split what `apps` and
+`people` hand out in one piece:
+
+```toml
+[pool.music]
+kind = "apps"
+match = ["@music"]            # parts of names or binaries, and presets, as in an `apps` channel
+exclude = ["spotify-ads"]     # optional: never these, though they match
+from = "left"                 # the side it fills its slots from (default)
+hold = 5                      # seconds a slot keeps an application after it stopped (default)
+color = "green"               # the look of its strips
+
+[pool.friends]
+kind = "people"
+people = ["Alice", "Bob"]     # names in the voice chat; this is their order
+from = "right"                # the default of a pool of people
+talking_color = "green"
+
+[slots]
+5 = ["music", "apps"]         # a music player if one plays, else the next other application
+6 = "apps"
+7 = ["friends", "people"]     # Alice and Bob first, then anyone else in the call
+```
+
+| Option | `kind = "apps"` | `kind = "people"` |
+|---|---|---|
+| `match` | Required. | Not allowed. |
+| `exclude` | Optional. | Not allowed. |
+| `people` | Not allowed. | Required: names as in `person` of a channel, ignoring case. |
+| `from` | `left` | `right` |
+| `hold` | Seconds, default 5. | Not allowed: people stay `absent_after` seconds, as in `people`. |
+| Look | `color`, `meter`, `meter_point`, `rec`, `solo`, `lit_when_idle`, `min_volume`, `max_volume`; no `pick` encoder. | `color`, `meter`, `meter_point`, `rec`, `solo`, `lit_when_idle`, `talking_color`. |
+
+- A pool of your own takes its members first: a music player goes to `music`, not to `apps` or `auto`. An `apps`
+  channel or a `person` channel that has a slot keeps its application or person.
+- It takes them **only while a slot names it**, in any stack. A pool that no slot names takes nothing, so a forgotten
+  `[pool.music]` can't make the players disappear from the device; `check-config` says "pool music is on no slot".
+- A member that finds no slot waits in its pool: with one slot for `friends`, Bob waits and does not fall into `people`.
+- Like `apps`, an application keeps its slot while it plays; a pool of people fills by the order of its list.
+- Several pools share a slot as candidates: `["friends", "music", "auto"]`. A pool above `auto` or another pool wins
+  a slot that both could fill; a slot a pool has no member for goes to the candidate below it.
 
 ## States and modes
 
@@ -83,8 +174,10 @@ processes = ["@steam-games"]
 ```
 
 A state is on while any of its sources is: `apps` (playing), `recording`, `voice_chat`, `processes`, `devices`,
-`channels`, `homeassistant` (a switch in Home Assistant), or `when` (a [condition](#conditions) of other states). `delay_on` and
-`delay_off` smooth it. Modes are states with `mode = true`: the one with the highest `priority` whose sources are
+`channels`, `homeassistant` (a switch in Home Assistant), or `when` (a [condition](#conditions) of other states). `delay_on`
+(default 0) and `delay_off` (default 3 seconds, 10 for a mode) smooth it: the state goes on only after its sources
+were on that long, and off only after they were off that long. A state with `when` has no delays by default (both
+0): it follows the states it names, which have theirs already; delays you give it add to theirs. Modes are states with `mode = true`: the one with the highest `priority` whose sources are
 on is the mode, else `default`. When the mode changes, the LCDs show its `label` across the strips for
 `switching.banner` seconds.
 
@@ -119,7 +212,7 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 - `not` binds closest, then `and`, then `or`: `not call and gaming or present` is `((not call) and gaming) or
   present`. Parentheses say otherwise.
 - The words are lowercase, names are those of the file (`[state.<name>]`, `[channel.<name>]`, `[pool.<name>]`), and
-  `apps`, `people` and `auto`.
+  the built-in pools `apps`, `people`, `auto` and `devices`.
 - A candidate without a condition always holds; below it, the others are never reached, except pools and `-` below
   a pool: they get the slots it has no member for.
 - Present means it has something to control: an `apps` channel while its application plays, an `output` or `input`
@@ -162,6 +255,8 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 ## Home Assistant
 
 With `[mqtt]`: `select.xtouch_mode`, a binary sensor per state (with `since`,
-`source` and `override`), an override select per state, an input switch per state with `homeassistant = true`,
+`source` and `override`), an override select per state that is no mode, an input switch per state with `homeassistant = true`,
 `binary_sensor.xtouch_<channel>_shown`, and `sensor.xtouch_slot_<n>` (what the slot shows, with `label`, `kind`, `via`
 and `reason`). See [Home Assistant](../guides/home-assistant.md).
+
+Next: [Devices](channels/devices.md), [Applications](channels/applications.md) and [People](channels/people.md) say what each channel type takes; [Presets](presets.md) the `@` names.

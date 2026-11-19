@@ -23,6 +23,17 @@ class DemoProvider(VoipProvider):
         self._people = tuple(Participant(str(number), name) for number, name in enumerate(names, start=1))
         self.update(self._people)
 
+    def set_people(self, names: tuple[str, ...]) -> None:
+        """Another set of people (the volume and mute of those who stay are kept)."""
+        before = {person.name: person for person in self._people}
+        self._people = tuple(
+            dataclasses.replace(Participant(str(number), name), volume=kept.volume, muted=kept.muted)
+            if (kept := before.get(name)) is not None
+            else Participant(str(number), name)
+            for number, name in enumerate(names, start=1)
+        )
+        self.update(self._people)
+
     def tick(self, now: float) -> None:
         """The state at `now` (seconds): who talks (one after the other, then a pause), and how loud."""
         turn = int(now / TURN) % (len(self._people) + 1)

@@ -60,7 +60,7 @@ def test_the_plugin_goes_to_the_mumble_that_is_installed(machine: Path, monkeypa
     assert mumble.target_dir() == mumble.plugin_dirs()[0]
 
 
-def test_what_there_is(machine: Path, monkeypatch: pytest.MonkeyPatch):
+def test_the_setup_tells_what_there_is_to_build_and_install(machine: Path, monkeypatch: pytest.MonkeyPatch):
     assert mumble.setup() == mumble.Setup(bundle=None, buildable=False, installed=None, mumble=False)
     assert not mumble.setup().installable
     touch(machine / "src" / "CMakeLists.txt")
@@ -89,7 +89,7 @@ class Runs(list[list[str]]):
         return subprocess.CompletedProcess(command, self.returncode, "", self.output)
 
 
-def test_build(machine: Path, monkeypatch: pytest.MonkeyPatch):
+def test_a_build_needs_the_sources_and_says_why_it_failed(machine: Path, monkeypatch: pytest.MonkeyPatch):
     with pytest.raises(mumble.MumbleError, match="needs its sources"):
         mumble.build()
     touch(machine / "src" / "CMakeLists.txt")
@@ -121,7 +121,7 @@ def bundle_at(path: Path, library: bytes | None = b"plugin") -> Path:
     return path
 
 
-def test_install(machine: Path, monkeypatch: pytest.MonkeyPatch):
+def test_install_copies_the_library_and_builds_first_without_a_bundle(machine: Path, monkeypatch: pytest.MonkeyPatch):
     bundle_at(machine / "usr" / "share" / "xtouch-daemon" / mumble.BUNDLE_NAME, b"v1")
     with pytest.raises(mumble.MumbleError, match="Mumble is not installed"):
         mumble.install()

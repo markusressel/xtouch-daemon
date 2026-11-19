@@ -10,10 +10,11 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend
-from tests.support.daemon import HOME_ASSISTANT, QUIET, SPEAKER, STATE, Notifications, make_with_mqtt, until
+from tests.support.daemon import HOME_ASSISTANT, QUIET, SPEAKER, STATE, Notifications, make_with_mqtt
 from tests.support.hardware import RecordingSurface
 from tests.support.mqtt import FakeBroker
 from tests.support.tasks import settle
+from tests.support.waiting import until
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware.protocol import Color
 from xtouch_daemon.live.codec import decode, decode_message, encode_request
@@ -28,6 +29,7 @@ from xtouch_daemon.live.messages import (
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon
+from xtouch_daemon.slots.outcomes import Situation
 
 BOXES = SPEAKER.replace('"Speaker"', '"Boxes"')
 
@@ -150,7 +152,7 @@ async def test_another_window_takes_the_preview_over_and_the_file_returns_when_i
     daemon.on_request(second, StartPreview(SPEAKER.replace('"Speaker"', '"Desk"')))
 
     assert surface.strips[0].text == ["Desk", "50%"]
-    assert told.reasons(first) == ["another window previews now"]
+    assert told.reasons(first) == ["another window previews on the device now"]
     # the first one going away does nothing now
     daemon.on_client_closed(first)
     assert daemon.previewing
@@ -308,3 +310,29 @@ async def test_the_gui_previews_through_the_live_view_while_the_daemon_runs(
         await task
         writer.close()
     assert config_path.read_text() == HOME_ASSISTANT
+
+
+async def test_a_preview_shows_a_situation_of_the_gui_and_the_real_one_again(
+    config_path: Path, surface: RecordingSurface, backend: FakeBackend, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    daemon, _ = make_previewing(config_path, surface, backend, monkeypatch)
+    gui = object()
+    gaming = SPEAKER + "[state.gaming]\nmode = true\n"
+
+    assert daemon.on_request(gui, StartPreview(gaming, Situation("nomode", frozenset(), frozenset()))) == Reply(
+        "preview", False, "No mode nomode in the configuration."
+    )
+    assert not daemon.previewing
+    assert daemon.on_request(gui, StartPreview(gaming, Situation("gaming", frozenset(), frozenset()))) == Reply(
+        "preview", True
+    )
+    assert (slots := daemon.snapshot().slots) is not None
+    assert slots.mode == "gaming"
+    # the same configuration in the real situation: only the situation changes
+    mixer = daemon.mixer
+    assert daemon.on_request(gui, StartPreview(gaming)) == Reply("preview", True)
+    assert daemon.mixer is mixer
+    assert (slots := daemon.snapshot().slots) is not None
+    assert slots.mode == "default"
+    daemon.mixer.close()
+    await settle()

@@ -1,6 +1,6 @@
 """
 Running a configuration of channels, states and slots on the device (the prototype of
-docs/development/design/channels-states-slots.md): the `SlotEngine` feeds a `Simulation` with what the sound server, the
+docs/development/design/slots/index.md): the `SlotEngine` feeds a `Simulation` with what the sound server, the
 processes and the voice chat show, and takes the requests (a mode, an override, a pin); its result says what the
 `SlotMixer` (`runtime.binder`) puts on each strip of the device.
 """
@@ -52,8 +52,13 @@ class SlotEngine:
         state_dir: Path | None = None,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
+        logger: logging.Logger = _LOGGER,
     ):
-        """`state_dir` keeps the choices and the people (None: nowhere); `wall_clock` is the clock of the files."""
+        """
+        `state_dir` keeps the choices and the people (None: nowhere); `wall_clock` is the clock of the files; `logger`
+        is where the states and slots are logged (a twin logs elsewhere).
+        """
+        self.logger = logger
         self.config = config
         self.scene = config.slots.scene
         self.state_dir = state_dir
@@ -81,6 +86,11 @@ class SlotEngine:
         """The what-if the GUI tries on the device (see `simulate()`), None for reality."""
         self.what_if: Simulation | None = None
         """The slots of `situation` over time, next to the real ones (`simulation`), which wait meanwhile."""
+        self.fixed = False
+        """
+        Whether the mode picked and the overrides are given from elsewhere only (a virtual twin runs the situation of
+        its GUI): the requests that change them (the chord, a control, Home Assistant) are ignored.
+        """
 
     @property
     def active(self) -> Simulation:
@@ -92,7 +102,7 @@ class SlotEngine:
         Runs a situation instead of reality from the next step on (None: reality again), in a `Simulation` of its own
         that starts where the real one is: its states are overrides, its mode the one picked, what the sound server
         and the voice chat show is made for it (`Situation.observation`). Nothing of it is kept or told to Home
-        Assistant. See `docs/development/design/try-and-simulate.md`.
+        Assistant. See `docs/development/design/previews.md`.
         """
         self.situation = situation
         if situation is None:
@@ -187,11 +197,15 @@ class SlotEngine:
 
     def pick_mode(self, mode: str | None) -> None:
         """A mode by hand (`default` too), None for the rules; from the next step on."""
+        if self.fixed:
+            return
         self.simulation.engine.pick_mode(mode)
         self._keep_choices()
 
     def set_override(self, state: str, value: Override) -> None:
         """The override of a state that is no mode; from the next step on."""
+        if self.fixed:
+            return
         self.simulation.engine.set_override(state, value)
         self._keep_choices()
 
@@ -209,7 +223,9 @@ class SlotEngine:
 
     def choose_mode(self, mode: str) -> None:
         """A mode by hand (until the rules want another one)."""
-        _LOGGER.info(f"Mode {mode} (a control)")
+        if self.fixed:
+            return
+        self.logger.info(f"Mode {mode} (a control)")
         self.pick_mode(mode)
         self.on_request()
 
@@ -218,17 +234,19 @@ class SlotEngine:
         A mode: picks it, and the next time gives the choice back to the rules. A state: overrides it to the opposite
         of its value now, and the next time gives it back to its sources.
         """
+        if self.fixed:
+            return
         engine = self.simulation.engine
         if name in self.scene.modes:
             back = engine.mode_pick == name
-            _LOGGER.info(f"Mode {'auto' if back else name} (a control)")
+            self.logger.info(f"Mode {'auto' if back else name} (a control)")
             self.pick_mode(None if back else name)
         else:
             # the real value: a situation that runs doesn't change what the override does
             states = self.simulation.states
             on = states is not None and states.values.get(name, False)
             value = Override.AUTO if name in engine.overrides else Override.OFF if on else Override.ON
-            _LOGGER.info(f"State {name}: override {value} (a control)")
+            self.logger.info(f"State {name}: override {value} (a control)")
             self.set_override(name, value)
         self.on_request()
 
@@ -312,19 +330,17 @@ class SlotEngine:
         self._chosen = choices
         write_choices(self.state_dir / CHOICES_FILE_NAME, choices)
 
-    @staticmethod
-    def _log_states(before: States | None, after: States) -> None:
+    def _log_states(self, before: States | None, after: States) -> None:
         if before is None:
             on = [name for name, value in after.values.items() if value]
-            _LOGGER.info(f"States at the start: {', '.join(on) or 'none'}")
+            self.logger.info(f"States at the start: {', '.join(on) or 'none'}")
             return
         for name, value in after.values.items():
             if before.values.get(name) != value:
                 why = f" ({after.reasons[name]})" if value and after.reasons.get(name) else ""
-                _LOGGER.info(f"State {name} {'on' if value else 'off'}{why}")
+                self.logger.info(f"State {name} {'on' if value else 'off'}{why}")
 
-    @staticmethod
-    def _log_slots(before: Result | None, after: Result) -> None:
+    def _log_slots(self, before: Result | None, after: Result) -> None:
         changes = [
             f"{slot} {shown}"
             for slot, shown in after.slots.items()
@@ -332,10 +348,10 @@ class SlotEngine:
         ]
         if not changes:
             return
-        _LOGGER.info(f"Slots: {', '.join(changes)}")
+        self.logger.info(f"Slots: {', '.join(changes)}")
         for slot in after.slots:
             if before is None or str(before.slots[slot]) != str(after.slots[slot]):
-                _LOGGER.debug(f"Slot {slot}: {'; '.join(after.why[slot])}")
+                self.logger.debug(f"Slot {slot}: {'; '.join(after.why[slot])}")
 
 
 class EngineSlot:

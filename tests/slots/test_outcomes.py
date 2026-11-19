@@ -11,7 +11,7 @@ from xtouch_daemon.slots.outcomes import Outcome, dimensions, outcomes, states_f
 
 
 def test_the_table_in_the_design_is_the_one_of_its_example():
-    text = (DOCS / "development" / "design" / "channels-states-slots.md").read_text()
+    text = (DOCS / "development" / "design" / "slots" / "index.md").read_text()
     match = re.search(r"```\n(when .*?)```", text, re.DOTALL)
     assert match is not None
     assert match.group(1) == table(outcomes(example())) + "\n"

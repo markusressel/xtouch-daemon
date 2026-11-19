@@ -5,7 +5,6 @@ it, rendered offscreen. Nothing of the machine is used: no daemon, device, sound
     uv run --extra gui python scripts/screenshot.py [OUT_DIR]
 """
 
-import dataclasses
 import os
 import sys
 import tempfile
@@ -105,7 +104,6 @@ def shoot(home: Path, out: Path) -> None:
     from PyQt6.QtWidgets import QApplication
 
     from xtouch_daemon.audio.model import AudioState, Card, Device, Direction, Profile, Stream
-    from xtouch_daemon.gui.domain.simulate import WhatIf, simulated
     from xtouch_daemon.gui.domain.slots_document import SlotsDocument
     from xtouch_daemon.gui.qt.theme.style import apply_theme
     from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
@@ -115,11 +113,13 @@ def shoot(home: Path, out: Path) -> None:
         FEATURES,
         MqttState,
         SlotsState,
+        SlotView,
         Snapshot,
         StateView,
         StripState,
         fingerprint,
     )
+    from xtouch_daemon.slots.outcomes import simulate
     from xtouch_daemon.system.instance import Instance
     from xtouch_daemon.system.systemd import Service
 
@@ -194,9 +194,17 @@ def shoot(home: Path, out: Path) -> None:
     assert saved is not None
     mqtt = MqttState("homeassistant.local:1883", "xtouch", connected=True, ready=True, error=None, entities=6)
     # gaming is on (strip 4 shows the games, none of which plays), as the rules found it; Spotify plays on `auto`
-    resolved = simulated(saved.slots, WhatIf(mode="gaming", apps=1))
+    resolved = simulate(saved.slots.scene, "gaming", (), (), apps=1)
     views = tuple(
-        dataclasses.replace(view, member="app:Spotify") if view.member is not None else view for view in resolved.slots
+        SlotView(
+            slot,
+            shown.candidate,
+            shown.channel,
+            shown.pool,
+            "app:Spotify" if shown.member is not None else None,
+            resolved.why[slot],
+        )
+        for slot, shown in resolved.slots.items()
     )
     gaming = StateView("gaming", True, True, None, "a Steam game runs", "auto")
     slots = SlotsState(mode="gaming", mode_pick=None, slots=views, states=(gaming,), waiting={})

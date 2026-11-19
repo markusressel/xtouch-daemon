@@ -1,5 +1,5 @@
 """
-A configuration of channels, states and slots (the prototype of docs/development/design/channels-states-slots.md) on the
+A configuration of channels, states and slots (the prototype of docs/development/design/slots/index.md) on the
 device: the strips each slot can show, built from the channels, pools and the options of the candidates as strips of
 today's types and checked when the file is loaded (see `runtime.binder` for how they show).
 """
@@ -124,7 +124,10 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 elif candidate.show == DEVICES:
                     # the devices on its slots: an output strip until a device comes (see `SlotsSetup.device()`)
                     add((slot, index, None), where, {"type": "output"} | look | own)
-                elif candidate.show == PEOPLE:
+                elif candidate.show in scene.apps_pools:
+                    # a pool of applications of your own: they act as `apps` channels do, with no pick
+                    add((slot, index, None), where, {"type": "auto", "encoder": "media"} | look | own)
+                elif candidate.show == PEOPLE or candidate.show in scene.people_pools:
                     # the people on its slots: the look of [pool.people] and of the place (their names are theirs)
                     add((slot, index, None), where, {"type": "voip"} | look | own | {"person": "someone"})
                 else:
@@ -139,7 +142,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 )
                 for member in members:
                     add((slot, index, member), f"{where} ({member})", look | channel_strip(member))
-                if candidate.show in (PEOPLE, AUTO):
+                if candidate.show in (PEOPLE, AUTO, *scene.people_pools):
                     # the person channels among the people, as themselves
                     for member in (name for name, channel in scene.channels.items() if channel.type == "person"):
                         add((slot, index, member), f"{where} ({member})", channel_strip(member))

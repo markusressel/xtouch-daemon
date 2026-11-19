@@ -50,7 +50,10 @@ class StackList(QListWidget):
         super().__init__()
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        # as high as its rows (see `grow_to`) and as wide as the widest (see `fill`): a scroll bar would cover a row,
+        # the column of the cards scrolls instead
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         # picked on a tint: the chips of its row keep their colors; no frame of its own, the card is the frame
         set_role(self, "stack")
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -148,6 +151,7 @@ class StackList(QListWidget):
             self.addItem(item)
         rows_height = sum(self.sizeHintForRow(index) for index in range(self.count()))
         self.grow_to(rows_height)
+        self.setMinimumWidth(self.sizeHintForColumn(0) + 2 * self.frameWidth())
 
 
 RAIL = 24
@@ -200,7 +204,10 @@ class CandidateRow(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         x = RAIL / 2
-        node = self.line.geometry().center().y()
+        # the middle of the rule, below the margin the first one has at its top
+        line = self.line.geometry()
+        top = self.rule.contentsMargins().top()
+        node = line.top() + top + (line.height() - top) / 2
         painter.setPen(QPen(QColor(colors.control_border), 2))
         painter.drawLine(
             QPointF(x, 0 if not self.first else node), QPointF(x, self.height() if not self.last else node)

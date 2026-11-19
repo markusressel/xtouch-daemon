@@ -196,11 +196,20 @@ class EncoderLink:
 class HomeAssistantControls:
     """
     The fader and/or the encoder of an audio strip in Home Assistant (`fader`/`encoder = "homeassistant"`), with an
-    event entity for the touches of the fader and the push of the encoder. `on_change` is called when Home Assistant
-    changes them.
+    event entity for the touches of the fader, the push of the encoder and the presses of `buttons` (those with
+    `press = "homeassistant"`). `on_change` is called when Home Assistant changes them.
     """
 
-    def __init__(self, strip: Strip, env: StripEnv, bridge: MqttBridge, identity: Identity, fader: bool, encoder: bool):
+    def __init__(
+        self,
+        strip: Strip,
+        env: StripEnv,
+        bridge: MqttBridge,
+        identity: Identity,
+        fader: bool,
+        encoder: bool,
+        buttons: tuple[str, ...] = (),
+    ):
         self.bridge = bridge
         self.on_change: Callable[[], None] = lambda: None
         entities = StripEntities(bridge, identity)
@@ -209,6 +218,7 @@ class HomeAssistantControls:
         event_types = [
             *(["fader_touched", "fader_released"] if fader else []),
             *(["encoder_pressed", "encoder_released"] if encoder else []),
+            *(f"{button}_{action}" for button in buttons for action in ("pressed", "released")),
         ]
         self.events = entities.events(event_types)
         self.numbers = [link.entity for link in (self.fader, self.encoder) if link is not None]

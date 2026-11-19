@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QListWidgetItem
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import click, row, type_into
+from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, Snapshot, StateView
 
@@ -23,7 +24,7 @@ def test_states_are_shown_edited_added_and_removed(qtbot: QtBot, window: MainWin
     assert page.selection == "call"
     assert [item.text() for item in items(window)] == ["call\nstate"]
     assert (page.title.text(), page.id_edit.text()) == ("State", "call")
-    assert page.used.text() == "Used by: slot 2"
+    assert page.used.strips.slots == {2}
     assert page.live.text() == "No daemon runs these states right now."
     assert not any(segment.isVisible() for segment in page.override_buttons.values())
     assert row(window, "voice_chat", "states").switch.isChecked()
@@ -38,7 +39,7 @@ def test_states_are_shown_edited_added_and_removed(qtbot: QtBot, window: MainWin
     assert page.title.text() == "Mode"
     # modes first
     assert [item.text().split("\n")[0] for item in items(window)] == ["mode", "call"]
-    assert page.used.text() == "No slot or control asks about it yet."
+    assert page.used.rest.text() == "No slot or control asks about it yet."
     menu.actions()[1].trigger()
     assert page.selection == "state"
     assert window.document.get(("state", "state")) == {}
@@ -98,7 +99,10 @@ def test_the_daemon_tells_the_values_and_takes_overrides(window: MainWindow):
     page.show_live(snapshot)
     assert page.live.text() == "on since 21:04 (mumble runs), override on"
     assert page.override_buttons["on"].isChecked()
-    assert [item.text() for item in items(window)] == ["gaming  ○\nmode", "call  ●\nstate"]
+    assert [(item.text(), item.data(DOT_ROLE)) for item in items(window)] == [
+        ("gaming\nmode", False),
+        ("call\nstate", True),
+    ]
     page.override_buttons["auto"].click()
     assert sent == [SetOverride("call", "auto")]
 

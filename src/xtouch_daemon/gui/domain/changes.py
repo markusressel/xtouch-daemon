@@ -1,6 +1,6 @@
 """
-What an edit changed in the document, so that each view of the GUI updates only what it shows of it (see the GUI
-section of docs/development/architecture.md).
+What an edit changed in the document, so that each view of the GUI updates only what it shows of it (see
+docs/development/architecture/gui.md).
 """
 
 from dataclasses import dataclass

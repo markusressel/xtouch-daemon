@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
@@ -12,6 +12,7 @@ from haad_mqtt_autodiscovery.entity.switch import MQTTSwitch
 
 from tests.support.mqtt import FakeBroker
 from tests.support.tasks import finish_tasks, settle
+from tests.support.waiting import until
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.sections import MqttConfig
@@ -19,14 +20,6 @@ from xtouch_daemon.mqtt import MqttBridge
 
 CONFIG = MqttConfig(host="broker", username="xtouch", password="secret")  # type: ignore[arg-type]
 AVAILABILITY = "xtouch-daemon/xtouch/availability"
-
-
-async def until(condition: Callable[[], bool]) -> None:
-    for _ in range(200):
-        if condition():
-            return
-        await asyncio.sleep(0.002)
-    raise AssertionError("the condition never became true")
 
 
 def number(identifier: str = "strip_1_fader") -> MQTTNumber:

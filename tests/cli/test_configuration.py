@@ -28,6 +28,25 @@ def test_check_config_shows_the_channels_and_the_slots(config_file: Path) -> Non
     ]
 
 
+def test_check_config_describes_the_channels(tmp_path: Path) -> None:
+    path = tmp_path / "flow.toml"
+    path.write_text(
+        '[channel.out]\ntype = "output"\nchoices = [{ label = "Phones", device = "a" },'
+        ' { label = "Speaker", device = "b" }, { device = "bluez_output.*" }]\n'
+        '[channel.buds]\ntype = "output"\ndevice = "bluez_output.*"\n'
+        '[channel.video]\ntype = "apps"\nmatch = ["@video", "netflix"]\nlabel = "Video"\n'
+        '[slots]\n1 = "out"\n2 = "buds if present"\n3 = "video"\n'
+    )
+    lines = invoke("check-config", "-c", str(path)).output.splitlines()
+    assert lines[1] == "Channels:"
+    assert lines[2].startswith("  out: output: Phones, Speaker or bluez_output.* (Select switches) (white, rec: ")
+    assert lines[3].startswith("  buds: output bluez_output.*, select makes it the default (white, rec: recording")
+    assert lines[4].startswith(
+        "  video: 'Video' applications @video (vlc, mpv, celluloid, totem, kodi, haruna, clapper, mplayer), netflix ("
+    )
+    assert "What the slots show:" in lines
+
+
 def test_check_config_of_a_file_without_channels(tmp_path: Path) -> None:
     path = tmp_path / "empty.toml"
     path.write_text("")

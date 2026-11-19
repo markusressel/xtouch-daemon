@@ -1,5 +1,15 @@
 # TODO
 
+## `xtouch-daemon test`: the device answers its inputs
+
+After the sweep `xtouch-daemon test` only logs what happens on the device, which stays dark, and it needs the daemon
+stopped. Extend it: after the sweep every strip answers its own controls, so each output of the device and each of
+its values can be shown by hand. The meter follows the fader, the buttons step their LEDs through off, on and
+flashing, the encoder steps the ring position, the ring mode, the LCD color and the motor fader, and the LCD names
+the strip and the last input. The daemon can run the same test, started from the GUI (a button next to Play and Try)
+or by the command, so the GUI draws its twin of the device next to it. Design:
+[`docs/development/design/interactive-test.md`](docs/development/design/interactive-test.md).
+
 ## GUI: notice changes of the configuration file on disk
 
 The GUI reads the file once when it opens and never again. If the file changes while the GUI is open (an editor, a
@@ -22,8 +32,8 @@ before. Two possible causes, not checked yet:
 
 - Ours: gaming builds a new mixer (the prototype of slots), so the strip is new and has forgotten its volume
   (`AppGroupStrip.group_volume`); until the game has a stream the fader is down ("idle"), then it shows the volume
-  the stream starts with. Step 5 of `docs/development/design/channels-states-slots.md` keeps one controller per channel for as
-  long as the configuration, which fixes this within a run.
+  the stream starts with. Step 5 of the slots (`docs/development/history/slots.md`) keeps one controller per channel
+  for as long as the configuration, which fixes this within a run.
 - PipeWire's: WirePlumber restores the volume of a stream by its properties (mostly `application.name`). Games under
   Proton/Wine often have a generic or changing name, so nothing is restored.
 

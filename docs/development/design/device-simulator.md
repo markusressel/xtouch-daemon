@@ -1,8 +1,6 @@
-# A simulated device
+# Design: a simulated device
 
-Status: built (2026-11-17). Extended 2026-11-18: Select and Play above the drawing, Play also on the device of a
-running daemon (the live-view request `play`), and "Try without a device", which starts a daemon with the virtual
-device from the GUI (see the decisions below).
+Status: built (2026-11-17), extended 2026-11-18 (see [Decisions](#decisions)).
 
 ## Why
 
@@ -39,12 +37,11 @@ doesn't work in CI. A transport of our own is simpler and testable.
 
 ### 1. A transport seam in `Surface`
 
-Today `Surface.open()` finds the card in `/proc/asound/cards` and opens `/dev/snd/midiC<card>D0` as `RawMidi`.
-
 - `hardware/transport.py`: a `Transport` protocol with what `Surface` uses of `RawMidi` (`write`, `drain`, `close`,
   `is_open`; data and the end come through the callbacks `on_data` and `on_closed`). `RawMidi` is one.
-- A `Port` finds and opens a transport, `LookupError` when there is no device (as today):
-  - `AlsaPort(device_name, proc_asound_cards, dev_snd)`: today's code, moved out of `Surface.open()`.
+- A `Port` finds and opens a transport, `LookupError` when there is no device:
+  - `AlsaPort(device_name, proc_asound_cards, dev_snd)`: finds the card in `/proc/asound/cards` and opens
+    `/dev/snd/midiC<card>D0` as `RawMidi`.
   - `SocketPort(path)`: connects to the simulator's Unix socket. No simulator running is "not connected", so
     `Surface.run()` waits and connects when it starts, and a closed simulator is an unplugged device: the reconnect
     path gets used.
@@ -82,7 +79,7 @@ State per strip:
   touched; a motor move sends nothing back (the real device doesn't either).
 - The encoder: pressed or not.
 
-Input (what a hand does), each returning the bytes the device sends:
+Input (what a hand does), each giving the bytes the device sends:
 
 - `touch(strip, touched)`, `move(strip, fraction)`: a move while not touched follows the real device: with
   `touch_delay` (default 0.07 s) the touch comes after the first moves, as with a quick hand.
@@ -125,7 +122,9 @@ again, so a daemon restart sees the faders where they were, as on the real devic
   of the device takes the mouse, sent to the hosted device as a hand:
   - a fader: press = touch, drag = moves, release = let go; Alt-drag moves it without a touch;
   - the buttons: click (press and release), held while the mouse is down;
-  - the encoder: the wheel turns it, a click pushes it;
+  - the encoder: the wheel or a drag on the knob turns it (up or right is clockwise), a click pushes it, holding
+    holds it down, and holding on an LED of the ring turns it until the ring lights that LED
+    (`gui/qt/preview/encoder_hand.py`);
   - a toolbar: plug in / unplug, switch off and on, broken touch per fader.
 
   What it paints still comes from the live view (the daemon's mirror), which is the hosted device's state once it got
@@ -140,29 +139,14 @@ again, so a daemon restart sees the faders where they were, as on the real devic
 
 What the simulator does is either verified on the device (it says so in [Hardware](../../reference/hardware.md)) or an
 assumption; the assumptions are listed in the module's docstring and in the docs: the speed of the motor, the fall
-of the meters, the delay of the touch, the moves after switching on. A test against the real device later replaces
-assumptions with measurements.
+of the meters, the delay of the touch, the moves after switching on. [The interactive test](interactive-test.md) is meant to replace
+assumptions with comparisons on the device.
 
-## The order of the work
+## Decisions
 
-Each step is a commit with its tests, docs and CHANGELOG entry; the daemon works after each.
-
-1. **Protocol** (done): the decoders of the messages to the device and the encoders of those from it.
-2. **Model** (done): `SimulatedDevice` with its state, the input, the motor and meter over time, and the faults.
-3. **Transport** (done): `Port`, `AlsaPort`, `SocketPort`; `Surface(port=...)`; `[device] virtual`, `run --virtual-device`;
-   the in-memory transport and the test fixture; end-to-end tests of the `Surface`.
-4. **Mirror** (done): the `Surface` feeds its `SimulatedDevice`, `strip_states()` reads it; the GUI's drawing shows it.
-5. **Server and CLI** (done): `simulator/server.py`, `xtouch-daemon virtual-device`; a test of the daemon against the
-   server over a real socket (connect, unplug, reconnect, a second client refused).
-6. **GUI** (done): hosting the virtual device, the mouse on the drawing, the toolbar, the offer in the pill; GUI tests.
-7. **Docs** (done): "Without a device" in Getting started, the simulator in Hardware (what is verified, what is assumed),
-   GUI, Commands, Configuration (`[device] virtual`), the architecture page.
-
-## Decisions (2026-11-17)
-
-- The CLI command is `xtouch-daemon virtual-device`, the option `[device] virtual = true`, and
+- (2026-11-17) The CLI command is `xtouch-daemon virtual-device`, the option `[device] virtual = true`, and
   `xtouch-daemon run --virtual-device` overrides it.
-- The GUI offers the virtual device but doesn't start it: while the daemon waits for a device that isn't connected,
+- (2026-11-17) The GUI offers the virtual device but doesn't start it: while the daemon waits for a device that isn't connected,
   the pill "X-Touch-Ext not connected" has "Open the virtual device". Nothing starts without a click.
 - (2026-11-18) The mouse on the drawing is a hand only in Play; Select (the default) picks and moves slots. Play also
   works on the device of a running daemon through the live view (`live.Play`, `Surface.play()`), so the GUI is a

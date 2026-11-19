@@ -4,6 +4,7 @@ the mouse and keys on it.
 """
 
 import dataclasses
+from collections.abc import Callable
 from itertools import pairwise
 from math import cos, radians, sin
 from typing import TYPE_CHECKING, Protocol
@@ -34,6 +35,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 
 from xtouch_daemon.gui.domain.looks import UNKNOWN, StripFace, StripLook, meter_leds, ring_leds
+from xtouch_daemon.gui.qt.preview.encoder_hand import EncoderHand
 from xtouch_daemon.gui.qt.preview.geometry import (
     BODY,
     CAP_AREA,
@@ -42,6 +44,7 @@ from xtouch_daemon.gui.qt.preview.geometry import (
     ENCODER,
     HEIGHT,
     KIND,
+    KNOB_RADIUS,
     LCD,
     LCD_CELLS,
     LED_GLOW,
@@ -84,6 +87,7 @@ from xtouch_daemon.gui.qt.theme.style import current_colors, current_mode
 from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.live.messages import fader_now, meter_now
 
 if TYPE_CHECKING:
     from xtouch_daemon.gui.qt.preview.panel import Hand
@@ -123,6 +127,8 @@ class StripHost(Protocol):
     """Pixels (at the zoom of the window) per logical unit of the strip."""
     blink: bool
     """Whether flashing LEDs are lit right now."""
+    now: float
+    """The time the strip is drawn at (`time.monotonic()`): meters fall and faders glide from what they were told."""
 
     @property
     def hand(self) -> Hand | None:
@@ -165,6 +171,13 @@ class StripView(QWidget):
         self.picture: _Picture | None = None
         """The picture of the whole strip: the one of what it shows, with what moves over it."""
         self.held: tuple[Part, bool] | None = None
+        self.encoder = EncoderHand(
+            self,
+            turn=lambda steps: self._hand_does(lambda hand: hand.turn(self.index, steps)),
+            push=lambda pressed: self._hand_does(lambda hand: hand.push(self.index, pressed)),
+            position=lambda: self.face.state.ring,
+        )
+        """The mouse on the encoder, while the window is a hand on the device."""
         """The part the mouse holds on a device it is a hand on, and whether a hand does it (no Alt), None for none."""
         self.lifted = False
         """Whether it is being dragged."""
@@ -172,6 +185,8 @@ class StripView(QWidget):
         """Where the mouse holds the fader in Play (0..1), drawn there until it is let go; None while it doesn't."""
         self._press: QPoint | None = None
         """Where the mouse was pressed, to tell a drag from a click."""
+        self.moving_drawn: object = None
+        """What moves by itself (see `_moving_key()`) as the strip was drawn last."""
 
     @property
     def look(self) -> StripLook:
@@ -211,13 +226,16 @@ class StripView(QWidget):
         Everything the picture of what the strip shows depends on: all but the meter, the ring and the fader, which
         change all the time (the live view tells them 20 times a second) and are put over it from small pictures.
         """
-        state = dataclasses.replace(self.face.state, meter=0, ring=0, ring_mode="dot", fader=None, touched=False)
+        state = dataclasses.replace(
+            self.face.state, meter=0, meter_at=None, ring=0, ring_mode="dot", fader=None, glide=None, touched=False
+        )
         return (
             self._printed_key(),
             dataclasses.replace(self.face, state=state),
             self.selected,
             self.hasFocus(),
             self.underMouse(),
+            self.playing,
             self.preview.blink,
             current_mode(),
         )
@@ -228,16 +246,23 @@ class StripView(QWidget):
         the daemon leaves it, while not known yet), and the accent around it while it is touched.
         """
         state = self.face.state
-        fader = 0.0 if state.fader is None else state.fader
+        now = self.preview.now
+        position = fader_now(state, now)
+        fader = 0.0 if position is None else position
         if self.dragged_fader is not None:
             # under the mouse at once: the device (or the daemon) tells where it is only a moment later
             fader = self.dragged_fader
         return (
             ring_leds(state.ring, state.ring_mode),
-            meter_leds(state.meter),
+            meter_leds(meter_now(state, now)),
             fader,
             current_colors().accent if state.touched or self.dragged_fader is not None else None,
         )
+
+    def follow_time(self) -> None:
+        """Drawn again if what moves by itself shows otherwise at the time of the preview now."""
+        if self._moving_key() != self.moving_drawn:
+            self.update()
 
     def _current(self, picture: _Picture | None, key: object, scale: float, ratio: float) -> bool:
         """
@@ -255,7 +280,8 @@ class StripView(QWidget):
         """
         painter = QPainter(self)
         scale, ratio = self.preview.scale, self.devicePixelRatioF()
-        key = (self._shown_key(), self._moving_key())
+        self.moving_drawn = self._moving_key()
+        key = (self._shown_key(), self.moving_drawn)
         if not self._current(self.picture, key, scale, ratio):
             self.picture = draw(key, scale, ratio, self._paint_picture)
         picture = self.picture
@@ -348,14 +374,14 @@ class StripView(QWidget):
         face = self.face
         look, state = face.look, face.state
         self._paint_outline(painter, BODY)
-        if not look.configured:
+        if not look.configured and not self.playing:
             painter.setOpacity(UNCONFIGURED_OPACITY)
         self._paint_lcd(painter)
         for row, (name, color) in enumerate(BUTTONS):
             if self._lit(state.leds[name.lower()]):
                 self._paint_key(painter, button_rect(row), color, lit=True)
         painter.setOpacity(1)
-        if self.hasFocus():
+        if self.hasFocus() and not self.playing:
             painter.setPen(QPen(QColor(current_colors().accent), 1.5, Qt.PenStyle.DotLine))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(BODY.adjusted(-2, -2, 2, 2), STRIP_RADIUS + 2, STRIP_RADIUS + 2)
@@ -370,13 +396,24 @@ class StripView(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(body, STRIP_RADIUS, STRIP_RADIUS)
 
+    @property
+    def playing(self) -> bool:
+        """
+        Play: the mouse is a hand on the device, and the strip looks like the device, without what the editor marks
+        (the selection, the focus, the hover, a strip nobody configured).
+        """
+        return self.preview.mover is None
+
     def _paint_outline(self, painter: QPainter, body: QRectF) -> None:
         """
         The outline of the strip: in the accent when it is selected or dragged, dashed when nobody tells what it shows.
+        In Play only the edge of the strip, as on the device.
         """
         painter.setBrush(Qt.BrushStyle.NoBrush)
         accent = QColor(current_colors().accent)
-        if self.selected or self.lifted:
+        if self.playing:
+            pen = QPen(QColor(HW.strip_edge), 1)
+        elif self.selected or self.lifted:
             # a soft glow around the outline, outside of the strip only
             outside = QPainterPath()
             outside.addRect(QRectF(0, 0, WIDTH, HEIGHT))
@@ -416,7 +453,7 @@ class StripView(QWidget):
         side.setColorAt(0, QColor(HW.knob_top))
         side.setColorAt(1, QColor(HW.knob_bottom))
         painter.setBrush(side)
-        painter.drawEllipse(center, 15.5, 15.5)
+        painter.drawEllipse(center, KNOB_RADIUS, KNOB_RADIUS)
         painter.setPen(QPen(QColor(0, 0, 0, 120), 1))
         for rib in range(32):
             angle = radians(rib * 360 / 32)
@@ -631,7 +668,7 @@ class StripView(QWidget):
                 hand.move(self.index, self.dragged_fader, hand=touching)
                 self.update()
             case "encoder":
-                hand.push(self.index, True)
+                self.encoder.press(point)
             case row:
                 hand.press(self.index, list(Button)[row], True)
 
@@ -646,10 +683,14 @@ class StripView(QWidget):
                 mover.start_drag(self.index, self._press.x() / self.preview.scale)
                 mover.drag_to(self.mapToParent(point).x())
             return
-        if self.preview.hand is not None and self.held is not None and self.held[0] == "fader":
+        if self.preview.hand is None or self.held is None:
+            return
+        if self.held[0] == "fader":
             self.dragged_fader = fraction_at(event.position().y() / self.preview.scale)
             self.preview.hand.move(self.index, self.dragged_fader, self.held[1])
             self.update()
+        elif self.held[0] == "encoder":
+            self.encoder.move(event.position() / self.preview.scale, DRAG_DISTANCE() / self.preview.scale)
 
     def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
         self._press = None
@@ -666,18 +707,22 @@ class StripView(QWidget):
                 self.dragged_fader = None
                 self.update()
             case "encoder":
-                hand.push(self.index, False)
+                self.encoder.release()
             case row:
                 hand.press(self.index, list(Button)[row], False)
+
+    def _hand_does(self, action: Callable[[Hand], None]) -> None:
+        # a timer of the encoder can go off after the window stopped being a hand
+        if self.preview.hand is not None:
+            action(self.preview.hand)
 
     def wheelEvent(self, event: QWheelEvent | None) -> None:
         """On a device the mouse is a hand on, the wheel turns the encoder (a notch is a step)."""
         assert event is not None
-        steps = event.angleDelta().y() // 120
-        if self.preview.hand is None or not steps:
+        if self.preview.hand is None or not event.angleDelta().y():
             event.ignore()
             return
-        self.preview.hand.turn(self.index, steps)
+        self.encoder.wheel(event.angleDelta().y())
 
     def contextMenuEvent(self, a0: QContextMenuEvent | None) -> None:
         assert a0 is not None

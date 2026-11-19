@@ -10,17 +10,31 @@ import pytest
 
 from tests.support.hardware import RecordingSurface
 from tests.support.tasks import finish_tasks
+from tests.support.waiting import until
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.live import server as server_module
-from xtouch_daemon.live.codec import decode, decode_message, decode_request, encode, encode_reply, encode_request
+from xtouch_daemon.live.codec import (
+    decode,
+    decode_message,
+    decode_request,
+    encode,
+    encode_known,
+    encode_reply,
+    encode_request,
+    encode_twin,
+)
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
+    ForgetDevice,
     KeepPreview,
+    KnownDevice,
+    KnownDevices,
     MqttState,
+    Play,
     Reply,
     Request,
     SetMode,
@@ -31,11 +45,14 @@ from xtouch_daemon.live.messages import (
     StartPreview,
     StateView,
     StripState,
+    TwinView,
     VoipState,
     fingerprint,
+    meter_now,
 )
-from xtouch_daemon.live.server import INTERVAL, MAX_BUFFER, LiveServer, peer_uid, strip_states
+from xtouch_daemon.live.server import MAX_BUFFER, LiveServer, peer_uid, strip_states
 from xtouch_daemon.simulator.device import METER_FALL
+from xtouch_daemon.slots.outcomes import Situation
 
 
 @pytest.fixture(autouse=True)
@@ -53,7 +70,7 @@ async def serve(server: LiveServer) -> asyncio.Task[None]:
     for _ in range(100):
         if server.path.exists():
             # a moment without clients
-            await asyncio.sleep(2 * INTERVAL)
+            await asyncio.sleep(0.02)
             return task
         await asyncio.sleep(0.005)
     raise AssertionError("the server did not start")
@@ -82,13 +99,15 @@ def test_a_strip_is_described_as_the_device_shows_it(surface: RecordingSurface, 
         ring_mode="wrap",
         fader=0.5,
         touched=False,
-        meter=8,
+        meter=10,
+        meter_at=100.0,
     )
+    # the GUI lets the meter fall from there, to 0 and not below
+    assert meter_now(states[2], 100.0 + 2 * METER_FALL + 0.01) == 8
+    assert meter_now(states[2], 1000.0) == 0
     # nothing known yet: dark, and no fader position
     assert states[0].color == "off"
     assert states[0].fader is None
-    # the meter falls to 0, not below
-    assert strip_states(surface, 1000.0)[2].meter == 0
 
 
 async def test_the_fader_is_where_a_hand_put_it(surface: RecordingSurface):
@@ -123,11 +142,6 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     )
     with_slots = Snapshot("abc", True, False, None, snapshot.strips, slots=slots)
     assert decode(encode(with_slots)) == with_slots
-    # an older daemon does not tell more than whether it is connected, nor its version
-    older = line.replace(b',"mqtt_state":null', b"").replace(b',"daemon_version":null', b"")
-    assert b"mqtt_state" not in older
-    assert b"daemon_version" not in older
-    assert decode(older) == snapshot
     with pytest.raises(ValueError, match="Expecting value"):
         decode(b"garbage")
 
@@ -145,6 +159,7 @@ def test_the_fingerprint_tells_configurations_apart():
 
 async def test_a_client_gets_the_state_at_once_and_then_every_change(surface: RecordingSurface, socket_dir: Path):
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    surface.on_change = server.changed
     task = await serve(server)
     assert server.path.stat().st_mode & 0o777 == 0o600
 
@@ -158,9 +173,10 @@ async def test_a_client_gets_the_state_at_once_and_then_every_change(surface: Re
     assert second is not None
     assert second.strips[0].text == ("Mic", "")
 
-    # nothing changed: nothing is sent
+    # told again what it shows already: nothing is sent
+    surface.send(protocol.lcd_text(0, 0, "Mic"))
     with pytest.raises(TimeoutError):
-        await asyncio.wait_for(reader.readline(), 3 * INTERVAL)
+        await asyncio.wait_for(reader.readline(), 0.1)
 
     writer.write(b"ignored\n")
     writer.close()
@@ -180,6 +196,7 @@ async def test_a_client_that_does_not_read_is_dropped(
     surface: RecordingSurface, socket_dir: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    surface.on_change = server.changed
     task = await serve(server)
     reader, writer = await asyncio.open_unix_connection(server.path)
     await reader.readline()
@@ -203,6 +220,7 @@ async def test_a_client_that_does_not_read_is_dropped(
 
 async def test_clients_are_closed_when_the_server_stops(surface: RecordingSurface, socket_dir: Path):
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    surface.on_change = server.changed
     task = await serve(server)
     reader, writer = await asyncio.open_unix_connection(server.path)
     await reader.readline()
@@ -248,11 +266,18 @@ async def test_without_a_socket_the_daemon_runs_on(
 
 def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
     for request in (
-        StartPreview('[[strip]]\ntype = "empty"\n'),
+        StartPreview('[channel.x]\ntype = "empty"\n'),
         KeepPreview(),
         EndPreview(),
         SetMode("gaming"),
         SetOverride("call", "on"),
+        StartPreview(
+            "[slots]\n",
+            Situation("gaming", frozenset({"call"}), frozenset({"mic"}), people=2, apps=1, devices=3),
+            on_device=False,
+        ),
+        Play(protocol.ButtonPressed(2, Button.MUTE, True), preview=True),
+        Play(protocol.FaderTouched(1, False)),
     ):
         line = encode_request(request)
         assert line.count(b"\n") == 1
@@ -268,17 +293,80 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
 
     reply = Reply("preview", False, "strip[1].type: wrong")
     assert decode_message(encode_reply(reply)) == reply
+
     # a GUI that knows no replies ignores them like lines of another version
     assert decode(encode_reply(reply)) is None
     assert b'"version"' not in encode_reply(reply)
-    # the snapshot of a daemon that previews, and of one that does not know previews
+    # the snapshot of a daemon that previews
     snapshot = dataclasses.replace(snapshot_of(surface), preview=True, features=FEATURES)
     assert decode_message(encode(snapshot)) == snapshot
-    older = encode(snapshot_of(surface)).replace(b',"preview":false,"features":[]', b"")
-    assert b"features" not in older
-    decoded = decode(older)
-    assert decoded is not None
-    assert (decoded.preview, decoded.features) == (False, ())
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        protocol.FaderMoved(0, 8191),
+        protocol.FaderTouched(1, True),
+        protocol.ButtonPressed(2, Button.SELECT, False),
+        protocol.EncoderTurned(3, -2),
+        protocol.EncoderPressed(7, True),
+    ],
+)
+def test_every_event_a_hand_plays_goes_through_a_line(event: protocol.StripEvent):
+    assert decode_request(encode_request(Play(event))) == Play(event)
+
+
+def test_the_devices_the_daemon_remembers_go_through_a_line_and_are_no_snapshot():
+    known = KnownDevices((KnownDevice("buds", "Buds", "output", None, None, 1.5),))
+    line = encode_known(known)
+    assert line.count(b"\n") == 1
+    assert decode_message(line) == known
+    assert decode(line) is None
+
+
+def test_a_device_to_forget_goes_through_a_line():
+    request = ForgetDevice("bluez_output.buds", "output")
+    assert decode_request(encode_request(request)) == request
+
+
+@pytest.mark.parametrize(
+    ("line", "message"),
+    [
+        ('{"request": "preview", "config": null, "on_device": "yes"}', "on_device is no boolean"),
+        ('{"request": "preview", "config": null, "situation": {"mode": "x"}}', "not a situation"),
+        (
+            '{"request": "preview", "config": null, "situation": '
+            '{"mode": "x", "on": [], "flipped": [], "people": -1, "apps": 0, "devices": 0}}',
+            "not a situation",
+        ),
+        ('{"request": "play", "event": "fader_moved", "strip": 8, "value": 0}', "no strip 8"),
+        ('{"request": "play", "event": "fader_moved", "strip": 0, "value": 99999}', "not a fader_moved event"),
+        ('{"request": "play", "event": "button_pressed", "strip": 0, "button": 1, "pressed": true}', "not a button"),
+        ('{"request": "play", "event": "reboot", "strip": 0}', "unknown"),
+        ('{"request": "forget_device", "name": "x", "direction": "sideways"}', "unknown"),
+    ],
+)
+def test_requests_that_do_not_fit_are_refused(line: str, message: str):
+    with pytest.raises(ValueError, match=message):
+        decode_request(line.encode())
+
+
+def test_the_view_of_a_twin_goes_through_a_line_and_is_no_snapshot():
+    state = StripState(
+        color="cyan",
+        text=("Out", "50%"),
+        leds={"rec": "off", "solo": "off", "mute": "on", "select": "flash"},
+        ring=3,
+        ring_mode="dot",
+        fader=0.5,
+        touched=False,
+        meter=2,
+    )
+    view = TwinView("abc", (state,), SlotsState("default", None, (), (), {}))
+    line = encode_twin(view)
+    assert line.count(b"\n") == 1
+    assert decode_message(line) == view
+    assert decode(line) is None
 
 
 class Requests:
@@ -301,14 +389,6 @@ async def replies(reader: asyncio.StreamReader, count: int = 1) -> list[Reply]:
         if isinstance(message, Reply):
             result.append(message)
     return result
-
-
-async def until(condition: object) -> None:
-    for _ in range(200):
-        if callable(condition) and condition():
-            return
-        await asyncio.sleep(0.005)
-    raise AssertionError("the condition never became true")
 
 
 async def test_requests_of_the_user_are_handled_and_answered(surface: RecordingSurface, socket_dir: Path):
@@ -362,6 +442,7 @@ async def test_requests_of_other_users_are_refused(
 
 async def test_without_a_handler_requests_are_refused(surface: RecordingSurface, socket_dir: Path):
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    surface.on_change = server.changed
     task = await serve(server)
     reader, writer = await asyncio.open_unix_connection(server.path)
 
@@ -410,17 +491,5 @@ def test_the_voice_chat_goes_through_a_line(surface: RecordingSurface):
     voip = VoipState("bridge", True, "mumble", "Lobby", 3, ("Ann", "Bob", "Carol"), ("a", "b", "c"))
     snapshot = dataclasses.replace(snapshot_of(surface), voip=voip)
     assert decode(encode(snapshot)) == snapshot
-    # without the names
-    plain = dataclasses.replace(voip, names=(), ids=())
-    line = encode(dataclasses.replace(snapshot, voip=plain)).replace(b',"names":[],"ids":[]', b"")
-    assert b"names" not in line
-    decoded = decode(line)
-    assert decoded is not None
-    assert decoded.voip == plain
-    # without [voip], and from an older daemon
+    # without [voip]
     assert decode(encode(snapshot_of(surface))) == snapshot_of(surface)
-    older = encode(snapshot_of(surface)).replace(b',"voip":null', b"")
-    assert b"voip" not in older
-    decoded = decode(older)
-    assert decoded is not None
-    assert decoded.voip is None

@@ -8,11 +8,11 @@ indicator of the desktop, or switch Bluetooth headphones into their headset mode
 They are native PipeWire streams on purpose: WirePlumber 0.5.18 (PipeWire 1.6.10) restores captures of PulseAudio
 clients (`parec`, peak detection streams) at 0 % volume, so they would only get silence.
 
-Where the volume is (measured with PipeWire 1.6.10, see docs/development/architecture.md): a stream and an input apply
-their volume and Mute in their own node (audioconvert), so everything that links to them gets the audio after both. The
-monitor of an output is taken before the output's volume and Mute (`monitor.channel-volumes` is off by default). The
-meters capture what they can and turn it into the level of the strip's `meter_point` with the volume the sound server
-tells (`scale_of()`): the audio of a muted stream or input is gone, its pre-fader level with it.
+Where the volume is (measured with PipeWire 1.6.10, see docs/development/architecture/audio.md): a stream and an
+input apply their volume and Mute in their own node (audioconvert), so everything that links to them gets the audio
+after both. The monitor of an output is taken before the output's volume and Mute (`monitor.channel-volumes` is off
+by default). The meters capture what they can and turn it into the level of the strip's `meter_point` with the volume
+the sound server tells (`scale_of()`): the audio of a muted stream or input is gone, its pre-fader level with it.
 """
 
 import array
@@ -22,7 +22,7 @@ import logging
 import math
 import shutil
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 
 from xtouch_daemon.config.values import MeterPoint
@@ -234,6 +234,15 @@ async def _end(process: asyncio.subprocess.Process) -> None:
         raise asyncio.CancelledError
 
 
+type Capturer = Callable[
+    [CaptureTarget, Callable[[float], None], Callable[[], bool], Callable[[], float | None]], Awaitable[None]
+]
+"""
+Feeds the peaks of a target (`feed`) until it ends, given whether it plays and the gain of its volume, None if
+unknown: the captures of the sound server by default (see `Meter.record()`), another one for a virtual twin.
+"""
+
+
 class Meter:
     """
     The level of one strip: the loudest peak of all of its targets (e.g. every stream of an application group) since
@@ -247,13 +256,16 @@ class Meter:
         clock: Callable[[], float] = time.monotonic,
         gain: Callable[[CaptureTarget], float | None] = lambda target: None,
         point: MeterPoint = "pre_fader",
+        capturer: Capturer | None = None,
     ):
         """
-        `gain` tells the volume of a target (with Mute, see `Device.gain`; None if unknown), `point` where the meter
-        takes the level (see `scale_of()`).
+        `capturer` feeds the peaks of a target (by default `capture()`, which records it). `gain` tells the volume of a
+        target (with Mute, see `Device.gain`; None if unknown), `point` where the meter takes the level (see
+        `scale_of()`).
         """
         self._playing = playing
         self._command = command
+        self._capturer: Capturer = capturer or self.record
         self._clock = clock
         self._gain = gain
         self.point: MeterPoint = point
@@ -318,10 +330,23 @@ class Meter:
         for target in wanted - self._captures.keys():
             self._captures[target] = asyncio.create_task(self._keep_capturing(target), name=f"meter {target.node}")
 
+    async def record(
+        self,
+        target: CaptureTarget,
+        feed: Callable[[float], None],
+        playing: Callable[[], bool],
+        gain: Callable[[], float | None],
+    ) -> None:
+        """The default `Capturer`: records the target with the command of the meter."""
+        await capture(target, feed, playing, self._command)
+
     async def _keep_capturing(self, target: CaptureTarget) -> None:
         while True:
-            await capture(
-                target, lambda peak: self.feed_from(target, peak), lambda: self._playing(target), self._command
+            await self._capturer(
+                target,
+                lambda peak: self.feed_from(target, peak),
+                lambda: self._playing(target),
+                lambda: self._gain(target),
             )
             await asyncio.sleep(RESTART_DELAY)
 

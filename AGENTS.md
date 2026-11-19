@@ -1,7 +1,7 @@
 # xtouch-daemon: Guide for AI Agents
 
 Drives a Behringer X-Touch Extender (Mackie Control over USB MIDI) as a hardware mixer for PipeWire. Python 3.14 (haad-mqtt-autodiscovery, a path dependency in `../haad-mqtt-autodiscovery`, requires it),
-uv, src layout. Start with [docs/development/architecture.md](docs/development/architecture.md).
+uv, src layout. Start with [docs/development/architecture/index.md](docs/development/architecture/index.md).
 
 ## Layout
 
@@ -11,7 +11,7 @@ uv, src layout. Start with [docs/development/architecture.md](docs/development/a
 | `src/xtouch_daemon/audio/` | `AudioState` model, `AudioBackend` protocol, `PulseBackend`, `pw-record` meters, MPRIS media players. |
 | `src/xtouch_daemon/config/`, `config.example.toml` | pydantic configuration, split by topic (`files`, `model`, `sections`, `layout`, strip types, `inheritance`, `values`, `names`), and the example file. `config/presets.py` has the presets (`@browsers`, ...); `docs/configuration/presets.md` has their table, kept in line by a test. |
 | `src/xtouch_daemon/strips/` | Strip controllers (`output`/`input`, `apps`, `auto`, `homeassistant`, `empty`, `voip`). |
-| `src/xtouch_daemon/slots/` | Channels, pools, states, slots and their resolver (`docs/development/design/channels-states-slots.md`), pure: `runtime/slots` runs it on the device, the GUI's Simulate and `xtouch-daemon simulate` and `observe` drive it too. |
+| `src/xtouch_daemon/slots/` | Channels, pools, states, slots and their resolver (`docs/development/design/slots/index.md`), pure: `runtime/slots` runs it on the device, the GUI's Simulate and `xtouch-daemon simulate` and `observe` drive it too. |
 | `src/xtouch_daemon/mqtt.py` | `MqttBridge`: the MQTT connection for Home Assistant (discovery, retained states, availability). |
 | `src/xtouch_daemon/runtime/` | The running daemon: lifecycle (`daemon`: signals, reload, shutdown, sd_notify), `mixer` (feeds states and events to the controllers), `placement` (strips that collapse), `layouts` (switching and rules), `slots` (channels, states and slots on the device), `slot_files` (what they keep across restarts). |
 | `src/xtouch_daemon/system/` | The system around it: `instance` (runtime file), `systemd` (incl. controlling the user service), `processes` (`/proc`), `launch` (starting a strip's `launch` detached from the daemon; tests use `FakeLauncher`, `conftest.no_launches` makes a real start fail). |
@@ -20,7 +20,7 @@ uv, src layout. Start with [docs/development/architecture.md](docs/development/a
 | `src/xtouch_daemon/voip/`, `integrations/mumble/` | VoIP providers (`bridge` socket for plugins, `demo`); the Mumble plugin (C, CMake, vendored `MumblePlugin.h`) and finding, building and installing its bundle (`voip/mumble.py`). `test/fake_mumble.c` is the host `tests/voip/test_mumble_plugin.py` loads it into. |
 | `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested, `qt/` the widgets (`window/`, `preview/`, `pages/`, `fields/`, `theme/`). Forms come from the pydantic models, so new options need no GUI code. |
 | `tests/` | Mirrors the source: `tests/<package>/test_<module>.py`. Fixtures in the `conftest.py` files (the guards in `tests/conftest.py`), fakes and helpers that tests import in `tests/support/` (e.g. the in-memory MQTT broker in `tests/support/mqtt.py`). |
-| `docs/`, `zensical.toml` | The documentation site (Zensical, published to GitHub Pages by `.github/workflows/docs.yml`): sections as folders, as in the navigation: `getting-started/` (install, first steps, without a device), `guides/` (GUI, Home Assistant, Mumble, troubleshooting), `configuration/` (an overview, `slots.md`, `channels/` with a page per type, `strip/` for encoders and LEDs, presets, behavior), `reference/` (commands, hardware and protocol, the voice chat bridge), `development/` (architecture, `design/`). A new page goes into the section of its kind, and into `nav` of `zensical.toml`. Build it with `just docs`. |
+| `docs/`, `zensical.toml` | The documentation site (Zensical, published to GitHub Pages by `.github/workflows/docs.yml`): sections as folders, as in the navigation: `getting-started/` (install, first steps, without a device), `guides/` (GUI, Home Assistant, Mumble, troubleshooting), `configuration/` (an overview, `slots.md`, `channels/` with a page per type, `strip/` for encoders and LEDs, presets, behavior), `reference/` (commands, hardware and protocol, the voice chat bridge), `development/` (an index, `architecture/` with a page per topic, `design/` with `slots/`, `history/` for replaced designs). A new page goes into the section of its kind, and into `nav` of `zensical.toml`. Build it with `just docs`. |
 | `packaging/` | Release tarballs (`build-release.sh`), the pinned commit of haad-mqtt-autodiscovery, the GUI's `.desktop` file, the AUR packages (`aur/`, `aur/publish.sh`). See [RELEASING.md](RELEASING.md). |
 
 ## Commands

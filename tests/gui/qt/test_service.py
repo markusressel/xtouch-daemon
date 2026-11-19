@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
     QApplication,
     QLabel,
     QMessageBox,
-    QToolButton,
 )
 from pytestqt.qtbot import QtBot
 
@@ -34,6 +33,9 @@ from tests.support.gui import (
     strip_state,
     type_into,
 )
+from tests.support.gui import (
+    pill as pill_text,
+)
 from tests.support.instance import RecordingInstance
 from tests.support.packaging import install_package
 from tests.support.systemd import FakeSystemctl
@@ -41,8 +43,10 @@ from xtouch_daemon.gui import qt
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.channels import channel_options
 from xtouch_daemon.gui.domain.schema import Kind, Option
+from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.popover import Entry
 from xtouch_daemon.gui.qt.fields.tables import Tables
 from xtouch_daemon.gui.qt.theme.style import current_mode, load_theme_mode
 from xtouch_daemon.gui.qt.theme.tokens import (
@@ -78,13 +82,15 @@ def test_the_service_is_shown_and_controlled(
     systemctl.properties = properties
     window = make_window()
     assert (
-        window.service_controls.pill.text(),
+        pill_text(window.service_controls.pill),
         window.service_controls.pill.property("tone"),
         window.service_controls.service_button.text(),
     ) == (pill, tone, button)
+    # it needs doing: next to the pill; Restart is in the popover only
+    assert window.service_controls.service_button.isHidden() is (properties == RUNNING)
     isolated.answer = QMessageBox.StandardButton.Yes
 
-    click(qtbot, window.service_controls.service_button)
+    do(window, button)
 
     assert command in systemctl.commands
     assert window.status.text().endswith("the service.")
@@ -116,29 +122,30 @@ def test_only_a_running_service_can_be_stopped(
 
     window = make_window()
 
-    assert window.service_controls.stop_button.isHidden() is not stop
+    assert ("Stop" in actions(window)) is stop
 
 
 def test_the_service_is_stopped_and_can_be_started_again(
     qtbot: QtBot, window: MainWindow, systemctl: FakeSystemctl, isolated: Dialogs
 ):
-    assert window.service_controls.stop_button.focusPolicy() == Qt.FocusPolicy.NoFocus
-
     def stop(command: list[str]) -> str:
         if command[2] == "stop":
             systemctl.properties = STOPPED
         return systemctl(command)
 
     window.service._run = stop
-    click(qtbot, window.service_controls.stop_button)
+    do(window, "Stop")
 
     assert ["systemctl", "--user", "stop", UNIT_NAME] in systemctl.commands
     # stopped, not disabled: it starts again with the next session
     assert ["systemctl", "--user", "disable", UNIT_NAME] not in systemctl.commands
     assert window.status.text() == "Stopped the service."
     assert isolated.shown == []
-    assert (window.service_controls.pill.text(), window.service_controls.service_button.text()) == ("stopped", "Start")
-    assert window.service_controls.stop_button.isHidden()
+    assert (pill_text(window.service_controls.pill), window.service_controls.service_button.text()) == (
+        "stopped",
+        "Start",
+    )
+    assert actions(window) == ["Start"]
 
 
 def test_a_failing_stop_is_reported(qtbot: QtBot, window: MainWindow, isolated: Dialogs):
@@ -146,20 +153,37 @@ def test_a_failing_stop_is_reported(qtbot: QtBot, window: MainWindow, isolated: 
         raise ServiceError("systemctl --user stop failed: nope")
 
     window.service._run = fail
-    click(qtbot, window.service_controls.stop_button)
+    do(window, "Stop")
 
     assert isolated.shown == ["systemctl --user stop failed: nope"]
     assert window.status.text() == ""
-    assert window.service_controls.stop_button.isHidden()
+    assert actions(window) == []
 
 
 def test_a_daemon_elsewhere_can_not_be_stopped_here(make_window: MakeWindow, path: Path):
     window = make_window(find_daemon=lambda: RecordingInstance(4242, path.resolve(), systemd=False))
 
-    assert window.service_controls.stop_button.isHidden()
+    assert actions(window) == []
 
 
 CHECKOUT = "/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
+
+
+def details(window: MainWindow, title: str) -> Entry | None:
+    """The entry `title` of the popover of the service pill."""
+    return next((entry for entry in window.service_controls.details() if entry.title == title), None)
+
+
+def actions(window: MainWindow, title: str = "Service") -> list[str]:
+    entry = details(window, title)
+    return [text for text, _ in entry.actions] if entry is not None else []
+
+
+def do(window: MainWindow, text: str, title: str = "Service") -> None:
+    """Clicks the button `text` of the entry `title` in the popover of the service pill."""
+    entry = details(window, title)
+    assert entry is not None
+    dict(entry.actions)[text]()
 
 
 def unit_properties(state: str, unit: Path, program: str) -> str:
@@ -178,20 +202,23 @@ def test_the_header_shows_which_unit_runs_the_service(make_window: MakeWindow, s
     )
     window = make_window()
 
-    assert window.service_controls.unit_label.text() == "own unit"
-    assert window.service_controls.unit_label.toolTip() == (
-        f"The unit /home/me/.config/systemd/user/xtouch-daemon.service, which starts {CHECKOUT}"
-    )
+    unit = details(window, "Unit")
+    assert unit is not None
+    assert unit.status == Status("own unit", Tone.NEUTRAL, f"Your own unit, which starts `{CHECKOUT}`.")
+    assert unit.path == "/home/me/.config/systemd/user/xtouch-daemon.service"
     # without a package there is nothing it overrides
-    assert window.service_controls.override_button.isHidden()
+    assert actions(window, "Unit") == []
 
     systemctl.properties = unit_properties(RUNNING, systemd.PACKAGED_UNIT, "/usr/bin/xtouch-daemon")
     window.refresh_service()
-    assert window.service_controls.unit_label.text() == "packaged"
+    unit = details(window, "Unit")
+    assert unit is not None
+    assert unit.status is not None
+    assert unit.status.text == "packaged"
 
     systemctl.properties = MISSING
     window.refresh_service()
-    assert window.service_controls.unit_label.isHidden()
+    assert details(window, "Unit") is None
 
 
 @pytest.mark.parametrize("answer", [QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No])
@@ -206,13 +233,13 @@ def test_the_unit_that_overrides_the_package_can_be_removed(
     write_user_unit()
     systemctl.properties = unit_properties(RUNNING, unit_path(), CHECKOUT)
     window = make_window()
-    assert not window.service_controls.override_button.isHidden()
-    assert window.service_controls.unit_label.property("role") == "hint"
-    assert window.service_controls.unit_label.toolTip().endswith("; it overrides the one of the package")
-    assert window.service_controls.override_button.focusPolicy() == Qt.FocusPolicy.NoFocus
+    unit = details(window, "Unit")
+    assert unit is not None
+    assert unit.status is not None
+    assert unit.status.tip.endswith("It overrides the unit of the package.")
     isolated.answer = answer
 
-    click(qtbot, window.service_controls.override_button)
+    do(window, "Use the packaged unit", "Unit")
 
     assert isolated.shown[0].startswith(f"Remove {unit_path()}?")
     if answer == QMessageBox.StandardButton.No:
@@ -222,7 +249,7 @@ def test_the_unit_that_overrides_the_package_can_be_removed(
     assert not unit_path().exists()
     assert ["systemctl", "--user", "restart", UNIT_NAME] in systemctl.commands
     assert window.status.text() == f"Removed {unit_path()}: the service uses the unit of the package."
-    assert window.service_controls.override_button.isHidden()
+    assert actions(window, "Unit") == []
 
 
 def test_a_failing_removal_of_the_override_is_reported(
@@ -230,6 +257,7 @@ def test_a_failing_removal_of_the_override_is_reported(
 ):
     install_package()
     write_user_unit()
+    systemctl.properties = unit_properties(RUNNING, unit_path(), CHECKOUT)
     window = make_window()
 
     def fail(command: list[str]) -> str:
@@ -239,7 +267,7 @@ def test_a_failing_removal_of_the_override_is_reported(
 
     window.service._run = fail
     isolated.answer = QMessageBox.StandardButton.Yes
-    click(qtbot, window.service_controls.override_button)
+    do(window, "Use the packaged unit", "Unit")
 
     assert isolated.shown[1:] == ["systemctl --user disable failed: nope"]
     assert window.status.text() == ""
@@ -289,6 +317,7 @@ def test_restart_stands_out_when_the_daemon_runs_an_older_version(
     window.refresh_service()
 
     assert window.service_controls.service_button.text() == "Restart"
+    assert not window.service_controls.service_button.isHidden()
     assert window.service_controls.service_button.property("variant") == "primary"
     assert window.service_controls.service_button.toolTip() == (
         "The daemon runs version 0.1.0, 0.2.0 is installed: restart it to run 0.2.0"
@@ -310,9 +339,9 @@ def test_a_failing_systemctl_is_reported(qtbot: QtBot, make_window: MakeWindow, 
         raise ServiceError("systemctl --user restart failed: nope")
 
     window.service._run = fail
-    click(qtbot, window.service_controls.service_button)
+    do(window, "Restart")
     assert isolated.shown == ["systemctl --user restart failed: nope"]
-    assert window.service_controls.pill.text() == "unavailable"
+    assert pill_text(window.service_controls.pill) == "unavailable"
     assert window.service_controls.service_button.isHidden()
 
 
@@ -373,14 +402,14 @@ def test_a_daemon_started_elsewhere_is_shown_and_reloaded(qtbot: QtBot, make_win
     daemon = RecordingInstance(4242, path.resolve(), systemd=False)
     window = make_window(find_daemon=lambda: daemon)
 
-    assert (window.service_controls.pill.text(), window.service_controls.pill.property("tone")) == (
+    assert (pill_text(window.service_controls.pill), window.service_controls.pill.property("tone")) == (
         "running elsewhere",
         "good",
     )
     assert "process 4242" in window.service_controls.pill.toolTip()
     assert window.service_controls.service_button.isHidden()
-    assert window.service_controls.unit_label.isHidden()
-    assert window.service_controls.override_button.isHidden()
+    assert [entry.title for entry in window.service_controls.details()] == ["Service"]
+    assert actions(window) == []
 
     window.document.set(("device", "name"), "Other")
     window.editor.edited()
@@ -400,7 +429,10 @@ def test_without_a_daemon_saving_only_saves(make_window: MakeWindow, systemctl: 
 
     assert window.save()
 
-    assert window.status.text() == "Saved. The daemon is not running: start it to use the configuration."
+    assert (
+        window.status.text()
+        == "Saved. The daemon is not running: the button next to the service (top right) starts it."
+    )
     assert window.restart_button.isHidden()
 
 
@@ -427,7 +459,7 @@ def test_a_new_file_can_be_saved_right_away(make_window: MakeWindow, tmp_path: P
     assert window.windowTitle() == "new.toml (new)"
     assert window.save_button.isEnabled()
     assert window.save()
-    assert "slots" in tomllib.loads((tmp_path / "new.toml").read_text())
+    assert tomllib.loads((tmp_path / "new.toml").read_text()) == {}
     assert window.status.text().startswith("Saved. The service reads")
 
 
@@ -510,7 +542,7 @@ def test_launch_is_a_list_of_the_parts_of_the_command(window: MainWindow):
         "Add… (none: Select starts nothing; the program, then each argument)"
     )
     link = docs.url("configuration/channels/applications/#launching-the-application")
-    assert f'<a href="{link}">Learn more</a>' in launch.help.text()
+    assert f'<a href="{link}">Learn&nbsp;more&nbsp;↗</a>' in launch.help.text()
     assert "It runs without a shell, so nothing is expanded." in plain(launch.help.text())
     # a part per entry
     launch.chips.add("mumble")
@@ -528,7 +560,7 @@ def test_the_rail_shows_one_page_at_a_time(qtbot: QtBot, window: MainWindow):
         "Home Assistant",
         "Modes and chord",
         "Voice chat",
-        "Device",
+        "Extender",
     ]
     click(qtbot, window.rail_buttons["settings"])
     assert window.current_page == "behavior"
@@ -584,13 +616,14 @@ def test_help_shows_quotes_and_code_as_they_are_meant(window: MainWindow):
 
 def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
     show_channel(window, "out")
-    rec = row(window, "rec")
+    rec = row(window, "rec").buttons
     assert not rec.meaning.isHidden()
     assert "recording: Lit while an application records" in plain(rec.meaning.text())
-    rec.combo.setCurrentText("muted")
+    led = rec.combos["led"]
+    led.setCurrentText("muted")
     assert "Lit while the strip is muted" in plain(rec.meaning.text())
     # each value says it in the list too
-    tip = rec.combo.itemData(rec.combo.findText("recording"), Qt.ItemDataRole.ToolTipRole)
+    tip = led.itemData(led.findText("recording"), Qt.ItemDataRole.ToolTipRole)
     assert "screen recorder" in tip
     # an encoder that is not set: what the default does
     encoder = row(window, "encoder")
@@ -599,7 +632,7 @@ def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
     # a value that is no choice means nothing
     window.document.set(("channel", "out", "rec"), "loud")
     window.editor.edited()
-    assert row(window, "rec").meaning.isHidden()
+    assert row(window, "rec").buttons.meaning.isHidden()
     assert row(window, "color").colors.swatches["off"].toolTip() == "off: No backlight."
     assert row(window, "color").colors.swatches["red"].toolTip() == "red"
 
@@ -607,11 +640,12 @@ def test_a_choice_says_what_the_chosen_value_means(window: MainWindow):
 def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
     show_channel(window, "out")
     rec = row(window, "rec")
-    assert "Default: <code>recording</code>." in rec.help.text()
-    assert f'<a href="{docs.url("configuration/strip/leds/#indicators")}">Learn more</a>' in rec.help.text()
+    # a button: the default of each part in its list
+    assert rec.buttons.combos["led"].placeholderText() == "default: recording"
+    assert f'<a href="{docs.url("configuration/strip/leds/#buttons")}">Learn&nbsp;more&nbsp;↗</a>' in rec.help.text()
     assert rec.help.openExternalLinks()
     # an option without a section in the docs: its help says it all
-    assert "Learn more" not in row(window, "meter").help.text()
+    assert "<a href" not in row(window, "lit_when_idle").help.text()
     # the pages
     for page in ("channels", "device", "behavior", "aliases", "mqtt"):
         link = docs.page_link(page)
@@ -622,31 +656,37 @@ def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
     assert bare.help.isHidden()
 
 
-def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindow):
+def test_profiles_are_entries_of_label_and_profile(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")
     profiles = row(window, "profiles")
     tables: Tables = profiles.tables
     assert tables.values == []
 
+    # a new entry opens, with its fields
     click(qtbot, tables.add_button)
-    type_into(qtbot, tables.lines[0][0], "Analog")
+    assert tables.opened == 0
+    first = tables.entries[0]
+    type_into(qtbot, first.rows["label"].line, "Analog")
     # the profiles of the card come from the sound server
-    menu_button = next(button for button in tables.findChildren(QToolButton) if button.menu())
-    menu = menu_button.menu()
-    assert menu is not None
-    menu.aboutToShow.emit()
-    assert [action.text() for action in menu.actions()] == [
-        "output:analog-stereo    Analog Stereo Output (active)",
-        "output:iec958-stereo    Digital Output",
-    ]
-    menu.actions()[0].trigger()
-    assert tables.lines[0][1].text() == "output:analog-stereo"
+    completer = first.rows["profile"].completer
+    assert completer is not None
+    assert [suggestion.value for suggestion in completer.fill("")] == ["output:analog-stereo", "output:iec958-stereo"]
+    completer.activated.emit("output:analog-stereo")
+    assert first.rows["profile"].line.text() == "output:analog-stereo"
+    # the summary says what it is
+    assert first.title.text() == "Analog"
+    assert first.detail.text() == "Analog Stereo Output"
 
-    # one profile is not enough, and a label is required
+    # one profile is not enough; a new entry is not in the file until it has something, then a label is required
     click(qtbot, tables.add_button)
-    assert profiles.error.text() == "2. label: Field required\n2. profile: Field required"
-    type_into(qtbot, tables.lines[1][0], "Digital")
-    completer = tables.lines[1][1].completer()
+    # the first one closed
+    assert tables.opened == 1
+    assert tables.entries[0].fields.isHidden()
+    assert "at least two" in profiles.error.text()
+    second = tables.entries[1]
+    type_into(qtbot, second.rows["label"].line, "Digital")
+    assert profiles.error.text() == "2. profile: Field required"
+    completer = second.rows["profile"].line.completer()
     assert completer is not None
     completer.activated.emit("output:iec958-stereo")
     assert profiles.error.text() == ""
@@ -655,7 +695,7 @@ def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindo
         {"label": "Analog", "profile": "output:analog-stereo"},
         {"label": "Digital", "profile": "output:iec958-stereo"},
     ]
-    type_into(qtbot, tables.lines[1][0], "")
+    type_into(qtbot, second.rows["label"].line, "")
     assert window.document.get(("channel", "out", "profiles"))[1] == {"profile": "output:iec958-stereo"}  # type: ignore[index]
 
     tables.remove(1)
@@ -673,10 +713,14 @@ def test_profiles_of_the_file_are_shown_and_saved_as_tables(qtbot: QtBot, window
     )
     profiles = row(window, "profiles")
     profiles.load()
-    assert [[line.text() for line in lines] for lines in profiles.tables.lines] == [
-        ["Analog", "output:analog-stereo", "", ""],
-        ["Digital", "Digital Output", "", ""],
+    assert [(entry.title.text(), entry.detail.text()) for entry in profiles.tables.entries] == [
+        ("Analog", "Analog Stereo Output"),
+        ("Digital", "Digital Output"),
     ]
+    # closed until picked
+    assert profiles.tables.opened is None
+    profiles.tables.open(1)
+    assert profiles.tables.entries[1].rows["profile"].line.text() == "Digital Output"
     assert 'label = "Digital"' in window.document.render()
     # something else than a list of tables shows none: its problem says what is wrong
     window.document.set(("channel", "out", "profiles"), "analog")
@@ -684,13 +728,14 @@ def test_profiles_of_the_file_are_shown_and_saved_as_tables(qtbot: QtBot, window
     assert profiles.tables.values == []
 
 
-def test_tables_without_suggestions_have_no_menu(qtbot: QtBot):
+def test_tables_without_suggestions_suggest_nothing(qtbot: QtBot):
     columns = next(option for option in channel_options("output") if option.name == "profiles").columns
     tables = Tables(columns, None)
     qtbot.addWidget(tables)
     tables.show_values([{"label": "Analog"}])
-    assert [[line.text() for line in lines] for lines in tables.lines] == [["Analog", "", "", ""]]
-    assert not [button for button in tables.findChildren(QToolButton) if button.menu()]
+    tables.open(0)
+    assert tables.entries[0].rows["label"].line.text() == "Analog"
+    assert tables.entries[0].rows["profile"].completer is None
 
 
 def test_an_unset_number_says_what_applies(qtbot: QtBot, window: MainWindow):
@@ -709,15 +754,16 @@ def test_an_unset_number_says_what_applies(qtbot: QtBot, window: MainWindow):
     assert row(window, "min_volume").spin.text() == "default: 0"
 
 
-def test_numbers_of_tables_are_numbers(qtbot: QtBot, window: MainWindow):
+def test_a_number_of_a_table_takes_the_channels_until_it_is_set(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")
     tables: Tables = row(window, "profiles").tables
     click(qtbot, tables.add_button)
-    type_into(qtbot, tables.lines[0][3], "200")
+    maximum = tables.entries[0].rows["max_volume"]
+    # unset, it takes the channel's
+    assert maximum.spin.text() == "default: the channel's"
+    maximum.spin.setValue(200)
     assert window.document.get(("channel", "out", "profiles")) == [{"max_volume": 200}]
-    # one that is none stays text: its problem says so
-    type_into(qtbot, tables.lines[0][3], "lots")
-    assert window.document.get(("channel", "out", "profiles")) == [{"max_volume": "lots"}]
+    assert tables.entries[0].detail.text() == "Volume up to 200 %"
 
 
 def test_a_switch_looks_different_on_and_off(qtbot: QtBot):

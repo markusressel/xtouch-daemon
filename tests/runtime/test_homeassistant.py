@@ -5,13 +5,14 @@ show and which channels are shown.
 
 import asyncio
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 
 import pytest
 
 from tests.support.audio import output, stream
 from tests.support.mqtt import FakeBroker
 from tests.support.tasks import finish_tasks
+from tests.support.waiting import until
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
@@ -56,14 +57,6 @@ delay_off = 0
 """
 
 STATE = AudioState(outputs=(output("speaker", 50),), streams=(stream(1, "Spotify", "spotify"),))
-
-
-async def until(condition: Callable[[], bool]) -> None:
-    for _ in range(500):
-        if condition():
-            return
-        await asyncio.sleep(0.002)
-    raise AssertionError("the condition never became true")
 
 
 @pytest.fixture
@@ -171,7 +164,7 @@ async def test_the_states_the_mode_and_the_slots(setup: tuple[FakeBroker, MqttBr
     entities.close()
 
 
-async def test_a_person_without_a_channel_on_a_slot(setup: tuple[FakeBroker, MqttBridge]) -> None:
+async def test_a_person_without_a_channel_is_published_as_a_person(setup: tuple[FakeBroker, MqttBridge]) -> None:
     _, bridge = setup
     config = parse_config(CONFIG.replace('provider = "demo"', 'provider = "demo"\nparticipants = ["Ann"]'))
     assert config.slots is not None

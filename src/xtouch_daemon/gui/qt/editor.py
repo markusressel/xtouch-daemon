@@ -1,7 +1,7 @@
 """
 The one source of truth of the window: the document being edited, its undo history and its validation. Views read
 from here and change the document through here; the signal tells them what changed, so each one updates what it
-shows in place (see the GUI section of docs/development/architecture.md).
+shows in place (see docs/development/architecture/gui.md).
 """
 
 from typing import Any
@@ -10,8 +10,10 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, free_id
+from xtouch_daemon.gui.domain.clipboard import Tables, pasted_id
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.slots_document import OptionPath, SlotsDocument, Validation
+from xtouch_daemon.slots.model import BUILT_IN
 
 
 class Editor(QObject):
@@ -48,34 +50,68 @@ class Editor(QObject):
         self.document.unset(path)
         self.edited()
 
-    def add_channel(self, channel_type: str) -> str:
-        """Adds a channel of the type, with an id after it; returns the id."""
+    def add_channel(self, channel_type: str, options: dict[str, Any] | None = None) -> str:
+        """Adds a channel of the type, with an id after it and these options; returns the id."""
         name = free_id(self.document.get(("channel",), {}), CHANNEL_TYPES[channel_type].strip)
-        self.document.set(("channel", name), {"type": channel_type})
+        self.document.set(("channel", name), {"type": channel_type, **(options or {})})
         self.edited(Change(Scope.CHANNELS))
         return name
 
-    def duplicate_channel(self, name: str) -> str:
-        """Adds a copy of a channel, with an id after it; returns the id."""
-        channels: dict[str, Any] = self.document.get(("channel",))
-        copy = free_id(channels, name)
-        self.document.set(("channel", copy), channels[name])
-        self.edited(Change(Scope.CHANNELS))
-        return copy
+    def add_tables(self, tables: Tables) -> list[tuple[str, str]]:
+        """
+        Adds copies of channels, pools or states (pasted, duplicated), each with its id or one after it while that is
+        taken (channels and pools share them); returns their sections and ids.
+        """
+        added: list[tuple[str, str]] = []
+        for section, entries in tables.items():
+            for name, table in entries.items():
+                if section == "pool" and name in BUILT_IN:
+                    # the options of a built-in pool make no pool of your own
+                    continue
+                if section == "state":
+                    taken = set(self.document.get(("state",), {}))
+                else:
+                    taken = {*self.document.get(("channel",), {}), *self.document.get(("pool",), {}), *BUILT_IN}
+                copy = pasted_id(taken, name)
+                self.document.set((section, copy), table)
+                added.append((section, copy))
+        scopes = {Scope.STATES if section == "state" else Scope.CHANNELS for section, _ in added}
+        if scopes:
+            self.edited(Change(scopes.pop()) if len(scopes) == 1 else EVERYTHING)
+        return added
 
     def remove_channel(self, name: str) -> None:
         self.document.unset(("channel", name))
         self.edited(Change(Scope.CHANNELS))
 
-    def rename_channel(self, name: str, new: str) -> None:
-        """Another id for a channel; the stacks, pools and states that name it are the user's to change."""
-        self.document.rename(("channel", name), new)
+    def add_pool(self, kind: str | None = None) -> str:
+        """Adds a pool of channels, or of `apps` or `people` of your own, with an id after `pool`; returns the id."""
+        pools: dict[str, Any] = self.document.get(("pool",), {})
+        name = free_id({*pools, *BUILT_IN}, "pool")
+        self.document.set(("pool", name), {"channels": []} if kind is None else {"kind": kind})
+        self.edited(Change(Scope.CHANNELS))
+        return name
+
+    def remove_pool(self, name: str) -> None:
+        self.document.unset(("pool", name))
         self.edited(Change(Scope.CHANNELS))
 
-    def add_state(self, mode: bool) -> str:
-        """Adds a state (or a mode), with an id after it; returns the id."""
-        name = free_id(self.document.get(("state",), {}), "mode" if mode else "state")
-        self.document.set(("state", name), {"mode": True} if mode else {})
+    def rename_pool(self, name: str, new: str) -> None:
+        """Another id for a pool of channels; the stacks that name it follow."""
+        self.document.rename(("pool", name), new)
+        self.document.rename_references(name, new)
+        self.edited(Change(Scope.CHANNELS))
+
+    def rename_channel(self, name: str, new: str) -> None:
+        """Another id for a channel; the stacks, pools and states that name it follow."""
+        self.document.rename(("channel", name), new)
+        self.document.rename_references(name, new)
+        self.edited(Change(Scope.CHANNELS))
+
+    def add_state(self, mode: bool, name: str | None = None, options: dict[str, Any] | None = None) -> str:
+        """Adds a state (or a mode) with an id after `name` (default: its kind) and these options; returns the id."""
+        name = free_id(self.document.get(("state",), {}), name or ("mode" if mode else "state"))
+        self.document.set(("state", name), {**({"mode": True} if mode else {}), **(options or {})})
         self.edited(Change(Scope.STATES))
         return name
 
@@ -84,8 +120,9 @@ class Editor(QObject):
         self.edited(Change(Scope.STATES))
 
     def rename_state(self, name: str, new: str) -> None:
-        """Another id for a state; the conditions that name it are the user's to change."""
+        """Another id for a state; the conditions and controls that name it follow."""
         self.document.rename(("state", name), new)
+        self.document.rename_references(name, new)
         self.edited(Change(Scope.STATES))
 
     def move_slot(self, source: int, target: int) -> None:

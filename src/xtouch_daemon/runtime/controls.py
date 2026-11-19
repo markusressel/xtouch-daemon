@@ -1,5 +1,5 @@
 """
-The controls of the slots (`[controls]`, see "Controls" in docs/development/design/channels-states-slots.md): what a
+The controls of the slots (`[controls]`, see docs/development/design/slots/slots.md): what a
 fader, encoder or button of a slot does whatever the slot shows. Each entry is a claim on the `Desk`'s strip of the slot
 while its `when` holds (the first of a slot whose `when` holds); a slot under a finger keeps its claim until it is let
 go. A claim shows what it takes (the fader, the ring, the LEDs of its buttons); the controller of what the slot shows
@@ -9,7 +9,6 @@ shows the rest. Their entities in Home Assistant are there for as long as the co
 import asyncio
 import logging
 from collections.abc import Callable, Mapping
-from typing import Protocol
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
@@ -19,7 +18,7 @@ from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.slots.model import DEFAULT, ControlsConfig, Launch, Scene
-from xtouch_daemon.strips.base import Identity
+from xtouch_daemon.strips.base import Identity, SlotActions
 from xtouch_daemon.strips.homeassistant import LEDS, EncoderLink, FaderLink, StripEntities
 from xtouch_daemon.system.launch import LaunchButton, Launcher
 
@@ -30,15 +29,8 @@ BUTTONS: dict[Claimable, Button] = {name: button for button, name in CLAIMABLE_B
 PARTS: tuple[Claimable, ...] = ("fader", "encoder", *BUTTONS)
 
 
-class Actions(Protocol):
-    """What the buttons of controls ask of the slots (the `SlotEngine`): modes and overrides."""
-
-    @property
-    def mode(self) -> str: ...
-    def value(self, name: str) -> bool: ...
-    def cycle_modes(self) -> None: ...
-    def choose_mode(self, mode: str) -> None: ...
-    def toggle(self, name: str) -> None: ...
+Actions = SlotActions
+"""What the buttons of controls ask of the slots (the `SlotEngine`): modes and overrides."""
 
 
 def key_of(slot: int, config: ControlsConfig) -> str:

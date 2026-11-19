@@ -2,6 +2,7 @@
 What goes over the socket of the live view: snapshots of the device, the requests of the GUI and their replies.
 """
 
+import dataclasses
 import hashlib
 import json
 from dataclasses import dataclass
@@ -10,20 +11,41 @@ from typing import Any, Literal
 from pydantic import SecretStr
 
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import StripEvent
+from xtouch_daemon.hardware.strip import glided
+from xtouch_daemon.simulator.device import METER_FALL
 from xtouch_daemon.slots.outcomes import Situation
 
-VERSION = 1
+VERSION = 2
 """Changes when a line means something else; a client ignores lines of another version."""
 
 
-FEATURES = ("preview", "mode", "override", "play", "situation")
+FEATURES = ("preview", "mode", "override", "play", "situation", "on_device")
 """The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 
 
 @dataclass(frozen=True)
+class Glide:
+    """A fader on its way to `target`: the GUI draws the rest of the way, as the daemon moves it (`hardware.strip`)."""
+
+    at: float
+    """When the fader was at the position of the state (`time.monotonic()`, the same in the GUI on this machine)."""
+    velocity: float
+    """Its speed then, in ranges (0..1) per second."""
+    target: float
+    """Where it goes, 0..1."""
+    slow: bool
+    """Whether it moves slowly (see `FADER_SLOW_SMOOTH_TIME`)."""
+
+
+@dataclass(frozen=True)
 class StripState:
-    """What one strip shows."""
+    """
+    What one strip shows. What moves by itself is told once, with its time, and the GUI draws it moving: a meter falls
+    from its level (`meter_now()`), a fader glides to its target (`fader_now()`). The daemon sends a state only when it
+    changed otherwise.
+    """
 
     color: str
     """The backlight of the LCD, a color name of the configuration ("off" for dark)."""
@@ -40,7 +62,50 @@ class StripState:
     touched: bool
     """Whether a finger is on the fader."""
     meter: int
-    """The level of the meter, 0..`protocol.METER_MAX`."""
+    """The level of the meter, 0..`protocol.METER_MAX`, as it was set: it falls from there (see `meter_at`)."""
+    meter_at: float | None = None
+    """When the meter was set (`time.monotonic()`); None for a level that stays (a demo)."""
+    glide: Glide | None = None
+    """How the fader glides from `fader`, None while it stays."""
+
+
+def meter_now(state: StripState, now: float) -> int:
+    """The level the meter of `state` shows at `now`: it falls by a level every `METER_FALL`, as the device lets it."""
+    if state.meter_at is None:
+        return state.meter
+    return max(0, state.meter - int(max(0.0, now - state.meter_at) / METER_FALL))
+
+
+def fader_now(state: StripState, now: float) -> float | None:
+    """Where the fader of `state` is at `now`: on its way to the target of its glide, as the daemon moves it."""
+    glide = state.glide
+    if glide is None or state.fader is None:
+        return state.fader
+    scale = protocol.FADER_MAX
+    position = glided(
+        state.fader * scale, glide.velocity * scale, glide.target * scale, glide.slow, max(0.0, now - glide.at)
+    )
+    return position / scale
+
+
+def steady(states: tuple[StripState, ...]) -> tuple[StripState, ...]:
+    """
+    What `states` tell apart from where their glides are now: two that differ only in that need not be sent, as the
+    GUI draws the glide.
+    """
+    return tuple(
+        state
+        if state.glide is None
+        else dataclasses.replace(state, fader=None, glide=dataclasses.replace(state.glide, at=0.0, velocity=0.0))
+        for state in states
+    )
+
+
+def moving(state: StripState, now: float) -> bool:
+    """Whether something of `state` still moves by itself at `now`: its meter falls, or its fader glides."""
+    if state.meter_at is not None and meter_now(state, now) > 0:
+        return True
+    return state.glide is not None and fader_now(state, now) != state.glide.target
 
 
 @dataclass(frozen=True)
@@ -156,17 +221,33 @@ class Snapshot:
 
 
 @dataclass(frozen=True)
+class TwinView:
+    """
+    What the virtual twin of a client shows (a `StartPreview` not `on_device`): its strips as its mirror of the device
+    has them, and its slots, states and mode. Sent to the client of the twin only.
+    """
+
+    config: str
+    """The `fingerprint()` of the configuration the twin runs."""
+    strips: tuple[StripState, ...]
+    slots: SlotsState
+
+
+@dataclass(frozen=True)
 class StartPreview:
     """
-    Run this configuration (the whole TOML text, None: the file's) instead of the file, without writing the file,
-    and with a `situation` the slots of that situation instead of the real ones (see
-    `docs/development/design/try-and-simulate.md`). The daemon answers with a `Reply` of kind "preview"; sent again, the
-    device follows. The preview ends with `EndPreview`, with the connection, without a request for
-    `daemon.PREVIEW_TIMEOUT` (see `KeepPreview`), and when the file is loaded again.
+    Run this configuration (the whole TOML text, None: the file's), with a `situation` in that situation instead of
+    the real one (see `docs/development/design/previews.md`), without writing the file. `on_device`: on the device,
+    instead of the file. Otherwise on a virtual twin of this client: the daemon sends it a `TwinView` with every
+    change, and without a `situation` the twin runs the situation of now. The daemon answers with a `Reply` of kind
+    "preview"; sent again, the preview follows (also to the other place). It ends with `EndPreview`, with the
+    connection and without a request for `daemon.PREVIEW_TIMEOUT` (see `KeepPreview`); on the device also when the
+    file is loaded again or another client takes the device ("ended").
     """
 
     config: str | None
     situation: Situation | None = None
+    on_device: bool = True
 
 
 @dataclass(frozen=True)
@@ -176,7 +257,7 @@ class KeepPreview:
 
 @dataclass(frozen=True)
 class EndPreview:
-    """Back to the configuration file."""
+    """The preview of this client is not needed any more: the device runs the file again, the twin ends."""
 
 
 @dataclass(frozen=True)
@@ -205,9 +286,46 @@ class Play:
     """
 
     event: StripEvent
+    preview: bool = False
+    """The hand is on the virtual twin of this client (its preview not `on_device`), not on the device."""
 
 
-type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride | Play
+@dataclass(frozen=True)
+class ForgetDevice:
+    """Forget a device the daemon remembers (see `KnownDevice`), e.g. headphones that are gone for good. No answer."""
+
+    name: str
+    direction: str
+
+
+type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride | Play | ForgetDevice
+
+
+@dataclass(frozen=True)
+class KnownDevice:
+    """
+    A device the daemon saw (see `runtime.device_memory`): it suggests it for a configuration also while it is not
+    there, e.g. Bluetooth headphones that are off, or the digital output while the card is in its analog profile.
+    """
+
+    name: str
+    description: str
+    direction: str
+    """"output" or "input"."""
+    card: str | None
+    """The sound card it belongs to, None for others (Bluetooth has its own cards)."""
+    profile: str | None
+    """The profile the card was in when the device was there: the one that makes it."""
+    seen: float
+    """When it was there last, in seconds since the epoch."""
+
+
+@dataclass(frozen=True)
+class KnownDevices:
+    """Every device the daemon remembers, sent when a client connects and whenever they change."""
+
+    devices: tuple[KnownDevice, ...]
+
 
 type ReplyKind = Literal["preview", "ended", "mode", "override", "error"]
 
@@ -217,8 +335,8 @@ class Reply:
     """
     An answer of the daemon, or news for a client. "preview": whether a `StartPreview` runs now (`message` says why
     not, e.g. the errors of the configuration, as `check-config` tells them). "ended": the preview of this client
-    ended, `message` says why. "mode" and "override": whether a `SetMode` (`message` is the mode then, or why not)
-    or a `SetOverride` was carried out. "error": a request could not
+    ended, `message` says why. "mode" and "override": whether a `SetMode` (`message` is the mode then,
+    or why not) or a `SetOverride` was carried out. "error": a request could not
     be read, or is not allowed.
     """
 

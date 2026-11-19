@@ -1,5 +1,5 @@
-# The complete example of docs/development/design/channels-states-slots.md: the author's configuration in the format of
-# channels, states and slots. `xtouch-daemon simulate docs/development/design/channels-states-slots.toml --table` prints what it
+# The complete example of docs/development/design/slots/index.md: the author's configuration in the format of
+# channels, states and slots. `xtouch-daemon simulate docs/development/design/slots/example.toml --table` prints what it
 # shows; a test keeps the table in the design in line with it.
 
 [channel.out]

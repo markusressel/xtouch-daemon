@@ -46,7 +46,8 @@ def test_a_changed_mqtt_section_is_not_reloaded(service: RecordingInstance, path
 
 def test_nothing_is_reloaded_without_a_daemon(path: Path):
     assert apply(None, path) == Applied(
-        "Saved. The daemon is not running: start it to use the configuration.", reloaded=False
+        "Saved. The daemon is not running: the button next to the service (top right) starts it.",
+        reloaded=False,
     )
 
 

@@ -19,7 +19,12 @@ from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
 def items(window: MainWindow) -> list[QListWidgetItem]:
     channels = window.channels_page.list
-    return [item for index in range(channels.count()) if (item := channels.item(index)) is not None]
+    # without the titles of the groups
+    return [
+        item
+        for index in range(channels.count())
+        if (item := channels.item(index)) is not None and item.data(Qt.ItemDataRole.UserRole) is not None
+    ]
 
 
 def test_the_window_shows_the_configuration(window: MainWindow, path: Path):
@@ -27,7 +32,7 @@ def test_the_window_shows_the_configuration(window: MainWindow, path: Path):
     assert window.windowTitle() == path.name
     assert not window.save_button.isEnabled()
     assert not window.problems_button.isVisible()
-    assert window.service_controls.pill.text() == "running"
+    assert window.service_controls.pill.text() == "running  ▾"
     assert window.current_page == "slots"
     # the channels, then the built-in pools
     assert [item.text().split("\n")[0] for item in items(window)] == [
@@ -55,13 +60,13 @@ def test_without_the_sound_server_names_are_typed_by_hand(make_window: MakeWindo
 def test_a_channel_is_picked_edited_and_saved(qtbot: QtBot, window: MainWindow, path: Path, daemon: RecordingInstance):
     window.show_page("channels")
     page = window.channels_page
-    # the first built-in pool, until a channel is picked
-    assert page.title.text() == "Applications: [pool.apps]"
-    assert page.used.text() == "Used by: slot 2"
+    # the first channel, until another is picked
+    assert page.title.text() == "Output"
+    assert page.used.strips.slots == {1}
     page.list.setCurrentItem(items(window)[1])
     assert page.selection == ("channel", "browser")
     assert (page.title.text(), page.id_edit.text()) == ("Applications", "browser")
-    assert page.used.text() == "Used by: slot 2"
+    assert page.used.strips.slots == {2}
 
     type_into(qtbot, row(window, "label").line, "Web")
     assert window.windowTitle() == f"• {path.name}"
@@ -77,7 +82,7 @@ def test_a_channel_is_picked_edited_and_saved(qtbot: QtBot, window: MainWindow, 
     assert page.selection == PEOPLE
     assert page.id_edit.isHidden()
     # the people sit on the slots of auto
-    assert page.used.text() == "Used by: slot 2"
+    assert page.used.strips.slots == {2}
     assert not page.remove_button.isEnabled()
 
 
@@ -92,23 +97,31 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
         "Applications",
         "Person",
         "Home Assistant",
+        "",
+        "Output from the sound server",
+        "Input from the sound server",
+        "",
+        "Pool of channels",
+        "Pool of applications",
+        "Pool of people",
     ]
     menu.actions()[1].trigger()
     assert page.selection == ("channel", "input")
     assert window.document.get(("channel", "input")) == {"type": "input"}
-    assert page.used.text() == "Not used by a slot, pool or state yet."
+    assert page.used.rest.text() == "Not used by a slot, pool or state yet."
     menu.actions()[1].trigger()
     assert page.selection == ("channel", "input_2")
 
+    # a copy of input_2 is input_3
     click(qtbot, page.duplicate_button)
-    assert page.selection == ("channel", "input_2_2")
+    assert page.selection == ("channel", "input_3")
 
     # a new id: only one that can be one
     for bad in ("Mic", "out", "auto"):
         type_into(qtbot, page.id_edit, bad)
         page.id_edit.editingFinished.emit()
         assert page.id_edit.property("problem") is True
-        assert page.selection == ("channel", "input_2_2")
+        assert page.selection == ("channel", "input_3")
     type_into(qtbot, page.id_edit, "mic")
     page.id_edit.editingFinished.emit()
     assert page.selection == ("channel", "mic")

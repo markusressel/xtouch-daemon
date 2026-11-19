@@ -4,24 +4,25 @@ Lists of names as chips that wrap like text (`Chips`, laid out by `FlowLayout`).
 
 from collections.abc import Callable
 
-from PyQt6.QtCore import QPoint, QRect, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QRect, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLayout, QLayoutItem, QLineEdit, QWidget, QWidgetItem
 
 from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.sources import preset_tip
 from xtouch_daemon.gui.qt.fields.basics import (
-    CHIP_HEIGHT,
-    MENU_TIP,
     NO_SUGGESTIONS,
-    PRESETS_MENU_TIP,
     Suggest,
-    completer,
     flat_button,
-    suggestion_menu,
     with_presets,
 )
+from xtouch_daemon.gui.qt.fields.names import NameCompleter
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import CONTROL_HEIGHT, Space
+
+CHIP_MARGIN = 5
+"""The room between a chip and the border of its field, and between two chips."""
+FIELD_CHIP_HEIGHT = CONTROL_HEIGHT - 2 - 2 * CHIP_MARGIN
+"""A chip in a field: with its margins and the border as high as the other fields."""
 
 
 class FlowLayout(QLayout):
@@ -109,10 +110,10 @@ class Chips(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self.values: list[str] = []
         self.chips: list[QWidget] = []
-        self.flow = FlowLayout(self)
-        # a chip and the margins make up the height of a field, so a list lines up with the other fields
-        vertical = (CONTROL_HEIGHT - 2 - CHIP_HEIGHT) // 2
-        self.flow.setContentsMargins(Space.XS, vertical, Space.XS, vertical)
+        self.flow = FlowLayout(self, spacing=CHIP_MARGIN)
+        # a chip and the margins make up the height of a field, so a list lines up with the other fields; the same room
+        # on every side of a chip
+        self.flow.setContentsMargins(CHIP_MARGIN, CHIP_MARGIN, CHIP_MARGIN, CHIP_MARGIN)
         self.input = QLineEdit(self)
         self.input.setPlaceholderText("Add…")
         self.input.setMinimumWidth(140)
@@ -120,10 +121,11 @@ class Chips(QWidget):
         self.flow.addWidget(self.input)
         if presets is not None:
             suggest = with_presets(presets, suggest)
+        self.completer: NameCompleter | None = None
         if suggest is not None:
-            completer(self.input, suggest).activated.connect(self.add)
-            tip = PRESETS_MENU_TIP if presets is not None else MENU_TIP
-            self.flow.addWidget(suggestion_menu(self, suggest, self.add, nothing, tip))
+            # the list opens on a click into the field, the presets first
+            self.completer = NameCompleter(self.input, suggest, nothing)
+            self.completer.activated.connect(self.add)
 
     def show_values(self, values: list[str]) -> None:
         if values != self.values:
@@ -144,7 +146,7 @@ class Chips(QWidget):
         set_role(chip, "chip")
         chip.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         layout = QHBoxLayout(chip)
-        chip.setFixedHeight(CHIP_HEIGHT)
+        chip.setFixedHeight(FIELD_CHIP_HEIGHT)
         layout.setContentsMargins(Space.M - 2, 0, 2, 0)
         layout.setSpacing(Space.XS)
         layout.addWidget(QLabel(value))
@@ -153,7 +155,7 @@ class Chips(QWidget):
             set_role(chip, "preset", "variant")
             chip.setToolTip(tip)
         remove = flat_button("close", f"Remove {value!r}", chip)
-        remove.setFixedSize(CHIP_HEIGHT - 4, CHIP_HEIGHT - 4)
+        remove.setFixedSize(FIELD_CHIP_HEIGHT - 4, FIELD_CHIP_HEIGHT - 4)
         remove.setIconSize(QSize(14, 14))
         remove.clicked.connect(lambda: self.remove(index))
         layout.addWidget(remove)
@@ -161,6 +163,8 @@ class Chips(QWidget):
 
     def add(self, value: str) -> None:
         self.input.clear()
+        # the completer puts the value it picked into the field after it said so
+        QTimer.singleShot(0, self.input.clear)
         if value and value not in self.values:
             self.show_values([*self.values, value])
             self.changed.emit(list(self.values))

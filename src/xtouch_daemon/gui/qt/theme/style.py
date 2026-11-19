@@ -254,6 +254,12 @@ QWidget[role="chips"] QLineEdit {{ border: none; background: transparent; paddin
 QWidget[role="chip"] {{ background: {tint(c.accent, 2 * TINT_ALPHA)}; border-radius: {Radius.PILL}px; }}
 QLabel[role="chip"] {{ padding: 1px {Space.S}px; }}
 {_entities(c)}
+/* the lists beside a form (Channels, States); a stack of candidates has its own rows */
+QListWidget[role="side"] {{ background: {c.sunken}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px;
+    padding: {Space.XS}px; outline: none; }}
+QListWidget[role="side"]::item {{ border-radius: {Radius.MEDIUM}px; padding: {Space.XS}px; }}
+QListWidget[role="side"]::item:hover {{ background: {tint(c.text, 18)}; }}
+QListWidget[role="side"]::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
 QListWidget[role="stack"] {{ background: transparent; border: none; }}
 QListWidget[role="stack"]::item {{ border-radius: {Radius.SMALL}px; }}
 QListWidget[role="stack"]::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
@@ -279,6 +285,12 @@ QMenuBar::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
 QDockWidget::title {{ background: {c.chrome}; padding: {Space.XS}px {Space.M}px; }}
 QFrame[role="card"] {{ background: {c.raised}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px; }}
 QFrame[role="card"] QLabel {{ background: transparent; border: none; }}
+QFrame[role="entry"] {{ background: {c.sunken}; border: 1px solid {c.border}; border-radius: {Radius.MEDIUM}px; }}
+QFrame[role="entry"][open="true"] {{ border-color: {c.accent}; }}
+QLabel[role="entry_title"] {{ font-weight: 600; }}
+QFrame[role="divider"] {{ background: {c.border}; border: none; }}
+QLabel[role="group"] {{ color: {c.text_muted}; font-size: {size(TypeScale.CAPTION)}; font-weight: 700;
+    padding-bottom: {Space.XS}px; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: {c.surface}; border: none; }}
 QToolTip {{ background: {c.raised}; color: {c.text}; border: 1px solid {c.border}; border-radius: {Radius.SMALL}px;
     padding: 2px {Space.XS + 2}px; }}
@@ -288,7 +300,8 @@ QMenu::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
 QMenu::item:disabled {{ color: {c.text_muted}; }}
 QScrollBar:vertical {{ background: transparent; width: {Space.M}px; margin: 0; }}
 QScrollBar:horizontal {{ background: transparent; height: {Space.M}px; margin: 0; }}
-QScrollBar::handle {{ background: {tint(c.text, 60)}; border-radius: {Radius.SMALL}px; margin: 3px; }}
+/* round ends: Qt draws no round corners for a radius above half the width of the handle */
+QScrollBar::handle {{ background: {tint(c.text, 60)}; border-radius: {(Space.M - 2 * 3) // 2}px; margin: 3px; }}
 QScrollBar::handle:hover {{ background: {tint(c.text, 110)}; }}
 QScrollBar::handle:vertical {{ min-height: {Space.XXL}px; }}
 QScrollBar::handle:horizontal {{ min-width: {Space.XXL}px; }}
@@ -301,6 +314,7 @@ QLabel[role="hint"] {{ color: {c.text_muted}; }}
 QLabel[role="help"] {{ color: {c.text_muted}; font-size: {size(TypeScale.CAPTION)}; }}
 QLabel[role="meaning"] {{ font-size: {size(TypeScale.CAPTION)}; }}
 QLabel[role="error"] {{ color: {c.error}; }}
+QLabel[role="warn"] {{ color: {c.tone_warn}; font-size: {size(TypeScale.CAPTION)}; }}
 QLabel[role="live"] {{ color: {c.tone_good}; }}
 QLabel[role="pill"] {{ border-radius: {Radius.PILL - 2}px; padding: 3px {Space.M - 2}px; font-weight: 600; }}
 QLabel[role="pill"][tone="good"] {{ background: {tint(c.success)}; color: {c.tone_good}; }}

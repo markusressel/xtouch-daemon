@@ -9,7 +9,8 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from tests.support.simulator import MemoryPort, until
+from tests.support.simulator import MemoryPort
+from tests.support.waiting import until
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led

@@ -32,7 +32,8 @@ same options:
 | `label` | the first name of `person` | The top line of a `person` channel; people without a channel show their name. |
 | `color` | `"white"` | The backlight while the person is there and does not talk. Dark while they are away. |
 | `talking_color` | `"green"` | The backlight while the person talks. |
-| `meter` | `true` | Whether the LED meter shows the person's voice. Without levels from the provider it lights while they talk. The level is after their volume, see [Meters](index.md#meters). |
+| `meter` | `true` | Whether the LED meter shows the person's voice. Without levels from the provider it lights while they talk. |
+| `meter_point` | `behavior.meter_point` | `"pre_fader"`: their voice before the volume of their fader; `"post_fader"`: after it, see [Meters](index.md#meters). |
 | `max_volume` | `behavior.max_volume` | The volume of a person with the fader at the top, 1..200 percent; 100 % is at the 0 dB mark as on the other strips. Above 100 % the voice is louder than Mumble plays it, and may clip. |
 
 The strips of people have no `launch`: starting the voice chat is a control of a slot, e.g.
@@ -82,11 +83,14 @@ the people (of `people` and `auto`) as itself; `in_pool = false` keeps it out.
 | `participants` | `["Alice", "Bob", "Carol", "Dave", "Eve"]` | The names of the `demo` people. |
 
 Without the section, its defaults apply. None of the voice chat clients tells another program the volume of each
-person, so the daemon can't read them from PipeWire: they all come out of one stream. Mumble and TeamSpeak have
-plugins that can, and the bridge is what such a plugin talks to. For Mumble there is one: see
-[Mumble](../../guides/mumble.md), which the GUI installs with a click.
+person, so the daemon can't read them from PipeWire: they all come out of one stream. Mumble has a
+plugin API that can, and the bridge is what such a plugin talks to. For Mumble there is one: see
+[Mumble](../../guides/mumble.md), which the GUI installs with a click. Other clients, TeamSpeak included, are not
+supported yet; open an issue if you need one.
 
 The state `voice_chat = true` (see [States and modes](../slots.md#states-and-modes)) is on while you are in a channel of
 the voice chat.
 
 A plugin for another client speaks the [bridge protocol](../../reference/voice-chat-bridge.md).
+
+Next: [Mumble](../../guides/mumble.md) for the plugin, [slots](../slots.md#pools-of-applications-and-of-people) for pools of people of your own.

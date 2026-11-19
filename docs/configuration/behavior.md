@@ -1,6 +1,6 @@
 # Behavior, device and aliases
 
-The sections that apply to the daemon and to every strip. The GUI shows them in the tab "Global settings".
+The sections that apply to the daemon and to every strip. The [GUI](../guides/gui.md) has them on the page Settings.
 
 ## `[device]`
 
@@ -38,8 +38,8 @@ shutdown = "curtain"
 
 Only a touched fader changes a value (see [Hardware](../reference/hardware.md#motor-faders)), so a fader whose touch sensor
 failed goes back to its value shortly after every move. Until it is repaired, `touchless_faders` lets it work without the
-sensor: a move counts as a touch, and half a second without a move as letting go. In the GUI these are the buttons
-under "Touchless faders" on the page "Device".
+sensor: a move counts as a touch, and half a second without a move as letting go. In the GUI these are the toggles of
+`touchless_faders` under Settings, Extender.
 
 ```toml
 [device]
@@ -95,3 +95,5 @@ The name to show on an `auto` slot for an application, at most 7 characters of A
 
 The key is the application name the sound server reports. `xtouch-daemon list-apps` shows it, and so do the
 suggestions of the GUI.
+
+Next: [Commands](../reference/commands.md), [Troubleshooting](../guides/troubleshooting.md).

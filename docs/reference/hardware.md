@@ -1,7 +1,7 @@
 # Hardware and protocol
 
 The Behringer X-Touch Extender has 8 strips. Each has a 100 mm motorized, touch-sensitive fader, four buttons with
-LEDs (Rec, Solo, Mute, Select), an encoder with a push button and an LED ring, an LED meter, and an LCD with two lines
+LEDs (Rec, Solo, Mute, Select), an [encoder](../configuration/strip/encoders.md) with a push button and an [LED](../configuration/strip/leds.md) ring, an LED meter, and an LCD with two lines
 of 7 characters and one of 8 backlight colors.
 
 The meter has 8 LEDs: seven for the level (green, then orange) and a red clip LED at the top. Mackie Control sets it
@@ -26,7 +26,7 @@ without ALSA sequencer or JACK.
 The user needs read and write access to it. Desktop sessions give it to the logged-in user through the seat (logind).
 Without a session, add the user to the `audio` group.
 
-Only one program can have the device open. Stop the daemon before `xtouch-daemon test`, and close DAWs that use it.
+Only one program can have the device open. Stop the daemon before [`xtouch-daemon test`](commands.md), and close DAWs that use it.
 
 ## Motor faders
 

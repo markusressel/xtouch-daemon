@@ -36,7 +36,7 @@ def test_the_preview_says_whether_it_is_live():
     assert (waiting.text, waiting.tone) == ("Live · not connected", Tone.WARN)
     assert "X-Touch-Ext" in waiting.tip
     alone = preview_status(None, None, "X-Touch-Ext")
-    assert (alone.text, alone.tone) == ("File preview", Tone.NEUTRAL)
+    assert (alone.text, alone.tone) == ("No daemon", Tone.WARN)
     assert alone.tip.startswith("The daemon is not running")
     # a daemon from before the live view
     assert "process 42" in preview_status(DAEMON, None, "X-Touch-Ext").tip
@@ -108,25 +108,23 @@ def test_changes_tried_on_the_device_are_not_the_saved_file():
 def test_the_unit_in_effect_is_the_packaged_one_or_where_it_comes_from():
     assert unit_status(ServiceState(installed=False, active="inactive", enabled=False), overrides=False) is None
     packaged = ServiceState(True, "active", True, unit=systemd.PACKAGED_UNIT, program="/usr/bin/xtouch-daemon")
-    assert unit_status(packaged, overrides=False) == Status(
-        "packaged", Tone.NEUTRAL, f"The unit of the package: {systemd.PACKAGED_UNIT}"
-    )
+    assert unit_status(packaged, overrides=False) == Status("packaged", Tone.NEUTRAL, "The unit of the package.")
     user_unit = Path("/home/me/.config/systemd/user/xtouch-daemon.service")
     checkout = ServiceState(
         True, "active", True, unit=user_unit, program="/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
     )
     program = "/home/me/xtouch-daemon/.venv/bin/xtouch-daemon"
     assert unit_status(checkout, overrides=False) == Status(
-        "own unit", Tone.NEUTRAL, f"The unit {user_unit}, which starts {program}"
+        "own unit", Tone.NEUTRAL, f"Your own unit, which starts `{program}`."
     )
     # it hides the package's
     assert unit_status(checkout, overrides=True) == Status(
-        "own unit", Tone.WARN, f"The unit {user_unit}, which starts {program}; it overrides the one of the package"
+        "own unit", Tone.WARN, f"Your own unit, which starts `{program}`. It overrides the unit of the package."
     )
     # systemd did not tell the program
     unknown = unit_status(ServiceState(True, "inactive", True, unit=user_unit), overrides=False)
     assert unknown is not None
-    assert unknown.tip == f"The unit {user_unit}"
+    assert unknown.tip == "Your own unit."
 
 
 def versioned(version: str | None) -> Snapshot:

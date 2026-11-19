@@ -6,8 +6,23 @@ do on the device, frame by frame with a caption. See `docs/development/design/co
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Any, Literal, assert_never
+from typing import Any, Literal, assert_never, cast
 
+from pydantic import ValidationError
+
+from xtouch_daemon.config.buttons import (
+    BUTTON_NAMES,
+    LEDS,
+    Action,
+    ButtonName,
+    ButtonSetup,
+    LaunchAction,
+    LedShows,
+    default_setup,
+    describe_action,
+    indicator,
+    table_of,
+)
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain.looks import DARK
@@ -76,6 +91,24 @@ class Strip:
     def value(self, name: str) -> Any:
         return self.values.get(name)
 
+    def button(self, name: ButtonName) -> ButtonSetup:
+        """What a button does: its table, the rest as the strip type does it."""
+        default = default_setup(
+            name,
+            self.strip_type,
+            devices=bool(self.value("device") or self.value("choices")),
+            profiles=bool(self.value("profiles")),
+            launch=self.value("launch") is not None,
+        )
+        table = table_of(name, self.value(name))
+        parts: Mapping[str, Any] = table if isinstance(table, Mapping) else {}
+        led = parts.get("led")
+        return ButtonSetup(
+            _action(parts.get("press"), default.press),
+            _action(parts.get("hold"), default.hold),
+            cast(LedShows, led) if led in LEDS.meanings else default.led,
+        )
+
     @property
     def label(self) -> str:
         label = self.value("label")
@@ -85,6 +118,21 @@ class Strip:
         if self.strip_type == "voip":
             return (person[0] if isinstance(person, list | tuple) and person else "Alice")[: protocol.LCD_CELL_WIDTH]
         return {"output": "Output", "input": "Input", "auto": "Firefox"}.get(self.strip_type, "Label")
+
+    def labels(self) -> tuple[tuple[str, str], ...]:
+        """
+        The labels the LCD shows for the choices (Select) or the profiles (Rec), with what picks each: the label of an
+        entry, else the start of its device (the daemon takes the start of its description). Empty without them.
+        """
+        for name, button in (("choices", "Select"), ("profiles", "Rec")):
+            entries = self.value(name)
+            if isinstance(entries, list | tuple) and entries:
+                return tuple(
+                    (button, str(entry.get("label") or entry.get("device") or "?")[: protocol.LCD_CELL_WIDTH])
+                    for entry in entries
+                    if isinstance(entry, Mapping)
+                )
+        return ()
 
     @property
     def color(self) -> str:
@@ -117,6 +165,18 @@ class Strip:
             touched=False,
             meter=LEVEL if self.value("meter") is not False else 0,
         )
+
+
+def _action(value: object, default: Action) -> Action:
+    """An action of the form, `default` for none (or one that is no action, which the form shows as a problem)."""
+    if isinstance(value, str) and value:
+        return value
+    if isinstance(value, Mapping):
+        try:
+            return LaunchAction.model_validate(value)
+        except ValidationError:
+            return default
+    return default
 
 
 def scene(part: Part, strip: Strip) -> tuple[Frame, ...]:
@@ -208,8 +268,13 @@ def _display(strip: Strip) -> tuple[Frame, ...]:
             Frame("The fader moves: the new value", replace(base, text=(strip.label, "72%"), fader=0.72, meter=0)),
         )
     idle = "lit (lit_when_idle)" if strip.value("lit_when_idle") else "dark"
+    labels = strip.labels()
+    if labels:
+        # the label of the entry picked first, then one picked after the other
+        base = replace(base, text=(labels[0][1], base.text[1]))
     return (
         Frame("Plays: label and volume", base),
+        *(Frame(f"{button} picked {label}", replace(base, text=(label, base.text[1]))) for button, label in labels[1:]),
         Frame("Fader moved: the new volume", strip.playing(72)),
         Frame("Muted", replace(base, text=(strip.label, "muted"))),
         Frame(f"Nothing to control: {idle}", _idle(strip, base)),
@@ -217,27 +282,80 @@ def _display(strip: Strip) -> tuple[Frame, ...]:
 
 
 def _buttons(strip: Strip) -> tuple[Frame, ...]:
+    """
+    What the LEDs show in the situations their indicators are about, then what a press and a hold of each button
+    that does something leads to (e.g. Select pressed: the device is the default, its LED lit).
+    """
     base = strip.playing()
     device = strip.strip_type in DEVICE_TYPES
+    setups = {name: strip.button(name) for name in BUTTON_NAMES}
     situations: list[tuple[str, set[str]]] = [("Audio plays", {"playing"})]
     situations.append(("An application records", {"playing", "recording"}))
     if device:
         situations.append(("The default device", {"default"}))
     situations.append(("Muted", {"playing", "muted"}))
     situations.append(("Nothing plays", set()))
+    for name, setup in setups.items():
+        for part, action in (("pressed", setup.press), ("held", setup.hold)):
+            if action != "off":
+                flags = {"playing", f"{name} {part}", *_ACTION_FLAGS.get(describe_action(action), ())}
+                situations.append((f"{name.capitalize()} {part} ({_does(action)})", flags))
     frames = []
     for caption, flags in situations:
         leds = dict(DARK.leds)
-        for button in ("rec", "solo"):
-            if strip.value(button) in flags:
-                leds[button] = "on"
+        for name, setup in setups.items():
+            if _lit(name, setup, flags):
+                leds[name] = "on"
         if "muted" in flags:
             leds["mute"] = "on"
-        if device and strip.value("select") is not False and "default" in flags:
-            leds["select"] = "on"
         lit = [name.capitalize() for name, led in leds.items() if led == "on"]
         frames.append(Frame(f"{caption}: {', '.join(lit) if lit else 'all dark'}", replace(base, leds=leds)))
     return tuple(frames)
+
+
+def _does(action: Action) -> str:
+    """What an action does, in a few words."""
+    if not isinstance(action, str):
+        return f"starts {action.launch[0]}"
+    if action.startswith("mode:"):
+        return f"mode {action.removeprefix('mode:')}"
+    if action.startswith("toggle:"):
+        return f"{action.removeprefix('toggle:')} toggled"
+    return _DOES.get(action, action)
+
+
+_DOES = {
+    "default": "makes it the default",
+    "next": "shows the next one",
+    "profile": "the next profile",
+    "launch": "starts it",
+    "talk": "talks while held",
+    "mute_others": "the others muted while held",
+    "homeassistant": "an event in Home Assistant",
+    "cycle_modes": "the next mode",
+}
+"""What the actions do, for the captions of the preview."""
+
+_ACTION_FLAGS = {"default": ("default",), "next": ("shown",)}
+"""What an action leads to, for the LEDs that show it: the device is the default, the strip shows another one."""
+
+
+def _lit(name: str, setup: ButtonSetup, flags: set[str]) -> bool:
+    """Whether the LED of a button is lit in a situation (`flags`: what is so, and which button is pressed or held)."""
+    if (shows := indicator(setup.led)) is not None:
+        return shows in flags
+    if setup.led == "shown":
+        return "shown" in flags
+    match setup.press:
+        case "off" | "homeassistant":
+            return False
+        case "default":
+            return "default" in flags
+        case "next":
+            return "shown" in flags
+        case _:
+            # after a press: the second profile, the application runs, the mode is on, while held
+            return f"{name} pressed" in flags
 
 
 def _fader(strip: Strip) -> tuple[Frame, ...]:

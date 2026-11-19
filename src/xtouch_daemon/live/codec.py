@@ -10,7 +10,11 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import (
     VERSION,
     EndPreview,
+    ForgetDevice,
+    Glide,
     KeepPreview,
+    KnownDevice,
+    KnownDevices,
     MqttState,
     Play,
     Reply,
@@ -23,6 +27,7 @@ from xtouch_daemon.live.messages import (
     StartPreview,
     StateView,
     StripState,
+    TwinView,
     VoipState,
 )
 from xtouch_daemon.slots.outcomes import Situation
@@ -41,14 +46,52 @@ def decode(line: bytes) -> Snapshot | None:
     return message if isinstance(message, Snapshot) else None
 
 
-def decode_message(line: bytes) -> Snapshot | Reply | None:
-    """A line of the daemon: a snapshot or a reply, None for a snapshot of another version."""
+def encode_known(known: KnownDevices) -> bytes:
+    """The devices the daemon remembers, one line for every client."""
+    return (
+        json.dumps({"known_devices": [asdict(device) for device in known.devices]}, separators=(",", ":")).encode()
+        + b"\n"
+    )
+
+
+def decode_message(line: bytes) -> Snapshot | Reply | TwinView | KnownDevices | None:
+    """
+    A line of the daemon: a snapshot, a reply, the view of a twin or the devices it remembers; None for a snapshot of
+    another version.
+    """
     data = json.loads(line)
+    if "known_devices" in data:
+        return KnownDevices(tuple(KnownDevice(**device) for device in data["known_devices"]))
     if "reply" in data:
         return Reply(data["reply"], bool(data["ok"]), str(data.get("message", "")))
+    if "twin" in data:
+        twin = data["twin"]
+        slots = _slots(twin["slots"])
+        assert slots is not None, "a twin always has slots"
+        return TwinView(twin["config"], _strips(twin["strips"]), slots)
     if data.get("version") != VERSION:
         return None
-    strips = tuple(
+    strips = _strips(data["strips"])
+    mqtt_state = data["mqtt_state"]
+    return Snapshot(
+        data["config"],
+        data["device"],
+        data["sound_server"],
+        data["mqtt"],
+        strips,
+        MqttState(**mqtt_state) if mqtt_state is not None else None,
+        data["daemon_version"],
+        data["preview"],
+        tuple(data["features"]),
+        _voip(data["voip"]),
+        _slots(data["slots"]),
+        data["virtual"],
+        data["simulated"],
+    )
+
+
+def _strips(values: list[dict[str, Any]]) -> tuple[StripState, ...]:
+    return tuple(
         StripState(
             color=strip["color"],
             text=(strip["text"][0], strip["text"][1]),
@@ -58,25 +101,16 @@ def decode_message(line: bytes) -> Snapshot | Reply | None:
             fader=strip["fader"],
             touched=strip["touched"],
             meter=strip["meter"],
+            meter_at=strip["meter_at"],
+            glide=None if strip["glide"] is None else Glide(**strip["glide"]),
         )
-        for strip in data["strips"]
+        for strip in values
     )
-    mqtt_state = data.get("mqtt_state")
-    return Snapshot(
-        data["config"],
-        data["device"],
-        data["sound_server"],
-        data["mqtt"],
-        strips,
-        MqttState(**mqtt_state) if mqtt_state is not None else None,
-        data.get("daemon_version"),
-        bool(data.get("preview", False)),
-        tuple(data.get("features", ())),
-        _voip(data.get("voip")),
-        _slots(data.get("slots")),
-        bool(data.get("virtual", False)),
-        bool(data.get("simulated", False)),
-    )
+
+
+def encode_twin(view: TwinView) -> bytes:
+    """The view of a twin, one line for its client."""
+    return json.dumps({"twin": asdict(view)}, separators=(",", ":")).encode() + b"\n"
 
 
 def _slots(value: dict[str, Any] | None) -> SlotsState | None:
@@ -100,8 +134,8 @@ def _voip(value: dict[str, Any] | None) -> VoipState | None:
         value["client"],
         value["channel"],
         value["participants"],
-        tuple(value.get("names", ())),
-        tuple(value.get("ids", ())),
+        tuple(value["names"]),
+        tuple(value["ids"]),
     )
 
 
@@ -116,6 +150,7 @@ _REQUEST_NAMES: dict[type, str] = {
     SetMode: "mode",
     SetOverride: "override",
     Play: "play",
+    ForgetDevice: "forget_device",
 }
 
 _EVENTS: dict[str, type] = {
@@ -132,23 +167,17 @@ _EVENT_NAMES = {kind: name for name, kind in _EVENTS.items()}
 def encode_request(request: Request) -> bytes:
     data: dict[str, Any] = {"request": _REQUEST_NAMES[type(request)]}
     if isinstance(request, StartPreview):
-        data["config"] = request.config
+        data |= {"config": request.config, "on_device": request.on_device}
         if request.situation is not None:
-            situation = request.situation
-            data["situation"] = {
-                "mode": situation.mode,
-                "on": sorted(situation.on),
-                "flipped": sorted(situation.flipped),
-                "people": situation.people,
-                "apps": situation.apps,
-                "devices": situation.devices,
-            }
+            data["situation"] = _situation_data(request.situation)
     elif isinstance(request, SetMode):
         data["mode"] = request.mode
     elif isinstance(request, SetOverride):
         data |= {"state": request.state, "value": request.value}
+    elif isinstance(request, ForgetDevice):
+        data |= {"name": request.name, "direction": request.direction}
     elif isinstance(request, Play):
-        data |= {"event": _EVENT_NAMES[type(request.event)]} | asdict(request.event)
+        data |= {"event": _EVENT_NAMES[type(request.event)], "preview": request.preview} | asdict(request.event)
     return json.dumps(data).encode() + b"\n"
 
 
@@ -161,7 +190,11 @@ def decode_request(line: bytes) -> Request:
     match data:
         case {"request": "preview", "config": str() | None as config}:
             situation = data.get("situation")
-            return StartPreview(config, None if situation is None else _situation(situation))
+            # a GUI of 0.1.0 previews on the device only
+            on_device = data.get("on_device", True)
+            if not isinstance(on_device, bool):
+                raise ValueError("on_device is no boolean")
+            return StartPreview(config, None if situation is None else _situation(situation), on_device)
         case {"request": "keep_preview"}:
             return KeepPreview()
         case {"request": "end_preview"}:
@@ -170,12 +203,25 @@ def decode_request(line: bytes) -> Request:
             return SetMode(mode)
         case {"request": "override", "state": str(state), "value": str(value)}:
             return SetOverride(state, value)
+        case {"request": "forget_device", "name": str(name), "direction": "output" | "input" as direction}:
+            return ForgetDevice(name, direction)
         case {"request": "play", "event": str(name), "strip": int(strip)} if name in _EVENTS:
             if not 0 <= strip < protocol.STRIPS:
                 raise ValueError(f"no strip {strip}")
-            return Play(_play_event(name, strip, data))
+            return Play(_play_event(name, strip, data), bool(data.get("preview", False)))
         case _:
             raise ValueError("unknown")
+
+
+def _situation_data(situation: Situation) -> dict[str, Any]:
+    return {
+        "mode": situation.mode,
+        "on": sorted(situation.on),
+        "flipped": sorted(situation.flipped),
+        "people": situation.people,
+        "apps": situation.apps,
+        "devices": situation.devices,
+    }
 
 
 def _situation(value: Any) -> Situation:

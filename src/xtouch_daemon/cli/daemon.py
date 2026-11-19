@@ -57,15 +57,27 @@ def run(config_path: Path | None, log_level: str, virtual_device: bool) -> None:
 @click.command()
 @CONFIG_OPTION
 @click.option("--events/--no-events", default=True, help="Show what happens on the device after the test.")
-def test(config_path: Path | None, events: bool) -> None:
+@click.option(
+    "--virtual-device",
+    is_flag=True,
+    help="Test the virtual device (`virtual-device`), as `[device] virtual = true` does.",
+)
+def test(config_path: Path | None, events: bool, virtual_device: bool) -> None:
     """Light up everything on the device and move the faders (stop the daemon first)."""
     config = load_or_fail(config_path)
+    virtual = virtual_device or config.device.virtual
     try:
-        asyncio.run(run_selftest(config.device.name, click.echo, show_events=events))
+        surface = device_surface(config.device.name, virtual=True) if virtual else None
+        asyncio.run(run_selftest(config.device.name, click.echo, show_events=events, surface=surface))
     except KeyboardInterrupt:
         pass
     except LookupError as e:
-        raise click.ClickException(f"{e}: is it switched on, in MC mode on USB?") from e
+        if virtual:
+            raise click.ClickException(f"{e}: start the virtual device first (`xtouch-daemon virtual-device`).") from e
+        raise click.ClickException(
+            f"{e}: is it switched on, in MC mode on USB? (No device at hand: `xtouch-daemon virtual-device` in "
+            "another terminal, then `test --virtual-device`.)"
+        ) from e
     except OSError as e:
         raise click.ClickException(
             f"can't open {config.device.name} ({e}). Is the daemon running? systemctl --user stop xtouch-daemon"

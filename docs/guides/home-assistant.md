@@ -1,22 +1,25 @@
 # Home Assistant
 
-A `homeassistant` strip belongs to Home Assistant instead of PipeWire: every part of it is an entity there, and
+A `homeassistant` channel is a strip that belongs to Home Assistant instead of PipeWire: every part of it is an entity there, and
 automations decide what it does. For example, the fader dims a light, the encoder sets the volume of a speaker in
 another room, a button toggles a scene. The daemon reaches Home Assistant over MQTT discovery, so it needs the
 [`[mqtt]`](#mqtt) section.
 
 ## PipeWire or Home Assistant?
 
-Each control has one owner. The PipeWire types (`output`, `input`, `apps`, `auto`) control audio on this computer
-and need nothing else. A `homeassistant` strip controls nothing by itself; it only reports what happens on it and
-shows what Home Assistant sets. In between, an audio strip can hand its fader or its encoder to Home Assistant and keep
-the other one for the volume, see [below](#audio-strips-with-home-assistant-controls). Never both on one control: a
+Each control has one owner. The audio channels (`output`, `input`, `apps`) and the pools (`auto`, `apps`, ...)
+control audio on this computer and need nothing else. A `homeassistant` channel controls nothing by itself; it only
+reports what happens on it and shows what Home Assistant sets. In between, an audio channel can hand its fader or its
+encoder to Home Assistant and keep the other one for the volume, see
+[below](#audio-strips-with-home-assistant-controls), and [`[controls]`](#controls-of-a-slot) hands a control of a slot
+to Home Assistant whatever the slot shows. Never both on one control: a
 fader that both set a PipeWire volume and were moved by Home Assistant would fight over the motor.
 
 ## `[mqtt]`
 
-The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. Without `homeassistant` strips the section is optional;
-with it, the daemon connects anyway and shows the device in Home Assistant.
+The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. Anything that is an entity in Home Assistant needs it
+(`homeassistant` channels and controls, `homeassistant = true` on a state); without such, the section is optional,
+and with it the daemon still shows the device, its modes, states and slots in Home Assistant.
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -77,15 +80,17 @@ while none does.
 
 ## Audio strips with Home Assistant controls
 
-An `output`, `input` or `apps` channel, or an `auto` place, with `encoder = "homeassistant"` or `fader = "homeassistant"` keeps the
+An `output`, `input` or `apps` channel with `encoder = "homeassistant"` or `fader = "homeassistant"` keeps the
 volume on the other control and gets these entities of the [list below](#entities):
 
 | Option | Entities |
 |---|---|
 | `encoder = "homeassistant"` | `number.<ns>_<id>_encoder`, and `event.<ns>_<id>_buttons` with `encoder_pressed`, `encoder_released`. |
 | `fader = "homeassistant"` | `number.<ns>_<id>_fader`, and `event.<ns>_<id>_buttons` with `fader_touched`, `fader_released`. |
+| `select = { press = "homeassistant" }` (also `rec`, `solo`) | `event.<ns>_<id>_buttons` with `select_pressed`, `select_released`. |
 
-The LCD, the LEDs and the buttons stay with PipeWire. The channel's id names the entities, its `label` starts their
+The LCD and the LEDs stay with PipeWire, and so do the buttons unless they say `homeassistant` (see
+[Buttons](../configuration/strip/leds.md#buttons)). The channel's id names the entities, its `label` starts their
 names. See [Encoders](../configuration/strip/encoders.md#homeassistant) for the details.
 
 ```toml
@@ -96,12 +101,26 @@ label = "Desk"
 encoder = "homeassistant"    # the fader sets the volume, the encoder dims the desk lamp
 ```
 
-A control of a slot can belong to Home Assistant whatever the slot shows, with [`[controls]`](../configuration/slots.md#controls-and-the-chord):
-`6 = { fader = "homeassistant", id = "desk" }` is `number.xtouch_desk_fader`.
+## Controls of a slot
+
+A control of a slot can belong to Home Assistant whatever the slot shows, with
+[`[controls]`](../configuration/slots.md#controls-and-the-chord): the fader, the encoder (turn and push), and the
+Select, Rec and Solo buttons (an event per press, and a select for the LED). The entities are named by the slot
+(`number.xtouch_slot_6_fader`), or by `id`:
+
+```toml
+[controls]
+6 = { fader = "homeassistant", id = "desk" }      # number.xtouch_desk_fader
+4 = { encoder = "homeassistant" }                 # number.xtouch_slot_4_encoder
+```
+
+With the fader taken, the encoder sets the volume of what the slot shows; with only the encoder taken, the fader
+keeps it.
 
 ## Entities
 
-`<ns>` is `mqtt.namespace`, `<id>` the id of the channel (`desk` for `[channel.desk]`) or the `id` of the control:
+`<ns>` is `mqtt.namespace`, `<id>` the id of the channel (`desk` for `[channel.desk]`), or for a control of a slot its
+`id` or `slot_<n>`:
 
 | Entity | What it is |
 |---|---|
@@ -213,48 +232,6 @@ automation:
           value: "{{ [trigger.to_state.state | float(0) / 2000 * 100, 100] | min | round(0) }}"
 ```
 
-## haad
+To react to the entities from code, see [As a haad controller](../development/haad-controller.md).
 
-The same as a [haad](https://github.com/markusressel/haad) controller (a sketch: the entity wrappers are haad's, the
-names depend on your setup):
-
-```python
-@haad_controller(registry_name="xtouch_living_room")
-class XTouchLivingRoom(HaadController):
-    @haad_ha_entity
-    def fader(self) -> HANumber:
-        return HANumber("number.xtouch_living_room_fader")
-
-    @haad_ha_entity
-    def encoder(self) -> HANumber:
-        return HANumber("number.xtouch_living_room_encoder")
-
-    @haad_ha_entity
-    def buttons(self) -> HAEventEntity:
-        return HAEventEntity("event.xtouch_living_room_buttons")
-
-    @haad_ha_entity
-    def light(self) -> HALight:
-        return HALight("light.living_room")
-
-    @haad_ha_entity
-    def speaker(self) -> HAMediaPlayer:
-        return HAMediaPlayer("media_player.living_room")
-
-    async def initialize(self) -> None:
-        async def dim() -> None:
-            # turn_on() of HALight does nothing for a light that is on: set the brightness directly
-            brightness = await self.fader.get_state()
-            await self.ha.perform_action("light/turn_on", entity_id=self.light.entity_id, brightness_pct=brightness)
-
-        async def volume() -> None:
-            await self.speaker.volume_set(await self.encoder.get_state() / 100)
-
-        async def button() -> None:
-            if await self.buttons.get_event_type() == "mute_pressed":
-                await self.light.toggle()
-
-        await self.react_to(trigger=self.fader, action=dim)
-        await self.react_to(trigger=self.encoder, action=volume)
-        await self.react_to(trigger=self.buttons, action=button)
-```
+Next: [Slots](../configuration/slots.md#controls-and-the-chord) (controls of a slot), [Troubleshooting](troubleshooting.md#home-assistant).

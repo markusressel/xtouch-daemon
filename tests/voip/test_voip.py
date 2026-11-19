@@ -30,7 +30,7 @@ def short_dir() -> Iterator[Path]:
         yield Path(directory)
 
 
-def test_build_provider(tmp_path: Path):
+def test_the_provider_is_the_demo_or_the_bridge(tmp_path: Path):
     demo = build_provider(VoipConfig(provider="demo", participants=("Ann",)), tmp_path / "s")
     assert isinstance(demo, DemoProvider)
     assert [person.name for person in demo.participants] == ["Ann"]
@@ -95,7 +95,7 @@ async def test_the_demo_keeps_volume_and_mute():
     assert provider.participants[0].pre_fader_level == pytest.approx(0.35)
 
 
-async def test_the_demo_runs(monkeypatch: pytest.MonkeyPatch):
+async def test_the_demo_tells_its_listeners_while_it_runs(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(demo_module, "TICK", 0.0)
     provider = DemoProvider(("Ann",))
     heard: list[int] = []

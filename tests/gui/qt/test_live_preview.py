@@ -25,6 +25,7 @@ from tests.support.gui import (
     type_into,
 )
 from tests.support.instance import RecordingInstance
+from xtouch_daemon.gui.domain.live_preview import Place
 from xtouch_daemon.gui.qt import live_preview as live_preview_module
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.codec import decode_request, encode_reply
@@ -77,8 +78,12 @@ class PreviewingDaemon(FakeLiveDaemon):
 
     @property
     def previews(self) -> list[str]:
-        """The configurations sent for a preview."""
-        return [request.config for request in self.requests if isinstance(request, StartPreview) and request.config]
+        """The configurations sent for a preview on the device."""
+        return [
+            request.config
+            for request in self.requests
+            if isinstance(request, StartPreview) and request.config and request.on_device
+        ]
 
     def ends(self) -> int:
         return sum(isinstance(request, EndPreview) for request in self.requests)
@@ -105,36 +110,40 @@ def live_window(qtbot: QtBot, make_window: MakeWindow, previewing: PreviewingDae
     window = make_window(live_socket=previewing.path, **options)
     qtbot.waitUntil(lambda: bool(previewing.clients))
     previewing.send(snapshot(window))
-    qtbot.waitUntil(lambda: window.preview_switch.isEnabled())
+    qtbot.waitUntil(lambda: window.place_buttons[Place.DEVICE].isEnabled())
     show_channel(window, "out")
     return window
 
 
 def switch_on(qtbot: QtBot, window: MainWindow) -> None:
-    click(qtbot, window.preview_switch)
+    click(qtbot, window.place_buttons[Place.DEVICE])
     assert window.live_preview.on
 
 
-def test_the_switch_is_off_until_a_daemon_can_preview(
+def test_the_device_is_no_place_until_a_daemon_can_preview(
     qtbot: QtBot, make_window: MakeWindow, previewing: PreviewingDaemon
 ):
     alone = make_window(find_daemon=lambda: None)
-    assert not alone.preview_switch.isEnabled()
-    assert not alone.preview_switch.isChecked()
-    assert alone.preview_switch.toolTip().startswith("No daemon runs")
+    device = alone.place_buttons[Place.DEVICE]
+    assert not device.isEnabled()
+    assert not device.isChecked()
+    assert device.toolTip().startswith("No daemon runs")
+    # in the GUI by default
+    assert alone.place_buttons[Place.GUI].isChecked()
 
-    # a daemon from before the live preview
+    # a daemon from before the preview
     window = make_window(live_socket=previewing.path)
     qtbot.waitUntil(lambda: bool(previewing.clients))
     previewing.send(snapshot(window, features=()))
     qtbot.waitUntil(lambda: window.live.snapshot is not None)
-    assert not window.preview_switch.isEnabled()
-    assert "too old" in window.preview_label.toolTip()
+    assert not window.place_buttons[Place.DEVICE].isEnabled()
+    assert "too old" in window.place_buttons[Place.DEVICE].toolTip()
+    assert "too old" in window.place_buttons[Place.GUI].toolTip()
 
     previewing.send(snapshot(window))
-    qtbot.waitUntil(lambda: window.preview_switch.isEnabled())
-    assert window.preview_switch.toolTip().startswith("Runs the changes on the device before they are saved")
-    assert not window.live_preview.on
+    qtbot.waitUntil(lambda: window.place_buttons[Place.DEVICE].isEnabled())
+    assert window.place_buttons[Place.DEVICE].toolTip().startswith("Runs the changes, and Simulate while it is open")
+    assert window.live_preview.place == Place.GUI
 
 
 def test_the_device_follows_the_editor_while_the_live_preview_is_on(
@@ -177,9 +186,9 @@ def test_the_device_follows_the_editor_while_the_live_preview_is_on(
     qtbot.waitUntil(lambda: isinstance(previewing.requests[-1], KeepPreview))
 
     # off: back to the file
-    click(qtbot, window.preview_switch)
+    click(qtbot, window.place_buttons[Place.OFF])
     qtbot.waitUntil(lambda: previewing.ends() == 2)
-    assert pill(window.changes_pill) == "Unsaved changes"
+    assert pill(window.changes_pill) == "Off: the device runs the file"
     # no heartbeat without a preview
     count = len(previewing.requests)
     window.live_preview._beat()
@@ -198,7 +207,7 @@ def test_the_daemon_says_why_it_did_not_take_a_change(
     qtbot.waitUntil(lambda: window.preview_message.isVisible())
 
     assert window.preview_message.text() == (
-        "The device keeps the version before: A preview can't change the [mqtt] section."
+        "The preview keeps the version before: A preview can't change the [mqtt] section."
     )
     assert not window.live_preview.running
     # taken, with something to know
@@ -257,11 +266,17 @@ def test_the_daemon_ends_the_preview_for_another_window(
     type_into(qtbot, row(window, "label").line, "Boxes")
     qtbot.waitUntil(lambda: window.live_preview.running)
 
-    previewing.reply(Reply("ended", True, "another window previews now"))
+    previewing.reply(Reply("ended", True, "another window previews on the device now"))
     qtbot.waitUntil(lambda: not window.live_preview.on)
 
-    assert not window.preview_switch.isChecked()
-    assert window.preview_message.text() == "Trying the changes on the device ended: another window previews now."
+    # back in the GUI, on the twin
+    assert window.place_buttons[Place.GUI].isChecked()
+    assert window.preview_message.text() == (
+        "The preview on the device ended: another window previews on the device now. It shows in the GUI now."
+    )
+    last = previewing.requests[-1]
+    assert isinstance(last, StartPreview)
+    assert not last.on_device
     # it ended already: the window does not end it again
     assert previewing.ends() == 0
 
@@ -277,7 +292,7 @@ def test_the_preview_ends_with_the_daemon(qtbot: QtBot, make_window: MakeWindow,
 
     assert not window.live_preview.on
     assert not window.live_preview.running
-    assert not window.preview_switch.isEnabled()
+    assert not window.place_buttons[Place.DEVICE].isEnabled()
     # nothing to send to
     assert not window.live.send(KeepPreview())
 
@@ -293,7 +308,8 @@ def test_closing_goes_back_to_the_file(
     assert window.close()
 
     assert (
-        "The device runs them now (Try on the device): without saving, it goes back to the file." in isolated.shown[-1]
+        "The device runs them now (Preview: On the device): without saving, it goes back to the file."
+        in isolated.shown[-1]
     )
     qtbot.waitUntil(lambda: previewing.ends() == 1)
 
@@ -302,15 +318,14 @@ def test_a_new_zoom_goes_on_with_the_preview(qtbot: QtBot, make_window: MakeWind
     window = live_window(qtbot, make_window, previewing)
     switch_on(qtbot, window)
     session = window.session()
-    assert session.live_preview
+    assert session.preview == "device"
     window.rezoom = 1.25
     window.close()
-    assert not window.live_preview.on
 
     after = make_window(live_socket=previewing.path, session=session)
     qtbot.waitUntil(lambda: len(previewing.clients) == 2)
     previewing.send(snapshot(after))
     qtbot.waitUntil(lambda: after.live_preview.on)
-    assert after.preview_switch.isChecked()
-    # a new start has it off
-    assert not dataclasses.replace(session, live_preview=False).live_preview
+    assert after.place_buttons[Place.DEVICE].isChecked()
+    # a new start shows it in the GUI
+    assert dataclasses.replace(session, preview="gui").preview == "gui"
