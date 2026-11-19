@@ -110,6 +110,8 @@ class Strip:
         self.leds: dict[Button, Led] = dict.fromkeys(Button, Led.OFF)
         """All of them, so a connect turns off what the device still shows from before (e.g. Select of an app strip)."""
         self.ring: tuple[int, RingMode] = (0, RingMode.DOT)
+        self.ring_center = False
+        """Whether the LED below the ring is lit (only `xtouch-daemon test` lights it)."""
         self.fader: int | None = None
         """Where the fader should be: None until it is known, so the fader does not move to 0 and back on a connect."""
         self._position: float | None = None
@@ -193,11 +195,12 @@ class Strip:
         if self.overlay is None:
             self._send(protocol.lcd_text(self.index, line, text))
 
-    def set_ring(self, position: int, mode: RingMode = RingMode.DOT) -> None:
-        if self.ring == (position, mode):
+    def set_ring(self, position: int, mode: RingMode = RingMode.DOT, center: bool = False) -> None:
+        if (self.ring, self.ring_center) == ((position, mode), center):
             return
         self.ring = (position, mode)
-        self._send(protocol.ring(self.index, position, mode))
+        self.ring_center = center
+        self._send(protocol.ring(self.index, position, mode, center))
 
     def set_color(self, color: Color) -> None:
         if self.color == color:
@@ -287,7 +290,7 @@ class Strip:
         return [
             *(protocol.led(self.index, button, state) for button, state in self.leds.items()),
             *(protocol.lcd_text(self.index, line, text) for line, text in enumerate(self.shown_text)),
-            protocol.ring(self.index, *self.ring),
+            protocol.ring(self.index, *self.ring, self.ring_center),
         ]
 
     def show_from(self, other: Strip, skip: frozenset[Claimable] = frozenset()) -> None:
@@ -302,7 +305,7 @@ class Strip:
             if CLAIMABLE_BUTTONS.get(button) not in skip:
                 self.set_led(button, state)
         if "encoder" not in skip:
-            self.set_ring(*other.ring)
+            self.set_ring(*other.ring, other.ring_center)
         if "fader" in skip:
             return
         if other.fader is None or other.fader == 0:
@@ -342,7 +345,7 @@ class VirtualStrip(Strip):
             if CLAIMABLE_BUTTONS.get(button) in freed:
                 self.target.set_led(button, state)
         if "encoder" in freed:
-            self.target.set_ring(*self.ring)
+            self.target.set_ring(*self.ring, self.ring_center)
         if "fader" in freed and self.fader is not None:
             self.target.set_fader(protocol.fader_fraction(self.fader))
 
@@ -358,10 +361,11 @@ class VirtualStrip(Strip):
         if self.target is not None:
             self.target.set_text(line, text)
 
-    def set_ring(self, position: int, mode: RingMode = RingMode.DOT) -> None:
+    def set_ring(self, position: int, mode: RingMode = RingMode.DOT, center: bool = False) -> None:
         self.ring = (position, mode)
+        self.ring_center = center
         if self.target is not None and "encoder" not in self.masked:
-            self.target.set_ring(position, mode)
+            self.target.set_ring(position, mode, center)
 
     def set_color(self, color: Color) -> None:
         self.color = color

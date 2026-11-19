@@ -34,4 +34,7 @@ I was able to edit the config to my liking with AI pretty easily, but maybe ther
 
 ## Startup Sequence
 
-- I like the 
+I like the startup sequience we have, especially the show, but can we make it even fancier by:
+- letting a single wave go from left to right over the 8 faders with the lighting?
+- let the leds on the encoder not only turn on but also turn off in a sequence
+- 
