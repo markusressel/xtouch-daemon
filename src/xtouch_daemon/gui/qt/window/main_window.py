@@ -62,6 +62,7 @@ from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
+from xtouch_daemon.gui.qt.file_watch import FileWatch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
@@ -201,6 +202,7 @@ class MainWindow(QMainWindow):
         self.preview_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.preview_message.hide()
         body.addWidget(self.preview_message)
+        body.addWidget(self._disk_bar())
         body.addWidget(self._pages(), 1)
         configuration = QWidget()
         editor = QHBoxLayout(configuration)
@@ -246,6 +248,9 @@ class MainWindow(QMainWindow):
         self.loader.loaded.connect(self._audio_loaded)
         self.loader.failed.connect(self._audio_failed)
         self.editor.changed.connect(self._document_changed)
+        self.file_watch = FileWatch(document.path, self)
+        """Changes of the file on disk by someone else (see `_file_changed`)."""
+        self.file_watch.changed.connect(self._file_changed)
         self.load_audio()
         self.refresh_service()
         self._document_changed(EVERYTHING)
@@ -415,6 +420,26 @@ class MainWindow(QMainWindow):
             self.page_bars.addWidget(slots.bar if name == "slots" else QWidget())
         self.stack.currentChanged.connect(self.page_bars.setCurrentIndex)
         return self.stack
+
+    def _disk_bar(self) -> QFrame:
+        """The bar above the page while the file changed on disk and the window has unsaved changes."""
+        self.disk_bar = QFrame()
+        set_role(self.disk_bar, "banner")
+        layout = QHBoxLayout(self.disk_bar)
+        layout.setContentsMargins(Space.M, Space.S, Space.M, Space.S)
+        self.disk_message = label("", wrap=True)
+        layout.addWidget(self.disk_message, 1)
+        self.reload_button = QPushButton("Reload")
+        set_icon(self.reload_button, "file-refresh-outline")
+        self.reload_button.setToolTip("Read the file again and drop the changes here (Undo brings them back)")
+        self.reload_button.clicked.connect(self.reload)
+        layout.addWidget(self.reload_button)
+        self.keep_button = QPushButton("Keep mine")
+        self.keep_button.setToolTip("Go on with the changes here: Save and apply overwrites the file on disk")
+        self.keep_button.clicked.connect(self.keep_mine)
+        layout.addWidget(self.keep_button)
+        self.disk_bar.hide()
+        return self.disk_bar
 
     def _bar(self, name: str, content: QWidget) -> QToolBar:
         """A bar of the window that stays where it is: the header or the footer."""
@@ -667,7 +692,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"{mark}{self.document.path.name}{new}")
         self._show_savable()
         for widget in (self.revert_button, self.revert_action):
-            widget.setEnabled(modified)
+            # after Keep mine also without changes: the file on disk is another one
+            widget.setEnabled(modified or self.document.overruled is not None)
         for widget in (self.undo_button, self.undo_action):
             widget.setEnabled(self.history.can_undo)
         for widget in (self.redo_button, self.redo_action):
@@ -1022,6 +1048,8 @@ class MainWindow(QMainWindow):
             return True
         restart_sections = self.document.restart_sections
         if self.document.modified or not self.document.exists:
+            if self.document.changed_on_disk() and not self._overwrite():
+                return False
             try:
                 self.document.save()
             except (OSError, ConfigError) as e:
@@ -1047,8 +1075,61 @@ class MainWindow(QMainWindow):
         return True
 
     def revert(self) -> None:
-        self.editor.revert()
-        self.status.setText("Reverted to the file. Ctrl+Z brings the changes back.")
+        if self.reload():
+            self.status.setText("Reverted to the file. Ctrl+Z brings the changes back.")
+
+    def reload(self) -> bool:
+        """Reads the file again, one step to undo; False (and the bar says why) while it can't be read."""
+        try:
+            self.editor.revert()
+        except ConfigError as e:
+            self._show_disk_bar(f"The file on disk can't be read: {e}. The changes here stay; saving overwrites it.")
+            return False
+        self.disk_bar.hide()
+        return True
+
+    def keep_mine(self) -> None:
+        """Goes on with the changes here: the next save overwrites the file on disk without asking."""
+        self.document.overrule()
+        self.disk_bar.hide()
+        self.editor.saved()
+
+    def _file_changed(self) -> None:
+        """
+        Something happened to the file on disk. Another text than the window read: without unsaved changes it reads
+        it again, with them the bar asks (Reload or Keep mine). The window's own saves are no change.
+        """
+        if not self.document.changed_on_disk():
+            # e.g. the file is back to what the window read
+            self.disk_bar.hide()
+            return
+        if self.document.modified:
+            self._show_disk_bar(
+                "The file changed on disk. Reload reads it again and drops the changes here (Ctrl+Z brings them back); "
+                "Keep mine goes on with them, and saving overwrites the file."
+            )
+        elif self.reload():
+            self.status.setText("The file changed on disk: read it again. Ctrl+Z goes back to the version before.")
+
+    def _show_disk_bar(self, message: str) -> None:
+        self.disk_message.setText(message)
+        self.disk_bar.show()
+
+    def _overwrite(self) -> bool:
+        """The file changed on disk since it was read: whether to overwrite it (Reload reads it instead)."""
+        box = QMessageBox(
+            QMessageBox.Icon.Question,
+            "The file changed on disk",
+            "Someone else changed the file since the window read it. Overwrite it with the changes here?",
+            parent=self,
+        )
+        overwrite = box.addButton("Overwrite", QMessageBox.ButtonRole.AcceptRole)
+        reload = box.addButton("Reload", QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        if box.clickedButton() is reload:
+            self.reload()
+        return box.clickedButton() is overwrite
 
     # -- zoom -----------------------------------------------------------------------------------------------------
 

@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- GUI: a change of the configuration file on disk while the window is open (an editor, a script, `init-config`) is
+  no longer overwritten by the next save. Without unsaved changes the window reads the file again (one step to
+  undo); with them a bar offers Reload or Keep mine. Saving a file that changed since it was read asks first.
 - AUR (`xtouch-daemon-gui-bin` 0.2.0-2): `xtouch-daemon-gui-bin` needs `xtouch-daemon-bin` of its version or a newer one, no longer exactly its
   version, so an AUR helper can upgrade `xtouch-daemon-bin` first. An upgrade from 0.1.0 still needs one step by hand
   (see `RELEASING.md`).

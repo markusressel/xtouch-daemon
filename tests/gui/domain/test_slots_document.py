@@ -228,3 +228,31 @@ def test_a_moved_slot_takes_its_candidates_and_controls_along(tmp_path: Path) ->
         "3": ["out if call", {"show": "mic", "when": "call or out_of_reach"}],
     }
     assert list(doc.get(("controls",))) == ["3"]
+
+
+def test_a_change_on_disk_is_one_of_someone_else(tmp_path: Path) -> None:
+    doc = document(tmp_path)
+    assert not doc.changed_on_disk()
+    # its own save is none
+    doc.set(("channel", "out", "label"), "Boxes")
+    doc.save()
+    assert not doc.changed_on_disk()
+
+    doc.path.write_text(TEXT)
+    assert doc.changed_on_disk()
+    # Keep mine: the next save overwrites that version without asking
+    doc.overrule()
+    assert not doc.changed_on_disk()
+    doc.path.write_text(TEXT + "\n")
+    assert doc.changed_on_disk()
+
+    # a file that is gone is none: saving writes it again
+    doc.path.unlink()
+    assert not doc.changed_on_disk()
+
+
+def test_a_file_created_on_disk_is_a_change(tmp_path: Path) -> None:
+    doc = SlotsDocument.open(tmp_path / "config.toml")
+    assert not doc.changed_on_disk()
+    (tmp_path / "config.toml").write_text(TEXT)
+    assert doc.changed_on_disk()
