@@ -250,3 +250,35 @@ class Page(QWidget):
     def _show_rest(self, rest: list[str]) -> None:
         set_text(self.problem, "\n".join(rest))
         self.problem.setVisible(bool(rest))
+
+    # -- the entries of the page, for the menu Edit (see `MainWindow`) ----------------------------------------------
+
+    ENTRIES = ""
+    """What the list of the page holds, for the window to name it: "candidates", "states"; "" for no list."""
+
+    def entries_focused(self) -> bool:
+        """
+        Whether the list of the page (candidates, channels, states) has the focus: Copy, Paste, Del and the others
+        of the menu Edit are for it then. In a field they edit its text.
+        """
+        return False
+
+    def copy_entry(self) -> str | None:
+        """The entry picked as TOML text, as in the file; None without one."""
+        return None
+
+    def paste_entries(self, text: str) -> int:
+        """Adds the entries of the page in `text` (TOML) after the one picked, and picks the first; how many."""
+        return 0
+
+    def duplicate_entry(self) -> bool:
+        """Adds a copy of the entry picked after it, and picks it; False without one."""
+        return False
+
+    def remove_entry(self) -> bool:
+        """Removes the entry picked, as its button Remove does; False without one."""
+        return False
+
+    def rename_entry(self) -> bool:
+        """Puts the focus on the id of the entry picked, to type another one; False where it has none."""
+        return False

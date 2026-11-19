@@ -28,6 +28,7 @@ from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
+from xtouch_daemon.gui.domain.clipboard import candidates_text, parse_candidates
 from xtouch_daemon.gui.domain.demos import GROUPS, group_of
 from xtouch_daemon.gui.domain.schema import Kind, Option, look_options
 from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text
@@ -271,7 +272,7 @@ class SlotsPanel(Page):
         add = flat_button("plus", "Add a candidate (at the end; Ctrl+Up moves it up)")
         add.clicked.connect(lambda: self.add(slot))
         header.addWidget(add)
-        remove = flat_button("delete-outline", "Remove the candidate picked")
+        remove = flat_button("delete-outline", "Remove the candidate picked (Del)")
         remove.clicked.connect(lambda: self.remove(slot))
         header.addWidget(remove)
         layout.addWidget(row(header))
@@ -800,6 +801,59 @@ class SlotsPanel(Page):
     def reorder(self, slot: int, order: list[int], current: int) -> None:
         stack = rows(self.document.values, slot)
         self._write(slot, [stack[index] for index in order], current)
+
+    def _insert(self, slot: int, candidates: list[Row]) -> int:
+        """Puts candidates after the one picked in the slot (at the end when none is), picks the first; how many."""
+        if not candidates:
+            return 0
+        stack = rows(self.document.values, slot)
+        index = self.candidate + 1 if slot == self.slot and self.candidate is not None else len(stack)
+        stack[index:index] = candidates
+        self._write(slot, stack, index)
+        return len(candidates)
+
+    # -- the entries, for the menu Edit ---------------------------------------------------------------------------
+
+    ENTRIES = "candidates"
+
+    def _focused_slot(self) -> int | None:
+        """The slot whose card has the focus, None for none."""
+        return next((slot for slot, stack in enumerate(self.lists, start=1) if stack.hasFocus()), None)
+
+    def _focused_candidate(self) -> Row | None:
+        """The candidate picked in the card that has the focus, None for none."""
+        if self._focused_slot() != self.slot or self.candidate is None:
+            return None
+        return self._candidate_row()
+
+    def entries_focused(self) -> bool:
+        return self._focused_slot() is not None
+
+    def copy_entry(self) -> str | None:
+        candidate = self._focused_candidate()
+        return candidates_text([candidate]) if candidate is not None else None
+
+    def paste_entries(self, text: str) -> int:
+        slot = self._focused_slot()
+        return self._insert(slot, parse_candidates(text)) if slot is not None else 0
+
+    def duplicate_entry(self) -> bool:
+        candidate = self._focused_candidate()
+        return candidate is not None and self._insert(self.slot, [candidate]) > 0
+
+    def remove_entry(self) -> bool:
+        if self._focused_candidate() is None:
+            return False
+        self.remove(self.slot)
+        return True
+
+    def rename_entry(self) -> bool:
+        """A candidate has no id: the focus goes to what it shows."""
+        if self._focused_candidate() is None:
+            return False
+        self.show_box.setFocus()
+        self.show_box.lineEdit().selectAll()  # pyright: ignore[reportOptionalMemberAccess]
+        return True
 
     def _edit_show(self) -> None:
         candidate = self._candidate_row()

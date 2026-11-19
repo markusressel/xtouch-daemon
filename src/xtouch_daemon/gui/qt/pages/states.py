@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
+from xtouch_daemon.gui.domain.clipboard import Tables, parse_tables, tables_text
 from xtouch_daemon.gui.domain.schema import options
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.sources import patterns
@@ -141,9 +142,14 @@ class StatesPage(Page):
             assert action is not None
             action.triggered.connect(lambda _=False, name=name, mode=mode, preset=preset: self.add(mode, name, preset))
         self.add_button.setMenu(menu)
+        self.duplicate_button = button("content-copy", "Duplicate")
+        self.duplicate_button.setToolTip("Add a copy, with an id after its own (Ctrl+D)")
+        self.duplicate_button.clicked.connect(self.duplicate_entry)
         self.remove_button = button("delete-outline", "Remove", "error", "danger")
+        self.remove_button.setToolTip("Remove the state or mode (Del)")
         self.remove_button.clicked.connect(self.remove)
         buttons.addWidget(self.add_button)
+        buttons.addWidget(self.duplicate_button)
         buttons.addWidget(self.remove_button)
         buttons.addStretch()
         side.addLayout(buttons)
@@ -378,7 +384,7 @@ class StatesPage(Page):
             self.selection = names[0] if names else None
         self._show_list()
         name = self.selection
-        for widget in (self.form, self.id_edit, self.used, self.live, self.remove_button):
+        for widget in (self.form, self.id_edit, self.used, self.live, self.duplicate_button, self.remove_button):
             widget.setVisible(name is not None)
         self.empty.setVisible(name is None)
         if name is None:
@@ -485,6 +491,49 @@ class StatesPage(Page):
     def remove(self) -> None:
         assert self.selection is not None
         self.editor.remove_state(self.selection)
+
+    def _picked_table(self) -> Tables:
+        """The state picked, as tables to copy; none without one."""
+        if self.selection is None:
+            return {}
+        return {"state": {self.selection: self.document.get(("state", self.selection)) or {}}}
+
+    def _add(self, tables: Tables) -> int:
+        """Adds the states, picks the first one; how many."""
+        added = self.editor.add_tables(tables)
+        if added:
+            self.select(added[0][1])
+        return len(added)
+
+    # -- the entries, for the menu Edit ---------------------------------------------------------------------------
+
+    ENTRIES = "states"
+
+    def entries_focused(self) -> bool:
+        return self.list.hasFocus()
+
+    def copy_entry(self) -> str | None:
+        tables = self._picked_table()
+        return tables_text(tables) if tables else None
+
+    def paste_entries(self, text: str) -> int:
+        return self._add(parse_tables(text, ("state",)))
+
+    def duplicate_entry(self) -> bool:
+        return self._add(self._picked_table()) > 0
+
+    def remove_entry(self) -> bool:
+        if self.selection is None:
+            return False
+        self.remove()
+        return True
+
+    def rename_entry(self) -> bool:
+        if self.selection is None:
+            return False
+        self.id_edit.setFocus()
+        self.id_edit.selectAll()
+        return True
 
     def override(self, value: str) -> None:
         """Asks the daemon to override the state, or to pick the mode (`auto`: the rules decide again)."""

@@ -13,6 +13,7 @@ from PyQt6.QtCore import QProcess, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
+    QClipboard,
     QCloseEvent,
     QDesktopServices,
     QKeySequence,
@@ -94,7 +95,7 @@ from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.device_view import DeviceView
 from xtouch_daemon.gui.qt.window.hover_tips import HoverTips
 from xtouch_daemon.gui.qt.window.input_filter import InputFilter
-from xtouch_daemon.gui.qt.window.rail import RAIL_PAGES, Rail, SettingsPages
+from xtouch_daemon.gui.qt.window.rail import RAIL_PAGES, RAIL_TITLES, Rail, SettingsPages
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session, from_screen, to_screen
 from xtouch_daemon.live.messages import Snapshot
@@ -236,6 +237,8 @@ class MainWindow(QMainWindow):
         self.input_filter = InputFilter()
         """The document's undo also while a text field has the focus, the wheel on the page rather than in a field."""
         app.installEventFilter(self.input_filter)
+        # Cut, Copy, Paste ... follow the focus: for the list of a page, not for a field
+        app.focusChanged.connect(self._focus_changed)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh_service)
         self.timer.start(SERVICE_POLL_MS)
@@ -476,8 +479,24 @@ class MainWindow(QMainWindow):
         assert edit is not None
         self.undo_action = action(edit, "&Undo", self.undo, QKeySequence.StandardKey.Undo)
         self.redo_action = action(edit, "&Redo", self.redo, QKeySequence.StandardKey.Redo)
+        edit.addSeparator()
+        # for the entry picked in the list of the page (a candidate, a channel, a state) while the list has the focus;
+        # off in a field, where the keys edit its text
+        self.entry_actions = (
+            action(edit, "Cu&t", self.cut_entry, QKeySequence.StandardKey.Cut),
+            action(edit, "&Copy", self.copy_entry, QKeySequence.StandardKey.Copy),
+            action(edit, "&Paste", self.paste_entries, QKeySequence.StandardKey.Paste),
+            action(edit, "&Duplicate", self.duplicate_entry, "Ctrl+D"),
+            action(edit, "Re&move", self.remove_entry, QKeySequence.StandardKey.Delete, "Backspace"),
+            action(edit, "Re&name", self.rename_entry, "F2"),
+        )
+        edit.aboutToShow.connect(self._show_entry_actions)
+        self._show_entry_actions()
         view = bar.addMenu("&View")
         assert view is not None
+        for number, (name, title) in enumerate(zip(RAIL_PAGES, RAIL_TITLES, strict=True), start=1):
+            action(view, f"&{title}", lambda name=name: self.show_page(name), f"Ctrl+{number}")
+        view.addSeparator()
         device = self.device_dock.toggleViewAction()
         assert device is not None
         device.setText("&Device")
@@ -517,6 +536,53 @@ class MainWindow(QMainWindow):
             lambda: QDesktopServices.openUrl(QUrl(docs.DOCS_URL)),
             QKeySequence.StandardKey.HelpContents,
         )
+        action(help_menu, "&Keyboard shortcuts", self.show_keys)
+
+    def show_keys(self) -> None:
+        """
+        The keys of the window, under the menus: those of the menus as the desktop has them, the lists and the
+        drawing.
+        """
+        bar = self.menuBar()
+        assert bar is not None
+
+        def keys(menu: QMenu | None) -> tuple[tuple[str, str], ...]:
+            assert menu is not None
+            found: list[tuple[str, str]] = []
+            for entry in menu.actions():
+                if entry.menu() is not None:
+                    found.extend(keys(entry.menu()))
+                elif not entry.shortcut().isEmpty():
+                    text = entry.shortcut().toString(QKeySequence.SequenceFormat.NativeText)
+                    found.append((text, entry.text().replace("&", "")))
+            return tuple(found)
+
+        menus = [entry.menu() for entry in bar.actions()]
+        entries = [
+            Entry("Window", items=keys(menus[0]) + keys(menus[2]) + keys(menus[3])),
+            Entry(
+                "Edit",
+                text="Cut, Copy, Paste, Duplicate, Remove and Rename are for the candidate, channel or state picked "
+                "in the list that has the focus. In a field, the keys edit its text.",
+                items=keys(menus[1]),
+            ),
+            Entry(
+                "Lists",
+                items=(
+                    ("Up, Down", "Pick the one above or below"),
+                    ("Ctrl+Up, Ctrl+Down", "Move the candidate (Slots), the entry of a table"),
+                ),
+            ),
+            Entry(
+                "Device",
+                items=(
+                    ("Left, Right, Home, End", "Pick a strip"),
+                    ("Ctrl+Left, Ctrl+Right", "Move its slot"),
+                    ("Esc", "End Simulate, close a popover"),
+                ),
+            ),
+        ]
+        show_popover(bar, "Keyboard shortcuts", entries)
 
     def _footer(self) -> QWidget:
         footer = QWidget()
@@ -791,6 +857,59 @@ class MainWindow(QMainWindow):
     def redo(self) -> None:
         if self.editor.redo():
             self.status.setText("Redone.")
+
+    def _entry_page(self) -> Page | None:
+        """The page whose list has the focus: the menu Edit cuts, copies, pastes ... its entries."""
+        page = self.pages.get(self.current_page)
+        return page if page is not None and page.entries_focused() else None
+
+    def _focus_changed(self, _old: QWidget | None, _new: QWidget | None) -> None:
+        self._show_entry_actions()
+
+    def _show_entry_actions(self) -> None:
+        """Cut, Copy, Paste ... only while the list of a page has the focus: in a field the keys edit its text."""
+        page = self._entry_page()
+        for entry_action in self.entry_actions:
+            entry_action.setEnabled(page is not None)
+
+    def copy_entry(self) -> None:
+        page = self._entry_page()
+        text = page.copy_entry() if page is not None else None
+        if text is not None:
+            _clipboard().setText(text)
+            self.status.setText("Copied, as in the file: Ctrl+V pastes it after the one picked, or into a text editor.")
+
+    def cut_entry(self) -> None:
+        page = self._entry_page()
+        text = page.copy_entry() if page is not None else None
+        if page is not None and text is not None and page.remove_entry():
+            _clipboard().setText(text)
+            self.status.setText("Cut: Ctrl+V pastes it after the one picked, Ctrl+Z brings it back.")
+
+    def paste_entries(self) -> None:
+        page = self._entry_page()
+        if page is None:
+            return
+        count = page.paste_entries(_clipboard().text())
+        if count:
+            self.status.setText(f"Pasted {count}. Ctrl+Z takes {'them' if count > 1 else 'it'} out again.")
+        else:
+            self.status.setText(f"The clipboard has no {page.ENTRIES}: copy them here, or from the file.")
+
+    def duplicate_entry(self) -> None:
+        page = self._entry_page()
+        if page is not None:
+            page.duplicate_entry()
+
+    def remove_entry(self) -> None:
+        page = self._entry_page()
+        if page is not None and page.remove_entry():
+            self.status.setText("Removed. Ctrl+Z brings it back.")
+
+    def rename_entry(self) -> None:
+        page = self._entry_page()
+        if page is not None:
+            page.rename_entry()
 
     # -- the sound server -----------------------------------------------------------------------------------------
 
@@ -1077,4 +1196,11 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         assert app is not None
         app.removeEventFilter(self.input_filter)
+        app.focusChanged.disconnect(self._focus_changed)
         event.accept()
+
+
+def _clipboard() -> QClipboard:
+    clipboard = QApplication.clipboard()
+    assert clipboard is not None
+    return clipboard

@@ -19,6 +19,7 @@ from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, channel_options, pool_options, uses
+from xtouch_daemon.gui.domain.clipboard import Tables, parse_tables, tables_text
 from xtouch_daemon.gui.domain.demos import GROUPS, PREVIEWED, Part, Strip, group_of, scene
 from xtouch_daemon.gui.domain.schema import Kind, Option, options
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
@@ -145,8 +146,10 @@ class ChannelsPage(Page):
         menu.aboutToShow.connect(self._list_devices)
         self.add_button.setMenu(menu)
         self.duplicate_button = button("content-copy", "Duplicate")
+        self.duplicate_button.setToolTip("Add a copy, with an id after its own (Ctrl+D)")
         self.duplicate_button.clicked.connect(self.duplicate)
         self.remove_button = button("delete-outline", "Remove", "error", "danger")
+        self.remove_button.setToolTip("Remove the channel or pool (Del)")
         self.remove_button.clicked.connect(self.remove)
         for widget in (self.add_button, self.duplicate_button, self.remove_button):
             buttons.addWidget(widget)
@@ -445,7 +448,7 @@ class ChannelsPage(Page):
         self._show_about(key)
         yours = self.selection not in POOLS
         self.id_edit.setVisible(yours)
-        self.duplicate_button.setEnabled(is_channel)
+        self.duplicate_button.setEnabled(yours)
         self.remove_button.setEnabled(yours)
         where = uses(self.document.values, str(self.selection[-1]))
         self.used.show_uses(where, "Not used by a slot, pool or state yet.")
@@ -563,7 +566,8 @@ class ChannelsPage(Page):
                 )
 
     def duplicate(self) -> None:
-        self.select(("channel", self.editor.duplicate_channel(str(self.selection[1]))))
+        """A copy of the channel or pool of your own, with an id after its own."""
+        self._add(self._picked_table())
 
     def add_pool(self, kind: str | None = None) -> None:
         self.select(("pool", self.editor.add_pool(kind)))
@@ -573,6 +577,50 @@ class ChannelsPage(Page):
             self.editor.remove_pool(str(self.selection[1]))
         else:
             self.editor.remove_channel(str(self.selection[1]))
+
+    def _picked_table(self) -> Tables:
+        """The channel or pool of your own picked, as tables to copy; none for a built-in pool."""
+        if self.selection in POOLS:
+            return {}
+        section, name = self.selection[:2]
+        return {str(section): {str(name): self.document.get(self.selection)}}
+
+    def _add(self, tables: Tables) -> int:
+        """Adds the tables, picks the first one; how many."""
+        added = self.editor.add_tables(tables)
+        if added:
+            self.select(added[0])
+        return len(added)
+
+    # -- the entries, for the menu Edit ---------------------------------------------------------------------------
+
+    ENTRIES = "channels or pools"
+
+    def entries_focused(self) -> bool:
+        return self.list.hasFocus()
+
+    def copy_entry(self) -> str | None:
+        tables = self._picked_table()
+        return tables_text(tables) if tables else None
+
+    def paste_entries(self, text: str) -> int:
+        return self._add(parse_tables(text, ("channel", "pool")))
+
+    def duplicate_entry(self) -> bool:
+        return self._add(self._picked_table()) > 0
+
+    def remove_entry(self) -> bool:
+        if self.selection in POOLS:
+            return False
+        self.remove()
+        return True
+
+    def rename_entry(self) -> bool:
+        if self.selection in POOLS:
+            return False
+        self.id_edit.setFocus()
+        self.id_edit.selectAll()
+        return True
 
     def _rename(self) -> None:
         name = str(self.selection[1])

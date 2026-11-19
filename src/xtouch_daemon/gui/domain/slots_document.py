@@ -365,6 +365,18 @@ def _fresh(values: dict[str, Any], original: Any) -> str:
     return ("\n".join(header) + "\n\n" if header else "") + body
 
 
+def toml_text(values: dict[str, Any]) -> str:
+    """Data as TOML text, in the form of a new file: `[channel.mic]` as a table, the tables in it inline."""
+    document = tomlkit.document()
+    _sync(document, values, 0)
+    return tomlkit.dumps(document)
+
+
+def value_text(value: Any) -> str:
+    """A value as TOML text: `"browser if call"`, `{ show = "mic", color = "red" }`."""
+    return tomlkit.item(_item(value)).as_string()
+
+
 def _sync(container: Container | Table | InlineTable, values: dict[str, Any], depth: int, section: str = "") -> None:
     """
     Makes the items of `container` the values: what did not change stays as it is (comments, the form of a stack),

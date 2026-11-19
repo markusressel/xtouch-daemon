@@ -29,7 +29,8 @@ RAIL = (
 )
 """The pages of the rail: name, title, icon, tip."""
 RAIL_PAGES = tuple(name for name, *_ in RAIL)
-"""The names of the pages of the rail, in their order."""
+"""The names of the pages of the rail, in their order: Ctrl+1 shows the first one."""
+RAIL_TITLES = tuple(title for _, title, *_ in RAIL)
 RAIL_ICON = 22
 """The size of the icons of the rail without their names."""
 
@@ -52,14 +53,14 @@ class Rail(QWidget):
         layout.setSpacing(Space.XS)
         self.group = QButtonGroup(self)
         self.buttons: dict[str, QToolButton] = {}
-        for name, title, icon_name, tip in RAIL:
+        for number, (name, title, icon_name, tip) in enumerate(RAIL, start=1):
             rail_button = QToolButton()
             rail_button.setText(title)
             # the pages of the states, channels and slots in their colors, like everywhere in the window
             set_icon(rail_button, icon_name, name.removesuffix("s") if name != "settings" else None)
             rail_button.setCheckable(True)
             rail_button.setAutoRaise(True)
-            rail_button.setToolTip(f"{title}: {tip}")
+            rail_button.setToolTip(f"{title}: {tip} (Ctrl+{number})")
             rail_button.clicked.connect(lambda _=False, name=name: self.picked.emit(name))
             self.group.addButton(rail_button)
             self.buttons[name] = rail_button

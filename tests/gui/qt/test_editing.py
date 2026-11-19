@@ -112,15 +112,16 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
     menu.actions()[1].trigger()
     assert page.selection == ("channel", "input_2")
 
+    # a copy of input_2 is input_3
     click(qtbot, page.duplicate_button)
-    assert page.selection == ("channel", "input_2_2")
+    assert page.selection == ("channel", "input_3")
 
     # a new id: only one that can be one
     for bad in ("Mic", "out", "auto"):
         type_into(qtbot, page.id_edit, bad)
         page.id_edit.editingFinished.emit()
         assert page.id_edit.property("problem") is True
-        assert page.selection == ("channel", "input_2_2")
+        assert page.selection == ("channel", "input_3")
     type_into(qtbot, page.id_edit, "mic")
     page.id_edit.editingFinished.emit()
     assert page.selection == ("channel", "mic")

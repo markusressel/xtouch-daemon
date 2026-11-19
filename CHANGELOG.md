@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- GUI: keys for the lists of Slots, Channels and States, in the menu Edit: Del (or Backspace) removes the candidate,
+  channel, pool or state picked, Ctrl+C, Ctrl+X and Ctrl+V copy, cut and paste it as TOML (as in the file, so a text
+  editor takes it, and TOML from the file can be pasted), Ctrl+D duplicates it, F2 goes to its id. In a field they
+  edit its text. Ctrl+1 to Ctrl+4 show the pages. Help → Keyboard shortcuts lists the keys; the tooltips of the
+  buttons name theirs.
+- GUI: States has a button Duplicate.
 - GUI: the control "Preview" next to Save and apply says where unsaved edits and Simulate show: "In the GUI" (the
   default), "On the device" (the device runs them before they are saved) or "Off" (the drawing mirrors the device).
   In the GUI they run on a virtual twin of the device in the daemon: a second set of strips with its own made-up sound
@@ -49,6 +55,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: Duplicate on Channels copies pools of your own too, and a copy of `mic_2` is `mic_3` (was `mic_2_2`).
 - GUI: "Used by" of a channel or state shows the slots as a row of small strips, lit where a slot shows it
   (outlined where only its controls use it); a click shows the slot. Pools and states that use it follow in words.
 - GUI: the options of a form are set apart by a thin line. A place in Slots groups its options like the cards of a

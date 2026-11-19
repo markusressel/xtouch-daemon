@@ -236,8 +236,8 @@ On the page Slots:
   connected`, `mum if present` `mum is in the voice chat`, `present(people)` `someone is in the voice chat`. What the
   slot shows is teal (see [the colors](#the-window)), and the green node is on the row that shows (on `people` while a
   person sits there, also when `apps` is above it). Options of the strip in that slot only follow as in the file (`color
-  = white, rec = recording`). + adds `auto` at the end, the bin removes the candidate picked. Drag a candidate, or move
-  it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
+  = white, rec = recording`). + adds `auto` at the end, the bin (or Del) removes the candidate picked. Drag a
+  candidate, or move it with Ctrl+Up and Ctrl+Down. A slot without candidates shows `auto`.
 - **The inspector** starts with the path of the slot's candidates (`Slot 3 › 1 games › 2 apps`: the one picked
   highlighted, ● the one the slot shows, ○ the one it came to that has none left; a click picks one) and a box of
   what goes on: why the slot shows what it shows, a step a line (✗ a candidate passed over and why, → what it shows,
@@ -325,6 +325,29 @@ so neither asks first. Typing into one option is one step. Ctrl+Z undoes in the 
 the focus.
 
 Closing the window with unsaved changes asks whether to save them.
+
+## Keyboard
+
+Help → Keyboard shortcuts lists the keys. The keys of the menus follow the desktop; these are the usual ones:
+
+| Keys | What they do |
+|---|---|
+| Ctrl+S | Save and apply |
+| Ctrl+Z, Ctrl+Shift+Z | Undo, redo |
+| Ctrl+1 to Ctrl+4 | Slots, Channels, States, Settings |
+| Del (or Backspace) | Remove the candidate, channel, pool or state picked, as its button Remove does |
+| Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut, paste it |
+| Ctrl+D | Duplicate it |
+| F2 | Rename it: the focus goes to its id (on a candidate: to Shows) |
+| Ctrl+Up, Ctrl+Down | Move the candidate picked, or the entry of a table |
+| Left, Right, Home, End | Pick a strip of the drawing; Ctrl+Left, Ctrl+Right move its slot |
+| Esc | End Simulate, close a popover |
+
+Del, Ctrl+C and the others of the menu Edit are for the list that has the focus: the cards on Slots, the lists on
+Channels and States. In a field they edit its text. Copy puts the entry on the clipboard as in the file: a channel as
+`[channel.mic]` with its options, a candidate as the value of the list of its slot (`"browser if call"`). Paste takes
+that back, also from a text editor, and gives a channel, pool or state whose id is taken one after it (`mic_2`). A
+candidate goes after the one picked; channels, pools and states go at the end.
 
 ## Save and apply
 

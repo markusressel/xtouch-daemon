@@ -10,6 +10,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, free_id
+from xtouch_daemon.gui.domain.clipboard import Tables, pasted_id
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.slots_document import OptionPath, SlotsDocument, Validation
 from xtouch_daemon.slots.model import BUILT_IN
@@ -56,13 +57,28 @@ class Editor(QObject):
         self.edited(Change(Scope.CHANNELS))
         return name
 
-    def duplicate_channel(self, name: str) -> str:
-        """Adds a copy of a channel, with an id after it; returns the id."""
-        channels: dict[str, Any] = self.document.get(("channel",))
-        copy = free_id(channels, name)
-        self.document.set(("channel", copy), channels[name])
-        self.edited(Change(Scope.CHANNELS))
-        return copy
+    def add_tables(self, tables: Tables) -> list[tuple[str, str]]:
+        """
+        Adds copies of channels, pools or states (pasted, duplicated), each with its id or one after it while that is
+        taken (channels and pools share them); returns their sections and ids.
+        """
+        added: list[tuple[str, str]] = []
+        for section, entries in tables.items():
+            for name, table in entries.items():
+                if section == "pool" and name in BUILT_IN:
+                    # the options of a built-in pool make no pool of your own
+                    continue
+                if section == "state":
+                    taken = set(self.document.get(("state",), {}))
+                else:
+                    taken = {*self.document.get(("channel",), {}), *self.document.get(("pool",), {}), *BUILT_IN}
+                copy = pasted_id(taken, name)
+                self.document.set((section, copy), table)
+                added.append((section, copy))
+        scopes = {Scope.STATES if section == "state" else Scope.CHANNELS for section, _ in added}
+        if scopes:
+            self.edited(Change(scopes.pop()) if len(scopes) == 1 else EVERYTHING)
+        return added
 
     def remove_channel(self, name: str) -> None:
         self.document.unset(("channel", name))
