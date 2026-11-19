@@ -392,11 +392,11 @@ class VolumeStrip(StripController):
 
     def recording(self, state: AudioState) -> bool:
         """Whether an application records what the strip controls."""
-        return False
+        raise NotImplementedError
 
     def playing(self, state: AudioState) -> bool:
         """Whether audio flows through what the strip controls."""
-        return False
+        raise NotImplementedError
 
     def is_default(self, state: AudioState) -> bool:
         """Whether the strip controls the default device."""

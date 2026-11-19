@@ -58,14 +58,14 @@ class Knob:
         self.owner = owner
 
     def turn(self, steps: int) -> None:
-        pass
+        raise NotImplementedError
 
     def push(self, pressed: bool) -> None:
-        pass
+        raise NotImplementedError
 
     def ring(self) -> tuple[int, RingMode]:
         """What the ring shows: a position (0: off) and a mode."""
-        return 0, RingMode.DOT
+        raise NotImplementedError
 
     def keeps_active(self) -> bool:
         """Whether the strip stays active without anything to control (see `MediaKnob`)."""
