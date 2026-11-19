@@ -42,6 +42,9 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
   room. The header and the footer are fixed `QToolBar`s, so they reach across the window. A click on a strip of the
   drawing picks its slot on the page Slots. The menus hold what is used now and then (the theme, the zoom) and the
   keys of the window.
+- **The log of the daemon.** The window Log (`LogView`, `gui/qt/log_view.py`) is a third dock, hidden at first; it asks
+  the daemon for its log over the live view only while it shows (see [Live view](live-view.md#log)). What it keeps,
+  filters and searches is in `gui/domain/log.py`.
 - **Previews of the controls.** `gui/domain/demos.py` makes a short scene per part of a strip from the values in the
   form; `PartPreview` (`gui/qt/preview/part_view.py`) shows it in a `StripView` cut to the part. See
   [Design: previews of the controls](../design/control-previews.md).

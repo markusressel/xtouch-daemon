@@ -7,6 +7,8 @@ systemctl --user status xtouch-daemon      # is the device, the sound server, th
 journalctl --user -u xtouch-daemon -f      # the log
 ```
 
+The GUI shows the same log in View → [Log](gui.md#log), also for a daemon started in a terminal.
+
 For more detail, stop the service and run the daemon in the foreground with `xtouch-daemon run -l debug`.
 
 ## The device
@@ -94,6 +96,6 @@ Arch), see [Install](../getting-started/install.md).
 device" needs none.
 
 **"The device does not run the saved file yet" stays.** The daemon did not take the file; its log says why
-(`journalctl --user -u xtouch-daemon`).
+(View → Log in the GUI, or `journalctl --user -u xtouch-daemon`).
 
 **Next:** [Commands](../reference/commands.md), [Hardware and protocol](../reference/hardware.md).

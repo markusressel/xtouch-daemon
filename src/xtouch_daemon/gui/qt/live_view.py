@@ -8,7 +8,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtNetwork import QLocalSocket
 
 from xtouch_daemon.live.codec import decode_message, encode_request
-from xtouch_daemon.live.messages import KnownDevice, KnownDevices, Reply, Request, Snapshot, TwinView
+from xtouch_daemon.live.messages import KnownDevice, KnownDevices, LogLines, Reply, Request, Snapshot, TwinView
 from xtouch_daemon.live.server import peer_uid
 
 
@@ -23,6 +23,8 @@ class LiveView(QObject):
     replied = pyqtSignal(object, arguments=["reply"])
     twin_changed = pyqtSignal(object, arguments=["view"])
     """Every new view of the virtual twin of this window (a `StartPreview` not `on_device`), None when it is gone."""
+    logged = pyqtSignal(object, arguments=["lines"])
+    """Records of the log of the daemon (`LogLines`), after a `WatchLog`."""
 
     def __init__(self, path: Path, parent: QObject | None = None):
         """`parent` is the window it belongs to: it ends with it, so the socket tells nothing to a closed window."""
@@ -79,6 +81,8 @@ class LiveView(QObject):
                 view = message
             elif isinstance(message, KnownDevices):
                 self.known = message.devices
+            elif isinstance(message, LogLines):
+                self.logged.emit(message)
             elif message is not None:
                 latest = message
         if view is not None:

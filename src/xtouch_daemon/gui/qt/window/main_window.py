@@ -66,6 +66,7 @@ from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popo
 from xtouch_daemon.gui.qt.file_watch import FileWatch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
+from xtouch_daemon.gui.qt.log_view import LogView
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
 from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page
 from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
@@ -229,6 +230,9 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self._bar("footer", self._footer()))
         self.device_dock = self._device_dock()
         self.configuration_dock = self._configuration_dock(configuration)
+        self.log_view = LogView(self.live)
+        """The log of the daemon, in the window Log (see `_log_dock()`)."""
+        self.log_dock = self._log_dock()
         self._menus()
         # the menus of the window list its docks and bars: the menu View has the dock, the bars always show
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
@@ -480,6 +484,19 @@ class MainWindow(QMainWindow):
         self.splitDockWidget(self.device_dock, dock, Qt.Orientation.Vertical)
         return dock
 
+    def _log_dock(self) -> QDockWidget:
+        """
+        The window Log: hidden at first, opened from the menu View; under the page, or a window of its own. The daemon
+        sends its log only while it shows.
+        """
+        dock = QDockWidget("Log", self)
+        dock.setObjectName("log")
+        dock.setWidget(self.log_view)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+        dock.hide()
+        dock.visibilityChanged.connect(self.log_view.set_active)
+        return dock
+
     def _menus(self) -> None:
         """The menus: what is used now and then, with the keys of what is used often."""
         bar = self.menuBar()
@@ -533,6 +550,12 @@ class MainWindow(QMainWindow):
         device.setText("&Device")
         device.setToolTip("The window with the device: what it shows right now, or what Simulate shows")
         view.addAction(device)
+        log = self.log_dock.toggleViewAction()
+        assert log is not None
+        log.setText("&Log")
+        log.setToolTip("The log of the daemon that runs, as the journal or its terminal show it")
+        log.setShortcut(QKeySequence("Ctrl+L"))
+        view.addAction(log)
         view.addSeparator()
         theme = view.addMenu("&Theme")
         assert theme is not None
@@ -879,6 +902,7 @@ class MainWindow(QMainWindow):
         self.slots_page.shown_live = None
         self.slots_page.show_live(self.slots_page.snapshot())
         self.device_view.preview.update()
+        self.log_view.redraw()
 
     # -- editing --------------------------------------------------------------------------------------------------
 

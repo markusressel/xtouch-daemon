@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   failing because the device is taken.
 - GUI: "Test the device" in the window Device runs the same test in the daemon, with the device drawn next to it and
   a bar that says what each control does. The slots go on meanwhile and show on the device again when the test ends.
+- GUI: View → Log (Ctrl+L) shows the log of the running daemon, the service or one in a terminal: colored by level,
+  with a filter for the level, a search that marks its matches, and Follow, which keeps the latest records in view.
+  The daemon keeps its last 1000 records for it.
 - The daemon takes a changed configuration file by itself, a moment after the file stopped changing, like a reload
   (`systemctl --user reload xtouch-daemon`, which still works): a file with errors is logged and the current
   configuration stays. A file that is gone changes nothing.

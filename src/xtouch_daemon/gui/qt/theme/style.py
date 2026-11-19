@@ -280,6 +280,8 @@ QFrame[role="banner"] {{ border: 0 solid {c.tone_warn}; border-left-width: 3px; 
     background: {tint(c.warning, TINT_ALPHA // 2)}; }}
 QFrame[role="banner"] QLabel {{ background: transparent; }}
 QLabel[role="path"] {{ font-family: monospace; color: {c.text_muted}; }}
+QPlainTextEdit[role="log"] {{ background: {c.sunken}; color: {c.text}; border: 1px solid {c.border};
+    border-radius: {Radius.MEDIUM}px; padding: {Space.XS}px; }}
 QWidget[role="rail"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-right-width: 1px; }}
 QToolBar {{ background: {c.chrome}; border: none; padding: 0; spacing: 0; }}
 QMenuBar {{ background: {c.chrome}; border-bottom: 1px solid {c.border}; }}

@@ -130,6 +130,24 @@ def test_unavailable(snapshot: Snapshot | None, owned: bool) -> Reason | None:
     return None
 
 
+LOG = "log"
+"""The feature of the daemon (`Snapshot.features`) that sends its log (`WatchLog`)."""
+
+
+def log_unavailable(snapshot: Snapshot | None, owned: bool) -> Reason | None:
+    """Why the window Log can't show the log of the daemon now, None when it can."""
+    if snapshot is None:
+        return Reason("no daemon", "No daemon runs: start the service to see its log.")
+    if not owned:
+        return Reason("another user's daemon", "The daemon runs as another user.")
+    if LOG not in snapshot.features:
+        return Reason(
+            "daemon too old",
+            "The daemon that runs is too old to show its log here: restart it to run the installed version.",
+        )
+    return None
+
+
 def runs_older(daemon: Instance | None, snapshot: Snapshot | None, path: Path, saved: Config | None) -> bool:
     """
     Whether the daemon reads the file but runs another version of it, e.g. one changed outside the GUI or that it did
