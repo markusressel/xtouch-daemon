@@ -1,7 +1,7 @@
 # Testing
 
-The tests run without hardware and without a sound server. `just test` runs them, `just coverage` fails below 90 %
-line and branch coverage.
+The tests run without hardware and without a sound server. `just test` runs them, `just coverage` fails below 93 %
+line and branch coverage, or below 98 % without the Qt widgets (`gui/qt`).
 
 ## What stands in for what
 
