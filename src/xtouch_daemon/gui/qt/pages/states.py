@@ -224,7 +224,7 @@ class StatesPage(Page):
             # ✕ removes it
             source.resettable = False
             line.addWidget(source, 1)
-            remove = flat_button("close", "Remove this source")
+            remove = flat_button("delete-outline", "Remove this source")
             remove.clicked.connect(lambda _=False, name=name: self._remove_source(name))
             line.addWidget(remove, 0, Qt.AlignmentFlag.AlignTop)
             holder = row(line)

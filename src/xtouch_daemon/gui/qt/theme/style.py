@@ -279,6 +279,9 @@ QMenuBar::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
 QDockWidget::title {{ background: {c.chrome}; padding: {Space.XS}px {Space.M}px; }}
 QFrame[role="card"] {{ background: {c.raised}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px; }}
 QFrame[role="card"] QLabel {{ background: transparent; border: none; }}
+QFrame[role="entry"] {{ background: {c.sunken}; border: 1px solid {c.border}; border-radius: {Radius.MEDIUM}px; }}
+QFrame[role="entry"][open="true"] {{ border-color: {c.accent}; }}
+QLabel[role="entry_title"] {{ font-weight: 600; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: {c.surface}; border: none; }}
 QToolTip {{ background: {c.raised}; color: {c.text}; border: 1px solid {c.border}; border-radius: {Radius.SMALL}px;
     padding: 2px {Space.XS + 2}px; }}

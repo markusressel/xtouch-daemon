@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Any, assert_never
 
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QResizeEvent
 from PyQt6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QLineEdit,
     QSpinBox,
@@ -39,6 +41,10 @@ from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Swi
 from xtouch_daemon.gui.qt.fields.tables import Tables
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
+
+FIELD_WIDTH = 320
+"""The least room for a field beside its name: below it, the name goes above the field."""
+NARROW_BELOW = LABEL_WIDTH + Space.S + FIELD_WIDTH
 
 
 class OptionRow(QWidget):
@@ -71,20 +77,21 @@ class OptionRow(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, Space.XS, 0, Space.XS)
         outer.setSpacing(Space.XS)
-        top = QHBoxLayout()
-        top.setSpacing(Space.S)
-        title = label(option.title + ("  *" if option.required else ""))
-        title.setFixedWidth(LABEL_WIDTH)
-        title.setToolTip(option.name + (", required" if option.required else ""))
-        top.addWidget(title)
-        top.addWidget(self._field(option, suggest), 1)
+        self.top = QGridLayout()
+        self.top.setHorizontalSpacing(Space.S)
+        self.top.setVerticalSpacing(Space.XS)
+        self.title = label(option.title + ("  *" if option.required else ""))
+        self.title.setToolTip(option.name + (", required" if option.required else ""))
+        self.field = self._field(option, suggest)
         self.reset = flat_button("restore", f"Back to the default ({describe(option.default)})", self)
         self.reset.clicked.connect(self._reset)
-        top.addWidget(self.reset)
-        outer.addLayout(top)
-        details = QVBoxLayout()
-        details.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        outer.addLayout(self.top)
+        self.details = QVBoxLayout()
+        details = self.details
         details.setSpacing(2)
+        self.narrow: bool | None = None
+        """Whether the name is above the field (the row is too narrow for both side by side); None before a size."""
+        self._arrange(narrow=False)
         # what the chosen value means, for choices that say it (shown by `load` and `_edit`), right under the field
         self.meaning = help_label("", "meaning")
         self.meaning.hide()
@@ -103,6 +110,42 @@ class OptionRow(QWidget):
         outer.addLayout(details)
         self.load()
 
+    # -- the layout -----------------------------------------------------------------------------------------------
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        super().resizeEvent(event)
+        width = self.width()
+        # a margin both ways: the scroll bar that comes with a taller row must not switch it back
+        if self.narrow is not True and width < NARROW_BELOW:
+            self._arrange(narrow=True)
+        elif self.narrow is not False and width > NARROW_BELOW + Space.M:
+            self._arrange(narrow=False)
+
+    def _arrange(self, narrow: bool) -> None:
+        """The name left of the field (in the column of the names), or above it in a narrow row."""
+        if narrow == self.narrow:
+            return
+        self.narrow = narrow
+        for widget in (self.title, self.field, self.reset):
+            self.top.removeWidget(widget)
+        if narrow:
+            self.title.setMinimumWidth(0)
+            self.title.setMaximumWidth(16_777_215)
+            self.top.addWidget(self.title, 0, 0, 1, 2)
+            self.top.addWidget(self.field, 1, 0)
+            self.top.addWidget(self.reset, 1, 1)
+        else:
+            # a list of entries: its name and reset at the top, not beside its middle
+            top = Qt.AlignmentFlag.AlignTop if self.option.kind == Kind.TABLES else Qt.AlignmentFlag(0)
+            self.title.setFixedWidth(LABEL_WIDTH)
+            self.top.addWidget(self.title, 0, 0, top)
+            self.top.addWidget(self.field, 0, 1)
+            self.top.addWidget(self.reset, 0, 2, top)
+        self.top.setColumnStretch(0, 1 if narrow else 0)
+        self.top.setColumnStretch(1, 0 if narrow else 1)
+        self.top.setColumnStretch(2, 0)
+        self.details.setContentsMargins(0 if narrow else LABEL_WIDTH + Space.S, 0, 0, 0)
+
     # -- the fields of the kinds ----------------------------------------------------------------------------------
 
     def _field(self, option: Option, suggest: Suggest | TableSuggest | None) -> QWidget:
@@ -117,6 +160,8 @@ class OptionRow(QWidget):
                     self._unset: float = minimum - 1
                     minimum = self._unset
                 self.spin.setRange(int(minimum), int(option.maximum or 1_000_000))
+                if option.name.endswith("_volume"):
+                    self.spin.setSuffix(" %")
                 self.spin.valueChanged.connect(self._edit_number)
                 return self._left(self.spin)
             case Kind.NUMBER:

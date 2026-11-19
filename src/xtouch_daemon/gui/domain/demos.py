@@ -86,6 +86,21 @@ class Strip:
             return (person[0] if isinstance(person, list | tuple) and person else "Alice")[: protocol.LCD_CELL_WIDTH]
         return {"output": "Output", "input": "Input", "auto": "Firefox"}.get(self.strip_type, "Label")
 
+    def labels(self) -> tuple[tuple[str, str], ...]:
+        """
+        The labels the LCD shows for the choices (Select) or the profiles (Rec), with what picks each: the label of an
+        entry, else the start of its device (the daemon takes the start of its description). Empty without them.
+        """
+        for name, button in (("choices", "Select"), ("profiles", "Rec")):
+            entries = self.value(name)
+            if isinstance(entries, list | tuple) and entries:
+                return tuple(
+                    (button, str(entry.get("label") or entry.get("device") or "?")[: protocol.LCD_CELL_WIDTH])
+                    for entry in entries
+                    if isinstance(entry, Mapping)
+                )
+        return ()
+
     @property
     def color(self) -> str:
         return str(self.value("color") or "white")
@@ -208,8 +223,13 @@ def _display(strip: Strip) -> tuple[Frame, ...]:
             Frame("The fader moves: the new value", replace(base, text=(strip.label, "72%"), fader=0.72, meter=0)),
         )
     idle = "lit (lit_when_idle)" if strip.value("lit_when_idle") else "dark"
+    labels = strip.labels()
+    if labels:
+        # the label of the entry picked first, then one picked after the other
+        base = replace(base, text=(labels[0][1], base.text[1]))
     return (
         Frame("Plays: label and volume", base),
+        *(Frame(f"{button} picked {label}", replace(base, text=(label, base.text[1]))) for button, label in labels[1:]),
         Frame("Fader moved: the new volume", strip.playing(72)),
         Frame("Muted", replace(base, text=(strip.label, "muted"))),
         Frame(f"Nothing to control: {idle}", _idle(strip, base)),

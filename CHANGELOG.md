@@ -40,6 +40,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI, form of a channel: it starts with what its type is (e.g. what an output channel controls); a narrow window puts
+  the name of an option above its field, and the drawing of a part above its options, so nothing is cut off.
+  `choices` and `profiles` are a list of entries that open into their fields (volumes as numbers in %, the card and
+  profile folded under "Switch the sound card first"), dragged into their order; the Display card shows the label of
+  each. The meter is one choice (before the fader, after it, off) instead of a switch and an empty list. Remove is a
+  trash can everywhere.
 - GUI: without a daemon the strips are dark and the pill says "No daemon", with how to start one. The drawing is only ever the device (the daemon's mirror), never a second rendering made in the GUI.
 - GUI: the encoder of a place shows its default (`default: pick`) instead of staying blank, a pool of applications of your own offers no `pick`, and the columns of the choices table fit their titles.
 - Documentation: the plugin internals and the haad controller sketch moved to Development; Troubleshooting has Voice chat and GUI; pages end with a "Next" pointer; the place options of a slot are a table.

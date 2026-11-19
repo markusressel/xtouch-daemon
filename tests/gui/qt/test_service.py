@@ -644,7 +644,7 @@ def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
     assert f'<a href="{docs.url("configuration/strip/leds/#indicators")}">Learn more</a>' in rec.help.text()
     assert rec.help.openExternalLinks()
     # an option without a section in the docs: its help says it all
-    assert "Learn more" not in row(window, "meter").help.text()
+    assert "Learn more" not in row(window, "lit_when_idle").help.text()
     # the pages
     for page in ("channels", "device", "behavior", "aliases", "mqtt"):
         link = docs.page_link(page)
@@ -655,16 +655,19 @@ def test_help_has_the_default_and_a_link_to_the_docs(window: MainWindow):
     assert bare.help.isHidden()
 
 
-def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindow):
+def test_profiles_are_entries_of_label_and_profile(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")
     profiles = row(window, "profiles")
     tables: Tables = profiles.tables
     assert tables.values == []
 
+    # a new entry opens, with its fields
     click(qtbot, tables.add_button)
-    type_into(qtbot, tables.lines[0][0], "Analog")
+    assert tables.opened == 0
+    first = tables.entries[0]
+    type_into(qtbot, first.rows["label"].line, "Analog")
     # the profiles of the card come from the sound server
-    menu_button = next(button for button in tables.findChildren(QToolButton) if button.menu())
+    menu_button = next(button for button in first.rows["profile"].findChildren(QToolButton) if button.menu())
     menu = menu_button.menu()
     assert menu is not None
     menu.aboutToShow.emit()
@@ -673,14 +676,21 @@ def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindo
         "output:iec958-stereo    Digital Output",
     ]
     menu.actions()[0].trigger()
-    assert tables.lines[0][1].text() == "output:analog-stereo"
+    assert first.rows["profile"].line.text() == "output:analog-stereo"
+    # the summary says what it is
+    assert first.title.text() == "Analog"
+    assert first.detail.text() == "Analog Stereo Output"
 
-    # one profile is not enough; a new line is not in the file until it has something, then a label is required
+    # one profile is not enough; a new entry is not in the file until it has something, then a label is required
     click(qtbot, tables.add_button)
+    # the first one closed
+    assert tables.opened == 1
+    assert tables.entries[0].fields.isHidden()
     assert "at least two" in profiles.error.text()
-    type_into(qtbot, tables.lines[1][0], "Digital")
+    second = tables.entries[1]
+    type_into(qtbot, second.rows["label"].line, "Digital")
     assert profiles.error.text() == "2. profile: Field required"
-    completer = tables.lines[1][1].completer()
+    completer = second.rows["profile"].line.completer()
     assert completer is not None
     completer.activated.emit("output:iec958-stereo")
     assert profiles.error.text() == ""
@@ -689,7 +699,7 @@ def test_profiles_are_lines_of_label_and_profile(qtbot: QtBot, window: MainWindo
         {"label": "Analog", "profile": "output:analog-stereo"},
         {"label": "Digital", "profile": "output:iec958-stereo"},
     ]
-    type_into(qtbot, tables.lines[1][0], "")
+    type_into(qtbot, second.rows["label"].line, "")
     assert window.document.get(("channel", "out", "profiles"))[1] == {"profile": "output:iec958-stereo"}  # type: ignore[index]
 
     tables.remove(1)
@@ -707,10 +717,14 @@ def test_profiles_of_the_file_are_shown_and_saved_as_tables(qtbot: QtBot, window
     )
     profiles = row(window, "profiles")
     profiles.load()
-    assert [[line.text() for line in lines] for lines in profiles.tables.lines] == [
-        ["Analog", "output:analog-stereo", "", ""],
-        ["Digital", "Digital Output", "", ""],
+    assert [(entry.title.text(), entry.detail.text()) for entry in profiles.tables.entries] == [
+        ("Analog", "Analog Stereo Output"),
+        ("Digital", "Digital Output"),
     ]
+    # closed until picked
+    assert profiles.tables.opened is None
+    profiles.tables.open(1)
+    assert profiles.tables.entries[1].rows["profile"].line.text() == "Digital Output"
     assert 'label = "Digital"' in window.document.render()
     # something else than a list of tables shows none: its problem says what is wrong
     window.document.set(("channel", "out", "profiles"), "analog")
@@ -723,7 +737,8 @@ def test_tables_without_suggestions_have_no_menu(qtbot: QtBot):
     tables = Tables(columns, None)
     qtbot.addWidget(tables)
     tables.show_values([{"label": "Analog"}])
-    assert [[line.text() for line in lines] for lines in tables.lines] == [["Analog", "", "", ""]]
+    tables.open(0)
+    assert tables.entries[0].rows["label"].line.text() == "Analog"
     assert not [button for button in tables.findChildren(QToolButton) if button.menu()]
 
 
@@ -747,11 +762,12 @@ def test_numbers_of_tables_are_numbers(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")
     tables: Tables = row(window, "profiles").tables
     click(qtbot, tables.add_button)
-    type_into(qtbot, tables.lines[0][3], "200")
+    maximum = tables.entries[0].rows["max_volume"]
+    # unset, it takes the channel's
+    assert maximum.spin.text() == "default: the channel's"
+    maximum.spin.setValue(200)
     assert window.document.get(("channel", "out", "profiles")) == [{"max_volume": 200}]
-    # one that is none stays text: its problem says so
-    type_into(qtbot, tables.lines[0][3], "lots")
-    assert window.document.get(("channel", "out", "profiles")) == [{"max_volume": "lots"}]
+    assert tables.entries[0].detail.text() == "Volume up to 200 %"
 
 
 def test_a_switch_looks_different_on_and_off(qtbot: QtBot):

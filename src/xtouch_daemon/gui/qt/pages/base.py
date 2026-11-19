@@ -8,7 +8,17 @@ from typing import Any
 
 from PyQt6.QtCore import QEvent, QObject, QSize, Qt
 from PyQt6.QtGui import QResizeEvent
-from PyQt6.QtWidgets import QFrame, QLabel, QLayout, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QBoxLayout,
+    QFrame,
+    QLabel,
+    QLayout,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.changes import Change, Scope
@@ -59,6 +69,29 @@ def scrolled(widget: QWidget) -> QScrollArea:
     scroll.setWidget(widget)
     scroll_shadows(scroll)
     return scroll
+
+
+class Flip(QWidget):
+    """
+    Widgets side by side (e.g. the preview of a part and the options about it) while there is room for them, at least
+    `wide` pixels, and one above the other below that.
+    """
+
+    def __init__(self, wide: int, spacing: int = Space.L):
+        super().__init__()
+        self.wide = wide
+        self.box = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self.box.setContentsMargins(0, 0, 0, 0)
+        self.box.setSpacing(spacing)
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        super().resizeEvent(event)
+        side_by_side = self.box.direction() == QBoxLayout.Direction.LeftToRight
+        # a margin both ways: the scroll bar that comes with a taller form must not switch it back
+        if side_by_side and self.width() < self.wide:
+            self.box.setDirection(QBoxLayout.Direction.TopToBottom)
+        elif not side_by_side and self.width() > self.wide + Space.M:
+            self.box.setDirection(QBoxLayout.Direction.LeftToRight)
 
 
 class Sideways(QScrollArea):

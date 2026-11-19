@@ -12,21 +12,22 @@ from PyQt6.QtWidgets import QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem
 
 from xtouch_daemon.audio.model import Direction
 from xtouch_daemon.config.sections import BehaviorConfig
-from xtouch_daemon.config.values import default_encoder
+from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
+from xtouch_daemon.config.values import METER_POINTS, default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, channel_options, pool_options, uses
 from xtouch_daemon.gui.domain.demos import GROUPS, PREVIEWED, Part, Strip, group_of, scene
-from xtouch_daemon.gui.domain.schema import Option, options
+from xtouch_daemon.gui.domain.schema import Kind, Option, options
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.voip import participants
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label
+from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label, set_help
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
-from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow
 from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, EntityItemDelegate, Lines
-from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, row, scrolled, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Flip, Page, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.preview.part_view import PartPreview
 from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -51,6 +52,27 @@ _ID = re.compile(r"[a-z0-9_]+")
 
 
 DIRECTIONS = (Direction.OUTPUT, Direction.INPUT)
+METER_OFF = "off"
+METER = Option(
+    "meter",
+    Kind.CHOICE,
+    "What the LED meter shows: the level before the volume and Mute of the strip, or after them, or nothing. "
+    "Needs `behavior.meters`; by default `behavior.meter_point`.",
+    None,
+    False,
+    choices=(*METER_POINTS.meanings, METER_OFF),
+    meanings=(*METER_POINTS.meanings.items(), (METER_OFF, "The meter stays dark.")),
+)
+"""`meter` and `meter_point` of a channel as one choice (see `ChannelsPage._meter_row`)."""
+POOL_KINDS = {
+    CUSTOM_POOL: "A pool of channels: it hands the first of its channels that is there to the first slot that names "
+    "it, the next one to the next slot.",
+    CUSTOM_APPS_POOL: "A pool of applications: each application of the group that plays gets a slot of its own, while "
+    "a slot names the pool.",
+    CUSTOM_PEOPLE_POOL: "A pool of people: each of the listed people of the voice chat gets a slot of its own, while "
+    "a slot names the pool.",
+}
+"""What a pool of your own is, by the key of its form."""
 
 
 class ChannelsPage(Page):
@@ -136,6 +158,9 @@ class ChannelsPage(Page):
         title.addWidget(self.id_edit)
         title.addStretch()
         self.inspector.addWidget(row(title))
+        self.about = help_label("", "hint")
+        """What the type of the channel is, which the options below are about (e.g. the meter of an output)."""
+        self.inspector.addWidget(self.about)
         self.used = label("", "hint", wrap=True)
         self.inspector.addWidget(self.used)
         self.inspector.addWidget(self.problem)
@@ -185,14 +210,21 @@ class ChannelsPage(Page):
                 continue
             frame, layout = card()
             layout.addWidget(label(title, "section"))
-            body = QHBoxLayout()
-            body.setSpacing(Space.L)
+            body = Flip(0)
             if group in PREVIEWED:
                 part: Part = group  # pyright: ignore[reportAssignmentType]: PREVIEWED holds parts only
                 previews[part] = PartPreview(part)
-                body.addWidget(previews[part], 0, Qt.AlignmentFlag.AlignTop)
+                # beside the options while they have the room of a row with its name beside the field
+                body.wide = previews[part].sizeHint().width() + Space.L + NARROW_BELOW
+                body.box.addWidget(previews[part], 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
             fields = QVBoxLayout()
             for option in options:
+                if option.name == "meter_point":
+                    # one choice with `meter`, see `_meter_row`
+                    continue
+                if option.name == "meter":
+                    fields.addWidget(self._meter_row(path, strip, rows))
+                    continue
                 fields.addWidget(
                     self._row(
                         option,
@@ -203,14 +235,45 @@ class ChannelsPage(Page):
                         rows,
                     )
                 )
-            body.addLayout(fields, 1)
-            layout.addLayout(body)
+            body.box.addLayout(fields, 1)
+            layout.addWidget(body)
             cards.addWidget(frame)
         self.form_rows[key] = rows
         self.form_widgets[key] = form
         self.form_previews[key] = previews
         self.form_values[key] = lambda: {option.name: self._resolved(path, option) for option in form_options}
         self.form_strips[key] = strip
+
+    def _meter_row(self, path: Callable[[str], OptionPath], strip: str, rows: list[OptionRow]) -> OptionRow:
+        """
+        `meter` and `meter_point` as one choice: where the meter takes the level, or off. Unset, both take their
+        defaults (the meter on, at `behavior.meter_point`).
+        """
+
+        def get() -> str | None:
+            if self.document.get(path("meter")) is False:
+                return METER_OFF
+            point = self.document.get(path("meter_point"))
+            return None if point is None else str(point)
+
+        def put(value: str | None) -> None:
+            self.document.unset(path("meter"))
+            self.document.unset(path("meter_point"))
+            if value == METER_OFF:
+                self.document.set(path("meter"), False)
+            elif value is not None:
+                self.document.set(path("meter_point"), value)
+
+        option_row = OptionRow(
+            METER,
+            get,
+            put,
+            placeholder=lambda: str(self.document.get(("behavior", "meter_point"), "pre_fader")),
+            link=docs.option_link("strip", "meter_point", strip),
+        )
+        option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, path("meter"))))
+        rows.append(option_row)
+        return option_row
 
     def _resolved(self, path: Callable[[str], OptionPath], option: Option) -> Any:
         """The value of an option in the document, or its default."""
@@ -315,6 +378,7 @@ class ChannelsPage(Page):
                 self.title, {"apps": "Pool of applications", "people": "Pool of people"}.get(kind, "Pool of channels")
             )
             self.id_edit.setText(str(self.selection[1]))
+        self._show_about(key)
         yours = self.selection not in POOLS
         self.id_edit.setVisible(yours)
         self.duplicate_button.setEnabled(is_channel)
@@ -329,6 +393,17 @@ class ChannelsPage(Page):
                 option_row.setVisible(bool(self.document.get((*self.selection, "profiles"))))
         self._show_previews()
         self.show_problems(self.editor.validation)
+
+    def _show_about(self, key: str) -> None:
+        """What the type of the channel (or the pool) is, with a link to where the documentation explains it."""
+        if key in CHANNEL_TYPES:
+            strip = CHANNEL_TYPES[key].strip
+            set_help(self.about, STRIP_TYPE_MEANINGS.meanings[strip], docs.url(docs.STRIP_TYPES[strip]))
+        elif self.selection in POOLS:
+            what = next(what for name, _, _, what in BUILT_IN_POOLS if name == self.selection[1])
+            set_help(self.about, f"A pool: {what}. Each member gets a slot of its own.", docs.page_link("channels"))
+        else:
+            set_help(self.about, POOL_KINDS.get(key, POOL_KINDS[CUSTOM_POOL]), docs.page_link("channels"))
 
     def _show_list(self) -> None:
         """A group of the channels, then one of the built-in pools; the selected one stays selected."""

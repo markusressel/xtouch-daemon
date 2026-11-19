@@ -87,7 +87,7 @@ class AliasesPage(Page):
         line.addWidget(suggestion_menu(self, applications, pick, "No application plays right now"))
         line.addWidget(alias_edit, 2)
         pair = (name_edit, alias_edit)
-        remove = flat_button("close", "Remove the alias")
+        remove = flat_button("delete-outline", "Remove the alias")
         remove.clicked.connect(lambda: self._remove(pair))
         line.addWidget(remove)
         self.edits.append(pair)

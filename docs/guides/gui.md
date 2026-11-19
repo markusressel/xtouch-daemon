@@ -268,7 +268,7 @@ Solo, Mute, Select), the fader and the meter, then those about slots (`tags`, `i
 
 The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip, which shows
 what the options do on the device in a few steps (‹ and › go through them), each with a caption: the ring as the encoder turns and is pushed, the LCD while audio
-plays, while muted and with nothing to control, which LEDs light while audio plays, an application records or the
+plays (with the label of each choice), while muted and with nothing to control, which LEDs light while audio plays, an application records or the
 strip is muted, and the volume at the bottom, at the 0 dB mark and at the top of the fader, with what the meter shows
 there. It follows the values in the form at once, saved or not, at the step shown.
 
@@ -276,9 +276,12 @@ there. It follows the values in the form at once, saved or not, at the step show
   secrets, and file pickers;
 - the help of each option under its field, with its default and, where the documentation explains more, a
   "Learn more" link to that section; a button sets the option back to its default;
-- `choices` as a table, with the devices, the sound cards and the profiles of the card of each line to pick from.
-  While a channel has `choices`, `device` and `profiles` are hidden, and the other way around: a channel has one or
-  the other;
+- `choices` (and `profiles`) as a list of entries, each with its label, its device and what it needs. The pencil or a
+  double click opens an entry with its fields, with the devices, the sound cards and the profiles of its card
+  to pick from; the card and the profile are under "Switch the sound card first". Drag ⠿ (or Ctrl+Up/Down) to change
+  the order, which is the order Select goes through them. While a channel has `choices`, `device` and `profiles` are
+  hidden, and the other way around: a channel has one or the other;
+- the meter as one choice: the level before the fader, after it, or off;
 - for choices, what the chosen value does (e.g. `recording` for the Rec LED), and each value says it as a tooltip in
   the list;
 - the mouse wheel scrolls the page, also over a number or a choice: it never changes a value;

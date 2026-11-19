@@ -1,6 +1,6 @@
 # Design: the form of a channel
 
-Status: **proposed** (2026-11-19). Builds on [Previews of the controls](control-previews.md) and [Output
+Status: **step 1 built** (2026-11-19), the rest proposed (see Order). Builds on [Previews of the controls](control-previews.md) and [Output
 choices](choices.md).
 
 ## Problem
@@ -36,7 +36,7 @@ on it. States gets the same: the type and its sentence at the top, the type butt
 ### 2. A form that fits
 
 - An option row has its name left of the field (144 px) while the card is wide enough for the name, the field and
-  its help (at least 480 px for the field); below that, the name goes above the field. Help always wraps, nothing
+  its help (at least 320 px for the field, `option_row.FIELD_WIDTH`); below that, the name goes above the field. Help always wraps, nothing
   in a card is wider than the card.
 - A list of tables (`choices`, `profiles`) is a list of **small cards**, one per entry, not a line of fields:
 
@@ -50,8 +50,8 @@ on it. States gets the same: the type and its sentence at the top, the type butt
   ```
 
   The label (the default label when there is none), the device by its description, what the choice needs and its
-  volume range, each line only when it says something. ⠿ drags to reorder (Ctrl+Up/Down too): the order is the order Select goes through. ✎, a double
-  click or Enter opens the entry in place as a small form, the same option rows as the rest of the form: Label (as wide as
+  volume range, each line only when it says something. ⠿ drags to reorder (Ctrl+Up/Down too): the order is the order Select goes through. ✎ or a double
+  click opens the entry in place as a small form, the same option rows as the rest of the form: Label (as wide as
   its 7 characters), Device, "Switch the sound card first" (card and profile, folded while
   unset), Volume (from, to). One entry is open at a time; Esc or a click outside closes it.
 - **Numbers** are spin boxes with their unit ("130 %"), empty while unset with the value they take as placeholder
@@ -132,7 +132,7 @@ hold, a range) only if it turns out to be missing.
 
 ## Order
 
-1. GUI only: the top of the form, a form that fits, the list of cards with LCDs (and the Display card stepping
+1. Built. GUI only: the top of the form, a form that fits, the list of cards with LCDs (and the Display card stepping
    through the labels of the choices), spin boxes, unset options, trash cans, the meter as one choice (the
    configuration keeps `meter` and `meter_point`).
 2. The field for names, with what the sound server has now and the devices of the profiles.
