@@ -15,8 +15,16 @@ Each tarball holds one directory, `<name>-<version>-<arch>/`, with `LICENSE` and
 The GUI's environment finds xtouch-daemon and its dependencies (pydantic, ...) through a `.pth` file that points at
 the site-packages of `xtouch-daemon-bin`, relative to its own. That works because both are CPython 3.14 on x86_64 with
 glibc: the compiled dependencies (`pydantic-core`, `dbus-fast`) are built for exactly that, and the bytecode is the
-same for every 3.14 release. `xtouch-daemon-gui-bin` depends on `xtouch-daemon-bin` of its own version, and on
-`python>=3.14`, `python<3.15`, so an update of Arch's Python to 3.15 can't break it silently.
+same for every 3.14 release. `xtouch-daemon-gui-bin` depends on `xtouch-daemon-bin` of its own version or a newer
+one, and on `python>=3.14`, `python<3.15`, so an update of Arch's Python to 3.15 can't break it silently. Not on the
+same version only: an AUR helper installs `xtouch-daemon-bin` on its own before it builds `xtouch-daemon-gui-bin`, and
+with an exact version the new `xtouch-daemon-bin` would break the installed `xtouch-daemon-gui-bin`, so pacman refuses
+the upgrade. A newer `xtouch-daemon-bin` under an older `xtouch-daemon-gui-bin` runs the GUI of the newer version: its
+code is part of `xtouch-daemon-bin`, the GUI package only adds the GUI's other dependencies and the command.
+
+An upgrade from 0.1.0, whose `xtouch-daemon-gui-bin` still requires exactly 0.1.0, needs that dependency skipped once:
+`sudo pacman -Udd` with the built `xtouch-daemon-bin` package (e.g. from `~/.cache/yay/xtouch-daemon-bin/`), then
+`yay -S xtouch-daemon-gui-bin`.
 
 The bundled Python is relocatable, and both commands find their environment relative to themselves, so an unpacked
 tarball runs from any directory, e.g. `<dir>/usr/bin/xtouch-daemon --help`.
