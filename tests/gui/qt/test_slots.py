@@ -331,10 +331,13 @@ def test_simulate_runs_on_the_virtual_twin_of_the_daemon(
     qtbot.keyClick(device.preview.strips[0], Qt.Key.Key_Escape)
     assert page.what_if is None
     assert not page.simulate_button.isChecked()
-    qtbot.waitUntil(lambda: len(live_daemon.requests) > count)
-    after = live_daemon.requests[-1]
-    assert isinstance(after, StartPreview)
-    assert (after.situation, after.on_device) == (None, False)
+
+    # the next preview it asks for (a heartbeat may come before it)
+    def previews() -> list[StartPreview]:
+        return [request for request in live_daemon.requests[count:] if isinstance(request, StartPreview)]
+
+    qtbot.waitUntil(lambda: bool(previews()))
+    assert (previews()[-1].situation, previews()[-1].on_device) == (None, False)
     assert device.preview.simulating
     assert device.preview.strips[0].face.state == twin_first
 
