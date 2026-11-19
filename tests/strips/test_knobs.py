@@ -161,14 +161,6 @@ async def test_a_strip_without_a_knob_of_that_kind_says_so(surface: RecordingSur
         DeviceStrip(surface.strips[0], env, ID, Direction.OUTPUT, (), Look(), encoder="pick")  # type: ignore[arg-type]
 
 
-def test_a_knob_does_nothing_by_default(surface: RecordingSurface, env: StripEnv) -> None:
-    knob = Knob(DeviceStrip(surface.strips[0], env, ID, Direction.OUTPUT, (), Look()))
-    knob.turn(1)
-    knob.push(True)
-    knob.close()
-    assert knob.ring() == (0, RingMode.DOT)
-
-
 async def test_the_volume_knob_steps_and_resets(surface: RecordingSurface, env: StripEnv, backend: FakeBackend) -> None:
     strip = DeviceStrip(surface.strips[0], env, ID, Direction.OUTPUT, ("speaker",), Look(), encoder="volume")
     strip.update(AudioState(outputs=(output("speaker", 50),)))

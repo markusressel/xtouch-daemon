@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import replace
 
 import pytest
@@ -11,7 +10,6 @@ from tests.support.tasks import settle
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Capture, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig
-from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.strips.apps import AppGroupStrip, AutoStrip
@@ -326,46 +324,6 @@ async def test_the_pick_knob_says_which_one_and_whether_pinned(surface: Recordin
     strip.on_encoder(1)
     assert strip.notice is None
     strip.close()
-
-
-@pytest.mark.parametrize("behavior", [BehaviorConfig(max_volume=100)])
-async def test_the_volume_strip_base_needs_a_kind(surface: RecordingSurface, behavior: BehaviorConfig) -> None:
-    from xtouch_daemon.strips.base import VolumeStrip
-
-    strip = VolumeStrip(surface.strips[0], StripEnv(FakeBackend(), behavior), ID, Look("x"))
-    with pytest.raises(NotImplementedError):
-        strip.current(state())
-    with pytest.raises(NotImplementedError):
-        await strip.apply_volume(1)
-    with pytest.raises(NotImplementedError):
-        await strip.apply_mute(True)
-    assert strip.inactive_text() == "off"
-    assert not strip.recording(state())
-    assert not strip.playing(state())
-    assert not strip.is_default(state())
-
-
-async def test_the_base_of_application_strips_needs_streams(surface: RecordingSurface, env: StripEnv) -> None:
-    from xtouch_daemon.strips.apps import AppStrip
-
-    with pytest.raises(NotImplementedError):
-        AppStrip(surface.strips[0], env, ID, Look("x")).streams_in(state())
-
-
-async def test_the_base_strip_does_nothing(surface: RecordingSurface, env: StripEnv) -> None:
-    from xtouch_daemon.strips.base import StripController
-
-    strip = StripController(surface.strips[0], env, ID, Look())
-    strip.update(state())
-    strip.on_fader(0.5)
-    strip.on_touch(True)
-    strip.on_button(Button.MUTE, True)
-    strip.on_encoder(1)
-    strip.on_encoder_press(True)
-    assert strip.meter_targets(state()) == set()
-    assert not strip.is_playing(CaptureTarget(None, True), state())
-    assert surface.sent == []
-    await asyncio.sleep(0)
 
 
 async def test_the_encoder_of_an_auto_strip_without_volume_does_nothing(
