@@ -26,7 +26,14 @@ without ALSA sequencer or JACK.
 The user needs read and write access to it. Desktop sessions give it to the logged-in user through the seat (logind).
 Without a session, add the user to the `audio` group.
 
-Only one program can have the device open. Stop the daemon before [`xtouch-daemon test`](commands.md), and close DAWs that use it.
+Only one program can have the device open: close DAWs that use it. [`xtouch-daemon test`](commands.md#test) asks a
+running daemon to test the device.
+
+To check a device: [`xtouch-daemon test`](commands.md#test), or "Test the device" in the [GUI](../guides/gui.md#test-the-device),
+which draws the device next to it. Every strip answers its controls, so each LED, the ring in each mode, the LCD
+colors, the meter, the motor and the touch sensor of every fader can be checked by hand, and compared with the
+drawing. Whether the device has an LED below the ring (the `center` bit of the ring's message, `mode` with `+c` in the
+test) is not known yet: the GUI draws it in the gap below the ring.
 
 ## Motor faders
 

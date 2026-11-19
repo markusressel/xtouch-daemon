@@ -23,11 +23,12 @@ grant it to the logged-in user. Without a session, add the user to the `audio` g
 xtouch-daemon test
 ```
 
-Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader. Afterwards the command shows what
-you do on the device: faders, buttons and encoders. Ctrl+C stops it.
+Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader. Afterwards every strip answers
+its own controls: the meter follows the fader, a button steps its LED, the encoder changes the ring, the LCD color and
+the motor fader ([`test`](../reference/commands.md#test) has the details). Ctrl+C stops it.
 
-Only one program can use the device. If the daemon already runs as a service, stop it before the test
-(`systemctl --user stop xtouch-daemon`), and close DAWs that use the device. Without a device, start the virtual one in another terminal (`xtouch-daemon virtual-device`) and run
+If the daemon already runs as a service, it runs the test (the slots show again after it). Close DAWs that use the
+device. Without a device, start the virtual one in another terminal (`xtouch-daemon virtual-device`) and run
 `xtouch-daemon test --virtual-device`; see [Without a device](without-a-device.md).
 
 ## Write a configuration

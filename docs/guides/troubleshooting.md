@@ -18,14 +18,15 @@ MC mode on USB in its setup menu, see [Getting started](../getting-started/first
 daemon waits for it and connects when it appears. Check that it is connected and on, and that `/proc/asound/cards` lists it. If the name differs, set
 `[device] name` to a part of it.
 
-**`can't open X-Touch-Ext (... Device or resource busy)`.** Only one program can use the device. Stop the daemon
-before `xtouch-daemon test` (`systemctl --user stop xtouch-daemon`), and close DAWs or other MIDI tools that opened it.
+**`can't open X-Touch-Ext (... Device or resource busy)`.** Only one program can use the device. Close DAWs or other
+MIDI tools that opened it. (`xtouch-daemon test` asks a running daemon to run the test.)
 
 **`... Permission denied`.** Your user can't open the MIDI device in `/dev/snd`. Desktop sessions give access to the
 logged-in user; without a session, add the user to the `audio` group. See [Hardware](../reference/hardware.md#linux-access).
 
 **A fader does not change the volume.** Only a touched fader changes a value. A fader whose touch sensor failed goes
-back to its value after a move. `xtouch-daemon test` shows whether the device reports `fader touched`. Until the
+back to its value after a move. `xtouch-daemon test` (or "Test the device" in the GUI) shows `touch` on the LCD
+when the device reports the touch. Until the
 sensor is repaired, [`touchless_faders`](../configuration/behavior.md#faders-without-a-touch-sensor) makes the fader work
 without it.
 

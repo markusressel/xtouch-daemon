@@ -2,6 +2,7 @@
 `run` and `test`.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.hardware.transport import SocketPort
+from xtouch_daemon.live.device_test import TestRefused
 from xtouch_daemon.system import instance, systemd
 
 
@@ -53,6 +55,39 @@ def test_test_runs_the_selftest_and_ends_quietly_on_ctrl_c(monkeypatch: pytest.M
 
     assert invoke("test", "--no-events").exit_code == 0
     assert calls == [("X-Touch-Ext", False)]
+
+
+def test_test_asks_a_running_daemon(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(instance, "running", lambda: instance.Instance(1, Path("config.toml"), systemd=True))
+    asked: list[Path] = []
+
+    async def ask(socket: Path, echo: Callable[[str], None]) -> None:
+        asked.append(socket)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(run_commands, "run_test_in_daemon", ask)
+
+    result = invoke("test")
+    assert result.exit_code == 0
+    assert asked == [instance.socket_file()]
+    assert "Its log shows every input" in result.output
+    assert result.output.endswith("The test ended: the device shows the slots again.\n")
+
+    async def refuse(socket: Path, echo: Callable[[str], None]) -> None:
+        raise TestRefused("The device is not connected.")
+
+    monkeypatch.setattr(run_commands, "run_test_in_daemon", refuse)
+    result = invoke("test")
+    assert result.exit_code == 1
+    assert "The daemon did not start the test: The device is not connected." in result.output
+
+    async def unreachable(socket: Path, echo: Callable[[str], None]) -> None:
+        raise ConnectionRefusedError("refused")
+
+    monkeypatch.setattr(run_commands, "run_test_in_daemon", unreachable)
+    assert "can't reach the daemon (refused)" in invoke("test").output
+    # the sweep alone needs the device
+    assert "Stop it for the sweep alone" in invoke("test", "--no-events").output
 
 
 def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:

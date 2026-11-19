@@ -19,6 +19,7 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.surface import Surface
+from xtouch_daemon.live.device_test import TestRefused, run_test_in_daemon
 from xtouch_daemon.live.messages import EndTest, KeepTest, Play, Reply, StartPreview, StartTest
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon
@@ -150,3 +151,47 @@ async def test_the_test_ends_when_the_device_goes_away(
 
         port.plug()
         await until(lambda: port.device.text(0)[0].strip() == "Speaker", seconds=10)
+
+
+async def test_the_command_runs_the_test_in_the_daemon_until_it_is_cancelled(
+    config_path: Path, socket_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "SCAN_INTERVAL", 0.01)
+    port = MemoryPort()
+    socket = socket_dir / "live.sock"
+    daemon = Daemon(
+        parse_config(config_path.read_text()),
+        FakeBackend((STATE,)),
+        Surface(port=port),
+        config_path,
+        capture_command=QUIET,
+        live_socket=socket,
+    )
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: port.device.text(0)[0].strip() == "Speaker")
+    lines: list[str] = []
+
+    command = asyncio.create_task(run_test_in_daemon(socket, lines.append, heartbeat=0.5))
+    await until(lambda: port.device.text(0) == ("strip 1", "ring 6 "), seconds=10)
+    # the heartbeat keeps it going
+    await asyncio.sleep(daemon_module.TEST_TIMEOUT + 2)
+    assert daemon.testing
+    assert lines == ["The daemon tests the device now: every strip answers its controls. Ctrl+C ends the test."]
+
+    command.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await command
+    await until(lambda: not daemon.testing)
+    await until(lambda: port.device.text(0)[0].strip() == "Speaker")
+
+    # the daemon ends it, or does not start it
+    command = asyncio.create_task(run_test_in_daemon(socket, lines.append))
+    await until(lambda: daemon.testing)
+    port.unplug()
+    await command
+    assert lines[-1] == "The test ended: the device went away."
+    with pytest.raises(TestRefused, match=r"The device is not connected\."):
+        await run_test_in_daemon(socket, lines.append)
+
+    daemon.stop()
+    await task

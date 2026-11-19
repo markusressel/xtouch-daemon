@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `xtouch-daemon test`: after the sweep every strip answers its own controls, so each output of the device can be
+  checked by hand: the meter follows the fader, a button steps its LED through on, flashing and off, the encoder
+  changes the position and the mode of the ring (also with the LED below the ring), the color of the LCD and the motor
+  fader, and the LCD shows the last input. While the daemon runs, the command asks it to run the test, instead of
+  failing because the device is taken.
+- GUI: "Test the device" in the window Device runs the same test in the daemon, with the device drawn next to it and
+  a bar that says what each control does. The slots go on meanwhile and show on the device again when the test ends.
 - The daemon takes a changed configuration file by itself, a moment after the file stopped changing, like a reload
   (`systemctl --user reload xtouch-daemon`, which still works): a file with errors is logged and the current
   configuration stays. A file that is gone changes nothing.

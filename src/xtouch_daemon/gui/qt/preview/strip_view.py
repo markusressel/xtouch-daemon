@@ -227,7 +227,15 @@ class StripView(QWidget):
         change all the time (the live view tells them 20 times a second) and are put over it from small pictures.
         """
         state = dataclasses.replace(
-            self.face.state, meter=0, meter_at=None, ring=0, ring_mode="dot", fader=None, glide=None, touched=False
+            self.face.state,
+            meter=0,
+            meter_at=None,
+            ring=0,
+            ring_mode="dot",
+            ring_center=False,
+            fader=None,
+            glide=None,
+            touched=False,
         )
         return (
             self._printed_key(),
@@ -240,10 +248,11 @@ class StripView(QWidget):
             current_mode(),
         )
 
-    def _moving_key(self) -> tuple[frozenset[int], int, float, str | None]:
+    def _moving_key(self) -> tuple[frozenset[int], int, float, str | None, bool]:
         """
         Where what moves all the time is: the lit LEDs of the ring and of the meter, the fader (at the bottom, where
-        the daemon leaves it, while not known yet), and the accent around it while it is touched.
+        the daemon leaves it, while not known yet), the accent around it while it is touched, and the LED below the
+        ring.
         """
         state = self.face.state
         now = self.preview.now
@@ -257,6 +266,7 @@ class StripView(QWidget):
             meter_leds(meter_now(state, now)),
             fader,
             current_colors().accent if state.touched or self.dragged_fader is not None else None,
+            state.ring_center,
         )
 
     def follow_time(self) -> None:
@@ -312,7 +322,7 @@ class StripView(QWidget):
         What moves all the time: the lit LEDs of the ring and of the meter, and the fader, from small pictures at
         `scale` and `ratio`.
         """
-        ring, meter, fader, accent = self._moving_key()
+        ring, meter, fader, accent, center = self._moving_key()
         if not self.look.configured:
             painter.setOpacity(UNCONFIGURED_OPACITY)
         # the positions light the middle LEDs: the first and the last one stay dark in Mackie Control
@@ -325,6 +335,14 @@ class StripView(QWidget):
                 ("ring", led), area, scale, ratio, lambda p, s=start, e=end: paint_led(p, s, e, 2.4, HW.ring, True)
             )
             sprite.paint(painter)
+        if center:
+            # the LED below the ring (the bit "center" of Mackie Control), in the gap between its ends: only the test
+            # of the device lights it, to find out where the device has it
+            start, end = ENCODER + QPointF(0, RING_RADII[0]), ENCODER + QPointF(0, RING_RADII[1])
+            area = QRectF(start, end).normalized().adjusted(-LED_GLOW, -LED_GLOW, LED_GLOW, LED_GLOW)
+            cached_sprite(
+                ("ring", "center"), area, scale, ratio, lambda p: paint_led(p, start, end, 2.4, HW.ring, True)
+            ).paint(painter)
         for led in range(meter):
             area = meter_led(led).adjusted(-LED_GLOW, -LED_GLOW, LED_GLOW, LED_GLOW)
             cached_sprite(

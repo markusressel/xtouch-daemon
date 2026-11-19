@@ -14,6 +14,7 @@ from xtouch_daemon.cli.options import CONFIG_OPTION, load_or_fail
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path
 from xtouch_daemon.hardware.selftest import run_selftest
+from xtouch_daemon.live.device_test import TestRefused, run_test_in_daemon
 from xtouch_daemon.runtime.daemon import Daemon, device_surface
 from xtouch_daemon.system import instance, systemd
 
@@ -63,7 +64,13 @@ def run(config_path: Path | None, log_level: str, virtual_device: bool) -> None:
     help="Test the virtual device (`virtual-device`), as `[device] virtual = true` does.",
 )
 def test(config_path: Path | None, events: bool, virtual_device: bool) -> None:
-    """Light up everything on the device and move the faders (stop the daemon first)."""
+    """
+    Light up everything on the device and move the faders, then every strip answers its controls. While the daemon
+    runs, the daemon tests the device it has, and its log shows the inputs.
+    """
+    if instance.running() is not None:
+        _test_with_daemon(events)
+        return
     config = load_or_fail(config_path)
     virtual = virtual_device or config.device.virtual
     try:
@@ -82,3 +89,21 @@ def test(config_path: Path | None, events: bool, virtual_device: bool) -> None:
         raise click.ClickException(
             f"can't open {config.device.name} ({e}). Is the daemon running? systemctl --user stop xtouch-daemon"
         ) from e
+
+
+def _test_with_daemon(events: bool) -> None:
+    if not events:
+        raise click.ClickException(
+            "The daemon runs: it tests the device until Ctrl+C. Stop it for the sweep alone (`--no-events`)."
+        )
+    click.echo(
+        "The daemon runs: it tests the device. Its log shows every input (journalctl --user -u xtouch-daemon -f)."
+    )
+    try:
+        asyncio.run(run_test_in_daemon(instance.socket_file(), click.echo))
+    except KeyboardInterrupt:
+        click.echo("The test ended: the device shows the slots again.")
+    except TestRefused as e:
+        raise click.ClickException(f"The daemon did not start the test: {e}") from e
+    except OSError as e:
+        raise click.ClickException(f"can't reach the daemon ({e})") from e

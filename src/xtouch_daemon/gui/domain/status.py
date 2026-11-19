@@ -110,6 +110,26 @@ def play_unavailable(snapshot: Snapshot | None, owned: bool, hosting: bool, simu
     return None
 
 
+TEST = "test"
+"""The feature of the daemon (`Snapshot.features`) that runs the test of the device (`StartTest`)."""
+
+
+def test_unavailable(snapshot: Snapshot | None, owned: bool) -> Reason | None:
+    """Why the daemon can't test the device now, None when it can."""
+    if snapshot is None:
+        return Reason("no daemon", "No daemon runs: start the service, or `xtouch-daemon test` without one.")
+    if not owned:
+        return Reason("another user's daemon", "The daemon runs as another user.")
+    if TEST not in snapshot.features:
+        return Reason(
+            "daemon too old",
+            "The daemon that runs is too old to test the device: restart it to run the installed version.",
+        )
+    if not snapshot.device:
+        return Reason("device not connected", "The device is not connected.")
+    return None
+
+
 def runs_older(daemon: Instance | None, snapshot: Snapshot | None, path: Path, saved: Config | None) -> bool:
     """
     Whether the daemon reads the file but runs another version of it, e.g. one changed outside the GUI or that it did
