@@ -204,7 +204,10 @@ class CandidateRow(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         x = RAIL / 2
-        node = self.line.geometry().center().y()
+        # the middle of the rule, below the margin the first one has at its top
+        line = self.line.geometry()
+        top = self.rule.contentsMargins().top()
+        node = line.top() + top + (line.height() - top) / 2
         painter.setPen(QPen(QColor(colors.control_border), 2))
         painter.drawLine(
             QPointF(x, 0 if not self.first else node), QPointF(x, self.height() if not self.last else node)
