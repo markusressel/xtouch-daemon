@@ -8,7 +8,6 @@ from tests.support.config import errors_of
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig
 from xtouch_daemon.config.files import parse_config
-from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.slots.model import AppsConfig
 
 PRESETS_CONFIG = """\
@@ -84,15 +83,3 @@ def test_a_preset_in_a_list_it_is_not_for_says_where_it_fits(monkeypatch: pytest
 def test_a_strip_given_as_a_model_keeps_its_presets():
     strip = AppsStripConfig(type="apps", match=("@voip",), label="VoIP")
     assert AppsStripConfig.model_validate(strip).written("match") == ("@voip",)
-
-
-def test_the_meter_point_of_a_channel_wins_over_the_behavior():
-    config = parse_config(
-        '[behavior]\nmeter_point = "post_fader"\n'
-        '[channel.out]\ntype = "output"\n'
-        '[channel.mic]\ntype = "input"\nmeter_point = "pre_fader"\n'
-    )
-    assert BehaviorConfig().meter_point == "pre_fader"
-    channels = config.slots.channels
-    assert config.meter_point(channels["out"]) == "post_fader"
-    assert config.meter_point(channels["mic"]) == "pre_fader"

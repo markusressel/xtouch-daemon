@@ -10,6 +10,7 @@ import pytest
 
 from tests.support.hardware import RecordingSurface
 from tests.support.tasks import finish_tasks
+from tests.support.waiting import until
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
@@ -137,11 +138,6 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     )
     with_slots = Snapshot("abc", True, False, None, snapshot.strips, slots=slots)
     assert decode(encode(with_slots)) == with_slots
-    # an older daemon does not tell more than whether it is connected, nor its version
-    older = line.replace(b',"mqtt_state":null', b"").replace(b',"daemon_version":null', b"")
-    assert b"mqtt_state" not in older
-    assert b"daemon_version" not in older
-    assert decode(older) == snapshot
     with pytest.raises(ValueError, match="Expecting value"):
         decode(b"garbage")
 
@@ -297,14 +293,9 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
     # a GUI that knows no replies ignores them like lines of another version
     assert decode(encode_reply(reply)) is None
     assert b'"version"' not in encode_reply(reply)
-    # the snapshot of a daemon that previews, and of one that does not know previews
+    # the snapshot of a daemon that previews
     snapshot = dataclasses.replace(snapshot_of(surface), preview=True, features=FEATURES)
     assert decode_message(encode(snapshot)) == snapshot
-    older = encode(snapshot_of(surface)).replace(b',"preview":false,"features":[]', b"")
-    assert b"features" not in older
-    decoded = decode(older)
-    assert decoded is not None
-    assert (decoded.preview, decoded.features) == (False, ())
 
 
 def test_the_view_of_a_twin_goes_through_a_line_and_is_no_snapshot():
@@ -345,14 +336,6 @@ async def replies(reader: asyncio.StreamReader, count: int = 1) -> list[Reply]:
         if isinstance(message, Reply):
             result.append(message)
     return result
-
-
-async def until(condition: object) -> None:
-    for _ in range(200):
-        if callable(condition) and condition():
-            return
-        await asyncio.sleep(0.005)
-    raise AssertionError("the condition never became true")
 
 
 async def test_requests_of_the_user_are_handled_and_answered(surface: RecordingSurface, socket_dir: Path):
@@ -455,17 +438,5 @@ def test_the_voice_chat_goes_through_a_line(surface: RecordingSurface):
     voip = VoipState("bridge", True, "mumble", "Lobby", 3, ("Ann", "Bob", "Carol"), ("a", "b", "c"))
     snapshot = dataclasses.replace(snapshot_of(surface), voip=voip)
     assert decode(encode(snapshot)) == snapshot
-    # without the names
-    plain = dataclasses.replace(voip, names=(), ids=())
-    line = encode(dataclasses.replace(snapshot, voip=plain)).replace(b',"names":[],"ids":[]', b"")
-    assert b"names" not in line
-    decoded = decode(line)
-    assert decoded is not None
-    assert decoded.voip == plain
-    # without [voip], and from an older daemon
+    # without [voip]
     assert decode(encode(snapshot_of(surface))) == snapshot_of(surface)
-    older = encode(snapshot_of(surface)).replace(b',"voip":null', b"")
-    assert b"voip" not in older
-    decoded = decode(older)
-    assert decoded is not None
-    assert decoded.voip is None

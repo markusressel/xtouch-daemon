@@ -72,7 +72,7 @@ def decode_message(line: bytes) -> Snapshot | Reply | TwinView | KnownDevices | 
     if data.get("version") != VERSION:
         return None
     strips = _strips(data["strips"])
-    mqtt_state = data.get("mqtt_state")
+    mqtt_state = data["mqtt_state"]
     return Snapshot(
         data["config"],
         data["device"],
@@ -80,13 +80,13 @@ def decode_message(line: bytes) -> Snapshot | Reply | TwinView | KnownDevices | 
         data["mqtt"],
         strips,
         MqttState(**mqtt_state) if mqtt_state is not None else None,
-        data.get("daemon_version"),
-        bool(data.get("preview", False)),
-        tuple(data.get("features", ())),
-        _voip(data.get("voip")),
-        _slots(data.get("slots")),
-        bool(data.get("virtual", False)),
-        bool(data.get("simulated", False)),
+        data["daemon_version"],
+        data["preview"],
+        tuple(data["features"]),
+        _voip(data["voip"]),
+        _slots(data["slots"]),
+        data["virtual"],
+        data["simulated"],
     )
 
 
@@ -134,8 +134,8 @@ def _voip(value: dict[str, Any] | None) -> VoipState | None:
         value["client"],
         value["channel"],
         value["participants"],
-        tuple(value.get("names", ())),
-        tuple(value.get("ids", ())),
+        tuple(value["names"]),
+        tuple(value["ids"]),
     )
 
 

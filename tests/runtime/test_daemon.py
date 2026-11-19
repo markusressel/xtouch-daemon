@@ -12,9 +12,10 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend
-from tests.support.daemon import QUIET, SPEAKER, STATE, Notifications, make, until
+from tests.support.daemon import QUIET, SPEAKER, STATE, Notifications, make
 from tests.support.hardware import RecordingSurface
 from tests.support.tasks import settle
+from tests.support.waiting import until
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol

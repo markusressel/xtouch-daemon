@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.waiting import until
 from xtouch_daemon.voip import mumble
 from xtouch_daemon.voip.bridge import BridgeProvider
 from xtouch_daemon.voip.provider import Capability, Participant
@@ -76,7 +77,7 @@ async def setup(built: Path) -> AsyncIterator[tuple[BridgeProvider, FakeMumble]]
         path = Path(directory) / "voip.sock"
         provider = BridgeProvider(path)
         task = asyncio.create_task(provider.run())
-        await until(path.exists)
+        await until(path.exists, seconds=5)
         process = await asyncio.create_subprocess_exec(
             str(built / "fake_mumble"),
             str(built / mumble.LIBRARY_NAME),
@@ -95,14 +96,6 @@ async def setup(built: Path) -> AsyncIterator[tuple[BridgeProvider, FakeMumble]]
         await asyncio.gather(task, return_exceptions=True)
 
 
-async def until(condition: object, seconds: float = 5) -> None:
-    for _ in range(int(seconds / 0.01)):
-        if callable(condition) and condition():
-            return
-        await asyncio.sleep(0.01)
-    raise AssertionError("never happened")
-
-
 def test_the_bundle_has_the_manifest_and_the_library_only(built: Path):
     with zipfile.ZipFile(built / mumble.BUNDLE_NAME) as bundle:
         assert sorted(bundle.namelist()) == ["libxtouch-daemon.so", "manifest.xml"]
@@ -116,7 +109,7 @@ async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[
     seen: list[Participant | None] = []
     provider.subscribe(lambda: seen.append(provider.participant("2")))
     # connected before anyone is there
-    await until(lambda: provider.connected)
+    await until(lambda: provider.connected, seconds=5)
     assert provider.client == "mumble"
     assert provider.capabilities == {Capability.VOLUME, Capability.MUTE, Capability.LEVELS}
     assert provider.participants == ()

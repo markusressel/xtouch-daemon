@@ -8,8 +8,9 @@ from pathlib import Path
 import pytest
 
 from tests.support.audio import FakeBackend
-from tests.support.daemon import STATE, until
+from tests.support.daemon import STATE
 from tests.support.hardware import RecordingSurface
+from tests.support.waiting import until
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import FEATURES, EndPreview, KeepPreview, Play, Reply, StartPreview, TwinView

@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from tests.support.daemon import until
+from tests.support.waiting import until
 from xtouch_daemon.audio.model import Direction
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol

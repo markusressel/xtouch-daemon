@@ -50,4 +50,4 @@ def test_steams_install_scripts_are_no_running_game(tmp_path: Path):
 
 @pytest.mark.host
 def test_running_processes_of_this_machine_include_this_one():
-    assert running_processes(Path("/proc"))
+    assert Path("/proc/self/comm").read_text().strip().lower() in running_processes(Path("/proc"))

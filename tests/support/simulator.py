@@ -78,12 +78,3 @@ class MemoryPort:
 
 def now() -> float:
     return asyncio.get_running_loop().time()
-
-
-async def until(condition: Callable[[], bool], seconds: float = 2.0) -> None:
-    """Waits until `condition` holds; AssertionError if it doesn't within `seconds`."""
-    for _ in range(round(seconds / TICK)):
-        if condition():
-            return
-        await asyncio.sleep(TICK)
-    raise AssertionError("waited in vain")

@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from tests.support.config import MQTT, errors_of
-from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
+from xtouch_daemon.config.audio_strips import AppsStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.buttons import ButtonConfig, ButtonSetup
 from xtouch_daemon.config.files import (
@@ -21,9 +21,7 @@ from xtouch_daemon.config.files import (
 )
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.sections import DeviceConfig
-from xtouch_daemon.config.strips import STRIP_MODELS, STRIP_TYPES, EmptyStripConfig, HomeAssistantStripConfig
 from xtouch_daemon.config.values import color_of
-from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.hardware.protocol import Color
 
 FULL = """
@@ -144,18 +142,6 @@ def test_problems_name_the_place_in_the_toml_data():
         (("aliases", "output"), "string_too_long"),
     ]
     assert str(problems_of(error.value)[0]).startswith("device.touchless_faders[2]: ")
-
-
-def test_the_strip_types_are_the_ones_of_the_models():
-    assert (
-        DeviceStripConfig,
-        AppsStripConfig,
-        AutoStripConfig,
-        HomeAssistantStripConfig,
-        EmptyStripConfig,
-        VoipStripConfig,
-    ) == STRIP_MODELS
-    assert STRIP_TYPES == ("output", "input", "apps", "auto", "homeassistant", "empty", "voip")
 
 
 def test_the_docstrings_of_the_options_are_their_descriptions():

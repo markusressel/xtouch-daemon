@@ -1,6 +1,6 @@
 import asyncio
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 
 import pytest
 
@@ -10,6 +10,7 @@ from tests.support.mqtt import FakeBroker
 from tests.support.slots import Rig
 from tests.support.strips import build, strips_of
 from tests.support.tasks import finish_tasks, settle
+from tests.support.waiting import until
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState, Direction
@@ -27,14 +28,6 @@ TOPIC = "homeassistant/{component}/xtouch/lights_{part}/{kind}"
 
 def topic(component: str, part: str, kind: str = "state") -> str:
     return TOPIC.format(component=component, part=part, kind=kind)
-
-
-async def until(condition: Callable[[], bool]) -> None:
-    for _ in range(300):
-        if condition():
-            return
-        await asyncio.sleep(0.002)
-    raise AssertionError("the condition never became true")
 
 
 @pytest.fixture

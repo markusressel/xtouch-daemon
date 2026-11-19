@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.support.simulator import until
+from tests.support.waiting import until
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.surface import Surface
@@ -125,7 +125,7 @@ async def test_a_socket_left_behind_is_replaced(socket_dir: Path) -> None:
         assert server.plugged
 
 
-async def test_what_a_hand_does_without_a_host_is_lost(socket_dir: Path) -> None:
+async def test_a_hand_without_a_host_moves_only_the_device(socket_dir: Path) -> None:
     async with serving(socket_dir / "virtual-device.sock") as server:
         server.send(server.device.touch(0, True))
         assert server.device.strips[0].touched
