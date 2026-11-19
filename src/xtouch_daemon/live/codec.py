@@ -10,9 +10,11 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import (
     VERSION,
     EndPreview,
+    EndTest,
     ForgetDevice,
     Glide,
     KeepPreview,
+    KeepTest,
     KnownDevice,
     KnownDevices,
     MqttState,
@@ -25,6 +27,7 @@ from xtouch_daemon.live.messages import (
     SlotView,
     Snapshot,
     StartPreview,
+    StartTest,
     StateView,
     StripState,
     TwinView,
@@ -87,6 +90,8 @@ def decode_message(line: bytes) -> Snapshot | Reply | TwinView | KnownDevices | 
         _slots(data["slots"]),
         data["virtual"],
         data["simulated"],
+        # a daemon of 0.2.0 has no test
+        bool(data.get("test", False)),
     )
 
 
@@ -103,6 +108,7 @@ def _strips(values: list[dict[str, Any]]) -> tuple[StripState, ...]:
             meter=strip["meter"],
             meter_at=strip["meter_at"],
             glide=None if strip["glide"] is None else Glide(**strip["glide"]),
+            ring_center=bool(strip.get("ring_center", False)),
         )
         for strip in values
     )
@@ -151,6 +157,9 @@ _REQUEST_NAMES: dict[type, str] = {
     SetOverride: "override",
     Play: "play",
     ForgetDevice: "forget_device",
+    StartTest: "test",
+    KeepTest: "keep_test",
+    EndTest: "end_test",
 }
 
 _EVENTS: dict[str, type] = {
@@ -197,6 +206,12 @@ def decode_request(line: bytes) -> Request:
             return StartPreview(config, None if situation is None else _situation(situation), on_device)
         case {"request": "keep_preview"}:
             return KeepPreview()
+        case {"request": "test"}:
+            return StartTest()
+        case {"request": "keep_test"}:
+            return KeepTest()
+        case {"request": "end_test"}:
+            return EndTest()
         case {"request": "end_preview"}:
             return EndPreview()
         case {"request": "mode", "mode": str(mode)}:

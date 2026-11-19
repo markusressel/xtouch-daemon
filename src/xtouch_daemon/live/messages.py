@@ -21,7 +21,7 @@ VERSION = 2
 """Changes when a line means something else; a client ignores lines of another version."""
 
 
-FEATURES = ("preview", "mode", "override", "play", "situation", "on_device")
+FEATURES = ("preview", "mode", "override", "play", "situation", "on_device", "test")
 """The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 
 
@@ -67,6 +67,8 @@ class StripState:
     """When the meter was set (`time.monotonic()`); None for a level that stays (a demo)."""
     glide: Glide | None = None
     """How the fader glides from `fader`, None while it stays."""
+    ring_center: bool = False
+    """Whether the LED below the ring is lit (only the test of the device lights it)."""
 
 
 def meter_now(state: StripState, now: float) -> int:
@@ -218,6 +220,8 @@ class Snapshot:
     """Whether the device is the virtual one (`run --virtual-device`), which the GUI can host."""
     simulated: bool = False
     """Whether the device shows a situation of the preview (`StartPreview.situation`): `slots` are its slots then."""
+    test: bool = False
+    """Whether the device runs its test (`StartTest`): the strips show the test, not the slots."""
 
 
 @dataclass(frozen=True)
@@ -298,7 +302,39 @@ class ForgetDevice:
     direction: str
 
 
-type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride | Play | ForgetDevice
+@dataclass(frozen=True)
+class StartTest:
+    """
+    Run the test of the device (`hardware.selftest`): the sweep, then every strip answers its controls, on the device
+    and on its drawing (`Play` is an input of the test then). The slots go on, but nothing of theirs reaches the device
+    until the test ends: with `EndTest`, with the connection, without a request for `daemon.TEST_TIMEOUT` (see
+    `KeepTest`), when the device goes away, or when a preview takes the device ("test_ended"). The daemon answers
+    with a `Reply` of kind "test". Another client that starts it takes it over.
+    """
+
+
+@dataclass(frozen=True)
+class KeepTest:
+    """The heartbeat of the test: the client is still there."""
+
+
+@dataclass(frozen=True)
+class EndTest:
+    """The test of this client is done: the device shows the slots again."""
+
+
+type Request = (
+    StartPreview
+    | KeepPreview
+    | EndPreview
+    | SetMode
+    | SetOverride
+    | Play
+    | ForgetDevice
+    | StartTest
+    | KeepTest
+    | EndTest
+)
 
 
 @dataclass(frozen=True)
@@ -327,7 +363,7 @@ class KnownDevices:
     devices: tuple[KnownDevice, ...]
 
 
-type ReplyKind = Literal["preview", "ended", "mode", "override", "error"]
+type ReplyKind = Literal["preview", "ended", "mode", "override", "test", "test_ended", "error"]
 
 
 @dataclass(frozen=True)
@@ -336,8 +372,9 @@ class Reply:
     An answer of the daemon, or news for a client. "preview": whether a `StartPreview` runs now (`message` says why
     not, e.g. the errors of the configuration, as `check-config` tells them). "ended": the preview of this client
     ended, `message` says why. "mode" and "override": whether a `SetMode` (`message` is the mode then,
-    or why not) or a `SetOverride` was carried out. "error": a request could not
-    be read, or is not allowed.
+    or why not) or a `SetOverride` was carried out. "test": whether a `StartTest` runs now (`message` says why not).
+    "test_ended": the test of this client ended, `message` says why. "error": a request could not be read, or is not
+    allowed.
     """
 
     kind: ReplyKind

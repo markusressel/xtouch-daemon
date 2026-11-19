@@ -172,11 +172,16 @@ class Strip:
         if self.shown:
             self._surface.send(message)
 
-    def reveal(self) -> None:
-        """Its turn in the startup sequence: shows everything, and the fader glides to its place."""
+    def reveal(self, at: int | None = None) -> None:
+        """
+        Its turn in the startup sequence: shows everything, and the fader glides to its place, from `at` where the
+        motor is known to be (from FADER_REST otherwise, see `connected()`).
+        """
         self.shown = True
         for message in self.connected():
             self._surface.send(message)
+        if at is not None:
+            self._position = float(at)
         self._surface.send_colors()
         if self.fader is not None:
             self._surface.glide(self)

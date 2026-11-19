@@ -35,6 +35,10 @@ I was able to edit the config to my liking with AI pretty easily, but maybe ther
 ## Startup Sequence
 
 I like the startup sequience we have, especially the show, but can we make it even fancier by:
-- letting a single wave go from left to right over the 8 faders with the lighting?
+- letting a single wave go from left to right, over the eight faders, in sync with the lighting above them?
 - let the leds on the encoder not only turn on but also turn off in a sequence
-- 
+- let the meter go up and down, and the buttons light up and turn off in a sequence from top to bottom
+
+Also: The GUI still shows something, even if no virtual device is started. I thought we removed that? 
+We want the virtual device to be able to show the startup sequence (works already) and also the shutdown sequence (doesn't work currently).
+So the user can see that when a device disconnects, its faders return to 0 (do they actually do that, or do they return to 0 on reconnect?).

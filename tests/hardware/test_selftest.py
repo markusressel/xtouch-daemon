@@ -93,7 +93,7 @@ async def bench_on(port: MemoryPort, lines: list[str]) -> AsyncIterator[TestBenc
     task = asyncio.create_task(surface.run())
     await until(lambda: surface.connected)
     await surface.settled()
-    bench = TestBench(surface, lines.append)
+    bench = TestBench(surface.strips, lines.append)
     bench.start()
     surface.on_event = bench.handle
     yield bench

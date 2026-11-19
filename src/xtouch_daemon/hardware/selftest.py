@@ -6,7 +6,7 @@ docs/development/design/interactive-test.md.
 
 import asyncio
 import enum
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import assert_never
 
@@ -114,15 +114,16 @@ class TestBench:
     __test__ = False
     """Not a test class of pytest, despite its name."""
 
-    def __init__(self, surface: Surface, echo: Callable[[str], None]):
-        self.surface = surface
+    def __init__(self, strips: Sequence[Strip], echo: Callable[[str], None]):
+        """`strips`: those of the device (`Surface.strips`), or those it lends a test (`Surface.lend()`)."""
+        self.strips = strips
         self.echo = echo
         self.tests = [StripTest(Color(index % 7 + 1)) for index in range(protocol.STRIPS)]
         self._meters: asyncio.Task[None] | None = None
 
     def start(self) -> None:
         """Shows the start on every strip, and keeps the meters of raised faders up from now on."""
-        for strip, test in zip(self.surface.strips, self.tests, strict=True):
+        for strip, test in zip(self.strips, self.tests, strict=True):
             strip.set_color(test.color)
             for button in Button:
                 strip.set_led(button, test.leds[button])
@@ -144,7 +145,7 @@ class TestBench:
 
     def handle(self, event: protocol.StripEvent) -> None:
         """An input on the device (or a hand on its drawing): its strip answers."""
-        strip = self.surface.strips[event.strip]
+        strip = self.strips[event.strip]
         test = self.tests[event.strip]
         answer = self._answer(strip, test, event)
         if answer is None:
@@ -218,31 +219,35 @@ class TestBench:
 
     async def _keep_meters(self) -> None:
         while True:
-            for strip, test in zip(self.surface.strips, self.tests, strict=True):
+            for strip, test in zip(self.strips, self.tests, strict=True):
                 if test.meter > 0:
                     strip.set_meter(test.meter)
             await asyncio.sleep(METER_REFRESH)
 
 
-async def sweep(surface: Surface, step: float = STEP) -> None:
-    """Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader; then it is dark again."""
-    for strip in surface.strips:
+async def sweep(surface: Surface, step: float = STEP, strips: Sequence[Strip] | None = None) -> None:
+    """
+    Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader; then it is dark again.
+    `strips`: those the surface lent the test (`Surface.lend()`), by default its own.
+    """
+    strips = strips if strips is not None else surface.strips
+    for strip in strips:
         strip.set_color(Color(strip.index % 7 + 1))
         strip.set_text(0, "X-Touch")
         strip.set_text(1, f"strip {strip.index + 1}")
         for button in Button:
             strip.set_led(button, Led.ON)
     for position in range(1, protocol.RING_MAX + 1):
-        for strip in surface.strips:
+        for strip in strips:
             strip.set_ring(position, RingMode.DOT)
             strip.set_meter(round(position / protocol.RING_MAX * protocol.METER_MAX))
         await asyncio.sleep(step)
     for fraction in (1.0, 0.0):
-        for strip in surface.strips:
+        for strip in strips:
             strip.set_fader(fraction)
         await surface.settled()
         await asyncio.sleep(step * 4)
-    for strip in surface.strips:
+    for strip in strips:
         strip.reset()
     await surface.settled()
 
@@ -267,7 +272,7 @@ async def run_selftest(
                 " on, flashing, off. Encoder: turn to change, push for the next of ring, mode, color, fader. Ctrl+C"
                 " stops."
             )
-            bench = TestBench(surface, echo)
+            bench = TestBench(surface.strips, echo)
             bench.start()
             surface.on_event = bench.handle
             surface.on_unknown = lambda message: echo(f"unknown message: {message.hex(' ')}")

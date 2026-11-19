@@ -105,6 +105,11 @@ class Surface:
         TOUCHLESS_LET_GO as letting go.
         """
         self.strips = [Strip(self, index) for index in range(protocol.STRIPS)]
+        self.lent: list[Strip] | None = None
+        """
+        The strips of a test that has the device (see `lend()`), None while `strips` show on it. Hands, the colors
+        and the motors are theirs then; `strips` keep what is drawn on them for later.
+        """
         self.mirror = SimulatedDevice()
         """
         What the device shows, as far as the surface knows (for the live view): everything it sent, also while the
@@ -141,11 +146,51 @@ class Surface:
         self._flashes: dict[int, asyncio.TimerHandle] = {}
         """The strips (from 0) that flash something (see `flash()`), with the timer that ends it."""
 
+    @property
+    def front(self) -> list[Strip]:
+        """The strips that show on the device: those of a test while it has it (`lent`), else `strips`."""
+        return self.lent if self.lent is not None else self.strips
+
+    def lend(self) -> list[Strip]:
+        """
+        Hands the device to a test (see `hardware.selftest`): returns new strips that show on it, and get its hands
+        (`on_event` goes on as before: whoever handles the test sets it). `strips` keep what is drawn on them without
+        showing it, and show it again on `take_back()`.
+        """
+        assert self.lent is None, "the device is lent already"
+        self.end_banner()
+        for timer in self._flashes.values():
+            timer.cancel()
+        for index in self._flashes:
+            self.strips[index].set_overlay(None)
+        self._flashes.clear()
+        for strip in self.strips:
+            strip.shown = False
+            self._gliding.discard(strip)
+        self.lent = [Strip(self, index) for index in range(protocol.STRIPS)]
+        for borrowed, strip in zip(self.lent, self.strips, strict=True):
+            # dark and empty at first; the motor is where the fader of the strip put it
+            borrowed.reveal(strip.position)
+        return self.lent
+
+    def take_back(self) -> None:
+        """The test ends: `strips` show everything on the device again; the faders glide from where they are."""
+        lent, self.lent = self.lent, None
+        if lent is None:
+            return
+        for borrowed, strip in zip(lent, self.strips, strict=True):
+            self._gliding.discard(borrowed)
+            strip.reveal(borrowed.position)
+        self.on_change()
+
     def banner(self, top: str, bottom: str, seconds: float) -> None:
         """
         Shows two lines of text across the LCDs of all strips for `seconds` (centered, 7 characters per strip), e.g.
-        the label of a mode that comes. The strips keep showing what they show underneath, and again after it.
+        the label of a mode that comes. The strips keep showing what they show underneath, and again after it. Not
+        while a test has the device.
         """
+        if self.lent is not None:
+            return
         if self._banner is not None:
             self._banner.cancel()
         for timer in self._flashes.values():
@@ -163,7 +208,7 @@ class Surface:
         Shows two lines on the LCD of one strip (from 0) for `seconds`, e.g. what a slot shows now and why; not while
         a banner is up, which says more.
         """
-        if self._banner is not None:
+        if self._banner is not None or self.lent is not None:
             return
         if (timer := self._flashes.pop(index, None)) is not None:
             timer.cancel()
@@ -199,7 +244,7 @@ class Surface:
             protocol.lcd_colors(
                 [
                     Color.WHITE if strip.index in self._lit else strip.color if strip.shown else Color.BLACK
-                    for strip in self.strips
+                    for strip in self.front
                 ]
             )
         )
@@ -368,7 +413,7 @@ class Surface:
         self._revealer.cancel()
         for index, (_, timer) in self._unconfirmed.items():
             timer.cancel()
-            self.strips[index].held = False
+            self.front[index].held = False
         self._unconfirmed.clear()
         for timer in self._fingers.values():
             timer.cancel()
@@ -389,7 +434,7 @@ class Surface:
                 continue
             if isinstance(event, protocol.HostQuery):
                 continue
-            strip = self.strips[event.strip]
+            strip = self.front[event.strip]
             match event:
                 case protocol.FaderMoved(strip=index) if not strip.touched and self._move_is_touch(index):
                     # no touch sensor: the move is the touch
@@ -439,7 +484,7 @@ class Surface:
     def _untouched(self, index: int) -> None:
         """No touch came: the device moved the fader, which goes back to its value."""
         del self._unconfirmed[index]
-        strip = self.strips[index]
+        strip = self.front[index]
         strip.held = False
         self.on_change()
         _LOGGER.debug(f"Fader {index + 1} moved without a touch: back to its value")
@@ -464,7 +509,7 @@ class Surface:
         self._handle(event)
 
     def _handle(self, event: protocol.StripEvent) -> None:
-        strip = self.strips[event.strip]
+        strip = self.front[event.strip]
         if not isinstance(event, protocol.FaderMoved):
             _LOGGER.debug(f"Strip {event.strip + 1}: {event}")
         # the surface keeps the motor in step with the hand, the rest is up to the handler
