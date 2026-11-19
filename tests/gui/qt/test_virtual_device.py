@@ -229,12 +229,16 @@ def test_without_a_hand_the_mouse_only_selects(qtbot: QtBot, preview: Preview) -
     qtbot.mouseMove(view, at(preview, ENCODER))
     assert clicked == [1]
 
-    # nothing to take, also with a hand
+    # nothing to take, also with a hand; in Play a click selects nothing, and the selection is hidden
+    preview.show_faces(tuple(view.face for view in preview.strips), 1)
     hand = Hand()
     play(preview, hand)
     qtbot.mouseClick(view, Qt.MouseButton.LeftButton, pos=QPoint(0, 0))
     assert hand.done == []
-    assert clicked == [1, 1]
+    assert clicked == [1]
+    assert not view.selected
+    preview.set_playing(False)
+    assert view.selected
 
 
 def test_the_wheel_turns_the_encoder(qtbot: QtBot, preview: Preview) -> None:

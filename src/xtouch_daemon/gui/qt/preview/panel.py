@@ -115,7 +115,12 @@ class Preview(QWidget):
         view), None for none.
         """
         self.playing = False
-        """Play: the mouse is a hand on `device_hand`; else (Select) a click selects and a drag moves."""
+        """
+        Play: the mouse is a hand on `device_hand`, and nothing is selected; else (Select) a click selects and a drag
+        moves.
+        """
+        self.selected: int | None = None
+        """The strip selected (in Select), shown again when Play ends."""
         self._drag: _Drag | None = None
         self.animations: dict[int, QPropertyAnimation] = {}
         """The glides of the strips making room for a dragged one, by strip."""
@@ -137,6 +142,7 @@ class Preview(QWidget):
         for view in self.strips:
             view.held = None
             view.dragged_fader = None
+            view.selected = not playing and view.index == self.selected
             view.setCursor(Qt.CursorShape.ArrowCursor if playing else Qt.CursorShape.PointingHandCursor)
             view.update()
 
@@ -185,8 +191,9 @@ class Preview(QWidget):
         if simulating != self.simulating:
             self.simulating = simulating
             self.update()
+        self.selected = selected
         for view, face in zip(self.strips, strip_faces, strict=True):
-            view.show_face(face, view.index == selected)
+            view.show_face(face, not self.playing and view.index == selected)
         flashing = any("flash" in face.state.leds.values() for face in strip_faces)
         if flashing and not self.blinker.isActive():
             self.blinker.start()
@@ -200,7 +207,9 @@ class Preview(QWidget):
             view.update()
 
     def pick(self, index: int) -> None:
-        self.clicked.emit(index)
+        # in Play a click is a hand on the device: it selects nothing
+        if not self.playing:
+            self.clicked.emit(index)
 
     # -- moving strips (Select) -------------------------------------------------------------------------------------
 
@@ -326,7 +335,7 @@ class Preview(QWidget):
 
     def focus_strip(self, index: int) -> None:
         self.strips[index].setFocus()
-        self.clicked.emit(index)
+        self.pick(index)
 
     # -- painting -------------------------------------------------------------------------------------------------
 

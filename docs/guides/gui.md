@@ -129,7 +129,7 @@ A bar above the drawing of the device switches what the mouse does on it:
   Escape puts it back. Ctrl+Left/Right and the context menu (Move left, Move right) do the same. A slot takes its
   candidates (`[slots]`) and its controls (`[controls]`) along, the slots in between make room; Ctrl+Z moves it back.
   Comments above the slots in the file stay where they are.
-- **Play:** the mouse is a hand on the device:
+- **Play:** the mouse is a hand on the device, and no strip is selected (the selection comes back with Select):
   - a fader: press to touch it, drag to move it, release to let go; Alt-drag moves it without a touch, like the
     device moving it by itself (the daemon puts it back);
   - a button: held while the mouse button is down;
