@@ -1,6 +1,6 @@
 [project]
 name = "xtouch-daemon"
-version = "0.1.0"
+version = "0.2.0"
 description = "Use a Behringer X-Touch Extender as a hardware mixer for PipeWire: motor faders, meters, scribble strips"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
