@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
@@ -31,10 +32,10 @@ from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.sources import patterns
 from xtouch_daemon.gui.domain.states import OVERRIDES, describe_live, live_state, ordered, state_uses
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import LABEL_WIDTH, Suggest, flat_button, help_label, label
+from xtouch_daemon.gui.qt.fields.basics import Suggest, flat_button, help_label, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
-from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, text_width
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -193,6 +194,10 @@ class StatesPage(Page):
         The form of a state, in the order of the questions: a state or a mode (a mode has a label and a priority),
         on while its sources are on or while a condition holds (never both), and the delays and the override.
         """
+        self._titles: list[QLabel] = []
+        """The names of the fields that are no `OptionRow`, in the same column (see `_align`)."""
+        self._under: list[QLabel] = []
+        """What goes under those fields, from where the fields start."""
         found = {option.name: option for option in options(StateConfig)}
         suggest: dict[str, Suggest] = {
             "apps": lambda: patterns(self.audio()),
@@ -244,7 +249,7 @@ class StatesPage(Page):
         condition.setSpacing(Space.XS)
         line = QHBoxLayout()
         title = label("Condition")
-        title.setFixedWidth(LABEL_WIDTH)
+        self._titles.append(title)
         line.addWidget(title)
         self.when_edit = ConditionEdit(present=False)
         self.when_edit.setPlaceholderText("e.g. call and not gaming")
@@ -252,11 +257,11 @@ class StatesPage(Page):
         line.addWidget(self.when_edit, 1)
         condition.addWidget(row(line))
         self.when_error = label("", "error", wrap=True)
-        self.when_error.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        self._under.append(self.when_error)
         self.when_error.hide()
         condition.addWidget(self.when_error)
         when_help = help_label(WHEN_HELP, "help", docs.guide_link("conditions"))
-        when_help.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        self._under.append(when_help)
         condition.addWidget(when_help)
         layout.addWidget(self.condition_box)
         self.delays_button = QToolButton()
@@ -269,10 +274,19 @@ class StatesPage(Page):
         self.delay_rows = [option_row("delay_on"), option_row("delay_off"), option_row("persist")]
         for widget in self.delay_rows:
             layout.addWidget(widget)
+        self._align()
         self.added: set[str] = set()
         """Sources added to the state shown that have no value yet."""
         self.composed: dict[str, bool] = {}
         """States set to Condition (or Sources) that have neither a condition nor sources yet."""
+
+    def _align(self) -> None:
+        """One column of names for the form, as wide as its longest name."""
+        width = align_titles(self.option_rows, least=max(text_width(title) for title in self._titles))
+        for title in self._titles:
+            title.setFixedWidth(width)
+        for under in self._under:
+            under.setContentsMargins(width + Space.S, 0, 0, 0)
 
     def _segments(
         self, layout: QVBoxLayout, title: str, texts: tuple[str, ...], picked: Callable[[int], None], help: str
@@ -281,7 +295,7 @@ class StatesPage(Page):
         line = QHBoxLayout()
         line.setSpacing(Space.S)
         name = label(title)
-        name.setFixedWidth(LABEL_WIDTH)
+        self._titles.append(name)
         line.addWidget(name)
         group = QButtonGroup(self)
         for index, text in enumerate(texts):
@@ -294,7 +308,7 @@ class StatesPage(Page):
         group.idClicked.connect(picked)
         layout.addWidget(row(line))
         hint = help_label(help, "help")
-        hint.setContentsMargins(LABEL_WIDTH + Space.S, 0, 0, 0)
+        self._under.append(hint)
         layout.addWidget(hint)
         return group
 

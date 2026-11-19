@@ -2,7 +2,7 @@
 One option of a form: its label, the field for its type, its help and its problems.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any, assert_never
 
@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QGridLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QSpinBox,
     QVBoxLayout,
@@ -45,6 +46,36 @@ from xtouch_daemon.gui.qt.theme.tokens import Space
 FIELD_WIDTH = 320
 """The least room for a field beside its name: below it, the name goes above the field."""
 NARROW_BELOW = LABEL_WIDTH + Space.S + FIELD_WIDTH
+"""Below it, a row with the widest column of names puts its name above its field."""
+WIDEST_TITLE = LABEL_WIDTH + 2 * Space.L
+"""The widest column of names `align_titles` makes: a longer name wraps."""
+
+
+def text_width(widget: QLabel) -> int:
+    """The width a label needs for its text in one line: not its size hint, which a fixed width already set."""
+    margins = widget.contentsMargins()
+    return (
+        widget.fontMetrics().horizontalAdvance(widget.text())
+        + margins.left()
+        + margins.right()
+        + 2 * widget.margin()
+        + 2
+    )
+
+
+def align_titles(rows: Iterable[OptionRow], indented: Iterable[OptionRow] = (), least: int = 0) -> int:
+    """
+    Makes the column of names of rows that are shown together as wide as their longest name (up to WIDEST_TITLE), so
+    their fields line up close to the names; rows in `indented` are moved right by Space.L, and their names are that
+    much narrower; `least` is the longest of other names in the column. Returns the width.
+    """
+    rows = list(rows)
+    moved = {id(row) for row in indented}
+    width = min(WIDEST_TITLE, max((text_width(row.title) for row in rows), default=least))
+    width = max(width, min(WIDEST_TITLE, least))
+    for row in rows:
+        row.set_title_width(width - (Space.L if id(row) in moved else 0))
+    return width
 
 
 class OptionRow(QWidget):
@@ -89,6 +120,8 @@ class OptionRow(QWidget):
         self.details = QVBoxLayout()
         details = self.details
         details.setSpacing(2)
+        self.title_width = LABEL_WIDTH
+        """The width of the column of names (see `align_titles`)."""
         self.narrow: bool | None = None
         """Whether the name is above the field (the row is too narrow for both side by side); None before a size."""
         self._arrange(narrow=False)
@@ -116,10 +149,18 @@ class OptionRow(QWidget):
         super().resizeEvent(event)
         width = self.width()
         # a margin both ways: the scroll bar that comes with a taller row must not switch it back
-        if self.narrow is not True and width < NARROW_BELOW:
+        narrow_below = self.title_width + Space.S + FIELD_WIDTH
+        if self.narrow is not True and width < narrow_below:
             self._arrange(narrow=True)
-        elif self.narrow is not False and width > NARROW_BELOW + Space.M:
+        elif self.narrow is not False and width > narrow_below + Space.M:
             self._arrange(narrow=False)
+
+    def set_title_width(self, width: int) -> None:
+        """The width of the column of names, for the rows shown with it (see `align_titles`)."""
+        self.title_width = width
+        if self.narrow is False:
+            self.title.setFixedWidth(width)
+            self.details.setContentsMargins(width + Space.S, 0, 0, 0)
 
     def _arrange(self, narrow: bool) -> None:
         """The name left of the field (in the column of the names), or above it in a narrow row."""
@@ -137,14 +178,14 @@ class OptionRow(QWidget):
         else:
             # a list of entries: its name and reset at the top, not beside its middle
             top = Qt.AlignmentFlag.AlignTop if self.option.kind == Kind.TABLES else Qt.AlignmentFlag(0)
-            self.title.setFixedWidth(LABEL_WIDTH)
+            self.title.setFixedWidth(self.title_width)
             self.top.addWidget(self.title, 0, 0, top)
             self.top.addWidget(self.field, 0, 1)
             self.top.addWidget(self.reset, 0, 2, top)
         self.top.setColumnStretch(0, 1 if narrow else 0)
         self.top.setColumnStretch(1, 0 if narrow else 1)
         self.top.setColumnStretch(2, 0)
-        self.details.setContentsMargins(0 if narrow else LABEL_WIDTH + Space.S, 0, 0, 0)
+        self.details.setContentsMargins(0 if narrow else self.title_width + Space.S, 0, 0, 0)
 
     # -- the fields of the kinds ----------------------------------------------------------------------------------
 

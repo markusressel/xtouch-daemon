@@ -146,7 +146,7 @@ class Entry(QFrame):
 
     def _build_fields(self) -> None:
         # not at the top: option_row builds a `Tables` for a list of tables
-        from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+        from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles
 
         layout = QVBoxLayout(self.fields)
         layout.setContentsMargins(Space.L, 0, 0, 0)
@@ -185,6 +185,8 @@ class Entry(QFrame):
                 layout.addWidget(fold)
                 layout.addWidget(folded)
                 self.fold, self.folded = fold, folded
+        folded_rows = [row for name, row in self.rows.items() if folds and name in FOLDED]
+        align_titles(self.rows.values(), folded_rows)
         if self.fold is not None:
             shown = any(self.value.get(name) not in (None, "") for name in FOLDED)
             self.fold.setChecked(shown)

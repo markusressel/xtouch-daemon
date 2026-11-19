@@ -25,7 +25,7 @@ from xtouch_daemon.gui.domain.voip import participants
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label, set_help
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
-from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow
+from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow, align_titles
 from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, EntityItemDelegate, Lines
 from xtouch_daemon.gui.qt.pages.base import Audio, Flip, Page, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.preview.part_view import PartPreview
@@ -238,6 +238,8 @@ class ChannelsPage(Page):
             body.box.addLayout(fields, 1)
             layout.addWidget(body)
             cards.addWidget(frame)
+        # one column of names for the whole form: the fields of all cards line up
+        align_titles(rows)
         self.form_rows[key] = rows
         self.form_widgets[key] = form
         self.form_previews[key] = previews

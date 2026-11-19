@@ -28,6 +28,7 @@ from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import LEARN_MORE, Suggest, help_label, label, set_help, show_status
+from xtouch_daemon.gui.qt.fields.option_row import align_titles
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, page_title, row, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -78,6 +79,7 @@ class SectionPage(Page):
                     link=docs.option_link(name, option.name),
                 )
             )
+        align_titles(self.option_rows)
         if name == "device":
             layout.addWidget(label("A changed name takes a restart of the service.", "help"))
         present.addWidget(frame)

@@ -54,7 +54,7 @@ from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, help_text, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
-from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import StackList
@@ -532,6 +532,7 @@ class SlotsPanel(Page):
             ]
             for option_row in option_rows:
                 layout.addWidget(option_row)
+            align_titles(option_rows)
             self.place_forms[key] = form, option_rows
         return self.place_forms[key]
 
