@@ -1254,6 +1254,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>schema</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#list-devices" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2672,6 +2683,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>schema</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#list-devices" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2900,6 +2922,10 @@
 <td>Writes the example configuration.</td>
 </tr>
 <tr>
+<td><a href="#schema"><code>xtouch-daemon schema</code></a></td>
+<td>Prints the JSON Schema of the configuration, for editors.</td>
+</tr>
+<tr>
 <td><a href="#list-devices"><code>xtouch-daemon list-devices</code></a></td>
 <td>Lists outputs, inputs, and the sound cards with their profiles.</td>
 </tr>
@@ -3024,8 +3050,13 @@ without a condition) and people with no slot to sit on.</p>
 </span></code></pre></div>
 <p>Writes the example configuration with <a href="../../configuration/slots/">channels, states and slots</a> to
 <code>~/.config/xtouch-daemon/config.toml</code>, or to <code>PATH</code>. An existing file stays, unless <code>-f</code> (<code>--force</code>) overwrites it.</p>
+<h2 id="schema"><code>schema</code><a class="headerlink" href="#schema" title="Permanent link">&para;</a></h2>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>xtouch-daemon<span class="w"> </span>schema<span class="w"> </span>&gt;<span class="w"> </span>~/.config/xtouch-daemon/config.schema.json
+</span></code></pre></div>
+<p>Prints the <a href="../../configuration/#editors-and-ai-assistants">JSON Schema</a> of the configuration of the installed
+version. Editors with a TOML language server complete the options from it and show their help.</p>
 <h2 id="list-devices"><code>list-devices</code><a class="headerlink" href="#list-devices" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w"> </span><span class="o">[</span>--snippet<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w"> </span><span class="o">[</span>--snippet<span class="o">]</span>
 </span></code></pre></div>
 <p>Lists the outputs and inputs with the node names to use as <code>device</code>, their descriptions, volumes and states; <code>*</code>
 marks the defaults. Then it lists each sound card by its name and description, with its devices and its profiles
@@ -3033,21 +3064,21 @@ marks the defaults. Then it lists each sound card by its name and description, w
 <a href="../../configuration/channels/devices/#profiles"><code>profiles</code></a>; <code>*</code> marks the active ones. <code>--snippet</code> prints a
 <code>[channel.&lt;id&gt;]</code> for each device instead, ready to paste into the file (Bluetooth devices by a wildcard like
 <code>bluez_output.*</code>, since their names hold the address of the device):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa_output.pci-0000_11_00.4.analog-stereo):
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  * output:analog-stereo+input:analog-stereo
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>      Analog Stereo Output + Analog Stereo Input
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    output:iec958-stereo+input:analog-stereo
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>      Digital Stereo (IEC958) Output + Analog Stereo Input
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa_output.pci-0000_11_00.4.analog-stereo):
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  * output:analog-stereo+input:analog-stereo
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>      Analog Stereo Output + Analog Stereo Input
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    output:iec958-stereo+input:analog-stereo
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>      Digital Stereo (IEC958) Output + Analog Stereo Input
 </span></code></pre></div>
 <h2 id="list-apps"><code>list-apps</code><a class="headerlink" href="#list-apps" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>xtouch-daemon<span class="w"> </span>list-apps<span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>xtouch-daemon<span class="w"> </span>list-apps<span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span>
 </span></code></pre></div>
 <p>Lists the applications that play now: their names (and aliases), the <a href="../../configuration/presets/">presets</a> they are
 part of (e.g. <code>Brave (@browsers)</code>), binaries and volumes, and where each one goes: the <code>apps</code> channel that has it,
 an <code>auto</code> or <code>apps</code> slot, "ignored" (<code>exclude</code> of <code>[pool.apps]</code>) or no slot. Use the names and binaries, or the
 presets, for <code>match</code>, <code>exclude</code> and <code>[aliases]</code>.</p>
 <h2 id="test"><code>test</code><a class="headerlink" href="#test" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-events<span class="o">]</span><span class="w"> </span><span class="o">[</span>--virtual-device<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-events<span class="o">]</span><span class="w"> </span><span class="o">[</span>--virtual-device<span class="o">]</span>
 </span></code></pre></div>
 <p>Lights up everything on the device and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
 meter, and moves its fader up and down. Then every strip answers its own controls, until Ctrl+C, so you can check each
@@ -3091,7 +3122,7 @@ same). The slots go on, but show on the device again only when the test ends; th
 <p>Without a daemon it takes the name of the device from <code>[device]</code> of the configuration. <code>--virtual-device</code> (or
 <code>[device] virtual = true</code>) tests the <a href="#virtual-device">virtual device</a>, which has to run (in another terminal).</p>
 <h2 id="virtual-device"><code>virtual-device</code><a class="headerlink" href="#virtual-device" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>xtouch-daemon<span class="w"> </span>virtual-device<span class="w"> </span><span class="o">[</span>--broken-touch<span class="w"> </span><span class="m">1</span>,4<span class="o">]</span><span class="w"> </span><span class="o">[</span>--log-level<span class="w"> </span>debug<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>xtouch-daemon<span class="w"> </span>virtual-device<span class="w"> </span><span class="o">[</span>--broken-touch<span class="w"> </span><span class="m">1</span>,4<span class="o">]</span><span class="w"> </span><span class="o">[</span>--log-level<span class="w"> </span>debug<span class="o">]</span>
 </span></code></pre></div>
 <p>A virtual X-Touch Extender, for trying the daemon without the device: <code>xtouch-daemon run --virtual-device</code> (or
 <code>[device] virtual = true</code>) drives it instead of the real one, and the GUI shows what it shows. It runs headless until
@@ -3115,32 +3146,32 @@ interrupted (Ctrl+C); the GUI can host one itself, with the mouse on its strips.
 </tbody>
 </table>
 <h2 id="mode"><code>mode</code><a class="headerlink" href="#mode" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>xtouch-daemon<span class="w"> </span>mode<span class="w"> </span><span class="o">[</span>NAME<span class="w"> </span><span class="p">|</span><span class="w"> </span>auto<span class="w"> </span><span class="p">|</span><span class="w"> </span>--next<span class="w"> </span><span class="p">|</span><span class="w"> </span>--previous<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>xtouch-daemon<span class="w"> </span>mode<span class="w"> </span><span class="o">[</span>NAME<span class="w"> </span><span class="p">|</span><span class="w"> </span>auto<span class="w"> </span><span class="p">|</span><span class="w"> </span>--next<span class="w"> </span><span class="p">|</span><span class="w"> </span>--previous<span class="o">]</span>
 </span></code></pre></div>
 <p>Without arguments it prints the <a href="../../configuration/slots/#states-and-modes">modes</a> of the running daemon, marks the
 one that is on, and says whether it was picked by hand. <code>mode gaming</code> picks the mode <code>gaming</code>, <code>--next</code> and
 <code>--previous</code> the one after or before it, <code>auto</code> lets the rules decide again. It talks to the daemon over its live
 view socket, so it needs a running daemon.</p>
 <h2 id="why"><code>why</code><a class="headerlink" href="#why" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>xtouch-daemon<span class="w"> </span>why<span class="w"> </span>SLOT<span class="w"> </span><span class="p">|</span><span class="w"> </span>CHANNEL
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>xtouch-daemon<span class="w"> </span>why<span class="w"> </span>SLOT<span class="w"> </span><span class="p">|</span><span class="w"> </span>CHANNEL
 </span></code></pre></div>
 <p>Asks the running daemon why a slot (its number, 1 for the leftmost one) shows what it shows: why not each candidate
 above, and what it shows. For a channel (its id) it tells on which slots it is and why not on the others that ask
 for it:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>$ xtouch-daemon why 2
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>Slot 2: voip if call: doesn't hold (call is off); shows auto:app:firefox
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>$ xtouch-daemon why browser
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>browser: on slot 4; not slot 8 (on slot 4 (tie, to the left))
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$ xtouch-daemon why 2
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>Slot 2: voip if call: doesn't hold (call is off); shows auto:app:firefox
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>$ xtouch-daemon why browser
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>browser: on slot 4; not slot 8 (on slot 4 (tie, to the left))
 </span></code></pre></div>
 <p>The GUI shows the same above the inspector of a slot on the page Slots.</p>
 <h2 id="mumble-plugin"><code>mumble-plugin</code><a class="headerlink" href="#mumble-plugin" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>xtouch-daemon<span class="w"> </span>mumble-plugin<span class="w"> </span><span class="o">[</span>--build<span class="o">]</span><span class="w"> </span><span class="o">[</span>--install<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>xtouch-daemon<span class="w"> </span>mumble-plugin<span class="w"> </span><span class="o">[</span>--build<span class="o">]</span><span class="w"> </span><span class="o">[</span>--install<span class="o">]</span>
 </span></code></pre></div>
 <p>The <a href="../../guides/mumble/">Mumble plugin</a> that gives the strips of people the people of your Mumble channel. Without
 options it tells where the plugin is, whether Mumble is installed, and whether Mumble has the plugin:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>Plugin: /usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>Mumble: installed
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>In Mumble: /home/me/.local/share/Mumble/Mumble/Plugins/libxtouch-daemon.so
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>Plugin: /usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>Mumble: installed
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>In Mumble: /home/me/.local/share/Mumble/Mumble/Plugins/libxtouch-daemon.so
 </span></code></pre></div>
 <table>
 <thead>
@@ -3162,7 +3193,7 @@ options it tells where the plugin is, whether Mumble is installed, and whether M
 </table>
 <p>A release has the plugin in <code>/usr/share/xtouch-daemon/</code>; a checkout builds it.</p>
 <h2 id="install-service"><code>install-service</code><a class="headerlink" href="#install-service" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>xtouch-daemon<span class="w"> </span>install-service<span class="w"> </span><span class="o">[</span>--now<span class="o">]</span><span class="w"> </span><span class="o">[</span>--remove-override<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>xtouch-daemon<span class="w"> </span>install-service<span class="w"> </span><span class="o">[</span>--now<span class="o">]</span><span class="w"> </span><span class="o">[</span>--remove-override<span class="o">]</span>
 </span></code></pre></div>
 <p>Writes the systemd user unit <code>~/.config/systemd/user/xtouch-daemon.service</code> for the installed <code>xtouch-daemon</code> and
 reloads systemd. <code>--now</code> also enables and starts it. The unit is <code>Type=notify</code>, reloads with <code>SIGHUP</code> and restarts
@@ -3191,12 +3222,12 @@ package (systemd prefers it), e.g. one written before by a checkout; the command
 </table>
 <p>Logs: <code>journalctl --user -u xtouch-daemon -f</code>.</p>
 <h2 id="gui"><code>gui</code><a class="headerlink" href="#gui" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>xtouch-daemon<span class="w"> </span>gui<span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>xtouch-daemon<span class="w"> </span>gui<span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span>
 </span></code></pre></div>
 <p>Edits the configuration in a window, and applies it. Needs the <code>gui</code> extra, or the package <code>xtouch-daemon-gui-bin</code>
 (which has the command <code>xtouch-daemon-gui</code>). See <a href="../../guides/gui/">GUI</a>.</p>
 <h2 id="simulate"><code>simulate</code><a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>xtouch-daemon<span class="w"> </span>simulate<span class="w"> </span>FILE<span class="w"> </span><span class="o">[</span>--mode<span class="w"> </span>NAME<span class="o">]</span><span class="w"> </span><span class="o">[</span>--state<span class="w"> </span>NAME<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--absent<span class="w"> </span>CHANNEL<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--playing<span class="w"> </span>APP<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--person<span class="w"> </span>NAME<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--table<span class="w"> </span><span class="p">|</span><span class="w"> </span>--replay<span class="w"> </span>LOG<span class="o">]</span>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>xtouch-daemon<span class="w"> </span>simulate<span class="w"> </span>FILE<span class="w"> </span><span class="o">[</span>--mode<span class="w"> </span>NAME<span class="o">]</span><span class="w"> </span><span class="o">[</span>--state<span class="w"> </span>NAME<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--absent<span class="w"> </span>CHANNEL<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--playing<span class="w"> </span>APP<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--person<span class="w"> </span>NAME<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--table<span class="w"> </span><span class="p">|</span><span class="w"> </span>--replay<span class="w"> </span>LOG<span class="o">]</span>
 </span></code></pre></div>
 <p>What the 8 slots of FILE show in the given states, and why not the candidates above (see
 <a href="../../configuration/slots/">Channels, states and slots</a>).</p>
@@ -3231,7 +3262,7 @@ package (systemd prefers it), e.g. one written before by a checkout; the command
 </tbody>
 </table>
 <h2 id="observe"><code>observe</code><a class="headerlink" href="#observe" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>xtouch-daemon<span class="w"> </span>observe<span class="w"> </span>LOG<span class="w"> </span><span class="o">[</span>--interval<span class="w"> </span><span class="m">2</span>.0<span class="o">]</span><span class="w"> </span><span class="o">[</span>--process<span class="w"> </span>NAME<span class="o">]</span>...
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>xtouch-daemon<span class="w"> </span>observe<span class="w"> </span>LOG<span class="w"> </span><span class="o">[</span>--interval<span class="w"> </span><span class="m">2</span>.0<span class="o">]</span><span class="w"> </span><span class="o">[</span>--process<span class="w"> </span>NAME<span class="o">]</span>...
 </span></code></pre></div>
 <p>Records, every <code>--interval</code> seconds, what plays and records on the sound server, the devices, the running processes
 (those of the presets, and <code>--process</code>) and the voice chat of the running daemon, and appends a line of JSON to LOG

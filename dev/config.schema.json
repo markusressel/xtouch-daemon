@@ -1,0 +1,2039 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://markusressel.github.io/xtouch-daemon/latest/config.schema.json",
+  "title": "xtouch-daemon configuration",
+  "description": "The configuration of xtouch-daemon (config.toml); `xtouch-daemon check-config` checks the rest.",
+  "type": "object",
+  "properties": {
+    "device": {
+      "$ref": "#/$defs/DeviceConfig",
+      "default": {
+        "name": "X-Touch-Ext",
+        "virtual": false,
+        "touch_required": true,
+        "touchless_faders": [],
+        "startup": "sweep",
+        "shutdown": "sweep"
+      }
+    },
+    "behavior": {
+      "$ref": "#/$defs/BehaviorConfig",
+      "default": {
+        "max_volume": 130,
+        "unity_at": 77,
+        "encoder_step": 1,
+        "reset_volume": 100,
+        "meters": true,
+        "meter_point": "pre_fader"
+      }
+    },
+    "aliases": {
+      "additionalProperties": {
+        "maxLength": 7,
+        "pattern": "^[\\x20-\\x7e]*$",
+        "type": "string"
+      },
+      "default": {},
+      "description": "Names to show on `auto` strips for applications, at most 7 characters: for the name the sound server reports\n(`xtouch-daemon list-apps`), the label, e.g. \"Discord\" for \"WEBRTC VoiceEngine\".",
+      "title": "Aliases",
+      "type": "object"
+    },
+    "mqtt": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MqttConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The MQTT broker, needed by `homeassistant` channels and controls."
+    },
+    "switching": {
+      "$ref": "#/$defs/SwitchingConfig",
+      "default": {
+        "chord": [
+          1,
+          8
+        ],
+        "banner": 1.5,
+        "chord_action": "cycle_modes"
+      }
+    },
+    "voip": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VoipConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The participants of the voice chat, who share the `auto` slots: without the section, its defaults (`bridge`)."
+    },
+    "channel": {
+      "type": "object",
+      "description": "The channels: what the strips control (devices, applications, people, Home Assistant).",
+      "propertyNames": {
+        "pattern": "^[a-z0-9_]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "output",
+              "input",
+              "apps",
+              "homeassistant",
+              "person"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "tags": {
+            "default": [],
+            "description": "Words that group channels, for the conditions of slots (`present`) and the pools that take them.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "in_pool": {
+            "default": true,
+            "description": "While no slot shows the channel, its pool hands it out: an `apps` channel like an application (`apps`, `auto`),\na `person` channel as one of the people (`people`, `auto`).",
+            "title": "In Pool",
+            "type": "boolean"
+          },
+          "absent_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Seconds the channel stays present after it had nothing to control any more; by default 3.",
+            "title": "Absent After"
+          },
+          "color": {
+            "$ref": "#/$defs/strip.color"
+          },
+          "lit_when_idle": {
+            "$ref": "#/$defs/strip.lit_when_idle"
+          },
+          "meter": {
+            "$ref": "#/$defs/strip.meter"
+          },
+          "meter_point": {
+            "$ref": "#/$defs/strip.meter_point"
+          },
+          "select": {
+            "$ref": "#/$defs/strip.select"
+          },
+          "rec": {
+            "$ref": "#/$defs/strip.rec"
+          },
+          "solo": {
+            "$ref": "#/$defs/strip.solo"
+          },
+          "min_volume": {
+            "$ref": "#/$defs/strip.min_volume"
+          },
+          "max_volume": {
+            "$ref": "#/$defs/strip.max_volume"
+          },
+          "encoder": {
+            "$ref": "#/$defs/strip.encoder"
+          },
+          "fader": {
+            "$ref": "#/$defs/strip.fader"
+          },
+          "device": {
+            "$ref": "#/$defs/strip.device"
+          },
+          "label": {
+            "$ref": "#/$defs/strip.label"
+          },
+          "choices": {
+            "$ref": "#/$defs/strip.choices"
+          },
+          "profiles": {
+            "$ref": "#/$defs/strip.profiles"
+          },
+          "match": {
+            "$ref": "#/$defs/strip.match"
+          },
+          "launch": {
+            "$ref": "#/$defs/strip.launch"
+          },
+          "launch_when_running": {
+            "$ref": "#/$defs/strip.launch_when_running"
+          },
+          "person": {
+            "$ref": "#/$defs/strip.person"
+          },
+          "talking_color": {
+            "$ref": "#/$defs/strip.talking_color"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "pool": {
+      "type": "object",
+      "description": "The built-in pools (auto, apps, people, devices) and pools of your own.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9_]+$"
+      },
+      "properties": {
+        "auto": {
+          "type": "object",
+          "description": "`[pool.auto]`: the look of the strips of the applications on its slots. The people on them look as\n`[pool.people]` says.",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/strip.color"
+            },
+            "lit_when_idle": {
+              "$ref": "#/$defs/strip.lit_when_idle"
+            },
+            "meter": {
+              "$ref": "#/$defs/strip.meter"
+            },
+            "meter_point": {
+              "$ref": "#/$defs/strip.meter_point"
+            },
+            "select": {
+              "$ref": "#/$defs/strip.select"
+            },
+            "rec": {
+              "$ref": "#/$defs/strip.rec"
+            },
+            "solo": {
+              "$ref": "#/$defs/strip.solo"
+            },
+            "min_volume": {
+              "$ref": "#/$defs/strip.min_volume"
+            },
+            "max_volume": {
+              "$ref": "#/$defs/strip.max_volume"
+            },
+            "encoder": {
+              "$ref": "#/$defs/strip.encoder"
+            },
+            "fader": {
+              "$ref": "#/$defs/strip.fader"
+            },
+            "device": {
+              "$ref": "#/$defs/strip.device"
+            },
+            "label": {
+              "$ref": "#/$defs/strip.label"
+            },
+            "choices": {
+              "$ref": "#/$defs/strip.choices"
+            },
+            "profiles": {
+              "$ref": "#/$defs/strip.profiles"
+            },
+            "launch": {
+              "$ref": "#/$defs/strip.launch"
+            },
+            "launch_when_running": {
+              "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "person": {
+              "$ref": "#/$defs/strip.person"
+            },
+            "talking_color": {
+              "$ref": "#/$defs/strip.talking_color"
+            }
+          },
+          "additionalProperties": false
+        },
+        "apps": {
+          "type": "object",
+          "description": "`[pool.apps]`: the applications that play and have no slot, and the look of their strips.",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/strip.color"
+            },
+            "lit_when_idle": {
+              "$ref": "#/$defs/strip.lit_when_idle"
+            },
+            "meter": {
+              "$ref": "#/$defs/strip.meter"
+            },
+            "meter_point": {
+              "$ref": "#/$defs/strip.meter_point"
+            },
+            "select": {
+              "$ref": "#/$defs/strip.select"
+            },
+            "rec": {
+              "$ref": "#/$defs/strip.rec"
+            },
+            "solo": {
+              "$ref": "#/$defs/strip.solo"
+            },
+            "min_volume": {
+              "$ref": "#/$defs/strip.min_volume"
+            },
+            "max_volume": {
+              "$ref": "#/$defs/strip.max_volume"
+            },
+            "encoder": {
+              "$ref": "#/$defs/strip.encoder"
+            },
+            "fader": {
+              "$ref": "#/$defs/strip.fader"
+            },
+            "device": {
+              "$ref": "#/$defs/strip.device"
+            },
+            "label": {
+              "$ref": "#/$defs/strip.label"
+            },
+            "choices": {
+              "$ref": "#/$defs/strip.choices"
+            },
+            "profiles": {
+              "$ref": "#/$defs/strip.profiles"
+            },
+            "launch": {
+              "$ref": "#/$defs/strip.launch"
+            },
+            "launch_when_running": {
+              "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "person": {
+              "$ref": "#/$defs/strip.person"
+            },
+            "talking_color": {
+              "$ref": "#/$defs/strip.talking_color"
+            },
+            "from": {
+              "default": "left",
+              "description": "The side the applications fill their slots from, in `apps` and in `auto`.",
+              "enum": [
+                "left",
+                "right"
+              ],
+              "title": "From",
+              "type": "string"
+            },
+            "exclude": {
+              "default": [
+                "speech-dispatcher"
+              ],
+              "description": "Applications that never get a slot of `apps` or `auto`.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Exclude",
+              "type": "array"
+            },
+            "hold": {
+              "default": 5.0,
+              "description": "Seconds a slot keeps an application after it stopped playing.",
+              "title": "Hold",
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "people": {
+          "type": "object",
+          "description": "`[pool.people]`: the people of the voice chat, their order and the look of their strips.",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/strip.color"
+            },
+            "lit_when_idle": {
+              "$ref": "#/$defs/strip.lit_when_idle"
+            },
+            "meter": {
+              "$ref": "#/$defs/strip.meter"
+            },
+            "meter_point": {
+              "$ref": "#/$defs/strip.meter_point"
+            },
+            "select": {
+              "$ref": "#/$defs/strip.select"
+            },
+            "rec": {
+              "$ref": "#/$defs/strip.rec"
+            },
+            "solo": {
+              "$ref": "#/$defs/strip.solo"
+            },
+            "min_volume": {
+              "$ref": "#/$defs/strip.min_volume"
+            },
+            "max_volume": {
+              "$ref": "#/$defs/strip.max_volume"
+            },
+            "encoder": {
+              "$ref": "#/$defs/strip.encoder"
+            },
+            "fader": {
+              "$ref": "#/$defs/strip.fader"
+            },
+            "device": {
+              "$ref": "#/$defs/strip.device"
+            },
+            "label": {
+              "$ref": "#/$defs/strip.label"
+            },
+            "choices": {
+              "$ref": "#/$defs/strip.choices"
+            },
+            "profiles": {
+              "$ref": "#/$defs/strip.profiles"
+            },
+            "launch": {
+              "$ref": "#/$defs/strip.launch"
+            },
+            "launch_when_running": {
+              "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "person": {
+              "$ref": "#/$defs/strip.person"
+            },
+            "talking_color": {
+              "$ref": "#/$defs/strip.talking_color"
+            },
+            "from": {
+              "default": "right",
+              "description": "The side the people fill their slots from, in `people` and in `auto`.",
+              "enum": [
+                "left",
+                "right"
+              ],
+              "title": "From",
+              "type": "string"
+            },
+            "order": {
+              "default": [],
+              "description": "The people by name or `person` channel, before the others. Those sit in the order they were first seen.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Order",
+              "type": "array"
+            }
+          },
+          "additionalProperties": false
+        },
+        "devices": {
+          "type": "object",
+          "description": "`[pool.devices]`: the outputs and inputs that no channel has, and the look of their strips.",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/strip.color"
+            },
+            "lit_when_idle": {
+              "$ref": "#/$defs/strip.lit_when_idle"
+            },
+            "meter": {
+              "$ref": "#/$defs/strip.meter"
+            },
+            "meter_point": {
+              "$ref": "#/$defs/strip.meter_point"
+            },
+            "select": {
+              "$ref": "#/$defs/strip.select"
+            },
+            "rec": {
+              "$ref": "#/$defs/strip.rec"
+            },
+            "solo": {
+              "$ref": "#/$defs/strip.solo"
+            },
+            "min_volume": {
+              "$ref": "#/$defs/strip.min_volume"
+            },
+            "max_volume": {
+              "$ref": "#/$defs/strip.max_volume"
+            },
+            "encoder": {
+              "$ref": "#/$defs/strip.encoder"
+            },
+            "fader": {
+              "$ref": "#/$defs/strip.fader"
+            },
+            "device": {
+              "$ref": "#/$defs/strip.device"
+            },
+            "label": {
+              "$ref": "#/$defs/strip.label"
+            },
+            "choices": {
+              "$ref": "#/$defs/strip.choices"
+            },
+            "profiles": {
+              "$ref": "#/$defs/strip.profiles"
+            },
+            "launch": {
+              "$ref": "#/$defs/strip.launch"
+            },
+            "launch_when_running": {
+              "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "person": {
+              "$ref": "#/$defs/strip.person"
+            },
+            "talking_color": {
+              "$ref": "#/$defs/strip.talking_color"
+            },
+            "from": {
+              "default": "left",
+              "description": "The side the devices fill their slots from.",
+              "enum": [
+                "left",
+                "right"
+              ],
+              "title": "From",
+              "type": "string"
+            },
+            "exclude": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              ],
+              "default": [],
+              "description": "Devices that never get a slot of `devices`, by node name or description; `*` and `?` are wildcards.",
+              "title": "Exclude"
+            },
+            "hold": {
+              "default": 5.0,
+              "description": "Seconds a slot keeps a device after it went, e.g. while Bluetooth headphones reconnect.",
+              "title": "Hold",
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "object",
+            "description": "`[pool.<id>]`: a pool of channels (without `kind`).",
+            "properties": {
+              "color": {
+                "$ref": "#/$defs/strip.color"
+              },
+              "lit_when_idle": {
+                "$ref": "#/$defs/strip.lit_when_idle"
+              },
+              "meter": {
+                "$ref": "#/$defs/strip.meter"
+              },
+              "meter_point": {
+                "$ref": "#/$defs/strip.meter_point"
+              },
+              "select": {
+                "$ref": "#/$defs/strip.select"
+              },
+              "rec": {
+                "$ref": "#/$defs/strip.rec"
+              },
+              "solo": {
+                "$ref": "#/$defs/strip.solo"
+              },
+              "min_volume": {
+                "$ref": "#/$defs/strip.min_volume"
+              },
+              "max_volume": {
+                "$ref": "#/$defs/strip.max_volume"
+              },
+              "encoder": {
+                "$ref": "#/$defs/strip.encoder"
+              },
+              "fader": {
+                "$ref": "#/$defs/strip.fader"
+              },
+              "device": {
+                "$ref": "#/$defs/strip.device"
+              },
+              "label": {
+                "$ref": "#/$defs/strip.label"
+              },
+              "choices": {
+                "$ref": "#/$defs/strip.choices"
+              },
+              "profiles": {
+                "$ref": "#/$defs/strip.profiles"
+              },
+              "launch": {
+                "$ref": "#/$defs/strip.launch"
+              },
+              "launch_when_running": {
+                "$ref": "#/$defs/strip.launch_when_running"
+              },
+              "person": {
+                "$ref": "#/$defs/strip.person"
+              },
+              "talking_color": {
+                "$ref": "#/$defs/strip.talking_color"
+              },
+              "channels": {
+                "default": [],
+                "description": "The channels the pool hands out, by id or tag, in this order.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Channels",
+                "type": "array"
+              },
+              "from": {
+                "default": "left",
+                "description": "The side the pool fills its slots from.",
+                "enum": [
+                  "left",
+                  "right"
+                ],
+                "title": "From",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "`[pool.<id>]` with `kind = \"apps\"`: the applications of a group that play, one strip each.",
+            "properties": {
+              "color": {
+                "$ref": "#/$defs/strip.color"
+              },
+              "lit_when_idle": {
+                "$ref": "#/$defs/strip.lit_when_idle"
+              },
+              "meter": {
+                "$ref": "#/$defs/strip.meter"
+              },
+              "meter_point": {
+                "$ref": "#/$defs/strip.meter_point"
+              },
+              "select": {
+                "$ref": "#/$defs/strip.select"
+              },
+              "rec": {
+                "$ref": "#/$defs/strip.rec"
+              },
+              "solo": {
+                "$ref": "#/$defs/strip.solo"
+              },
+              "min_volume": {
+                "$ref": "#/$defs/strip.min_volume"
+              },
+              "max_volume": {
+                "$ref": "#/$defs/strip.max_volume"
+              },
+              "encoder": {
+                "$ref": "#/$defs/strip.encoder"
+              },
+              "fader": {
+                "$ref": "#/$defs/strip.fader"
+              },
+              "device": {
+                "$ref": "#/$defs/strip.device"
+              },
+              "label": {
+                "$ref": "#/$defs/strip.label"
+              },
+              "choices": {
+                "$ref": "#/$defs/strip.choices"
+              },
+              "profiles": {
+                "$ref": "#/$defs/strip.profiles"
+              },
+              "launch": {
+                "$ref": "#/$defs/strip.launch"
+              },
+              "launch_when_running": {
+                "$ref": "#/$defs/strip.launch_when_running"
+              },
+              "person": {
+                "$ref": "#/$defs/strip.person"
+              },
+              "talking_color": {
+                "$ref": "#/$defs/strip.talking_color"
+              },
+              "kind": {
+                "const": "apps",
+                "description": "What the pool hands out: `apps`, the applications that match, or `people`, listed people of the voice chat.",
+                "title": "Kind",
+                "type": "string"
+              },
+              "match": {
+                "default": [],
+                "description": "The applications it takes: parts of names or binaries, ignoring case, or presets like `@music`.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Match",
+                "type": "array"
+              },
+              "exclude": {
+                "default": [],
+                "description": "Applications it never takes, though they match.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Exclude",
+                "type": "array"
+              },
+              "from": {
+                "default": "left",
+                "description": "The side the applications fill their slots from.",
+                "enum": [
+                  "left",
+                  "right"
+                ],
+                "title": "From",
+                "type": "string"
+              },
+              "hold": {
+                "default": 5.0,
+                "description": "Seconds a slot keeps an application after it stopped playing.",
+                "title": "Hold",
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "`[pool.<id>]` with `kind = \"people\"`: listed people of the voice chat, one strip each.",
+            "properties": {
+              "color": {
+                "$ref": "#/$defs/strip.color"
+              },
+              "lit_when_idle": {
+                "$ref": "#/$defs/strip.lit_when_idle"
+              },
+              "meter": {
+                "$ref": "#/$defs/strip.meter"
+              },
+              "meter_point": {
+                "$ref": "#/$defs/strip.meter_point"
+              },
+              "select": {
+                "$ref": "#/$defs/strip.select"
+              },
+              "rec": {
+                "$ref": "#/$defs/strip.rec"
+              },
+              "solo": {
+                "$ref": "#/$defs/strip.solo"
+              },
+              "min_volume": {
+                "$ref": "#/$defs/strip.min_volume"
+              },
+              "max_volume": {
+                "$ref": "#/$defs/strip.max_volume"
+              },
+              "encoder": {
+                "$ref": "#/$defs/strip.encoder"
+              },
+              "fader": {
+                "$ref": "#/$defs/strip.fader"
+              },
+              "device": {
+                "$ref": "#/$defs/strip.device"
+              },
+              "label": {
+                "$ref": "#/$defs/strip.label"
+              },
+              "choices": {
+                "$ref": "#/$defs/strip.choices"
+              },
+              "profiles": {
+                "$ref": "#/$defs/strip.profiles"
+              },
+              "launch": {
+                "$ref": "#/$defs/strip.launch"
+              },
+              "launch_when_running": {
+                "$ref": "#/$defs/strip.launch_when_running"
+              },
+              "person": {
+                "$ref": "#/$defs/strip.person"
+              },
+              "talking_color": {
+                "$ref": "#/$defs/strip.talking_color"
+              },
+              "kind": {
+                "const": "people",
+                "description": "What the pool hands out: `apps`, the applications that match, or `people`, listed people of the voice chat.",
+                "title": "Kind",
+                "type": "string"
+              },
+              "people": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ],
+                "default": [],
+                "description": "Who it takes, by name as in the voice chat (ignoring case); this is their order.",
+                "title": "People"
+              },
+              "from": {
+                "default": "right",
+                "description": "The side the people fill their slots from.",
+                "enum": [
+                  "left",
+                  "right"
+                ],
+                "title": "From",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "state": {
+      "type": "object",
+      "description": "The states and modes that the conditions of the slots ask about.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9_]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/StateConfig"
+      }
+    },
+    "slots": {
+      "type": "object",
+      "description": "The candidates of each slot (1 to 8, from the left): it shows the first whose condition holds.",
+      "propertyNames": {
+        "pattern": "^0*[1-8]$"
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "description": "A channel or pool, maybe with a condition: `voip if call`."
+          },
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "description": "A candidate as a table: what it shows, maybe a condition, and options of the place.",
+                  "properties": {
+                    "show": {
+                      "type": "string",
+                      "description": "The channel or pool it shows, or - for nothing."
+                    },
+                    "when": {
+                      "type": "string",
+                      "description": "The condition, e.g. `call and not gaming`."
+                    },
+                    "color": {
+                      "$ref": "#/$defs/strip.color"
+                    },
+                    "lit_when_idle": {
+                      "$ref": "#/$defs/strip.lit_when_idle"
+                    },
+                    "meter": {
+                      "$ref": "#/$defs/strip.meter"
+                    },
+                    "meter_point": {
+                      "$ref": "#/$defs/strip.meter_point"
+                    },
+                    "select": {
+                      "$ref": "#/$defs/strip.select"
+                    },
+                    "rec": {
+                      "$ref": "#/$defs/strip.rec"
+                    },
+                    "solo": {
+                      "$ref": "#/$defs/strip.solo"
+                    },
+                    "min_volume": {
+                      "$ref": "#/$defs/strip.min_volume"
+                    },
+                    "max_volume": {
+                      "$ref": "#/$defs/strip.max_volume"
+                    },
+                    "encoder": {
+                      "$ref": "#/$defs/strip.encoder"
+                    },
+                    "label": {
+                      "$ref": "#/$defs/strip.label"
+                    }
+                  },
+                  "required": [
+                    "show"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "controls": {
+      "type": "object",
+      "description": "Controls of a slot that act whatever it shows (1 to 8): one table, or a list of them.",
+      "propertyNames": {
+        "pattern": "^0*[1-8]$"
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ControlsConfig"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ControlsConfig"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "BehaviorConfig": {
+      "additionalProperties": false,
+      "description": "How the faders, encoders, meters and `auto` strips behave.",
+      "properties": {
+        "max_volume": {
+          "default": 130,
+          "description": "The volume, in percent, with a fader at the top. Above 100 % the audio is amplified. With 130, 100 % is at the 0\ndB mark of the device and the fader is linear (see `unity_at`).",
+          "maximum": 200,
+          "minimum": 100,
+          "title": "Max Volume",
+          "type": "integer"
+        },
+        "unity_at": {
+          "default": 77,
+          "description": "Where 100 % is on the fader, in percent of its travel from the bottom; the device marks 0 dB at about 77. Above\nthe mark the fader goes on to `max_volume`. A strip whose range ends at 100 % stays linear.",
+          "maximum": 95,
+          "minimum": 10,
+          "title": "Unity At",
+          "type": "integer"
+        },
+        "encoder_step": {
+          "default": 1,
+          "description": "Percent per step of an encoder: of the volume (`volume`), or of the number (`homeassistant`).",
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Encoder Step",
+          "type": "integer"
+        },
+        "reset_volume": {
+          "default": 100,
+          "description": "The volume a push on a `volume` encoder sets, within the range of the strip.",
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Reset Volume",
+          "type": "integer"
+        },
+        "meters": {
+          "default": true,
+          "description": "The LED meters show the level. Off, every meter stays dark; `meter` turns off a single one.",
+          "title": "Meters",
+          "type": "boolean"
+        },
+        "meter_point": {
+          "default": "pre_fader",
+          "description": "Where the meters take the level: before the volume and Mute of the strip, or after them. A channel or a place\nmay have its own `meter_point`.",
+          "enum": [
+            "pre_fader",
+            "post_fader"
+          ],
+          "title": "Meter Point",
+          "type": "string"
+        }
+      },
+      "title": "BehaviorConfig",
+      "type": "object"
+    },
+    "ButtonConfig": {
+      "additionalProperties": false,
+      "description": "What a button does: a press, a hold, and what its LED shows. Unset, each takes what the strip type does.",
+      "properties": {
+        "press": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/LaunchAction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a press does. An action that lasts while held (`talk`, `mute_others`) needs no `hold`.",
+          "title": "Press"
+        },
+        "hold": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/LaunchAction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What holding it for longer than half a second does; then a press acts when the button is let go.",
+          "title": "Hold"
+        },
+        "led": {
+          "anyOf": [
+            {
+              "enum": [
+                "off",
+                "recording",
+                "playing",
+                "default",
+                "muted",
+                "press",
+                "shown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What its LED shows.",
+          "title": "Led"
+        }
+      },
+      "title": "ButtonConfig",
+      "type": "object"
+    },
+    "ChoiceConfig": {
+      "additionalProperties": false,
+      "description": "One of the devices a strip switches between with Select, maybe in a profile of its sound card.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 7,
+              "pattern": "^[\\x20-\\x7e]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The top line of the LCD while this choice is active; by default the start of the description of the device.",
+          "title": "Label"
+        },
+        "device": {
+          "description": "The device, by its node name or description (`xtouch-daemon list-devices`). `*` and `?` are wildcards, e.g.\n`bluez_output.*` for the first Bluetooth headphones there are.",
+          "title": "Device",
+          "type": "string"
+        },
+        "card": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The sound card whose `profile` the choice needs, by its name (`alsa_card.pci-0000_11_00.4`) or description.\nWildcards work.",
+          "title": "Card"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The profile of `card` for this choice, by its name or description. Select switches the card to it first, then\nmakes the device the default.",
+          "title": "Profile"
+        },
+        "min_volume": {
+          "anyOf": [
+            {
+              "maximum": 200,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The volume, in percent, with the fader at the bottom while this choice is active; by default that of the strip.",
+          "title": "Min Volume"
+        },
+        "max_volume": {
+          "anyOf": [
+            {
+              "maximum": 200,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The volume, in percent, with the fader at the top while this choice is active; by default that of the strip.\nE.g. 200 for weak speakers.",
+          "title": "Max Volume"
+        }
+      },
+      "required": [
+        "device"
+      ],
+      "title": "ChoiceConfig",
+      "type": "object"
+    },
+    "ControlsConfig": {
+      "additionalProperties": false,
+      "description": "Controls of a slot that act whatever it shows (`[controls]`), while `when` holds; of a list of them per slot the\nfirst whose `when` holds.",
+      "properties": {
+        "fader": {
+          "anyOf": [
+            {
+              "const": "homeassistant",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fader"
+        },
+        "encoder": {
+          "anyOf": [
+            {
+              "const": "homeassistant",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Encoder"
+        },
+        "select": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Launch"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Select"
+        },
+        "rec": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Launch"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rec"
+        },
+        "solo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Launch"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Solo"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Names the Home Assistant entities of the slot's controls; by default `slot_<n>`.",
+          "title": "Id"
+        }
+      },
+      "title": "ControlsConfig",
+      "type": "object"
+    },
+    "DeviceConfig": {
+      "additionalProperties": false,
+      "description": "The device the daemon drives.",
+      "properties": {
+        "name": {
+          "default": "X-Touch-Ext",
+          "description": "A part of the name of the sound card of the extender, as `/proc/asound/cards` lists it.",
+          "title": "Name",
+          "type": "string"
+        },
+        "virtual": {
+          "default": false,
+          "description": "Drives the virtual device instead, to try things without the device (`xtouch-daemon virtual-device`, or the\nGUI's). A reload switches to it, or back to the device.",
+          "title": "Virtual",
+          "type": "boolean"
+        },
+        "touch_required": {
+          "default": true,
+          "description": "A fader changes its value only while you touch it, so a fader the motor moves changes nothing. Off, every move\ncounts, e.g. a fader pushed with a fingertip the sensor does not notice.",
+          "title": "Touch Required",
+          "type": "boolean"
+        },
+        "touchless_faders": {
+          "default": [],
+          "description": "Faders whose touch sensor is broken, numbered from 1 on the left. A move counts as a touch, half a second\nwithout a move as letting go.",
+          "items": {
+            "maximum": 8,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "title": "Touchless Faders",
+          "type": "array"
+        },
+        "startup": {
+          "default": "sweep",
+          "description": "How the strips light up after the device connects.",
+          "enum": [
+            "instant",
+            "sweep",
+            "curtain",
+            "show"
+          ],
+          "title": "Startup",
+          "type": "string"
+        },
+        "shutdown": {
+          "default": "sweep",
+          "description": "How the strips go dark when the daemon stops.",
+          "enum": [
+            "instant",
+            "sweep",
+            "curtain",
+            "show"
+          ],
+          "title": "Shutdown",
+          "type": "string"
+        }
+      },
+      "title": "DeviceConfig",
+      "type": "object"
+    },
+    "Launch": {
+      "additionalProperties": false,
+      "properties": {
+        "launch": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Launch",
+          "type": "array"
+        },
+        "launch_when_running": {
+          "default": false,
+          "title": "Launch When Running",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "launch"
+      ],
+      "title": "Launch",
+      "type": "object"
+    },
+    "LaunchAction": {
+      "additionalProperties": false,
+      "description": "A program a button starts, as in `[controls]`.",
+      "properties": {
+        "launch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "The program and its arguments.",
+          "title": "Launch"
+        },
+        "launch_when_running": {
+          "default": false,
+          "description": "Select starts `launch` also while the application runs, e.g. a `mumble://` URL that connects a running Mumble to a server.",
+          "title": "Launch When Running",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "launch"
+      ],
+      "title": "LaunchAction",
+      "type": "object"
+    },
+    "MqttConfig": {
+      "additionalProperties": false,
+      "description": "The MQTT broker Home Assistant uses, for `homeassistant` strips.",
+      "properties": {
+        "host": {
+          "description": "The host name or address of the broker, e.g. \"homeassistant.local\" for the Mosquitto add-on.",
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "default": 1883,
+          "description": "The port of the broker. 1883 is the usual one without TLS.",
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "username": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The user to log in as. Without it, the daemon connects without logging in.",
+          "title": "Username"
+        },
+        "password": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The password. `password_file` or `password_env` keep it out of the configuration.",
+          "title": "Password"
+        },
+        "password_file": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A file with the password (`~` is your home directory). Whitespace around it is ignored.",
+          "title": "Password File"
+        },
+        "password_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An environment variable with the password, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`).",
+          "title": "Password Env"
+        },
+        "discovery_prefix": {
+          "default": "homeassistant",
+          "description": "The MQTT discovery prefix of Home Assistant. Change it only if Home Assistant uses another one.",
+          "title": "Discovery Prefix",
+          "type": "string"
+        },
+        "namespace": {
+          "default": "xtouch",
+          "description": "The start of the entity IDs (`number.xtouch_strip_1_fader`) and the topics: lower case letters, digits and `_`.",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9_]+$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "device_name": {
+          "default": "X-Touch Extender",
+          "description": "The name of the device in Home Assistant.",
+          "title": "Device Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "host"
+      ],
+      "title": "MqttConfig",
+      "type": "object"
+    },
+    "ProfileConfig": {
+      "additionalProperties": false,
+      "description": "A profile of the sound card of a device strip, e.g. analog or digital output.",
+      "properties": {
+        "label": {
+          "description": "The top line of the LCD while the card is in this profile, e.g. \"Phones\" for the analog output.",
+          "maxLength": 7,
+          "pattern": "^[\\x20-\\x7e]*$",
+          "title": "Label",
+          "type": "string"
+        },
+        "profile": {
+          "description": "The profile, by its name (`output:iec958-stereo+input:analog-stereo`) or description. `xtouch-daemon\nlist-devices` lists them.",
+          "title": "Profile",
+          "type": "string"
+        },
+        "min_volume": {
+          "anyOf": [
+            {
+              "maximum": 200,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The volume, in percent, with the fader at the bottom in this profile; by default that of the strip.",
+          "title": "Min Volume"
+        },
+        "max_volume": {
+          "anyOf": [
+            {
+              "maximum": 200,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The volume, in percent, with the fader at the top in this profile; by default that of the strip. E.g. 200 for\nweak speakers.",
+          "title": "Max Volume"
+        }
+      },
+      "required": [
+        "label",
+        "profile"
+      ],
+      "title": "ProfileConfig",
+      "type": "object"
+    },
+    "StateConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": false,
+          "description": "It is a mode: one mode is on at a time, the one with the highest `priority` whose sources are on.",
+          "title": "Mode",
+          "type": "boolean"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the LCDs show across the strips when the mode comes; by default its name.",
+          "title": "Label"
+        },
+        "priority": {
+          "default": 0,
+          "description": "Of several modes whose sources are on, the one with the highest priority is on.",
+          "title": "Priority",
+          "type": "integer"
+        },
+        "apps": {
+          "default": [],
+          "description": "On while one of these applications plays.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Apps",
+          "type": "array"
+        },
+        "recording": {
+          "default": [],
+          "description": "On while one of these applications records, e.g. with an open microphone.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Recording",
+          "type": "array"
+        },
+        "voice_chat": {
+          "default": false,
+          "description": "On while you are in a channel of the voice chat.",
+          "title": "Voice Chat",
+          "type": "boolean"
+        },
+        "processes": {
+          "default": [],
+          "description": "On while a process of one of these names runs.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Processes",
+          "type": "array"
+        },
+        "devices": {
+          "default": [],
+          "description": "On while one of these devices (outputs or inputs) is there.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Devices",
+          "type": "array"
+        },
+        "channels": {
+          "default": [],
+          "description": "On while one of these channels is present.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Channels",
+          "type": "array"
+        },
+        "homeassistant": {
+          "default": false,
+          "description": "On while its switch in Home Assistant is on. Needs `[mqtt]`.",
+          "title": "Homeassistant",
+          "type": "boolean"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "On while this condition of other states holds, e.g. `call and not gaming`. Instead of sources.",
+          "title": "When"
+        },
+        "delay_on": {
+          "default": 0.0,
+          "description": "Seconds its sources must be on before the state is.",
+          "title": "Delay On",
+          "type": "number"
+        },
+        "delay_off": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seconds the state stays on after its sources went off; by default 3, for modes 10, for `when` 0.",
+          "title": "Delay Off"
+        },
+        "persist": {
+          "default": false,
+          "description": "An override lasts until you set it back, not only until the sources change.",
+          "title": "Persist",
+          "type": "boolean"
+        }
+      },
+      "title": "StateConfig",
+      "type": "object"
+    },
+    "SwitchingConfig": {
+      "additionalProperties": false,
+      "description": "The chord, and the banner of a new mode.",
+      "properties": {
+        "chord": {
+          "default": [
+            1,
+            8
+          ],
+          "description": "The strips whose Solo buttons, held together, do `chord_action`, numbered from 1 on the left; none for no chord.\nHome Assistant still gets the presses of its strips.",
+          "title": "Chord",
+          "anyOf": [
+            {
+              "items": {
+                "maximum": 8,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "strips": {
+                  "items": {
+                    "maximum": 8,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "type": "array"
+                },
+                "action": {
+                  "default": "cycle_modes",
+                  "description": "What the chord does: `cycle_modes` (the next mode), `mode:<id>` or `toggle:<state or mode>`. In the file: `chord\n= { strips = [1, 8], action = \"toggle:call\" }`.",
+                  "title": "Chord Action",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "banner": {
+          "default": 1.5,
+          "description": "Seconds the LCDs show the label of a new mode, and a slot that shows something else its new label and why. 0 for\nnone.",
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Banner",
+          "type": "number"
+        },
+        "chord_action": {
+          "default": "cycle_modes",
+          "description": "What the chord does: `cycle_modes` (the next mode), `mode:<id>` or `toggle:<state or mode>`. In the file: `chord\n= { strips = [1, 8], action = \"toggle:call\" }`.",
+          "title": "Chord Action",
+          "type": "string"
+        }
+      },
+      "title": "SwitchingConfig",
+      "type": "object"
+    },
+    "VoipConfig": {
+      "additionalProperties": false,
+      "description": "Where `voip` strips get the participants of the voice chat.",
+      "properties": {
+        "provider": {
+          "default": "bridge",
+          "description": "Who tells the daemon the participants of the voice chat.",
+          "enum": [
+            "demo",
+            "bridge"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "participants": {
+          "default": [
+            "Alice",
+            "Bob",
+            "Carol",
+            "Dave",
+            "Eve"
+          ],
+          "description": "The names of the participants of the `demo` provider.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Participants",
+          "type": "array"
+        }
+      },
+      "title": "VoipConfig",
+      "type": "object"
+    },
+    "strip.choices": {
+      "default": [],
+      "description": "The devices Select switches between, each maybe in a profile of its sound card. E.g. headphones on the analog\noutput, speakers on the digital one, Bluetooth headphones. Instead of `device` and `profiles`.",
+      "items": {
+        "$ref": "#/$defs/ChoiceConfig"
+      },
+      "type": "array"
+    },
+    "strip.color": {
+      "default": "white",
+      "description": "The backlight of the LCD. It goes dark while the strip has nothing to control, unless `lit_when_idle` is on.",
+      "enum": [
+        "off",
+        "red",
+        "green",
+        "yellow",
+        "blue",
+        "magenta",
+        "cyan",
+        "white"
+      ],
+      "type": "string"
+    },
+    "strip.device": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "default": [],
+      "description": "The device, by its node name or description (`xtouch-daemon list-devices`); without it, the default device. With\nseveral (a list, or wildcards like `bluez_output.*`), the strip shows the default one of them, and Select\nswitches between them."
+    },
+    "strip.encoder": {
+      "anyOf": [
+        {
+          "enum": [
+            "volume",
+            "balance",
+            "pick",
+            "media",
+            "homeassistant"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the encoder does when you turn and push it. Its LED ring shows the value."
+    },
+    "strip.fader": {
+      "default": "volume",
+      "description": "What the fader sets.",
+      "enum": [
+        "volume",
+        "homeassistant"
+      ],
+      "type": "string"
+    },
+    "strip.label": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "maxLength": 7,
+              "pattern": "^[\\x20-\\x7e]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        {
+          "maxLength": 7,
+          "pattern": "^[\\x20-\\x7e]*$",
+          "type": "string"
+        }
+      ],
+      "description": "The top line of the LCD; by default \"Output\", \"Input\" or the start of the description of the device. The label\nof the active profile comes first."
+    },
+    "strip.launch": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "A program that Select starts while none of the applications runs: the program, then each argument, e.g. `[\"mumble\", \"mumble://me@voice.example.org/Gaming\"]`. It runs without a shell, so nothing is expanded."
+    },
+    "strip.launch_when_running": {
+      "default": false,
+      "description": "Select starts `launch` also while the application runs, e.g. a `mumble://` URL that connects a running Mumble to a server.",
+      "type": "boolean"
+    },
+    "strip.lit_when_idle": {
+      "default": false,
+      "description": "Keeps the LCD lit while the strip has nothing to control, e.g. no application plays or the device is not there.\nThe fader stays down.",
+      "type": "boolean"
+    },
+    "strip.match": {
+      "description": "The applications, by a part of their name or program (any case), e.g. \"brave\", or presets like `@browsers`,\n`@voip`, `@games`. `xtouch-daemon list-apps` lists them.",
+      "items": {
+        "type": "string"
+      },
+      "minLength": 1,
+      "type": "array"
+    },
+    "strip.max_volume": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "maximum": 200,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        {
+          "anyOf": [
+            {
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      ],
+      "description": "The volume, in percent, with the fader at the top; by default `behavior.max_volume`. Above 100 % the audio is\namplified, e.g. 200 for weak speakers."
+    },
+    "strip.meter": {
+      "default": true,
+      "description": "The LED meter shows the level. Needs `behavior.meters`.",
+      "type": "boolean"
+    },
+    "strip.meter_point": {
+      "anyOf": [
+        {
+          "enum": [
+            "pre_fader",
+            "post_fader"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where the meter takes the level: before the volume and Mute of the strip, or after them. By default\n`behavior.meter_point`."
+    },
+    "strip.min_volume": {
+      "anyOf": [
+        {
+          "maximum": 200,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The volume, in percent, with the fader at the bottom. E.g. 50 gives the whole fader to the upper half."
+    },
+    "strip.person": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "default": [],
+      "description": "The participant the strip always shows: their name in the voice chat (any case), or several names of the same\nperson, e.g. \"Alice\" and \"alice-phone\". While they are away, the name shows dark."
+    },
+    "strip.profiles": {
+      "default": [],
+      "description": "Profiles of the sound card that Rec switches between, e.g. analog and digital output. Its LED is lit for every\nprofile but the first. `device` must match the device of every profile, e.g. `alsa_output.pci-0000_11_00.4.*`.",
+      "items": {
+        "$ref": "#/$defs/ProfileConfig"
+      },
+      "type": "array"
+    },
+    "strip.rec": {
+      "anyOf": [
+        {
+          "enum": [
+            "off",
+            "recording",
+            "playing",
+            "default",
+            "muted",
+            "press",
+            "shown"
+          ],
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/ButtonConfig"
+        }
+      ],
+      "default": {
+        "press": null,
+        "hold": null,
+        "led": null
+      },
+      "description": "What Rec does (`press`, `hold`) and what its LED shows (`led`). By default it switches `profiles`; its LED shows\nthe profile, or else a recording. An indicator alone (`rec = \"playing\"`) sets the LED."
+    },
+    "strip.select": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "enum": [
+            "off",
+            "recording",
+            "playing",
+            "default",
+            "muted",
+            "press",
+            "shown"
+          ],
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/ButtonConfig"
+        }
+      ],
+      "default": {
+        "press": null,
+        "hold": null,
+        "led": null
+      },
+      "description": "What Select does (`press`, `hold`) and what its LED shows (`led`). By default it makes the device the default\n(with `device` or `choices`) or starts `launch`, and its LED shows that. `true`/`false` stand for that or nothing."
+    },
+    "strip.solo": {
+      "anyOf": [
+        {
+          "enum": [
+            "off",
+            "recording",
+            "playing",
+            "default",
+            "muted",
+            "press",
+            "shown"
+          ],
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/ButtonConfig"
+        }
+      ],
+      "default": {
+        "press": null,
+        "hold": null,
+        "led": null
+      },
+      "description": "What Solo does (`press`, `hold`) and what its LED shows (`led`). By default nothing. An indicator alone (`solo =\n\"muted\"`) sets the LED."
+    },
+    "strip.talking_color": {
+      "default": "green",
+      "description": "The backlight of the LCD while the participant talks.",
+      "enum": [
+        "off",
+        "red",
+        "green",
+        "yellow",
+        "blue",
+        "magenta",
+        "cyan",
+        "white"
+      ],
+      "type": "string"
+    }
+  }
+}
