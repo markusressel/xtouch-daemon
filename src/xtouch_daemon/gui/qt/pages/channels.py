@@ -15,7 +15,7 @@ from xtouch_daemon.audio.model import Direction
 from xtouch_daemon.config.buttons import ButtonSetup, default_setup
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
-from xtouch_daemon.config.values import METER_POINTS, default_encoder
+from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, channel_options, pool_options, uses
@@ -27,7 +27,8 @@ from xtouch_daemon.gui.domain.voip import participants
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label, set_help
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
-from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow, align_titles
+from xtouch_daemon.gui.qt.fields.meter import meter_row
+from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow, add_rows, align_titles
 from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, EntityItemDelegate, Lines
 from xtouch_daemon.gui.qt.pages.base import Audio, Flip, Page, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.preview.part_view import PartPreview
@@ -54,18 +55,6 @@ _ID = re.compile(r"[a-z0-9_]+")
 
 
 DIRECTIONS = (Direction.OUTPUT, Direction.INPUT)
-METER_OFF = "off"
-METER = Option(
-    "meter",
-    Kind.CHOICE,
-    "What the LED meter shows: the level before the volume and Mute of the strip, or after them, or nothing. "
-    "Needs `behavior.meters`; by default `behavior.meter_point`.",
-    None,
-    False,
-    choices=(*METER_POINTS.meanings, METER_OFF),
-    meanings=(*METER_POINTS.meanings.items(), (METER_OFF, "The meter stays dark.")),
-)
-"""`meter` and `meter_point` of a channel as one choice (see `ChannelsPage._meter_row`)."""
 POOL_KINDS = {
     CUSTOM_POOL: "A pool of channels: it hands the first of its channels that is there to the first slot that names "
     "it, the next one to the next slot.",
@@ -230,12 +219,13 @@ class ChannelsPage(Page):
                 body.wide = previews[part].sizeHint().width() + Space.L + NARROW_BELOW
                 body.box.addWidget(previews[part], 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
             fields = QVBoxLayout()
+            widgets: list[QWidget] = []
             for option in options:
                 if option.name == "meter_point":
                     # one choice with `meter`, see `_meter_row`
                     continue
                 if option.name == "meter":
-                    fields.addWidget(self._meter_row(path, strip, rows))
+                    widgets.append(self._meter_row(path, strip, rows))
                     continue
                 option_row = self._row(
                     option,
@@ -247,7 +237,8 @@ class ChannelsPage(Page):
                 )
                 if option.kind == Kind.BUTTON:
                     self._button_row(option_row, option.name, path, strip)
-                fields.addWidget(option_row)
+                widgets.append(option_row)
+            add_rows(fields, widgets)
             body.box.addLayout(fields, 1)
             layout.addWidget(body)
             cards.addWidget(frame)
@@ -265,26 +256,17 @@ class ChannelsPage(Page):
         defaults (the meter on, at `behavior.meter_point`).
         """
 
-        def get() -> str | None:
-            if self.document.get(path("meter")) is False:
-                return METER_OFF
-            point = self.document.get(path("meter_point"))
-            return None if point is None else str(point)
+        def put(name: str, value: Any) -> None:
+            if value is None:
+                self.document.unset(path(name))
+            else:
+                self.document.set(path(name), value)
 
-        def put(value: str | None) -> None:
-            self.document.unset(path("meter"))
-            self.document.unset(path("meter_point"))
-            if value == METER_OFF:
-                self.document.set(path("meter"), False)
-            elif value is not None:
-                self.document.set(path("meter_point"), value)
-
-        option_row = OptionRow(
-            METER,
-            get,
+        option_row = meter_row(
+            lambda name: self.document.get(path(name)),
             put,
-            placeholder=lambda: str(self.document.get(("behavior", "meter_point"), "pre_fader")),
-            link=docs.option_link("strip", "meter_point", strip),
+            lambda: str(self.document.get(("behavior", "meter_point"), "pre_fader")),
+            docs.option_link("strip", "meter_point", strip),
         )
         option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, path("meter"))))
         rows.append(option_row)

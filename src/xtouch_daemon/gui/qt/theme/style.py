@@ -282,6 +282,9 @@ QFrame[role="card"] QLabel {{ background: transparent; border: none; }}
 QFrame[role="entry"] {{ background: {c.sunken}; border: 1px solid {c.border}; border-radius: {Radius.MEDIUM}px; }}
 QFrame[role="entry"][open="true"] {{ border-color: {c.accent}; }}
 QLabel[role="entry_title"] {{ font-weight: 600; }}
+QFrame[role="divider"] {{ background: {c.border}; border: none; }}
+QLabel[role="group"] {{ color: {c.text_muted}; font-size: {size(TypeScale.CAPTION)}; font-weight: 700;
+    padding-bottom: {Space.XS}px; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: {c.surface}; border: none; }}
 QToolTip {{ background: {c.raised}; color: {c.text}; border: 1px solid {c.border}; border-radius: {Radius.SMALL}px;
     padding: 2px {Space.XS + 2}px; }}

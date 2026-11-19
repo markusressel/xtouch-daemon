@@ -28,7 +28,8 @@ from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
-from xtouch_daemon.gui.domain.schema import Option, look_options
+from xtouch_daemon.gui.domain.demos import GROUPS, group_of
+from xtouch_daemon.gui.domain.schema import Kind, Option, look_options
 from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text
 from xtouch_daemon.gui.domain.slot_stacks import (
     EMPTY,
@@ -54,7 +55,8 @@ from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, help_text, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
-from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles
+from xtouch_daemon.gui.qt.fields.meter import meter_row
+from xtouch_daemon.gui.qt.fields.option_row import OptionRow, add_groups, align_titles
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import StackList
@@ -521,46 +523,87 @@ class SlotsPanel(Page):
             form = QWidget()
             layout = QVBoxLayout(form)
             layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(Space.XS)
             # at a place every option is optional: the channel has its own
-            option_rows = [
-                self._place_row(
-                    dataclasses.replace(option, choices=tuple(c for c in option.choices if pick or c != "pick")),
-                    # unset, the encoder does what its strip does by default
-                    (lambda: default_encoder("apps" if not pick else strip)) if option.name == "encoder" else None,
-                )
-                for option in look_options(strip, allowed)
-            ]
-            for option_row in option_rows:
-                layout.addWidget(option_row)
+            option_rows: list[OptionRow] = []
+            groups: dict[str, list[QWidget]] = {}
+            for option in look_options(strip, allowed):
+                if option.name == "meter_point":
+                    # one choice with `meter`
+                    continue
+                if option.name == "meter":
+                    option_row = self._place_meter_row()
+                elif option.kind == Kind.BUTTON:
+                    option_row = self._place_button_row(option)
+                else:
+                    option_row = self._place_row(
+                        dataclasses.replace(option, choices=tuple(c for c in option.choices if pick or c != "pick")),
+                        # unset, the encoder does what its strip does by default
+                        (lambda: default_encoder("apps" if not pick else strip)) if option.name == "encoder" else None,
+                    )
+                option_rows.append(option_row)
+                groups.setdefault(group_of(option.name), []).append(option_row)
+            titles = dict(GROUPS)
+            add_groups(layout, [(titles[group], groups[group]) for group, _ in GROUPS if group in groups])
             align_titles(option_rows)
             self.place_forms[key] = form, option_rows
         return self.place_forms[key]
 
-    def _place_row(self, option: Option, placeholder: Callable[[], str] | None = None) -> OptionRow:
-        """A row for an option of the place of the candidate picked, whichever it is when it is shown or edited."""
-        name = option.name
+    def _place_option(self, name: str) -> Any:
+        """An option of the place of the candidate picked."""
+        assert self.candidate is not None
+        return rows(self.document.values, self.slot)[self.candidate].options.get(name)
 
-        def get() -> Any:
-            assert self.candidate is not None
-            return rows(self.document.values, self.slot)[self.candidate].options.get(name)
+    def _set_place_option(self, name: str, value: Any) -> None:
+        """Sets an option of the place of the candidate picked (None: removes it)."""
+        assert self.candidate is not None
+        stack = rows(self.document.values, self.slot)
+        candidate = stack[self.candidate]
+        options = {key: each for key, each in candidate.options.items() if key != name}
+        if value is not None:
+            options[name] = value
+        stack[self.candidate] = Row(candidate.show, candidate.when, options)
+        self._put(self.slot, stack)
 
-        def put(value: Any) -> None:
-            assert self.candidate is not None
-            stack = rows(self.document.values, self.slot)
-            candidate = stack[self.candidate]
-            options = {key: each for key, each in candidate.options.items() if key != name}
-            if value is not None:
-                options[name] = value
-            stack[self.candidate] = Row(candidate.show, candidate.when, options)
-            self._put(self.slot, stack)
-
-        option_row = OptionRow(option, get, put, placeholder=placeholder)
-
+    def _place_edited(self, option_row: OptionRow, name: str) -> OptionRow:
         def edited() -> None:
             assert self.candidate is not None
             self.editor.edited(Change(Scope.VALUE, ("slots", str(self.slot), self.candidate, name)))
 
         option_row.edited.connect(edited)
+        return option_row
+
+    def _place_row(self, option: Option, placeholder: Callable[[], str] | None = None) -> OptionRow:
+        """A row for an option of the place of the candidate picked, whichever it is when it is shown or edited."""
+        name = option.name
+        option_row = OptionRow(
+            option,
+            lambda: self._place_option(name),
+            lambda value: self._set_place_option(name, value),
+            placeholder=placeholder,
+        )
+        return self._place_edited(option_row, name)
+
+    def _place_meter_row(self) -> OptionRow:
+        """`meter` and `meter_point` of the place as one choice; unset, those of the channel."""
+        option_row = meter_row(self._place_option, self._set_place_option, lambda: "the channel's")
+        return self._place_edited(option_row, "meter")
+
+    def _place_button_row(self, option: Option) -> OptionRow:
+        """
+        A button of the place: only what its LED shows (and for Select whether it does something); what a button does
+        belongs to the channel. Unset, the channel's.
+        """
+        parts = ("press", "led") if option.name == "select" else ("led",)
+        button = option.title
+        help_text = f"What the LED of {button} shows at this place; unset, what it shows on the channel." + (
+            ' `press = "off"`: Select does nothing here.' if option.name == "select" else ""
+        )
+        option = dataclasses.replace(
+            option, help=help_text, columns=tuple(c for c in option.columns if c.name in parts)
+        )
+        option_row = self._place_row(option)
+        option_row.buttons.inherited = "the channel's"
         return option_row
 
     def show_problems(self, validation: Validation) -> None:

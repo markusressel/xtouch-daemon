@@ -45,6 +45,8 @@ class ButtonField(QWidget):
         self.columns = columns
         self.defaults: Callable[[], ButtonSetup] = ButtonSetup
         self.extra: Callable[[], list[str]] = list
+        self.inherited: str | None = None
+        """What an unset part takes when it is not the type's default, e.g. "the channel's" at a place."""
         self._unknown: set[str] = set()
         """Parts whose value in the file is none of the list: they mean nothing (their problem says why)."""
         self._kept: dict[str, Any] = {}
@@ -95,7 +97,8 @@ class ButtonField(QWidget):
                 self._fill(combo, column)
                 part = parts.get(column.name)
                 default = getattr(defaults, column.name)
-                placeholder = f"default: {describe_action(default) if column.kind == Kind.ACTION else default}"
+                shown = describe_action(default) if column.kind == Kind.ACTION else default
+                placeholder = f"default: {self.inherited or shown}"
                 if isinstance(part, Mapping):
                     self._kept[column.name] = dict(part)
                     part = launch_text(part)
@@ -145,7 +148,7 @@ class ButtonField(QWidget):
         for column in self.columns:
             combo = self.combos[column.name]
             text = combo.currentText().strip() if combo.isEditable() or combo.currentIndex() >= 0 else ""
-            if not text and column.name in self._unknown:
+            if not text and (column.name in self._unknown or self.inherited is not None):
                 continue
             shown = text or (describe_action(getattr(defaults, column.name)))
             meaning = column.meaning(shown) or (

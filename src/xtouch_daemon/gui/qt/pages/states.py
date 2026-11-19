@@ -35,7 +35,7 @@ from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, flat_button, help_label, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
-from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, text_width
+from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, divider, text_width
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -213,6 +213,7 @@ class StatesPage(Page):
         self.mode_rows = [option_row("label"), option_row("priority")]
         for widget in self.mode_rows:
             layout.addWidget(widget)
+        layout.addWidget(divider())
         self.on_while = self._segments(
             layout, "On while", ("Sources", "Condition"), lambda index: self._set_composed(index == 1), ON_WHILE_HELP
         )
@@ -264,6 +265,7 @@ class StatesPage(Page):
         self._under.append(when_help)
         condition.addWidget(when_help)
         layout.addWidget(self.condition_box)
+        layout.addWidget(divider())
         self.delays_button = QToolButton()
         self.delays_button.setText("Delays and overrides")
         self.delays_button.setCheckable(True)

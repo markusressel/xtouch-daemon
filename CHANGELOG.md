@@ -47,6 +47,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the options of a form are set apart by a thin line. A place in Slots groups its options like the cards of a
+  channel (Encoder, Display, Buttons, Fader and meter), has the meter as one choice, and its buttons show only what
+  their LED shows (Select also `press = "off"`): what a button does belongs to the channel.
 - GUI: in Play, a click on the drawing selects no strip, and the drawing looks like the device: no outline of the
   selection, the focus or the mouse, and strips nobody configured are not dimmed. The selection comes back with Select.
 - GUI, form of a channel: it starts with what its type is (e.g. what an output channel controls); a narrow window puts

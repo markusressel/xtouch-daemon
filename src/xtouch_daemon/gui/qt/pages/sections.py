@@ -28,7 +28,7 @@ from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import LEARN_MORE, Suggest, help_label, label, set_help, show_status
-from xtouch_daemon.gui.qt.fields.option_row import align_titles
+from xtouch_daemon.gui.qt.fields.option_row import add_rows, align_titles
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, page_title, row, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -70,15 +70,18 @@ class SectionPage(Page):
         self._above_options(present)
         frame, layout = card()
         suggest: dict[str, Suggest] = {"ignore": lambda: sources.patterns(self.audio())}
-        for option in options(self.section.model):
-            layout.addWidget(
+        add_rows(
+            layout,
+            [
                 self._row(
                     option,
                     lambda option_name: (name, option_name),
                     suggest.get(option.name),
                     link=docs.option_link(name, option.name),
                 )
-            )
+                for option in options(self.section.model)
+            ],
+        )
         align_titles(self.option_rows)
         if name == "device":
             layout.addWidget(label("A changed name takes a restart of the service.", "help"))

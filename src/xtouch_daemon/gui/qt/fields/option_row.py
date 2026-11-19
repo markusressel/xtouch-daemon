@@ -2,16 +2,18 @@
 One option of a form: its label, the field for its type, its help and its problems.
 """
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, assert_never
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QResizeEvent
 from PyQt6.QtWidgets import (
+    QBoxLayout,
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -79,6 +81,34 @@ def align_titles(rows: Iterable[OptionRow], indented: Iterable[OptionRow] = (), 
     for row in rows:
         row.set_title_width(width - (Space.L if id(row) in moved else 0))
     return width
+
+
+def divider() -> QFrame:
+    """A thin line between the options of a form, so each reads as one."""
+    line = QFrame()
+    set_role(line, "divider")
+    line.setFixedHeight(1)
+    return line
+
+
+def add_rows(layout: QBoxLayout, widgets: Iterable[QWidget]) -> None:
+    """The rows of a form, with a line between each two."""
+    for index, widget in enumerate(widgets):
+        if index:
+            layout.addWidget(divider())
+        layout.addWidget(widget)
+
+
+def add_groups(layout: QBoxLayout, groups: Iterable[tuple[str, Sequence[QWidget]]]) -> None:
+    """
+    Groups of rows (e.g. the display, the buttons, the fader of a place), each under its title, with a line between
+    each two rows and more room between the groups.
+    """
+    for index, (title, widgets) in enumerate(groups):
+        if index:
+            layout.addSpacing(Space.M)
+        layout.addWidget(label(title.upper(), "group"))
+        add_rows(layout, widgets)
 
 
 class OptionRow(QWidget):
