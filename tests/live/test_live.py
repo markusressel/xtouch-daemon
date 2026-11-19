@@ -21,6 +21,7 @@ from xtouch_daemon.live.codec import (
     decode_message,
     decode_request,
     encode,
+    encode_known,
     encode_reply,
     encode_request,
     encode_twin,
@@ -28,7 +29,10 @@ from xtouch_daemon.live.codec import (
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
+    ForgetDevice,
     KeepPreview,
+    KnownDevice,
+    KnownDevices,
     MqttState,
     Play,
     Reply,
@@ -296,6 +300,55 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
     # the snapshot of a daemon that previews
     snapshot = dataclasses.replace(snapshot_of(surface), preview=True, features=FEATURES)
     assert decode_message(encode(snapshot)) == snapshot
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        protocol.FaderMoved(0, 8191),
+        protocol.FaderTouched(1, True),
+        protocol.ButtonPressed(2, Button.SELECT, False),
+        protocol.EncoderTurned(3, -2),
+        protocol.EncoderPressed(7, True),
+    ],
+)
+def test_every_event_a_hand_plays_goes_through_a_line(event: protocol.StripEvent):
+    assert decode_request(encode_request(Play(event))) == Play(event)
+
+
+def test_the_devices_the_daemon_remembers_go_through_a_line_and_are_no_snapshot():
+    known = KnownDevices((KnownDevice("buds", "Buds", "output", None, None, 1.5),))
+    line = encode_known(known)
+    assert line.count(b"\n") == 1
+    assert decode_message(line) == known
+    assert decode(line) is None
+
+
+def test_a_device_to_forget_goes_through_a_line():
+    request = ForgetDevice("bluez_output.buds", "output")
+    assert decode_request(encode_request(request)) == request
+
+
+@pytest.mark.parametrize(
+    ("line", "message"),
+    [
+        ('{"request": "preview", "config": null, "on_device": "yes"}', "on_device is no boolean"),
+        ('{"request": "preview", "config": null, "situation": {"mode": "x"}}', "not a situation"),
+        (
+            '{"request": "preview", "config": null, "situation": '
+            '{"mode": "x", "on": [], "flipped": [], "people": -1, "apps": 0, "devices": 0}}',
+            "not a situation",
+        ),
+        ('{"request": "play", "event": "fader_moved", "strip": 8, "value": 0}', "no strip 8"),
+        ('{"request": "play", "event": "fader_moved", "strip": 0, "value": 99999}', "not a fader_moved event"),
+        ('{"request": "play", "event": "button_pressed", "strip": 0, "button": 1, "pressed": true}', "not a button"),
+        ('{"request": "play", "event": "reboot", "strip": 0}', "unknown"),
+        ('{"request": "forget_device", "name": "x", "direction": "sideways"}', "unknown"),
+    ],
+)
+def test_requests_that_do_not_fit_are_refused(line: str, message: str):
+    with pytest.raises(ValueError, match=message):
+        decode_request(line.encode())
 
 
 def test_the_view_of_a_twin_goes_through_a_line_and_is_no_snapshot():

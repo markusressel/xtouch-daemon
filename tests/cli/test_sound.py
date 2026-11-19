@@ -10,7 +10,7 @@ from click.testing import CliRunner
 from tests.support.cli import invoke
 from xtouch_daemon import cli
 from xtouch_daemon.audio import pulse
-from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.audio.model import AudioState, Device, Direction
 from xtouch_daemon.cli import sound as sound_commands
 
 
@@ -76,3 +76,37 @@ def test_a_sound_server_that_can_not_be_reached_is_reported(monkeypatch: pytest.
 
     assert result.exit_code == 1
     assert "can't reach the sound server (is pipewire-pulse running?): no socket" in result.output
+
+
+def test_a_snippet_has_a_channel_for_each_device_and_one_for_all_bluetooth_ones() -> None:
+    state = AudioState(
+        outputs=(
+            Device("alsa_output.pci.analog-stereo", "Built-in Audio Analog Stereo", Direction.OUTPUT, 50, False, False),
+            Device("bluez_output.aa", "WH-1000XM4", Direction.OUTPUT, 50, False, False),
+            Device("bluez_output.bb", "Buds Pro", Direction.OUTPUT, 50, False, False),
+        ),
+        inputs=(Device("alsa_input.usb", "Yeti Stereo Microphone", Direction.INPUT, 80, False, False),),
+    )
+
+    assert sound_commands.snippet(state) == (
+        '[channel.output_built_in]\ntype = "output"\ndevice = "alsa_output.pci.analog-stereo"\n'
+        "# Built-in Audio Analog Stereo\n\n"
+        '[channel.output_wh_1000xm4]\ntype = "output"\ndevice = "bluez_output.*"  # any Bluetooth device\n'
+        "# WH-1000XM4\n\n"
+        '[channel.input_yeti_stereo]\ntype = "input"\ndevice = "alsa_input.usb"\n# Yeti Stereo Microphone'
+    )
+
+
+@pytest.mark.usefixtures("audio")
+def test_list_devices_prints_the_snippet() -> None:
+    assert invoke("list-devices", "--snippet").output.startswith(
+        '[channel.output_speaker_description]\ntype = "output"'
+    )
+
+
+@pytest.mark.usefixtures("audio")
+def test_an_apps_slot_takes_the_applications_of_no_channel(tmp_path: Path) -> None:
+    path = tmp_path / "c.toml"
+    path.write_text('[slots]\n1 = "apps"\n' + "".join(f'{slot} = "-"\n' for slot in range(2, 9)))
+
+    assert "goes to an apps slot" in invoke("list-apps", "-c", str(path)).output

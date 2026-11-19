@@ -7,15 +7,17 @@ from pathlib import Path
 
 import pytest
 
-from tests.support.audio import FakeBackend
+from tests.support.audio import FakeBackend, output
 from tests.support.daemon import STATE
 from tests.support.hardware import RecordingSurface
 from tests.support.waiting import until
+from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.live.messages import EndPreview, KeepPreview, Play, Reply, StartPreview, TwinView
+from xtouch_daemon.live.messages import EndPreview, ForgetDevice, KeepPreview, Play, Reply, StartPreview, TwinView
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon
+from xtouch_daemon.runtime.twin import Twin
 from xtouch_daemon.slots.outcomes import Situation
 
 GAME = """
@@ -145,3 +147,86 @@ async def test_a_play_without_a_twin_does_nothing(made: tuple[Daemon, Views]):
     daemon, _ = made
     daemon.on_request(object(), Play(protocol.FaderTouched(0, True), preview=True))
     assert not daemon._twins
+
+
+async def test_a_twin_without_a_situation_follows_reality(made: tuple[Daemon, Views]):
+    daemon, _ = made
+    gui = object()
+    daemon.on_request(gui, StartPreview(GAME, None, on_device=False))
+    twin = daemon._twins[gui].twin
+    assert twin.real
+    names = twin.names
+
+    daemon._on_state(AudioState(outputs=(*STATE.outputs, output("buds")), default_output="buds"))
+
+    assert twin.names != names
+    assert twin.real
+
+
+async def test_a_twin_takes_a_changed_configuration(made: tuple[Daemon, Views]):
+    daemon, views = made
+    gui = object()
+    daemon.on_request(gui, StartPreview(GAME, HOME, on_device=False))
+    await until(lambda: views.of(gui) and views.of(gui)[-1].strips[0].text[0] == "Speaker")
+    daemon.on_request(gui, StartPreview(GAME.replace('"Speaker"', '"Boxes"'), HOME, on_device=False))
+    await until(lambda: views.of(gui)[-1].strips[0].text[0] == "Boxes")
+    daemon.on_request(gui, EndPreview())
+
+
+async def test_a_twin_that_fails_tells_its_client(made: tuple[Daemon, Views], monkeypatch: pytest.MonkeyPatch):
+    daemon, _ = made
+    told: list[tuple[object, Reply]] = daemon.told  # pyright: ignore[reportAttributeAccessIssue]
+
+    async def fails(self: Twin) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(Twin, "run", fails)
+    gui = object()
+    daemon.on_request(gui, StartPreview(GAME, HOME, on_device=False))
+
+    await until(lambda: gui not in daemon._twins)
+    assert told == [(gui, Reply("ended", True, "the virtual twin failed: boom"))]
+
+
+async def test_the_window_that_has_the_device_gives_it_back_for_a_twin(made: tuple[Daemon, Views]):
+    daemon, _ = made
+    told: list[tuple[object, Reply]] = daemon.told  # pyright: ignore[reportAttributeAccessIssue]
+    gui = object()
+    daemon.on_request(gui, StartPreview(GAME, HOME))
+    assert daemon.previewing
+
+    daemon.on_request(gui, StartPreview(GAME, HOME, on_device=False))
+
+    assert not daemon.previewing
+    assert gui in daemon._twins
+    # it asked for it: no news
+    assert told == []
+    daemon.on_request(gui, EndPreview())
+    daemon.mixer.close()
+
+
+async def test_a_hand_of_the_gui_plays_on_the_device(made: tuple[Daemon, Views], monkeypatch: pytest.MonkeyPatch):
+    daemon, _ = made
+    played: list[protocol.StripEvent] = []
+    monkeypatch.setattr(daemon.surface, "play", played.append)
+    event = protocol.FaderTouched(0, True)
+
+    daemon.on_request(object(), Play(event))
+
+    assert played == [event]
+
+
+async def test_a_device_the_daemon_remembers_is_forgotten_on_request(
+    made: tuple[Daemon, Views], monkeypatch: pytest.MonkeyPatch
+):
+    daemon, _ = made
+    assert daemon.live is not None
+    published: list[None] = []
+    monkeypatch.setattr(daemon.live, "publish_known", lambda: published.append(None))
+    daemon._on_state(STATE)
+
+    daemon.on_request(object(), ForgetDevice("speaker", "output"))
+    daemon.on_request(object(), ForgetDevice("speaker", "output"))
+
+    assert daemon.devices_seen.known().devices == ()
+    assert len(published) == 2

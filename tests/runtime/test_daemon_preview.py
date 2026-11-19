@@ -29,6 +29,7 @@ from xtouch_daemon.live.messages import (
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon
+from xtouch_daemon.slots.outcomes import Situation
 
 BOXES = SPEAKER.replace('"Speaker"', '"Boxes"')
 
@@ -309,3 +310,29 @@ async def test_the_gui_previews_through_the_live_view_while_the_daemon_runs(
         await task
         writer.close()
     assert config_path.read_text() == HOME_ASSISTANT
+
+
+async def test_a_preview_shows_a_situation_of_the_gui_and_the_real_one_again(
+    config_path: Path, surface: RecordingSurface, backend: FakeBackend, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    daemon, _ = make_previewing(config_path, surface, backend, monkeypatch)
+    gui = object()
+    gaming = SPEAKER + "[state.gaming]\nmode = true\n"
+
+    assert daemon.on_request(gui, StartPreview(gaming, Situation("nomode", frozenset(), frozenset()))) == Reply(
+        "preview", False, "No mode nomode in the configuration."
+    )
+    assert not daemon.previewing
+    assert daemon.on_request(gui, StartPreview(gaming, Situation("gaming", frozenset(), frozenset()))) == Reply(
+        "preview", True
+    )
+    assert (slots := daemon.snapshot().slots) is not None
+    assert slots.mode == "gaming"
+    # the same configuration in the real situation: only the situation changes
+    mixer = daemon.mixer
+    assert daemon.on_request(gui, StartPreview(gaming)) == Reply("preview", True)
+    assert daemon.mixer is mixer
+    assert (slots := daemon.snapshot().slots) is not None
+    assert slots.mode == "default"
+    daemon.mixer.close()
+    await settle()
