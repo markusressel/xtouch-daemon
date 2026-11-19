@@ -78,6 +78,7 @@ nav = [
       { "Previews" = "development/design/previews.md" },
       { "A simulated device" = "development/design/device-simulator.md" },
       { "Previews of the controls" = "development/design/control-previews.md" },
+      { "The form of a channel" = "development/design/channel-form.md" },
       { "Output choices" = "development/design/choices.md" },
       { "Launching applications" = "development/design/launch.md" },
       { "Presets" = "development/design/presets.md" },
