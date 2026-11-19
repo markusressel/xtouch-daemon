@@ -56,7 +56,7 @@ jobs:
       - name: Coverage without the Qt widgets
         run: uv run coverage report --omit="*/gui/qt/*" --fail-under=98 --format=total
       - name: Check the packaging scripts
-        run: for script in packaging/build-release.sh packaging/aur/publish.sh; do bash -n "$script"; done
+        run: for script in packaging/build-release.sh packaging/aur/publish.sh packaging/release.sh; do bash -n "$script"; done
 
   # the bundle Mumble installs (integrations/mumble); tests/voip/test_mumble_plugin.py tests it in the job above
   mumble-plugin:

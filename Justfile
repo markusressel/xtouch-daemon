@@ -74,6 +74,14 @@ run *ARGS:
 release-build out="dist":
     packaging/build-release.sh {{out}}
 
+# release step 1: version, uv.lock and changelog of a release, committed and pushed to main once you confirm (RELEASING.md)
+release-prepare version:
+    packaging/release.sh prepare {{version}}
+
+# release step 2: tag, wait for the Release workflow, publish the AUR packages, bump the PKGBUILDs (RELEASING.md)
+release-publish version:
+    packaging/release.sh publish {{version}}
+
 # pin haad-mqtt-autodiscovery to the commit checked out in ../haad-mqtt-autodiscovery (CI and releases build that one)
 pin-haad-mqtt-autodiscovery:
     #!/usr/bin/env bash

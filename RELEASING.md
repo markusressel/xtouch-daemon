@@ -38,6 +38,16 @@ commit next to the project.
 
 ## Cutting a release
 
+Two recipes do the steps below, on Arch Linux with your AUR SSH key and `gh` logged in:
+
+```shell
+just release-prepare 0.3.0   # step 1: version, uv.lock, changelog; shows the diff, pushes to main once you confirm
+just release-publish 0.3.0   # steps 3-5: tag, wait for the Release workflow, AUR, PKGBUILDs
+```
+
+Look over the changelog section between the two. `release-publish` stops when the Release workflow fails or when
+you answer N to the AUR; run it again to go on from the tag. The steps by hand:
+
 1. **Set the version** in `pyproject.toml` (`version = "0.2.0"`), run `uv lock`, and give the topmost section of
    [`CHANGELOG.md`](CHANGELOG.md) the version and the date (`## [0.2.0] - 2026-12-01`). The release notes are that
    section. Commit.
