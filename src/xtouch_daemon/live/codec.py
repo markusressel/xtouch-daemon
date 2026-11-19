@@ -11,6 +11,7 @@ from xtouch_daemon.live.messages import (
     VERSION,
     EndPreview,
     ForgetDevice,
+    Glide,
     KeepPreview,
     KnownDevice,
     KnownDevices,
@@ -100,6 +101,8 @@ def _strips(values: list[dict[str, Any]]) -> tuple[StripState, ...]:
             fader=strip["fader"],
             touched=strip["touched"],
             meter=strip["meter"],
+            meter_at=strip["meter_at"],
+            glide=None if strip["glide"] is None else Glide(**strip["glide"]),
         )
         for strip in values
     )

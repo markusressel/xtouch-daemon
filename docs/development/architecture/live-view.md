@@ -7,9 +7,21 @@ that on the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon.sock` (mode 0600, next t
 ## Snapshots
 
 - **Whole states, one JSON line each.** A client gets the whole state when it connects and again whenever something
-  changed, checked 20 times a second (`live.INTERVAL`). A line is about 2 KB; a state rather than changes means a
-  client that connects late or misses one needs nothing else. `version` changes when a line means something else; new
-  fields are optional with a default, so they keep it.
+  changed. A line is about 2 KB; a state rather than changes means a client that connects late or misses one needs
+  nothing else. `version` changes when a line means something else; new fields are optional with a default, so they
+  keep it.
+- **Pushed, not polled.** Nothing runs on a timer: what changes a snapshot calls `LiveServer.changed()` (the
+  `Surface` for every message to and from the device and its connection, the sound server, the voice chat, each step
+  of the slots, the MQTT bridge, the requests, a reload and the end of a preview). The snapshot goes out once the
+  event loop is through with what it does at that moment, so what changes together goes out together, as often as
+  things change. One that tells nothing new (see below) is not sent. The views of the twins go out the same way, from
+  their own surfaces and steps; reality reaches a twin when it changes.
+- **What moves by itself is told once.** A meter is sent with the level it was set to and when (`meter_at`), a fader
+  that glides with its position, speed and target then (`Glide`), as `time.monotonic()`, which is the same clock in
+  the GUI on this machine. The GUI draws the fall and the glide at the rate of the screen (`meter_now()`,
+  `fader_now()`, the same steps as the daemon's motor drive, `hardware.strip.glide_step()`); a snapshot that differs
+  only in where a glide is now (`steady()`) is not sent. So a moving fader costs a line when it starts and one when it
+  arrives, a meter a line per peak (10 a second while it plays), a dark meter none.
 - **What it has:**
   - the strips: the LCD lines and backlight, the LEDs, the ring, the fader and whether it is touched, the meter. They
     are the `Surface`'s mirror of the device (a `SimulatedDevice`): what reached it, with the motors and meters moving

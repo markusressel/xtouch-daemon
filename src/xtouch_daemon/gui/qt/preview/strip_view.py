@@ -87,6 +87,7 @@ from xtouch_daemon.gui.qt.theme.style import current_colors, current_mode
 from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.live.messages import fader_now, meter_now
 
 if TYPE_CHECKING:
     from xtouch_daemon.gui.qt.preview.panel import Hand
@@ -126,6 +127,8 @@ class StripHost(Protocol):
     """Pixels (at the zoom of the window) per logical unit of the strip."""
     blink: bool
     """Whether flashing LEDs are lit right now."""
+    now: float
+    """The time the strip is drawn at (`time.monotonic()`): meters fall and faders glide from what they were told."""
 
     @property
     def hand(self) -> Hand | None:
@@ -182,6 +185,8 @@ class StripView(QWidget):
         """Where the mouse holds the fader in Play (0..1), drawn there until it is let go; None while it doesn't."""
         self._press: QPoint | None = None
         """Where the mouse was pressed, to tell a drag from a click."""
+        self.moving_drawn: object = None
+        """What moves by itself (see `_moving_key()`) as the strip was drawn last."""
 
     @property
     def look(self) -> StripLook:
@@ -221,7 +226,9 @@ class StripView(QWidget):
         Everything the picture of what the strip shows depends on: all but the meter, the ring and the fader, which
         change all the time (the live view tells them 20 times a second) and are put over it from small pictures.
         """
-        state = dataclasses.replace(self.face.state, meter=0, ring=0, ring_mode="dot", fader=None, touched=False)
+        state = dataclasses.replace(
+            self.face.state, meter=0, meter_at=None, ring=0, ring_mode="dot", fader=None, glide=None, touched=False
+        )
         return (
             self._printed_key(),
             dataclasses.replace(self.face, state=state),
@@ -239,16 +246,23 @@ class StripView(QWidget):
         the daemon leaves it, while not known yet), and the accent around it while it is touched.
         """
         state = self.face.state
-        fader = 0.0 if state.fader is None else state.fader
+        now = self.preview.now
+        position = fader_now(state, now)
+        fader = 0.0 if position is None else position
         if self.dragged_fader is not None:
             # under the mouse at once: the device (or the daemon) tells where it is only a moment later
             fader = self.dragged_fader
         return (
             ring_leds(state.ring, state.ring_mode),
-            meter_leds(state.meter),
+            meter_leds(meter_now(state, now)),
             fader,
             current_colors().accent if state.touched or self.dragged_fader is not None else None,
         )
+
+    def follow_time(self) -> None:
+        """Drawn again if what moves by itself shows otherwise at the time of the preview now."""
+        if self._moving_key() != self.moving_drawn:
+            self.update()
 
     def _current(self, picture: _Picture | None, key: object, scale: float, ratio: float) -> bool:
         """
@@ -266,7 +280,8 @@ class StripView(QWidget):
         """
         painter = QPainter(self)
         scale, ratio = self.preview.scale, self.devicePixelRatioF()
-        key = (self._shown_key(), self._moving_key())
+        self.moving_drawn = self._moving_key()
+        key = (self._shown_key(), self.moving_drawn)
         if not self._current(self.picture, key, scale, ratio):
             self.picture = draw(key, scale, ratio, self._paint_picture)
         picture = self.picture

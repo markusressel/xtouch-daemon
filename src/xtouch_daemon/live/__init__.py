@@ -3,7 +3,8 @@ The live view: the running daemon tells what the device shows right now (the LCD
 so the GUI can show the strips as they are instead of what a file would make of them.
 
 The daemon serves a Unix socket next to its runtime file (see `instance.socket_file()`). Every client gets the whole
-state as one line of JSON when it connects, and again whenever something changed, at most every `INTERVAL`. Whole
+state as one line of JSON when it connects, and again whenever something changed (`LiveServer.changed()`, no timer:
+what moves by itself, a falling meter and a gliding fader, is told once and the GUI draws it moving). Whole
 states rather than changes: a line is about 2 KB, and a client that missed one (or connects late) needs nothing else
 to be right. A client that does not keep up is dropped instead of being waited for, so a stuck GUI never slows down
 the daemon.

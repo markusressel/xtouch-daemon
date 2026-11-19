@@ -2,6 +2,7 @@
 What goes over the socket of the live view: snapshots of the device, the requests of the GUI and their replies.
 """
 
+import dataclasses
 import hashlib
 import json
 from dataclasses import dataclass
@@ -10,10 +11,13 @@ from typing import Any, Literal
 from pydantic import SecretStr
 
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import StripEvent
+from xtouch_daemon.hardware.strip import glided
+from xtouch_daemon.simulator.device import METER_FALL
 from xtouch_daemon.slots.outcomes import Situation
 
-VERSION = 1
+VERSION = 2
 """Changes when a line means something else; a client ignores lines of another version."""
 
 
@@ -22,8 +26,26 @@ FEATURES = ("preview", "mode", "override", "play", "situation", "on_device")
 
 
 @dataclass(frozen=True)
+class Glide:
+    """A fader on its way to `target`: the GUI draws the rest of the way, as the daemon moves it (`hardware.strip`)."""
+
+    at: float
+    """When the fader was at the position of the state (`time.monotonic()`, the same in the GUI on this machine)."""
+    velocity: float
+    """Its speed then, in ranges (0..1) per second."""
+    target: float
+    """Where it goes, 0..1."""
+    slow: bool
+    """Whether it moves slowly (see `FADER_SLOW_SMOOTH_TIME`)."""
+
+
+@dataclass(frozen=True)
 class StripState:
-    """What one strip shows."""
+    """
+    What one strip shows. What moves by itself is told once, with its time, and the GUI draws it moving: a meter falls
+    from its level (`meter_now()`), a fader glides to its target (`fader_now()`). The daemon sends a state only when it
+    changed otherwise.
+    """
 
     color: str
     """The backlight of the LCD, a color name of the configuration ("off" for dark)."""
@@ -40,7 +62,50 @@ class StripState:
     touched: bool
     """Whether a finger is on the fader."""
     meter: int
-    """The level of the meter, 0..`protocol.METER_MAX`."""
+    """The level of the meter, 0..`protocol.METER_MAX`, as it was set: it falls from there (see `meter_at`)."""
+    meter_at: float | None = None
+    """When the meter was set (`time.monotonic()`); None for a level that stays (a demo)."""
+    glide: Glide | None = None
+    """How the fader glides from `fader`, None while it stays."""
+
+
+def meter_now(state: StripState, now: float) -> int:
+    """The level the meter of `state` shows at `now`: it falls by a level every `METER_FALL`, as the device lets it."""
+    if state.meter_at is None:
+        return state.meter
+    return max(0, state.meter - int(max(0.0, now - state.meter_at) / METER_FALL))
+
+
+def fader_now(state: StripState, now: float) -> float | None:
+    """Where the fader of `state` is at `now`: on its way to the target of its glide, as the daemon moves it."""
+    glide = state.glide
+    if glide is None or state.fader is None:
+        return state.fader
+    scale = protocol.FADER_MAX
+    position = glided(
+        state.fader * scale, glide.velocity * scale, glide.target * scale, glide.slow, max(0.0, now - glide.at)
+    )
+    return position / scale
+
+
+def steady(states: tuple[StripState, ...]) -> tuple[StripState, ...]:
+    """
+    What `states` tell apart from where their glides are now: two that differ only in that need not be sent, as the
+    GUI draws the glide.
+    """
+    return tuple(
+        state
+        if state.glide is None
+        else dataclasses.replace(state, fader=None, glide=dataclasses.replace(state.glide, at=0.0, velocity=0.0))
+        for state in states
+    )
+
+
+def moving(state: StripState, now: float) -> bool:
+    """Whether something of `state` still moves by itself at `now`: its meter falls, or its fader glides."""
+    if state.meter_at is not None and meter_now(state, now) > 0:
+        return True
+    return state.glide is not None and fader_now(state, now) != state.glide.target
 
 
 @dataclass(frozen=True)

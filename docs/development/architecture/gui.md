@@ -72,7 +72,7 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
 - **Built once, updated in place.** The pages build their widgets once, and showing the document loads the values
   into them (`OptionRow.load()`); no page is cleared and built again. A part that comes and goes (an absent section,
   the form of each channel type) is a page of a `Stack` sized to its current part, not a widget shown and hidden.
-- **No layout for what stays the same.** Showing the document again, or a live update 20 times a second, changes no
+- **No layout for what stays the same.** Showing the document again, or a live update with every change of the device, changes no
   geometry when nothing differs: `set_text` and the tab texts are set only when they differ, `theme.set_role` restyles
   only for another role, and the list chips stay while their values are the same. Icons are kept with their name and
   color (`theme.set_icon`), so a new theme draws them again (`theme.refresh_icons`) without building a page.

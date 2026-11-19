@@ -254,12 +254,13 @@ QWidget[role="chips"] QLineEdit {{ border: none; background: transparent; paddin
 QWidget[role="chip"] {{ background: {tint(c.accent, 2 * TINT_ALPHA)}; border-radius: {Radius.PILL}px; }}
 QLabel[role="chip"] {{ padding: 1px {Space.S}px; }}
 {_entities(c)}
-QListWidget {{ background: {c.sunken}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px;
+/* the lists beside a form (Channels, States); a stack of candidates has its own rows */
+QListWidget[role="side"] {{ background: {c.sunken}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px;
     padding: {Space.XS}px; outline: none; }}
-QListWidget::item {{ border-radius: {Radius.MEDIUM}px; padding: {Space.XS}px; }}
-QListWidget::item:hover {{ background: {tint(c.text, 18)}; }}
-QListWidget::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
-QListWidget[role="stack"] {{ background: transparent; border: none; padding: 0; }}
+QListWidget[role="side"]::item {{ border-radius: {Radius.MEDIUM}px; padding: {Space.XS}px; }}
+QListWidget[role="side"]::item:hover {{ background: {tint(c.text, 18)}; }}
+QListWidget[role="side"]::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
+QListWidget[role="stack"] {{ background: transparent; border: none; }}
 QListWidget[role="stack"]::item {{ border-radius: {Radius.SMALL}px; }}
 QListWidget[role="stack"]::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
 QWidget[role="chip"][variant="preset"] {{ background: transparent; border: 1px solid {c.accent}; }}

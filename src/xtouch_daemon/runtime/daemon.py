@@ -10,6 +10,7 @@ is loaded again.
 
 import asyncio
 import contextlib
+import dataclasses
 import logging
 import signal
 import time
@@ -45,8 +46,8 @@ from xtouch_daemon.live.messages import (
     StartPreview,
     TwinView,
     fingerprint,
+    steady,
 )
-from xtouch_daemon.live.server import INTERVAL as LIVE_INTERVAL
 from xtouch_daemon.live.server import LiveServer, strip_states, voip_state
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.binder import SlotMixer
@@ -70,11 +71,6 @@ SHUTDOWN_TIMEOUT = 4.0
 """How long the faders may take to move down when the daemon stops (they go slowly, see FADER_SLOW_SMOOTH_TIME)."""
 PREVIEW_TIMEOUT = 10.0
 """How long a preview runs without a request of its GUI (`live.KeepPreview`) before the daemon goes back to the file."""
-TWIN_INTERVAL = LIVE_INTERVAL
-"""
-How often the views of the twins go to their clients (and their heartbeats are checked): as often as the snapshots
-of the device, or meters and moving faders in the drawing step.
-"""
 PREVIEW_CHECK = 1.0
 """How often a running preview checks for its GUI and whether the configuration file changed."""
 
@@ -110,7 +106,9 @@ class TwinSession:
     seen: float
     """When the client sent its last request for it (the time of the event loop)."""
     last: TwinView | None = None
-    """What the client was sent last."""
+    """What the client was sent last, `steady()`: a view that tells nothing else is not sent."""
+    due: bool = False
+    """Whether a view goes out once the event loop is through with what it does now."""
 
 
 class Daemon(Rig):
@@ -161,6 +159,7 @@ class Daemon(Rig):
         self.bridge = bridge or (MqttBridge(config.mqtt) if config.mqtt is not None else None)
         if self.bridge is not None:
             self.bridge.on_connection = self._on_mqtt_connection
+            self.bridge.on_change = self._changed
         self._voip_socket = voip_socket or instance.voip_socket_file()
         self._voip_task: asyncio.Task[None] | None = None
         self._device_switch: asyncio.Task[None] | None = None
@@ -184,6 +183,7 @@ class Daemon(Rig):
         self._stop = asyncio.Event()
         self._mixer_task: asyncio.Task[None] | None = None
         self.surface.on_connection = self._on_connection
+        self.surface.on_change = self._changed
         self.live = (
             LiveServer(live_socket, self.snapshot, self.on_request, self.on_client_closed, self.devices_seen.known)
             if live_socket is not None
@@ -261,6 +261,7 @@ class Daemon(Rig):
         if config.voip != self.config.voip:
             self._replace_voip(config)
         self.reconfigure(config)
+        self._changed()
 
     def _replace_mixer(self) -> None:
         super()._replace_mixer()
@@ -279,6 +280,7 @@ class Daemon(Rig):
         assert config.voip is not None, "people share the slots of auto in every configuration"
         provider = build_provider(config.voip, self._voip_socket)
         provider.subscribe(self.wake_slots)
+        provider.subscribe(self._reality_changed)
         return provider
 
     def _start_voip(self) -> None:
@@ -305,6 +307,7 @@ class Daemon(Rig):
         if self.slot_entities is not None and self.slots.situation is None:
             # Home Assistant never sees a situation the GUI tries
             self.slot_entities.update(result)
+        self._reality_changed()
 
     # -- the live view: the preview of the GUI, modes and overrides ---------------------------------------------------
 
@@ -315,6 +318,13 @@ class Daemon(Rig):
 
     def on_request(self, client: object, request: Request) -> Reply | None:
         """A request of a client of the live view (the user's own, `LiveServer` checks that)."""
+        try:
+            return self._answer(client, request)
+        finally:
+            # a preview, a mode, an override: the snapshot tells it
+            self._changed()
+
+    def _answer(self, client: object, request: Request) -> Reply | None:
         match request:
             case StartPreview(config=text, situation=situation, on_device=True):
                 return self.preview(client, text, situation)
@@ -439,6 +449,7 @@ class Daemon(Rig):
         session = self._twins.get(client)
         if session is None:
             twin = Twin(config, situation, self._names(), real=real)
+            twin.on_change = lambda: self._twin_changed(client)
             task = asyncio.create_task(twin.run(), name="virtual twin")
             task.add_done_callback(lambda done: self._twin_stopped(client, done))
             self._twins[client] = TwinSession(twin, task, now)
@@ -479,28 +490,50 @@ class Daemon(Rig):
         _LOGGER.error("The virtual twin of a client of the live view stopped", exc_info=error)
         self._end_twin(client, f"the virtual twin failed: {error}" if error else "the virtual twin stopped")
 
-    async def _follow_twins(self) -> None:
-        """Sends each client the view of its twin when it changed, and ends the twins that nobody keeps."""
+    def _twin_changed(self, client: object) -> None:
+        """What the twin of `client` shows may have changed: its view goes out once the event loop is through."""
+        session = self._twins.get(client)
+        if session is None or session.due:
+            return
+        session.due = True
+        asyncio.get_running_loop().call_soon(self._send_view, client, session)
+
+    def _send_view(self, client: object, session: TwinSession) -> None:
+        session.due = False
+        if self._twins.get(client) is not session or self.live is None:
+            return
+        view = session.twin.view()
+        if view is None:
+            return
+        view_steady = dataclasses.replace(view, strips=steady(view.strips))
+        if view_steady == session.last:
+            return
+        session.last = view_steady
+        self.live.tell_view(client, view)
+
+    def _reality_changed(self) -> None:
+        """
+        What is real changed (the sound server, the voice chat, a step of the slots): the snapshot tells it, and the
+        twins follow its names, and its mode and states where they show edits without Simulate.
+        """
+        self._changed()
+        if not self._twins:
+            return
+        names = self._names()
+        situation = self._situation_now()
+        for session in self._twins.values():
+            session.twin.set_names(names)
+            if session.twin.real:
+                session.twin.set_situation(situation, real=True)
+
+    async def _watch_twins(self) -> None:
+        """Ends the twins that nobody keeps (no request of their client for PREVIEW_TIMEOUT)."""
         while True:
-            await asyncio.sleep(TWIN_INTERVAL)
-            if not self._twins:
-                continue
+            await asyncio.sleep(PREVIEW_CHECK)
             now = asyncio.get_running_loop().time()
-            names = self._names()
-            situation = self._situation_now()
             for client, session in list(self._twins.items()):
                 if now - session.seen > PREVIEW_TIMEOUT:
                     self._end_twin(client, f"no word from the GUI for {PREVIEW_TIMEOUT:.0f} s")
-                    continue
-                twin = session.twin
-                twin.set_names(names)
-                if twin.real:
-                    # a twin of edits follows the mode and the states of reality
-                    twin.set_situation(situation, real=True)
-                view = session.twin.view()
-                if view is not None and view != session.last and self.live is not None:
-                    session.last = view
-                    self.live.tell_view(client, view)
 
     def _end_preview(self, reason: str, tell: bool = True) -> bool:
         """Ends the preview (the previewer is told why) without changing what runs; False when none ran."""
@@ -516,6 +549,7 @@ class Daemon(Rig):
         if tell and self.live is not None:
             self.live.tell(previewer, Reply("ended", True, reason))
         _LOGGER.info(f"The preview ended, {reason}")
+        self._changed()
         return True
 
     def _back_to_file(self, reason: str, tell: bool = True) -> None:
@@ -553,7 +587,7 @@ class Daemon(Rig):
         self._start_mixer()
         self._start_voip()
         self._in_background(self.follow(), "slots")
-        self._in_background(self._follow_twins(), "virtual twins")
+        self._in_background(self._watch_twins(), "virtual twins")
         if self.live is not None:
             # not one of the parts: the daemon works without it
             self._in_background(self.live.run(), "live view")
@@ -627,6 +661,7 @@ class Daemon(Rig):
     def _on_state(self, state: AudioState) -> None:
         was_connected = self.mixer.state.connected
         self.on_state(state)
+        self._reality_changed()
         if self.devices_seen.see(state) and self.live is not None:
             self.live.publish_known()
         if state.connected != was_connected:
@@ -644,6 +679,11 @@ class Daemon(Rig):
         if not connected and self.slot_entities is not None:
             self.slot_entities.forget()
         systemd.notify(self._status())
+
+    def _changed(self) -> None:
+        """Something the snapshot tells may have changed: the live view sends it (see `LiveServer.changed()`)."""
+        if self.live is not None:
+            self.live.changed()
 
     def _in_background(self, coroutine: Coroutine[Any, Any, None], name: str) -> None:
         task = asyncio.create_task(coroutine, name=name)

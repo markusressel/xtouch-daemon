@@ -43,8 +43,9 @@ from xtouch_daemon.live.messages import (
     TwinView,
     VoipState,
     fingerprint,
+    meter_now,
 )
-from xtouch_daemon.live.server import INTERVAL, MAX_BUFFER, LiveServer, peer_uid, strip_states
+from xtouch_daemon.live.server import MAX_BUFFER, LiveServer, peer_uid, strip_states
 from xtouch_daemon.simulator.device import METER_FALL
 from xtouch_daemon.slots.outcomes import Situation
 
@@ -64,7 +65,7 @@ async def serve(server: LiveServer) -> asyncio.Task[None]:
     for _ in range(100):
         if server.path.exists():
             # a moment without clients
-            await asyncio.sleep(2 * INTERVAL)
+            await asyncio.sleep(0.02)
             return task
         await asyncio.sleep(0.005)
     raise AssertionError("the server did not start")
@@ -93,13 +94,15 @@ def test_a_strip_is_described_as_the_device_shows_it(surface: RecordingSurface, 
         ring_mode="wrap",
         fader=0.5,
         touched=False,
-        meter=8,
+        meter=10,
+        meter_at=100.0,
     )
+    # the GUI lets the meter fall from there, to 0 and not below
+    assert meter_now(states[2], 100.0 + 2 * METER_FALL + 0.01) == 8
+    assert meter_now(states[2], 1000.0) == 0
     # nothing known yet: dark, and no fader position
     assert states[0].color == "off"
     assert states[0].fader is None
-    # the meter falls to 0, not below
-    assert strip_states(surface, 1000.0)[2].meter == 0
 
 
 async def test_the_fader_is_where_a_hand_put_it(surface: RecordingSurface):
@@ -156,6 +159,7 @@ def test_the_fingerprint_tells_configurations_apart():
 
 async def test_a_client_gets_the_state_at_once_and_then_every_change(surface: RecordingSurface, socket_dir: Path):
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    surface.on_change = server.changed
     task = await serve(server)
     assert server.path.stat().st_mode & 0o777 == 0o600
 
@@ -169,9 +173,10 @@ async def test_a_client_gets_the_state_at_once_and_then_every_change(surface: Re
     assert second is not None
     assert second.strips[0].text == ("Mic", "")
 
-    # nothing changed: nothing is sent
+    # told again what it shows already: nothing is sent
+    surface.send(protocol.lcd_text(0, 0, "Mic"))
     with pytest.raises(TimeoutError):
-        await asyncio.wait_for(reader.readline(), 3 * INTERVAL)
+        await asyncio.wait_for(reader.readline(), 0.1)
 
     writer.write(b"ignored\n")
     writer.close()
@@ -191,6 +196,7 @@ async def test_a_client_that_does_not_read_is_dropped(
     surface: RecordingSurface, socket_dir: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    surface.on_change = server.changed
     task = await serve(server)
     reader, writer = await asyncio.open_unix_connection(server.path)
     await reader.readline()
@@ -214,6 +220,7 @@ async def test_a_client_that_does_not_read_is_dropped(
 
 async def test_clients_are_closed_when_the_server_stops(surface: RecordingSurface, socket_dir: Path):
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    surface.on_change = server.changed
     task = await serve(server)
     reader, writer = await asyncio.open_unix_connection(server.path)
     await reader.readline()
@@ -399,6 +406,7 @@ async def test_requests_of_other_users_are_refused(
 
 async def test_without_a_handler_requests_are_refused(surface: RecordingSurface, socket_dir: Path):
     server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    surface.on_change = server.changed
     task = await serve(server)
     reader, writer = await asyncio.open_unix_connection(server.path)
 

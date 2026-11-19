@@ -181,7 +181,7 @@ class TwinView:
 
 - Replies: `Reply("twin", ok, message)` to `StartTwin` (the errors of the configuration as in "preview"),
   `Reply("twin_ended", True, why)` when the daemon ended it (heartbeat missed, the daemon stops).
-- The view line is `{"twin": {...}}`, sent by `LiveServer.tell_view(client, view)` every `INTERVAL` while it changes
+- The view line is `{"twin": {...}}`, sent by `LiveServer.tell_view(client, view)` whenever it changes (at first every `INTERVAL`; pushed since 2026-11-19)
   (meters and motors keep it changing, like the snapshot).
 - Feature `twin` in `FEATURES`, next to `situation`, which stays. An older daemon lacks `twin`: Simulate says it is
   too old and to restart it. Nothing else of the protocol changes.

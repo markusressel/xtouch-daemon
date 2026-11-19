@@ -5,6 +5,7 @@ requests of the clients of the same user.
 
 import asyncio
 import contextlib
+import dataclasses
 import logging
 import os
 import socket
@@ -16,18 +17,22 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.live.codec import decode_request, encode, encode_known, encode_reply, encode_twin
-from xtouch_daemon.live.messages import KnownDevices, Reply, Request, Snapshot, StripState, TwinView, VoipState
+from xtouch_daemon.live.messages import (
+    Glide,
+    KnownDevices,
+    Reply,
+    Request,
+    Snapshot,
+    StripState,
+    TwinView,
+    VoipState,
+)
+from xtouch_daemon.live.messages import steady as steady_strips
 from xtouch_daemon.voip.provider import VoipProvider
 
 _LOGGER = logging.getLogger(__name__)
 
 
-INTERVAL = 1 / 60
-"""
-How often the state is checked for changes: 60 times a second, as often as a screen shows a new picture, so the
-drawing of a fader that glides and of a meter that falls is smooth. The device itself has no rate of its own: its
-motors and LEDs follow what the daemon sends (the faders every `FADER_TICK`, the meters every `METER_INTERVAL`).
-"""
 MAX_BUFFER = 768 * 1024
 """Bytes a client may lag behind (about 300 states, 5 s) before it is dropped."""
 MAX_REQUEST = 1024 * 1024
@@ -49,6 +54,18 @@ def strip_states(surface: Surface, now: float) -> tuple[StripState, ...]:
     for index, strip in enumerate(mirror.strips):
         position, mode, _ = strip.ring
         top, bottom = mirror.text(index)
+        motion = surface.strips[index].glide
+        glide: Glide | None = None
+        if motion is not None and strip.known:
+            # from where the daemon has it, which the motor follows: the GUI draws the rest of the way
+            at, velocity, target, slow = motion
+            fader: float | None = at / protocol.FADER_MAX
+            glide = Glide(now, velocity / protocol.FADER_MAX, target / protocol.FADER_MAX, slow)
+        elif strip.known:
+            # where the motor goes: it gets there in a moment, without anything else to tell
+            fader = round((strip.target if strip.moving and not strip.touched else strip.fader) / protocol.FADER_MAX, 4)
+        else:
+            fader = None
         states.append(
             StripState(
                 color=_color_name(strip.color),
@@ -56,10 +73,13 @@ def strip_states(surface: Surface, now: float) -> tuple[StripState, ...]:
                 leds={button.name.lower(): _led_name(strip.leds[button]) for button in Button},
                 ring=position,
                 ring_mode=mode.name.lower(),
-                fader=round(strip.fader / protocol.FADER_MAX, 4) if strip.known else None,
+                fader=fader,
                 # the surface's touch: on a fader without a working sensor a move is one
                 touched=surface.strips[index].touched,
-                meter=mirror.meter(index),
+                meter=strip.meter,
+                # a dark meter has nothing to fall from: when it was set again does not matter
+                meter_at=strip.meter_at if strip.meter else None,
+                glide=glide,
             )
         )
     return tuple(states)
@@ -95,7 +115,9 @@ type RequestHandler = Callable[[object, Request], Reply | None]
 
 class LiveServer:
     """
-    Serves the snapshots of `snapshot` on the Unix socket at `path`, for as long as `run()` runs. `on_request` handles
+    Serves the snapshots of `snapshot` on the Unix socket at `path`, for as long as `run()` runs: a new one whenever
+    something changed (see `changed()`), not on a timer. What moves by itself (a meter that falls, a fader that
+    glides) is told once, and the GUI draws it moving (see `StripState`). `on_request` handles
     the requests of clients of the user the daemon runs as (without it, requests are refused), `on_close` learns of
     every client whose connection ended.
     """
@@ -114,7 +136,10 @@ class LiveServer:
         self._on_close = on_close
         self._known = known
         self.clients: set[asyncio.StreamWriter] = set()
-        self._last = b""
+        self._last: Snapshot | None = None
+        """What the clients were sent last, `steady()`: a snapshot that tells nothing else is not sent."""
+        self._due = False
+        """Whether a snapshot goes out once the event loop is through with what it does now."""
 
     async def run(self) -> None:
         """Serves until cancelled. A socket that can't be made is logged: the daemon works without the live view."""
@@ -129,10 +154,7 @@ class LiveServer:
             _LOGGER.error(f"No live view for the GUI, can't serve {self.path}: {e}")
             return
         try:
-            while True:
-                await asyncio.sleep(INTERVAL)
-                if self.clients:
-                    self._publish(encode(self._snapshot()))
+            await asyncio.Event().wait()
         finally:
             server.close()
             for client in list(self.clients):
@@ -158,10 +180,26 @@ class LiveServer:
         for client in list(self.clients):
             self._send(client, line)
 
-    def _publish(self, line: bytes) -> None:
-        if line == self._last:
+    def changed(self) -> None:
+        """
+        Something the snapshot tells may have changed: the clients get the new one once the event loop is through
+        with what it does now, so that what changes together goes out together. As often as things change, no less.
+        """
+        if not self.clients or self._due:
             return
-        self._last = line
+        self._due = True
+        asyncio.get_running_loop().call_soon(self._publish)
+
+    def _publish(self) -> None:
+        self._due = False
+        if not self.clients:
+            return
+        snapshot = self._snapshot()
+        steady = dataclasses.replace(snapshot, strips=steady_strips(snapshot.strips))
+        if steady == self._last:
+            return
+        self._last = steady
+        line = encode(snapshot)
         for client in list(self.clients):
             self._send(client, line)
 

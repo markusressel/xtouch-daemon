@@ -86,6 +86,8 @@ class MqttBridge:
         self.error: str | None = None
         """Why the last attempt to connect failed or the connection ended; None while connected and before that."""
         self.on_connection: Callable[[bool], None] = lambda connected: None
+        self.on_change: Callable[[], None] = lambda: None
+        """Called when the connection, `ready`, `error` or the entities changed: for the live view."""
         self.device = MQTTDevice(
             identifiers=[f"xtouch_daemon_{config.namespace}"],
             name=config.device_name,
@@ -163,6 +165,7 @@ class MqttBridge:
         """
         previous = self._entities
         self._entities = {entity.unique_id: (entity, default) for entity, default in entities.items()}
+        self.on_change()
         self.bind(entities)
         committed = self._committed
         if not preview:
@@ -216,9 +219,11 @@ class MqttBridge:
                     _LOGGER.info(f"Connected to the MQTT broker {self.config.host}:{self.config.port}")
                     was_connected = True
                     self.error = None
+                    self.on_change()
                     await self._follow(client)
             except aiomqtt.MqttError as e:
                 self.error = str(e)
+                self.on_change()
                 if was_connected:
                     _LOGGER.warning(f"Lost the MQTT broker ({e}), connecting again every {RECONNECT_DELAY:.0f}s")
                 was_connected = False
@@ -227,14 +232,17 @@ class MqttBridge:
                     self._client = None
                     self.ready = False
                     self.on_connection(False)
+                    self.on_change()
             await asyncio.sleep(RECONNECT_DELAY)
 
     async def _follow(self, client: MqttClient) -> None:
         self._client = client
+        self.on_change()
         await client.subscribe(self.sync_topic)
         await client.publish(self.availability_topic, ONLINE if self._available else OFFLINE, retain=True)
         await self._announce(client)
         self.on_connection(True)
+        self.on_change()
         async for message in client.messages:
             await self._handle(str(message.topic), message.payload.decode(), bool(message.retain))
 
@@ -262,6 +270,7 @@ class MqttBridge:
                 await client.subscribe(entity.state_topic)
         # the broker sends the retained states before what is published after the subscriptions
         self.ready = False
+        self.on_change()
         self._sync_token = uuid.uuid4().hex
         await client.publish(self.sync_topic, self._sync_token)
 
@@ -324,6 +333,7 @@ class MqttBridge:
             if entity.state is None and default is not None:
                 await entity._publish_state(default)  # pyright: ignore[reportPrivateUsage]
         self.ready = True
+        self.on_change()
         for entity, _ in self._entities.values():
             watcher = self._watchers.get(entity.unique_id)
             if watcher is not None:

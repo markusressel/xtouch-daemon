@@ -57,8 +57,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: the lists of Channels and States have round corners like the cards, and their selected line is a tint that
   keeps the colors of its text. The shadow at the edge of a scrolled list fades out at its ends. Scroll bars have
   round ends.
-- The drawing of the GUI updates 60 times a second (was 20, and 10 for Simulate and the preview in the GUI): meters
-  and moving faders no longer step.
+- The drawing of the GUI moves at the rate of the screen: meters fall and faders glide in the GUI itself, from what
+  the daemon told once (the level and when it was set, where a fader goes and how fast), also in Simulate and the
+  preview in the GUI. The daemon sends the live view when something changed instead of checking 20 times a second
+  (10 for the twins), so nothing runs while nothing changes. A GUI needs a daemon of this version (the live view is
+  version 2).
 - GUI: Device and Choices of an output or input channel are one list, Device. It writes `device` while its entries
   are devices alone, and `choices` once one has a label, a profile or a volume range.
 - GUI, form of a channel: it starts with what its type is (e.g. what an output channel controls); a narrow window puts

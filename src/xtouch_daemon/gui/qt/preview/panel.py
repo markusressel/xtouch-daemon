@@ -7,6 +7,7 @@ The strips are laid out and painted in logical units (see `geometry`) and scaled
 they stay sharp at any size and zoom.
 """
 
+import time
 from dataclasses import dataclass
 from math import ceil
 from typing import Protocol
@@ -44,6 +45,7 @@ from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
+from xtouch_daemon.live.messages import moving
 
 MIN_SCALE = 0.35
 """The smallest the preview gets: at about a third of its size it still shows the LEDs, faders and LCD colors."""
@@ -54,6 +56,8 @@ editor is dragged) their printed parts are the picture of before, scaled, which 
 """
 BLINK_MS = 400
 """How fast a flashing LED blinks."""
+FRAME_MS = 16
+"""How often the strips are drawn while a meter falls or a fader glides: about 60 times a second."""
 ANIMATION_MS = 160
 """How long the other strips take to make room for a dragged one: quick, but long enough to see where they go."""
 LIFT = 8
@@ -107,6 +111,13 @@ class Preview(QWidget):
         self.blinker = QTimer(self)
         self.blinker.setInterval(BLINK_MS)
         self.blinker.timeout.connect(self._blink)
+        self.now = time.monotonic()
+        """The time the strips are drawn at: the meters fall and the faders glide from what they were told."""
+        self.animator = QTimer(self)
+        """Draws the strips again every frame while something of them moves by itself."""
+        self.animator.setTimerType(Qt.TimerType.PreciseTimer)
+        self.animator.setInterval(FRAME_MS)
+        self.animator.timeout.connect(self._animate)
         self.simulating = False
         """Whether the strips show a simulation, not the device: then the panel has a frame in the accent color."""
         self.device_hand: Hand | None = None
@@ -194,12 +205,27 @@ class Preview(QWidget):
         self.selected = selected
         for view, face in zip(self.strips, strip_faces, strict=True):
             view.show_face(face, not self.playing and view.index == selected)
+        self._animate()
         flashing = any("flash" in face.state.leds.values() for face in strip_faces)
         if flashing and not self.blinker.isActive():
             self.blinker.start()
         elif not flashing:
             self.blinker.stop()
             self.blink = True
+
+    def _animate(self) -> None:
+        """
+        The strips at the time of now, where that changed what they show (a meter fell a level, a fader moved on);
+        the frames go on while something still moves.
+        """
+        self.now = time.monotonic()
+        for view in self.strips:
+            view.follow_time()
+        if any(moving(view.face.state, self.now) for view in self.strips):
+            if not self.animator.isActive():
+                self.animator.start()
+        else:
+            self.animator.stop()
 
     def _blink(self) -> None:
         self.blink = not self.blink

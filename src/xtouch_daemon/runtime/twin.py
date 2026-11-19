@@ -26,6 +26,7 @@ from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.runtime.rig import Rig
 from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Situation
+from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.world import Names, world, world_of_now
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.voip.demo import DemoProvider
@@ -178,6 +179,8 @@ class Twin(Rig):
         self.situation = situation
         self.real = real
         self.names = names or Names()
+        self.on_change: Callable[[], None] = lambda: None
+        """Called when what the twin shows may have changed (its strips, a step of its slots): its view goes out."""
         self.sound = TwinBackend(self.on_state)
         """The twin's sound server."""
         self.people = DemoProvider(())
@@ -186,6 +189,7 @@ class Twin(Rig):
             config, Surface(port=NoPort()), self.sound, self.people, capturer=pulse, clock=clock, logger=_LOGGER
         )
         self.slots.fixed = True
+        self.surface.on_change = lambda: self.on_change()
         self._apply_situation()
 
     def _new_mixer(self) -> SlotMixer:
@@ -199,6 +203,9 @@ class Twin(Rig):
             launcher=Launcher(spawn=_no_launch),
             processes=lambda: frozenset(),
         )
+
+    def _stepped(self, result: Result) -> None:
+        self.on_change()
 
     # -- the situation ----------------------------------------------------------------------------------------------
 
