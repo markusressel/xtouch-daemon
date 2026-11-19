@@ -5,6 +5,7 @@
 | [`xtouch-daemon run`](#run) | Runs the daemon in the foreground. |
 | [`xtouch-daemon check-config`](#check-config) | Validates the configuration, describes its channels and shows what the slots show when. |
 | [`xtouch-daemon init-config`](#init-config) | Writes the example configuration. |
+| [`xtouch-daemon schema`](#schema) | Prints the JSON Schema of the configuration, for editors. |
 | [`xtouch-daemon list-devices`](#list-devices) | Lists outputs, inputs, and the sound cards with their profiles. |
 | [`xtouch-daemon list-apps`](#list-apps) | Lists the applications that play, and which channel or slot takes each one. |
 | [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the device. |
@@ -87,6 +88,15 @@ xtouch-daemon init-config [PATH] [-f]
 
 Writes the example configuration with [channels, states and slots](../configuration/slots.md) to
 `~/.config/xtouch-daemon/config.toml`, or to `PATH`. An existing file stays, unless `-f` (`--force`) overwrites it.
+
+## `schema`
+
+```shell
+xtouch-daemon schema > ~/.config/xtouch-daemon/config.schema.json
+```
+
+Prints the [JSON Schema](../configuration/index.md#editors-and-ai-assistants) of the configuration of the installed
+version. Editors with a TOML language server complete the options from it and show their help.
 
 ## `list-devices`
 

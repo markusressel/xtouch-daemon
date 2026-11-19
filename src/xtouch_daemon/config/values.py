@@ -148,7 +148,9 @@ def _a_command(value: tuple[str, ...]) -> tuple[str, ...]:
     return value
 
 
-Command = Annotated[tuple[str, ...], BeforeValidator(_split_command), AfterValidator(_a_command)]
+Command = Annotated[
+    tuple[str, ...], BeforeValidator(_split_command, json_schema_input_type=str | list[str]), AfterValidator(_a_command)
+]
 """A program and its arguments, run without a shell (`launch`)."""
 
 LAUNCH_HELP = (
