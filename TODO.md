@@ -10,18 +10,6 @@ the strip and the last input. The daemon can run the same test, started from the
 or by the command, so the GUI draws its twin of the device next to it. Design:
 [`docs/development/design/interactive-test.md`](docs/development/design/interactive-test.md).
 
-## The daemon takes a changed configuration file by itself
-
-Today the daemon reloads on SIGHUP only (or when the GUI asks after a save); it watches the file (`_stamp()`) only to
-end a preview on the device. Reload on a change of the file too, so a save in an editor applies without `systemctl
---user reload`:
-
-- Wait until the file rests (~1 s): editors write in several steps.
-- Skip a reload of the same version (stamp or content), e.g. after the GUI's save, which reloads it already.
-- A file with errors is logged and the current configuration stays, as with SIGHUP. `[mqtt]`, `[device] name` and
-  `virtual` still need a restart, as the log says.
-- The docs of reloading (configuration/index.md, commands.md, first steps) say it.
-
 ## The Game strip starts at 0 %
 
 The strip of the `game` channel starts at 0 % when a game starts, even though its volume was set to something else
@@ -43,3 +31,7 @@ Is there anything we should add to either the daemon or the GUI to help AI work 
 Or is it enough that we have a config and documentation up online?
 If we can avoid implementing features for AI, that would be best, but if there is something that would add real value to a user, it is worth it.
 I was able to edit the config to my liking with AI pretty easily, but maybe there is still something to make it easier for less smart models?
+
+## Startup Sequence
+
+- I like the 

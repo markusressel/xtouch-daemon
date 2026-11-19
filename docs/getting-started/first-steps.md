@@ -108,7 +108,7 @@ A unit in `~/.config/systemd/user` overrides the one of the package; see
 
 | Task | Command |
 |---|---|
-| Apply a changed configuration | `xtouch-daemon check-config && systemctl --user reload xtouch-daemon` |
+| Apply a changed configuration | Nothing: the daemon takes the saved file. By hand: `systemctl --user reload xtouch-daemon` |
 | Restart (after changing `[mqtt]`) | `systemctl --user restart xtouch-daemon` |
 | Stop (e.g. for `xtouch-daemon test`) | `systemctl --user stop xtouch-daemon` |
 | See whether the device, sound server and broker are connected | `systemctl --user status xtouch-daemon` |

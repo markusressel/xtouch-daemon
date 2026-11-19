@@ -66,8 +66,8 @@ intended. `check-config` shows what the [presets](../configuration/presets.md) i
 not each candidate above it; `xtouch-daemon why browser` where the channel is and why not elsewhere. The GUI shows
 the same in the inspector of the slot. `xtouch-daemon check-config` shows what the slots show in each situation.
 
-**A change does not show on the device.** Reload the daemon after saving: `systemctl --user reload xtouch-daemon`. A
-file with errors is logged and the old configuration stays: run `xtouch-daemon check-config`. A changed `[mqtt]` section
+**A change does not show on the device.** The daemon takes a saved file a moment later. A file with errors is
+logged and the old configuration stays: run `xtouch-daemon check-config`. A changed `[mqtt]` section
 needs a restart. The [GUI](gui.md) tells whether the device runs the saved file.
 
 ## Home Assistant

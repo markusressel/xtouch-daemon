@@ -22,6 +22,7 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.transport import SocketPort
+from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon, device_surface
 
 
@@ -84,8 +85,10 @@ async def test_more_signals_while_stopping_do_not_cut_the_shutdown_short(
 
 
 async def test_sighup_loads_the_configuration_again(
-    config_path: Path, surface: RecordingSurface, notifications: Notifications
+    config_path: Path, surface: RecordingSurface, notifications: Notifications, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # not the watch of the file
+    monkeypatch.setattr(daemon_module, "FILE_CHECK", 3600.0)
     daemon = make(config_path, surface, FakeBackend((STATE,)))
     task = asyncio.create_task(daemon.run())
     await until(lambda: surface.strips[0].text[0] == "Speaker")
@@ -98,6 +101,40 @@ async def test_sighup_loads_the_configuration_again(
 
     states = notifications.states()
     assert states.index("RELOADING=1") < len(states) - states[::-1].index("READY=1") - 1
+
+
+async def test_a_changed_file_is_loaded_once_it_rests(
+    config_path: Path,
+    surface: RecordingSurface,
+    notifications: Notifications,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(daemon_module, "FILE_CHECK", 0.05)
+    daemon = make(config_path, surface, FakeBackend((STATE,)))
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: surface.strips[0].text[0] == "Speaker")
+
+    # saved in an editor
+    config_path.write_text(SPEAKER.replace('"Speaker"', '"Boxes"'))
+    await until(lambda: surface.strips[0].text[0] == "Boxes")
+    assert caplog.text.count("The configuration file changed, loading it") == 1
+
+    # saved by the GUI, which reloads the daemon itself: loaded once
+    config_path.write_text(SPEAKER.replace('"Speaker"', '"Desk"'))
+    daemon.reload()
+    # a file with errors: the configuration stays; a file that is gone is no change
+    config_path.write_text('[channel.x]\ntype = "loud"\n')
+    await until(lambda: "Keeping the current configuration" in caplog.text)
+    config_path.unlink()
+    await asyncio.sleep(0.3)
+    daemon.stop()
+    await task
+
+    assert surface.strips[0].text == ["", ""]
+    assert caplog.text.count("The configuration file changed, loading it") == 2
+    assert daemon.file_config == parse_config(SPEAKER.replace('"Speaker"', '"Desk"'))
 
 
 async def test_a_reload_builds_new_strips_with_the_current_state(

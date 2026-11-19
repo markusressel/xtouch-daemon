@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- The daemon takes a changed configuration file by itself, a moment after the file stopped changing, like a reload
+  (`systemctl --user reload xtouch-daemon`, which still works): a file with errors is logged and the current
+  configuration stays. A file that is gone changes nothing.
+
 ### Fixed
 
 - GUI: a change of the configuration file on disk while the window is open (an editor, a script, `init-config`) is

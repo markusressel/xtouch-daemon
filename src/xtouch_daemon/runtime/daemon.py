@@ -73,6 +73,11 @@ PREVIEW_TIMEOUT = 10.0
 """How long a preview runs without a request of its GUI (`live.KeepPreview`) before the daemon goes back to the file."""
 PREVIEW_CHECK = 1.0
 """How often a running preview checks for its GUI and whether the configuration file changed."""
+FILE_CHECK = 1.0
+"""
+How often the daemon looks at the configuration file (its time and size). A change is loaded once the file looked the
+same twice: an editor writes it in steps.
+"""
 
 
 def mqtt_state(bridge: MqttBridge) -> MqttState:
@@ -570,6 +575,22 @@ class Daemon(Rig):
                 self._back_to_file(f"no word from the GUI for {PREVIEW_TIMEOUT:.0f} s")
                 return
 
+    async def _watch_file(self) -> None:
+        """
+        Loads the configuration file once it changed and rested (see FILE_CHECK), like a reload (SIGHUP): a file
+        with errors is logged and the current configuration stays. A version that was loaded already (e.g. by the
+        GUI, which reloads after it saved) is no change, and neither is a file that is gone: the daemon keeps what
+        it runs.
+        """
+        seen = self._file_stamp
+        while True:
+            await asyncio.sleep(FILE_CHECK)
+            stamp = self._stamp()
+            if stamp is not None and stamp != self._file_stamp and stamp == seen:
+                _LOGGER.info("The configuration file changed, loading it")
+                self.reload()
+            seen = stamp
+
     # -- running --------------------------------------------------------------------------------------------------
 
     async def run(self) -> None:
@@ -588,6 +609,7 @@ class Daemon(Rig):
         self._start_voip()
         self._in_background(self.follow(), "slots")
         self._in_background(self._watch_twins(), "virtual twins")
+        self._in_background(self._watch_file(), "configuration file")
         if self.live is not None:
             # not one of the parts: the daemon works without it
             self._in_background(self.live.run(), "live view")
