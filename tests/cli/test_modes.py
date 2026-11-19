@@ -20,9 +20,9 @@ from xtouch_daemon.live.messages import Reply, Request, SetMode, SlotsState, Slo
 
 def test_check_config_shows_what_select_launches() -> None:
     (apps, auto) = strips_of(
-        '[[strip]]\ntype = "apps"\nmatch = ["mumble"]\nlabel = "VoIP"\n'
+        '[channel.s1]\ntype = "apps"\nmatch = ["mumble"]\nlabel = "VoIP"\n'
         'launch = ["mumble", "mumble://me@example.org/Gaming Night"]\n'
-        '[[strip]]\ntype = "auto"\nlaunch = "spotify"\nlaunch_when_running = true\n'
+        '[channel.s2]\ntype = "auto"\nlaunch = "spotify"\nlaunch_when_running = true\n'
     )
     assert describe_strip(apps, "voip") == (
         "'VoIP' applications mumble, select launches mumble 'mumble://me@example.org/Gaming Night' while it does "
@@ -30,8 +30,8 @@ def test_check_config_shows_what_select_launches() -> None:
     )
     assert "the next application that plays, select launches spotify also while it runs (" in describe_strip(auto, "a")
     (output, empty, other) = strips_of(
-        '[[strip]]\ntype = "output"\nmeter_point = "post_fader"\n[[strip]]\ntype = "empty"\n'
-        '[[strip]]\ntype = "voip"\nperson = "Ann"\nlabel = "Mum"\n'
+        '[channel.s1]\ntype = "output"\nmeter_point = "post_fader"\n[channel.s2]\ntype = "empty"\n'
+        '[channel.s3]\ntype = "voip"\nperson = "Ann"\nlabel = "Mum"\n'
     )
     assert describe_strip(output, "out", "post_fader") == (
         "the default output (white, meter post-fader, rec: recording, solo: off, encoder: balance)"

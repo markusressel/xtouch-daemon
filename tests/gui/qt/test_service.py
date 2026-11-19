@@ -728,7 +728,7 @@ def test_profiles_of_the_file_are_shown_and_saved_as_tables(qtbot: QtBot, window
     assert profiles.tables.values == []
 
 
-def test_tables_without_suggestions_have_no_menu(qtbot: QtBot):
+def test_tables_without_suggestions_suggest_nothing(qtbot: QtBot):
     columns = next(option for option in channel_options("output") if option.name == "profiles").columns
     tables = Tables(columns, None)
     qtbot.addWidget(tables)
@@ -754,7 +754,7 @@ def test_an_unset_number_says_what_applies(qtbot: QtBot, window: MainWindow):
     assert row(window, "min_volume").spin.text() == "default: 0"
 
 
-def test_numbers_of_tables_are_numbers(qtbot: QtBot, window: MainWindow):
+def test_a_number_of_a_table_takes_the_channels_until_it_is_set(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")
     tables: Tables = row(window, "profiles").tables
     click(qtbot, tables.add_button)

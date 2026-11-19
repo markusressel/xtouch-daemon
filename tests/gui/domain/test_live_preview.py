@@ -12,7 +12,7 @@ DAEMON = Instance(42, PATH, systemd=True)
 SNAPSHOT = Snapshot(fingerprint(CONFIG), True, sound_server=True, mqtt=None, strips=(), features=FEATURES)
 
 
-def test_trying_changes_needs_a_daemon_of_this_user_that_runs_this_file_and_knows_previews():
+def test_a_preview_needs_a_daemon_of_this_user_that_runs_this_file_and_knows_previews():
     def why(daemon: Instance | None, snapshot: Snapshot | None, owned: bool) -> str | None:
         reason = unavailable(daemon, snapshot, PATH, owned)
         return None if reason is None else reason.why

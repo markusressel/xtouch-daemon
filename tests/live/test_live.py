@@ -262,7 +262,7 @@ async def test_without_a_socket_the_daemon_runs_on(
 
 def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
     for request in (
-        StartPreview('[[strip]]\ntype = "empty"\n'),
+        StartPreview('[channel.x]\ntype = "empty"\n'),
         KeepPreview(),
         EndPreview(),
         SetMode("gaming"),

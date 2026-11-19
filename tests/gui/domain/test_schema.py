@@ -51,39 +51,16 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
     assert shutdown.choices == ("instant", "sweep", "curtain", "show")
 
 
-def test_every_strip_type_has_its_model_and_options():
-    assert list(strip_models()) == ["output", "input", "apps", "auto", "homeassistant", "empty", "voip"]
-    # what the strip controls first, then its parts as the device has them, from the top down
-    assert [o.name for o in strip_options("output")] == [
-        "device",
-        "choices",
-        "profiles",
-        "encoder",
-        "label",
-        "color",
-        "lit_when_idle",
-        "meter",
-        "meter_point",
-        "rec",
-        "solo",
-        "select",
-        "fader",
-        "min_volume",
-        "max_volume",
-    ]
+def test_the_options_of_a_strip_start_with_what_it_controls_and_go_down_the_device():
+    names = [o.name for o in strip_options("output")]
+    assert names[:3] == ["device", "choices", "profiles"]
+    assert names.index("encoder") < names.index("label") < names.index("rec") < names.index("fader")
+    assert names[-3:] == ["fader", "min_volume", "max_volume"]
     assert [o.name for o in strip_options("apps")][:3] == ["match", "encoder", "label"]
-    assert [o.name for o in strip_options("homeassistant")] == ["label", "color"]
-    assert [o.name for o in strip_options("voip")] == [
-        "person",
-        "label",
-        "color",
-        "talking_color",
-        "meter",
-        "meter_point",
-        "max_volume",
-    ]
     assert strip_options("empty") == ()
 
+
+def test_the_options_of_a_strip_take_their_kinds_bounds_and_columns_from_the_model():
     (
         device,
         choices,

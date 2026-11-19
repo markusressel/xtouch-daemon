@@ -104,7 +104,7 @@ def test_a_list_is_chips(qtbot: QtBot, window: MainWindow):
     assert chips.flow.count() == 2
 
 
-def test_a_list_without_suggestions_has_no_menu(qtbot: QtBot):
+def test_a_list_without_suggestions_suggests_nothing(qtbot: QtBot):
     chips = Chips(None)
     qtbot.addWidget(chips)
     # the input alone

@@ -24,9 +24,9 @@ ID = Identity("strip_1", "Strip 1")
 
 
 def strips_of(text: str) -> tuple[StripConfig, ...]:
-    """The strips of `[[strip]]` tables, as the configurations of channels and places are checked."""
+    """The strips of the `[channel.*]` tables of `text`, in the order of the file, each checked alone."""
     adapter = TypeAdapter[StripConfig](StripConfig)
-    return tuple(adapter.validate_python(strip) for strip in tomllib.loads(text)["strip"])
+    return tuple(adapter.validate_python(channel) for channel in tomllib.loads(text)["channel"].values())
 
 
 def build(
