@@ -58,6 +58,9 @@ def test_the_preview_shows_the_device_live(
     live_daemon.send(snapshot(window, first, device=False))
     qtbot.waitUntil(lambda: pill(window.changes_pill) == "Saved, on the device")
     assert pill(window.device_view.live_pill) == "Live · not connected"
+    # nothing to show without the device
+    assert window.device_view.preview.strips[0].face.look.detail == "The device is not connected."
+    assert window.device_view.preview.strips[0].face.state.text == ("", "")
 
     # the daemon ended: dark strips
     live_daemon.close()

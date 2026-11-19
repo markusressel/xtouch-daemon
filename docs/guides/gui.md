@@ -104,8 +104,9 @@ the selected slot and the page stay. The zoom is on top of a `QT_SCALE_FACTOR` o
 
 While the daemon runs, the drawing shows what the device shows right now ("Live", in a pill on the right of the bar of
 the window Device), read from the daemon's live view. Without a running daemon the strips are dark and the pill says "No daemon": the drawing is the device, and only the daemon drives it. Start it (`xtouch-daemon install-service --now`), or use "Try without a device", which starts a daemon with the virtual device. A
-daemon that runs while the device is not connected shows "Live · not connected": the strips show what the device will
-show once it is there.
+daemon that runs while the device is not connected shows "Live · not connected", with dark strips: the drawing is the
+device, and there is none. They light up with the startup sequence once it is there. When the daemon stops, the
+drawing shows its shutdown sequence too, until the strips are dark.
 
 With the [virtual device](../getting-started/without-a-device.md) (`run --virtual-device`), the pill says "Live · virtual
 device" once the daemon drives it, and "virtual device not running · Open it" while the daemon waits for it: a click

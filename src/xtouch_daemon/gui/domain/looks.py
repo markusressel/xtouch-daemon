@@ -1,6 +1,6 @@
 """
 How the strips look in the drawing of the device: what the running daemon shows right now (its live view), with what
-each slot shows printed under it; dark while there is no daemon to tell.
+each slot shows printed under it; dark while there is no daemon to tell, or no device.
 """
 
 from dataclasses import dataclass
@@ -50,6 +50,8 @@ DARK = StripState(
 )
 """A strip while nobody tells what it shows."""
 UNKNOWN = StripFace(StripLook("?", "", "No daemon tells what it shows.", "off", False), DARK, False)
+AWAY = StripFace(StripLook("?", "", "The device is not connected.", "off", False), DARK, False)
+"""A strip while the daemon runs without the device: nothing to show, like the device that is not there."""
 
 
 def shown(view: SlotView) -> str:
@@ -60,9 +62,14 @@ def shown(view: SlotView) -> str:
 
 
 def device_faces(snapshot: Snapshot | None) -> tuple[StripFace, ...]:
-    """The strips as the device shows them right now, with what each slot shows; dark without the daemon."""
+    """
+    The strips as the device shows them right now, with what each slot shows; dark without the daemon, and while the
+    device is not connected.
+    """
     if snapshot is None:
         return (UNKNOWN,) * protocol.STRIPS
+    if not snapshot.device:
+        return (AWAY,) * protocol.STRIPS
     return faces_of(snapshot.strips, snapshot.slots)
 
 

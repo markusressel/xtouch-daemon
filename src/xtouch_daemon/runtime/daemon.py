@@ -202,6 +202,9 @@ class Daemon(Rig):
         )
         self._background: set[asyncio.Task[None]] = set()
         self._stop = asyncio.Event()
+        self._stopping = False
+        """Whether the daemon stops: the live view still shows the shutdown sequence, but takes no more requests."""
+        self._live_task: asyncio.Task[None] | None = None
         self._mixer_task: asyncio.Task[None] | None = None
         self.surface.on_connection = self._on_connection
         self.surface.on_change = self._changed
@@ -346,6 +349,8 @@ class Daemon(Rig):
             self._changed()
 
     def _answer(self, client: object, request: Request) -> Reply | None:
+        if self._stopping:
+            return _refused(request)
         match request:
             case StartPreview(config=text, situation=situation, on_device=True):
                 return self.preview(client, text, situation)
@@ -714,8 +719,9 @@ class Daemon(Rig):
         self._in_background(self._watch_twins(), "virtual twins")
         self._in_background(self._watch_file(), "configuration file")
         if self.live is not None:
-            # not one of the parts: the daemon works without it
-            self._in_background(self.live.run(), "live view")
+            # not one of the parts: the daemon works without it. It stops last, after the shutdown sequence, which the
+            # GUI shows too
+            self._live_task = asyncio.create_task(self.live.run(), name="live view")
         if self.players is not None:
             self._in_background(self.players.run(), "media players")
         systemd.notify("READY=1", self._status())
@@ -753,6 +759,7 @@ class Daemon(Rig):
         the surface closes.
         """
         _LOGGER.info("Stopping")
+        self._stopping = True
         self.end_test("the daemon stops")
         self.surface.on_event = lambda event: None
         for client in list(self._twins):
@@ -778,6 +785,9 @@ class Daemon(Rig):
         # its end sends what is still queued and closes the device
         surface.cancel()
         await asyncio.gather(surface, return_exceptions=True)
+        if self._live_task is not None:
+            self._live_task.cancel()
+            await asyncio.gather(self._live_task, return_exceptions=True)
 
     def _start_mixer(self) -> None:
         if self._mixer_task is not None:
@@ -847,3 +857,19 @@ class Daemon(Rig):
         preview = ", previewing unsaved changes of the GUI" if self.previewing else ""
         test = ", testing the device" if self.testing else ""
         return f"STATUS={surface}, {sound}{mqtt}{preview}{test}"
+
+
+def _refused(request: Request) -> Reply | None:
+    """The answer to a request of the live view while the daemon stops: no to what would start something."""
+    why = "The daemon stops."
+    match request:
+        case StartPreview():
+            return Reply("preview", False, why)
+        case StartTest():
+            return Reply("test", False, why)
+        case SetMode():
+            return Reply("mode", False, why)
+        case SetOverride():
+            return Reply("override", False, why)
+        case _:
+            return None

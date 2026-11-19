@@ -134,7 +134,7 @@ def quick_faders(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(strip_module, "FADER_SLOW_SMOOTH_TIME", strip_module.FADER_SMOOTH_TIME)
     monkeypatch.setattr(surface_module, "SEQUENCE_STAGGER", 0.0)
     monkeypatch.setattr(surface_module, "SHOW_STAGGER", 0.0)
-    monkeypatch.setattr(surface_module, "SHOW_RING_STEP", 0.0)
+    monkeypatch.setattr(surface_module, "SHOW_STEP", 0.0)
     monkeypatch.setattr(surface_module, "TOUCH_GRACE", 0.0)
 
 

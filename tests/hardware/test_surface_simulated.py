@@ -144,3 +144,39 @@ async def test_another_device_shows_everything_the_strips_show(port: MemoryPort)
         await until(lambda: fader(other.device, 1) == HALF and not other.device.strips[1].moving)
         assert other.device.text(1)[0] == "Buds".ljust(protocol.LCD_CELL_WIDTH)
         assert other.device.strips[1].color == Color.GREEN
+
+
+async def test_the_show_runs_a_wave_over_the_faders_of_the_device_and_back_at_the_end(
+    port: MemoryPort, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "SHOW_STAGGER", 0.06)
+    monkeypatch.setattr(surface_module, "SHOW_STEP", 0.03)
+    surface = Surface(port=port)
+    surface.startup = surface.shutdown = "show"
+    surface.strips[1].set_text(0, "Buds")
+    surface.strips[1].set_fader(0.5)
+    device = port.device
+    peak = protocol.fader_value(surface_module.SHOW_FADER_PEAK)
+    task = asyncio.create_task(surface.run())
+    await until(lambda: surface.connected)
+
+    # half way through the first strip: at the top and lit white; the strips on the right still at rest
+    await asyncio.sleep(0.38)
+    assert abs(fader(device, 0) - peak) < protocol.fader_value(0.01)
+    assert device.strips[0].color == Color.WHITE
+    assert device.strips[0].ring[0] == protocol.RING_MAX
+    assert fader(device, 7) == 0
+    await surface.settled()
+    assert fader(device, 0) == 0
+    assert fader(device, 1) == HALF
+    assert device.text(1)[0] == "Buds".ljust(protocol.LCD_CELL_WIDTH)
+    assert all(device.meter(index) == 0 for index in range(protocol.STRIPS))
+
+    await surface.put_away()
+    await asyncio.sleep(0.1)
+    assert [fader(device, index) for index in range(protocol.STRIPS)] == [0] * protocol.STRIPS
+    assert all(strip.color == Color.BLACK and strip.ring[0] == 0 for strip in device.strips)
+    assert device.text(1)[0] == " " * protocol.LCD_CELL_WIDTH
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task

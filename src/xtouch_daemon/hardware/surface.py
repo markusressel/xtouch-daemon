@@ -13,7 +13,7 @@ from pathlib import Path
 from xtouch_daemon.config.values import Sequence
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
-from xtouch_daemon.hardware.strip import FADER_TICK, Strip
+from xtouch_daemon.hardware.strip import FADER_REST, FADER_TICK, Strip
 from xtouch_daemon.hardware.transport import AlsaPort, Port, Transport
 from xtouch_daemon.simulator.device import SimulatedDevice
 
@@ -30,9 +30,19 @@ Seconds between the steps of the startup and shutdown sequences (see `Surface.op
 one strip after the other for `sweep` and `show`, a pair for `curtain`.
 """
 SHOW_STAGGER = 0.06
-"""Seconds between the strips of the wave of light of `show` (see `Surface._light_up()`)."""
-SHOW_RING_STEP = 0.02
-"""Seconds per LED of a ring that fills up or drains in `show`."""
+"""Seconds between the strips of the wave of `show` (see `Surface._wave()`)."""
+SHOW_STEP = 0.03
+"""
+Seconds per step of the light of a strip in `show`: its ring lights one more LED (or one less), its meter a level, and
+every third step a button goes on (or off).
+"""
+SHOW_STEPS = protocol.RING_MAX + 1
+"""
+The steps up (and as many down) of a strip in `show`: the LEDs of the ring one after the other, then the two at its
+ends (the center bit).
+"""
+SHOW_FADER_PEAK = 0.6
+"""How high (0..1) the faders rise in the wave of `show`: once up and down, in step with the light above them."""
 
 
 TOUCH_GRACE = 0.3
@@ -54,6 +64,11 @@ Seconds after a connect in which a move of a fader without a working touch senso
 switched on, the device moves its faders down by itself. Such moves are handled like those of the other faders (see
 TOUCH_GRACE).
 """
+
+
+def _ease(fraction: float) -> float:
+    """0..1 to 0..1, slow at both ends (half a cosine): how the faders of `show` rise and fall."""
+    return (1 - math.cos(math.pi * fraction)) / 2
 
 
 def steps(sequence: Sequence, startup: bool) -> list[tuple[int, ...]]:
@@ -278,62 +293,91 @@ class Surface:
     async def put_away(self) -> None:
         """The shutdown sequence (see `shutdown`): the strips go dark and put their faders away."""
         self.end_banner()
+        show = self.shutdown == "show"
         async with asyncio.TaskGroup() as group:
             for number, step in enumerate(steps(self.shutdown, startup=False)):
                 if number:
-                    await asyncio.sleep(SHOW_STAGGER if self.shutdown == "show" else SEQUENCE_STAGGER)
+                    await asyncio.sleep(SHOW_STAGGER if show else SEQUENCE_STAGGER)
                 for index in step:
-                    if self.shutdown == "show":
-                        group.create_task(self._fade_out(self.strips[index]))
+                    if show:
+                        group.create_task(self._wave(self.strips[index], startup=False))
                     else:
                         self.strips[index].reset()
         await self.settled()
 
-    async def _fade_out(self, strip: Strip) -> None:
-        """A flash of light, then the ring drains and the strip goes dark."""
-        self._lit.add(strip.index)
-        self.send_colors()
-        strip.set_meter(protocol.METER_MAX)
-        for position in range(protocol.RING_MAX, 0, -1):
-            strip.set_ring(position, RingMode.WRAP)
-            await asyncio.sleep(SHOW_RING_STEP)
-        self._lit.discard(strip.index)
-        strip.reset()
-
     async def _reveal(self) -> None:
         """The startup sequence (see `startup`)."""
-        order = steps(self.startup, startup=True)
-        if self.startup == "show":
-            await self._light_up(order)
-        for number, step in enumerate(order):
-            if number:
-                await asyncio.sleep(SEQUENCE_STAGGER)
-            for index in step:
-                self._lit.discard(index)
-                self.strips[index].reveal()
-
-    async def _light_up(self, order: list[tuple[int, ...]]) -> None:
-        """
-        The wave of light of `show`: one strip after the other lights up white with all its buttons, its meter jumps to
-        the top (and falls by itself) and its ring fills up. The strips show what they are when the wave is through.
-        """
-
-        async def light(index: int) -> None:
-            self._lit.add(index)
-            self.send_colors()
-            self.send(protocol.meter(index, protocol.METER_MAX))
-            for button in Button:
-                self.send(protocol.led(index, button, Led.ON))
-            for position in range(1, protocol.RING_MAX + 1):
-                self.send(protocol.ring(index, position, RingMode.WRAP))
-                await asyncio.sleep(SHOW_RING_STEP)
-
+        show = self.startup == "show"
         async with asyncio.TaskGroup() as group:
-            for number, step in enumerate(order):
+            for number, step in enumerate(steps(self.startup, startup=True)):
                 if number:
-                    await asyncio.sleep(SHOW_STAGGER)
+                    await asyncio.sleep(SHOW_STAGGER if show else SEQUENCE_STAGGER)
                 for index in step:
-                    group.create_task(light(index))
+                    if show:
+                        group.create_task(self._wave(self.strips[index], startup=True))
+                    else:
+                        self.strips[index].reveal()
+
+    async def _wave(self, strip: Strip, startup: bool) -> None:
+        """
+        A strip in the wave of `show`: its LCD turns white, its ring fills up LED by LED, its meter goes up and its
+        buttons light up from the top (Rec first); then all of it goes off again the same way, the buttons from the top
+        too. Its fader rises and falls in step with that. At startup the strip then shows what it is, with the fader
+        arriving at its value; at shutdown it goes dark, with the fader at the bottom.
+        """
+        index = strip.index
+        self._gliding.discard(strip)
+        ticks_per_step = max(1, round(SHOW_STEP / FADER_TICK))
+        ticks = 2 * SHOW_STEPS * ticks_per_step
+        # after a connect the fader is where the device leaves it (see FADER_REST); at the end where the strip put it
+        start = round(FADER_REST) if startup or strip.position is None else strip.position
+        # it ends at the value of the strip (one that changes meanwhile glides on from there), at the bottom at the end
+        end = (strip.fader or 0) if startup else 0
+        peak = max(protocol.fader_value(SHOW_FADER_PEAK), start, end)
+        sent_fader = start
+        lit = [False] * len(Button)
+        self._lit.add(index)
+        self.send_colors()
+        for tick in range(ticks):
+            if tick % ticks_per_step == 0:
+                step = tick // ticks_per_step
+                self._light(index, step, lit)
+            await asyncio.sleep(FADER_TICK)
+            done = (tick + 1) / ticks
+            if done <= 0.5:
+                value = start + (peak - start) * _ease(2 * done)
+            else:
+                value = peak + (end - peak) * _ease(2 * done - 1)
+            if round(value) != sent_fader and not (strip.touched or strip.held):
+                sent_fader = round(value)
+                self.send(protocol.fader(index, sent_fader))
+        self._lit.discard(index)
+        if startup:
+            strip.reveal(sent_fader)
+        else:
+            if strip.color == Color.BLACK:
+                # reset() sends the colors only for a strip that changes its own
+                self.send_colors()
+            strip.reset()
+        strip.arrived(sent_fader)
+
+    def _light(self, index: int, step: int, lit: list[bool]) -> None:
+        """
+        Step `step` (0..2 * SHOW_STEPS - 1) of the light of a strip in `show` (see `_wave()`): up to SHOW_STEPS on the
+        way up, then down to all off. `lit`: which buttons are on, top to bottom, kept up to date.
+        """
+        up = step < SHOW_STEPS
+        level = step + 1 if up else 2 * SHOW_STEPS - 1 - step
+        self.send(protocol.ring(index, min(level, protocol.RING_MAX), RingMode.WRAP, level > protocol.RING_MAX))
+        self.send(protocol.meter(index, round(protocol.METER_MAX * level / SHOW_STEPS)))
+        spacing = SHOW_STEPS // len(Button)
+        # on the way up and down alike the top button comes first: on in the order of the steps, off too
+        down = step - SHOW_STEPS + 1
+        for number, button in enumerate(Button):
+            on = level >= number * spacing + 1 if up else down < number * spacing + 1
+            if on != lit[number]:
+                lit[number] = on
+                self.send(protocol.led(index, button, Led.ON if on else Led.OFF))
 
     # -- connection ---------------------------------------------------------------------------------------------
 
