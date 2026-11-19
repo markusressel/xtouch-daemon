@@ -671,6 +671,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#log" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Log
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-virtual-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1809,6 +1820,8 @@
       
         
       
+        
+      
     
     
     
@@ -2339,6 +2352,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/log-viewer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The log in the GUI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -2722,6 +2762,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#log" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Log
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-virtual-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2969,7 +3020,7 @@ fader, the encoder, ...) stand out from the help in the color of the text.</p>
 <p>Lists and pages that scroll cast a soft shadow at an edge where more of them is hidden, and popovers a shadow on the
 window under them.</p>
 <p>The menus have what is used now and then: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window
-Device, the dark or the light theme, the <a href="#zoom">zoom</a>) and Help (this documentation).</p>
+Device, the window <a href="#log">Log</a>, the dark or the light theme, the <a href="#zoom">zoom</a>) and Help (this documentation).</p>
 <h2 id="the-service">The service<a class="headerlink" href="#the-service" title="Permanent link">&para;</a></h2>
 <p>The pill of the service in the header tells its state ("running", "stopped", "not installed", and the worst problem
 of a connection of the daemon). A click on it opens what goes with it: the service with Install and start, Start or
@@ -3077,6 +3128,20 @@ A bar says what each control does:</p>
 <p>Play works on the drawing during the test, and so does the hosted virtual device. The slots go on meanwhile (Home
 Assistant still sees them), but show on the device only again when the test ends: a click on the button, closing the
 window, a preview "On the device", or the device going away. The footer says why it ended.</p>
+<h2 id="log">Log<a class="headerlink" href="#log" title="Permanent link">&para;</a></h2>
+<p>View → Log (Ctrl+L) opens the window <strong>Log</strong>: the log of the daemon that runs, the same records the journal or its
+terminal show, at the level the daemon runs with (<code>-l debug</code> for more). It works for the service and for a daemon
+started in a terminal or an IDE. Like the window Device, it can go to any side or be a window of its own.</p>
+<ul>
+<li><strong>Colors:</strong> warnings in yellow, errors in red, debug records in the color of hints, the time of each in it too.</li>
+<li><strong>Level:</strong> shows the records of that level and above.</li>
+<li><strong>Search:</strong> marks the text in the log, ignoring case, and counts the matches. Enter selects the next one.</li>
+<li><strong>Follow:</strong> keeps the latest records in view. Scrolling up stops it, scrolling to the end (or the button) starts it
+  again.</li>
+</ul>
+<p>The window gets the last 1000 records when it opens, then every new one, and keeps the latest 5000. When no daemon
+runs, it says so; when the daemon stops, the last records stay, and the window starts over when it is back. A daemon
+of an older version has no log for the window: restart it to run the installed version.</p>
 <h2 id="the-virtual-device">The virtual device<a class="headerlink" href="#the-virtual-device" title="Permanent link">&para;</a></h2>
 <p>While the window hosts the virtual device, Play is on (see <a href="#select-and-play">Select and Play</a>).</p>
 <p>A bar above the drawing unplugs it and plugs it in again, switches it off and on (the faders go down by themselves,
@@ -3286,6 +3351,10 @@ the focus.</p>
 <td>Slots, Channels, States, Settings</td>
 </tr>
 <tr>
+<td>Ctrl+L</td>
+<td>Open or close the window Log</td>
+</tr>
+<tr>
 <td>Del (or Backspace)</td>
 <td>Remove the candidate, channel, pool or state picked, as its button Remove does</td>
 </tr>
@@ -3334,8 +3403,8 @@ candidate goes after the one picked; channels, pools and states go at the end.</
   restart a daemon that runs elsewhere where it runs. A changed <code>[device] name</code> or <code>virtual</code> is: the daemon switches
   to that device.</li>
 <li>It then tells whether the device runs the saved file: "The device runs the saved file", or "The device does not run
-  the saved file yet". If that stays, the daemon did not take the file, and its log says why
-  (<code>journalctl --user -u xtouch-daemon</code>).</li>
+  the saved file yet". If that stays, the daemon did not take the file, and its log says why (View →
+  <a href="#log">Log</a>, or <code>journalctl --user -u xtouch-daemon</code>).</li>
 </ul>
 <p>"Revert" drops the changes and reads the file again (Undo brings them back).</p>
 <h3 id="changes-of-the-file-on-disk">Changes of the file on disk<a class="headerlink" href="#changes-of-the-file-on-disk" title="Permanent link">&para;</a></h3>

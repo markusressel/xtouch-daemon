@@ -1704,6 +1704,8 @@
       
         
       
+        
+      
     
     
     
@@ -2234,6 +2236,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/log-viewer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The log in the GUI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -2709,6 +2738,7 @@
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>systemctl<span class="w"> </span>--user<span class="w"> </span>status<span class="w"> </span>xtouch-daemon<span class="w">      </span><span class="c1"># is the device, the sound server, the broker connected?</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>journalctl<span class="w"> </span>--user<span class="w"> </span>-u<span class="w"> </span>xtouch-daemon<span class="w"> </span>-f<span class="w">      </span><span class="c1"># the log</span>
 </span></code></pre></div>
+<p>The GUI shows the same log in View → <a href="../gui/#log">Log</a>, also for a daemon started in a terminal.</p>
 <p>For more detail, stop the service and run the daemon in the foreground with <code>xtouch-daemon run -l debug</code>.</p>
 <h2 id="the-device">The device<a class="headerlink" href="#the-device" title="Permanent link">&para;</a></h2>
 <p><strong>The device shows <code>IP: 192.168.001.100 wait...</code>.</strong> It is set to its network interface and ignores USB. Switch it to
@@ -2770,7 +2800,7 @@ Arch), see <a href="../../getting-started/install/">Install</a>.</p>
 <code>systemctl --user start xtouch-daemon</code>, or run it in the foreground. The GUI edits the file without it, and "Try without a
 device" needs none.</p>
 <p><strong>"The device does not run the saved file yet" stays.</strong> The daemon did not take the file; its log says why
-(<code>journalctl --user -u xtouch-daemon</code>).</p>
+(View → Log in the GUI, or <code>journalctl --user -u xtouch-daemon</code>).</p>
 <p><strong>Next:</strong> <a href="../../reference/commands/">Commands</a>, <a href="../../reference/hardware/">Hardware and protocol</a>.</p>
 
 

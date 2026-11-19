@@ -1508,6 +1508,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#log" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Log
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#virtual-twin" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1663,6 +1674,8 @@
   
     
     
+      
+        
       
         
       
@@ -2214,6 +2227,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/log-viewer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The log in the GUI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -2553,6 +2593,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#log" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Log
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#virtual-twin" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2734,7 +2785,8 @@ that on the Unix socket <code>$XDG_RUNTIME_DIR/xtouch-daemon.sock</code> (mode 0
 <li>the <code>fingerprint()</code> of the configuration in use;</li>
 <li><code>slots</code> (<code>SlotsState</code>): the mode and the one picked by hand; per slot the candidate, channel, pool, member and
     why; per state its value, <code>since</code>, <code>source</code> and override; per pool the members that wait;</li>
-<li><code>preview</code>, <code>simulated</code> and <code>features</code> (what the daemon takes: <code>mode</code>, <code>override</code>, <code>play</code>, <code>preview</code>, <code>situation</code>, <code>twin</code>).</li>
+<li><code>preview</code>, <code>simulated</code> and <code>features</code> (what the daemon takes: <code>mode</code>, <code>override</code>, <code>play</code>, <code>preview</code>, <code>situation</code>,
+    <code>on_device</code>, <code>test</code>, <code>log</code>).</li>
 <li><strong>The devices it saw.</strong> A line of its own, <code>{"known_devices": [...]}</code> (<code>KnownDevices</code>), when a client connects (if
   there are any) and whenever they change: every output and input the sound server had, with its card, the profile
   the card was in and when it was there last (<code>runtime/device_memory.py</code>, kept in <code>devices.json</code> of the state
@@ -2779,6 +2831,7 @@ that on the Unix socket <code>$XDG_RUNTIME_DIR/xtouch-daemon.sock</code> (mode 0
 </tr>
 </tbody>
 </table>
+<p>| <code>{"request": "watch_log"}</code>, <code>{"request": "end_log"}</code> | The <a href="#log">log</a> of the daemon, for the window Log of the GUI. |</p>
 <ul>
 <li><strong>Of the user only.</strong> The daemon takes requests only from processes of its own user (<code>SO_PEERCRED</code>: root can connect
   to a socket of mode 0600), in lines of at most <code>MAX_REQUEST</code> (1 MiB): a longer one ends the connection.</li>
@@ -2788,6 +2841,24 @@ that on the Unix socket <code>$XDG_RUNTIME_DIR/xtouch-daemon.sock</code> (mode 0
 </ul>
 <p>The GUI reads the socket with a <code>QLocalSocket</code>, without a thread, and connects again while the daemon runs. Without a
 daemon it shows what the file would show, and says so.</p>
+<h2 id="log">Log<a class="headerlink" href="#log" title="Permanent link">&para;</a></h2>
+<p>The window Log of the GUI shows the log of the daemon, whether it runs as the service (the journal) or in a terminal
+(<code>live/log.py</code>). The design: <a href="../../design/log-viewer/">The log in the GUI</a>.</p>
+<ul>
+<li><strong>Kept in memory.</strong> <code>xtouch-daemon run</code> attaches a <code>LogBuffer</code> to the root logger before anything else: a
+  <code>logging.Handler</code> that keeps the latest <code>LOG_SIZE</code> (1000) records as <code>LogEntry</code> (<code>seq</code>, <code>time</code>, <code>level</code>, <code>logger</code>,
+  <code>message</code> with its traceback), the ones the terminal or the journal get, at the daemon's <code>--log-level</code>.</li>
+<li><strong>Sent while watched.</strong> <code>WatchLog</code> gets the records kept, as a line <code>{"log": [...], "backlog": true}</code>, then every
+  new one in lines <code>{"log": [...]}</code>, until <code>EndLog</code> or the end of the connection. The <code>LiveServer</code> handles both
+  requests itself, not the daemon (<code>LogRequest</code>; the daemon's are <code>DaemonRequest</code>). The GUI asks only while its window
+  Log shows, and again on a new connection; a backlog starts it over.</li>
+<li><strong>Cheap when nobody watches.</strong> A record costs its message and a place in a deque. With a watcher the buffer calls
+  <code>LiveServer._logged()</code>, which goes through <code>call_soon_threadsafe</code> (other threads log too, e.g. <code>system/launch.py</code>)
+  and sends what came since in one line per client, once the event loop gets to it. A client that falls behind is
+  dropped as for the snapshots; <code>seq</code> shows a gap if records left the buffer before they were sent.</li>
+<li><strong>Of the user only</strong>, like the requests: the log may name files, devices and people of the user. The daemon never
+  logs secrets (the MQTT password is a <code>SecretStr</code>).</li>
+</ul>
 <h2 id="virtual-twin">Virtual twin<a class="headerlink" href="#virtual-twin" title="Permanent link">&para;</a></h2>
 <p>The preview "In the GUI" runs on a twin per client (<code>runtime/twin.py</code>, <code>Daemon.preview_on_twin()</code>). <code>Twin</code> and
 <code>Daemon</code> are both a <code>Rig</code> (<code>runtime/rig.py</code>: the <code>Desk</code>, <code>SlotEngine</code> and <code>SlotMixer</code> of a configuration on one
