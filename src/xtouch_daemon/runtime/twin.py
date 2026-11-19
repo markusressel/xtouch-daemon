@@ -21,11 +21,9 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.hardware.transport import NoPort
 from xtouch_daemon.live.messages import TwinView, fingerprint
-from xtouch_daemon.live.server import strip_states, voip_state
+from xtouch_daemon.live.server import strip_states
 from xtouch_daemon.runtime.binder import SlotMixer
-from xtouch_daemon.runtime.desk import Desk, touchless
-from xtouch_daemon.runtime.follow import follow_slots
-from xtouch_daemon.runtime.slots import BATCH, PROCESS_INTERVAL, SlotEngine
+from xtouch_daemon.runtime.rig import Rig
 from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.world import Names, world
 from xtouch_daemon.system.launch import Launcher
@@ -156,10 +154,12 @@ def _no_launch(command: list[str]) -> None:
     _LOGGER.debug(f"Not launching {command}: a twin starts nothing")
 
 
-class Twin:
+class Twin(Rig):
     """
-    The strips of `config` in `situation`, with the real `names` as stand-ins first. `run()` steps the slots and plays
-    the voice chat; `view()` is what the GUI draws; `play()` puts a hand on it.
+    The strips of `config` in `situation`, with the real `names` as stand-ins first: a rig (see `runtime.rig`) on a
+    device that is never there, a sound server in memory and a made-up voice chat. `run()` steps the slots and plays
+    the voice chat; `view()` is what the GUI draws; `play()` puts a hand on it. The situation is the GUI's alone: the
+    chord, the controls and the requests of modes and overrides change nothing (see `SlotEngine.fixed`).
     """
 
     def __init__(
@@ -169,40 +169,29 @@ class Twin:
         names: Names | None = None,
         clock: Callable[[], float] = time.monotonic,
     ):
-        self.config = config
         self.situation = situation
         self.names = names or Names()
-        self._clock = clock
-        self.surface = Surface(port=NoPort())
-        self.surface.touchless = touchless(config)
-        self.backend = TwinBackend(self._audio_changed)
-        self.voip = DemoProvider(())
-        self.wake = asyncio.Event()
-        """Set when something the slots look at changed: they are resolved BATCH later."""
-        self.desk = Desk(self.surface, self._chord(config), self._on_chord, capturer=pulse)
-        self.desk.hands_free.append(self.wake.set)
-        self.engine = SlotEngine(config, logger=_LOGGER, clock=clock)
-        self.engine.on_request = self._step
-        self.mixer = self._new_mixer()
+        self.sound = TwinBackend(self.on_state)
+        """The twin's sound server."""
+        self.people = DemoProvider(())
+        """The twin's voice chat."""
+        super().__init__(
+            config, Surface(port=NoPort()), self.sound, self.people, capturer=pulse, clock=clock, logger=_LOGGER
+        )
+        self.slots.fixed = True
         self._apply_situation()
 
     def _new_mixer(self) -> SlotMixer:
-        mixer = SlotMixer(
+        return SlotMixer(
             self.surface,
             self.backend,
             self.config,
-            self.engine,
+            self.slots,
             self.desk,
             self.voip,
             launcher=Launcher(spawn=_no_launch),
             processes=lambda: frozenset(),
         )
-        mixer.on_state(self.backend.state)
-        return mixer
-
-    @staticmethod
-    def _chord(config: Config) -> frozenset[int]:
-        return frozenset(number - 1 for number in config.switching.chord)
 
     # -- the situation ----------------------------------------------------------------------------------------------
 
@@ -218,60 +207,30 @@ class Twin:
             self._apply_situation()
 
     def reconfigure(self, config: Config) -> None:
-        """Another configuration (the GUI's edit): like a reload, ids carry over."""
-        self.config = config
-        self.surface.touchless = touchless(config)
-        self.desk.chord = self._chord(config)
-        self.engine.reconfigure(config)
-        old, self.mixer = self.mixer, self._new_mixer()
-        old.close()
+        """Another configuration (the GUI's edit): like a reload, ids carry over; the situation stays."""
+        super().reconfigure(config)
         self._apply_situation()
 
     def _apply_situation(self) -> None:
         scene = self.config.slots.scene
         overrides, mode = self.situation.choices(scene)
-        engine = self.engine.simulation.engine
+        # past `fixed`: the situation is where the choices come from
+        engine = self.slots.simulation.engine
         engine.overrides = overrides
         engine.mode_pick = mode
         made = world(scene, self.situation, self.names)
-        self.backend.set_state(made.audio)
-        self.voip.set_people(made.people)
-        self.wake.set()
-
-    def _audio_changed(self, state: AudioState) -> None:
-        self.mixer.on_state(state)
-        self.wake.set()
+        self.sound.set_state(made.audio)
+        self.people.set_people(made.people)
+        self.wake_slots()
 
     # -- running ----------------------------------------------------------------------------------------------------
-
-    def _step(self) -> None:
-        """One step of the slots: the strips that changed show their controllers, the banner if the mode did."""
-        now = self._clock()
-        simulation = self.engine.simulation
-        mode = simulation.states.mode if simulation.states is not None else None
-        result = self.engine.step(self.mixer.state, frozenset(), voip_state(self.voip), self.desk.held_slots(), now)
-        states = simulation.states
-        assert states is not None
-        seconds = self.config.switching.banner
-        new_mode = mode is not None and states.mode != mode
-        self.mixer.apply(result, 0.0 if new_mode else seconds)
-        self.mixer.refresh()
-        if new_mode and seconds > 0:
-            self.surface.banner(self.engine.mode_label(states.mode), states.reasons.get(states.mode, ""), seconds)
 
     async def run(self) -> None:
         """Steps the slots and plays the voice chat and the meters until cancelled."""
         async with asyncio.TaskGroup() as group:
-            group.create_task(self.voip.run(), name="twin voice chat")
+            group.create_task(self.people.run(), name="twin voice chat")
             group.create_task(self.desk.run(), name="twin meters")
-            group.create_task(
-                follow_slots(self.wake, self.engine.deadline, self._step, PROCESS_INTERVAL, BATCH), name="twin slots"
-            )
-
-    def close(self) -> None:
-        """Stops what the twin started: the meters' signals and the strips' controllers."""
-        self.mixer.close()
-        self.desk.close()
+            group.create_task(self.follow(), name="twin slots")
 
     async def wait_closed(self) -> None:
         with contextlib.suppress(asyncio.CancelledError):
@@ -296,23 +255,11 @@ class Twin:
                 return
         self.surface.hand(data)
 
-    def _on_chord(self) -> None:
-        action = self.config.switching.chord_action
-        engine = self.engine
-        if action == "cycle_modes":
-            modes = engine.modes
-            engine.pick_mode(modes[(modes.index(engine.mode) + 1) % len(modes)])
-        elif action.startswith("mode:"):
-            engine.pick_mode(action.removeprefix("mode:"))
-        else:
-            engine.toggle(action.removeprefix("toggle:"))
-        self._step()
-
     # -- what the GUI draws -----------------------------------------------------------------------------------------
 
     def view(self) -> TwinView | None:
         """What the twin shows; None before its first step."""
-        slots = self.engine.view()
+        slots = self.slots.view()
         if slots is None:
             return None
-        return TwinView(fingerprint(self.config), strip_states(self.surface, time.monotonic()), slots)
+        return TwinView(fingerprint(self.config), strip_states(self.surface, self._clock()), slots)

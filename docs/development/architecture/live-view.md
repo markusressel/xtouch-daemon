@@ -45,13 +45,17 @@ daemon it shows what the file would show, and says so.
 
 ## Virtual twin
 
-Simulate runs on a twin per client (`runtime/twin.py`, `Daemon.start_twin()`): a `Surface(port=NoPort())`, its own
-`Desk`, `SlotEngine`, `SlotMixer`, an in-memory `TwinBackend` and a `DemoProvider` as voice chat. It is built from the
-`Config` and the real `Names` (applications, people, devices, used as stand-ins first) only, so it touches nothing real.
+Simulate runs on a twin per client (`runtime/twin.py`, `Daemon.start_twin()`). `Twin` and `Daemon` are both a `Rig`
+(`runtime/rig.py`: the `Desk`, `SlotEngine` and `SlotMixer` of a configuration on one surface, and the loop that steps
+them). The twin's rig is on a `Surface(port=NoPort())`, an in-memory `TwinBackend` and a `DemoProvider` as voice chat.
+It is built from the `Config` and the real `Names` (applications, people, devices, used as stand-ins first) only, so it
+touches nothing real. Its mode and overrides come from the situation of the GUI only: the chord, controls and requests
+change nothing on it (`SlotEngine.fixed`).
 `slots/world.py` turns a `Situation` into its sound server and people. The protocol: `StartTwin`, `KeepTwin`, `EndTwin`,
 `Play(event, twin=True)`; replies `twin` and `twin_ended`; the view goes as a separate line `{"twin": ...}` to the owning
-client only (`LiveServer.tell_view`). A twin ends with its connection or after `TWIN_TIMEOUT` (10 s) without a request;
-the GUI beats every 3 s (`gui/qt/twin.py`). The design: [Virtual twin](../design/virtual-twin.md).
+client only (`LiveServer.tell_view`). A twin ends with its connection, after `TWIN_TIMEOUT` (10 s) without a request,
+or when its task fails (the client gets `twin_ended` with the error). The GUI beats every 3 s (`gui/qt/twin.py`); a
+`KeepTwin` without a twin (e.g. to a daemon that started meanwhile) gets `twin_ended`, and the GUI asks for a new one. The design: [Virtual twin](../design/virtual-twin.md).
 
 ## Live preview
 

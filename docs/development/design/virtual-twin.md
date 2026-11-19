@@ -126,10 +126,10 @@ class Twin:
 
 It owns a `Surface(port=NoPort())`, a `Desk(surface, chord, on_chord, capturer=pulse)`, a `SlotEngine(config,
 state_dir=None, logger=...)`, a `SlotMixer(surface, TwinBackend, config, engine, desk, DemoProvider, bridge=None, players=None,
-launcher=Launcher(spawn=...))`, and a task that steps the engine like `Daemon._follow_slots` does (wake on a change
-of the world, the deadline of a delay or a dwell, every `PROCESS_INTERVAL`). The loop that both need is factored out
-of the daemon (`runtime/follow.py`, `follow_slots(wake, deadline, step)`); the step itself differs (the daemon has
-banner, entities and the real sources, the twin its world) and stays in each.
+launcher=Launcher(spawn=...))`, and a task that steps the engine like the daemon does (wake on a change of the
+world, the deadline of a delay or a dwell, every `PROCESS_INTERVAL`). As built, these parts, the loop and the step are
+one class that both are (`Rig`, `runtime/rig.py`); the daemon adds the real processes and Home Assistant to the step
+(`_processes()`, `_stepped()`), the twin its world.
 
 The twin's strips are lit by the first step: `Surface` writes every color and text into its mirror, connected or not.
 
@@ -191,12 +191,11 @@ class TwinView:
 
 ### The twin's own hands
 
-A button, fader or encoder on the twin (Play, the mouse on its drawing) goes through its own `Desk`, changes the
-twin's `AudioState` through `TwinBackend` and its slots through its `SlotEngine` (a `toggle:` control, the chord, a
-`pick` encoder). The twin's `TwinView` therefore tells states and mode that may differ from the `Situation` the GUI
-sent. The GUI follows the twin: when the twin's states or mode differ from its what-if, the bar of Simulate shows the
-twin's (`WhatIf.of_live()` exists) and does not send them back. A change of the bar sends a new `StartTwin`, which
-sets the overrides and the mode picked again, so the bar wins when it is clicked.
+A button, fader or encoder on the twin (Play, the mouse on its drawing) goes through its own `Desk` and changes the
+twin's `AudioState` through `TwinBackend`, and a `pick` encoder what a slot of `auto` shows. The mode and the states
+are the GUI's alone: the chord, a `toggle:` or `mode:` control and requests of modes and overrides change nothing on the
+twin (`SlotEngine.fixed`), so the bar of Simulate and the twin never disagree. (Planned first: the twin changes them and
+the GUI follows; dropped, two owners of the what-if.)
 
 ## The GUI
 
@@ -229,7 +228,7 @@ sets the overrides and the mode picked again, so the bar wins when it is clicked
 
 ## Implementation order
 
-1. Seams: `NoPort`, `hand()`, `Meter`/`Desk` capture, `SlotEngine` logger, `follow_slots()`.
+1. Seams: `NoPort`, `hand()`, `Meter`/`Desk` capture, `SlotEngine` logger, `Rig` (`runtime/rig.py`).
 2. `slots/world.py` and `TwinBackend`, `DemoProvider`; `Twin`, unit-tested without a daemon: a twin of the example
    configuration shows its slots; the real backend of the daemon is never called.
 3. Protocol: messages, codec, `LiveServer.tell_view`, the daemon's twins.

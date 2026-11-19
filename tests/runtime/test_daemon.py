@@ -217,7 +217,7 @@ async def test_events_of_the_surface_go_to_the_current_mixer(
     daemon = make(config_path, surface, backend)
     daemon.reload()
     daemon.mixer.on_state(STATE)
-    daemon._step_slots()
+    daemon.step()
 
     surface.on_event(ButtonPressed(0, Button.MUTE, True))
     await settle()

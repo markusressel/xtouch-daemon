@@ -86,6 +86,11 @@ class SlotEngine:
         """The what-if the GUI tries on the device (see `simulate()`), None for reality."""
         self.what_if: Simulation | None = None
         """The slots of `situation` over time, next to the real ones (`simulation`), which wait meanwhile."""
+        self.fixed = False
+        """
+        Whether the mode picked and the overrides are given from elsewhere only (a virtual twin runs the situation of
+        its GUI): the requests that change them (the chord, a control, Home Assistant) are ignored.
+        """
 
     @property
     def active(self) -> Simulation:
@@ -192,11 +197,15 @@ class SlotEngine:
 
     def pick_mode(self, mode: str | None) -> None:
         """A mode by hand (`default` too), None for the rules; from the next step on."""
+        if self.fixed:
+            return
         self.simulation.engine.pick_mode(mode)
         self._keep_choices()
 
     def set_override(self, state: str, value: Override) -> None:
         """The override of a state that is no mode; from the next step on."""
+        if self.fixed:
+            return
         self.simulation.engine.set_override(state, value)
         self._keep_choices()
 
@@ -214,7 +223,9 @@ class SlotEngine:
 
     def choose_mode(self, mode: str) -> None:
         """A mode by hand (until the rules want another one)."""
-        _LOGGER.info(f"Mode {mode} (a control)")
+        if self.fixed:
+            return
+        self.logger.info(f"Mode {mode} (a control)")
         self.pick_mode(mode)
         self.on_request()
 
@@ -223,17 +234,19 @@ class SlotEngine:
         A mode: picks it, and the next time gives the choice back to the rules. A state: overrides it to the opposite
         of its value now, and the next time gives it back to its sources.
         """
+        if self.fixed:
+            return
         engine = self.simulation.engine
         if name in self.scene.modes:
             back = engine.mode_pick == name
-            _LOGGER.info(f"Mode {'auto' if back else name} (a control)")
+            self.logger.info(f"Mode {'auto' if back else name} (a control)")
             self.pick_mode(None if back else name)
         else:
             # the real value: a situation that runs doesn't change what the override does
             states = self.simulation.states
             on = states is not None and states.values.get(name, False)
             value = Override.AUTO if name in engine.overrides else Override.OFF if on else Override.ON
-            _LOGGER.info(f"State {name}: override {value} (a control)")
+            self.logger.info(f"State {name}: override {value} (a control)")
             self.set_override(name, value)
         self.on_request()
 

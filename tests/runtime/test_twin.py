@@ -52,7 +52,7 @@ async def test_a_twin_steps_and_shows_its_strips():
         # a hand on the fader moves the twin's sound server, nothing else
         twin.play(protocol.FaderTouched(0, True))
         twin.play(protocol.FaderMoved(0, protocol.fader_value(0.25)))
-        await until(lambda: twin.backend.state.outputs[0].volume != 100)
+        await until(lambda: twin.sound.state.outputs[0].volume != 100)
         twin.play(protocol.ButtonPressed(0, protocol.Button.MUTE, True))
         twin.play(protocol.EncoderTurned(0, 1))
         twin.play(protocol.EncoderPressed(0, True))
@@ -77,9 +77,9 @@ async def test_a_twin_follows_a_new_situation_configuration_and_names():
         )
         twin.reconfigure(parse_config(CONFIG.replace('"Out"', '"Boxes"')))
         await until(lambda: (view := twin.view()) is not None and view.strips[0].text[0] == "Boxes")
-        # the chord cycles the modes
+        # the chord changes nothing: the situation is the GUI's
         twin._on_chord()
-        assert twin.engine.mode == "default"
+        assert twin.slots.mode == "gaming"
     finally:
         task.cancel()
         twin.close()
@@ -90,10 +90,10 @@ async def test_the_backend_is_in_memory_and_keeps_what_the_strips_set():
     changed = []
     backend = TwinBackend(changed.append)
     twin = Twin(parse_config(CONFIG), HOME)
-    backend.set_state(twin.backend.state)
+    backend.set_state(twin.sound.state)
     twin.close()
     twin = Twin(parse_config(CONFIG), HOME, Names(apps=("Firefox",)))
-    backend.set_state(twin.backend.state)
+    backend.set_state(twin.sound.state)
     await backend.set_device_volume(Direction.OUTPUT, DEFAULT_OUTPUT, 40)
     await backend.set_device_mute(Direction.OUTPUT, DEFAULT_OUTPUT, True)
     await backend.set_device_balance(Direction.OUTPUT, DEFAULT_OUTPUT, 0.5)
@@ -108,7 +108,7 @@ async def test_the_backend_is_in_memory_and_keeps_what_the_strips_set():
     output = backend.state.outputs[0]
     assert (output.volume, output.muted, output.balance) == (40, True, 0.5)
     # a new world keeps the volumes of what is still there
-    backend.set_state(twin.backend.state)
+    backend.set_state(twin.sound.state)
     assert backend.state.outputs[0].volume == 40
     assert backend.state.streams[0].volume == 30
     with pytest.raises(NotImplementedError):

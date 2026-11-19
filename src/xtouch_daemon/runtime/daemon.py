@@ -51,16 +51,14 @@ from xtouch_daemon.live.messages import (
 from xtouch_daemon.live.server import LiveServer, strip_states, voip_state
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.binder import SlotMixer
-from xtouch_daemon.runtime.desk import Desk, touchless
-from xtouch_daemon.runtime.follow import follow_slots
 from xtouch_daemon.runtime.homeassistant import SlotEntities
-from xtouch_daemon.runtime.slots import BATCH as SLOTS_BATCH
-from xtouch_daemon.runtime.slots import PROCESS_INTERVAL, SlotEngine
+from xtouch_daemon.runtime.rig import Rig
+from xtouch_daemon.runtime.slots import PROCESS_INTERVAL
 from xtouch_daemon.runtime.twin import Twin
 from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.recording import Observer
-from xtouch_daemon.slots.states import Override
+from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.world import Names
 from xtouch_daemon.system import instance, systemd
 from xtouch_daemon.system.processes import running_processes
@@ -78,10 +76,6 @@ TWIN_INTERVAL = 0.1
 """How often the views of the twins go to their clients (and their heartbeats are checked)."""
 PREVIEW_CHECK = 1.0
 """How often a running preview checks for its GUI and whether the configuration file changed."""
-MANUAL = "manual"
-"""The reason of a mode picked over the live view (the GUI, `xtouch-daemon mode`)."""
-CHORD = "buttons"
-"""The reason of a mode picked by the chord on the device."""
 
 
 def mqtt_state(bridge: MqttBridge) -> MqttState:
@@ -118,7 +112,12 @@ class TwinSession:
     """What the client was sent last."""
 
 
-class Daemon:
+class Daemon(Rig):
+    """
+    The rig of the device (see `runtime.rig`), with the configuration file, Home Assistant, the live view of the GUI,
+    its previews and its virtual twins.
+    """
+
     def __init__(
         self,
         config: Config,
@@ -155,32 +154,29 @@ class Daemon:
         self._watchdog: asyncio.Task[None] | None = None
         self._twins: dict[object, TwinSession] = {}
         """The virtual twins (see `runtime.twin`), by the client of the live view that asked for them."""
+        self._closing: set[asyncio.Task[None]] = set()
+        """The twins that ended and are stopping (see `_close_twin()`): the shutdown waits for them."""
         self._file_stamp = self._stamp()
-        self.backend = backend
-        self.surface = surface or device_surface(config.device.name, config.device.virtual)
-        self._configure_surface(config)
         self.bridge = bridge or (MqttBridge(config.mqtt) if config.mqtt is not None else None)
         if self.bridge is not None:
             self.bridge.on_connection = self._on_mqtt_connection
         self._voip_socket = voip_socket or instance.voip_socket_file()
-        self._slots_wake = asyncio.Event()
-        """Set when something the slots look at changed: they are resolved SLOTS_BATCH later."""
-        self.voip = self._build_voip(config)
         self._voip_task: asyncio.Task[None] | None = None
         self._device_switch: asyncio.Task[None] | None = None
         """Lets go of the device for another one (a reload with another `[device] name` or `virtual`)."""
-        self._processes = processes
-        self._state_dir = state_dir
-        self.desk = Desk(self.surface, self._chord(config), self._on_chord, capture_command)
-        """The strips of the device and the hands on them, for every mixer."""
-        self.slots = self._slot_engine(config)
-        """The states, the members and what each slot shows."""
-        self.desk.hands_free.append(self._wake_slots)
+        self._scan_processes = processes
         self._slot_processes: tuple[float, frozenset[str]] | None = None
         """When the processes were scanned for the states of the slots last, and what ran."""
         self.slot_entities: SlotEntities | None = None
         """The states, the mode, the channels and the slots in Home Assistant (with slots and [mqtt])."""
-        self.mixer = self._new_mixer()
+        super().__init__(
+            config,
+            surface or device_surface(config.device.name, config.device.virtual),
+            backend,
+            self._build_voip(config),
+            state_dir=state_dir,
+            capture_command=capture_command,
+        )
         self._background: set[asyncio.Task[None]] = set()
         self._stop = asyncio.Event()
         self._mixer_task: asyncio.Task[None] | None = None
@@ -197,7 +193,7 @@ class Daemon:
             self.slot_entities.close()
             self.slot_entities = None
         if self.bridge is not None:
-            self.slot_entities = SlotEntities(self.bridge, self.slots, self.config.slots, self._wake_slots)
+            self.slot_entities = SlotEntities(self.bridge, self.slots, self.config.slots, self.wake_slots)
             shared |= self.slot_entities.entities
         return SlotMixer(
             self.surface,
@@ -210,12 +206,11 @@ class Daemon:
             players=self.players,
             shared_entities=shared,
             preview=self.previewing,
-            processes=self._processes,
+            processes=self._scan_processes,
         )
 
     def _configure_surface(self, config: Config) -> None:
-        """The options of the [device] section that apply without a restart."""
-        self.surface.touchless = touchless(config)
+        super()._configure_surface(config)
         self.surface.startup, self.surface.shutdown = config.device.startup, config.device.shutdown
 
     # -- control --------------------------------------------------------------------------------------------------
@@ -257,28 +252,15 @@ class Daemon:
 
     def _use(self, config: Config) -> None:
         """
-        Runs `config` (the file's, or a preview while one runs): its [device] options, VoIP provider and slots, and
-        a new mixer on the same surface, sound server and broker. What the states, channels and members were carries
-        over.
+        Runs `config` (the file's, or a preview while one runs): its VoIP provider, then like `reconfigure()`, on the
+        same broker too.
         """
-        self._configure_surface(config)
-        self.desk.chord = self._chord(config)
         if config.voip != self.config.voip:
             self._replace_voip(config)
-        self.config = config
-        self.slots.reconfigure(config)
-        self._replace_mixer()
-        if self.mixer.state.connected:
-            # the slots of the new configuration right away, not dark until the next step
-            self._step_slots()
+        self.reconfigure(config)
 
     def _replace_mixer(self) -> None:
-        """A new mixer for the configuration, on the same surface, sound server and broker."""
-        state = self.mixer.state
-        self.mixer.close()
-        self.mixer = self._new_mixer()
-        # the sound server reports again only once something changes
-        self.mixer.on_state(state)
+        super()._replace_mixer()
         if self._mixer_task is not None:
             # it runs with the daemon: run() starts it otherwise
             self._start_mixer()
@@ -290,21 +272,11 @@ class Daemon:
         self.voip = self._build_voip(config)
         self._start_voip()
 
-    def _slot_engine(self, config: Config) -> SlotEngine:
-        engine = SlotEngine(config, self._state_dir)
-        # what the encoder of a slot picks shows at once
-        engine.on_request = self._step_slots
-        return engine
-
     def _build_voip(self, config: Config) -> VoipProvider:
         assert config.voip is not None, "people share the slots of auto in every configuration"
         provider = build_provider(config.voip, self._voip_socket)
-        provider.subscribe(self._wake_slots)
+        provider.subscribe(self.wake_slots)
         return provider
-
-    def _wake_slots(self) -> None:
-        """Something the slots look at changed (the audio, the voice chat, a finger let go)."""
-        self._slots_wake.set()
 
     def _start_voip(self) -> None:
         if self._mixer_task is not None:
@@ -318,80 +290,18 @@ class Daemon:
             return None
         return stat.st_mtime_ns, stat.st_size
 
-    # -- modes and overrides ---------------------------------------------------------------------------------------
+    # -- the slots of the device -------------------------------------------------------------------------------------
 
-    def request_mode(self, name: str, reason: str = MANUAL) -> Reply:
-        """
-        A mode asked for (`live.SetMode`, `mode`, the chord, Home Assistant): `default` or a mode picks it
-        (until the rules want another one), "+1" ("-1") the next (previous) one, `auto` lets the rules decide.
-        """
-        modes = self.slots.modes
-        if name in ("+1", "-1"):
-            name = modes[(modes.index(self.slots.mode) + int(name)) % len(modes)]
-        elif name != "auto" and name not in modes:
-            return Reply("mode", False, f"There is no mode {name} (auto, {', '.join(modes)})")
-        _LOGGER.info(f"Mode {name} ({reason})")
-        self.slots.pick_mode(None if name == "auto" else name)
-        self._step_slots()
-        return Reply("mode", True, self.slots.mode)
-
-    def request_override(self, name: str, value: str) -> Reply:
-        """The override of a state that is no mode (`auto`, `on`, `off`)."""
-        states = [state for state, config in self.slots.scene.states.items() if not config.mode]
-        if name not in states:
-            return Reply("override", False, f"There is no state {name} ({', '.join(states) or 'none'})")
-        if value not in Override:
-            return Reply("override", False, f"{value} is no override (auto, on, off)")
-        _LOGGER.info(f"State {name}: override {value} ({MANUAL})")
-        self.slots.set_override(name, Override(value))
-        self._step_slots()
-        return Reply("override", True, value)
-
-    @staticmethod
-    def _chord(config: Config) -> frozenset[int]:
-        """The strips (from 0) whose Solo buttons together do the action of the chord."""
-        return frozenset(number - 1 for number in config.switching.chord)
-
-    def _on_chord(self) -> None:
-        action = self.config.switching.chord_action
-        if action == "cycle_modes":
-            self.request_mode("+1", CHORD)
-        elif action.startswith("mode:"):
-            self.request_mode(action.removeprefix("mode:"), CHORD)
-        else:
-            self.slots.toggle(action.removeprefix("toggle:"))
-
-    async def _follow_slots(self) -> None:
-        """Resolves the slots, see `follow_slots()`."""
-        await follow_slots(
-            self._slots_wake,
-            self.slots.deadline,
-            self._step_slots,
-            PROCESS_INTERVAL,
-            SLOTS_BATCH,
-            lambda: self.mixer.state.connected,
-        )
-
-    def _step_slots(self) -> None:
-        """One step of the slots: the slots that changed show their new controllers, the banner if the mode did."""
-        now = time.monotonic()
+    def _processes(self, now: float) -> frozenset[str]:
+        """Scanned every PROCESS_INTERVAL at most (`/proc` is not free)."""
         if self._slot_processes is None or now - self._slot_processes[0] >= PROCESS_INTERVAL:
-            self._slot_processes = (now, self._processes())
-        mode = self.slots.mode if self.slots.active.states is not None else None
-        held = self.desk.held_slots()
-        result = self.slots.step(self.mixer.state, self._slot_processes[1], voip_state(self.voip), held, now)
-        states = self.slots.active.states
-        assert states is not None
-        seconds = self.config.switching.banner
-        new_mode = mode is not None and states.mode != mode
-        # a new mode shows its banner instead of a flash per slot
-        self.mixer.apply(result, 0.0 if new_mode else seconds)
-        self.mixer.refresh()
+            self._slot_processes = (now, self._scan_processes())
+        return self._slot_processes[1]
+
+    def _stepped(self, result: Result) -> None:
         if self.slot_entities is not None and self.slots.situation is None:
             # Home Assistant never sees a situation the GUI tries
             self.slot_entities.update(result)
-        if new_mode and seconds > 0:
-            self.surface.banner(self.slots.mode_label(states.mode), states.reasons.get(states.mode, ""), seconds)
 
     # -- the live view: the preview of the GUI, modes and overrides ---------------------------------------------------
 
@@ -408,8 +318,10 @@ class Daemon:
             case StartTwin(config=text, situation=situation):
                 return self.start_twin(client, text, situation)
             case KeepTwin():
-                if (session := self._twins.get(client)) is not None:
-                    session.seen = asyncio.get_running_loop().time()
+                if (session := self._twins.get(client)) is None:
+                    # e.g. a daemon started meanwhile: the client asks for a new twin
+                    return Reply("twin_ended", True, "no virtual twin runs for this client")
+                session.seen = asyncio.get_running_loop().time()
                 return None
             case EndTwin():
                 self._end_twin(client, None)
@@ -478,7 +390,7 @@ class Daemon:
             _LOGGER.debug("Running the previewed configuration")
             self._use(config)
         elif simulated and self.mixer.state.connected:
-            self._step_slots()
+            self.step()
         if previous is None:
             systemd.notify(self._status())
         if (config.device.name, config.device.virtual) != (
@@ -510,6 +422,7 @@ class Daemon:
         if session is None:
             twin = Twin(config, situation, self._names())
             task = asyncio.create_task(twin.run(), name="virtual twin")
+            task.add_done_callback(lambda done: self._twin_stopped(client, done))
             self._twins[client] = TwinSession(twin, task, now)
             _LOGGER.debug("A virtual twin for a client of the live view")
             return Reply("twin", True)
@@ -524,11 +437,29 @@ class Daemon:
         session = self._twins.pop(client, None)
         if session is None:
             return
-        session.task.cancel()
-        session.twin.close()
+        closing = asyncio.create_task(self._close_twin(session), name="virtual twin closing")
+        self._closing.add(closing)
+        closing.add_done_callback(self._closing.discard)
         if why is not None and self.live is not None:
             self.live.tell(client, Reply("twin_ended", True, why))
         _LOGGER.debug(f"A virtual twin ended: {why or 'the client asked, or went away'}")
+
+    @staticmethod
+    async def _close_twin(session: TwinSession) -> None:
+        """Stops a twin and waits until its meters' signals and its task ended."""
+        session.task.cancel()
+        session.twin.close()
+        await asyncio.gather(session.task, return_exceptions=True)
+        await session.twin.wait_closed()
+
+    def _twin_stopped(self, client: object, task: asyncio.Task[None]) -> None:
+        """A twin's task ended: unless it was ended, it failed, and its client is told (the view would stand still)."""
+        session = self._twins.get(client)
+        if task.cancelled() or session is None or session.task is not task:
+            return
+        error = task.exception()
+        _LOGGER.error("The virtual twin of a client of the live view stopped", exc_info=error)
+        self._end_twin(client, f"the virtual twin failed: {error}" if error else "the virtual twin stopped")
 
     async def _follow_twins(self) -> None:
         """Sends each client the view of its twin when it changed, and ends the twins that nobody keeps."""
@@ -598,7 +529,7 @@ class Daemon:
             parts.append(asyncio.create_task(self.bridge.run(), name="mqtt"))
         self._start_mixer()
         self._start_voip()
-        self._in_background(self._follow_slots(), "slots")
+        self._in_background(self.follow(), "slots")
         self._in_background(self._follow_twins(), "virtual twins")
         if self.live is not None:
             # not one of the parts: the daemon works without it
@@ -643,8 +574,7 @@ class Daemon:
         self.surface.on_event = lambda event: None
         for client in list(self._twins):
             self._end_twin(client, "the daemon stops")
-        self.mixer.close()
-        self.desk.close()
+        self.close()
         if self.bridge is not None:
             # while it is still connected: Home Assistant sees the entities unavailable right away
             await self.bridge.close()
@@ -655,6 +585,7 @@ class Daemon:
         for task in others:
             task.cancel()
         await asyncio.gather(*others, return_exceptions=True)
+        await asyncio.gather(*self._closing, return_exceptions=True)
         await self.desk.wait_closed()
 
         with contextlib.suppress(TimeoutError):
@@ -671,8 +602,7 @@ class Daemon:
 
     def _on_state(self, state: AudioState) -> None:
         was_connected = self.mixer.state.connected
-        self.mixer.on_state(state)
-        self._wake_slots()
+        self.on_state(state)
         if state.connected != was_connected:
             systemd.notify(self._status())
 

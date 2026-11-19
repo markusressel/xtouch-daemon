@@ -8,7 +8,7 @@ from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.live_view import LiveView
-from xtouch_daemon.live.messages import EndTwin, KeepTwin, Reply, StartTwin
+from xtouch_daemon.live.messages import EndTwin, KeepTwin, Reply, Snapshot, StartTwin
 from xtouch_daemon.slots.outcomes import Situation
 
 DEBOUNCE_MS = 150
@@ -40,6 +40,7 @@ class TwinSession(QObject):
         self.heartbeat.setInterval(HEARTBEAT_MS)
         self.heartbeat.timeout.connect(self._beat)
         live.replied.connect(self._replied)
+        live.changed.connect(self._live_changed)
 
     def set_situation(self, situation: Situation | None) -> None:
         """Simulate changed (None: it ended): the twin follows a moment later, or is ended."""
@@ -82,6 +83,11 @@ class TwinSession(QObject):
             self.send()
         else:
             self.live.send(KeepTwin())
+
+    def _live_changed(self, snapshot: Snapshot | None) -> None:
+        if snapshot is None:
+            # the daemon went away, and its twin with it: the next heartbeat asks the next daemon for a new one
+            self._sent = None
 
     def _replied(self, reply: Reply) -> None:
         if reply.kind == "twin":
