@@ -16,7 +16,9 @@ How the daemon works inside and why. To set up the project and run the tests, se
 |---|---|
 | [Channels, states and slots](design/slots/index.md) | Built (0.1.0) |
 | [Where the people sit](design/slots/people.md) | Built (0.1.0) |
+| [Previews, on the device or only in the GUI](design/previews.md) | Proposed, replaces the next two |
 | [Try changes and situations on the device](design/try-and-simulate.md) | Built (0.1.0) |
+| [The virtual twin](design/virtual-twin.md) | Built, not released |
 | [A simulated device](design/device-simulator.md) | Built (0.1.0) |
 | [Previews of the controls](design/control-previews.md) | Built (0.1.0) |
 | [Output choices](design/choices.md) | Built (0.1.0) |

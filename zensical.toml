@@ -75,6 +75,7 @@ nav = [
         { "Pools of your own" = "development/design/slots/pools-of-your-own.md" },
         { "In the daemon" = "development/design/slots/daemon.md" },
       ] },
+      { "Previews" = "development/design/previews.md" },
       { "Try changes and situations" = "development/design/try-and-simulate.md" },
       { "The virtual twin" = "development/design/virtual-twin.md" },
       { "A simulated device" = "development/design/device-simulator.md" },
