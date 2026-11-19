@@ -52,6 +52,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   their LED shows (Select also `press = "off"`): what a button does belongs to the channel.
 - GUI: in Play, a click on the drawing selects no strip, and the drawing looks like the device: no outline of the
   selection, the focus or the mouse, and strips nobody configured are not dimmed. The selection comes back with Select.
+- GUI: the text of number fields starts where the text of the other fields does, and the chips of a list field have
+  the same space to the edge of the field all around.
 - GUI, form of a channel: it starts with what its type is (e.g. what an output channel controls); a narrow window puts
   the name of an option above its field, and the drawing of a part above its options, so nothing is cut off.
   `choices` and `profiles` are a list of entries that open into their fields (volumes as numbers in %, the card and

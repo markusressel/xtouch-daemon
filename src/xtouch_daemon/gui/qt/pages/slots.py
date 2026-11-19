@@ -52,7 +52,7 @@ from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES, ordered
 from xtouch_daemon.gui.domain.status import Reason, Status, Tone
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, help_text, label
+from xtouch_daemon.gui.qt.fields.basics import entity_label, flat_button, help_label, help_text, indent_text, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.meter import meter_row
@@ -716,6 +716,7 @@ class SlotsPanel(Page):
             )
         for text, value, tip, counted in counts:
             count = QSpinBox()
+            indent_text(count)
             count.setRange(0, 2 * protocol.STRIPS)
             count.setValue(value)
             count.setSuffix(f" {text}")

@@ -35,6 +35,7 @@ from xtouch_daemon.gui.qt.fields.basics import (
     flat_button,
     help_label,
     help_text,
+    indent_text,
     label,
     set_help,
 )
@@ -234,6 +235,7 @@ class OptionRow(QWidget):
                 return self._text_field(option, None if isinstance(suggest, Mapping) else suggest)
             case Kind.INTEGER:
                 self.spin: QSpinBox | QDoubleSpinBox = QSpinBox(self)
+                indent_text(self.spin)
                 minimum = int(option.minimum or 0)
                 if option.default is None:
                     # one below the minimum is "not set", shown as text
@@ -246,6 +248,7 @@ class OptionRow(QWidget):
                 return self._left(self.spin)
             case Kind.NUMBER:
                 self.spin = QDoubleSpinBox(self)
+                indent_text(self.spin)
                 self.spin.setDecimals(1)
                 self.spin.setSingleStep(0.5)
                 low = option.minimum or 0

@@ -10,6 +10,7 @@ from collections.abc import Callable, Mapping
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QPainter, QPaintEvent
 from PyQt6.QtWidgets import (
+    QAbstractSpinBox,
     QLabel,
     QLayout,
     QToolButton,
@@ -21,7 +22,7 @@ from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions
 from xtouch_daemon.gui.domain.status import Status
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
-from xtouch_daemon.gui.qt.theme.tokens import Entity, Radius
+from xtouch_daemon.gui.qt.theme.tokens import Entity, Radius, Space
 
 type Suggest = Callable[[], tuple[Suggestion, ...]]
 """What the sound server has now for an option, asked for every time it is needed."""
@@ -41,6 +42,17 @@ CHIP_HEIGHT = 2 * Radius.PILL
 
 LABEL_WIDTH = 144
 """The width of the names of the options, so the fields line up (on the 8 px grid)."""
+
+
+def indent_text(spin: QAbstractSpinBox) -> QAbstractSpinBox:
+    """
+    A spin box with its text where the other fields have theirs: the style sheet's padding does not reach the line
+    edit in it, which would draw the text at the border.
+    """
+    edit = spin.lineEdit()
+    if edit is not None:
+        edit.setTextMargins(Space.S, 0, 0, 0)
+    return spin
 
 
 def label(text: str, role: str = "", wrap: bool = False) -> QLabel:
