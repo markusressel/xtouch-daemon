@@ -171,3 +171,60 @@ def test_undo(tmp_path: Path) -> None:
     assert doc.get(("channel", "out", "label")) == "Speaker"
     history.redo()
     assert doc.get(("channel", "out", "label")) == "Boxes"
+
+
+REFERENCES = """
+[channel.out]
+type = "output"
+select = { press = "toggle:call", when = "call" }
+
+[channel.mic]
+type = "input"
+
+[state.call]
+when = "present(out) and not calling"
+channels = ["out", "mic"]
+
+[pool.media]
+channels = ["out", "#out", "mic"]
+
+[switching.chord]
+action = "mode:call"
+
+[slots]
+1 = ["out if call", { show = "mic", when = "call or out_of_reach" }]
+2 = "auto"
+
+[controls]
+1 = { select = "toggle:call", rec = ["mode:call", "mode:callers"] }
+"""
+
+
+def test_a_renamed_name_is_followed_where_it_is_named(tmp_path: Path) -> None:
+    doc = document(tmp_path, REFERENCES)
+    doc.rename_references("call", "meeting")
+    doc.rename_references("out", "speaker")
+
+    assert doc.get(("slots",)) == {
+        "1": ["speaker if meeting", {"show": "mic", "when": "meeting or out_of_reach"}],
+        "2": "auto",
+    }
+    # actions and conditions of the buttons, names in lists; not a tag nor a word that only starts with it
+    assert doc.get(("controls", "1")) == {"select": "toggle:meeting", "rec": ["mode:meeting", "mode:callers"]}
+    assert doc.get(("channel", "out", "select")) == {"press": "toggle:meeting", "when": "meeting"}
+    assert doc.get(("state", "call")) == {"when": "present(speaker) and not calling", "channels": ["speaker", "mic"]}
+    assert doc.get(("pool", "media", "channels")) == ["speaker", "#out", "mic"]
+    assert doc.get(("switching", "chord", "action")) == "mode:meeting"
+
+
+def test_a_moved_slot_takes_its_candidates_and_controls_along(tmp_path: Path) -> None:
+    doc = document(tmp_path, REFERENCES)
+    doc.set(("slots", "3"), "mic")
+    doc.move_slot(1, 3)
+
+    assert doc.get(("slots",)) == {
+        "1": "auto",
+        "2": "mic",
+        "3": ["out if call", {"show": "mic", "when": "call or out_of_reach"}],
+    }
+    assert list(doc.get(("controls",))) == ["3"]
