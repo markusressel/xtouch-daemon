@@ -7,7 +7,7 @@ card.
 | Option | Default | Meaning |
 |---|---|---|
 | `type` | required | `"output"` or `"input"`. |
-| `device` | the default device | The node name (`xtouch-daemon list-devices`) or the description of the device, or a list of them; `*` is a wildcard. Without it, the strip follows whatever device is the default. |
+| `device` | the default device | The node name ([`xtouch-daemon list-devices`](../../reference/commands.md)) or the description of the device, or a list of them; `*` is a wildcard. Without it, the strip follows whatever device is the default. |
 | `label` | see [Labels](index.md#labels) | The top line of the LCD. With `profiles`, the label of the active profile comes first. |
 | `select`, `rec`, `solo` | see [Buttons](../strip/leds.md#buttons) | What the buttons do and what their LEDs show. By default Select makes the device the default (with `device` or `choices`) and Rec switches `profiles`. |
 | `choices` | none | The devices Select switches between, each maybe in a profile of its card, see [below](#choices). Instead of `device` and `profiles`. |

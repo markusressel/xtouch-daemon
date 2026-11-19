@@ -46,8 +46,8 @@ output menu, `pactl move-sink-input`) stays there. Move it back in pavucontrol, 
 **A strip shows `off`.** The device it controls is not there, e.g. Bluetooth headphones that are switched off. It
 comes back by itself. `xtouch-daemon list-devices` shows the devices that are there.
 
-**An `apps` channel shows `idle`.** No stream of its applications is there. `xtouch-daemon list-apps` shows the names
-and binaries of the applications that play, and which channel or slot takes each one.
+**An [`apps` channel](../configuration/channels/applications.md) shows `idle`.** No stream of its applications is there. `xtouch-daemon list-apps` shows the names
+and binaries of the applications that play, and which channel or [slot](../configuration/slots.md) takes each one.
 
 **Select does not start the application of `launch`.** The daemon's log says why: a program that is not in `PATH`
 (`can't launch ...`), or one that did not show up in 15 s. Nothing happens either while the strip counts it as

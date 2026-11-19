@@ -1,6 +1,6 @@
 # Behavior, device and aliases
 
-The sections that apply to the daemon and to every strip. The GUI has them on the page Settings.
+The sections that apply to the daemon and to every strip. The [GUI](../guides/gui.md) has them on the page Settings.
 
 ## `[device]`
 

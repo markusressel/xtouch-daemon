@@ -25,7 +25,7 @@ them again; the GUI remembers it):
   Delays and overrides (`delay_on`, `delay_off`, `persist`) are folded away until a state has one. Above the form:
   what the daemon says about it right now (since when, from which source), its override (a mode: picked by hand),
   and which stacks and controls use it.
-- **Settings:** `[behavior]`, `[aliases]`, `[mqtt]` (as "Home Assistant"), `[switching]` (as "Modes and chord"),
+- **Settings:** `[behavior]`, `[aliases]`, `[mqtt]` (as "[Home Assistant](home-assistant.md)"), `[switching]` (as "Modes and chord"),
   `[voip]` (as "Voice chat") and `[device]` (as "Extender": the sound card of the extender, touch sensors, start-up). "Voice chat" also tells whether Mumble is connected, lists the steps of
   its setup, and installs the [Mumble plugin](mumble.md) with "Install Mumble plugin".
 
@@ -38,7 +38,7 @@ screen); View → Device closes and opens the device (Configuration always stays
 the next start. Clicking a strip of it (or Left, Right, Home, End) shows its slot on the
 page Slots.
 
-The drawing of the device shows the encoder with its ring of 13 LEDs (Mackie Control lights the middle 11), the LCD
+The drawing of the device shows the [encoder](../configuration/strip/encoders.md) with its ring of 13 [LEDs](../configuration/strip/leds.md) (Mackie Control lights the middle 11), the LCD
 (the backlight in the strip's color shines around a dark panel and through its characters, as on the device), the
 meter next to Rec, Solo, Mute and Select, and the fader with its dB scale: the middle of the cap marks the value, -∞
 at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`). What each slot shows is printed under its LCD.
@@ -111,7 +111,7 @@ With the [virtual device](../getting-started/without-a-device.md) (`run --virtua
 device" once the daemon drives it, and "virtual device not running · Open it" while the daemon waits for it: a click
 opens it in the window (see [below](#the-virtual-device)).
 
-Next to it, a pill shows the mode the device shows ("Mode: gaming", "No mode" while no mode is on, "· by hand" when
+Next to it, a pill shows the [mode](../configuration/slots.md#states-and-modes) the device shows ("Mode: gaming", "No mode" while no mode is on, "· by hand" when
 it was picked by hand). A mode is a state with `mode = true`: one at a time is on. A click lists the states, with what
 turned each on, and picks a mode by hand ("Pick gaming", "Pick no mode", "Back to the rules").
 
@@ -124,7 +124,7 @@ it is doing and why (for Home Assistant the broker's own words and what to check
 
 A bar above the drawing of the device switches what the mouse does on it:
 
-- **Select:** a click picks a strip, and with it its slot on the page Slots. Dragging a strip moves its slot to
+- **Select:** a click picks a strip, and with it its [slot](../configuration/slots.md) on the page Slots. Dragging a strip moves its slot to
   another place: the strip lifts out of the row, the others glide aside, and a dashed place shows where it goes;
   Escape puts it back. Ctrl+Left/Right and the context menu (Move left, Move right) do the same. A slot takes its
   candidates (`[slots]`) and its controls (`[controls]`) along, the slots in between make room; Ctrl+Z moves it back.
@@ -138,7 +138,7 @@ A bar above the drawing of the device switches what the mouse does on it:
     clockwise); a click pushes it, and holding the knob still holds it down; holding on an LED of the ring turns it
     until the ring lights that LED.
 
-Play works on the virtual device the window hosts, and on the device of a running daemon: then the daemon takes what
+Play works on the [virtual device](#the-virtual-device) the window hosts, and on the device of a running daemon: then the daemon takes what
 the mouse does as if the device sent it, so the mixer acts and a motorized fader follows once it is let go. The fader
 under the mouse is drawn there at once. While the drawing shows the preview in the GUI, Play acts on the virtual twin
 in the daemon (see [Preview](#preview)). Play is off without a daemon (or with one of another user, or too old to
@@ -171,7 +171,7 @@ changes (and Simulate, which always includes them) show before they are saved, a
 redo too). The file is not written.
 
 - **In the GUI** (the default): the window shows the preview on a **virtual twin** of the device in the daemon. The
-  twin is a second, complete set of strips that drives no real sound, voice chat, Home Assistant or device. The drawing,
+  twin is a second, complete set of strips that drives no real sound, voice chat, [Home Assistant](home-assistant.md) or device. The drawing,
   the cards of the page Slots and Play show the twin, with a frame around the drawing. Without Simulate, the twin runs
   the changes in the situation of now: the mode and the states the device has, and the applications, people and
   devices there are. The device keeps running the saved file. The pill says "In the GUI, not saved".
@@ -263,8 +263,8 @@ your user: without one its button is off and says how to start it. Esc, or Simul
 
 ## Editing options
 
-The forms come from the options of the configuration, so every option has a field. The options of a channel are in
-cards in the order of the device, from top to bottom: what it controls, the encoder, the display, the buttons (Rec,
+The forms come from the options of the configuration, so every option has a field. The options of a [channel](../configuration/channels/index.md) are in
+cards in the order of the device, from top to bottom: what it controls, the [encoder](../configuration/strip/encoders.md), the display, the buttons (Rec,
 Solo and Select each with what a press does, what a hold does and what the LED shows; unset, each shows the default
 of the type), the fader and the meter, then those about slots (`tags`, `in_pool`, ...).
 

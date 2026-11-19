@@ -40,7 +40,7 @@ and mix with names of your own (`match = ["@voip", "my-voice-app"]`).
 |---|---|
 | Fader | Sets every stream of the group to the same volume. A stream that starts later gets that volume too. Shows the loudest stream. |
 | Encoder | See [Encoders](../strip/encoders.md), for all streams. |
-| Mute | Mutes all streams, or unmutes them when all are muted. The LED is on while all are muted. |
+| Mute | Mutes all streams, or unmutes them when all are muted. The [LED](../strip/leds.md) is on while all are muted. |
 | Select | Nothing, or with `launch` it starts the application. The LED flashes while it starts and is on while it runs, see [Launching the application](#launching-the-application). |
 | LCD | Top: the label. Bottom: the volume, `muted`, or `idle` while no stream of the group is there. |
 | Ring | What the encoder controls. |
@@ -130,7 +130,7 @@ launch = ["mumble", "mumble://markus@voice.example.org/Gaming"]
 
 ### Mumble
 
-Mumble connects to a server and joins a channel when it gets a `mumble://` URL
+[Mumble](../../guides/mumble.md) connects to a server and joins a channel when it gets a `mumble://` URL
 ([Mumble's documentation](https://www.mumble.info/documentation/user/mumble-url/)):
 
 ```

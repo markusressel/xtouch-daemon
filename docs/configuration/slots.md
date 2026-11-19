@@ -5,7 +5,7 @@ each strip of the device (a **slot**) has a short list of the channels it can sh
 gaming) decide which. A slot changes only when what it shows changes; the others stay as they are. The
 [design](../development/design/slots/index.md) has every detail.
 
-`xtouch-daemon init-config` writes a small example. `xtouch-daemon check-config` shows a table of what each slot
+[`xtouch-daemon init-config`](../reference/commands.md) writes a small example. `xtouch-daemon check-config` shows a table of what each slot
 shows in which states, and `xtouch-daemon why 3` why slot 3 shows what it shows now.
 
 ## Channels
@@ -63,7 +63,7 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   A control for Home Assistant, or one that starts an application (`{ launch = [...] }`), is a control of the slot, not
   a place option: [`[controls]`](#controls-and-the-chord). How to start an application with Select:
   [Launching the application](channels/applications.md#launching-the-application).
-- The GUI's page Slots simulates other modes and states (Simulate), in the drawing or on the device.
+- The [GUI](../guides/gui.md)'s page Slots simulates other modes and states (Simulate), in the drawing or on the device.
 - `xtouch-daemon why 2` says why slot 2 shows what it shows, `xtouch-daemon why voip` where the channel is and
   why.
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for

@@ -1,12 +1,12 @@
 # Encoders
 
 The fader of an audio strip sets the volume, unless it is in [Home Assistant](#fader-homeassistant). The encoder
-does what the strip's `encoder` option says, and its LED ring shows it. After a turn or a push, the second line of
+does what the strip's `encoder` option says, and its [LED](leds.md) ring shows it. After a turn or a push, the second line of
 the LCD shows the exact value for 2 seconds instead of the volume; moving the fader ends that.
 
 | `encoder` | Turn | Push | Ring | LCD |
 |---|---|---|---|---|
-| `volume` | Changes the volume by `behavior.encoder_step` per step; the fader follows. | Sets `behavior.reset_volume`. | The volume, lit from the left. | The volume. |
+| `volume` | Changes the volume by [`behavior.encoder_step`](../behavior.md) per step; the fader follows. | Sets `behavior.reset_volume`. | The volume, lit from the left. | The volume. |
 | `balance` | Moves the balance between left and right, 5 % per step. Nothing for mono devices and streams. | Centers it. | From the center to the side. | `L 15%`, `center`, `R 5%`. |
 | `pick` | Picks the application among those without a strip of their own. | Pins it. | Which of them, as a dot; pinned, lit up to there. | Which of how many (`2/5`); `pinned` or `auto`. |
 | `media` | Seeks in the track of the applications' media player, 5 s per step. | Plays or pauses. | How far the track is, lit from the left; blinking while paused, dark while stopped. | Where the track is (`1:05`); `playing` or `paused`. |

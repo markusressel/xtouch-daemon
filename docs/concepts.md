@@ -30,14 +30,14 @@ parts.
 
 ## Strips and slots
 
-The device has 8 **strips**, each with a fader, an encoder, a display (LCD), a meter and four buttons (Rec, Solo,
+The device has 8 **strips**, each with a fader, an [encoder](configuration/strip/encoders.md), a display (LCD), a meter and four buttons (Rec, Solo,
 Mute, Select). A strip is hardware. A **slot** is the entry of the configuration for one strip, numbered 1 to 8 from
 the left. A slot decides what its strip shows.
 
 ## Channels
 
 A **channel** is a thing you define in the file and give one strip: a sound device, a group of applications, a person
-of the voice chat, or a strip for Home Assistant. Its `type` says which:
+of the voice chat, or a strip for [Home Assistant](guides/home-assistant.md). Its `type` says which:
 
 | `type` | The strip controls |
 |---|---|
