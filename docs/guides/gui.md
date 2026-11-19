@@ -295,11 +295,16 @@ connects once with the settings as they are in the editor, saved or not, and say
 
 ## Suggestions from the sound server
 
-The GUI reads the sound server and suggests what it has:
+The GUI reads the sound server and suggests what it has. A click into a field opens the list, and typing narrows it
+down (by any part of a name or a description, or a pattern with `*` and `?`), with the parts that match highlighted;
+each line says what it is, where it is known from (the default, the active profile, a preset) and below it the name
+that goes into the option. Under `device`, `card` and `profile` of a choice, a line says what the value matches, e.g.
+"Matches 2: ..." for `bluez_output.*`, or "Matches nothing known" (a device can come later).
 
 | Option | Suggestions |
 |---|---|
-| `device` | The outputs or inputs by node name, with their descriptions; the default is marked. |
+| `device` | The outputs or inputs by node name, with their descriptions; the default is marked. Then the devices that another profile of their sound card would make (e.g. the digital output while the card is in its analog profile): picked for a choice, they fill in its card and profile. |
+| `card`, `profile` of a choice | The sound cards (by description, or the devices they have), and the profiles of the card of the choice. |
 | `profiles` | The profiles of the sound cards of those devices; the active one is marked. |
 | `match`, `exclude` of `[pool.apps]`, `apps` and `recording` of a state | The [presets](../configuration/presets.md) (`@browsers`, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined. |
 | `processes` of a state | The presets for processes. |

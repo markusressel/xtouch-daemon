@@ -34,10 +34,12 @@ STATE = AudioState(
 
 def test_devices_by_node_name_with_the_default_marked():
     assert devices(STATE, Direction.OUTPUT) == (
-        Suggestion("speaker", "speaker description"),
-        Suggestion("buds", "buds description (the default)"),
+        Suggestion("speaker", "speaker description", names=("speaker description",)),
+        Suggestion("buds", "buds description", origin="default", names=("buds description",)),
     )
-    assert devices(STATE, Direction.INPUT) == (Suggestion("mic", "mic description (the default)"),)
+    assert devices(STATE, Direction.INPUT) == (
+        Suggestion("mic", "mic description", origin="default", names=("mic description",)),
+    )
 
 
 def test_applications_once_each_with_their_binaries():
@@ -72,8 +74,8 @@ def test_profiles_of_the_cards_of_the_devices_with_the_active_one_marked():
         ),
     )
     assert profiles(state, Direction.OUTPUT) == (
-        Suggestion("analog", "Analog Output (active)"),
-        Suggestion("digital", "Digital Output"),
+        Suggestion("analog", "Analog Output", origin="active", names=("Analog Output",)),
+        Suggestion("digital", "Digital Output", names=("Digital Output",)),
     )
     assert profiles(state, Direction.INPUT) == ()
 
@@ -86,9 +88,18 @@ def test_cards_and_their_profiles_for_choices():
             Card("hdmi", "off"),
         ),
     )
-    assert cards(state) == (Suggestion("onboard", "HD Audio, speaker"), Suggestion("hdmi", ""))
+    assert cards(state) == (
+        Suggestion("onboard", "HD Audio", tip="speaker", names=("HD Audio",)),
+        Suggestion("hdmi", ""),
+    )
+    # without a description: by its devices
+    nameless = AudioState(outputs=(output("speaker", card="onboard"),), cards=(Card("onboard", "analog"),))
+    assert cards(nameless)[0].detail == "The card of speaker description"
     # by its description too
-    assert card_profiles(state, "HD*") == (Suggestion("analog", "Analog (active)"), Suggestion("digital", "Digital"))
+    assert card_profiles(state, "HD*") == (
+        Suggestion("analog", "Analog", origin="active", names=("Analog",)),
+        Suggestion("digital", "Digital", names=("Digital",)),
+    )
     assert card_profiles(state, "") == card_profiles(state, "gone") == ()
 
 

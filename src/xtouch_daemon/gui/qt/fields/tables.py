@@ -167,6 +167,8 @@ class Entry(QFrame):
                 None if placeholder is None else lambda text=placeholder: text,
             )
             self.rows[column.name] = option_row
+            if column.name == "device":
+                option_row.picked.connect(self._picked_device)
             if folds and column.name in FOLDED:
                 folded_layout.addWidget(option_row)
             else:
@@ -191,6 +193,17 @@ class Entry(QFrame):
             shown = any(self.value.get(name) not in (None, "") for name in FOLDED)
             self.fold.setChecked(shown)
             self._unfold(shown)
+
+    def _picked_device(self, suggestion: Suggestion) -> None:
+        """A device that is there only in another profile of its card: the entry switches the card to it first."""
+        if suggestion.card is None or suggestion.profile is None or "card" not in self.rows:
+            return
+        self.tables.put(self.index, "card", suggestion.card)
+        self.tables.put(self.index, "profile", suggestion.profile)
+        for name in FOLDED:
+            self.rows[name].load()
+        if self.fold is not None:
+            self.fold.setChecked(True)
 
     def _unfold(self, shown: bool) -> None:
         assert self.fold is not None

@@ -45,7 +45,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `choices` and `profiles` are a list of entries that open into their fields (volumes as numbers in %, the card and
   profile folded under "Switch the sound card first"), dragged into their order; the Display card shows the label of
   each. The meter is one choice (before the fader, after it, off) instead of a switch and an empty list. Remove is a
-  trash can everywhere.
+  trash can everywhere. The names of the options of a form line up in a column as wide as the longest one.
+- GUI: fields for names (devices, cards, profiles, applications, people) open their list on a click and narrow it down
+  while typing, by any part of a name or description or a pattern, with the matches highlighted; each line says what
+  it is and where it is known from. The ▾ menus next to the fields are gone. Under a device, card or profile of a
+  choice, a line says what the value matches. The devices of the profiles of a card that are not active are
+  suggested too, and picking one for a choice fills in its card and profile.
 - GUI: without a daemon the strips are dark and the pill says "No daemon", with how to start one. The drawing is only ever the device (the daemon's mirror), never a second rendering made in the GUI.
 - GUI: the encoder of a place shows its default (`default: pick`) instead of staying blank, a pool of applications of your own offers no `pick`, and the columns of the choices table fit their titles.
 - Documentation: the plugin internals and the haad controller sketch moved to Development; Troubleshooting has Voice chat and GUI; pages end with a "Next" pointer; the place options of a slot are a table.

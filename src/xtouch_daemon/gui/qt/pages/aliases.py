@@ -9,7 +9,8 @@ from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import completer, flat_button, help_label, label, suggestion_menu
+from xtouch_daemon.gui.qt.fields.basics import flat_button, help_label, label
+from xtouch_daemon.gui.qt.fields.names import completer
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, page_title, row
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.hardware import protocol
@@ -82,9 +83,8 @@ class AliasesPage(Page):
         def applications() -> tuple[sources.Suggestion, ...]:
             return sources.applications(self.audio())
 
-        completer(name_edit, applications).activated.connect(pick)
+        completer(name_edit, applications, "No application plays right now").activated.connect(pick)
         line.addWidget(name_edit, 3)
-        line.addWidget(suggestion_menu(self, applications, pick, "No application plays right now"))
         line.addWidget(alias_edit, 2)
         pair = (name_edit, alias_edit)
         remove = flat_button("delete-outline", "Remove the alias")

@@ -90,11 +90,10 @@ def test_aliases_are_edited(qtbot: QtBot, window: MainWindow):
     assert new_name.property("problem") is True
     assert page.problem.text() == "'': the name of the application is missing"
 
-    menu_button = [button for button in page.findChildren(QToolButton) if button.menu()][1]
-    menu = menu_button.menu()
-    assert menu is not None
-    menu.aboutToShow.emit()
-    menu.actions()[0].trigger()
+    completer = new_name.completer()
+    assert completer is not None
+    # the applications that play, picked from the list
+    completer.activated.emit("Brave")
     type_into(qtbot, new_alias, "Browser")
     assert window.document.get(("aliases",)) == {"WEBRTC VoiceEngine": "Discord", "Brave": "Browser"}
     type_into(qtbot, new_name, "WEBRTC VoiceEngine")

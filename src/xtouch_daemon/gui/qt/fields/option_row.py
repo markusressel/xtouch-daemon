@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 )
 
 from xtouch_daemon.config.files import Problem
+from xtouch_daemon.gui.domain import sources
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
 from xtouch_daemon.gui.qt.fields.basics import (
     LABEL_WIDTH,
@@ -29,20 +30,21 @@ from xtouch_daemon.gui.qt.fields.basics import (
     NO_SUGGESTIONS_OF,
     Suggest,
     TableSuggest,
-    completer,
     flat_button,
     help_label,
     help_text,
     label,
     set_help,
-    suggestion_menu,
 )
 from xtouch_daemon.gui.qt.fields.chips import Chips
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Switch
+from xtouch_daemon.gui.qt.fields.names import NameCompleter
 from xtouch_daemon.gui.qt.fields.tables import Tables
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
 
+MATCHED = frozenset({"device", "card", "profile"})
+"""The options whose value names something of the sound server, with what it matches under the field."""
 FIELD_WIDTH = 320
 """The least room for a field beside its name: below it, the name goes above the field."""
 NARROW_BELOW = LABEL_WIDTH + Space.S + FIELD_WIDTH
@@ -86,6 +88,8 @@ class OptionRow(QWidget):
     """
 
     edited = pyqtSignal(arguments=[])
+    picked = pyqtSignal(object, arguments=["suggestion"])
+    """A name was picked from the list of a text field: what is known of it (a `Suggestion`)."""
 
     def __init__(
         self,
@@ -129,6 +133,10 @@ class OptionRow(QWidget):
         self.meaning = help_label("", "meaning")
         self.meaning.hide()
         details.addWidget(self.meaning)
+        # what a name matches of what is known, right under its field (see `_show_matches`)
+        self.matches = label("", "help", wrap=True)
+        self.matches.hide()
+        details.addWidget(self.matches)
         help_parts = [option.help, f"Default: `{option.default_text}`." if option.default_text else ""]
         self.help = help_label(" ".join(part for part in help_parts if part), "help", link)
         if not (option.help or option.default_text or link):
@@ -279,9 +287,10 @@ class OptionRow(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(Space.XS)
         layout.addWidget(edit, 1)
+        self.completer: NameCompleter | None = None
         if suggest is not None:
-            completer(edit, suggest).activated.connect(self._pick)
-            layout.addWidget(suggestion_menu(container, suggest, self._pick, "Nothing to pick from"))
+            self.completer = NameCompleter(edit, suggest, NO_SUGGESTIONS_OF.get(option.name, NO_SUGGESTIONS))
+            self.completer.activated.connect(self._pick)
         if option.kind == Kind.SECRET:
             # hidden, also from someone looking over the shoulder; the eye shows it
             edit.setEchoMode(QLineEdit.EchoMode.Password)
@@ -310,9 +319,23 @@ class OptionRow(QWidget):
     def _pick(self, value: str) -> None:
         self.line.setText(value)
         self._edit_text(value)
+        if self.completer is not None and (suggestion := self.completer.suggestion(value)) is not None:
+            self.picked.emit(suggestion)
+
+    def _show_matches(self) -> None:
+        """Under a name: which of the known ones it matches, or that it matches none (nothing while it is empty)."""
+        value = self.line.text()
+        if self.completer is None or not value or self.option.name not in MATCHED:
+            self.matches.hide()
+            return
+        text, found = sources.matches_text(value, self.completer.suggest())
+        self.matches.setText(text)
+        set_role(self.matches, "help" if found else "warn")
+        self.matches.show()
 
     def _edit_text(self, text: str) -> None:
         self._edit(text)
+        self._show_matches()
 
     # -- showing and editing --------------------------------------------------------------------------------------
 
@@ -325,6 +348,7 @@ class OptionRow(QWidget):
             match self.option.kind:
                 case Kind.TEXT | Kind.SECRET | Kind.PATH:
                     self.line.setText(value if isinstance(value, str) else "")
+                    self._show_matches()
                     default = self._placeholder() if self._placeholder else self.option.default
                     self.line.setPlaceholderText("" if default is None else str(default))
                 case Kind.INTEGER | Kind.NUMBER:

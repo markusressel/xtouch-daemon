@@ -1,6 +1,6 @@
 # Design: the form of a channel
 
-Status: **step 1 built** (2026-11-19), the rest proposed (see Order). Builds on [Previews of the controls](control-previews.md) and [Output
+Status: **steps 1 and 2 built** (2026-11-19), the rest proposed (see Order). Builds on [Previews of the controls](control-previews.md) and [Output
 choices](choices.md).
 
 ## Problem
@@ -135,7 +135,9 @@ hold, a range) only if it turns out to be missing.
 1. Built. GUI only: the top of the form, a form that fits, the list of cards with LCDs (and the Display card stepping
    through the labels of the choices), spin boxes, unset options, trash cans, the meter as one choice (the
    configuration keeps `meter` and `meter_point`).
-2. The field for names, with what the sound server has now and the devices of the profiles.
+2. Built. The field for names, with what the sound server has now and the devices of the profiles (`fields/names.py`;
+   the matching in `domain/sources.py`). The matches line is under `device`, `card` and `profile` of a choice; the
+   lists of chips (`device` of a channel) have the list without it.
 3. Remembered devices (the daemon's state, the snapshot).
 4. The buttons (configuration, daemon, GUI): its own design, from 5.
 

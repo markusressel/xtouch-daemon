@@ -4,22 +4,19 @@ Lists of names as chips that wrap like text (`Chips`, laid out by `FlowLayout`).
 
 from collections.abc import Callable
 
-from PyQt6.QtCore import QPoint, QRect, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QRect, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLayout, QLayoutItem, QLineEdit, QWidget, QWidgetItem
 
 from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.sources import preset_tip
 from xtouch_daemon.gui.qt.fields.basics import (
     CHIP_HEIGHT,
-    MENU_TIP,
     NO_SUGGESTIONS,
-    PRESETS_MENU_TIP,
     Suggest,
-    completer,
     flat_button,
-    suggestion_menu,
     with_presets,
 )
+from xtouch_daemon.gui.qt.fields.names import NameCompleter
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import CONTROL_HEIGHT, Space
 
@@ -120,10 +117,11 @@ class Chips(QWidget):
         self.flow.addWidget(self.input)
         if presets is not None:
             suggest = with_presets(presets, suggest)
+        self.completer: NameCompleter | None = None
         if suggest is not None:
-            completer(self.input, suggest).activated.connect(self.add)
-            tip = PRESETS_MENU_TIP if presets is not None else MENU_TIP
-            self.flow.addWidget(suggestion_menu(self, suggest, self.add, nothing, tip))
+            # the list opens on a click into the field, the presets first
+            self.completer = NameCompleter(self.input, suggest, nothing)
+            self.completer.activated.connect(self.add)
 
     def show_values(self, values: list[str]) -> None:
         if values != self.values:
@@ -161,6 +159,8 @@ class Chips(QWidget):
 
     def add(self, value: str) -> None:
         self.input.clear()
+        # the completer puts the value it picked into the field after it said so
+        QTimer.singleShot(0, self.input.clear)
         if value and value not in self.values:
             self.show_values([*self.values, value])
             self.changed.emit(list(self.values))

@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
     QApplication,
     QLabel,
     QMessageBox,
-    QToolButton,
 )
 from pytestqt.qtbot import QtBot
 
@@ -667,15 +666,10 @@ def test_profiles_are_entries_of_label_and_profile(qtbot: QtBot, window: MainWin
     first = tables.entries[0]
     type_into(qtbot, first.rows["label"].line, "Analog")
     # the profiles of the card come from the sound server
-    menu_button = next(button for button in first.rows["profile"].findChildren(QToolButton) if button.menu())
-    menu = menu_button.menu()
-    assert menu is not None
-    menu.aboutToShow.emit()
-    assert [action.text() for action in menu.actions()] == [
-        "output:analog-stereo    Analog Stereo Output (active)",
-        "output:iec958-stereo    Digital Output",
-    ]
-    menu.actions()[0].trigger()
+    completer = first.rows["profile"].completer
+    assert completer is not None
+    assert [suggestion.value for suggestion in completer.fill("")] == ["output:analog-stereo", "output:iec958-stereo"]
+    completer.activated.emit("output:analog-stereo")
     assert first.rows["profile"].line.text() == "output:analog-stereo"
     # the summary says what it is
     assert first.title.text() == "Analog"
@@ -739,7 +733,7 @@ def test_tables_without_suggestions_have_no_menu(qtbot: QtBot):
     tables.show_values([{"label": "Analog"}])
     tables.open(0)
     assert tables.entries[0].rows["label"].line.text() == "Analog"
-    assert not [button for button in tables.findChildren(QToolButton) if button.menu()]
+    assert tables.entries[0].rows["profile"].completer is None
 
 
 def test_an_unset_number_says_what_applies(qtbot: QtBot, window: MainWindow):

@@ -12,6 +12,7 @@ from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.schema import Kind, Option
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.qt.fields.chips import Chips
+from xtouch_daemon.gui.qt.fields.names import SUGGESTION_ROLE, NameCompleter, suggestion_html
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
@@ -96,8 +97,8 @@ def test_a_list_is_chips(qtbot: QtBot, window: MainWindow):
     chips.remove(0)
     assert window.document.get(("channel", "browser", "match")) == ["firefox"]
     assert chips.values == ["firefox"]
-    # a chip, the input and the suggestions flow in the layout
-    assert chips.flow.count() == 3
+    # a chip and the input flow in the layout
+    assert chips.flow.count() == 2
 
 
 def test_a_list_without_suggestions_has_no_menu(qtbot: QtBot):
@@ -108,17 +109,26 @@ def test_a_list_without_suggestions_has_no_menu(qtbot: QtBot):
     assert chips.input.completer() is None
 
 
+def listed(completer: NameCompleter | None, text: str = "") -> list[str]:
+    """What the list of a completer shows for `text`."""
+    assert completer is not None
+    completer.fill(text)
+    return [str(completer.items.index(line, 0).data()) for line in range(completer.items.rowCount())]
+
+
 def test_suggestions_come_from_the_sound_server(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")
     device = row(window, "device")
-    menu_button = next(button for button in device.findChildren(QToolButton) if button.menu())
-    menu = menu_button.menu()
-    assert menu is not None
-    menu.aboutToShow.emit()
-
-    texts = [action.text() for action in menu.actions()]
-    assert texts == ["speaker    speaker description (the default)", "buds    buds description"]
-    menu.actions()[1].trigger()
+    completer = device.chips.completer
+    assert listed(completer) == ["speaker", "buds"]
+    assert completer is not None
+    # what each is, where it is known from, and the name below
+    first = completer.items.item(0)
+    assert first is not None
+    shown = suggestion_html(first.data(SUGGESTION_ROLE), "")
+    assert "speaker description" in shown
+    assert "· default" in shown
+    completer.activated.emit("buds")
 
     # added to the one of the file, which stood alone
     assert window.document.get(("channel", "out", "device")) == ["speaker", "buds"]
@@ -128,35 +138,28 @@ def test_suggestions_come_from_the_sound_server(qtbot: QtBot, window: MainWindow
 def test_an_empty_suggestion_list_says_so(make_window: MakeWindow):
     window = make_window(lambda: AudioState())
     show_channel(window, "out")
-    menu_button = next(button for button in row(window, "device").findChildren(QToolButton) if button.menu())
-    menu = menu_button.menu()
-    assert menu is not None
-    menu.aboutToShow.emit()
-
-    (action,) = menu.actions()
-    assert action.text() == "The sound server has none right now"
-    assert not action.isEnabled()
+    completer = row(window, "device").chips.completer
+    assert listed(completer) == ["The sound server has none right now"]
+    assert completer is not None
+    item = completer.items.item(0)
+    assert item is not None
+    assert not item.isEnabled()
+    assert listed(completer, "x") == ["Nothing known matches 'x'"]
 
 
 def test_a_list_of_applications_suggests_presets_first(window: MainWindow):
     show_channel(window, "browser")
     match = row(window, "match")
-    menu_button = next(button for button in match.findChildren(QToolButton) if button.menu())
-    assert menu_button.toolTip() == "Pick a preset, or from what the sound server has now"
-    menu = menu_button.menu()
-    assert menu is not None
-    menu.aboutToShow.emit()
-
-    actions = menu.actions()
-    assert [action.text() for action in actions if action.isSeparator()] == ["Presets", "Names"]
-    browsers = next(action for action in actions if action.text().startswith("@browsers"))
-    assert browsers.text() == "@browsers    Web browsers"
+    completer = match.chips.completer
+    shown = listed(completer)
+    assert shown[0].startswith("@")
+    assert "brave" in shown
+    assert completer is not None
+    browsers = completer.items.item(shown.index("@browsers"))
+    assert browsers is not None
     assert browsers.toolTip().startswith("Web browsers: firefox, librewolf, ")
-    named = actions[[action.text() for action in actions].index("Names") + 1]
-    # a name of the sound server: the tip is the text
-    assert named.toolTip() == named.text()
 
-    browsers.trigger()
+    completer.activated.emit("@browsers")
     assert window.document.get(("channel", "browser", "match")) == ["brave", "@browsers"]
     chip = match.chips.chips[1]
     assert chip.property("variant") == "preset"
@@ -188,10 +191,12 @@ def test_typing_completes_from_the_sound_server(qtbot: QtBot, window: MainWindow
     assert device.chips.input.placeholderText() == "Add… (none: the default output)"
 
     type_into(qtbot, device.chips.input, "bu")
-    completer = device.chips.input.completer()
-    assert completer is not None
-    assert completer.model().stringList() == ["speaker", "buds"]  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+    # narrowed down to what has the text, by name or description
+    assert listed(device.chips.completer, "bu") == ["buds"]
+    assert listed(device.chips.completer, "*des*") == ["speaker", "buds"]
 
+    completer = device.chips.completer
+    assert completer is not None
     completer.activated.emit("buds")
     assert window.document.get(("channel", "out", "device")) == ["buds"]
 
@@ -199,14 +204,19 @@ def test_typing_completes_from_the_sound_server(qtbot: QtBot, window: MainWindow
 def test_a_text_can_be_picked_from_suggestions(qtbot: QtBot):
     put: list[object] = []
     text = OptionRow(
-        Option("name", Kind.TEXT, "", None, False), lambda: 3, put.append, lambda: (Suggestion("ann", "Ann"),)
+        Option("device", Kind.TEXT, "", None, False), lambda: 3, put.append, lambda: (Suggestion("ann", "Ann"),)
     )
     qtbot.addWidget(text)
     # a value that is no text shows none
     assert text.line.text() == ""
-    menu_button = next(button for button in text.findChildren(QToolButton) if button.menu())
-    menu = menu_button.menu()
-    assert menu is not None
-    menu.aboutToShow.emit()
-    menu.actions()[0].trigger()
+    picked: list[Suggestion] = []
+    text.picked.connect(picked.append)
+    assert text.completer is not None
+    text.completer.activated.emit("ann")
     assert put == ["ann"]
+    assert picked == [Suggestion("ann", "Ann")]
+    # what it matches, under the field
+    assert text.matches.text() == "Matches Ann"
+    type_into(qtbot, text.line, "bob")
+    assert text.matches.text() == "Matches nothing known: it may come later"
+    assert text.matches.property("role") == "warn"

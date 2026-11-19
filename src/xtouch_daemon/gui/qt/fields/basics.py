@@ -7,14 +7,11 @@ import html
 import re
 from collections.abc import Callable, Mapping
 
-from PyQt6.QtCore import QSize, QStringListModel, Qt
-from PyQt6.QtGui import QAction, QPainter, QPaintEvent
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QPainter, QPaintEvent
 from PyQt6.QtWidgets import (
-    QCompleter,
     QLabel,
     QLayout,
-    QLineEdit,
-    QMenu,
     QToolButton,
     QWidget,
 )
@@ -225,61 +222,6 @@ def flat_button(icon: str, tip: str, parent: QWidget | None = None) -> QToolButt
     button.setToolTip(tip)
     button.setAutoRaise(True)
     set_role(button, "flat", "variant")
-    return button
-
-
-def completer(edit: QLineEdit, suggest: Suggest) -> QCompleter:
-    """Completes what the sound server has, by any part of it."""
-    model = QStringListModel(edit)
-    result = QCompleter(model, edit)
-    result.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-    result.setFilterMode(Qt.MatchFlag.MatchContains)
-    edit.setCompleter(result)
-    edit.textEdited.connect(lambda _: model.setStringList([suggestion.value for suggestion in suggest()]))
-    return result
-
-
-MENU_TIP = "Pick from what the sound server has now"
-PRESETS_MENU_TIP = "Pick a preset, or from what the sound server has now"
-
-
-def suggestion_menu(
-    parent: QWidget,
-    suggest: Suggest,
-    pick: Callable[[str], None],
-    empty: str,
-    tip: str = MENU_TIP,
-) -> QToolButton:
-    """
-    A button with a menu of what the sound server has now; picking one calls `pick` with its value. Presets come
-    first, under a heading of their own, with what they stand for as their tooltips.
-    """
-    button = flat_button("menu-down", tip, parent)
-    button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-    menu = QMenu(button)
-    menu.setToolTipsVisible(True)
-    button.setMenu(menu)
-
-    def fill() -> None:
-        menu.clear()
-        suggestions = suggest()
-        if not suggestions:
-            action = QAction(empty, menu)
-            action.setEnabled(False)
-            menu.addAction(action)
-        named = [suggestion for suggestion in suggestions if suggestion.preset]
-        others = [suggestion for suggestion in suggestions if not suggestion.preset]
-        for heading, group in (("Presets", named), ("Names", others)):
-            if named and group:
-                menu.addSection(heading)
-            for suggestion in group:
-                text = f"{suggestion.value}    {suggestion.detail}" if suggestion.detail else suggestion.value
-                action = QAction(text, menu)
-                action.setToolTip(suggestion.tip or text)
-                action.triggered.connect(lambda _=False, value=suggestion.value: pick(value))
-                menu.addAction(action)
-
-    menu.aboutToShow.connect(fill)
     return button
 
 

@@ -25,7 +25,7 @@ xtouch-daemon list-devices    # outputs and inputs: the names to use as `device`
 xtouch-daemon list-apps       # what plays now, and which preset (@browsers, @games, ...) it belongs to
 ```
 
-The GUI offers the same lists wherever a field asks for a device or an application (the ▾ next to the field). Play
+The GUI offers the same lists wherever a field asks for a device or an application (a click into the field opens them). Play
 something in the browser first, so that `list-apps` has an application to show.
 
 ## 2. The main output

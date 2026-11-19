@@ -304,6 +304,7 @@ QLabel[role="hint"] {{ color: {c.text_muted}; }}
 QLabel[role="help"] {{ color: {c.text_muted}; font-size: {size(TypeScale.CAPTION)}; }}
 QLabel[role="meaning"] {{ font-size: {size(TypeScale.CAPTION)}; }}
 QLabel[role="error"] {{ color: {c.error}; }}
+QLabel[role="warn"] {{ color: {c.tone_warn}; font-size: {size(TypeScale.CAPTION)}; }}
 QLabel[role="live"] {{ color: {c.tone_good}; }}
 QLabel[role="pill"] {{ border-radius: {Radius.PILL - 2}px; padding: 3px {Space.M - 2}px; font-weight: 600; }}
 QLabel[role="pill"][tone="good"] {{ background: {tint(c.success)}; color: {c.tone_good}; }}
