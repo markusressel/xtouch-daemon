@@ -745,6 +745,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Save and apply">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changes-of-the-file-on-disk" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Changes of the file on disk
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2768,6 +2785,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Save and apply">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changes-of-the-file-on-disk" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Changes of the file on disk
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -3244,6 +3278,18 @@ candidate goes after the one picked; channels, pools and states go at the end.</
   (<code>journalctl --user -u xtouch-daemon</code>).</li>
 </ul>
 <p>"Revert" drops the changes and reads the file again (Undo brings them back).</p>
+<h3 id="changes-of-the-file-on-disk">Changes of the file on disk<a class="headerlink" href="#changes-of-the-file-on-disk" title="Permanent link">&para;</a></h3>
+<p>The window notices when something else changes the file while it is open: an editor, a script, <code>init-config</code>.</p>
+<ul>
+<li>Without unsaved changes it reads the file again. The page and the strip that were picked stay. Undo goes back to
+  the version before, as changes to save.</li>
+<li>With unsaved changes a bar above the page asks. <strong>Reload</strong> reads the file and drops the changes (Undo brings them
+  back). <strong>Keep mine</strong> goes on with them, and the next save overwrites the file.</li>
+<li>A file that can't be read (e.g. a TOML error) leaves the window as it is, and the bar says why. Once the file is
+  fixed, the window reads it.</li>
+<li>"Save and apply" never overwrites a change it did not show: if the file changed since the window read it, it asks
+  first (Overwrite, Reload or Cancel).</li>
+</ul>
 <p>Next: <a href="../../reference/commands/">Commands</a> for the same things on the command line, <a href="../troubleshooting/">Troubleshooting</a>.</p>
 
 

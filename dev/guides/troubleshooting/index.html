@@ -2751,8 +2751,8 @@ intended. <code>check-config</code> shows what the <a href="../../configuration/
 <p><strong>A slot shows something else than I expected.</strong> <code>xtouch-daemon why 3</code> says why slot 3 shows what it shows, and why
 not each candidate above it; <code>xtouch-daemon why browser</code> where the channel is and why not elsewhere. The GUI shows
 the same in the inspector of the slot. <code>xtouch-daemon check-config</code> shows what the slots show in each situation.</p>
-<p><strong>A change does not show on the device.</strong> Reload the daemon after saving: <code>systemctl --user reload xtouch-daemon</code>. A
-file with errors is logged and the old configuration stays: run <code>xtouch-daemon check-config</code>. A changed <code>[mqtt]</code> section
+<p><strong>A change does not show on the device.</strong> The daemon takes a saved file a moment later. A file with errors is
+logged and the old configuration stays: run <code>xtouch-daemon check-config</code>. A changed <code>[mqtt]</code> section
 needs a restart. The <a href="../gui/">GUI</a> tells whether the device runs the saved file.</p>
 <h2 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h2>
 <p><strong>The entities are unavailable.</strong> They are available only while the daemon runs and the device is connected. Check

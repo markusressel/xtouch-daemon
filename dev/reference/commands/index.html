@@ -2987,7 +2987,7 @@ start: it names the one that runs.</p>
 <tbody>
 <tr>
 <td><code>SIGHUP</code></td>
-<td>Reloads the configuration (<code>systemctl --user reload xtouch-daemon</code>). A file with errors is logged, and the current configuration stays.</td>
+<td>Reloads the configuration (<code>systemctl --user reload xtouch-daemon</code>), as the daemon does by itself when the file changes. A file with errors is logged, and the current configuration stays.</td>
 </tr>
 <tr>
 <td><code>SIGTERM</code>, <code>SIGINT</code></td>

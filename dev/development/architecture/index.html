@@ -2766,7 +2766,10 @@ every 100 ms), buttons publish events, which are not retained.</p>
 <ul>
 <li><strong>Start:</strong> the daemon starts the surface, the backend and the mixer as tasks and tells systemd <code>READY=1</code>. The device
   and the sound server need not be there: both are connected when they appear.</li>
-<li><strong>Reload (SIGHUP):</strong> the file is read again. One with errors is logged and the current configuration stays.
+<li><strong>Reload (SIGHUP, or a change of the file):</strong> the file is read again. One with errors is logged and the current
+  configuration stays. <code>_watch_file()</code> polls the file's mtime and size (<code>FILE_CHECK</code>, 1 s) and reloads once a new
+  stamp was seen twice; a stamp that a reload took already (e.g. the GUI's, which reloads after saving) and a file
+  that is gone are no change.
   Otherwise a new <code>SlotMixer</code> takes over the same surface and backend; the <code>SlotEngine</code> carries its states, picks and
   people over by id, so slots that show the same keep it. systemd learns of it through <code>RELOADING=1</code> and <code>READY=1</code>.</li>
 <li><strong>Preview:</strong> a configuration of the GUI takes over like a reload, from memory instead of the file (see

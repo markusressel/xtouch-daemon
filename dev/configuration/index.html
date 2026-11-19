@@ -2690,16 +2690,18 @@ file instead and writes it at the first save.</p>
 (<a href="channels/people/#where-people-sit">People</a>), <code>auto</code> either, <code>devices</code> the next device without a channel
 (<a href="channels/devices/#devices-without-a-channel">Devices</a>), and <code>-</code> a dark strip (<a href="channels/#empty-slots">Channels</a>).</p>
 <h2 id="applying-changes">Applying changes<a class="headerlink" href="#applying-changes" title="Permanent link">&para;</a></h2>
+<p>The daemon takes a saved file by itself, a moment after the file stopped changing: no restart, slots whose strip
+stays the same keep it. A file with errors is reported in the log and the current configuration stays. To check a
+file first, or to load it again by hand:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>systemctl<span class="w"> </span>--user<span class="w"> </span>reload<span class="w"> </span>xtouch-daemon
 </span></code></pre></div>
-<p>A reload (SIGHUP) takes the new file without a restart: slots whose strip stays the same keep it. A file with errors is reported in the log
-and the current configuration stays.</p>
+<p>A reload (SIGHUP) does the same as a change of the file.</p>
 <p>Two sections need a restart (<code>systemctl --user restart xtouch-daemon</code>):</p>
 <ul>
 <li>A changed <code>[device] name</code> or <code>virtual</code>. A reload takes the rest of the file, but keeps the old device.</li>
 <li>A changed <code>[mqtt]</code> section. Until the restart, a reload keeps the whole current configuration.</li>
 </ul>
-<p>The GUI applies a saved file the same way: it reloads the running daemon (the service, or one started from a terminal
+<p>The GUI applies a saved file the same way, at once: it reloads the running daemon (the service, or one started from a terminal
 or an IDE), or offers a restart. It then tells whether the daemon took the file.</p>
 <h2 id="complete-example">Complete example<a class="headerlink" href="#complete-example" title="Permanent link">&para;</a></h2>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[behavior]</span>
