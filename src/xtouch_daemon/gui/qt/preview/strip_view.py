@@ -228,6 +228,7 @@ class StripView(QWidget):
             self.selected,
             self.hasFocus(),
             self.underMouse(),
+            self.playing,
             self.preview.blink,
             current_mode(),
         )
@@ -358,14 +359,14 @@ class StripView(QWidget):
         face = self.face
         look, state = face.look, face.state
         self._paint_outline(painter, BODY)
-        if not look.configured:
+        if not look.configured and not self.playing:
             painter.setOpacity(UNCONFIGURED_OPACITY)
         self._paint_lcd(painter)
         for row, (name, color) in enumerate(BUTTONS):
             if self._lit(state.leds[name.lower()]):
                 self._paint_key(painter, button_rect(row), color, lit=True)
         painter.setOpacity(1)
-        if self.hasFocus():
+        if self.hasFocus() and not self.playing:
             painter.setPen(QPen(QColor(current_colors().accent), 1.5, Qt.PenStyle.DotLine))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(BODY.adjusted(-2, -2, 2, 2), STRIP_RADIUS + 2, STRIP_RADIUS + 2)
@@ -380,13 +381,24 @@ class StripView(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(body, STRIP_RADIUS, STRIP_RADIUS)
 
+    @property
+    def playing(self) -> bool:
+        """
+        Play: the mouse is a hand on the device, and the strip looks like the device, without what the editor marks
+        (the selection, the focus, the hover, a strip nobody configured).
+        """
+        return self.preview.mover is None
+
     def _paint_outline(self, painter: QPainter, body: QRectF) -> None:
         """
         The outline of the strip: in the accent when it is selected or dragged, dashed when nobody tells what it shows.
+        In Play only the edge of the strip, as on the device.
         """
         painter.setBrush(Qt.BrushStyle.NoBrush)
         accent = QColor(current_colors().accent)
-        if self.selected or self.lifted:
+        if self.playing:
+            pen = QPen(QColor(HW.strip_edge), 1)
+        elif self.selected or self.lifted:
             # a soft glow around the outline, outside of the strip only
             outside = QPainterPath()
             outside.addRect(QRectF(0, 0, WIDTH, HEIGHT))

@@ -47,7 +47,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- GUI: in Play, a click on the drawing selects no strip and the selection is hidden; it comes back with Select.
+- GUI: in Play, a click on the drawing selects no strip, and the drawing looks like the device: no outline of the
+  selection, the focus or the mouse, and strips nobody configured are not dimmed. The selection comes back with Select.
 - GUI, form of a channel: it starts with what its type is (e.g. what an output channel controls); a narrow window puts
   the name of an option above its field, and the drawing of a part above its options, so nothing is cut off.
   `choices` and `profiles` are a list of entries that open into their fields (volumes as numbers in %, the card and
