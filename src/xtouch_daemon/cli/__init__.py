@@ -6,7 +6,7 @@ module has the commands of one topic; `main` puts them together.
 import click
 
 from xtouch_daemon import __version__
-from xtouch_daemon.cli.configuration import check_config, init_config
+from xtouch_daemon.cli.configuration import check_config, init_config, schema
 from xtouch_daemon.cli.daemon import run, test
 from xtouch_daemon.cli.editor import gui
 from xtouch_daemon.cli.modes import mode, why
@@ -34,6 +34,7 @@ for command in (
     mumble_plugin,
     observe,
     run,
+    schema,
     simulate,
     test,
     virtual_device,

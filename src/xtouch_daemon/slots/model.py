@@ -200,7 +200,7 @@ class PeoplePoolConfig(_Open):
     from_: Annotated[Side, SIDES] = Field("right", alias="from")
     """The side the people fill their slots from."""
 
-    @field_validator("people", mode="before")
+    @field_validator("people", mode="before", json_schema_input_type=str | list[str])
     @classmethod
     def _one_or_several(cls, value: object) -> object:
         return (value,) if isinstance(value, str) else value
@@ -302,7 +302,7 @@ class DevicesConfig(_Open):
     hold: float = 5.0
     """Seconds a slot keeps a device after it went, e.g. while Bluetooth headphones reconnect."""
 
-    @field_validator("exclude", mode="before")
+    @field_validator("exclude", mode="before", json_schema_input_type=str | list[str])
     @classmethod
     def _one_or_several(cls, value: object) -> object:
         return (value,) if isinstance(value, str) else value

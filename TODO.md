@@ -15,13 +15,6 @@ before. Two possible causes, not checked yet:
 Next time a game starts: `pactl list sink-inputs` shows its `application.name` and the volume it starts with. If
 PipeWire doesn't restore it, remember the volume per game ourselves.
 
-## AI support
-
-Is there anything we should add to either the daemon or the GUI to help AI work with them?
-Or is it enough that we have a config and documentation up online?
-If we can avoid implementing features for AI, that would be best, but if there is something that would add real value to a user, it is worth it.
-I was able to edit the config to my liking with AI pretty easily, but maybe there is still something to make it easier for less smart models?
-
 ## Startup Sequence
 
 I like the startup sequience we have, especially the show, but can we make it even fancier by:
@@ -32,3 +25,8 @@ I like the startup sequience we have, especially the show, but can we make it ev
 Also: The GUI still shows something, even if no virtual device is started. I thought we removed that? 
 We want the virtual device to be able to show the startup sequence (works already) and also the shutdown sequence (doesn't work currently).
 So the user can see that when a device disconnects, its faders return to 0 (do they actually do that, or do they return to 0 on reconnect?).
+
+## Log Viewer for the running daemon in the GUI
+
+As the title states. An optional window in the GUI that shows the log of the running daemon, with highlighting, a filter for log level and a search function.
+
