@@ -180,6 +180,10 @@ def test_the_end_stays_in_view_until_scrolled_away(qtbot: QtBot, make_window: Ma
     live_daemon.send_log(LogLines((entry(300),)))
     qtbot.waitUntil(lambda: "record 300" in text(window))
     assert scroll.value() == 0
+    # nor does it go to the end when another level draws the records again
+    view.level.setCurrentIndex(view.level.findData("INFO"))
+    assert not view.follow.isChecked()
+    assert scroll.value() < scroll.maximum()
 
     # Follow goes to the end, and stays there
     click(qtbot, view.follow)
