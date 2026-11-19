@@ -58,7 +58,7 @@ def preview_status(
             return Status(
                 "Live · not connected",
                 Tone.WARN,
-                f"The daemon runs but {device_name} is not there: the strips show what it will show once it is.",
+                f"The daemon runs but {device_name} is not there, so the strips are dark. Once it is, they light up.",
             )
         return Status("Live", Tone.GOOD, "The strips show what the device shows right now.")
     if daemon is None:

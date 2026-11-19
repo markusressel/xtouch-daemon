@@ -396,10 +396,52 @@ async def test_instant_sequences_take_all_strips_at_once(
     assert all(strip.text == ["", ""] for strip in surface.strips)
 
 
-async def test_the_show_lights_the_strips_up_before_they_show_what_they_are(surface: RecordingSurface) -> None:
+def lights(surface: RecordingSurface, index: int) -> list[tuple[str, int]]:
+    """What the show sent to the ring, the meter and the buttons of a strip, in order: ("ring", 0x40 | position), ..."""
+    result: list[tuple[str, int]] = []
+    for message in surface.sent:
+        if message[:2] == bytes([0xB0, protocol.V_POT_RING_CC + index]):
+            # the center bit and the position
+            result.append(("ring", message[2] & 0x4F))
+        elif message[0] == 0xD0 and message[1] >> 4 == index:
+            result.append(("meter", message[1] & 0x0F))
+        elif message[0] == 0x90 and message[1] - index in Button.__members__.values() and message[1] < 0x20:
+            result.append((Button(message[1] - index).name.lower(), message[2]))
+    return result
+
+
+WAVE = [
+    # up: the ring fills LED by LED, then the LEDs at its ends; the meter goes up; the buttons light from the top
+    *(
+        part
+        for level in range(1, 13)
+        for part in (
+            ("ring", 0x40 | 11 if level == 12 else level),
+            ("meter", round(14 * level / 12)),
+            *((name, 0x7F) for number, name in enumerate(["rec", "solo", "mute", "select"]) if level == 3 * number + 1),
+        )
+    ),
+    # down: the ring drains, the meter goes down, the buttons go off from the top
+    *(
+        part
+        for down in range(1, 13)
+        for part in (
+            ("ring", 12 - down),
+            ("meter", round(14 * (12 - down) / 12)),
+            *((name, 0x00) for number, name in enumerate(["rec", "solo", "mute", "select"]) if down == 3 * number + 1),
+        )
+    ),
+]
+"""The light of a strip in the wave of `show`."""
+
+
+async def test_the_show_sends_a_wave_of_light_and_faders_before_the_strips_show_what_they_are(
+    surface: RecordingSurface,
+) -> None:
     surface.startup = "show"
     hide(surface)
     surface.strips[0].set_fader(0.5)
+    surface.strips[1].set_fader(0.9)
     surface.sent.clear()
 
     await surface._reveal()
@@ -407,40 +449,90 @@ async def test_the_show_lights_the_strips_up_before_they_show_what_they_are(surf
 
     sent = surface.sent
     first_text = sent.index(protocol.lcd_text(0, 0, "S0"))
-    for index in range(8):
-        # the wave of light, before any strip shows what it is
-        wave = [
-            protocol.meter(index, protocol.METER_MAX),
-            *(protocol.led(index, button, Led.ON) for button in Button),
-            protocol.ring(index, protocol.RING_MAX, RingMode.WRAP),
-        ]
-        assert all(sent.index(message) < first_text for message in wave)
-        # its LEDs are those of the strip afterwards
-        assert sent.index(protocol.led(index, Button.SELECT, Led.OFF)) > sent.index(wave[-1])
     assert protocol.lcd_colors([Color.WHITE] * 8) in sent[:first_text]
-    assert surface.faders(0)[-1] == protocol.fader_value(0.5)
+    for index in range(8):
+        # the light goes up and down again, then the strip shows its own LEDs
+        assert lights(surface, index)[: len(WAVE)] == WAVE
+        assert sent.index(protocol.lcd_text(index, 0, f"S{index}")) > sent.index(protocol.ring(index, 0, RingMode.WRAP))
+    # the faders rise and fall with the light: to the peak and down to their value, the bottom without one
+    peak = protocol.fader_value(surface_module.SHOW_FADER_PEAK)
+    for index, value in [(0, protocol.fader_value(0.5)), (2, 0)]:
+        faders = surface.faders(index)
+        top = faders.index(max(faders))
+        assert faders[top] == peak
+        assert faders[: top + 1] == sorted(faders[: top + 1])
+        assert faders[top:] == sorted(faders[top:], reverse=True)
+        assert faders[-1] == value
+    # a value above the peak: up to it and no further
+    assert max(surface.faders(1)) == surface.faders(1)[-1] == protocol.fader_value(0.9)
     colors = [m for m in sent if m.startswith(protocol.SYSEX_HEADER + b"\x72")]
     assert colors[-1] == protocol.lcd_colors([Color.GREEN] * 8)
     assert texts_in_order(surface) == list(range(8))
     assert not surface._lit
+    assert [strip.position for strip in surface.strips[:3]] == [protocol.fader_value(0.5), protocol.fader_value(0.9), 0]
 
 
-async def test_the_show_ends_with_a_flash_and_rings_that_drain(surface: RecordingSurface) -> None:
+async def test_the_wave_of_the_show_runs_from_the_left_in_about_a_second(
+    surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "SHOW_STAGGER", 0.06)
+    monkeypatch.setattr(surface_module, "SHOW_STEP", 0.03)
+    surface.startup = "show"
+    hide(surface)
+    loop = asyncio.get_running_loop()
+    begin = loop.time()
+
+    await surface._reveal()
+
+    # 7 staggers, then 12 steps up and 12 down of 3 ticks each
+    assert loop.time() - begin == pytest.approx(7 * 0.06 + 72 * strip_module.FADER_TICK)
+    firsts = [next(i for i, m in enumerate(surface.sent) if m[0] == 0xE0 | index) for index in range(8)]
+    assert firsts == sorted(firsts)
+
+
+async def test_the_show_at_the_end_runs_the_wave_from_the_right_and_leaves_the_strips_dark(
+    surface: RecordingSurface,
+) -> None:
     surface.shutdown = "show"
     for strip in surface.strips:
         strip.set_color(Color.BLUE)
+        strip.set_led(Button.SELECT, Led.ON)
         strip.set_fader(1.0)
+    surface.strips[0].set_color(Color.BLACK)
+    surface.strips[1].set_fader(0.2)
     await surface.settled()
     surface.sent.clear()
 
     await surface.put_away()
 
-    rings = [m[2] & 0x0F for m in surface.sent if m[:2] == bytes([0xB0, protocol.V_POT_RING_CC + 7])]
-    assert rings == [*range(protocol.RING_MAX, 0, -1), 0]
-    assert protocol.lcd_colors([*[Color.BLUE] * 7, Color.WHITE]) in surface.sent
-    assert surface.meters(0) == [protocol.METER_MAX]
+    assert lights(surface, 7)[: len(WAVE)] == WAVE
+    assert protocol.lcd_colors([Color.BLACK, *[Color.BLUE] * 6, Color.WHITE]) in surface.sent
+    # down from the top; up to the peak and down from a value below it
+    assert surface.faders(7) == sorted(surface.faders(7), reverse=True)
+    assert max(surface.faders(1)) == protocol.fader_value(surface_module.SHOW_FADER_PEAK)
+    rings = [surface.sent.index(protocol.ring(index, 1, RingMode.WRAP)) for index in range(8)]
+    assert rings == sorted(rings, reverse=True)
     assert all(strip.color == Color.BLACK and strip.position == 0 for strip in surface.strips)
+    assert all(strip.leds[Button.SELECT] == Led.OFF for strip in surface.strips)
+    assert all(surface.faders(index)[-1] == 0 for index in range(8))
+    colors = [m for m in surface.sent if m.startswith(protocol.SYSEX_HEADER + b"\x72")]
+    assert colors[-1] == protocol.lcd_colors([Color.BLACK] * 8)
     assert not surface._lit
+
+
+async def test_a_finger_on_a_fader_keeps_it_out_of_the_wave(surface: RecordingSurface) -> None:
+    surface.shutdown = "show"
+    strip = surface.strips[3]
+    strip.set_fader(0.4)
+    await surface.settled()
+    strip.touched = True
+    surface.sent.clear()
+
+    await surface.put_away()
+
+    # the light still goes up and down; the motor waits for the finger to let go
+    assert lights(surface, 3)[: len(WAVE)] == WAVE
+    assert surface.faders(3) == []
 
 
 async def test_a_device_that_goes_away_ends_the_startup_sequence(

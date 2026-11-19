@@ -19,7 +19,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   (`systemctl --user reload xtouch-daemon`, which still works): a file with errors is logged and the current
   configuration stays. A file that is gone changes nothing.
 
+### Changed
+
+- `[device] startup = "show"` and `shutdown = "show"`: one wave runs across the strips, light and faders together.
+  Each strip turns white, its ring fills up from the left (the two LEDs at its ends last), its meter goes up and its
+  buttons light up from the top; then all of it goes off again the same way. Its fader rises with the light and falls
+  with it, at startup to its value, at shutdown to the bottom: two smooth moves per fader. The startup takes about
+  1.1 s, as before; the faders no longer come up after it.
+- GUI: while the daemon runs without the device ("Live · not connected", also while it waits for the virtual
+  device), the strips of the drawing are dark: the drawing is the device, and there is none.
+
 ### Fixed
+
+- GUI: the drawing shows the shutdown sequence when the daemon stops. The daemon used to end its live view first, so
+  the strips went dark at once.
 
 - GUI: a change of the configuration file on disk while the window is open (an editor, a script, `init-config`) is
   no longer overwritten by the next save. Without unsaved changes the window reads the file again (one step to

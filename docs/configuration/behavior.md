@@ -26,7 +26,7 @@ dark and their faders go down. `startup` and `shutdown` choose how:
 | `instant` | All strips at once. | All strips at once. |
 | `sweep` | One after the other from the left, 80 ms apart. | One after the other from the right. |
 | `curtain` | From the middle outwards, pair by pair (4 and 5 first, 1 and 8 last). | From the outside in. |
-| `show` | A wave of light runs across from the left: each strip lights up white with all its buttons, its meter jumps to the top and falls, its ring fills up. Behind the wave the strips show what they are, about 1.2 s after the connect. | From the right, each strip flashes white, its meter jumps to the top and its ring drains; then it goes dark. |
+| `show` | A wave runs across from the left. Each strip turns white, its ring fills up from the left, its meter goes up and its buttons light up from the top (Rec first); then all of it goes off again the same way, the buttons from the top too. Its fader rises with the light and falls with it, to its value. Behind the wave the strips show what they are, about 1.1 s after the connect. | The same wave from the right; behind it the strips are dark and their faders at the bottom. |
 
 ```toml
 [device]

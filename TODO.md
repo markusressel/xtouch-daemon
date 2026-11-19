@@ -22,13 +22,13 @@ Or is it enough that we have a config and documentation up online?
 If we can avoid implementing features for AI, that would be best, but if there is something that would add real value to a user, it is worth it.
 I was able to edit the config to my liking with AI pretty easily, but maybe there is still something to make it easier for less smart models?
 
-## Startup Sequence
+## Startup sequence on the device
 
-I like the startup sequience we have, especially the show, but can we make it even fancier by:
-- letting a single wave go from left to right, over the eight faders, in sync with the lighting above them?
-- let the leds on the encoder not only turn on but also turn off in a sequence
-- let the meter go up and down, and the buttons light up and turn off in a sequence from top to bottom
+The wave of `show` (light and faders together, see `Surface._wave()`) is tested on the virtual device only. On the
+device, check:
 
-Also: The GUI still shows something, even if no virtual device is started. I thought we removed that? 
-We want the virtual device to be able to show the startup sequence (works already) and also the shutdown sequence (doesn't work currently).
-So the user can see that when a device disconnects, its faders return to 0 (do they actually do that, or do they return to 0 on reconnect?).
+- how it looks and sounds: `SHOW_FADER_PEAK` (0.6), `SHOW_STEP` (30 ms) and `SHOW_STAGGER` (60 ms) may need tuning;
+  do the motors follow the 100 Hz curve smoothly, and do they get to the bottom at shutdown?
+- the meter going down: each level is sent, but the device lets meters fall by itself too.
+- a disconnect: pull only the USB cable while the device stays on. Do its faders, LCDs and LEDs stay as they were, or
+  does it reset them? (`docs/reference/hardware.md`, "Disconnect", says it is not known yet.)
