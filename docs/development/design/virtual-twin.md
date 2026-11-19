@@ -1,8 +1,8 @@
 # Design: the virtual twin
 
-Status: **proposed** (2026-11-19). Replaces the situation part of [Try changes and situations](try-and-simulate.md) and
-the drawing of the GUI that was made without the device ([A simulated device](device-simulator.md#4-the-mirror-what-the-gui-shows)
-says what it shows instead).
+Status: **agreed** (2026-11-19). It adds a twin to [Try changes and situations](try-and-simulate.md), which stays as it
+is, and replaces the drawing that the GUI made without a device (what it shows instead: [A simulated
+device](device-simulator.md#4-the-mirror-what-the-gui-shows)).
 
 ## Problem
 
@@ -23,7 +23,8 @@ that something drives.
 ## Idea
 
 A **virtual twin**: a second, complete set of strips that the daemon runs for the situation of Simulate, next to the
-real ones. It is built from the same parts as the real device (`Surface`, `Desk`, `SlotMixer`, `SlotEngine`, the strip
+real ones. The situation keeps its second use: with "Try on the device" on, the real device shows it too, as before.
+The twin is what Simulate draws and plays on in every case. It is built from the same parts as the real device (`Surface`, `Desk`, `SlotMixer`, `SlotEngine`, the strip
 controllers) and touches nothing real. The GUI asks for it and draws its mirror, exactly like the mirror of the real
 device. Without a daemon there is no twin, so no drawing: the GUI guides to the daemon.
 
@@ -55,7 +56,7 @@ each part of the real path becomes:
 | Real | Twin |
 |---|---|
 | `AudioBackend` (the sound server) | `TwinBackend`: holds an `AudioState`, `set_*` change that state and report it like the sound server does. |
-| `AudioState` | Made from the situation (see [The world](#the-world-of-a-situation)). Never read from the real one. |
+| `AudioState` | Made from the situation and the real names (see [The world](#the-world-of-a-situation)). The real state is never passed on. |
 | `VoipProvider` (the plugin) | `TwinVoip`: participants from the situation, volume and mute stay in its memory. |
 | Meters (`pw-record` per target) | A signal generator fed through the same `Meter.feed_from()`, scaled by the gain of the target. |
 | `Launcher` (`launch`) | The `Launcher` with a `spawn` that does nothing (it takes one already). |
@@ -68,13 +69,14 @@ each part of the real path becomes:
 
 ## The world of a situation
 
-A `Situation` (`slots.outcomes`: `mode`, `on`, `flipped`, `people`, `apps`, `devices`) is today turned into an
-`Observation` by `Situation.observation()`, which borrows real applications and people as stand-ins. The twin makes a
-whole world from it instead, and the engine goes through its normal path:
-`Observer.observe(audio, processes, voip, now)` is what a real step does. `Situation.observation()` and the special
-case in `SlotEngine.step()` go away; there is one way to step.
+A `Situation` (`slots.outcomes`: `mode`, `on`, `flipped`, `people`, `apps`, `devices`) is turned into an
+`Observation` for the real device by `Situation.observation()` (which stays, for "Try on the device"). The twin makes a
+whole world from it instead, and its engine goes through the normal path: `Observer.observe(audio, processes, voip,
+now)` is what a real step does.
 
-`world(scene, situation) -> World(audio: AudioState, voip: VoipState, processes: frozenset[str])`:
+`world(scene, situation, names) -> World(audio: AudioState, voip: VoipState, processes: frozenset[str])`, with
+`names` the applications that play and the people in the voice chat right now, as plain strings (see
+[Decision 2](#decision-2-the-twin-takes-the-real-names-and-nothing-else)):
 
 | Part of the scene | In the world, unless the situation `flipped` it |
 |---|---|
@@ -82,9 +84,9 @@ case in `SlotEngine.step()` go away; there is one way to step.
 | `apps` channel | One playing stream whose name matches its first `match` entry (a preset: its first name). |
 | `person` channel | The person in the voice chat. |
 | `homeassistant` channel | Nothing: it is always present. |
-| `apps` pool | `situation.apps` playing streams `App 1`, `App 2`, ... (a preset in `flipped`: all slots). |
-| `people` pool | `situation.people` people `Alice`, `Bob`, ... |
-| `devices` pool | `situation.devices` made-up devices that no channel matches. |
+| `apps` pool | `situation.apps` playing streams: the real applications first, then `App 1`, `App 2`, ... (the pool `flipped`: all slots). |
+| `people` pool | `situation.people` people: the real ones first, then `Alice`, `Bob`, ... |
+| `devices` pool | `situation.devices` devices: the real ones that no channel has first, then `Device 1`, ... |
 | Pools of channels | Their channels are present as channels are; flipping the pool removes them all. |
 | Pools of applications and of people of your own | `flipped`: one stand-in that the pool takes (its `match`, its `people`); absent otherwise. |
 
@@ -92,23 +94,28 @@ Everything else (states, modes) is the situation's `on` and `mode`: overrides an
 `SlotEngine`, as the real preview does it now. Delays and dwells apply as in reality (`delay_on`, `absent_after`,
 `hold`): that is the point of a twin that runs.
 
-### Decision 1: the twin never reads reality
+### Decision 2: the twin takes the real names, and nothing else
 
-Today stand-ins are real where they can be ("a real one has audio behind its strip", try-and-simulate decision 3).
-That was for strips on the real device. The twin has no real audio behind anything, so a real name buys nothing, and a
-twin that depends on what plays right now answers differently every time it is asked. It is **deterministic**: the
-same configuration and situation give the same strips. This also means the twin starts from a world, not from the
-real `Simulation` (`carry`): what the people order, the members and the slots they had are not carried over.
+The device that "Try on the device" drives shows real applications and people as stand-ins where it can (try-and-simulate
+decision 3), because it has audio behind them. The twin has no real audio behind anything, but it takes the same
+**names** first, so the twin and the device show the same words for the same situation. The daemon hands `StartTwin`'s
+world the names as plain strings, copied; the twin holds no reference to the sound server, the voice chat or their
+state. Everything else in the world is made up.
+
+The price: the strips of the twin depend on what plays right now, so the same configuration and situation give other
+strips at another time. Tests give the names.
 
 ## The twin in the daemon
 
-`runtime/twin.py`:
+`runtime/twin.py`. Each client's twin is made by the daemon with the current names, and gets new ones when they change
+(`Twin.set_names()`), so a stand-in follows what plays:
 
 ```python
 class Twin:
     """The strips of a configuration in a situation, on a device of their own."""
     def __init__(self, config: Config, situation: Situation): ...
     def set_situation(self, situation: Situation) -> None: ...   # a new world, same engine and strips
+    def set_names(self, names: Names) -> None: ...               # the real applications and people changed
     def reconfigure(self, config: Config) -> None: ...           # like a reload: ids carry over
     def play(self, event: StripEvent) -> None: ...               # a hand on the twin
     def view(self) -> TwinView: ...                              # strips of the mirror + slots, states, why
@@ -132,10 +139,10 @@ and public) once at the start, since the strips are dark until their colors are 
 |---|---|
 | `hardware/surface.py` | `NoPort` (a `Port` that is never there), `light_up()`. Nothing else: `Surface` already mirrors without a transport. |
 | `audio/meter.py`, `runtime/desk.py` | `Meter(..., capture=capture)` and `Desk(..., capture=...)`: the function that feeds peaks of a target. The default is `capture()` (a process); the twin's feeds a fixed, slowly changing pattern while the target plays. |
-| `runtime/slots.py` | `SlotEngine(..., logger=...)`. Removed: `situation`, `what_if`, `simulate()`, `active` (it is `simulation` again), the situation branch of `step()`. |
-| `slots/outcomes.py` | `Situation.observation()` and `Situation.choices()` go to the twin's world (`slots/world.py`). `simulate()` and `outcomes()` stay: `check-config` and the table of Simulate's inputs use them. |
+| `runtime/slots.py` | `SlotEngine(..., logger=...)`. The situation (`what_if`, `simulate()`, `active`) stays: it is the real device's. |
+| `slots/outcomes.py`, `slots/world.py` | `Situation.observation()` stays for the real device; `slots/world.py` is new (the twin's world). `simulate()` and `outcomes()` stay: `check-config` and the table of Simulate's inputs use them. |
 | `voip/` | `TwinVoip(VoipProvider)`: `update()` with the people of the world; `set_volume` and `set_muted` keep them in the provider. |
-| `runtime/daemon.py` | Twins by client; `preview()` loses `situation`; `snapshot()` loses `simulated`. |
+| `runtime/daemon.py` | Twins by client, fed with the real names. `preview()` and `snapshot().simulated` stay. |
 | `live/messages.py`, `codec.py`, `server.py` | See [The protocol](#the-protocol). |
 
 ## The protocol
@@ -169,12 +176,9 @@ class TwinView:
   `Reply("twin_ended", True, why)` when the daemon ended it (heartbeat missed, the daemon stops).
 - The view line is `{"twin": {...}}`, sent by `LiveServer.tell_view(client, view)` every `INTERVAL` while it changes
   (meters and motors keep it changing, like the snapshot).
-- Feature `twin` in `FEATURES`; `situation` leaves it, `StartPreview.situation` and `Snapshot.simulated` are removed.
-  An older daemon lacks `twin`: Simulate says it is too old and to restart it. A newer daemon refuses a `situation` in
-  `StartPreview` as unreadable. This is a break of the live protocol between GUI and daemon within 0.x; it is
-  announced in the changelog.
-- Twins per client: at most one per connection, at most `MAX_TWINS` (4) in the daemon, so a leaking GUI can't make
-  strips without end. A twin ends with `EndTwin`, with its connection, and after `TWIN_TIMEOUT` (10 s) without
+- Feature `twin` in `FEATURES`, next to `situation`, which stays. An older daemon lacks `twin`: Simulate says it is
+  too old and to restart it. Nothing else of the protocol changes.
+- One twin per connection. A twin ends with `EndTwin`, with its connection, and after `TWIN_TIMEOUT` (10 s) without
   `KeepTwin`.
 - Security: as `StartPreview`, only the user's own clients (`peer_uid`). The configuration text may hold secrets
   (`[mqtt]`); the twin ignores `[mqtt]` and `[voip]` providers (it builds `TwinVoip`, never a socket).
@@ -205,24 +209,16 @@ sets the overrides and the mode picked again, so the bar wins when it is clicked
   `simulated_faces()` are deleted.
 - **Play** on the drawing sends `Play(event, twin=True)` while Simulate is open: the faders and buttons of the twin,
   never the real device.
-- **"Try on the device"** (the switch) does one thing again: the unsaved configuration on the real device. It no
-  longer carries a situation, so its pill loses "simulated".
+- **"Try on the device"** (the switch) is as it is: the unsaved configuration, and while Simulate is open its
+  situation, on the real device. The twin runs either way.
 - **Esc** ends Simulate: `EndTwin`.
 
-## What this gives up
+## Decisions (2026-11-19)
 
-The twin can't make the real device show a situation (the old switch with Simulate open). A situation can be felt on
-a device only through the virtual device (`run --virtual-device` with the GUI hosting it) and a daemon whose real
-inputs are the situation, which is not what a twin is for. The point of the old feature was to see and play a
-situation, and the twin does both.
-
-## Decisions to confirm
-
-1. **Simulate never reaches the real device** (changes decision 1 of try-and-simulate). Safe, and the drawing and the
-   device are never the same thing under one name.
-2. **The twin never reads reality** (see [Decision 1](#decision-1-the-twin-never-reads-reality)): made-up names, the
-   same strips every time.
-3. **One twin per client, up to four in the daemon.**
+1. **Simulate still reaches the real device with "Try on the device"** (try-and-simulate decision 1 stands). The twin is
+   added; it replaces only the drawing that the GUI made itself.
+2. **The twin takes the real names, and nothing else** (see [Decision 2](#decision-2-the-twin-takes-the-real-names-and-nothing-else)).
+3. **One twin per client, no limit in the daemon.**
 4. **Simulate needs a daemon**: no daemon, no twin, no drawing, only the guidance.
 
 ## Implementation order
@@ -230,7 +226,7 @@ situation, and the twin does both.
 1. Seams: `NoPort`, `light_up()`, `Meter`/`Desk` capture, `SlotEngine` logger, `follow_slots()`.
 2. `slots/world.py` and `TwinBackend`, `TwinVoip`; `Twin`, unit-tested without a daemon: a twin of the example
    configuration shows its slots; the real backend of the daemon is never called.
-3. Protocol: messages, codec, `LiveServer.tell_view`, the daemon's twins; remove the situation from the preview path.
+3. Protocol: messages, codec, `LiveServer.tell_view`, the daemon's twins.
 4. GUI: Simulate on the twin, the drawing, the cards, Play; delete `simulated()` / `simulated_faces()`.
 5. Docs: the GUI guide (Simulate), try-and-simulate (marked as replaced in part), architecture (live view), changelog.
 
@@ -240,9 +236,9 @@ situation, and the twin does both.
 - **Inertness**: a daemon with spies for the backend, the voice chat provider, the bridge and the launcher. A twin with
   a situation, `Play` on its strips (volume, mute, `launch`), a reconfigure: none of the spies is called, and the
   real strips and the real `SlotsState` are unchanged.
-- **Determinism**: the same situation twice gives the same `TwinView` strips (the meter pattern is a function of
-  time since the start; tests set it).
-- **Protocol**: codec round trips; a second client does not get the first one's view; the limit; the heartbeat; the
-  end with the connection.
+- **Names**: the same situation and names give the same `TwinView` strips (the meter pattern is a function of time
+  since the start; tests set it); new names reach the stand-ins.
+- **Protocol**: codec round trips; a second client does not get the first one's view; the heartbeat; the end with the
+  connection.
 - **GUI**: Simulate with a fake live daemon: sends `StartTwin`, draws its view, shows the cards of the view, Play sends
   `twin=True`; without a daemon the page guides and the drawing is dark.
