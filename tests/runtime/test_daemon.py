@@ -22,6 +22,9 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.transport import SocketPort
+from xtouch_daemon.live.codec import decode_message, encode_request
+from xtouch_daemon.live.log import LogBuffer
+from xtouch_daemon.live.messages import LogLines, WatchLog
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon, device_surface
 
@@ -43,6 +46,41 @@ async def test_the_daemon_runs_until_it_is_stopped_and_leaves_the_surface_dark(
     assert surface.strips[0].color == Color.BLACK
     assert surface.strips[0].text == ["", ""]
     assert daemon.mixer.desk.meters[0].targets == set()
+
+
+async def test_the_gui_gets_the_log_of_the_daemon_from_its_start_on(
+    config_path: Path,
+    surface: RecordingSurface,
+    socket_dir: Path,
+    notifications: Notifications,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # as `--log-level info`
+    caplog.set_level(logging.INFO)
+    with LogBuffer().attached() as log:
+        daemon = Daemon(
+            parse_config(config_path.read_text()),
+            FakeBackend((STATE,)),
+            surface,
+            config_path,
+            capture_command=QUIET,
+            live_socket=socket_dir / "live.sock",
+            log=log,
+        )
+        task = asyncio.create_task(daemon.run())
+        await until(lambda: (socket_dir / "live.sock").exists())
+        reader, writer = await asyncio.open_unix_connection(socket_dir / "live.sock")
+
+        writer.write(encode_request(WatchLog()))
+
+        while not isinstance(message := decode_message(await asyncio.wait_for(reader.readline(), 1)), LogLines):
+            pass
+        assert message.backlog
+        assert "Running with 1 channel, waiting for X-Touch-Ext" in [entry.message for entry in message.entries]
+        writer.close()
+        await writer.wait_closed()
+        daemon.stop()
+        await task
 
 
 async def test_sigterm_stops_the_daemon(

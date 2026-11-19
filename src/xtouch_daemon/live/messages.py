@@ -21,7 +21,7 @@ VERSION = 2
 """Changes when a line means something else; a client ignores lines of another version."""
 
 
-FEATURES = ("preview", "mode", "override", "play", "situation", "on_device", "test")
+FEATURES = ("preview", "mode", "override", "play", "situation", "on_device", "test", "log")
 """The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 
 
@@ -323,7 +323,20 @@ class EndTest:
     """The test of this client is done: the device shows the slots again."""
 
 
-type Request = (
+@dataclass(frozen=True)
+class WatchLog:
+    """
+    Send the log of the daemon: the records it keeps (`live.log.LOG_SIZE`) at once, in a `LogLines` with `backlog`,
+    then every new one, until `EndLog` or the end of the connection. The `LiveServer` answers it, not the daemon.
+    """
+
+
+@dataclass(frozen=True)
+class EndLog:
+    """The log is not needed any more (its window was closed)."""
+
+
+type DaemonRequest = (
     StartPreview
     | KeepPreview
     | EndPreview
@@ -335,6 +348,14 @@ type Request = (
     | KeepTest
     | EndTest
 )
+"""The requests the daemon handles (`LiveServer`'s `on_request`)."""
+
+
+type LogRequest = WatchLog | EndLog
+"""The requests the `LiveServer` handles itself."""
+
+
+type Request = DaemonRequest | LogRequest
 
 
 @dataclass(frozen=True)
@@ -361,6 +382,31 @@ class KnownDevices:
     """Every device the daemon remembers, sent when a client connects and whenever they change."""
 
     devices: tuple[KnownDevice, ...]
+
+
+@dataclass(frozen=True)
+class LogEntry:
+    """A record of the log of the daemon, as its terminal or the journal show it."""
+
+    seq: int
+    """Counts the records of a daemon from 1: a gap means records that went by while the client fell behind."""
+    time: float
+    """When it was logged, in seconds since the epoch."""
+    level: str
+    """`DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`."""
+    logger: str
+    """The name of the logger, e.g. `xtouch_daemon.runtime.daemon`."""
+    message: str
+    """The message, with the traceback of an exception (more lines then)."""
+
+
+@dataclass(frozen=True)
+class LogLines:
+    """Records of the log, for the clients that watch it (`WatchLog`)."""
+
+    entries: tuple[LogEntry, ...]
+    backlog: bool = False
+    """The records the daemon kept, the answer to `WatchLog`: the client starts over with them."""
 
 
 type ReplyKind = Literal["preview", "ended", "mode", "override", "test", "test_ended", "error"]

@@ -10,11 +10,13 @@ to be right. A client that does not keep up is dropped instead of being waited f
 the daemon.
 
 A client of the same user may also send requests, a line of JSON each: the live preview of the GUI (`StartPreview`,
-`KeepPreview`, `EndPreview`), a mode picked (`SetMode`) and the override of a state (`SetOverride`). The daemon
+`KeepPreview`, `EndPreview`), a mode picked (`SetMode`), the override of a state (`SetOverride`) and the log of the
+daemon (`WatchLog`, `EndLog`). The daemon
 answers with `Reply` lines, which have no `version`: a GUI that does not know replies ignores them like lines of
 another version, and an older daemon ignores the requests.
 
 - `messages`: the snapshots, requests and replies.
 - `codec`: them as lines of JSON.
 - `server`: the socket of the daemon, and the snapshot of a surface.
+- `log`: the records of the log the daemon keeps for the GUI.
 """

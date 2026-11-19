@@ -9,6 +9,7 @@ from typing import Any
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import (
     VERSION,
+    EndLog,
     EndPreview,
     EndTest,
     ForgetDevice,
@@ -17,6 +18,8 @@ from xtouch_daemon.live.messages import (
     KeepTest,
     KnownDevice,
     KnownDevices,
+    LogEntry,
+    LogLines,
     MqttState,
     Play,
     Reply,
@@ -32,6 +35,7 @@ from xtouch_daemon.live.messages import (
     StripState,
     TwinView,
     VoipState,
+    WatchLog,
 )
 from xtouch_daemon.slots.outcomes import Situation
 
@@ -57,12 +61,20 @@ def encode_known(known: KnownDevices) -> bytes:
     )
 
 
-def decode_message(line: bytes) -> Snapshot | Reply | TwinView | KnownDevices | None:
+def encode_log(lines: LogLines) -> bytes:
+    """Records of the log, one line for a client that watches it."""
+    data = {"log": [asdict(entry) for entry in lines.entries], "backlog": lines.backlog}
+    return json.dumps(data, separators=(",", ":")).encode() + b"\n"
+
+
+def decode_message(line: bytes) -> Snapshot | Reply | TwinView | KnownDevices | LogLines | None:
     """
-    A line of the daemon: a snapshot, a reply, the view of a twin or the devices it remembers; None for a snapshot of
-    another version.
+    A line of the daemon: a snapshot, a reply, the view of a twin, the devices it remembers or records of its log;
+    None for a snapshot of another version.
     """
     data = json.loads(line)
+    if "log" in data:
+        return LogLines(tuple(LogEntry(**entry) for entry in data["log"]), bool(data.get("backlog", False)))
     if "known_devices" in data:
         return KnownDevices(tuple(KnownDevice(**device) for device in data["known_devices"]))
     if "reply" in data:
@@ -160,6 +172,8 @@ _REQUEST_NAMES: dict[type, str] = {
     StartTest: "test",
     KeepTest: "keep_test",
     EndTest: "end_test",
+    WatchLog: "watch_log",
+    EndLog: "end_log",
 }
 
 _EVENTS: dict[str, type] = {
@@ -214,6 +228,10 @@ def decode_request(line: bytes) -> Request:
             return EndTest()
         case {"request": "end_preview"}:
             return EndPreview()
+        case {"request": "watch_log"}:
+            return WatchLog()
+        case {"request": "end_log"}:
+            return EndLog()
         case {"request": "mode", "mode": str(mode)}:
             return SetMode(mode)
         case {"request": "override", "state": str(state), "value": str(value)}:
