@@ -1,6 +1,7 @@
 # Design: try changes and situations on the device
 
-Status: built (2026-11-18).
+Status: built (2026-11-18). The situation part is replaced by [the virtual twin](virtual-twin.md) (proposed 2026-11-19):
+Simulate will run on a twin of its own and never reach the real device.
 
 ## Problem
 
