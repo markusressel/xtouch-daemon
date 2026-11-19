@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-19
+
 ### Added
 
 - GUI: keys for the lists of Slots, Channels and States, in the menu Edit: Del (or Backspace) removes the candidate,
@@ -33,9 +35,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `auto` and `device`); the start page and the README explain the model with an example and say what a pool is.
 - Documentation: pages link the words of the project (slots, encoders, LEDs, Home Assistant, the GUI, ...) to where
   they are explained, at their first mention; a test checks that a page that uses a word three times links it.
-- The GUI helps a first configuration: Channels has "Output from the sound server" and "Input from the sound server" in its Add
-  menu, a hint while the file has no channel, and opens on the first channel; States has the starting points "In a
-  call" and "Gaming" in its Add menu, and says what a state is while there is none; an empty slot says what it shows.
+- The GUI helps a first configuration: Channels has "Output from the sound server" and "Input from the sound
+  server" in its Add menu, a hint while the file has no channel, and opens on the first channel; States has the
+  starting points "In a call" and "Gaming" in its Add menu, and says what a state is while there is none; an empty
+  slot says what it shows.
 - `list-devices --snippet` prints a channel for every output and input, ready to paste (Bluetooth devices by a
   wildcard).
 - `test --virtual-device` (and `[device] virtual = true`) runs the self-test on the virtual device; its error without a
@@ -90,14 +93,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   suggested too, and picking one for a choice fills in its card and profile.
 - The daemon remembers the outputs and inputs it saw (`devices.json` in its state directory, for 90 days), and the GUI
   suggests them while they are not there, e.g. Bluetooth headphones that are off. Delete in the list forgets one.
-- GUI: without a daemon the strips are dark and the pill says "No daemon", with how to start one. The drawing is only ever the device (the daemon's mirror), never a second rendering made in the GUI.
-- GUI: the encoder of a place shows its default (`default: pick`) instead of staying blank, a pool of applications of your own offers no `pick`, and the columns of the choices table fit their titles.
-- Documentation: the plugin internals and the haad controller sketch moved to Development; Troubleshooting has Voice chat and GUI; pages end with a "Next" pointer; the place options of a slot are a table.
-
+- GUI: without a daemon the strips are dark and the pill says "No daemon", with how to start one. The drawing is
+  only ever the device (the daemon's mirror), never a second rendering made in the GUI.
+- GUI: the encoder of a place shows its default (`default: pick`) instead of staying blank, a pool of applications
+  of your own offers no `pick`, and the columns of the choices table fit their titles.
+- Documentation: the plugin internals and the haad controller sketch moved to Development; Troubleshooting has
+  Voice chat and GUI; pages end with a "Next" pointer; the place options of a slot are a table.
 - GUI: the list of Channels and the box Shows of a slot candidate have two groups, "Channels" (one strip each) and
-  "Pools" (a member for each slot that names them: the built-in ones and your own); the Simulate bar says "apps" instead of "applications" so that it fits; the
-  description of a pool no longer repeats the help of Shows; the lines of the Channels list show the names in the
-  color of channels and the states and slots they name in theirs.
+  "Pools" (a member for each slot that names them: the built-in ones and your own); the Simulate bar says "apps"
+  instead of "applications" so that it fits; the description of a pool no longer repeats the help of Shows; the
+  lines of the Channels list show the names in the color of channels and the states and slots they name in theirs.
 - A new file in the GUI starts empty instead of with the example's channels and slots 7 and 8.
 - Renaming a channel or state in the GUI renames it in the slots, conditions, pools and controls that name it (they
   went red before).
@@ -107,8 +112,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A new line in a table of the GUI (choices, profiles) is not part of the file until you type in it, so it shows no
   "required" error before; `profiles` shows only on a channel that has it (`choices` does the same).
 - After "Save and apply" without a running daemon the GUI points at the button that starts the service.
-
-- The GUI: a click on the pill of the service opens the service (Restart, Stop), its unit (the package's or your own,
+- GUI: a click on the pill of the service opens the service (Restart, Stop), its unit (the package's or your own,
   with its path and the program it starts, and Use the packaged unit) and the connections of the daemon. The header
   keeps only what the service needs: Install and start, Start, or Restart after an upgrade.
 - Play: a drag on the knob of an encoder turns it (up or right is clockwise), holding the knob holds it down, and
@@ -433,8 +437,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   configuration, Home Assistant, the GUI, every command, troubleshooting, hardware and architecture.
 
 [Unreleased]: https://github.com/markusressel/xtouch-daemon/compare/0.1.0...HEAD
-[0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/0.1.0
-
 ### Fixed
 
 - The GUI said the pools `apps` and `people` were not used by a slot while slots showed `auto`, which shares them;
@@ -470,3 +472,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A balance a hair off the center lit only the center LED of the ring, like an exact center.
 - Volumes above 153 % (`max_volume` up to 200) ended at 153 %: pulsectl limits volumes to where the sliders of
   pavucontrol end.
+
+[Unreleased]: https://github.com/markusressel/xtouch-daemon/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/0.2.0
+[0.1.0]: https://github.com/markusressel/xtouch-daemon/releases/tag/0.1.0
