@@ -89,8 +89,8 @@ def _clear(bar: QHBoxLayout) -> None:
 
 
 SIMULATE_TIP = (
-    "What the slots would show in other modes and states, on a virtual twin of the device in the daemon; on the "
-    "device too with Try on the device (Esc ends it)"
+    "What the slots would show in other modes and states, with the changes, where the preview shows: in the GUI or on "
+    "the device (Esc ends it)"
 )
 
 
@@ -107,10 +107,12 @@ class SlotsPanel(Page):
         show_channel: Callable[[str], None],
         twin_slots: Callable[[], SlotsState | None] = lambda: None,
         simulate_unavailable: Callable[[], Reason | None] = lambda: None,
+        shows_twin: Callable[[], bool] = lambda: False,
     ):
         """
-        `show_channel` opens a channel on the page Channels, `twin_slots` tells the slots of the virtual twin (what
-        Simulate shows) and `simulate_unavailable` why Simulate can't run.
+        `show_channel` opens a channel on the page Channels, `twin_slots` tells the slots of the virtual twin of the
+        window (the preview in the GUI), `shows_twin` whether the drawing shows it, and `simulate_unavailable` why
+        Simulate can't run.
         """
         super().__init__(editor, audio)
         self.snapshot = snapshot
@@ -118,15 +120,14 @@ class SlotsPanel(Page):
         self.show_channel = show_channel
         self.twin_slots = twin_slots
         self.simulate_unavailable = simulate_unavailable
+        self.shows_twin = shows_twin
         self.slot = 1
         """The slot picked (1 for the leftmost one)."""
         self.candidate: int | None = None
         """The candidate of the slot the inspector shows, None for none."""
-        self.shown_live: tuple[object, ...] | None = None
+        self.shown_live: object = None
         self.what_if: WhatIf | None = None
         """What Simulate shows, None while the cards show what the daemon tells."""
-        self.on_device = False
-        """Whether the device shows `what_if` (Try on the device): then the cards show the daemon's slots."""
         self.device_note = label("", "hint")
         self.layout_.setContentsMargins(0, Space.S, 0, 0)
         end = QShortcut(QKeySequence(Qt.Key.Key_Escape), self, context=Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -440,7 +441,7 @@ class SlotsPanel(Page):
         live = self.shown_slots()
         view = self._views().get(self.slot) if live is not None else None
         steps = why_steps(view.why) if view is not None else ()
-        key = (live is not None, self.what_if is not None, steps)
+        key = (live is not None, self.what_if is not None, self.shows_twin(), steps)
         if key == self.shown_steps:
             return
         self.shown_steps = key
@@ -452,7 +453,7 @@ class SlotsPanel(Page):
         if live is None:
             set_role(self.status_box, Tone.NEUTRAL.value, "tone")
             return
-        heading = "What if" if self.what_if is not None else "Now"
+        heading = "What if" if self.what_if is not None else "Preview" if self.shows_twin() else "Now"
         self.why_rows.addWidget(label(heading, "hint"), 0, 0, 1, 3)
         if not steps:
             self.why_rows.addWidget(label(f"The daemon tells nothing about slot {self.slot}.", "hint"), 1, 0, 1, 3)
@@ -572,47 +573,41 @@ class SlotsPanel(Page):
             option_row.show_problems(validation.at("slots", str(self.slot), self.candidate, option_row.option.name))
 
     def shown_slots(self, snapshot: Snapshot | None = None) -> SlotsState | None:
-        """What the cards show: the virtual twin's slots while Simulate is open (the device's while it runs them)."""
+        """What the cards show: the slots of what the drawing shows, the twin's or the device's."""
         snapshot = snapshot if snapshot is not None else self.snapshot()
-        if self.what_if is not None and not (self.on_device and snapshot is not None and snapshot.slots):
+        if self.shows_twin():
             return self.twin_slots()
         return snapshot.slots if snapshot is not None else None
 
-    def show_on_device(self, on_device: bool, possible: bool) -> None:
-        """
-        Whether the device shows the situation of Simulate (Try on the device), and whether it could (a daemon that
-        takes it runs): the note in the bar of Simulate.
-        """
-        if on_device != self.on_device:
-            # the daemon's slots instead of the GUI's, or back
+    def show_place(self, note: str) -> None:
+        """Where Simulate shows (the place of the preview): the note in its bar."""
+        if note != self.device_note.text():
+            # the twin's slots instead of the device's, or back
             self.shown_live = None
-        self.on_device = on_device
-        if on_device:
-            note = "On the device"
-        elif possible:
-            note = "Only in the drawing: Try on the device shows it on the device"
-        else:
-            note = "Only in the drawing"
         self.device_note.setText(note)
 
     def show_live(self, snapshot: Snapshot | None) -> None:
-        """The states in the bar, and the dot on the candidates the device shows (or would), when they changed."""
+        """
+        The states in the bar (the device's: the bar picks its mode and overrides), and the dot on the candidates the
+        drawing shows (the device's, or the preview's), when they changed.
+        """
         self._show_simulate_button()
         slots = self.shown_slots(snapshot)
+        real = snapshot.slots if snapshot is not None else None
         live = (
             (
-                *((state.name, state.value, state.override) for state in slots.states),
-                slots.mode_pick,
-                *(view.candidate for view in slots.slots),
+                *((state.name, state.value, state.override) for state in real.states),
+                real.mode_pick,
             )
-            if slots is not None
-            else None
+            if real is not None
+            else None,
+            tuple(view.candidate for view in slots.slots) if slots is not None else None,
         )
         if live == self.shown_live:
             return
         self.shown_live = live
-        picked = slots.mode_pick if slots is not None else None
-        states = {state.name: state for state in slots.states} if slots is not None else {}
+        picked = real.mode_pick if real is not None else None
+        states = {state.name: state for state in real.states} if real is not None else {}
         for name, state_button in self.state_buttons.items():
             state = states.get(name)
             dot = "" if state is None else "● " if state.value else "○ "

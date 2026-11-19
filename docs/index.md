@@ -50,8 +50,8 @@ into headset mode. See [Encoders](configuration/strip/encoders.md) and [LEDs](co
 ## Tools
 
 - **A GUI** (`xtouch-daemon gui`): the device as it is right now, every option with its help and errors, suggestions
-  from the sound server, Simulate (what the slots show in another situation), and "Try on the device" before you
-  save. See [GUI](guides/gui.md).
+  from the sound server, Simulate (what the slots show in another situation), and a preview of the changes, in the
+  window or on the device, before you save. See [GUI](guides/gui.md).
 - **No device needed to start**: a virtual device stands in for it. See
   [Without a device](getting-started/without-a-device.md).
 - **Command line**: a device test, a check of the configuration with a table of what the slots show when, and why a

@@ -43,8 +43,8 @@ The drawing of the device shows the encoder with its ring of 13 LEDs (Mackie Con
 meter next to Rec, Solo, Mute and Select, and the fader with its dB scale: the middle of the cap marks the value, -∞
 at the bottom, 0 dB at 77 % of the travel (`behavior.unity_at`). What each slot shows is printed under its LCD.
 
-The footer shows the problems, whether the device runs the file, the switch [Try on the device](#try-on-the-device)
-while there are unsaved changes, and the buttons Undo, Redo, Revert and "Save and apply". The title of the window
+The footer shows the problems, whether the device runs the file, the control [Preview](#preview)
+while there are unsaved changes or Simulate is open, and the buttons Undo, Redo, Revert and "Save and apply". The title of the window
 names the file, with • while there are unsaved changes. The header has the state of the service with buttons to
 install, start, restart or stop it (see [The service](#the-service)), and what the sound server has.
 
@@ -139,7 +139,8 @@ A bar above the drawing of the device switches what the mouse does on it:
 
 Play works on the virtual device the window hosts, and on the device of a running daemon: then the daemon takes what
 the mouse does as if the device sent it, so the mixer acts and a motorized fader follows once it is let go. The fader
-under the mouse is drawn there at once. While Simulate is open, Play acts on its virtual twin in the daemon (see Simulate below). Play is off without a daemon (or with one of another user, or too old to
+under the mouse is drawn there at once. While the drawing shows the preview in the GUI, Play acts on the virtual twin
+in the daemon (see [Preview](#preview)). Play is off without a daemon (or with one of another user, or too old to
 take it) and while the device is not connected; the bar says why next to it ("Play: device not connected").
 With a daemon that drives the virtual device (`[device] virtual = true`) while it doesn't run, Play opens it in the
 window and plays on it.
@@ -157,46 +158,56 @@ as on the device), and breaks the touch sensor of faders ("Broken touch"), to tr
 it, and so does closing the window: for the daemon it is unplugged. What the drawing shows still comes from the
 daemon, which is what reached the device.
 
-## Try on the device
+## Preview
 
 Next to Save and apply, a pill says what the device runs: "Saved, on the device", "Unsaved changes" (the device
-runs the saved file), "On the device, not saved", or what is wrong (e.g. "Not running", "Not on the device yet"). A
-click tells it in full, with the path of the file ("Copy the path", "Open the folder") and the file the daemon reads
-when that is another one.
+runs the saved file), "In the GUI, not saved", "On the device, not saved", or what is wrong (e.g. "Not running",
+"Not on the device yet"). A click tells it in full, with the path of the file ("Copy the path", "Open the folder") and
+the file the daemon reads when that is another one.
 
-While there are unsaved changes, the switch "Try on the device" sits next to it: the device runs the configuration in
-the editor before it is saved, and follows every change a moment after it (undo and redo too). The file is not
-written. Without unsaved changes the switch is gone: the device runs the file anyway. Once on, it stays on for the
-next changes until it is turned off or the window closes; a new window starts with it off.
+While there are unsaved changes, or Simulate is open, the control "Preview" sits next to it. It decides where the
+changes (and Simulate, which always includes them) show before they are saved, a moment after each change (undo and
+redo too). The file is not written.
 
-- **While it is on**, the pill says "On the device, not saved" ("Sending to the device…" for a moment after a change).
-- **Save and apply** makes it the configuration: the daemon loads the saved file, which is what the device shows
-  already.
-- **Back to the file:** turning the switch off, closing the window (it asks about unsaved changes as usual, and says
-  that the device runs them) or "Revert" brings back the saved file. So does a window that crashed: the daemon goes
-  back to the file when the connection of the window ends, or when the window does not answer for 10 seconds. The
-  file also comes back when it changes on disk, or the daemon is reloaded; then the switch goes off and the window
-  says why.
-- **What the daemon does not take** shows in red under the status bar at the top, and the device keeps the version
-  before. It can't change `[mqtt]` (that takes a save and a restart), nor `[device] name` and `virtual` (they take
-  a save). A configuration with problems is not sent at all: the pill says "Paused: problems" until they are
-  fixed.
-- **Channels, states and slots** are all part of it: a stack changed in the editor shows on the device as it is.
-- **Simulate on the device:** while Simulate is open on the page Slots, the switch is there too (also without unsaved
-  changes), and turned on, the device shows the what-if of Simulate instead of what really happens, with the changes
-  if there are any: the states and the mode it sets, its channels present or absent, and its people, applications and
-  devices (real ones first, so their faders move real audio; made-up ones for the rest, `App 1`, `Device 1`). Delays
-  and dwells apply as they really do. The drawing shows the device then, the cards the daemon's slots and why, Play
-  works, and the pill says "On the device · simulated". Ending Simulate (Esc) shows what really happens again. Home
-  Assistant never sees it: its slot and state sensors stay as they really are, and nothing of it is kept. With the
-  switch off, the device is untouched and only the virtual twin shows the what-if; its bar says "Only in the drawing".
-- **One window at a time:** a second window that turns it on takes over, and the first one's switch goes off.
+- **In the GUI** (the default): the window shows the preview on a **virtual twin** of the device in the daemon. The
+  twin is a second, complete set of strips that drives no real sound, voice chat, Home Assistant or device. The drawing,
+  the cards of the page Slots and Play show the twin, with a frame around the drawing. Without Simulate, the twin runs
+  the changes in the situation of now: the mode and the states the device has, and the applications, people and
+  devices there are. The device keeps running the saved file. The pill says "In the GUI, not saved".
+- **On the device:** the device runs the preview, before it is saved: pick it to try the changes for real. The
+  drawing shows the device, and the pill "On the device, not saved" ("Sending to the device…" for a moment after a
+  change).
+- **Off:** the drawing shows the device as it is, running the saved file, for when you can't see the device. The
+  changes show nowhere until you save them or pick another place. Opening Simulate moves the preview to In the GUI,
+  and ending it back to Off.
+
+The place stays as it is set for the next changes until the window closes; a new window starts with In the GUI.
+
+- **Save and apply** makes it the configuration: the daemon loads the saved file, which is what the preview showed.
+- **Back to the file:** another place, closing the window (it asks about unsaved changes as usual, and says when the
+  device runs them) or "Revert" brings back the saved file. So does a window that crashed: the daemon goes back to the
+  file when the connection of the window ends, or when the window does not answer for 10 seconds. On the device, the
+  file also comes back when it changes on disk, or the daemon is reloaded; then the preview goes back to In the GUI
+  and the window says why.
+- **What the daemon does not take** shows in red under the status bar at the top, and the preview keeps the version
+  before. On the device it can't change `[mqtt]` (that takes a save and a restart), nor `[device] name` and `virtual`
+  (they take a save). A configuration with problems is not sent at all: the pill says "Paused: problems" until they
+  are fixed.
+- **Channels, states and slots** are all part of it: a stack changed in the editor shows in the preview as it is.
+- **Simulate:** its situation shows where the preview shows. On the device, the device shows the what-if of Simulate
+  instead of what really happens: the states and the mode it sets, its channels present or absent, and its people,
+  applications and devices (real ones first, so their faders move real audio; made-up ones for the rest, `App 1`,
+  `Device 1`). Delays and dwells apply as they really do. The pill says "On the device · simulated". Home Assistant
+  never sees it: its slot and state sensors stay as they really are, and nothing of it is kept.
+- **One window on the device at a time:** a second window that picks On the device takes over, and the first one's
+  preview goes back to In the GUI.
 - **Home Assistant:** channels the changes do not have keep their entities in Home Assistant (with their state; only
   nothing drives them), so they are as before once the file runs again. Entities of channels only the changes had are
   removed again when it ends.
 
-The switch is disabled, and its label says why ("Try on the device: no daemon"), while no daemon runs, while the
-daemon reads another file, and for a daemon from before this feature (restart it to run the installed version).
+The places say why they are off in their tooltips: In the GUI needs a running daemon of your user; On the device
+also needs one that reads this file. A daemon from before this feature has neither (restart it to run the installed
+version).
 
 ## The slots
 
@@ -243,12 +254,11 @@ Clicking a strip in the window Device (or Left, Right, Home, End) picks its card
 
 **Simulate** shows what the slots would show in another mode, with other states on, with channels absent (`auto
 plays`: an application plays; `people fill`, `apps fill`: as many as there are slots), or with so many people in the
-call and applications that play (the two counts; the strips show their names). Simulate runs on a **virtual twin** of the device in the daemon: a second, complete
-set of strips that drives no real sound, voice chat, Home Assistant or device. A frame goes around the drawing in the
-window Device, a bar of what-ifs replaces the state bar, and the drawing, the cards and the box of the inspector show
-the twin, which Play can operate. Simulate needs a running daemon of your user: without one its button is off and says
-how to start it. With "Try on the device" on, the real device shows the situation too (see
-[Try on the device](#try-on-the-device)). Esc, or Simulate again, ends it.
+call and applications that play (the two counts; the strips show their names). Simulate includes the unsaved changes
+and shows where the [preview](#preview) shows: in the GUI, on the virtual twin of the device in the daemon, or on the
+device. A frame goes around the drawing in the window Device, a bar of what-ifs replaces the state bar, and the
+drawing, the cards and the box of the inspector show it, and Play can operate it. Simulate needs a running daemon of
+your user: without one its button is off and says how to start it. Esc, or Simulate again, ends it.
 
 ## Editing options
 

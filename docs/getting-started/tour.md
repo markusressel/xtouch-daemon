@@ -183,8 +183,8 @@ xtouch-daemon check-config     # errors with the line they are in, then what eve
 A long table shows the situations that change one thing; `check-config --all` has every combination.
 
 The GUI shows the same on the page **Slots**: **Simulate** puts the device in another situation (in a call, nothing
-playing, a game running) and the drawing shows what the strips would show, on a virtual twin of the device in the daemon (so Simulate needs
-the running daemon).
+playing, a game running) and the drawing shows what the strips would show, on a virtual twin of the device in the
+daemon (so Simulate needs the running daemon), or on the device itself with the preview "On the device".
 
 **Save and apply** writes the file. A running daemon takes it at once; otherwise the button next to the service at the
 top right ("Install and start") starts it as a systemd user service, so it is there from your next login on.

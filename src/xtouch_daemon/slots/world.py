@@ -1,5 +1,5 @@
 """
-The world of a situation for a virtual twin (see docs/development/design/virtual-twin.md): the sound server and the
+The world of a situation for a virtual twin (see docs/development/design/previews.md): the sound server and the
 voice chat that a `Situation` stands for, made up, so the twin's strips go through the normal path of a step
 (`Observer.observe()`).
 
@@ -67,6 +67,27 @@ def world(scene: Scene, situation: Situation, names: Names) -> World:
     )
     observation = situation.observation(scene, real)
     return World(_audio(scene, observation), tuple(person.name for person in observation.people))
+
+
+def world_of_now(names: Names) -> World:
+    """
+    The world as it is right now, by its names: the applications, people and devices that are there (a twin of edits
+    without a situation, see `Twin`). The channels find them as they find the real ones.
+    """
+    outputs = tuple(_device(device) for device in names.devices if device.direction == "output")
+    inputs = tuple(_device(device) for device in names.devices if device.direction == "input")
+
+    def default(devices: tuple[Device, ...]) -> str | None:
+        return next((device.name for device in devices if device.name in names.defaults), None)
+
+    audio = AudioState(
+        outputs=outputs,
+        inputs=inputs,
+        streams=tuple(_stream(index, name) for index, name in enumerate(names.apps, start=1)),
+        default_output=default(outputs),
+        default_input=default(inputs),
+    )
+    return World(audio, names.people)
 
 
 def _audio(scene: Scene, observation: Observation) -> AudioState:

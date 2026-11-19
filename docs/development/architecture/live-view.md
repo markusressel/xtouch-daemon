@@ -45,41 +45,43 @@ daemon it shows what the file would show, and says so.
 
 ## Virtual twin
 
-Simulate runs on a twin per client (`runtime/twin.py`, `Daemon.start_twin()`). `Twin` and `Daemon` are both a `Rig`
-(`runtime/rig.py`: the `Desk`, `SlotEngine` and `SlotMixer` of a configuration on one surface, and the loop that steps
-them). The twin's rig is on a `Surface(port=NoPort())`, an in-memory `TwinBackend` and a `DemoProvider` as voice chat.
-It is built from the `Config` and the real `Names` (applications, people, devices, used as stand-ins first) only, so it
-touches nothing real. Its mode and overrides come from the situation of the GUI only: the chord, controls and requests
-change nothing on it (`SlotEngine.fixed`).
-`slots/world.py` turns a `Situation` into its sound server and people. The protocol: `StartTwin`, `KeepTwin`, `EndTwin`,
-`Play(event, twin=True)`; replies `twin` and `twin_ended`; the view goes as a separate line `{"twin": ...}` to the owning
-client only (`LiveServer.tell_view`). A twin ends with its connection, after `TWIN_TIMEOUT` (10 s) without a request,
-or when its task fails (the client gets `twin_ended` with the error). The GUI beats every 3 s (`gui/qt/twin.py`); a
-`KeepTwin` without a twin (e.g. to a daemon that started meanwhile) gets `twin_ended`, and the GUI asks for a new one. The design: [Virtual twin](../design/virtual-twin.md).
+The preview "In the GUI" runs on a twin per client (`runtime/twin.py`, `Daemon.preview_on_twin()`). `Twin` and
+`Daemon` are both a `Rig` (`runtime/rig.py`: the `Desk`, `SlotEngine` and `SlotMixer` of a configuration on one
+surface, and the loop that steps them). The twin's rig is on a `Surface(port=NoPort())`, an in-memory `TwinBackend` and
+a `DemoProvider` as voice chat. It is built from the `Config` and the real `Names` (applications, people, devices, used
+as stand-ins first) only, so it touches nothing real. Its mode and overrides come from the situation only: the chord,
+controls and requests change nothing on it (`SlotEngine.fixed`). `slots/world.py` turns a `Situation` into its sound
+server and people (`world()`); without a situation the twin runs the world of now by its names (`world_of_now()`) with
+the real mode and states (`Daemon._situation_now()`), and follows them. Its view goes as a separate line
+`{"twin": ...}` to its client only (`LiveServer.tell_view`); `Play(event, preview=True)` is a hand on it.
 
 ## Live preview
 
-The GUI can make the daemon run the configuration of its editor before it is saved, and a situation of Simulate
-(`gui/qt/live_preview.py`; the daemon's side is `Daemon.preview()`). The design: [Try changes and situations on the
-device](../design/try-and-simulate.md).
+The GUI can make the daemon run the configuration of its editor before it is saved, and a situation of Simulate, on
+the device or on a twin of its own (`gui/qt/live_preview.py`; the daemon's side is `Daemon.preview()` and
+`Daemon.preview_on_twin()`). The design: [Previews, in the GUI or on the device](../design/previews.md).
 
 - **The whole text.** `StartPreview` carries the TOML text the GUI would save (`SlotsDocument.render()`). The daemon
   reads it with `parse_config()`, so the errors are those of `check-config`, and runs it like a reload: a new mixer on
   the same surface, sound server and broker, carrying states, overrides and the mode picked over by id. The file is
   never written. A text with errors, or a changed `[mqtt]`, is answered with the reason, and what runs keeps running.
   The GUI sends 300 ms after the last edit, and only a document without problems.
+- **Where.** `StartPreview.on_device` (true for a GUI of 0.1.0, which knows no other place): on the device, or on
+  the client's twin. Sent again to the other place, the preview moves: the twin ends, or the device runs the file
+  again. `KeepPreview` and `EndPreview` cover both.
 - **A situation.** `StartPreview` may carry a `situation` (`slots.outcomes.Situation`), with or without a `config`
   (None: the file's). The `SlotEngine` runs it in a second `Simulation` (`what_if`); see the design for the rest.
 - **Replies an old GUI ignores.** The daemon answers with lines without `version` (`{"reply": "preview", "ok": ...,
   "message": ...}`), which an older GUI skips like lines of another version. A daemon from before tells no `features`
-  and ignores requests, so the GUI keeps its switch off.
-- **Always back to the file.** The preview ends with `EndPreview`; when the connection of its client ends; after
+  and ignores requests, so the GUI keeps its preview off.
+- **Always back to the file.** The preview ends (on the device, and the twin) with `EndPreview`; when the connection of its client ends; after
   `PREVIEW_TIMEOUT` (10 s) without a request (the GUI sends `KeepPreview` every 3 s, so a window that hangs with its
   connection open ends it too); and when the file is loaded: on a reload, and when the file changes on disk (checked
-  every second). The client is told why (`{"reply": "ended", ...}`). The configuration of the file is kept in memory
+  every second; a twin goes on, it doesn't use the file). A twin also ends when its task fails. The client is told
+  why (`{"reply": "ended", ...}`). The configuration of the file is kept in memory
   (`Daemon.file_config`), so a file that became unusable meanwhile does not keep the preview running.
-- **One at a time.** A second client takes the preview over, and the first one is told: the window someone works in
-  wins over one that was left open.
+- **One on the device at a time.** A second client takes the device over, and the first one is told: the window
+  someone works in wins over one that was left open, and goes back to its twin. Twins: one per client, no limit.
 - **Visible.** The status line of systemd ends with "previewing unsaved changes of the GUI", the log tells when a
   preview starts and ends and why, and the GUI shows a pill.
 - **Home Assistant entities survive it.** A reload removes the entities of removed channels (an empty retained

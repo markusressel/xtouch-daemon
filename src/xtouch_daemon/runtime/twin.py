@@ -1,5 +1,5 @@
 """
-The virtual twin (see docs/development/design/virtual-twin.md): the strips of a configuration in a situation, on a
+The virtual twin (see docs/development/design/previews.md): the strips of a configuration in a situation, on a
 device of their own. It is built from the parts of the real path (`Surface`, `Desk`, `SlotMixer`, `SlotEngine`, the
 strip controllers) and from a `Config` and the `Names` of what is real right now, and from nothing else: it holds no
 reference to the sound server, the voice chat, Home Assistant or the files of the daemon, so nothing it does reaches
@@ -24,8 +24,9 @@ from xtouch_daemon.live.messages import TwinView, fingerprint
 from xtouch_daemon.live.server import strip_states
 from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.runtime.rig import Rig
+from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Situation
-from xtouch_daemon.slots.world import Names, world
+from xtouch_daemon.slots.world import Names, world, world_of_now
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.voip.demo import DemoProvider
 
@@ -168,8 +169,14 @@ class Twin(Rig):
         situation: Situation,
         names: Names | None = None,
         clock: Callable[[], float] = time.monotonic,
+        real: bool = False,
     ):
+        """
+        `real`: the world is the one of now (`world_of_now()`, a preview of edits without Simulate); `situation` gives
+        only the mode and the states then.
+        """
         self.situation = situation
+        self.real = real
         self.names = names or Names()
         self.sound = TwinBackend(self.on_state)
         """The twin's sound server."""
@@ -195,9 +202,11 @@ class Twin(Rig):
 
     # -- the situation ----------------------------------------------------------------------------------------------
 
-    def set_situation(self, situation: Situation) -> None:
-        """Another situation: a new world, the overrides and the mode picked of the situation."""
-        self.situation = situation
+    def set_situation(self, situation: Situation, real: bool = False) -> None:
+        """Another situation: a new world, the overrides and the mode picked of the situation (see `real`)."""
+        if (situation, real) == (self.situation, self.real):
+            return
+        self.situation, self.real = situation, real
         self._apply_situation()
 
     def set_names(self, names: Names) -> None:
@@ -213,12 +222,16 @@ class Twin(Rig):
 
     def _apply_situation(self) -> None:
         scene = self.config.slots.scene
-        overrides, mode = self.situation.choices(scene)
+        situation = self.situation
+        if situation.mode not in (DEFAULT, *scene.modes):
+            # the real mode, which the edits removed
+            situation = dataclasses.replace(situation, mode=DEFAULT)
+        overrides, mode = situation.choices(scene)
         # past `fixed`: the situation is where the choices come from
         engine = self.slots.simulation.engine
         engine.overrides = overrides
         engine.mode_pick = mode
-        made = world(scene, self.situation, self.names)
+        made = world_of_now(self.names) if self.real else world(scene, situation, self.names)
         self.sound.set_state(made.audio)
         self.people.set_people(made.people)
         self.wake_slots()

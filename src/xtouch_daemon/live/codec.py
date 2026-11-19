@@ -10,9 +10,7 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import (
     VERSION,
     EndPreview,
-    EndTwin,
     KeepPreview,
-    KeepTwin,
     MqttState,
     Play,
     Reply,
@@ -23,7 +21,6 @@ from xtouch_daemon.live.messages import (
     SlotView,
     Snapshot,
     StartPreview,
-    StartTwin,
     StateView,
     StripState,
     TwinView,
@@ -131,9 +128,6 @@ _REQUEST_NAMES: dict[type, str] = {
     StartPreview: "preview",
     KeepPreview: "keep_preview",
     EndPreview: "end_preview",
-    StartTwin: "twin",
-    KeepTwin: "keep_twin",
-    EndTwin: "end_twin",
     SetMode: "mode",
     SetOverride: "override",
     Play: "play",
@@ -153,17 +147,15 @@ _EVENT_NAMES = {kind: name for name, kind in _EVENTS.items()}
 def encode_request(request: Request) -> bytes:
     data: dict[str, Any] = {"request": _REQUEST_NAMES[type(request)]}
     if isinstance(request, StartPreview):
-        data["config"] = request.config
+        data |= {"config": request.config, "on_device": request.on_device}
         if request.situation is not None:
             data["situation"] = _situation_data(request.situation)
-    elif isinstance(request, StartTwin):
-        data |= {"config": request.config, "situation": _situation_data(request.situation)}
     elif isinstance(request, SetMode):
         data["mode"] = request.mode
     elif isinstance(request, SetOverride):
         data |= {"state": request.state, "value": request.value}
     elif isinstance(request, Play):
-        data |= {"event": _EVENT_NAMES[type(request.event)], "twin": request.twin} | asdict(request.event)
+        data |= {"event": _EVENT_NAMES[type(request.event)], "preview": request.preview} | asdict(request.event)
     return json.dumps(data).encode() + b"\n"
 
 
@@ -176,13 +168,11 @@ def decode_request(line: bytes) -> Request:
     match data:
         case {"request": "preview", "config": str() | None as config}:
             situation = data.get("situation")
-            return StartPreview(config, None if situation is None else _situation(situation))
-        case {"request": "twin", "config": str(config), "situation": situation}:
-            return StartTwin(config, _situation(situation))
-        case {"request": "keep_twin"}:
-            return KeepTwin()
-        case {"request": "end_twin"}:
-            return EndTwin()
+            # a GUI of 0.1.0 previews on the device only
+            on_device = data.get("on_device", True)
+            if not isinstance(on_device, bool):
+                raise ValueError("on_device is no boolean")
+            return StartPreview(config, None if situation is None else _situation(situation), on_device)
         case {"request": "keep_preview"}:
             return KeepPreview()
         case {"request": "end_preview"}:
@@ -194,7 +184,7 @@ def decode_request(line: bytes) -> Request:
         case {"request": "play", "event": str(name), "strip": int(strip)} if name in _EVENTS:
             if not 0 <= strip < protocol.STRIPS:
                 raise ValueError(f"no strip {strip}")
-            return Play(_play_event(name, strip, data), bool(data.get("twin", False)))
+            return Play(_play_event(name, strip, data), bool(data.get("preview", False)))
         case _:
             raise ValueError("unknown")
 

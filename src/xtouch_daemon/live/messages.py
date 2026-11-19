@@ -17,7 +17,7 @@ VERSION = 1
 """Changes when a line means something else; a client ignores lines of another version."""
 
 
-FEATURES = ("preview", "mode", "override", "play", "situation", "twin")
+FEATURES = ("preview", "mode", "override", "play", "situation", "on_device")
 """The requests this daemon takes. An older daemon tells none, so the GUI knows that it can't preview."""
 
 
@@ -158,8 +158,8 @@ class Snapshot:
 @dataclass(frozen=True)
 class TwinView:
     """
-    What the virtual twin of a client shows (see `StartTwin`): its strips as its mirror of the device has them, and
-    its slots, states and mode. Sent to the client that asked for the twin only.
+    What the virtual twin of a client shows (a `StartPreview` not `on_device`): its strips as its mirror of the device
+    has them, and its slots, states and mode. Sent to the client of the twin only.
     """
 
     config: str
@@ -171,38 +171,18 @@ class TwinView:
 @dataclass(frozen=True)
 class StartPreview:
     """
-    Run this configuration (the whole TOML text, None: the file's) instead of the file, without writing the file,
-    and with a `situation` the slots of that situation instead of the real ones (see
-    `docs/development/design/try-and-simulate.md`). The daemon answers with a `Reply` of kind "preview"; sent again, the
-    device follows. The preview ends with `EndPreview`, with the connection, without a request for
-    `daemon.PREVIEW_TIMEOUT` (see `KeepPreview`), and when the file is loaded again.
+    Run this configuration (the whole TOML text, None: the file's), with a `situation` in that situation instead of
+    the real one (see `docs/development/design/previews.md`), without writing the file. `on_device`: on the device,
+    instead of the file. Otherwise on a virtual twin of this client: the daemon sends it a `TwinView` with every
+    change, and without a `situation` the twin runs the situation of now. The daemon answers with a `Reply` of kind
+    "preview"; sent again, the preview follows (also to the other place). It ends with `EndPreview`, with the
+    connection and without a request for `daemon.PREVIEW_TIMEOUT` (see `KeepPreview`); on the device also when the
+    file is loaded again or another client takes the device ("ended").
     """
 
     config: str | None
     situation: Situation | None = None
-
-
-@dataclass(frozen=True)
-class StartTwin:
-    """
-    Run `config` (the whole TOML text) in `situation` on a virtual twin of this client (see
-    `docs/development/design/virtual-twin.md`); sent again, the twin follows. The daemon answers with a `Reply` of
-    kind "twin" and from then on sends the client a `TwinView` with every change. The twin ends with `EndTwin`, with
-    the connection, and without a request for `daemon.TWIN_TIMEOUT` (see `KeepTwin`).
-    """
-
-    config: str
-    situation: Situation
-
-
-@dataclass(frozen=True)
-class KeepTwin:
-    """The heartbeat of a twin."""
-
-
-@dataclass(frozen=True)
-class EndTwin:
-    """The twin of this client is not needed any more."""
+    on_device: bool = True
 
 
 @dataclass(frozen=True)
@@ -212,7 +192,7 @@ class KeepPreview:
 
 @dataclass(frozen=True)
 class EndPreview:
-    """Back to the configuration file."""
+    """The preview of this client is not needed any more: the device runs the file again, the twin ends."""
 
 
 @dataclass(frozen=True)
@@ -241,13 +221,13 @@ class Play:
     """
 
     event: StripEvent
-    twin: bool = False
-    """The hand is on the virtual twin of this client, not on the device."""
+    preview: bool = False
+    """The hand is on the virtual twin of this client (its preview not `on_device`), not on the device."""
 
 
-type Request = StartPreview | KeepPreview | EndPreview | StartTwin | KeepTwin | EndTwin | SetMode | SetOverride | Play
+type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride | Play
 
-type ReplyKind = Literal["preview", "ended", "twin", "twin_ended", "mode", "override", "error"]
+type ReplyKind = Literal["preview", "ended", "mode", "override", "error"]
 
 
 @dataclass(frozen=True)
@@ -255,8 +235,7 @@ class Reply:
     """
     An answer of the daemon, or news for a client. "preview": whether a `StartPreview` runs now (`message` says why
     not, e.g. the errors of the configuration, as `check-config` tells them). "ended": the preview of this client
-    ended, `message` says why. "twin": whether a `StartTwin` runs now (`message` says why not); "twin_ended": the twin
-    of this client ended, `message` says why. "mode" and "override": whether a `SetMode` (`message` is the mode then,
+    ended, `message` says why. "mode" and "override": whether a `SetMode` (`message` is the mode then,
     or why not) or a `SetOverride` was carried out. "error": a request could not
     be read, or is not allowed.
     """

@@ -1,6 +1,6 @@
 """
 Simulate on the page Slots: what the slots would show with other modes, states and presence (a what-if). The daemon
-runs it on a virtual twin (`live.StartTwin`), and on the device too with Try on the device (`live.StartPreview`).
+runs it where the preview shows (`live.StartPreview`): on a virtual twin, or on the device.
 """
 
 import dataclasses

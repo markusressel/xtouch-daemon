@@ -38,11 +38,11 @@ def test_the_preview_shows_the_device_live(
     assert window.device_view.preview.blink != blink
     assert not window.device_view.preview.grab().isNull()
 
-    # an edit: the device runs the file until it is saved
+    # an edit: the preview shows it in the GUI, the device runs the file until it is saved
     window.document.set(("channel", "out", "label"), "Boxes")
     window.editor.edited()
     assert window.device_view.preview.strips[0].face.live
-    assert pill(window.changes_pill) == "Unsaved changes"
+    assert pill(window.changes_pill) == "In the GUI, not saved"
     assert not window.device_view.preview.grab().isNull()
 
     # saved: the daemon takes a moment

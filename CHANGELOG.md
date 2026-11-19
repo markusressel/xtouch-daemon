@@ -8,11 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Simulate runs on a virtual twin of the device in the daemon: a second set of strips with its own made-up sound
-  server and voice chat (real names first), driven by the real engine, that touches nothing real. The drawing is only
-  ever a mirror of a device the daemon drives; Play works on the twin. The mode and states of the twin are the ones
-  Simulate picks: the chord and the controls don't change them. Simulate needs a running daemon: without one the GUI
-  says how to install and start it, and after a restart of the daemon it gets a new twin by itself.
+- GUI: the control "Preview" next to Save and apply says where unsaved edits and Simulate show: "In the GUI" (the
+  default), "On the device" (the device runs them before they are saved) or "Off" (the drawing mirrors the device).
+  In the GUI they run on a virtual twin of the device in the daemon: a second set of strips with its own made-up sound
+  server and voice chat, driven by the real engine, that touches nothing real. Its applications and people take the
+  real names first and follow them; without Simulate it runs the real mode and states. Play, the cards and the
+  why-panel follow the drawing. Simulate always includes the edits; opened while "Off", it shows in the GUI until it
+  closes. A second window that takes the device moves the first one back to "In the GUI". Simulate and the preview
+  in the GUI need a running daemon: without one the GUI says how to install and start it. Replaces "Try on the
+  device".
 - Pools of your own for applications and people: `[pool.<id>]` with `kind = "apps"` (`match`, `exclude`, `from`,
   `hold`, look) or `kind = "people"` (`people`, `from`, look). Each member gets a strip, a pool takes its members
   before `apps`, `people` and `auto`, and only while a slot names it. The GUI adds "Pool of applications" and "Pool of
@@ -230,7 +234,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with its delays and dwells, real applications, people and devices as stand-ins first and made-up ones for the rest,
   and Play works on it. The switch is there while Simulate is open, the pill says "On the device · simulated", and
   Home Assistant never sees the situation. `StartPreview` takes a `situation` and no `config` (the file's), snapshots
-  tell `simulated`. See `docs/development/design/try-and-simulate.md`.
+  tell `simulated`. See `docs/development/history/try-and-simulate.md`.
 - The GUI's pages are a window Configuration, like the window Device: each docks at any side or floats as a window of
   its own (e.g. on another screen). Its rail shows icons only, » shows their names.
 - The GUI's pills moved to what they are about: "Live" and the mode ("Mode: gaming", "No mode") to the bar of the

@@ -27,8 +27,8 @@ class Session:
     """Where the window was, in pixels of the screen (the zoom changes the size of a window's own pixels)."""
     maximized: bool
     audio: AudioState
-    live_preview: bool = False
-    """Whether the live preview was on: it goes on in the next window (a new start has it off)."""
+    preview: str = "gui"
+    """Where the preview showed (a `Place`): the next window shows it there (a new start shows it in the GUI)."""
     trying: QProcess | None = None
     """The daemon started by "Try without a device": the next window ends it when it closes."""
 

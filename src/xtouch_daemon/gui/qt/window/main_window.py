@@ -9,7 +9,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QProcess, QSignalBlocker, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QProcess, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
@@ -20,6 +20,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QDockWidget,
     QFrame,
     QHBoxLayout,
@@ -43,7 +44,7 @@ from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.connections import connections
 from xtouch_daemon.gui.domain.history import History
-from xtouch_daemon.gui.domain.live_preview import previewed, unavailable
+from xtouch_daemon.gui.domain.live_preview import Place, previewed, unavailable
 from xtouch_daemon.gui.domain.problems import place_of
 from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
@@ -51,6 +52,7 @@ from xtouch_daemon.gui.domain.status import (
     Status,
     Tone,
     changes_status,
+    drawing_status,
     offers_virtual_device,
     preview_status,
     runs_older,
@@ -58,7 +60,6 @@ from xtouch_daemon.gui.domain.status import (
 from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
-from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
@@ -88,7 +89,6 @@ from xtouch_daemon.gui.qt.theme.settings import (
 )
 from xtouch_daemon.gui.qt.theme.style import apply_theme, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
-from xtouch_daemon.gui.qt.twin import TwinSession
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice
 from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.device_view import DeviceView
@@ -107,6 +107,23 @@ from xtouch_daemon.system.systemd import (
 )
 
 SERVICE_POLL_MS = 3000
+PLACE_TEXTS = {Place.GUI: "In the GUI", Place.DEVICE: "On the device", Place.OFF: "Off"}
+"""The positions of the control "Preview", from the left."""
+PLACE_TIPS = {
+    Place.GUI: (
+        "Shows the changes, and Simulate while it is open, here in the window: on a twin of the device in the daemon. "
+        "The device keeps running the saved file."
+    ),
+    Place.DEVICE: (
+        "Runs the changes, and Simulate while it is open, on the device before they are saved: the device changes. "
+        "It runs the saved file again once you pick another place or close the window."
+    ),
+    Place.OFF: (
+        "Shows the device as it is: it runs the saved file. The changes show nowhere until you save them or pick "
+        "another place."
+    ),
+}
+"""What each position of the control "Preview" does."""
 APPLY_GRACE_MS = 2000
 """How long a reload may take before the window says that the daemon did not take the file."""
 LOGO_SIZE = 44
@@ -163,7 +180,6 @@ class MainWindow(QMainWindow):
         self.live = LiveView(live_socket or instance.socket_file(), self)
         self.live.changed.connect(lambda _: self.refresh_preview())
         self.live_preview = LivePreview(self.live, document)
-        self.twin = TwinSession(self.live, document)
         self.live_preview.changed.connect(self.refresh_preview)
         self.shown = False
         """Whether the window was shown: the first time the keys go to the strips."""
@@ -171,8 +187,8 @@ class MainWindow(QMainWindow):
         """The daemon started by "Try without a device", with the virtual device; it ends with the window."""
         if session is not None and session.trying is not None:
             self._keep_trying(session.trying)
-        self.resume_live_preview = session is not None and session.live_preview
-        """Turns the live preview on once it can be: it was on in the window before the zoom."""
+        self.resume_place = Place(session.preview) if session is not None else None
+        """Where the preview showed in the window before the zoom: it goes there once it can."""
 
         root = QWidget()
         body = QVBoxLayout(root)
@@ -286,24 +302,32 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.service_controls)
         return header
 
-    def _try_switch(self) -> QWidget:
+    def _preview_control(self) -> QWidget:
         """
-        "Try on the device", next to Save and apply: the device runs the changes in the editor before they are saved
-        (the live preview). Only there while there are changes to try.
+        "Preview", next to Save and apply: where the changes in the editor (and Simulate) show before they are saved.
+        In the GUI (on a twin in the daemon), on the device, or Off (the drawing shows the device as it is). Only there
+        while there is something to preview.
         """
         box = QWidget()
         layout = QHBoxLayout(box)
         layout.setContentsMargins(0, 0, Space.S, 0)
-        layout.setSpacing(Space.S)
-        self.preview_switch = Switch()
-        # a key typed into the window must not turn it on: Enter in a field would send the changes to the device
-        self.preview_switch.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.preview_switch.setAccessibleName("Try on the device")
-        self.preview_switch.toggled.connect(self.live_preview.set_on)
-        self.preview_label = label("Try on the device", "hint")
-        self.preview_label.setBuddy(self.preview_switch)
+        layout.setSpacing(0)
+        self.preview_label = label("Preview", "hint")
         layout.addWidget(self.preview_label)
-        layout.addWidget(self.preview_switch)
+        layout.addSpacing(Space.S)
+        self.place_group = QButtonGroup(self)
+        self.place_buttons: dict[Place, QPushButton] = {}
+        for index, (place, text) in enumerate(PLACE_TEXTS.items()):
+            segment = QPushButton(text)
+            set_role(segment, "segment", "variant")
+            segment.setCheckable(True)
+            # a key typed into the window must not press it: Enter in a field would send the changes to the device
+            segment.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            segment.setAccessibleName(f"Preview: {text}")
+            self.place_group.addButton(segment, index)
+            self.place_buttons[place] = segment
+            layout.addWidget(segment)
+        self.place_group.idClicked.connect(lambda index: self.live_preview.set_place(list(PLACE_TEXTS)[index]))
         return box
 
     def _preview_status(self) -> QHBoxLayout:
@@ -338,13 +362,16 @@ class MainWindow(QMainWindow):
             self.show_channel,
             lambda: self.live.twin.slots if self.live.twin is not None else None,
             lambda: twin_unavailable(self.live.snapshot, self.live.owned),
+            lambda: self.live_preview.in_gui,
         )
         self.device_view = DeviceView(
             slots,
             RemoteHand(self.live),
-            RemoteHand(self.live, twin=True),
+            RemoteHand(self.live, preview=True),
             lambda: self.live.twin,
             lambda: self.live.owned,
+            lambda: self.live_preview.in_gui,
+            self._previewing,
         )
         self.device_view.close_virtual_device.connect(self.close_virtual_device)
         self.device_view.picked.connect(self.show_slot)
@@ -516,7 +543,7 @@ class MainWindow(QMainWindow):
         self.changes: Status | None = None
         make_clickable(self.changes_pill, self._show_changes)
         layout.addWidget(self.changes_pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.try_box = self._try_switch()
+        self.try_box = self._preview_control()
         layout.addWidget(self.try_box)
         self.undo_button = flat_button("undo", "Undo (Ctrl+Z)")
         self.undo_button.clicked.connect(self.undo)
@@ -575,7 +602,6 @@ class MainWindow(QMainWindow):
         for widget in (self.redo_button, self.redo_action):
             widget.setEnabled(self.history.can_redo)
         self.live_preview.document_changed()
-        self.twin.document_changed()
         self.refresh_preview()
 
     def refresh_preview(self) -> None:
@@ -591,8 +617,9 @@ class MainWindow(QMainWindow):
         saved = self.document.saved_config
         device = saved.device.name if saved is not None else "the device"
         hosting = self.hosted is not None
+        on_device = self.live_preview.on and (shows_document or self._device_simulates(snapshot))
         self.device_view.show_status(
-            preview_status(self.daemon, snapshot, device, hosting),
+            drawing_status(preview_status(self.daemon, snapshot, device, hosting), self.live_preview.in_gui, on_device),
             offers_virtual_device(snapshot, hosting),
             slots_status(snapshot),
         )
@@ -610,7 +637,9 @@ class MainWindow(QMainWindow):
             shows_document and self.document.modified,
             self.live_preview.on,
             self.validation.config is None,
-            self.slots_page.on_device,
+            self._device_simulates(snapshot),
+            self.live_preview.place.value,
+            self.slots_page.what_if is not None,
         )
         self.changes = changes
         show_status(self.changes_pill, changes, more=True)
@@ -658,47 +687,45 @@ class MainWindow(QMainWindow):
             widget.setEnabled(savable)
 
     def _simulated(self) -> None:
-        """Simulate started, changed or ended: the virtual twin and (Try on the device) the device follow."""
-        situation = self.slots_page.what_if
-        self.twin.set_situation(situation)
-        self.live_preview.set_situation(situation)
+        """Simulate started, changed or ended: the preview follows, where it shows."""
+        self.live_preview.set_situation(self.slots_page.what_if)
+
+    def _device_simulates(self, snapshot: Snapshot | None) -> bool:
+        """Whether the device shows the situation of Simulate of this window."""
+        preview = self.live_preview
+        return preview.on and preview.simulating and snapshot is not None and snapshot.simulated
+
+    def _previewing(self) -> bool:
+        """Whether the drawing shows a preview of this window: on its twin, or on the device."""
+        preview = self.live_preview
+        snapshot = self.live.snapshot
+        on_device = previewed(snapshot, self.validation.config, preview.running) or self._device_simulates(snapshot)
+        return preview.in_gui or (preview.on and on_device)
 
     def _show_live_preview(self, snapshot: Snapshot | None) -> None:
         """
-        The switch "Try on the device": there while there are changes to try (or they run), off and disabled while
-        they can't go to the device; and what the daemon said.
+        The control "Preview": there while there is something to preview (or it runs); a place it can't show in is
+        disabled and says why; and what the daemon said.
         """
         preview = self.live_preview
-        reason = unavailable(self.daemon, snapshot, self.document.path, self.live.owned)
-        if reason is not None:
-            preview.set_on(False)
-        elif self.resume_live_preview:
-            self.resume_live_preview = False
-            preview.set_on(True)
-        # without changes or a situation to show, the device runs the file anyway: nothing to switch (it stays on for
-        # the next change)
-        simulating = self.slots_page.what_if is not None
-        self.try_box.setVisible(self.document.modified or simulating or preview.running)
-        self.slots_page.show_on_device(
-            preview.on and preview.simulating and snapshot is not None and snapshot.simulated, reason is None
+        device_reason = unavailable(self.daemon, snapshot, self.document.path, self.live.owned)
+        gui_reason = twin_unavailable(snapshot, self.live.owned)
+        if device_reason is not None and preview.place == Place.DEVICE:
+            preview.set_place(Place.GUI)
+        elif self.resume_place is not None and (device_reason is None or self.resume_place != Place.DEVICE):
+            place, self.resume_place = self.resume_place, None
+            preview.set_place(place)
+        self.try_box.setVisible(preview.wanted or preview.running)
+        self.slots_page.show_place(
+            "On the device" if preview.on else "In the GUI" if gui_reason is None else f"Nowhere: {gui_reason.short}"
         )
-        self.preview_switch.setEnabled(reason is None)
-        with QSignalBlocker(self.preview_switch):
-            self.preview_switch.setChecked(preview.on)
-        tip = (
-            reason.why
-            if reason is not None
-            else (
-                "Runs the changes on the device before they are saved, and what Simulate shows while it is open; the "
-                "saved file and the real situation again once this is off or the window closes. It stays on for the "
-                "next changes."
-            )
-        )
-        for widget in (self.preview_switch, self.preview_label):
-            widget.setToolTip(tip)
-        # why it is off, next to it rather than in its tooltip only
-        self.preview_label.setText("Try on the device" if reason is None else f"Try on the device: {reason.short}")
-        message = f"The device keeps the version before: {preview.error}" if preview.error else preview.notice
+        reasons = {Place.GUI: gui_reason, Place.DEVICE: device_reason, Place.OFF: None}
+        for place, segment in self.place_buttons.items():
+            reason = reasons[place]
+            segment.setEnabled(reason is None)
+            segment.setChecked(place == preview.place)
+            segment.setToolTip(PLACE_TIPS[place] if reason is None else f"{reason.why}\n\n{PLACE_TIPS[place]}")
+        message = f"The preview keeps the version before: {preview.error}" if preview.error else preview.notice
         self.preview_message.setVisible(message is not None)
         self.preview_message.setText(message or "")
 
@@ -924,7 +951,7 @@ class MainWindow(QMainWindow):
             geometry=to_screen(geometry, self.devicePixelRatioF()),
             maximized=self.isMaximized(),
             audio=self.audio,
-            live_preview=self.live_preview.on,
+            preview=self.live_preview.place.value,
             trying=self.trying,
         )
 
@@ -1012,8 +1039,10 @@ class MainWindow(QMainWindow):
         if self.document.modified and self.rezoom is None:
             buttons = QMessageBox.StandardButton
             question = "Save the changes before closing?"
-            if self.live_preview.running:
-                question += " The device runs them now (Try on the device): without saving, it goes back to the file."
+            if self.live_preview.running and self.live_preview.on:
+                question += (
+                    " The device runs them now (Preview: On the device): without saving, it goes back to the file."
+                )
             answer = QMessageBox.question(
                 self,
                 "Unsaved changes",
@@ -1026,7 +1055,7 @@ class MainWindow(QMainWindow):
                 return
         # back to the file (the daemon would notice the closed connection too); after a new zoom the next window
         # previews again (see `Session`)
-        self.live_preview.set_on(False)
+        self.live_preview.stop()
         self.hover_tips.stop()
         self.close_virtual_device()
         if self.trying is not None and self.rezoom is not None:

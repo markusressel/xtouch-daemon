@@ -1,6 +1,6 @@
 """
-The device as it is right now (the live view of the daemon), or what Simulate on the page Slots shows (the virtual
-twin in the daemon, or the device with Try on the device): the window Device, docked or on its own, on every page. A
+The device as it is right now (the live view of the daemon), or the preview of the window (the unsaved changes, and
+Simulate while it is open) on its virtual twin in the daemon: the window Device, docked or on its own, on every page. A
 bar above the drawing switches between Select (a click picks a slot, a drag moves it) and Play (the mouse is a hand on
 the device), and offers to try it without a device while no daemon runs; on its right the mode the device shows and
 whether the drawing is live. While the GUI hosts the virtual device, a second bar has what the mouse can't do on it.
@@ -12,7 +12,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
-from xtouch_daemon.gui.domain.looks import StripFace, device_faces, twin_faces
+from xtouch_daemon.gui.domain.looks import device_faces, twin_faces
 from xtouch_daemon.gui.domain.slots import MODES
 from xtouch_daemon.gui.domain.status import Reason, Status, Tone, play_unavailable
 from xtouch_daemon.gui.qt.fields.basics import label, show_status
@@ -54,10 +54,14 @@ class DeviceView(QWidget):
         twin_hand: Hand,
         twin: Callable[[], TwinView | None],
         owned: Callable[[], bool],
+        shows_twin: Callable[[], bool] = lambda: False,
+        previewing: Callable[[], bool] = lambda: False,
     ) -> None:
         """
         `remote`: the hand on the daemon's device; `twin_hand` and `twin`: the hand on the virtual twin of the window
-        and its latest view; `owned`: whether the daemon runs as this user.
+        and its latest view; `owned`: whether the daemon runs as this user; `shows_twin`: whether the drawing shows the
+        twin (the preview in the GUI); `previewing`: whether the drawing shows a preview of the window (on the twin or
+        on the device).
         """
         super().__init__()
         self.view_layout = layout = QVBoxLayout(self)
@@ -66,8 +70,8 @@ class DeviceView(QWidget):
         self.remote = remote
         self.twin_hand = twin_hand
         self.twin = twin
-        self.faces: tuple[StripFace, ...] = device_faces(None)
-        """What the drawing shows."""
+        self.shows_twin = shows_twin
+        self.previewing = previewing
         self.owned = owned
         self.daemon_runs = True
         """Whether a daemon runs (see `show_daemon`): without one, it offers to try without a device."""
@@ -216,23 +220,18 @@ class DeviceView(QWidget):
 
     def show_live(self, snapshot: Snapshot | None) -> None:
         self.snapshot = snapshot
-        simulating = self.slots.what_if is not None
         twin = self.twin()
-        if simulating and not self.slots.on_device:
-            # the virtual twin, until its first view the drawing stays as it is
-            faces = twin_faces(twin) if twin is not None else self.faces
-        else:
-            # the device as the daemon mirrors it, also while it shows the situation of Simulate; dark without a daemon
-            faces = device_faces(snapshot)
-        self.faces = faces
-        self.preview.show_faces(faces, self.selected, simulating=simulating)
+        # the virtual twin once it shows something; the device as the daemon mirrors it until then, and also while it
+        # shows the preview (dark without a daemon)
+        faces = twin_faces(twin) if self.shows_twin() and twin is not None else device_faces(snapshot)
+        self.preview.show_faces(faces, self.selected, simulating=self.previewing())
         self.slots.show_live(snapshot)
         self._show_mode()
 
     def _show_mode(self) -> None:
         """Which hand Play has (the hosted virtual device first), and why none while it has none."""
         hosting = self.hosted is not None
-        drawn = self.slots.what_if is not None and not self.slots.on_device
+        drawn = self.shows_twin()
         reason = play_unavailable(self.snapshot, self.owned(), hosting, drawn)
         if reason is not None:
             self.preview.device_hand = None

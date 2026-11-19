@@ -16,9 +16,7 @@ How the daemon works inside and why. To set up the project and run the tests, se
 |---|---|
 | [Channels, states and slots](design/slots/index.md) | Built (0.1.0) |
 | [Where the people sit](design/slots/people.md) | Built (0.1.0) |
-| [Previews, in the GUI or on the device](design/previews.md) | Proposed, replaces the next two |
-| [Try changes and situations on the device](design/try-and-simulate.md) | Built (0.1.0) |
-| [The virtual twin](design/virtual-twin.md) | Built, not released |
+| [Previews, in the GUI or on the device](design/previews.md) | Built, not released |
 | [A simulated device](design/device-simulator.md) | Built (0.1.0) |
 | [Previews of the controls](design/control-previews.md) | Built (0.1.0) |
 | [Output choices](design/choices.md) | Built (0.1.0) |
@@ -35,6 +33,8 @@ How the daemon works inside and why. To set up the project and run the tests, se
 | [Layouts](history/layouts.md) | Channels, states and slots |
 | [Strips that move](history/dynamic-strips.md) | Channels, states and slots; [output choices](design/choices.md) stay |
 | [Refactoring, November 2026](history/refactoring-2026-11.md) | Done |
+| [Try changes and situations on the device](history/try-and-simulate.md) | [Previews](design/previews.md) |
+| [The virtual twin](history/virtual-twin.md) | [Previews](design/previews.md) |
 
 A new design goes into `design/` with a status line at the top, into the table above and into `nav` of
 `zensical.toml`; when it is replaced, it moves to `history/`, shortened to what still explains something.

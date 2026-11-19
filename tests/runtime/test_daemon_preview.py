@@ -150,7 +150,7 @@ async def test_another_window_takes_the_preview_over_and_the_file_returns_when_i
     daemon.on_request(second, StartPreview(SPEAKER.replace('"Speaker"', '"Desk"')))
 
     assert surface.strips[0].text == ["Desk", "50%"]
-    assert told.reasons(first) == ["another window previews now"]
+    assert told.reasons(first) == ["another window previews on the device now"]
     # the first one going away does nothing now
     daemon.on_client_closed(first)
     assert daemon.previewing

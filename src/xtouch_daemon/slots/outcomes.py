@@ -194,7 +194,7 @@ def simulate(
 @dataclass(frozen=True)
 class Situation:
     """
-    A what-if the daemon runs on the device (see `docs/development/design/try-and-simulate.md`): the mode, the states
+    A what-if the daemon runs on the device (see `docs/development/design/previews.md`): the mode, the states
     that are on, the channels and pools `flipped` (as in `simulate()`), and so many people, applications and devices.
     """
 

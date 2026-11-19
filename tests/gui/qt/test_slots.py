@@ -12,13 +12,14 @@ from pytestqt.qtbot import QtBot
 
 from tests.support.gui import FakeLiveDaemon, MakeWindow, click, pill, plain, strip_state
 from tests.support.gui import snapshot as device_snapshot
+from xtouch_daemon.gui.domain.live_preview import Place
 from xtouch_daemon.gui.domain.simulate import WhatIf
 from xtouch_daemon.gui.qt.pages.slot_cards import CandidateRow, StackList
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.live.messages import (
-    EndTwin,
+    EndPreview,
     Play,
     Request,
     SetMode,
@@ -26,7 +27,7 @@ from xtouch_daemon.live.messages import (
     SlotsState,
     SlotView,
     Snapshot,
-    StartTwin,
+    StartPreview,
     StateView,
     TwinView,
 )
@@ -264,6 +265,15 @@ def test_simulate_needs_a_daemon(window: MainWindow):
     assert page.what_if is None
 
 
+def situations(live_daemon: FakeLiveDaemon) -> list[StartPreview]:
+    """The previews in the GUI with a situation of Simulate that the window sent."""
+    return [
+        request
+        for request in live_daemon.requests
+        if isinstance(request, StartPreview) and not request.on_device and request.situation is not None
+    ]
+
+
 def test_simulate_runs_on_the_virtual_twin_of_the_daemon(
     qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
 ):
@@ -275,16 +285,22 @@ def test_simulate_runs_on_the_virtual_twin_of_the_daemon(
     window.editor.edited()
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     first = strip_state(("Real", "1%"), color="cyan")
-    live_daemon.send(dataclasses.replace(device_snapshot(window, first), features=("twin",)))
+    live_daemon.send(dataclasses.replace(device_snapshot(window, first), features=("on_device",)))
     qtbot.waitUntil(lambda: page.simulate_button.isEnabled())
+    # the edits show in the GUI already, on the twin in the situation of now
+    qtbot.waitUntil(lambda: any(isinstance(request, StartPreview) for request in live_daemon.requests))
+    now = live_daemon.requests[0]
+    assert isinstance(now, StartPreview)
+    assert (now.situation, now.on_device) == (None, False)
+    assert device.preview.simulating
 
     page.simulate_button.click()
     assert page.what_if is not None
-    assert device.preview.simulating
     assert page.state_bar_row.isHidden()
     assert not page.what_if_row.isHidden()
-    qtbot.waitUntil(lambda: any(isinstance(request, StartTwin) for request in live_daemon.requests))
-    (start,) = [request for request in live_daemon.requests if isinstance(request, StartTwin)]
+    qtbot.waitUntil(lambda: bool(situations(live_daemon)))
+    (start,) = situations(live_daemon)
+    assert start.config is not None
     assert dataclasses.asdict(start.situation) == dataclasses.asdict(page.what_if)  # pyright: ignore[reportArgumentType]
     assert "[slots]" in start.config
 
@@ -298,26 +314,40 @@ def test_simulate_runs_on_the_virtual_twin_of_the_daemon(
     # the bar of what-ifs goes to the twin again
     (mode,) = page.what_if_row.findChildren(QComboBox)
     mode.setCurrentText("gaming")
-    qtbot.waitUntil(lambda: sum(isinstance(request, StartTwin) for request in live_daemon.requests) == 2)
-    last = live_daemon.requests[-1]
-    assert isinstance(last, StartTwin)
+    qtbot.waitUntil(lambda: len(situations(live_daemon)) == 2)
+    last = situations(live_daemon)[-1]
     assert last.situation is not None
     assert last.situation.mode == "gaming"
 
     # Play plays on the twin
     window.device_view.play_button.setChecked(True)
     window.device_view.preview.device_hand.press(0, Button.MUTE, True)  # pyright: ignore[reportOptionalMemberAccess]
-    qtbot.waitUntil(lambda: any(isinstance(request, Play) and request.twin for request in live_daemon.requests))
+    qtbot.waitUntil(lambda: any(isinstance(request, Play) and request.preview for request in live_daemon.requests))
     window.device_view.select_button.setChecked(True)
 
-    # Esc ends it: the twin ends, the device is drawn again
+    # Esc ends it: the edits stay in the GUI, in the situation of now
+    count = len(live_daemon.requests)
     device.preview.strips[0].setFocus()
     qtbot.keyClick(device.preview.strips[0], Qt.Key.Key_Escape)
     assert page.what_if is None
-    assert not device.preview.simulating
     assert not page.simulate_button.isChecked()
-    qtbot.waitUntil(lambda: any(isinstance(request, EndTwin) for request in live_daemon.requests))
+    qtbot.waitUntil(lambda: len(live_daemon.requests) > count)
+    after = live_daemon.requests[-1]
+    assert isinstance(after, StartPreview)
+    assert (after.situation, after.on_device) == (None, False)
+    assert device.preview.simulating
+    assert device.preview.strips[0].face.state == twin_first
+
+    # Off: the twin ends, the device is drawn as it is
+    window.place_buttons[Place.OFF].click()
+    qtbot.waitUntil(lambda: isinstance(live_daemon.requests[-1], EndPreview))
+    assert not device.preview.simulating
     assert device.preview.strips[0].face.state.text == ("Real", "1%")
+    # Simulate opened while Off shows in the GUI, and goes back to Off when it ends
+    page.simulate_button.click()
+    assert window.live_preview.place == Place.GUI
+    page.simulate(None)
+    assert window.live_preview.place == Place.OFF
 
     # a file with problems has nothing to simulate
     page.simulate_button.click()

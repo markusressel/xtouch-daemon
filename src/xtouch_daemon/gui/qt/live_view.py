@@ -22,7 +22,7 @@ class LiveView(QObject):
     changed = pyqtSignal(object, arguments=["snapshot"])
     replied = pyqtSignal(object, arguments=["reply"])
     twin_changed = pyqtSignal(object, arguments=["view"])
-    """Every new view of the virtual twin of this window (see `StartTwin`), None when it is gone."""
+    """Every new view of the virtual twin of this window (a `StartPreview` not `on_device`), None when it is gone."""
 
     def __init__(self, path: Path, parent: QObject | None = None):
         """`parent` is the window it belongs to: it ends with it, so the socket tells nothing to a closed window."""

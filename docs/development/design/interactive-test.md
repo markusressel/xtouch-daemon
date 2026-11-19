@@ -78,7 +78,7 @@ drawing of the GUI can be compared for each.
   `PREVIEW_TIMEOUT`), and when the device goes away or is switched (`Surface.use`). Then the daemon draws everything
   of the slots again, as after a preview or a device that came back.
 - **A preview and the test** don't run at the same time: starting one ends the other.
-- **The GUI**: a "Test the device" button next to Play and Try on the device, checked while the mode runs, with a bar
+- **The GUI**: a "Test the device" button next to Play and Preview, checked while the mode runs, with a bar
   that says what each control does (the table above). Play works during the test: a click on the drawing is an input
   the test bench answers, the same as one on the device; so does the virtual device the GUI hosts.
 - **The command**: `xtouch-daemon test` with a daemon running asks the daemon for the mode (and ends it with Ctrl+C)

@@ -12,7 +12,7 @@ from tests.support.daemon import STATE, until
 from tests.support.hardware import RecordingSurface
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.live.messages import FEATURES, EndTwin, KeepTwin, Play, Reply, StartTwin, TwinView
+from xtouch_daemon.live.messages import FEATURES, EndPreview, KeepPreview, Play, Reply, StartPreview, TwinView
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon
 from xtouch_daemon.slots.outcomes import Situation
@@ -68,7 +68,7 @@ def made(config_path: Path, surface: RecordingSurface, backend: FakeBackend, mon
 
 
 async def test_the_daemon_knows_twins():
-    assert "twin" in FEATURES
+    assert "on_device" in FEATURES
 
 
 async def test_a_twin_shows_its_configuration_in_its_situation_and_touches_nothing_real(
@@ -80,7 +80,7 @@ async def test_a_twin_shows_its_configuration_in_its_situation_and_touches_nothi
     texts = [list(strip.text) for strip in surface.strips]
     calls = list(backend.calls)
 
-    assert daemon.on_request(gui, StartTwin(GAME, GAMING)) == Reply("twin", True)
+    assert daemon.on_request(gui, StartPreview(GAME, GAMING, on_device=False)) == Reply("preview", True)
     follower = asyncio.create_task(daemon._follow_twins())
     try:
         await until(lambda: views.of(gui))
@@ -100,14 +100,14 @@ async def test_a_twin_shows_its_configuration_in_its_situation_and_touches_nothi
 async def test_a_twin_follows_a_new_request_and_plays(made: tuple[Daemon, Views]):
     daemon, views = made
     gui = object()
-    daemon.on_request(gui, StartTwin(GAME, HOME))
-    daemon.on_request(gui, StartTwin(GAME, GAMING))
+    daemon.on_request(gui, StartPreview(GAME, HOME, on_device=False))
+    daemon.on_request(gui, StartPreview(GAME, GAMING, on_device=False))
     assert len(daemon._twins) == 1
     follower = asyncio.create_task(daemon._follow_twins())
     try:
         await until(lambda: views.of(gui) and views.of(gui)[-1].slots.mode == "gaming")
         twin = daemon._twins[gui].twin
-        daemon.on_request(gui, Play(protocol.ButtonPressed(0, protocol.Button.MUTE, True), twin=True))
+        daemon.on_request(gui, Play(protocol.ButtonPressed(0, protocol.Button.MUTE, True), preview=True))
         assert twin.surface.mirror is not None
     finally:
         follower.cancel()
@@ -116,13 +116,13 @@ async def test_a_twin_follows_a_new_request_and_plays(made: tuple[Daemon, Views]
 async def test_a_configuration_with_errors_is_refused_and_the_twin_runs_on(made: tuple[Daemon, Views]):
     daemon, _ = made
     gui = object()
-    daemon.on_request(gui, StartTwin(GAME, HOME))
-    reply = daemon.on_request(gui, StartTwin('[slots]\n1 = "nothing"\n', HOME))
+    daemon.on_request(gui, StartPreview(GAME, HOME, on_device=False))
+    reply = daemon.on_request(gui, StartPreview('[slots]\n1 = "nothing"\n', HOME, on_device=False))
     assert reply is not None
     assert not reply.ok
-    assert reply.kind == "twin"
+    assert reply.kind == "preview"
     assert gui in daemon._twins
-    nomode = daemon.on_request(gui, StartTwin(GAME, Situation("nomode", frozenset(), frozenset())))
+    nomode = daemon.on_request(gui, StartPreview(GAME, Situation("nomode", frozenset(), frozenset()), on_device=False))
     assert nomode is not None
     assert not nomode.ok
 
@@ -134,25 +134,25 @@ async def test_a_twin_ends_on_request_with_its_client_and_without_a_heartbeat(
     told: list[tuple[object, Reply]] = daemon.told  # pyright: ignore[reportAttributeAccessIssue]
     a, b, c = object(), object(), object()
     for client in (a, b, c):
-        daemon.on_request(client, StartTwin(GAME, HOME))
+        daemon.on_request(client, StartPreview(GAME, HOME, on_device=False))
     assert len(daemon._twins) == 3
 
-    daemon.on_request(a, EndTwin())
+    daemon.on_request(a, EndPreview())
     assert a not in daemon._twins
-    daemon.on_request(b, KeepTwin())
+    daemon.on_request(b, KeepPreview())
     daemon.on_client_closed(c)
     assert c not in daemon._twins
 
-    monkeypatch.setattr(daemon_module, "TWIN_TIMEOUT", 0.0)
+    monkeypatch.setattr(daemon_module, "PREVIEW_TIMEOUT", 0.0)
     follower = asyncio.create_task(daemon._follow_twins())
     try:
         await until(lambda: not daemon._twins)
     finally:
         follower.cancel()
-    assert [reply.kind for to, reply in told if to is b] == ["twin_ended"]
+    assert [reply.kind for to, reply in told if to is b] == ["ended"]
 
 
 async def test_a_play_without_a_twin_does_nothing(made: tuple[Daemon, Views]):
     daemon, _ = made
-    daemon.on_request(object(), Play(protocol.FaderTouched(0, True), twin=True))
+    daemon.on_request(object(), Play(protocol.FaderTouched(0, True), preview=True))
     assert not daemon._twins

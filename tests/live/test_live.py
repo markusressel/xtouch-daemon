@@ -27,9 +27,7 @@ from xtouch_daemon.live.codec import (
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
-    EndTwin,
     KeepPreview,
-    KeepTwin,
     MqttState,
     Play,
     Reply,
@@ -40,7 +38,6 @@ from xtouch_daemon.live.messages import (
     SlotView,
     Snapshot,
     StartPreview,
-    StartTwin,
     StateView,
     StripState,
     TwinView,
@@ -267,12 +264,12 @@ def test_requests_and_replies_go_through_a_line(surface: RecordingSurface):
         EndPreview(),
         SetMode("gaming"),
         SetOverride("call", "on"),
-        StartTwin(
-            "[slots]\n", Situation("gaming", frozenset({"call"}), frozenset({"mic"}), people=2, apps=1, devices=3)
+        StartPreview(
+            "[slots]\n",
+            Situation("gaming", frozenset({"call"}), frozenset({"mic"}), people=2, apps=1, devices=3),
+            on_device=False,
         ),
-        KeepTwin(),
-        EndTwin(),
-        Play(protocol.ButtonPressed(2, Button.MUTE, True), twin=True),
+        Play(protocol.ButtonPressed(2, Button.MUTE, True), preview=True),
         Play(protocol.FaderTouched(1, False)),
     ):
         line = encode_request(request)

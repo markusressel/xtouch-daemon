@@ -1,7 +1,7 @@
 # Design: try changes and situations on the device
 
-Status: built (2026-11-18), extended by [the virtual twin](virtual-twin.md). To be replaced by
-[Previews, in the GUI or on the device](previews.md) (proposed 2026-11-19).
+Status: built (2026-11-18), extended by [the virtual twin](virtual-twin.md), replaced by
+[Previews, in the GUI or on the device](../design/previews.md) (2026-11-19).
 
 ## Problem
 

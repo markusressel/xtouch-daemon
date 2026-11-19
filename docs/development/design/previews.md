@@ -1,7 +1,7 @@
 # Design: previews, in the GUI or on the device
 
-Status: **proposed** (2026-11-19). It replaces [Try changes and situations](try-and-simulate.md) and [The virtual
-twin](virtual-twin.md), which describe what is built now; once this is built, they move to `history/`.
+Status: **built** (2026-11-19). It replaces [Try changes and situations](../history/try-and-simulate.md) and [The
+virtual twin](../history/virtual-twin.md).
 
 ## Problem
 
@@ -190,10 +190,10 @@ class Play:
 
 - Replies: `Reply("preview", ok, message)` to `StartPreview`, with the errors of the configuration.
   `Reply("ended", True, why)` when the daemon ended the preview (another window took the device, the file changed, a
-  missed heartbeat, the twin failed, the daemon stops). A `KeepPreview` without a preview gets "ended" too, so a window
-  that lost its daemon asks again.
-- The twin's view is a line of its own, `{"preview": TwinView}`, sent to its window only while it changes. On the
-  device, the snapshot shows the preview as now (`preview`, `simulated`).
+  missed heartbeat, the twin failed, the daemon stops). A window that lost its daemon (the connection ended) asks
+  again with its next heartbeat.
+- The twin's view is a line of its own, `{"twin": TwinView}` (a snapshot has a field `preview` already), sent to its
+  window only while it changes. On the device, the snapshot shows the preview as before (`preview`, `simulated`).
 - A feature `on_device` in `FEATURES` tells the new `StartPreview`. A daemon without it is too old for the GUI's
   preview, and the GUI says to restart it.
 - Only the user's own clients (`peer_uid`), as now: the configuration may hold secrets.
@@ -205,8 +205,11 @@ class Play:
   the device and the drawing show.
 - **The pill** next to it says where the preview shows and what it is: "In the GUI, not saved", "On the device ·
   simulated", "Off: the device runs the file", "Sending…", "Paused: problems".
-- **The bar above the drawing** says what the drawing shows: "Preview in the GUI", "The device (preview)", "The
-  device".
+- **The bar above the drawing** says what the drawing shows: "Preview in the GUI", or the device's own text with
+  "· preview" while it runs the preview (e.g. "Live · preview"). Until the twin's first view arrives, the drawing
+  shows the device.
+- **The state bar** of Slots always shows the device's states: its overrides change the device, not the preview. The
+  cards and the why-panel show the twin while the drawing does.
 - **Simulate** needs a daemon of this user, as now. Esc ends it.
 - **Edits** reach the preview a moment after each change (debounced, as now). A document with problems is not sent:
   the preview keeps the last one that was.
@@ -224,15 +227,16 @@ class Play:
 7. **Simulate needs a daemon.** There is no rig in the GUI.
 8. **One twin per window, no limit.** The device takes one window's preview at a time.
 
-## What changes from what is built
+## What changed from what was built before
 
-1. **Protocol**: one `StartPreview` with `on_device`, `Play(preview=...)`, the view line `preview`; the twin
+1. **Protocol**: one `StartPreview` with `on_device`, `Play(preview=...)`; the twin
    messages go. The daemon's preview and twins become one session per client.
-2. **Daemon**: a twin with no situation runs the situation of now (`Situation` from the real slots at each step).
+2. **Daemon**: a twin with no situation runs the situation of now (`Daemon._situation_now()`: the real mode and
+   states, `world_of_now()` with the real names), and follows it.
 3. **GUI**: the control "Preview" ("In the GUI" by default); edits preview on the twin; the drawing, cards and Play
    follow the control; the pill's and the bar's texts.
-4. **Docs**: the GUI guide (Try on the device, Simulate), the architecture of the live view, the changelog; the two
-   designs it replaces move to `history/`.
+4. **Docs**: the GUI guide (Preview, Simulate), the architecture of the live view, the changelog; the two designs it
+   replaces moved to `history/`.
 
 ## Tests
 

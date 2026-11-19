@@ -33,9 +33,7 @@ from xtouch_daemon.hardware.transport import AlsaPort, Port, SocketPort
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
-    EndTwin,
     KeepPreview,
-    KeepTwin,
     MqttState,
     Play,
     Reply,
@@ -44,7 +42,6 @@ from xtouch_daemon.live.messages import (
     SetOverride,
     Snapshot,
     StartPreview,
-    StartTwin,
     TwinView,
     fingerprint,
 )
@@ -70,8 +67,6 @@ SHUTDOWN_TIMEOUT = 4.0
 """How long the faders may take to move down when the daemon stops (they go slowly, see FADER_SLOW_SMOOTH_TIME)."""
 PREVIEW_TIMEOUT = 10.0
 """How long a preview runs without a request of its GUI (`live.KeepPreview`) before the daemon goes back to the file."""
-TWIN_TIMEOUT = 10.0
-"""How long a virtual twin runs without a request of its GUI (`live.KeepTwin`) before the daemon ends it."""
 TWIN_INTERVAL = 0.1
 """How often the views of the twins go to their clients (and their heartbeats are checked)."""
 PREVIEW_CHECK = 1.0
@@ -313,24 +308,19 @@ class Daemon(Rig):
     def on_request(self, client: object, request: Request) -> Reply | None:
         """A request of a client of the live view (the user's own, `LiveServer` checks that)."""
         match request:
-            case StartPreview(config=text, situation=situation):
+            case StartPreview(config=text, situation=situation, on_device=True):
                 return self.preview(client, text, situation)
-            case StartTwin(config=text, situation=situation):
-                return self.start_twin(client, text, situation)
-            case KeepTwin():
-                if (session := self._twins.get(client)) is None:
-                    # e.g. a daemon started meanwhile: the client asks for a new twin
-                    return Reply("twin_ended", True, "no virtual twin runs for this client")
-                session.seen = asyncio.get_running_loop().time()
-                return None
-            case EndTwin():
-                self._end_twin(client, None)
-                return None
+            case StartPreview(config=text, situation=situation):
+                return self.preview_on_twin(client, text, situation)
             case KeepPreview():
+                now = asyncio.get_running_loop().time()
                 if client is self._previewer:
-                    self._preview_seen = asyncio.get_running_loop().time()
+                    self._preview_seen = now
+                if (session := self._twins.get(client)) is not None:
+                    session.seen = now
                 return None
             case EndPreview():
+                self._end_twin(client, None)
                 if client is self._previewer:
                     self._back_to_file("the GUI ended it")
                 return None
@@ -338,7 +328,7 @@ class Daemon(Rig):
                 return self.request_mode(name)
             case SetOverride(state=name, value=value):
                 return self.request_override(name, value)
-            case Play(event=event, twin=True):
+            case Play(event=event, preview=True):
                 if (session := self._twins.get(client)) is not None:
                     session.twin.play(event)
                 return None
@@ -359,7 +349,8 @@ class Daemon(Rig):
         Runs the configuration `text` (TOML; None: the file's) of `client` instead of the file, like a reload but
         without the file, which is never written; with a `situation`, the slots show that situation instead of the
         real one (see `SlotEngine.simulate`). One with errors is not used: the reply tells them, and what runs keeps
-        running. A second client takes the preview over, and the first one is told.
+        running. A second client takes the device over, and the first one is told. The twin of `client` ends: the
+        preview is on the device now.
         """
         try:
             config = self.file_config if text is None else parse_config(text, "The previewed configuration")
@@ -373,9 +364,10 @@ class Daemon(Rig):
                 False,
                 "A preview can't change the [mqtt] section: save it and restart the daemon, or undo the change.",
             )
+        self._end_twin(client, None)
         previous = self._previewer
         if previous is not None and previous is not client and self.live is not None:
-            self.live.tell(previous, Reply("ended", True, "another window previews now"))
+            self.live.tell(previous, Reply("ended", True, "another window previews on the device now"))
         self._previewer = client
         self._preview_seen = asyncio.get_running_loop().time()
         if previous is None:
@@ -406,31 +398,45 @@ class Daemon(Rig):
         """What is real right now, as plain strings, for the stand-ins of a twin."""
         return Names.of(Observer().observe(self.mixer.state, frozenset(), voip_state(self.voip), time.monotonic()))
 
-    def start_twin(self, client: object, text: str, situation: Situation) -> Reply:
+    def _situation_now(self) -> Situation:
+        """The mode and the states that are on in reality, for a twin of edits without a situation."""
+        states = self.slots.simulation.states
+        if states is None:
+            return Situation()
+        on = frozenset(name for name, value in states.values.items() if value and name not in self.slots.scene.modes)
+        return Situation(states.mode, on)
+
+    def preview_on_twin(self, client: object, text: str | None, situation: Situation | None) -> Reply:
         """
-        Runs the configuration `text` in `situation` on a twin of `client` (a new one, or the one it has: it follows).
-        One with errors is not used: the reply tells them, and the twin it had keeps running.
+        Runs the configuration `text` (None: the file's) in `situation` on a twin of `client` (a new one, or the one
+        it has: it follows), without a `situation` in the situation of now. One with errors is not used: the reply
+        tells them, and the twin it had keeps running. If `client` had the device, the device runs the file again.
         """
         try:
-            config = parse_config(text, "The configuration of the twin")
+            config = self.file_config if text is None else parse_config(text, "The previewed configuration")
         except ConfigError as e:
-            return Reply("twin", False, str(e))
-        if situation.mode not in (DEFAULT, *config.slots.scene.modes):
-            return Reply("twin", False, f"No mode {situation.mode} in the configuration.")
+            return Reply("preview", False, str(e))
+        if situation is not None and situation.mode not in (DEFAULT, *config.slots.scene.modes):
+            return Reply("preview", False, f"No mode {situation.mode} in the configuration.")
+        if client is self._previewer:
+            # it asked for it: no news for it
+            self._back_to_file("the preview went to the GUI", tell=False)
+        real = situation is None
+        situation = self._situation_now() if situation is None else situation
         now = asyncio.get_running_loop().time()
         session = self._twins.get(client)
         if session is None:
-            twin = Twin(config, situation, self._names())
+            twin = Twin(config, situation, self._names(), real=real)
             task = asyncio.create_task(twin.run(), name="virtual twin")
             task.add_done_callback(lambda done: self._twin_stopped(client, done))
             self._twins[client] = TwinSession(twin, task, now)
             _LOGGER.debug("A virtual twin for a client of the live view")
-            return Reply("twin", True)
+            return Reply("preview", True)
         session.seen = now
         if fingerprint(config) != fingerprint(session.twin.config):
             session.twin.reconfigure(config)
-        session.twin.set_situation(situation)
-        return Reply("twin", True)
+        session.twin.set_situation(situation, real)
+        return Reply("preview", True)
 
     def _end_twin(self, client: object, why: str | None) -> None:
         """Ends the twin of a client, if it has one; with a `why` the client is told."""
@@ -441,7 +447,7 @@ class Daemon(Rig):
         self._closing.add(closing)
         closing.add_done_callback(self._closing.discard)
         if why is not None and self.live is not None:
-            self.live.tell(client, Reply("twin_ended", True, why))
+            self.live.tell(client, Reply("ended", True, why))
         _LOGGER.debug(f"A virtual twin ended: {why or 'the client asked, or went away'}")
 
     @staticmethod
@@ -469,17 +475,22 @@ class Daemon(Rig):
                 continue
             now = asyncio.get_running_loop().time()
             names = self._names()
+            situation = self._situation_now()
             for client, session in list(self._twins.items()):
-                if now - session.seen > TWIN_TIMEOUT:
-                    self._end_twin(client, f"no word from the GUI for {TWIN_TIMEOUT:.0f} s")
+                if now - session.seen > PREVIEW_TIMEOUT:
+                    self._end_twin(client, f"no word from the GUI for {PREVIEW_TIMEOUT:.0f} s")
                     continue
-                session.twin.set_names(names)
+                twin = session.twin
+                twin.set_names(names)
+                if twin.real:
+                    # a twin of edits follows the mode and the states of reality
+                    twin.set_situation(situation, real=True)
                 view = session.twin.view()
                 if view is not None and view != session.last and self.live is not None:
                     session.last = view
                     self.live.tell_view(client, view)
 
-    def _end_preview(self, reason: str) -> bool:
+    def _end_preview(self, reason: str, tell: bool = True) -> bool:
         """Ends the preview (the previewer is told why) without changing what runs; False when none ran."""
         previewer = self._previewer
         if previewer is None:
@@ -490,14 +501,14 @@ class Daemon(Rig):
         watchdog, self._watchdog = self._watchdog, None
         if watchdog is not None and watchdog is not asyncio.current_task():
             watchdog.cancel()
-        if self.live is not None:
+        if tell and self.live is not None:
             self.live.tell(previewer, Reply("ended", True, reason))
         _LOGGER.info(f"The preview ended, {reason}")
         return True
 
-    def _back_to_file(self, reason: str) -> None:
+    def _back_to_file(self, reason: str, tell: bool = True) -> None:
         """Ends the preview, if one runs, and runs the configuration of the file again."""
-        if self._end_preview(reason):
+        if self._end_preview(reason, tell):
             self._use(self.file_config)
             systemd.notify(self._status())
 
@@ -573,7 +584,8 @@ class Daemon(Rig):
         _LOGGER.info("Stopping")
         self.surface.on_event = lambda event: None
         for client in list(self._twins):
-            self._end_twin(client, "the daemon stops")
+            # not news: the window loses its connection and asks the next daemon
+            self._end_twin(client, None)
         self.close()
         if self.bridge is not None:
             # while it is still connected: Home Assistant sees the entities unavailable right away

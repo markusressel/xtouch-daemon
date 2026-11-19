@@ -52,8 +52,8 @@ changed.
   reorder. The inspector edits the candidate (condition, the options for this place), says where else its channel is
   used and what a pool hands out and from where; below it the slot's controls. The why line is the resolver's trace.
 - **Simulate**: what-if inputs (every state, the presence the stacks ask about, how many people are in the call and
-  applications play); the drawing shows what the resolver would. With "Try on the device" it runs on the device, see
-  [Try changes and situations](../try-and-simulate.md). Esc ends it.
+  applications play); the drawing shows what the resolver would, in the GUI or on the device where "Preview" says,
+  see [Previews](../previews.md). Esc ends it.
 - **The state bar** is live: each state with its value and since when; its menu sets the override, and an overridden
   state is hatched, with ⟲ back to `auto`.
 - **Channels**: channels and pools (the built-in ones below, each with the look of its strips), with type, label, tags

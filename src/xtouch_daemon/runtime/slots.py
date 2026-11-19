@@ -102,7 +102,7 @@ class SlotEngine:
         Runs a situation instead of reality from the next step on (None: reality again), in a `Simulation` of its own
         that starts where the real one is: its states are overrides, its mode the one picked, what the sound server
         and the voice chat show is made for it (`Situation.observation`). Nothing of it is kept or told to Home
-        Assistant. See `docs/development/design/try-and-simulate.md`.
+        Assistant. See `docs/development/design/previews.md`.
         """
         self.situation = situation
         if situation is None:

@@ -1,9 +1,9 @@
 # Design: the virtual twin
 
-Status: **built** (2026-11-19). To be replaced by [Previews, in the GUI or on the device](previews.md)
-(proposed 2026-11-19): one control shows edits and Simulate in the GUI (on the twin) or on the device. It adds a twin to [Try changes and situations](try-and-simulate.md), which stays as it
-is, and replaces the drawing that the GUI made without a device (what it shows instead: [A simulated
-device](device-simulator.md#4-the-mirror-what-the-gui-shows)).
+Status: built (2026-11-19), replaced by [Previews, in the GUI or on the device](../design/previews.md)
+(2026-11-19): one control shows edits and Simulate in the GUI (on the twin) or on the device. It added a twin to [Try changes and situations](try-and-simulate.md), which stayed as it
+was, and replaced the drawing that the GUI made without a device (what it shows instead: [A simulated
+device](../design/device-simulator.md#4-the-mirror-what-the-gui-shows)).
 
 ## Problem
 
