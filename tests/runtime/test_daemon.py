@@ -14,17 +14,31 @@ import pytest
 from tests.support.audio import FakeBackend
 from tests.support.daemon import QUIET, SPEAKER, STATE, Notifications, make
 from tests.support.hardware import RecordingSurface
+from tests.support.simulator import MemoryPort
 from tests.support.tasks import settle
 from tests.support.waiting import until
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
+from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
+from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.hardware.transport import SocketPort
-from xtouch_daemon.live.codec import decode_message, encode_request
+from xtouch_daemon.live.codec import decode, decode_message, encode_request
 from xtouch_daemon.live.log import LogBuffer
-from xtouch_daemon.live.messages import LogLines, WatchLog
+from xtouch_daemon.live.messages import (
+    DaemonRequest,
+    KeepPreview,
+    LogLines,
+    Reply,
+    SetMode,
+    SetOverride,
+    Snapshot,
+    StartPreview,
+    StartTest,
+    WatchLog,
+)
 from xtouch_daemon.runtime import daemon as daemon_module
 from xtouch_daemon.runtime.daemon import Daemon, device_surface
 
@@ -387,3 +401,61 @@ def test_the_live_view_tells_whether_the_device_is_the_virtual_one(config_path: 
 
     assert not real.snapshot().virtual
     assert virtual.snapshot().virtual
+
+
+async def test_the_live_view_shows_the_shutdown_sequence_and_ends_after_it(
+    config_path: Path, socket_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surface_module, "SCAN_INTERVAL", 0.01)
+    port = MemoryPort()
+    socket = socket_dir / "live.sock"
+    config = parse_config(config_path.read_text())
+    daemon = Daemon(
+        config, FakeBackend((STATE,)), Surface(port=port), config_path, capture_command=QUIET, live_socket=socket
+    )
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: port.device.text(0)[0].strip() == "Speaker")
+    await daemon.surface.settled()
+    reader, writer = await asyncio.open_unix_connection(socket)
+    snapshots: list[Snapshot] = []
+
+    async def read() -> None:
+        while line := await reader.readline():
+            if (snapshot := decode(line)) is not None:
+                snapshots.append(snapshot)
+
+    reading = asyncio.create_task(read())
+    await until(lambda: snapshots)
+
+    daemon.stop()
+    await task
+    # the connection ends with the daemon
+    await asyncio.wait_for(reading, 1)
+    writer.close()
+
+    # the GUI saw the strip go dark and its fader go down while the device was still there
+    dark = next(snapshot for snapshot in snapshots if snapshot.strips[0].text == ("", ""))
+    assert dark.device
+    assert snapshots[-1].strips[0].fader == 0.0
+    assert not socket.exists()
+
+
+@pytest.mark.parametrize(
+    ("request_", "reply"),
+    [
+        (StartPreview(None, on_device=True), Reply("preview", False, "The daemon stops.")),
+        (StartTest(), Reply("test", False, "The daemon stops.")),
+        (SetMode("auto"), Reply("mode", False, "The daemon stops.")),
+        (SetOverride("x", "on"), Reply("override", False, "The daemon stops.")),
+        (KeepPreview(), None),
+    ],
+)
+def test_while_the_daemon_stops_the_live_view_starts_nothing(
+    config_path: Path, request_: DaemonRequest, reply: Reply | None
+) -> None:
+    daemon = make(config_path, RecordingSurface(), FakeBackend())
+    daemon._stopping = True
+
+    assert daemon.on_request(object(), request_) == reply
+    assert not daemon.previewing
+    assert not daemon.testing

@@ -186,6 +186,19 @@ class Strip:
         if self.fader is not None:
             self._surface.glide(self)
 
+    def arrived(self, at: int) -> None:
+        """
+        The surface drove the motor to `at` itself (the wave of `show`): the fader glides on from there, and its target
+        is sent again later, in case the motor stopped short of it (see FADER_CONFIRM_DELAYS).
+        """
+        self._position = float(at)
+        self._velocity = 0.0
+        self._slow = False
+        now = asyncio.get_running_loop().time()
+        self._confirm_at = [now + delay for delay in FADER_CONFIRM_DELAYS]
+        if self.fader is not None and not (self.touched or self.held):
+            self._surface.glide(self)
+
     def set_led(self, button: Button, state: Led) -> None:
         if self.leds.get(button) == state:
             return

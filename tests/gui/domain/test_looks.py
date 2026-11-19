@@ -3,12 +3,20 @@ import dataclasses
 import pytest
 
 from tests.support.gui import strip_state
-from xtouch_daemon.gui.domain.looks import UNKNOWN, device_faces, meter_leds, ring_leds
+from xtouch_daemon.gui.domain.looks import AWAY, UNKNOWN, device_faces, meter_leds, ring_leds
 from xtouch_daemon.live.messages import SlotsState, SlotView, Snapshot
 
 
 def test_without_the_daemon_the_device_is_dark():
     assert device_faces(None) == (UNKNOWN,) * 8
+
+
+def test_without_the_device_the_strips_are_dark():
+    # what the daemon would show on it once it is there does not show
+    snapshot = Snapshot("x", False, sound_server=True, mqtt=None, strips=(strip_state(("Speaker", "100%")),) * 8)
+
+    assert device_faces(snapshot) == (AWAY,) * 8
+    assert AWAY.state.color == "off"
 
 
 def test_the_device_shows_what_each_slot_shows():
