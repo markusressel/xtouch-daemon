@@ -65,7 +65,7 @@ Lists and pages that scroll cast a soft shadow at an edge where more of them is 
 window under them.
 
 The menus have what is used now and then: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window
-Device, the dark or the light theme, the [zoom](#zoom)) and Help (this documentation).
+Device, the window [Log](#log), the dark or the light theme, the [zoom](#zoom)) and Help (this documentation).
 
 ## The service
 
@@ -168,6 +168,22 @@ A bar says what each control does:
 Play works on the drawing during the test, and so does the hosted virtual device. The slots go on meanwhile (Home
 Assistant still sees them), but show on the device only again when the test ends: a click on the button, closing the
 window, a preview "On the device", or the device going away. The footer says why it ended.
+
+## Log
+
+View → Log (Ctrl+L) opens the window **Log**: the log of the daemon that runs, the same records the journal or its
+terminal show, at the level the daemon runs with (`-l debug` for more). It works for the service and for a daemon
+started in a terminal or an IDE. Like the window Device, it can go to any side or be a window of its own.
+
+- **Colors:** warnings in yellow, errors in red, debug records in the color of hints, the time of each in it too.
+- **Level:** shows the records of that level and above.
+- **Search:** marks the text in the log, ignoring case, and counts the matches. Enter selects the next one.
+- **Follow:** keeps the latest records in view. Scrolling up stops it, scrolling to the end (or the button) starts it
+  again.
+
+The window gets the last 1000 records when it opens, then every new one, and keeps the latest 5000. When no daemon
+runs, it says so; when the daemon stops, the last records stay, and the window starts over when it is back. A daemon
+of an older version has no log for the window: restart it to run the installed version.
 
 ## The virtual device
 
@@ -354,6 +370,7 @@ Help → Keyboard shortcuts lists the keys. The keys of the menus follow the des
 | Ctrl+S | Save and apply |
 | Ctrl+Z, Ctrl+Shift+Z | Undo, redo |
 | Ctrl+1 to Ctrl+4 | Slots, Channels, States, Settings |
+| Ctrl+L | Open or close the window Log |
 | Del (or Backspace) | Remove the candidate, channel, pool or state picked, as its button Remove does |
 | Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut, paste it |
 | Ctrl+D | Duplicate it |
@@ -383,8 +400,8 @@ candidate goes after the one picked; channels, pools and states go at the end.
   restart a daemon that runs elsewhere where it runs. A changed `[device] name` or `virtual` is: the daemon switches
   to that device.
 - It then tells whether the device runs the saved file: "The device runs the saved file", or "The device does not run
-  the saved file yet". If that stays, the daemon did not take the file, and its log says why
-  (`journalctl --user -u xtouch-daemon`).
+  the saved file yet". If that stays, the daemon did not take the file, and its log says why (View →
+  [Log](#log), or `journalctl --user -u xtouch-daemon`).
 
 "Revert" drops the changes and reads the file again (Undo brings them back).
 

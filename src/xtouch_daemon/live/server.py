@@ -1,6 +1,6 @@
 """
-The socket of the live view in the daemon: it sends the snapshots of the device to every client and takes the
-requests of the clients of the same user.
+The socket of the live view in the daemon: it sends the snapshots of the device to every client, takes the requests
+of the clients of the same user, and sends the log to those that watch it.
 """
 
 import asyncio
@@ -16,16 +16,21 @@ from pathlib import Path
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.surface import Surface
-from xtouch_daemon.live.codec import decode_request, encode, encode_known, encode_reply, encode_twin
+from xtouch_daemon.live.codec import decode_request, encode, encode_known, encode_log, encode_reply, encode_twin
+from xtouch_daemon.live.log import LogBuffer
 from xtouch_daemon.live.messages import (
+    DaemonRequest,
+    EndLog,
     Glide,
     KnownDevices,
+    LogLines,
+    LogRequest,
     Reply,
-    Request,
     Snapshot,
     StripState,
     TwinView,
     VoipState,
+    WatchLog,
 )
 from xtouch_daemon.live.messages import steady as steady_strips
 from xtouch_daemon.voip.provider import VoipProvider
@@ -111,7 +116,7 @@ def peer_uid(sock: socket.socket) -> int:
     return uid
 
 
-type RequestHandler = Callable[[object, Request], Reply | None]
+type RequestHandler = Callable[[object, DaemonRequest], Reply | None]
 """Handles a request of a client (the object stands for it, see `LiveServer.tell()`), returns the answer if any."""
 
 
@@ -121,7 +126,8 @@ class LiveServer:
     something changed (see `changed()`), not on a timer. What moves by itself (a meter that falls, a fader that
     glides) is told once, and the GUI draws it moving (see `StripState`). `on_request` handles
     the requests of clients of the user the daemon runs as (without it, requests are refused), `on_close` learns of
-    every client whose connection ended.
+    every client whose connection ended. `log` has the records a client gets with `WatchLog` (without it, the request
+    is refused).
     """
 
     def __init__(
@@ -131,6 +137,7 @@ class LiveServer:
         on_request: RequestHandler | None = None,
         on_close: Callable[[object], None] = lambda client: None,
         known: Callable[[], KnownDevices] = lambda: KnownDevices(()),
+        log: LogBuffer | None = None,
     ):
         self.path = path
         self._snapshot = snapshot
@@ -142,6 +149,12 @@ class LiveServer:
         """What the clients were sent last, `steady()`: a snapshot that tells nothing else is not sent."""
         self._due = False
         """Whether a snapshot goes out once the event loop is through with what it does now."""
+        self._log = log
+        self._watchers: dict[asyncio.StreamWriter, int] = {}
+        """The clients that watch the log, with the `seq` of the latest record each was sent."""
+        self._log_due = False
+        """Whether new records go out once the event loop gets to it."""
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     async def run(self) -> None:
         """Serves until cancelled. A socket that can't be made is logged: the daemon works without the live view."""
@@ -162,6 +175,8 @@ class LiveServer:
             for client in list(self.clients):
                 client.close()
             self.clients.clear()
+            self._watchers.clear()
+            self._unwatched()
             self.path.unlink(missing_ok=True)
 
     def tell(self, client: object, reply: Reply) -> None:
@@ -208,9 +223,10 @@ class LiveServer:
     def _send(self, client: asyncio.StreamWriter, line: bytes) -> None:
         if client.transport.get_write_buffer_size() > MAX_BUFFER:
             # it does not read: dropped rather than waited for (it can connect again)
-            _LOGGER.warning("Dropping a live view client that does not keep up")
             self.clients.discard(client)
+            self._unwatch(client)
             client.close()
+            _LOGGER.warning("Dropping a live view client that does not keep up")
             return
         client.write(line)
 
@@ -233,20 +249,70 @@ class LiveServer:
             self._send(writer, encode_reply(Reply("error", False, f"A request has at most {MAX_REQUEST} bytes")))
         finally:
             self.clients.discard(writer)
+            self._unwatch(writer)
             self._on_close(writer)
             writer.close()
             with contextlib.suppress(ConnectionError):
                 await writer.wait_closed()
 
     def _request(self, client: asyncio.StreamWriter, line: bytes, trusted: bool) -> None:
-        if not trusted or self._on_request is None:
-            reply: Reply | None = Reply("error", False, "The daemon takes requests only from the user it runs as")
+        refused = Reply("error", False, "The daemon takes requests only from the user it runs as")
+        if not trusted:
+            reply: Reply | None = refused
         else:
             try:
                 request = decode_request(line)
             except ValueError as e:
                 reply = Reply("error", False, f"Can't read the request: {e}")
             else:
-                reply = self._on_request(client, request)
+                if isinstance(request, WatchLog | EndLog):
+                    reply = self._log_request(client, request)
+                elif self._on_request is None:
+                    reply = refused
+                else:
+                    reply = self._on_request(client, request)
         if reply is not None:
             self._send(client, encode_reply(reply))
+
+    # -- the log ------------------------------------------------------------------------------------------------------
+
+    def _log_request(self, client: asyncio.StreamWriter, request: LogRequest) -> Reply | None:
+        if isinstance(request, EndLog):
+            self._unwatch(client)
+            return None
+        if self._log is None:
+            return Reply("error", False, "The daemon keeps no log")
+        # what it kept, then every new record
+        entries = self._log.since(0)
+        self._watchers[client] = entries[-1].seq if entries else self._log.last
+        self._send(client, encode_log(LogLines(entries, backlog=True)))
+        self._loop = asyncio.get_running_loop()
+        self._log.on_entry = self._logged
+        return None
+
+    def _logged(self) -> None:
+        """A new record (in the thread that logged it): the watchers get it once the event loop gets to it."""
+        if self._log_due:
+            return
+        self._log_due = True
+        assert self._loop is not None, "set with the first watcher"
+        self._loop.call_soon_threadsafe(self._publish_log)
+
+    def _publish_log(self) -> None:
+        self._log_due = False
+        assert self._log is not None
+        for client, seq in list(self._watchers.items()):
+            entries = self._log.since(seq)
+            if entries:
+                self._watchers[client] = entries[-1].seq
+                self._send(client, encode_log(LogLines(entries)))
+
+    def _unwatch(self, client: asyncio.StreamWriter) -> None:
+        self._watchers.pop(client, None)
+        if not self._watchers:
+            self._unwatched()
+
+    def _unwatched(self) -> None:
+        """Nobody watches the log: a record costs nothing more than its place in the buffer."""
+        if self._log is not None:
+            self._log.on_entry = None

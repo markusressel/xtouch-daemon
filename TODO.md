@@ -25,8 +25,3 @@ device, check:
 - the meter going down: each level is sent, but the device lets meters fall by itself too.
 - a disconnect: pull only the USB cable while the device stays on. Do its faders, LCDs and LEDs stay as they were, or
   does it reset them? (`docs/reference/hardware.md`, "Disconnect", says it is not known yet.)
-
-## Log Viewer for the running daemon in the GUI
-
-As the title states. An optional window in the GUI that shows the log of the running daemon, with highlighting, a filter for log level and a search function.
-

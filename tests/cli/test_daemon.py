@@ -2,6 +2,7 @@
 `run` and `test`.
 """
 
+import logging
 from collections.abc import Callable
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.hardware.transport import SocketPort
 from xtouch_daemon.live.device_test import TestRefused
+from xtouch_daemon.live.log import LogBuffer
 from xtouch_daemon.system import instance, systemd
 
 
@@ -106,8 +108,11 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
             live_socket: Path,
             players: object,
             state_dir: Path,
+            log: LogBuffer,
         ) -> None:
             started.append((config, config_path))
+            # the log for the GUI, from the start on
+            assert log in logging.getLogger().handlers
             sockets.append(live_socket)
             surfaces.append(surface)
             # what it remembers, in the state directory of the user
@@ -127,6 +132,8 @@ def test_run_starts_the_daemon_with_the_configuration(config_file: Path, monkeyp
     assert started[0][1] == config_file
     assert sockets == [instance.socket_file()]
     assert levels == [10]
+    # and not after it
+    assert not [handler for handler in logging.getLogger().handlers if isinstance(handler, LogBuffer)]
     # the device of the configuration, unless the virtual one is asked for
     assert surfaces == [None]
     assert invoke("run", "-c", str(config_file), "--virtual-device").exit_code == 0
@@ -152,6 +159,7 @@ def test_run_says_that_it_runs_and_a_second_one_does_not_start(
             live_socket: Path,
             players: object,
             state_dir: Path,
+            log: LogBuffer,
         ) -> None:
             pass
 

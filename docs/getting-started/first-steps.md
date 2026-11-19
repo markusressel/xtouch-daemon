@@ -116,7 +116,7 @@ A unit in `~/.config/systemd/user` overrides the one of the package; see
 | Restart (after changing `[mqtt]`) | `systemctl --user restart xtouch-daemon` |
 | Stop (e.g. for `xtouch-daemon test`) | `systemctl --user stop xtouch-daemon` |
 | See whether the device, sound server and broker are connected | `systemctl --user status xtouch-daemon` |
-| Follow the log | `journalctl --user -u xtouch-daemon -f` |
+| Follow the log | `journalctl --user -u xtouch-daemon -f`, or View → Log in the GUI |
 
 To run it in the foreground instead, e.g. to watch the log while you try something:
 

@@ -34,8 +34,10 @@ from xtouch_daemon.hardware.selftest import TestBench, sweep
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.hardware.transport import AlsaPort, Port, SocketPort
+from xtouch_daemon.live.log import LogBuffer
 from xtouch_daemon.live.messages import (
     FEATURES,
+    DaemonRequest,
     EndPreview,
     EndTest,
     ForgetDevice,
@@ -44,7 +46,6 @@ from xtouch_daemon.live.messages import (
     MqttState,
     Play,
     Reply,
-    Request,
     SetMode,
     SetOverride,
     Snapshot,
@@ -143,6 +144,7 @@ class Daemon(Rig):
         voip_socket: Path | None = None,
         processes: Callable[[], frozenset[str]] = running_processes,
         state_dir: Path | None = None,
+        log: LogBuffer | None = None,
     ):
         """
         `bridge` is by default the one of the [mqtt] section, if there is one. `capture_command` is what the meters
@@ -151,7 +153,7 @@ class Daemon(Rig):
         `encoder = "media"`. `voip_socket` is where the `bridge` VoIP provider waits for its plugin (by default
         `instance.voip_socket_file()`), `processes` tells the processes that run, for the states. `state_dir` is where
         the slots keep the overrides, the mode picked by hand and the order of the people for the next start (see
-        `instance.state_dir()`), None for nowhere.
+        `instance.state_dir()`), None for nowhere. `log` keeps the records of the log for the GUI (`live.WatchLog`).
         """
         self.players = players
         self.config = config
@@ -209,7 +211,7 @@ class Daemon(Rig):
         self.surface.on_connection = self._on_connection
         self.surface.on_change = self._changed
         self.live = (
-            LiveServer(live_socket, self.snapshot, self.on_request, self.on_client_closed, self.devices_seen.known)
+            LiveServer(live_socket, self.snapshot, self.on_request, self.on_client_closed, self.devices_seen.known, log)
             if live_socket is not None
             else None
         )
@@ -340,7 +342,7 @@ class Daemon(Rig):
         """Whether a configuration of the GUI runs instead of the file."""
         return self._previewer is not None
 
-    def on_request(self, client: object, request: Request) -> Reply | None:
+    def on_request(self, client: object, request: DaemonRequest) -> Reply | None:
         """A request of a client of the live view (the user's own, `LiveServer` checks that)."""
         try:
             return self._answer(client, request)
@@ -348,7 +350,7 @@ class Daemon(Rig):
             # a preview, a mode, an override: the snapshot tells it
             self._changed()
 
-    def _answer(self, client: object, request: Request) -> Reply | None:
+    def _answer(self, client: object, request: DaemonRequest) -> Reply | None:
         if self._stopping:
             return _refused(request)
         match request:
@@ -859,7 +861,7 @@ class Daemon(Rig):
         return f"STATUS={surface}, {sound}{mqtt}{preview}{test}"
 
 
-def _refused(request: Request) -> Reply | None:
+def _refused(request: DaemonRequest) -> Reply | None:
     """The answer to a request of the live view while the daemon stops: no to what would start something."""
     why = "The daemon stops."
     match request:

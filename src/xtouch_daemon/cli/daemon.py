@@ -15,6 +15,7 @@ from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path
 from xtouch_daemon.hardware.selftest import run_selftest
 from xtouch_daemon.live.device_test import TestRefused, run_test_in_daemon
+from xtouch_daemon.live.log import LogBuffer
 from xtouch_daemon.runtime.daemon import Daemon, device_surface
 from xtouch_daemon.system import instance, systemd
 
@@ -34,6 +35,11 @@ from xtouch_daemon.system import instance, systemd
 def run(config_path: Path | None, log_level: str, virtual_device: bool) -> None:
     """Run the daemon (in the foreground; `install-service` sets it up as a systemd user service)."""
     systemd.setup_logging(getattr(logging, log_level.upper()))
+    with LogBuffer().attached() as log:
+        _run(config_path, virtual_device, log)
+
+
+def _run(config_path: Path | None, virtual_device: bool, log: LogBuffer) -> None:
     config = load_or_fail(config_path)
     try:
         daemon = Daemon(
@@ -44,6 +50,7 @@ def run(config_path: Path | None, log_level: str, virtual_device: bool) -> None:
             live_socket=instance.socket_file(),
             players=MprisPlayers(),
             state_dir=instance.state_dir(),
+            log=log,
         )
     except ConfigError as e:
         # e.g. the file with the MQTT password is missing

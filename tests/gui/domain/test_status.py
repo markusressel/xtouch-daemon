@@ -8,12 +8,13 @@ from xtouch_daemon.gui.domain.status import (
     Status,
     Tone,
     changes_status,
+    log_unavailable,
     offers_virtual_device,
     outdated,
     preview_status,
     unit_status,
 )
-from xtouch_daemon.live.messages import Snapshot, fingerprint
+from xtouch_daemon.live.messages import FEATURES, Snapshot, fingerprint
 from xtouch_daemon.system import systemd
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import ServiceState
@@ -168,3 +169,19 @@ def test_without_a_live_view_the_version_is_not_known():
     state = ServiceState(True, "active", True, program="/usr/bin/xtouch-daemon")
 
     assert outdated(state, None, "0.2.0", "/usr/bin/xtouch-daemon") is None
+
+
+def test_the_log_says_why_it_does_not_come():
+    running = dataclasses.replace(snapshot(), features=FEATURES)
+    assert log_unavailable(running, owned=True) is None
+    # the device need not be there
+    assert log_unavailable(dataclasses.replace(running, device=False), owned=True) is None
+    none = log_unavailable(None, owned=False)
+    assert none is not None
+    assert none.short == "no daemon"
+    other = log_unavailable(running, owned=False)
+    assert other is not None
+    assert other.short == "another user's daemon"
+    old = log_unavailable(snapshot(), owned=True)
+    assert old is not None
+    assert "too old" in old.why

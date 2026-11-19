@@ -30,7 +30,8 @@ that on the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon.sock` (mode 0600, next t
   - the `fingerprint()` of the configuration in use;
   - `slots` (`SlotsState`): the mode and the one picked by hand; per slot the candidate, channel, pool, member and
     why; per state its value, `since`, `source` and override; per pool the members that wait;
-  - `preview`, `simulated` and `features` (what the daemon takes: `mode`, `override`, `play`, `preview`, `situation`, `twin`).
+  - `preview`, `simulated` and `features` (what the daemon takes: `mode`, `override`, `play`, `preview`, `situation`,
+    `on_device`, `test`, `log`).
 - **The devices it saw.** A line of its own, `{"known_devices": [...]}` (`KnownDevices`), when a client connects (if
   there are any) and whenever they change: every output and input the sound server had, with its card, the profile
   the card was in and when it was there last (`runtime/device_memory.py`, kept in `devices.json` of the state
@@ -52,6 +53,8 @@ A client may send requests, a line of JSON each. Otherwise the GUI changes the d
 | `StartPreview`, `KeepPreview`, `EndPreview` | The [live preview](#live-preview). |
 | `StartTest`, `KeepTest`, `EndTest` | The test of the device (`hardware/selftest.py`): the `Surface` lends the test its own strips (`Surface.lend()`), the strips of the slots keep what is drawn on them without showing it until `take_back()`. Answered with a `Reply` of kind `test`; `test_ended` tells why the daemon ended it (timeout `TEST_TIMEOUT`, device gone, a preview on the device, another client). The snapshot says `test`. |
 
+| `{"request": "watch_log"}`, `{"request": "end_log"}` | The [log](#log) of the daemon, for the window Log of the GUI. |
+
 - **Of the user only.** The daemon takes requests only from processes of its own user (`SO_PEERCRED`: root can connect
   to a socket of mode 0600), in lines of at most `MAX_REQUEST` (1 MiB): a longer one ends the connection.
 - **Never in the way.** Clients get only non-blocking writes. One that falls behind by more than `MAX_BUFFER` is
@@ -60,6 +63,25 @@ A client may send requests, a line of JSON each. Otherwise the GUI changes the d
 
 The GUI reads the socket with a `QLocalSocket`, without a thread, and connects again while the daemon runs. Without a
 daemon it shows what the file would show, and says so.
+
+## Log
+
+The window Log of the GUI shows the log of the daemon, whether it runs as the service (the journal) or in a terminal
+(`live/log.py`). The design: [The log in the GUI](../design/log-viewer.md).
+
+- **Kept in memory.** `xtouch-daemon run` attaches a `LogBuffer` to the root logger before anything else: a
+  `logging.Handler` that keeps the latest `LOG_SIZE` (1000) records as `LogEntry` (`seq`, `time`, `level`, `logger`,
+  `message` with its traceback), the ones the terminal or the journal get, at the daemon's `--log-level`.
+- **Sent while watched.** `WatchLog` gets the records kept, as a line `{"log": [...], "backlog": true}`, then every
+  new one in lines `{"log": [...]}`, until `EndLog` or the end of the connection. The `LiveServer` handles both
+  requests itself, not the daemon (`LogRequest`; the daemon's are `DaemonRequest`). The GUI asks only while its window
+  Log shows, and again on a new connection; a backlog starts it over.
+- **Cheap when nobody watches.** A record costs its message and a place in a deque. With a watcher the buffer calls
+  `LiveServer._logged()`, which goes through `call_soon_threadsafe` (other threads log too, e.g. `system/launch.py`)
+  and sends what came since in one line per client, once the event loop gets to it. A client that falls behind is
+  dropped as for the snapshots; `seq` shows a gap if records left the buffer before they were sent.
+- **Of the user only**, like the requests: the log may name files, devices and people of the user. The daemon never
+  logs secrets (the MQTT password is a `SecretStr`).
 
 ## Virtual twin
 

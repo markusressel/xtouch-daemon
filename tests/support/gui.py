@@ -26,8 +26,8 @@ from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
-from xtouch_daemon.live.codec import decode_request, encode, encode_twin
-from xtouch_daemon.live.messages import Request, Snapshot, StripState, TwinView, fingerprint
+from xtouch_daemon.live.codec import decode_request, encode, encode_log, encode_twin
+from xtouch_daemon.live.messages import LogLines, Request, Snapshot, StripState, TwinView, fingerprint
 from xtouch_daemon.voip import mumble
 
 CONFIG = """\
@@ -209,6 +209,9 @@ class FakeLiveDaemon:
 
     def send_twin(self, view: TwinView) -> None:
         self.send_line(encode_twin(view))
+
+    def send_log(self, lines: LogLines) -> None:
+        self.send_line(encode_log(lines))
 
     def close(self) -> None:
         for client in self.clients:
