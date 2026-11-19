@@ -24,7 +24,7 @@ def test_states_are_shown_edited_added_and_removed(qtbot: QtBot, window: MainWin
     assert page.selection == "call"
     assert [item.text() for item in items(window)] == ["call\nstate"]
     assert (page.title.text(), page.id_edit.text()) == ("State", "call")
-    assert page.used.text() == "Used by: slot 2"
+    assert page.used.strips.slots == {2}
     assert page.live.text() == "No daemon runs these states right now."
     assert not any(segment.isVisible() for segment in page.override_buttons.values())
     assert row(window, "voice_chat", "states").switch.isChecked()
@@ -39,7 +39,7 @@ def test_states_are_shown_edited_added_and_removed(qtbot: QtBot, window: MainWin
     assert page.title.text() == "Mode"
     # modes first
     assert [item.text().split("\n")[0] for item in items(window)] == ["mode", "call"]
-    assert page.used.text() == "No slot or control asks about it yet."
+    assert page.used.rest.text() == "No slot or control asks about it yet."
     menu.actions()[1].trigger()
     assert page.selection == "state"
     assert window.document.get(("state", "state")) == {}

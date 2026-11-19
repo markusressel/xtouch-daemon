@@ -49,6 +49,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: "Used by" of a channel or state shows the slots as a row of small strips, lit where a slot shows it
+  (outlined where only its controls use it); a click shows the slot. Pools and states that use it follow in words.
 - GUI: the options of a form are set apart by a thin line. A place in Slots groups its options like the cards of a
   channel (Encoder, Display, Buttons, Fader and meter), has the meter as one choice, and its buttons show only what
   their LED shows (Select also `press = "off"`): what a button does belongs to the channel.

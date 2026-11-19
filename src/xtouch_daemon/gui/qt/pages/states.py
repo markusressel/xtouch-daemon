@@ -37,6 +37,7 @@ from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, divider, text_width
 from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE, DotItemDelegate
+from xtouch_daemon.gui.qt.fields.used_by import UsedBy
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -158,7 +159,8 @@ class StatesPage(Page):
         title.addWidget(self.id_edit)
         title.addStretch()
         inspector.addWidget(row(title))
-        self.used = label("", "hint", wrap=True)
+        self.used = UsedBy()
+        """Where it is used: the slots as small strips (a click shows one), then the rest."""
         inspector.addWidget(self.used)
         live = QHBoxLayout()
         self.live = label("", wrap=True)
@@ -389,7 +391,7 @@ class StatesPage(Page):
         set_text(self.title, "Mode" if mode else "State")
         self.id_edit.setText(name)
         where = state_uses(self.document.values, name)
-        set_text(self.used, f"Used by: {', '.join(where)}" if where else "No slot or control asks about it yet.")
+        self.used.show_uses(where, "No slot or control asks about it yet.")
         self._load_rows(self.rows)
         if name != self.arranged:
             # another state: its delays open if it has any, sources added to the last one are gone

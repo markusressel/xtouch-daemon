@@ -385,6 +385,9 @@ class MainWindow(QMainWindow):
             self.editor, audio, lambda: self.live.snapshot, lambda: self.live.known, self.live.send
         )
         self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
+        # a strip of "Used by" shows its slot
+        self.channels_page.used.strips.picked.connect(self.show_slot)
+        self.states_page.used.strips.picked.connect(self.show_slot)
         self.pages: dict[str, Page] = {"slots": slots, "channels": self.channels_page, "states": self.states_page}
         for name in SETTINGS_PAGES:
             if name == "aliases":

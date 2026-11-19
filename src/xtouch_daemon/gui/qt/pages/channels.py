@@ -31,6 +31,7 @@ from xtouch_daemon.gui.qt.fields.devices import device_row
 from xtouch_daemon.gui.qt.fields.meter import meter_row
 from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow, add_rows, align_titles
 from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, EntityItemDelegate, Lines
+from xtouch_daemon.gui.qt.fields.used_by import UsedBy
 from xtouch_daemon.gui.qt.pages.base import Audio, Flip, Page, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.preview.part_view import PartPreview
 from xtouch_daemon.gui.qt.theme.icons import icon
@@ -166,7 +167,8 @@ class ChannelsPage(Page):
         self.about = help_label("", "hint")
         """What the type of the channel is, which the options below are about (e.g. the meter of an output)."""
         self.inspector.addWidget(self.about)
-        self.used = label("", "hint", wrap=True)
+        self.used = UsedBy()
+        """Where it is used: the slots as small strips (a click shows one), then the rest."""
         self.inspector.addWidget(self.used)
         self.inspector.addWidget(self.problem)
         self.forms = Stack()
@@ -446,7 +448,7 @@ class ChannelsPage(Page):
         self.duplicate_button.setEnabled(is_channel)
         self.remove_button.setEnabled(yours)
         where = uses(self.document.values, str(self.selection[-1]))
-        set_text(self.used, f"Used by: {', '.join(where)}" if where else "Not used by a slot, pool or state yet.")
+        self.used.show_uses(where, "Not used by a slot, pool or state yet.")
         self.forms.show_part(self.form_widgets[key])
         self._load_rows(self.rows)
         for option_row in self.rows:

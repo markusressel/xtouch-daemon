@@ -62,11 +62,11 @@ def test_a_channel_is_picked_edited_and_saved(qtbot: QtBot, window: MainWindow, 
     page = window.channels_page
     # the first channel, until another is picked
     assert page.title.text() == "Output"
-    assert page.used.text() == "Used by: slot 1"
+    assert page.used.strips.slots == {1}
     page.list.setCurrentItem(items(window)[1])
     assert page.selection == ("channel", "browser")
     assert (page.title.text(), page.id_edit.text()) == ("Applications", "browser")
-    assert page.used.text() == "Used by: slot 2"
+    assert page.used.strips.slots == {2}
 
     type_into(qtbot, row(window, "label").line, "Web")
     assert window.windowTitle() == f"• {path.name}"
@@ -82,7 +82,7 @@ def test_a_channel_is_picked_edited_and_saved(qtbot: QtBot, window: MainWindow, 
     assert page.selection == PEOPLE
     assert page.id_edit.isHidden()
     # the people sit on the slots of auto
-    assert page.used.text() == "Used by: slot 2"
+    assert page.used.strips.slots == {2}
     assert not page.remove_button.isEnabled()
 
 
@@ -108,7 +108,7 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
     menu.actions()[1].trigger()
     assert page.selection == ("channel", "input")
     assert window.document.get(("channel", "input")) == {"type": "input"}
-    assert page.used.text() == "Not used by a slot, pool or state yet."
+    assert page.used.rest.text() == "Not used by a slot, pool or state yet."
     menu.actions()[1].trigger()
     assert page.selection == ("channel", "input_2")
 
