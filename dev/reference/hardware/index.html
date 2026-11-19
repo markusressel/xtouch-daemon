@@ -2733,7 +2733,13 @@ tests it.</p>
 without ALSA sequencer or JACK.</p>
 <p>The user needs read and write access to it. Desktop sessions give it to the logged-in user through the seat (logind).
 Without a session, add the user to the <code>audio</code> group.</p>
-<p>Only one program can have the device open. Stop the daemon before <a href="../commands/"><code>xtouch-daemon test</code></a>, and close DAWs that use it.</p>
+<p>Only one program can have the device open: close DAWs that use it. <a href="../commands/#test"><code>xtouch-daemon test</code></a> asks a
+running daemon to test the device.</p>
+<p>To check a device: <a href="../commands/#test"><code>xtouch-daemon test</code></a>, or "Test the device" in the <a href="../../guides/gui/#test-the-device">GUI</a>,
+which draws the device next to it. Every strip answers its controls, so each LED, the ring in each mode, the LCD
+colors, the meter, the motor and the touch sensor of every fader can be checked by hand, and compared with the
+drawing. The modes with <code>+c</code> set the <code>center</code> bit of the ring's message, which lights the two LEDs at the ends of
+the ring (see the table below).</p>
 <h2 id="motor-faders">Motor faders<a class="headerlink" href="#motor-faders" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Touch:</strong> while a finger is on a fader, its motor does not follow outside changes. When the fader is let go, it

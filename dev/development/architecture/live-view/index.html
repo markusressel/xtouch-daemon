@@ -2773,6 +2773,10 @@ that on the Unix socket <code>$XDG_RUNTIME_DIR/xtouch-daemon.sock</code> (mode 0
 <td><code>StartPreview</code>, <code>KeepPreview</code>, <code>EndPreview</code></td>
 <td>The <a href="#live-preview">live preview</a>.</td>
 </tr>
+<tr>
+<td><code>StartTest</code>, <code>KeepTest</code>, <code>EndTest</code></td>
+<td>The test of the device (<code>hardware/selftest.py</code>): the <code>Surface</code> lends the test its own strips (<code>Surface.lend()</code>), the strips of the slots keep what is drawn on them without showing it until <code>take_back()</code>. Answered with a <code>Reply</code> of kind <code>test</code>; <code>test_ended</code> tells why the daemon ended it (timeout <code>TEST_TIMEOUT</code>, device gone, a preview on the device, another client). The snapshot says <code>test</code>.</td>
+</tr>
 </tbody>
 </table>
 <ul>

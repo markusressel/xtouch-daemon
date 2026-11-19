@@ -2678,10 +2678,11 @@ grant it to the logged-in user. Without a session, add the user to the <code>aud
 <h2 id="test-the-device">Test the device<a class="headerlink" href="#test-the-device" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span>
 </span></code></pre></div>
-<p>Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader. Afterwards the command shows what
-you do on the device: faders, buttons and encoders. Ctrl+C stops it.</p>
-<p>Only one program can use the device. If the daemon already runs as a service, stop it before the test
-(<code>systemctl --user stop xtouch-daemon</code>), and close DAWs that use the device. Without a device, start the virtual one in another terminal (<code>xtouch-daemon virtual-device</code>) and run
+<p>Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader. Afterwards every strip answers
+its own controls: the meter follows the fader, a button steps its LED, the encoder changes the ring, the LCD color and
+the motor fader (<a href="../../reference/commands/#test"><code>test</code></a> has the details). Ctrl+C stops it.</p>
+<p>If the daemon already runs as a service, it runs the test (the slots show again after it). Close DAWs that use the
+device. Without a device, start the virtual one in another terminal (<code>xtouch-daemon virtual-device</code>) and run
 <code>xtouch-daemon test --virtual-device</code>; see <a href="../without-a-device/">Without a device</a>.</p>
 <h2 id="write-a-configuration">Write a configuration<a class="headerlink" href="#write-a-configuration" title="Permanent link">&para;</a></h2>
 <p>A configuration names <strong>channels</strong> (what a strip can control), <strong>states</strong> (in a call, gaming) and, for each of the 8

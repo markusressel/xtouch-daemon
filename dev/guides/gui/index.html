@@ -660,6 +660,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#test-the-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Test the device
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-virtual-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2700,6 +2711,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#test-the-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Test the device
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-virtual-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3017,6 +3039,43 @@ window and plays on it.</p>
 <p>While no daemon runs, "Try without a device" starts one with the virtual device on this file (saved first if it is
 new) and opens the device in the window, in Play: to set everything up and try it before there is a device. That
 daemon ends with the window.</p>
+<h2 id="test-the-device">Test the device<a class="headerlink" href="#test-the-device" title="Permanent link">&para;</a></h2>
+<p>"Test the device", above the drawing, asks the daemon to test the device: the strips light up one after the other
+(the sweep), then every strip answers its own controls, on the device and in the drawing, so the two can be compared.
+A bar says what each control does:</p>
+<table>
+<thead>
+<tr>
+<th>Input on a strip</th>
+<th>What the strip shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fader moved</td>
+<td>The meter follows the fader.</td>
+</tr>
+<tr>
+<td>Fader touched, let go</td>
+<td><code>touch</code>, <code>let go</code></td>
+</tr>
+<tr>
+<td>Rec, Solo, Mute, Select pressed</td>
+<td>Its LED goes on, flashing, off (<code>mute on</code>, <code>mute fl</code>, <code>mute off</code>).</td>
+</tr>
+<tr>
+<td>Encoder turned</td>
+<td>Changes what the encoder edits, wrapping around, and shows its value.</td>
+</tr>
+<tr>
+<td>Encoder pushed</td>
+<td>The next thing the encoder edits: the position of the ring (<code>ring 7</code>), its mode with and without the two LEDs at the ends of the ring (<code>dot</code>, <code>boost</code>, <code>wrap</code>, <code>spread</code>, <code>dot+c</code> ...), the color of the LCD, the motor fader in steps of 10 % (<code>fad 60%</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>Play works on the drawing during the test, and so does the hosted virtual device. The slots go on meanwhile (Home
+Assistant still sees them), but show on the device only again when the test ends: a click on the button, closing the
+window, a preview "On the device", or the device going away. The footer says why it ended.</p>
 <h2 id="the-virtual-device">The virtual device<a class="headerlink" href="#the-virtual-device" title="Permanent link">&para;</a></h2>
 <p>While the window hosts the virtual device, Play is on (see <a href="#select-and-play">Select and Play</a>).</p>
 <p>A bar above the drawing unplugs it and plugs it in again, switches it off and on (the faders go down by themselves,

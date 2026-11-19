@@ -3050,10 +3050,45 @@ presets, for <code>match</code>, <code>exclude</code> and <code>[aliases]</code>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-events<span class="o">]</span><span class="w"> </span><span class="o">[</span>--virtual-device<span class="o">]</span>
 </span></code></pre></div>
 <p>Lights up everything on the device and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
-meter, and moves its fader up and down. Then it shows what you do on the device (faders, touches, buttons, encoders),
-and the messages from the device the daemon doesn't use, until Ctrl+C. <code>--no-events</code> ends after the test.</p>
-<p>It takes the name of the device from <code>[device]</code> of the configuration. Stop the daemon first
-(<code>systemctl --user stop xtouch-daemon</code>): only one program can use the device. <code>--virtual-device</code> (or
+meter, and moves its fader up and down. Then every strip answers its own controls, until Ctrl+C, so you can check each
+LED, the ring, the colors, the motor and the touch of every fader:</p>
+<table>
+<thead>
+<tr>
+<th>Input on a strip</th>
+<th>What the strip shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fader moved</td>
+<td>The meter follows the fader.</td>
+</tr>
+<tr>
+<td>Fader touched, let go</td>
+<td><code>touch</code>, <code>let go</code></td>
+</tr>
+<tr>
+<td>Rec, Solo, Mute, Select pressed</td>
+<td>Its <a href="../../configuration/strip/leds/">LED</a> goes on, flashing, off (<code>mute on</code>, <code>mute fl</code>, <code>mute off</code>).</td>
+</tr>
+<tr>
+<td>Encoder turned</td>
+<td>Changes what the <a href="../../configuration/strip/encoders/">encoder</a> edits, wrapping around, and shows its value.</td>
+</tr>
+<tr>
+<td>Encoder pushed</td>
+<td>The next thing the encoder edits: the position of the ring (<code>ring 7</code>), its mode with and without the two LEDs at the ends of the ring (<code>dot</code>, <code>boost</code>, <code>wrap</code>, <code>spread</code>, <code>dot+c</code> ...), the color of the LCD, the motor fader in steps of 10 % (<code>fad 60%</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>The top line of the LCD names the strip, the bottom line shows the last input for 2 seconds, then what the encoder
+edits. The command prints every input with the answer, and the messages from the device the daemon doesn't use.
+<code>--no-events</code> ends after the sweep.</p>
+<p>While the daemon runs, it has the device: <code>test</code> asks it to run the test instead (the GUI's "Test the device" does the
+same). The slots go on, but show on the device again only when the test ends; the daemon's log shows the inputs
+(<code>journalctl --user -u xtouch-daemon -f</code>). <code>--no-events</code> needs the daemon stopped.</p>
+<p>Without a daemon it takes the name of the device from <code>[device]</code> of the configuration. <code>--virtual-device</code> (or
 <code>[device] virtual = true</code>) tests the <a href="#virtual-device">virtual device</a>, which has to run (in another terminal).</p>
 <h2 id="virtual-device"><code>virtual-device</code><a class="headerlink" href="#virtual-device" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>xtouch-daemon<span class="w"> </span>virtual-device<span class="w"> </span><span class="o">[</span>--broken-touch<span class="w"> </span><span class="m">1</span>,4<span class="o">]</span><span class="w"> </span><span class="o">[</span>--log-level<span class="w"> </span>debug<span class="o">]</span>

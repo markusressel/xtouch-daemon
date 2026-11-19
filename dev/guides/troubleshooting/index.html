@@ -2716,12 +2716,13 @@ MC mode on USB in its setup menu, see <a href="../../getting-started/first-steps
 <p><strong><code>... is it switched on, in MC mode on USB?</code></strong> <code>xtouch-daemon test</code> can't find the sound card of the extender. The
 daemon waits for it and connects when it appears. Check that it is connected and on, and that <code>/proc/asound/cards</code> lists it. If the name differs, set
 <code>[device] name</code> to a part of it.</p>
-<p><strong><code>can't open X-Touch-Ext (... Device or resource busy)</code>.</strong> Only one program can use the device. Stop the daemon
-before <code>xtouch-daemon test</code> (<code>systemctl --user stop xtouch-daemon</code>), and close DAWs or other MIDI tools that opened it.</p>
+<p><strong><code>can't open X-Touch-Ext (... Device or resource busy)</code>.</strong> Only one program can use the device. Close DAWs or other
+MIDI tools that opened it. (<code>xtouch-daemon test</code> asks a running daemon to run the test.)</p>
 <p><strong><code>... Permission denied</code>.</strong> Your user can't open the MIDI device in <code>/dev/snd</code>. Desktop sessions give access to the
 logged-in user; without a session, add the user to the <code>audio</code> group. See <a href="../../reference/hardware/#linux-access">Hardware</a>.</p>
 <p><strong>A fader does not change the volume.</strong> Only a touched fader changes a value. A fader whose touch sensor failed goes
-back to its value after a move. <code>xtouch-daemon test</code> shows whether the device reports <code>fader touched</code>. Until the
+back to its value after a move. <code>xtouch-daemon test</code> (or "Test the device" in the GUI) shows <code>touch</code> on the LCD
+when the device reports the touch. Until the
 sensor is repaired, <a href="../../configuration/behavior/#faders-without-a-touch-sensor"><code>touchless_faders</code></a> makes the fader work
 without it.</p>
 <p><strong>A fader jumps on its first move after the daemon started.</strong> The device can't tell where its faders are, so after a

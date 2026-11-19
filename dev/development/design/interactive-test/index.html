@@ -2842,7 +2842,10 @@
 
 
 <h1 id="design-an-interactive-device-test">Design: an interactive device test<a class="headerlink" href="#design-an-interactive-device-test" title="Permanent link">&para;</a></h1>
-<p>Status: designed (2026-11-18), not built yet. See TODO.md.</p>
+<p>Status: built (2026-11-19). Differences from the design below: the top line of the LCD always names the strip, the
+bottom line shows what the encoder edits (<code>ring 6</code>, <code>dot+c</code>, <code>cyan</code>, <code>fad 60%</code>) or, for 2 s, the last input; a turn
+shows the new value rather than <code>enc +1</code>. The command with a running daemon doesn't print the inputs, the daemon's log
+has them. The center bit lights the two LEDs at the ends of the ring, as measured before (<code>reference/hardware.md</code>).</p>
 <h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
 <p><code>xtouch-daemon test</code> lights everything up once (every LCD in a color, the LEDs, rings and meters, the faders up and
 down), resets the device and then only prints what happens on it: <code>strip 3: mute pressed</code>, <code>strip 3: encoder +1</code>.
