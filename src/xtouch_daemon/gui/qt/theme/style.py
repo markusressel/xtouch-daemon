@@ -299,7 +299,8 @@ QMenu::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
 QMenu::item:disabled {{ color: {c.text_muted}; }}
 QScrollBar:vertical {{ background: transparent; width: {Space.M}px; margin: 0; }}
 QScrollBar:horizontal {{ background: transparent; height: {Space.M}px; margin: 0; }}
-QScrollBar::handle {{ background: {tint(c.text, 60)}; border-radius: {Radius.SMALL}px; margin: 3px; }}
+/* round ends: Qt draws no round corners for a radius above half the width of the handle */
+QScrollBar::handle {{ background: {tint(c.text, 60)}; border-radius: {(Space.M - 2 * 3) // 2}px; margin: 3px; }}
 QScrollBar::handle:hover {{ background: {tint(c.text, 110)}; }}
 QScrollBar::handle:vertical {{ min-height: {Space.XXL}px; }}
 QScrollBar::handle:horizontal {{ min-width: {Space.XXL}px; }}

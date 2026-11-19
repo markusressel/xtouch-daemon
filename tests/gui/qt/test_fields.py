@@ -3,7 +3,7 @@ The fields of the forms.
 """
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QDoubleSpinBox, QToolButton
+from PyQt6.QtWidgets import QDoubleSpinBox
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import MakeWindow, click, row, show_channel, type_into
@@ -119,10 +119,16 @@ def listed(completer: NameCompleter | None, text: str = "") -> list[str]:
     return [str(completer.items.index(line, 0).data()) for line in range(completer.items.rowCount())]
 
 
+def added_device(device: OptionRow) -> OptionRow:
+    """The device field of a new entry of the list of devices."""
+    device.tables.add()
+    return device.tables.entries[-1].rows["device"]
+
+
 def test_suggestions_come_from_the_sound_server(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")
     device = row(window, "device")
-    completer = device.chips.completer
+    completer = added_device(device).completer
     assert listed(completer) == ["speaker", "buds"]
     assert completer is not None
     # what each is, where it is known from, and the name below
@@ -135,13 +141,13 @@ def test_suggestions_come_from_the_sound_server(qtbot: QtBot, window: MainWindow
 
     # added to the one of the file, which stood alone
     assert window.document.get(("channel", "out", "device")) == ["speaker", "buds"]
-    assert device.chips.values == ["speaker", "buds"]
+    assert [entry.title.text() for entry in device.tables.entries] == ["speaker description", "buds description"]
 
 
 def test_an_empty_suggestion_list_says_so(make_window: MakeWindow):
     window = make_window(lambda: AudioState())
     show_channel(window, "out")
-    completer = row(window, "device").chips.completer
+    completer = added_device(row(window, "device")).completer
     assert listed(completer) == ["The sound server has none right now"]
     assert completer is not None
     item = completer.items.item(0)
@@ -189,19 +195,19 @@ def test_a_list_of_processes_suggests_the_presets_for_processes(qtbot: QtBot):
 def test_typing_completes_from_the_sound_server(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")
     device = row(window, "device")
-    click(qtbot, device.chips.chips[0].findChild(QToolButton))
+    click(qtbot, device.tables.entries[0].remove_button)
     assert window.document.get(("channel", "out", "device")) is None
-    assert device.chips.input.placeholderText() == "Add… (none: the default output)"
+    field = added_device(device)
 
-    type_into(qtbot, device.chips.input, "bu")
+    type_into(qtbot, field.line, "bu")
     # narrowed down to what has the text, by name or description
-    assert listed(device.chips.completer, "bu") == ["buds"]
-    assert listed(device.chips.completer, "*des*") == ["speaker", "buds"]
+    assert listed(field.completer, "bu") == ["buds"]
+    assert listed(field.completer, "*des*") == ["speaker", "buds"]
 
-    completer = device.chips.completer
+    completer = field.completer
     assert completer is not None
     completer.activated.emit("buds")
-    assert window.document.get(("channel", "out", "device")) == ["buds"]
+    assert window.document.get(("channel", "out", "device")) == "buds"
 
 
 def test_a_text_can_be_picked_from_suggestions(qtbot: QtBot):

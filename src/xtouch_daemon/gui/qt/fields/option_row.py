@@ -141,6 +141,8 @@ class OptionRow(QWidget):
         self._loading = False
         self.resettable = True
         """Shows the button back to the default while a value is set; off where the page removes it another way."""
+        self.names: tuple[str, ...] = (option.name,)
+        """The options of the file the row edits: its problems are theirs (e.g. `device` and `choices`)."""
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, Space.XS, 0, Space.XS)
         outer.setSpacing(Space.XS)
@@ -464,7 +466,8 @@ class OptionRow(QWidget):
 
     def _problem_text(self, problem: Problem) -> str:
         """The message, after the table and column for a problem in one of `TABLES` (e.g. "2. label: ...")."""
-        rest = problem.path[problem.path.index(self.option.name) + 1 :] if self.option.name in problem.path else ()
+        name = next((name for name in self.names if name in problem.path), None)
+        rest = () if name is None else problem.path[problem.path.index(name) + 1 :]
         if self.option.kind != Kind.TABLES or not rest or not isinstance(rest[0], int):
             return problem.message
         where = " ".join([f"{rest[0] + 1}.", *map(str, rest[1:])])

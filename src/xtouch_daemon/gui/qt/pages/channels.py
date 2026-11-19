@@ -27,6 +27,7 @@ from xtouch_daemon.gui.domain.voip import participants
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label, set_help
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
+from xtouch_daemon.gui.qt.fields.devices import device_row
 from xtouch_daemon.gui.qt.fields.meter import meter_row
 from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow, add_rows, align_titles
 from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, EntityItemDelegate, Lines
@@ -207,6 +208,7 @@ class ChannelsPage(Page):
         rows: list[OptionRow] = []
         previews: dict[Part, PartPreview] = {}
         suggest, table_suggest, placeholders = self._helpers(strip)
+        by_name = {option.name: option for option in form_options}
         for group, title in GROUPS:
             options = [option for option in form_options if group_of(option.name) == group]
             if not options:
@@ -228,6 +230,12 @@ class ChannelsPage(Page):
                     continue
                 if option.name == "meter":
                     widgets.append(self._meter_row(path, strip, rows))
+                    continue
+                if option.name == "choices" and "device" in by_name:
+                    # one list with `device`, see `_device_row`
+                    continue
+                if option.name == "device" and "choices" in by_name:
+                    widgets.append(self._device_row(by_name, path, strip, table_suggest.get("choices"), rows))
                     continue
                 option_row = self._row(
                     option,
@@ -271,6 +279,34 @@ class ChannelsPage(Page):
             docs.option_link("strip", "meter_point", strip),
         )
         option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, path("meter"))))
+        rows.append(option_row)
+        return option_row
+
+    def _device_row(
+        self,
+        by_name: dict[str, Option],
+        path: Callable[[str], OptionPath],
+        strip: str,
+        suggest: TableSuggest | None,
+        rows: list[OptionRow],
+    ) -> OptionRow:
+        """`device` and `choices` as one list: the names alone, or the tables once an entry has more (see `devices`)."""
+
+        def put(name: str, value: Any) -> None:
+            if value is None:
+                self.document.unset(path(name))
+            else:
+                self.document.set(path(name), value)
+
+        option_row = device_row(
+            by_name["device"],
+            by_name["choices"],
+            lambda name: self.document.get(path(name)),
+            put,
+            suggest,
+            docs.option_link("strip", "device", strip),
+        )
+        option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, path("device"))))
         rows.append(option_row)
         return option_row
 
@@ -318,14 +354,12 @@ class ChannelsPage(Page):
         }
         if strip in ("output", "input"):
             direction = Direction(strip)
-            suggest["device"] = lambda: self._devices(direction)
             suggest["profiles"] = lambda: sources.profiles(self.audio(), direction)
             table_suggest["choices"] = {
                 "device": lambda _line: self._devices(direction),
                 "card": lambda _line: sources.cards(self.audio()),
                 "profile": lambda line: sources.card_profiles(self.audio(), str(line.get("card", ""))),
             }
-            placeholders["device"] = lambda: f"none: the default {strip}"
         return suggest, table_suggest, placeholders
 
     def _devices(self, direction: Direction) -> tuple[Suggestion, ...]:
@@ -491,7 +525,7 @@ class ChannelsPage(Page):
         self.select(item.data(Qt.ItemDataRole.UserRole))
 
     def show_problems(self, validation: Validation) -> None:
-        names = {option_row.option.name for option_row in self.rows}
+        names = {name for option_row in self.rows for name in option_row.names}
         path = self.selection
         self._show_rest(
             [
@@ -501,7 +535,7 @@ class ChannelsPage(Page):
             ]
         )
         for option_row in self.rows:
-            option_row.show_problems(validation.at(*path, option_row.option.name))
+            option_row.show_problems([problem for name in option_row.names for problem in validation.at(*path, name)])
         set_role(self.id_edit, False, "problem")
 
     # -- editing --------------------------------------------------------------------------------------------------

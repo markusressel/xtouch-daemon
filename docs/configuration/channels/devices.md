@@ -181,6 +181,8 @@ will call it (usually `alsa_output.<card>.<profile output>`, e.g. `iec958-stereo
 
 At least two choices, and not together with `device` or `profiles`; a button must switch between them (`default` or
 `next`), so `select = false` needs another button that does.
+In the GUI, `device` and `choices` are one list, Device: it writes `device` while its entries are devices alone, and
+`choices` once one has a label, a profile or a volume range.
 `profiles` (below) still works, but `choices` does the same with one button; the GUI shows `profiles` only for a channel
 that has it.
 
