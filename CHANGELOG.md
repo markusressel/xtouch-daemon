@@ -25,6 +25,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with a form for their channels (ids and `#tags`) and side, and can be renamed and removed.
 - Documentation: a "Concepts" page (channels, slots, states, pools, and the words that look alike, such as `apps`,
   `auto` and `device`); the start page and the README explain the model with an example and say what a pool is.
+- Documentation: pages link the words of the project (slots, encoders, LEDs, Home Assistant, the GUI, ...) to where
+  they are explained, at their first mention; a test checks that a page that uses a word three times links it.
 - The GUI helps a first configuration: Channels has "Output from the sound server" and "Input from the sound server" in its Add
   menu, a hint while the file has no channel, and opens on the first channel; States has the starting points "In a
   call" and "Gaming" in its Add menu, and says what a state is while there is none; an empty slot says what it shows.
