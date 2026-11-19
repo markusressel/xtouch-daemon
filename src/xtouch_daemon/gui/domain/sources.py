@@ -5,10 +5,12 @@ and applications; which of them a value matches, and where.
 
 import fnmatch
 import re
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
 
 from xtouch_daemon.audio.model import AudioState, Card, Direction
 from xtouch_daemon.config import presets
+from xtouch_daemon.live.messages import KnownDevice
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,8 @@ class Suggestion:
     """...and that profile."""
     present: bool = True
     """Whether it is there right now."""
+    forget: Callable[[], None] | None = field(default=None, compare=False)
+    """Forgets it, for a device only remembered (see `KnownDevice`)."""
 
     @property
     def preset(self) -> bool:
@@ -87,12 +91,75 @@ def contents(state: AudioState) -> tuple[tuple[str, tuple[tuple[str, str], ...]]
     return (("Outputs", named(Direction.OUTPUT)), ("Inputs", named(Direction.INPUT)), ("Applications", applications))
 
 
-def devices(state: AudioState, direction: Direction) -> tuple[Suggestion, ...]:
+def devices(
+    state: AudioState,
+    direction: Direction,
+    known: tuple[KnownDevice, ...] = (),
+    now: float = 0.0,
+    forget: Callable[[KnownDevice], None] | None = None,
+) -> tuple[Suggestion, ...]:
     """
     The devices for `device`, by node name, as `xtouch-daemon list-devices` lists them; then those that the other
-    profiles of their cards would make (see `profile_devices`).
+    profiles of their cards would make (see `profile_devices`), and those the daemon remembers (`known`, see
+    `remembered`; `now` in seconds since the epoch, `forget` forgets one).
     """
-    there = tuple(
+    there = _devices_there(state, direction)
+    others = profile_devices(state, direction, {suggestion.value for suggestion in there})
+    return there + remembered(state, direction, others, known, now, forget)
+
+
+def remembered(
+    state: AudioState,
+    direction: Direction,
+    others: tuple[Suggestion, ...],
+    known: tuple[KnownDevice, ...],
+    now: float,
+    forget: Callable[[KnownDevice], None] | None,
+) -> tuple[Suggestion, ...]:
+    """
+    `others` (devices that are not there) with what the daemon remembers of them, and the devices it remembers that
+    are not there and not among them. A remembered device of a card that is there in another profile than the one
+    that made it needs that profile: picked for a choice, it fills in the card and the profile.
+    """
+    there = {device.name for device in state.devices(direction)}
+    found = {suggestion.value: suggestion for suggestion in others}
+    for device in known:
+        if device.direction != direction.value or device.name in there:
+            continue
+        card = state.card(device.card)
+        switch = card is not None and device.profile is not None and card.profile != device.profile
+        before = found.get(device.name)
+        suggestion = Suggestion(
+            device.name,
+            device.description,
+            origin=f"seen {ago(now - device.seen)}",
+            names=(device.description,),
+            card=device.card if switch else None,
+            profile=device.profile if switch else None,
+            present=False,
+            forget=None if forget is None else lambda device=device: forget(device),
+        )
+        if before is not None:
+            # the profile it needs is known either way; the description is the real one
+            suggestion = replace(
+                before,
+                detail=device.description,
+                names=(device.description,),
+                origin=f"{suggestion.origin}, {before.origin}",
+                forget=suggestion.forget,
+            )
+        found[device.name] = suggestion
+    return tuple(found.values())
+
+
+def ago(seconds: float) -> str:
+    """How long ago, in words: "today", "yesterday", "3 days ago"."""
+    days = int(max(seconds, 0.0) // 86400)
+    return "today" if days == 0 else "yesterday" if days == 1 else f"{days} days ago"
+
+
+def _devices_there(state: AudioState, direction: Direction) -> tuple[Suggestion, ...]:
+    return tuple(
         Suggestion(
             device.name,
             device.description,
@@ -101,7 +168,6 @@ def devices(state: AudioState, direction: Direction) -> tuple[Suggestion, ...]:
         )
         for device in state.devices(direction)
     )
-    return there + profile_devices(state, direction, {suggestion.value for suggestion in there})
 
 
 def profile_devices(state: AudioState, direction: Direction, there: set[str]) -> tuple[Suggestion, ...]:

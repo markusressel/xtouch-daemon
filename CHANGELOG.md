@@ -51,6 +51,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   it is and where it is known from. The ▾ menus next to the fields are gone. Under a device, card or profile of a
   choice, a line says what the value matches. The devices of the profiles of a card that are not active are
   suggested too, and picking one for a choice fills in its card and profile.
+- The daemon remembers the outputs and inputs it saw (`devices.json` in its state directory, for 90 days), and the GUI
+  suggests them while they are not there, e.g. Bluetooth headphones that are off. Delete in the list forgets one.
 - GUI: without a daemon the strips are dark and the pill says "No daemon", with how to start one. The drawing is only ever the device (the daemon's mirror), never a second rendering made in the GUI.
 - GUI: the encoder of a place shows its default (`default: pick`) instead of staying blank, a pool of applications of your own offers no `pick`, and the columns of the choices table fit their titles.
 - Documentation: the plugin internals and the haad controller sketch moved to Development; Troubleshooting has Voice chat and GUI; pages end with a "Next" pointer; the place options of a slot are a table.

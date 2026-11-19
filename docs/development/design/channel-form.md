@@ -1,6 +1,6 @@
 # Design: the form of a channel
 
-Status: **steps 1 and 2 built** (2026-11-19), the rest proposed (see Order). Builds on [Previews of the controls](control-previews.md) and [Output
+Status: **steps 1 to 3 built** (2026-11-19), the buttons proposed (see Order). Builds on [Previews of the controls](control-previews.md) and [Output
 choices](choices.md).
 
 ## Problem
@@ -138,7 +138,8 @@ hold, a range) only if it turns out to be missing.
 2. Built. The field for names, with what the sound server has now and the devices of the profiles (`fields/names.py`;
    the matching in `domain/sources.py`). The matches line is under `device`, `card` and `profile` of a choice; the
    lists of chips (`device` of a channel) have the list without it.
-3. Remembered devices (the daemon's state, the snapshot).
+3. Built. Remembered devices (`runtime/device_memory.py`, a line `known_devices` of the live view of its own rather
+   than a field of every snapshot, and `ForgetDevice`).
 4. The buttons (configuration, daemon, GUI): its own design, from 5.
 
 ## Decisions (2026-11-19)

@@ -8,7 +8,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtNetwork import QLocalSocket
 
 from xtouch_daemon.live.codec import decode_message, encode_request
-from xtouch_daemon.live.messages import Reply, Request, Snapshot, TwinView
+from xtouch_daemon.live.messages import KnownDevice, KnownDevices, Reply, Request, Snapshot, TwinView
 from xtouch_daemon.live.server import peer_uid
 
 
@@ -32,6 +32,8 @@ class LiveView(QObject):
         self.snapshot: Snapshot | None = None
         self.twin: TwinView | None = None
         """The latest view of the virtual twin of this window, None without one."""
+        self.known: tuple[KnownDevice, ...] = ()
+        """The devices the daemon remembers (also those that are not there now), for suggestions."""
         self.owned = False
         """
         Whether the daemon at the other end runs as this user, so requests (which carry the configuration with its
@@ -75,6 +77,8 @@ class LiveView(QObject):
                 self.replied.emit(message)
             elif isinstance(message, TwinView):
                 view = message
+            elif isinstance(message, KnownDevices):
+                self.known = message.devices
             elif message is not None:
                 latest = message
         if view is not None:

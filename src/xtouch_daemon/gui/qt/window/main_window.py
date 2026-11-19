@@ -381,7 +381,9 @@ class MainWindow(QMainWindow):
         self.device_view.live_clicked.connect(self._mode_clicked)
         slots.simulated.connect(self._simulated)
         self.live.twin_changed.connect(lambda _view: self.device_view.show_live(self.live.snapshot))
-        self.channels_page = ChannelsPage(self.editor, audio, lambda: self.live.snapshot)
+        self.channels_page = ChannelsPage(
+            self.editor, audio, lambda: self.live.snapshot, lambda: self.live.known, self.live.send
+        )
         self.states_page = StatesPage(self.editor, audio, lambda: self.live.snapshot, self.live.send)
         self.pages: dict[str, Page] = {"slots": slots, "channels": self.channels_page, "states": self.states_page}
         for name in SETTINGS_PAGES:

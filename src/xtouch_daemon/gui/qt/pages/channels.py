@@ -4,6 +4,7 @@ is used), and the form of the one selected, with Add, Duplicate and Remove.
 """
 
 import re
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -33,7 +34,7 @@ from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
-from xtouch_daemon.live.messages import Snapshot
+from xtouch_daemon.live.messages import ForgetDevice, KnownDevice, Request, Snapshot
 from xtouch_daemon.slots.model import BUILT_IN, AppsPoolConfig, PeoplePoolConfig, PoolConfig
 
 APPS = ("pool", "apps")
@@ -76,9 +77,19 @@ POOL_KINDS = {
 
 
 class ChannelsPage(Page):
-    def __init__(self, editor: Editor, audio: Audio, snapshot: Callable[[], Snapshot | None]):
+    def __init__(
+        self,
+        editor: Editor,
+        audio: Audio,
+        snapshot: Callable[[], Snapshot | None],
+        known: Callable[[], tuple[KnownDevice, ...]] = lambda: (),
+        send: Callable[[Request], bool] = lambda request: False,
+    ):
+        """`known` tells the devices the daemon remembers, `send` sends a request to it (to forget one)."""
         super().__init__(editor, audio)
         self.snapshot = snapshot
+        self.known = known
+        self.send = send
         first = next(iter(self.channels), None)
         self.selection: OptionPath = ("channel", first) if first is not None else POOLS[0]
         """What the form shows: `("channel", <id>)` or a built-in pool (`("pool", <id>)`)."""
@@ -300,15 +311,22 @@ class ChannelsPage(Page):
         }
         if strip in ("output", "input"):
             direction = Direction(strip)
-            suggest["device"] = lambda: sources.devices(self.audio(), direction)
+            suggest["device"] = lambda: self._devices(direction)
             suggest["profiles"] = lambda: sources.profiles(self.audio(), direction)
             table_suggest["choices"] = {
-                "device": lambda _line: sources.devices(self.audio(), direction),
+                "device": lambda _line: self._devices(direction),
                 "card": lambda _line: sources.cards(self.audio()),
                 "profile": lambda line: sources.card_profiles(self.audio(), str(line.get("card", ""))),
             }
             placeholders["device"] = lambda: f"none: the default {strip}"
         return suggest, table_suggest, placeholders
+
+    def _devices(self, direction: Direction) -> tuple[Suggestion, ...]:
+        """The devices there are, those of other profiles and those the daemon remembers."""
+        return sources.devices(self.audio(), direction, self.known(), time.time(), self._forget)
+
+    def _forget(self, device: KnownDevice) -> None:
+        self.send(ForgetDevice(device.name, device.direction))
 
     def _channel_suggestions(self) -> tuple[Suggestion, ...]:
         """What a pool of channels can list: the channels by id, and the tags (`#tag`) of the channels."""

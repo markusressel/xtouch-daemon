@@ -19,6 +19,10 @@ that on the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon.sock` (mode 0600, next t
   - `slots` (`SlotsState`): the mode and the one picked by hand; per slot the candidate, channel, pool, member and
     why; per state its value, `since`, `source` and override; per pool the members that wait;
   - `preview`, `simulated` and `features` (what the daemon takes: `mode`, `override`, `play`, `preview`, `situation`, `twin`).
+- **The devices it saw.** A line of its own, `{"known_devices": [...]}` (`KnownDevices`), when a client connects (if
+  there are any) and whenever they change: every output and input the sound server had, with its card, the profile
+  the card was in and when it was there last (`runtime/device_memory.py`, kept in `devices.json` of the state
+  directory, forgotten after 90 days). The GUI suggests them while they are not there; the CLI skips the line.
 - **Applied or not.** The fingerprint is a hash of the whole configuration (secrets included). The GUI compares it
   with the one of the saved file, so it can say whether the daemon took the file instead of assuming a reload worked
   (it keeps the old configuration when the new one has errors or a changed `[mqtt]`).
@@ -32,6 +36,7 @@ A client may send requests, a line of JSON each. Otherwise the GUI changes the d
 | `{"request": "mode", "mode": "gaming"}` | Picks a mode (`auto` gives it back to the rules, `"+1"` the next). |
 | `{"request": "override", "state": "call", "value": "on"}` | Overrides a state (`auto`, `on`, `off`). |
 | `{"request": "play", "event": "fader_moved", "strip": 2, "value": 8000}` | A hand from the GUI: taken by the `Surface` as if the device sent it (`Surface.play()`), while a device is connected. Also `fader_touched` (`touched`), `button_pressed` (`button`, its note, and `pressed`), `encoder_turned` (`steps`), `encoder_pressed` (`pressed`). No answer. |
+| `{"request": "forget_device", "name": "bluez_output.1", "direction": "output"}` | Forgets a device it saw (Delete in the list of the GUI). The clients get the devices again. No answer. |
 | `StartPreview`, `KeepPreview`, `EndPreview` | The [live preview](#live-preview). |
 
 - **Of the user only.** The daemon takes requests only from processes of its own user (`SO_PEERCRED`: root can connect

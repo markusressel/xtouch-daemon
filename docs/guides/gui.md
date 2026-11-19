@@ -303,7 +303,7 @@ that goes into the option. Under `device`, `card` and `profile` of a choice, a l
 
 | Option | Suggestions |
 |---|---|
-| `device` | The outputs or inputs by node name, with their descriptions; the default is marked. Then the devices that another profile of their sound card would make (e.g. the digital output while the card is in its analog profile): picked for a choice, they fill in its card and profile. |
+| `device` | The outputs or inputs by node name, with their descriptions; the default is marked. Then the devices that another profile of their sound card would make (e.g. the digital output while the card is in its analog profile): picked for a choice, they fill in its card and profile. Then the devices the daemon saw that are not there now, e.g. Bluetooth headphones that are off ("seen 3 days ago"); Delete in the list forgets one. |
 | `card`, `profile` of a choice | The sound cards (by description, or the devices they have), and the profiles of the card of the choice. |
 | `profiles` | The profiles of the sound cards of those devices; the active one is marked. |
 | `match`, `exclude` of `[pool.apps]`, `apps` and `recording` of a state | The [presets](../configuration/presets.md) (`@browsers`, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined. |

@@ -225,7 +225,42 @@ class Play:
     """The hand is on the virtual twin of this client (its preview not `on_device`), not on the device."""
 
 
-type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride | Play
+@dataclass(frozen=True)
+class ForgetDevice:
+    """Forget a device the daemon remembers (see `KnownDevice`), e.g. headphones that are gone for good. No answer."""
+
+    name: str
+    direction: str
+
+
+type Request = StartPreview | KeepPreview | EndPreview | SetMode | SetOverride | Play | ForgetDevice
+
+
+@dataclass(frozen=True)
+class KnownDevice:
+    """
+    A device the daemon saw (see `runtime.device_memory`): it suggests it for a configuration also while it is not
+    there, e.g. Bluetooth headphones that are off, or the digital output while the card is in its analog profile.
+    """
+
+    name: str
+    description: str
+    direction: str
+    """"output" or "input"."""
+    card: str | None
+    """The sound card it belongs to, None for others (Bluetooth has its own cards)."""
+    profile: str | None
+    """The profile the card was in when the device was there: the one that makes it."""
+    seen: float
+    """When it was there last, in seconds since the epoch."""
+
+
+@dataclass(frozen=True)
+class KnownDevices:
+    """Every device the daemon remembers, sent when a client connects and whenever they change."""
+
+    devices: tuple[KnownDevice, ...]
+
 
 type ReplyKind = Literal["preview", "ended", "mode", "override", "error"]
 

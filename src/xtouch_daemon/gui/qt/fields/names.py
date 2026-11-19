@@ -6,7 +6,7 @@ list that opens on a click and narrows down while typing, and what a value match
 import html
 
 from PyQt6.QtCore import QEvent, QModelIndex, QObject, QPointF, QSize, Qt
-from PyQt6.QtGui import QFocusEvent, QPainter, QStandardItem, QStandardItemModel, QTextDocument
+from PyQt6.QtGui import QFocusEvent, QKeyEvent, QPainter, QStandardItem, QStandardItemModel, QTextDocument
 from PyQt6.QtWidgets import QAbstractItemView, QCompleter, QLineEdit, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from xtouch_daemon.gui.domain import sources
@@ -119,7 +119,8 @@ class NameCompleter(QCompleter):
             item = QStandardItem(suggestion.value)
             item.setData(suggestion, SUGGESTION_ROLE)
             item.setData(text, QUERY_ROLE)
-            item.setToolTip(suggestion.tip or suggestion.detail or suggestion.value)
+            tip = suggestion.tip or suggestion.detail or suggestion.value
+            item.setToolTip(f"{tip}\n\nDelete forgets it." if suggestion.forget is not None else tip)
             item.setEditable(False)
             self.items.appendRow(item)
         if not found:
@@ -140,6 +141,15 @@ class NameCompleter(QCompleter):
 
     def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
         assert event is not None
+        popup = self.popup()
+        if watched is popup and isinstance(event, QKeyEvent) and event.key() == Qt.Key.Key_Delete:
+            # a device the daemon remembers, gone for good
+            current = popup.currentIndex() if popup is not None else None
+            suggestion = current.data(SUGGESTION_ROLE) if current is not None and current.isValid() else None
+            if isinstance(suggestion, Suggestion) and suggestion.forget is not None:
+                suggestion.forget()
+                self.items.removeRow(current.row())  # pyright: ignore[reportOptionalMemberAccess]
+                return True
         if watched is self.edit and event.type() in (QEvent.Type.FocusIn, QEvent.Type.MouseButtonPress):
             popup = self.popup()
             back = isinstance(event, QFocusEvent) and event.reason() == Qt.FocusReason.PopupFocusReason

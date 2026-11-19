@@ -33,6 +33,7 @@ from xtouch_daemon.hardware.transport import AlsaPort, Port, SocketPort
 from xtouch_daemon.live.messages import (
     FEATURES,
     EndPreview,
+    ForgetDevice,
     KeepPreview,
     MqttState,
     Play,
@@ -48,6 +49,7 @@ from xtouch_daemon.live.messages import (
 from xtouch_daemon.live.server import LiveServer, strip_states, voip_state
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.binder import SlotMixer
+from xtouch_daemon.runtime.device_memory import DEVICES_FILE_NAME, DeviceMemory
 from xtouch_daemon.runtime.homeassistant import SlotEntities
 from xtouch_daemon.runtime.rig import Rig
 from xtouch_daemon.runtime.slots import PROCESS_INTERVAL
@@ -164,6 +166,8 @@ class Daemon(Rig):
         """When the processes were scanned for the states of the slots last, and what ran."""
         self.slot_entities: SlotEntities | None = None
         """The states, the mode, the channels and the slots in Home Assistant (with slots and [mqtt])."""
+        self.devices_seen = DeviceMemory(state_dir / DEVICES_FILE_NAME if state_dir is not None else None)
+        """The devices the sound server had, for the suggestions of the GUI (see `runtime.device_memory`)."""
         super().__init__(
             config,
             surface or device_surface(config.device.name, config.device.virtual),
@@ -177,7 +181,7 @@ class Daemon(Rig):
         self._mixer_task: asyncio.Task[None] | None = None
         self.surface.on_connection = self._on_connection
         self.live = (
-            LiveServer(live_socket, self.snapshot, self.on_request, self.on_client_closed)
+            LiveServer(live_socket, self.snapshot, self.on_request, self.on_client_closed, self.devices_seen.known)
             if live_socket is not None
             else None
         )
@@ -334,6 +338,10 @@ class Daemon(Rig):
                 return None
             case Play(event=event):
                 self.surface.play(event)
+                return None
+            case ForgetDevice(name=name, direction=direction):
+                if self.devices_seen.forget(name, direction) and self.live is not None:
+                    self.live.publish_known()
                 return None
             case _ as unreachable:
                 assert_never(unreachable)
@@ -615,6 +623,8 @@ class Daemon(Rig):
     def _on_state(self, state: AudioState) -> None:
         was_connected = self.mixer.state.connected
         self.on_state(state)
+        if self.devices_seen.see(state) and self.live is not None:
+            self.live.publish_known()
         if state.connected != was_connected:
             systemd.notify(self._status())
 

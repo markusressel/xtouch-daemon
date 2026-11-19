@@ -10,7 +10,10 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import (
     VERSION,
     EndPreview,
+    ForgetDevice,
     KeepPreview,
+    KnownDevice,
+    KnownDevices,
     MqttState,
     Play,
     Reply,
@@ -42,9 +45,22 @@ def decode(line: bytes) -> Snapshot | None:
     return message if isinstance(message, Snapshot) else None
 
 
-def decode_message(line: bytes) -> Snapshot | Reply | TwinView | None:
-    """A line of the daemon: a snapshot, a reply or the view of a twin, None for a snapshot of another version."""
+def encode_known(known: KnownDevices) -> bytes:
+    """The devices the daemon remembers, one line for every client."""
+    return (
+        json.dumps({"known_devices": [asdict(device) for device in known.devices]}, separators=(",", ":")).encode()
+        + b"\n"
+    )
+
+
+def decode_message(line: bytes) -> Snapshot | Reply | TwinView | KnownDevices | None:
+    """
+    A line of the daemon: a snapshot, a reply, the view of a twin or the devices it remembers; None for a snapshot of
+    another version.
+    """
     data = json.loads(line)
+    if "known_devices" in data:
+        return KnownDevices(tuple(KnownDevice(**device) for device in data["known_devices"]))
     if "reply" in data:
         return Reply(data["reply"], bool(data["ok"]), str(data.get("message", "")))
     if "twin" in data:
@@ -131,6 +147,7 @@ _REQUEST_NAMES: dict[type, str] = {
     SetMode: "mode",
     SetOverride: "override",
     Play: "play",
+    ForgetDevice: "forget_device",
 }
 
 _EVENTS: dict[str, type] = {
@@ -154,6 +171,8 @@ def encode_request(request: Request) -> bytes:
         data["mode"] = request.mode
     elif isinstance(request, SetOverride):
         data |= {"state": request.state, "value": request.value}
+    elif isinstance(request, ForgetDevice):
+        data |= {"name": request.name, "direction": request.direction}
     elif isinstance(request, Play):
         data |= {"event": _EVENT_NAMES[type(request.event)], "preview": request.preview} | asdict(request.event)
     return json.dumps(data).encode() + b"\n"
@@ -181,6 +200,8 @@ def decode_request(line: bytes) -> Request:
             return SetMode(mode)
         case {"request": "override", "state": str(state), "value": str(value)}:
             return SetOverride(state, value)
+        case {"request": "forget_device", "name": str(name), "direction": "output" | "input" as direction}:
+            return ForgetDevice(name, direction)
         case {"request": "play", "event": str(name), "strip": int(strip)} if name in _EVENTS:
             if not 0 <= strip < protocol.STRIPS:
                 raise ValueError(f"no strip {strip}")

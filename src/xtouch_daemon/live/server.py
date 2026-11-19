@@ -15,8 +15,8 @@ from pathlib import Path
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.surface import Surface
-from xtouch_daemon.live.codec import decode_request, encode, encode_reply, encode_twin
-from xtouch_daemon.live.messages import Reply, Request, Snapshot, StripState, TwinView, VoipState
+from xtouch_daemon.live.codec import decode_request, encode, encode_known, encode_reply, encode_twin
+from xtouch_daemon.live.messages import KnownDevices, Reply, Request, Snapshot, StripState, TwinView, VoipState
 from xtouch_daemon.voip.provider import VoipProvider
 
 _LOGGER = logging.getLogger(__name__)
@@ -102,11 +102,13 @@ class LiveServer:
         snapshot: Callable[[], Snapshot],
         on_request: RequestHandler | None = None,
         on_close: Callable[[object], None] = lambda client: None,
+        known: Callable[[], KnownDevices] = lambda: KnownDevices(()),
     ):
         self.path = path
         self._snapshot = snapshot
         self._on_request = on_request
         self._on_close = on_close
+        self._known = known
         self.clients: set[asyncio.StreamWriter] = set()
         self._last = b""
 
@@ -146,6 +148,12 @@ class LiveServer:
             assert isinstance(client, asyncio.StreamWriter)
             self._send(client, encode_twin(view))
 
+    def publish_known(self) -> None:
+        """The devices the daemon remembers changed: every client gets them."""
+        line = encode_known(self._known())
+        for client in list(self.clients):
+            self._send(client, line)
+
     def _publish(self, line: bytes) -> None:
         if line == self._last:
             return
@@ -166,6 +174,8 @@ class LiveServer:
         self.clients.add(writer)
         # the whole state right away, not only once something changes
         self._send(writer, encode(self._snapshot()))
+        if (known := self._known()).devices:
+            self._send(writer, encode_known(known))
         # the socket is 0600, but root can connect anyway
         trusted = peer_uid(writer.get_extra_info("socket")) == os.getuid()
         try:
