@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `xtouch-daemon test`: after the sweep every strip answers its own controls, so each output of the device can be
   checked by hand: the meter follows the fader, a button steps its LED through on, flashing and off, the encoder
-  changes the position and the mode of the ring (also with the LED below the ring), the color of the LCD and the motor
+  changes the position and the mode of the ring (also with the two LEDs at its ends), the color of the LCD and the motor
   fader, and the LCD shows the last input. While the daemon runs, the command asks it to run the test, instead of
   failing because the device is taken.
 - GUI: "Test the device" in the window Device runs the same test in the daemon, with the device drawn next to it and

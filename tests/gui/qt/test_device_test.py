@@ -119,3 +119,37 @@ def test_while_testing_the_drawing_shows_the_device_and_not_the_twin(
     # the window closes: the test ends
     window.close()
     qtbot.waitUntil(lambda: EndTest() in live_daemon.requests)
+
+
+@pytest.mark.parametrize(
+    ("virtual", "text", "tone"), [(False, "the device", "good"), (True, "the virtual device", "warn")]
+)
+def test_play_says_in_a_pill_what_the_mouse_plays_on(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon, virtual: bool, text: str, tone: str
+):
+    window = live_window(qtbot, make_window, live_daemon, virtual=virtual)
+    view = window.device_view
+    assert view.hand_pill.isHidden()
+
+    view.play_button.click()
+
+    assert (view.mode_hint.text(), view.hand_pill.text(), view.hand_pill.property("tone")) == ("Playing on", text, tone)
+    assert not view.hand_pill.isHidden()
+    view.select_button.click()
+    assert view.hand_pill.isHidden()
+
+
+def test_without_a_daemon_to_ask_the_test_does_not_start(qtbot: QtBot, make_window: MakeWindow):
+    window = make_window()
+    window.device_test.start()
+    assert not window.device_test.running
+    assert window.status.text() == "The daemon is not reachable."
+
+
+def test_a_second_start_changes_nothing(qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon):
+    window = live_window(qtbot, make_window, live_daemon)
+    window.device_test.start()
+    window.device_test.start()
+    qtbot.waitUntil(lambda: StartTest() in live_daemon.requests)
+    qtbot.wait(50)
+    assert live_daemon.requests.count(StartTest()) == 1

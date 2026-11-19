@@ -12,7 +12,7 @@ from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtNetwork import QLocalSocket
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import Dialogs, FakeLiveDaemon, MakeWindow, snapshot, strip_state
+from tests.support.gui import Dialogs, FakeLiveDaemon, MakeWindow, pill, snapshot, strip_state
 from xtouch_daemon.gui.qt.preview.geometry import ENCODER, SLOT, button_rect, fraction_at, part_at, travel_y
 from xtouch_daemon.gui.qt.preview.panel import Preview
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDeviceBar
@@ -293,6 +293,9 @@ def test_play_opens_the_virtual_device_the_daemon_waits_for(
     assert window.device_dock.isVisible()
     assert view.play_button.isChecked()
     assert view.preview.hand is window.hosted
+    # what the mouse plays on stands out
+    assert (view.mode_hint.text(), pill(view.hand_pill)) == ("Playing on", "the virtual device")
+    assert view.hand_pill.property("tone") == "warn"
     assert view.virtual_bar is not None
     assert view.live_pill.text().startswith("Live · virtual device opening")
 

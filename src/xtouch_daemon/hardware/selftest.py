@@ -33,7 +33,7 @@ CENTER_MODE_NAMES = {
     RingMode.WRAP: "wrap+c",
     RingMode.SPREAD: "sprd+c",
 }
-"""The modes with the LED below the ring lit (7 characters at most, the width of an LCD)."""
+"""The modes with the center bit, which lights the two LEDs at the ends of the ring (7 characters at most)."""
 RING_START = (protocol.RING_MAX + 1) // 2
 """The position of the ring at the start: the middle, so each mode shows how it lights it."""
 
@@ -73,7 +73,7 @@ class StripTest:
     ring: int = RING_START
     """0 (dark) or 1..RING_MAX."""
     mode: int = 0
-    """0..7: the 4 modes of the ring (`RingMode`), each without and with the LED below the ring."""
+    """0..7: the 4 modes of the ring (`RingMode`), each without and with the center bit (the LEDs at its ends)."""
     fader: int = 0
     """0..FADER_STEPS: where the encoder put the fader."""
     meter: int = 0

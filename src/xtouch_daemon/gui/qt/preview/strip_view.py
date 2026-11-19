@@ -325,24 +325,17 @@ class StripView(QWidget):
         ring, meter, fader, accent, center = self._moving_key()
         if not self.look.configured:
             painter.setOpacity(UNCONFIGURED_OPACITY)
-        # the positions light the middle LEDs: the first and the last one stay dark in Mackie Control
+        # the positions light the middle LEDs; the first and the last one light together for the bit "center" of
+        # Mackie Control (as measured on the device), which only the test of the device sets
         offset = (RING_LEDS - protocol.RING_MAX) // 2
-        for position in ring:
-            led = position - 1 + offset
+        leds = {position - 1 + offset for position in ring} | ({0, RING_LEDS - 1} if center else set())
+        for led in sorted(leds):
             start, end = ring_led(led)
             area = QRectF(start, end).normalized().adjusted(-LED_GLOW, -LED_GLOW, LED_GLOW, LED_GLOW)
             sprite = cached_sprite(
                 ("ring", led), area, scale, ratio, lambda p, s=start, e=end: paint_led(p, s, e, 2.4, HW.ring, True)
             )
             sprite.paint(painter)
-        if center:
-            # the LED below the ring (the bit "center" of Mackie Control), in the gap between its ends: only the test
-            # of the device lights it, to find out where the device has it
-            start, end = ENCODER + QPointF(0, RING_RADII[0]), ENCODER + QPointF(0, RING_RADII[1])
-            area = QRectF(start, end).normalized().adjusted(-LED_GLOW, -LED_GLOW, LED_GLOW, LED_GLOW)
-            cached_sprite(
-                ("ring", "center"), area, scale, ratio, lambda p: paint_led(p, start, end, 2.4, HW.ring, True)
-            ).paint(painter)
         for led in range(meter):
             area = meter_led(led).adjusted(-LED_GLOW, -LED_GLOW, LED_GLOW, LED_GLOW)
             cached_sprite(

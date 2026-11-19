@@ -136,7 +136,7 @@ LED, the ring, the colors, the motor and the touch of every fader:
 | Fader touched, let go | `touch`, `let go` |
 | Rec, Solo, Mute, Select pressed | Its [LED](../configuration/strip/leds.md) goes on, flashing, off (`mute on`, `mute fl`, `mute off`). |
 | Encoder turned | Changes what the [encoder](../configuration/strip/encoders.md) edits, wrapping around, and shows its value. |
-| Encoder pushed | The next thing the encoder edits: the position of the ring (`ring 7`), its mode with and without the LED below the ring (`dot`, `boost`, `wrap`, `spread`, `dot+c` ...), the color of the LCD, the motor fader in steps of 10 % (`fad 60%`). |
+| Encoder pushed | The next thing the encoder edits: the position of the ring (`ring 7`), its mode with and without the two LEDs at the ends of the ring (`dot`, `boost`, `wrap`, `spread`, `dot+c` ...), the color of the LCD, the motor fader in steps of 10 % (`fad 60%`). |
 
 The top line of the LCD names the strip, the bottom line shows the last input for 2 seconds, then what the encoder
 edits. The command prints every input with the answer, and the messages from the device the daemon doesn't use.

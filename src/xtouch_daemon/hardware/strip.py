@@ -111,7 +111,7 @@ class Strip:
         """All of them, so a connect turns off what the device still shows from before (e.g. Select of an app strip)."""
         self.ring: tuple[int, RingMode] = (0, RingMode.DOT)
         self.ring_center = False
-        """Whether the LED below the ring is lit (only `xtouch-daemon test` lights it)."""
+        """Whether the center bit of the ring is set: the two LEDs at its ends light (only the test sets it)."""
         self.fader: int | None = None
         """Where the fader should be: None until it is known, so the fader does not move to 0 and back on a connect."""
         self._position: float | None = None

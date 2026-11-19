@@ -35,7 +35,7 @@ TEST_TIP = (
 )
 TEST_HELP = (
     "Testing the device. Fader: the meter follows it. Rec, Solo, Mute, Select: the LED goes on, flashing, off. "
-    "Encoder: turn it to change, push it for the next of ring, mode (with the LED below the ring), LCD color, motor "
+    "Encoder: turn it to change, push it for the next of ring, mode (+c: also the LEDs at its ends), LCD color, motor "
     "fader. The LCD shows the last input. Play works on the drawing too."
 )
 PLAY_TIP = (
@@ -124,7 +124,13 @@ class DeviceView(QWidget):
         layout.addWidget(self.play_button)
         layout.addSpacing(Space.S)
         self.mode_hint = label("", "hint")
-        layout.addWidget(self.mode_hint, 1)
+        layout.addWidget(self.mode_hint)
+        layout.addSpacing(Space.XS)
+        self.hand_pill = label("", "pill")
+        """In Play: what the mouse plays on, the device, the virtual device or the twin of the preview."""
+        self.hand_pill.hide()
+        layout.addWidget(self.hand_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addStretch(1)
         self.slots_pill = label("", "pill")
         """The mode the device shows; a click: the modes to pick and the states."""
         self.slots_pill.hide()
@@ -274,9 +280,11 @@ class DeviceView(QWidget):
         else:
             self.play_button.setEnabled(reason is None)
         self.play_button.setToolTip(PLAY_TIP if reason is None else f"{reason.why}\n\n{PLAY_TIP}")
-        if self.play_button.isChecked():
-            where = "the virtual device" if hosting else "the device, through the daemon"
-            hint = f"Playing on {where}"
+        playing = self.play_button.isChecked()
+        self.hand_pill.setVisible(playing)
+        if playing:
+            show_status(self.hand_pill, self._hand_status(hosting, drawn))
+            hint = "Playing on"
         else:
             hint = "Drag a strip to move its slot"
             if reason is not None:
@@ -297,6 +305,36 @@ class DeviceView(QWidget):
             and not snapshot.virtual
             and self.owned()
             and not hosting
+        )
+
+    def _hand_status(self, hosting: bool, drawn: bool) -> Status:
+        """What the mouse plays on in Play, in the order the hand is picked (see `_show_mode`)."""
+        if drawn:
+            return Status(
+                "the twin of the preview",
+                Tone.NEUTRAL,
+                "The drawing shows the preview in the GUI: the mouse plays on its virtual twin in the daemon, which "
+                "runs the changes in the editor. The device is not touched.",
+            )
+        if hosting:
+            return Status(
+                "the virtual device",
+                Tone.WARN,
+                "The virtual device, here in the window: the daemon drives it like the real one, and what the mouse "
+                "does acts on the sound server.",
+            )
+        if self.snapshot is not None and self.snapshot.virtual:
+            return Status(
+                "the virtual device",
+                Tone.WARN,
+                "The daemon drives the virtual device (`[device] virtual = true`): the mouse plays on it through the "
+                "daemon, and what it does acts on the sound server.",
+            )
+        return Status(
+            "the device",
+            Tone.GOOD,
+            "The X-Touch Extender, through the daemon: the mouse is a hand on it, and what it does acts on the sound "
+            "server.",
         )
 
     def show_test(self, running: bool) -> None:

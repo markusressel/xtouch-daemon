@@ -68,7 +68,7 @@ class StripState:
     glide: Glide | None = None
     """How the fader glides from `fader`, None while it stays."""
     ring_center: bool = False
-    """Whether the LED below the ring is lit (only the test of the device lights it)."""
+    """Whether the center bit of the ring is set: the two LEDs at its ends light (only the test sets it)."""
 
 
 def meter_now(state: StripState, now: float) -> int:
