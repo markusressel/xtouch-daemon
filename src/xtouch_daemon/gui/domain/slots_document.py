@@ -88,6 +88,10 @@ class SlotsDocument:
         self.path = path
         self.exists = exists
         """Whether the file is there. Without it the document is empty: the GUI starts clean."""
+        self.disk = text if exists else None
+        """The text of the file as this document read or wrote it last, None while there was none."""
+        self.overruled: str | None = None
+        """A text of the file that someone else wrote and the user chose to overwrite (Keep mine)."""
         self._load(text)
 
     @classmethod
@@ -313,9 +317,30 @@ class SlotsDocument:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(text, encoding="utf-8")
         self.exists = True
+        self.disk = text
+        self.overruled = None
         self._saved = copy.deepcopy(self.values)
         self.saved_config = config
         return config
+
+    def changed_on_disk(self) -> bool:
+        """
+        Whether someone else changed the file since this document read or wrote it (an editor, a script,
+        `init-config`), and the user did not choose to overwrite that version. A file that is gone, or can't be read
+        for the moment, is no change: saving writes it again.
+        """
+        try:
+            text = self.path.read_text(encoding="utf-8")
+        except OSError:
+            return False
+        return text not in (self.disk, self.overruled)
+
+    def overrule(self) -> None:
+        """Keep mine: the next save overwrites the version of the file on disk now, without asking."""
+        try:
+            self.overruled = self.path.read_text(encoding="utf-8")
+        except OSError:
+            self.overruled = None
 
     def revert(self) -> None:
         """Back to the file as it is on disk (or the example)."""

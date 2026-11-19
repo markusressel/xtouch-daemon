@@ -369,4 +369,17 @@ candidate goes after the one picked; channels, pools and states go at the end.
 
 "Revert" drops the changes and reads the file again (Undo brings them back).
 
+### Changes of the file on disk
+
+The window notices when something else changes the file while it is open: an editor, a script, `init-config`.
+
+- Without unsaved changes it reads the file again. The page and the strip that were picked stay. Undo goes back to
+  the version before, as changes to save.
+- With unsaved changes a bar above the page asks. **Reload** reads the file and drops the changes (Undo brings them
+  back). **Keep mine** goes on with them, and the next save overwrites the file.
+- A file that can't be read (e.g. a TOML error) leaves the window as it is, and the bar says why. Once the file is
+  fixed, the window reads it.
+- "Save and apply" never overwrites a change it did not show: if the file changed since the window read it, it asks
+  first (Overwrite, Reload or Cancel).
+
 Next: [Commands](../reference/commands.md) for the same things on the command line, [Troubleshooting](troubleshooting.md).

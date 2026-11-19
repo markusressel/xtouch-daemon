@@ -43,7 +43,7 @@ Signals:
 
 | Signal | Effect |
 |---|---|
-| `SIGHUP` | Reloads the configuration (`systemctl --user reload xtouch-daemon`). A file with errors is logged, and the current configuration stays. |
+| `SIGHUP` | Reloads the configuration (`systemctl --user reload xtouch-daemon`), as the daemon does by itself when the file changes. A file with errors is logged, and the current configuration stays. |
 | `SIGTERM`, `SIGINT` | Stops: the strips go dark from the right and the faders go down. |
 
 ## `check-config`

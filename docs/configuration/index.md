@@ -50,19 +50,22 @@ In a slot, `apps` is the next application that plays and has no channel of its o
 
 ## Applying changes
 
+The daemon takes a saved file by itself, a moment after the file stopped changing: no restart, slots whose strip
+stays the same keep it. A file with errors is reported in the log and the current configuration stays. To check a
+file first, or to load it again by hand:
+
 ```shell
 xtouch-daemon check-config && systemctl --user reload xtouch-daemon
 ```
 
-A reload (SIGHUP) takes the new file without a restart: slots whose strip stays the same keep it. A file with errors is reported in the log
-and the current configuration stays.
+A reload (SIGHUP) does the same as a change of the file.
 
 Two sections need a restart (`systemctl --user restart xtouch-daemon`):
 
 - A changed `[device] name` or `virtual`. A reload takes the rest of the file, but keeps the old device.
 - A changed `[mqtt]` section. Until the restart, a reload keeps the whole current configuration.
 
-The GUI applies a saved file the same way: it reloads the running daemon (the service, or one started from a terminal
+The GUI applies a saved file the same way, at once: it reloads the running daemon (the service, or one started from a terminal
 or an IDE), or offers a restart. It then tells whether the daemon took the file.
 
 ## Complete example
