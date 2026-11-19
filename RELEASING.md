@@ -103,7 +103,11 @@ you answer N to the AUR; run it again to go on from the tag. The steps by hand:
    `AUR_DIR=~/programming/AUR`; missing clones are created), sets `pkgver` and `pkgrel` in temporary copies of the
    PKGBUILDs, downloads the release tarballs for the checksums (`updpkgsums`), test-builds both packages, generates
    `.SRCINFO`, shows the diff and pushes after you confirm. Nothing in the clones changes before that. See
-   `packaging/aur/publish.sh --help` for options (e.g. `--pkgrel 2` for a packaging-only fix of the same version).
+   `packaging/aur/publish.sh --help` for options.
+
+   A packaging-only fix of a released version: raise `pkgrel` in the PKGBUILD of the package in this repository,
+   commit, and run `packaging/aur/publish.sh <version>`. It takes each package's `pkgrel` from here while the
+   PKGBUILD has that version, so only the changed package gets a new release (`--pkgrel N` sets both).
 
 5. **Bump the PKGBUILDs in this repository** to the released version (`pkgver=0.2.0`, `pkgrel=1`), regenerate their
    `.SRCINFO` (`makepkg --printsrcinfo > .SRCINFO` in each directory) and commit, so they show what the AUR has.

@@ -5,7 +5,7 @@
 pkgname=xtouch-daemon-gui-bin
 _pkgname=xtouch-daemon-gui
 pkgver=0.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc="The GUI of xtouch-daemon: edit the configuration of the X-Touch Extender, with a live view of the device"
 arch=('any')
 url="https://github.com/markusressel/xtouch-daemon"

@@ -8,7 +8,8 @@
 # Usage: packaging/aur/publish.sh [--yes] [--pkgrel N] [--skip-build] <version>
 #
 #   <version>       release to publish, e.g. 0.2.0 (its tag and tarballs must be on GitHub already)
-#   --pkgrel N      pkgrel of both packages (default: 1); use for packaging-only fixes of the same version
+#   --pkgrel N      pkgrel of both packages; by default each package's pkgrel in this repository if its PKGBUILD
+#                   has <version> already (a packaging-only fix of the same version: raise it there), else 1
 #   --skip-build    only generate .SRCINFO, don't test-build the packages
 #   --yes           push without asking for confirmation
 #
@@ -33,7 +34,7 @@ info() {
 }
 
 assume_yes=false
-pkgrel=1
+pkgrel=""
 skip_build=false
 version=""
 
@@ -58,7 +59,7 @@ done
 
 [ -n "$version" ] || usage
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "'$version' is not a release version (expected X.Y.Z)"
-[[ "$pkgrel" =~ ^[1-9][0-9]*$ ]] || die "invalid pkgrel '$pkgrel'"
+[ -z "$pkgrel" ] || [[ "$pkgrel" =~ ^[1-9][0-9]*$ ]] || die "invalid pkgrel '$pkgrel'"
 
 for tool in git makepkg updpkgsums; do
 	command -v "$tool" > /dev/null || die "'$tool' not found (needs Arch Linux with base-devel and pacman-contrib)"
@@ -102,12 +103,18 @@ prepare_clone() {
 
 # build <pkgname>: sets the version and checksums, test-builds the package and generates .SRCINFO in a temporary copy
 build() {
-	local pkg="$1" dir="$work_dir/$1"
+	local pkg="$1" dir="$work_dir/$1" rel="$pkgrel"
+	if [ -z "$rel" ]; then
+		rel=1
+		if grep -qx "pkgver=$version" "$script_dir/$pkg/PKGBUILD"; then
+			rel="$(sed -n 's/^pkgrel=//p' "$script_dir/$pkg/PKGBUILD")"
+		fi
+	fi
 	mkdir -p "$dir"
 	cp "$script_dir/$pkg/PKGBUILD" "$dir/"
 	(
 		cd "$dir"
-		sed -i "s/^pkgver=.*/pkgver=$version/; s/^pkgrel=.*/pkgrel=$pkgrel/" PKGBUILD
+		sed -i "s/^pkgver=.*/pkgver=$version/; s/^pkgrel=.*/pkgrel=$rel/" PKGBUILD
 		info "$pkg: downloading the release tarball for the checksums"
 		updpkgsums
 		if [ "$skip_build" != true ]; then
@@ -157,7 +164,7 @@ for pkg in "${changed[@]}"; do
 	info "$pkg: publishing"
 	cp "$work_dir/$pkg/PKGBUILD" "$work_dir/$pkg/.SRCINFO" "$aur_dir/$pkg/"
 	git -C "$aur_dir/$pkg" add PKGBUILD .SRCINFO
-	git -C "$aur_dir/$pkg" commit --quiet -m "Release $version-$pkgrel"
+	git -C "$aur_dir/$pkg" commit --quiet -m "Release $(sed -n 's/^pkgver=//p' "$aur_dir/$pkg/PKGBUILD")-$(sed -n 's/^pkgrel=//p' "$aur_dir/$pkg/PKGBUILD")"
 	git -C "$aur_dir/$pkg" push origin HEAD:master
 done
 
