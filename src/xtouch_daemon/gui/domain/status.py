@@ -82,6 +82,45 @@ def offers_virtual_device(snapshot: Snapshot | None, hosting: bool) -> bool:
     return snapshot is not None and snapshot.virtual and not snapshot.device and not hosting
 
 
+class Switch(StrEnum):
+    """How the GUI gets a daemon that drives the virtual device to the device that is plugged in."""
+
+    FILE = "file"
+    """`[device] virtual` is on in the file: turn it off and apply the file."""
+    TRIAL = "trial"
+    """The daemon is the window's own, to try without a device: end it, then start the service."""
+    RESTART = "restart"
+    """A daemon started with `--virtual-device` elsewhere: only a restart without it uses the device."""
+
+
+@dataclass(frozen=True)
+class DeviceOffer:
+    """The device is plugged in while the daemon drives the virtual one: what the GUI says, and offers to do."""
+
+    text: str
+    action: str | None
+    """The button that does it, None where the GUI can't (`Switch.RESTART`)."""
+    switch: Switch
+
+
+def device_offer(snapshot: Snapshot | None, device: str, file_virtual: bool, trying: bool) -> DeviceOffer | None:
+    """
+    What the GUI offers while the device `device` is plugged in and the daemon drives the virtual one; None otherwise.
+    `file_virtual`: `[device] virtual` of the saved file; `trying`: the daemon is the window's, to try without a
+    device.
+    """
+    if snapshot is None or not snapshot.virtual or not snapshot.device_plugged:
+        return None
+    text = f"{device} is plugged in, and the daemon drives the virtual device."
+    if trying:
+        return DeviceOffer(f"{text} End the trial, then start the service to use it.", "End the trial", Switch.TRIAL)
+    if file_virtual:
+        return DeviceOffer(text, "Switch to it", Switch.FILE)
+    return DeviceOffer(
+        f"{text} It runs with --virtual-device: start it without to use the device.", None, Switch.RESTART
+    )
+
+
 PLAY = "play"
 """The feature of the daemon (`Snapshot.features`) that a hand from the GUI needs."""
 

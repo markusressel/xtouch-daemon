@@ -24,7 +24,7 @@ from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.surface import Surface
-from xtouch_daemon.hardware.transport import SocketPort
+from xtouch_daemon.hardware.transport import AlsaPort, SocketPort
 from xtouch_daemon.live.codec import decode, decode_message, encode_request
 from xtouch_daemon.live.log import LogBuffer
 from xtouch_daemon.live.messages import (
@@ -459,3 +459,39 @@ def test_while_the_daemon_stops_the_live_view_starts_nothing(
     assert daemon.on_request(object(), request_) == reply
     assert not daemon.previewing
     assert not daemon.testing
+
+
+async def test_the_daemon_tells_when_the_device_is_plugged_in_while_it_drives_the_virtual_one(
+    config_path: Path,
+    surface: RecordingSurface,
+    notifications: Notifications,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(daemon_module, "DEVICE_CHECK", 0.05)
+    plugged = [False]
+    monkeypatch.setattr(AlsaPort, "present", lambda self: plugged[0])
+    daemon = make(config_path, surface, FakeBackend((STATE,)))
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: surface.strips[0].text[0] == "Speaker")
+    # the device itself: plugged in, but nothing to switch to
+    plugged[0] = True
+    await asyncio.sleep(0.2)
+    assert not daemon.snapshot().device_plugged
+    plugged[0] = False
+    config_path.write_text("[device]\nvirtual = true\n" + SPEAKER)
+    assert daemon.reload()
+    await until(lambda: isinstance(surface.port, SocketPort))
+    await asyncio.sleep(0.2)
+    assert not daemon.snapshot().device_plugged
+
+    plugged[0] = True
+    await until(lambda: daemon.snapshot().device_plugged)
+    assert "X-Touch-Ext is plugged in; the daemon drives the virtual device" in caplog.text
+    # switched to the device: it is no news anymore
+    config_path.write_text(SPEAKER)
+    assert daemon.reload()
+    await until(lambda: not daemon.snapshot().device_plugged)
+    daemon.stop()
+    await task

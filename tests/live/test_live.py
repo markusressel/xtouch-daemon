@@ -135,6 +135,9 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     # with its version
     versioned = Snapshot("abc", True, False, None, snapshot.strips, daemon_version="1.2.3")
     assert decode(encode(versioned)) == versioned
+    # the device plugged in while the daemon drives the virtual one
+    plugged = Snapshot("abc", True, False, None, snapshot.strips, virtual=True, device_plugged=True)
+    assert decode(encode(plugged)) == plugged
     # with slots
     slots = SlotsState(
         "gaming",

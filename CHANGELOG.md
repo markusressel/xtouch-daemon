@@ -24,6 +24,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The daemon takes a changed configuration file by itself, a moment after the file stopped changing, like a reload
   (`systemctl --user reload xtouch-daemon`, which still works): a file with errors is logged and the current
   configuration stays. A file that is gone changes nothing.
+- GUI: when the device is plugged in while the daemon drives the virtual device, a bar above the drawing says so and
+  switches to it: "Switch to it" turns `[device] virtual` off and saves, "End the trial" ends the daemon of "Try
+  without a device". The daemon looks for the device every 2 seconds meanwhile and logs when it is there.
 
 ### Changed
 

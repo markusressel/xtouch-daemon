@@ -50,9 +50,12 @@ from xtouch_daemon.gui.domain.problems import place_of
 from xtouch_daemon.gui.domain.slots import slots_status
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument, Validation
 from xtouch_daemon.gui.domain.status import (
+    DeviceOffer,
     Status,
+    Switch,
     Tone,
     changes_status,
+    device_offer,
     drawing_status,
     offers_virtual_device,
     preview_status,
@@ -400,6 +403,7 @@ class MainWindow(QMainWindow):
         self.device_view.try_without_device.connect(self.try_without_device)
         self.device_view.test_toggled.connect(self.toggle_test)
         self.device_view.use_virtual_device.connect(self.use_virtual_device)
+        self.device_view.switch_to_device.connect(self.switch_to_device)
         self.device_view.live_clicked.connect(self._mode_clicked)
         slots.simulated.connect(self._simulated)
         self.live.twin_changed.connect(lambda _view: self.device_view.show_live(self.live.snapshot))
@@ -753,6 +757,7 @@ class MainWindow(QMainWindow):
             offers_virtual_device(snapshot, hosting),
             slots_status(snapshot),
         )
+        self.device_view.show_device_offer(self._device_offer())
         self.service_controls.show_connections(connections(snapshot, device))
         self.states_page.show_live(snapshot)
         self.mqtt_page.show_live(snapshot)
@@ -1270,6 +1275,47 @@ class MainWindow(QMainWindow):
         self.editor.edited(Change(Scope.VALUE, ("device", "virtual")))
         if self.save():
             self.open_virtual_device()
+
+    def _device_offer(self) -> DeviceOffer | None:
+        """What the window offers while the device is plugged in and the daemon drives the virtual one."""
+        saved = self.document.saved_config
+        device = saved.device.name if saved is not None else "the device"
+        file_virtual = saved is not None and saved.device.virtual
+        return device_offer(self.live.snapshot, device, file_virtual, self.trying is not None)
+
+    def switch_to_device(self) -> None:
+        """
+        The device is plugged in while the daemon drives the virtual one: the daemon goes to the device. With
+        `[device] virtual` in the file, it is turned off and the file applied (no restart); the daemon of the window,
+        to try without a device, ends instead (the service, started then, takes the device).
+        """
+        offer = self._device_offer()
+        if offer is None:
+            return
+        match offer.switch:
+            case Switch.TRIAL:
+                # ended on purpose: not the message of a daemon that ended (`_tried`)
+                trying, self.trying = self.trying, None
+                assert trying is not None
+                trying.finished.connect(trying.deleteLater)
+                trying.terminate()
+                self.status.setText("Ending the trial: start the service to use the device.")
+                self.refresh_service()
+            case Switch.FILE:
+                if self.daemon is None or self.document.path.resolve() != self.daemon.config:
+                    self.status.setText("The daemon reads another file: turn Virtual off on its page Extender.")
+                    return
+                if self.document.modified:
+                    question = "Switching saves the file: your other changes too. Save them and switch to the device?"
+                    if QMessageBox.question(self, "Switch to the device", question) != QMessageBox.StandardButton.Yes:
+                        return
+                self.document.unset(("device", "virtual"))
+                self.editor.edited(Change(Scope.VALUE, ("device", "virtual")))
+                if self.save():
+                    self.close_virtual_device()
+            case Switch.RESTART:
+                # nothing the window can do: the bar says so
+                return
 
     def _mode_clicked(self) -> None:
         if offers_virtual_device(self.live.snapshot, self.hosted is not None):

@@ -102,8 +102,9 @@ def decode_message(line: bytes) -> Snapshot | Reply | TwinView | KnownDevices | 
         _slots(data["slots"]),
         data["virtual"],
         data["simulated"],
-        # a daemon of 0.2.0 has no test
+        # a daemon of 0.2.0 has no test, nor device_plugged
         bool(data.get("test", False)),
+        bool(data.get("device_plugged", False)),
     )
 
 

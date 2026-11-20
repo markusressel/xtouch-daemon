@@ -194,6 +194,15 @@ as on the device), and breaks the touch sensor of faders ("Broken touch"), to tr
 it, and so does closing the window: for the daemon it is unplugged. What the drawing shows still comes from the
 daemon, which is what reached the device.
 
+When the device (`[device] name`) is plugged in while the daemon drives the virtual one, a bar above the drawing says
+so. Its button switches to the device:
+
+- **Switch to it** (`[device] virtual = true` in the file): turns `virtual` off, saves the file (after asking, when
+  it has other changes) and closes the virtual device. The daemon reloads and takes the device, without a restart.
+- **End the trial** (the daemon of "Try without a device"): ends that daemon. Start the service to use the device.
+- A daemon started elsewhere with `--virtual-device` only uses the device after a restart without it: the bar says so,
+  without a button.
+
 ## Preview
 
 Next to Save and apply, a pill says what the device runs: "Saved, on the device", "Unsaved changes" (the device

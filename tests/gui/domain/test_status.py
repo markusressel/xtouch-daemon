@@ -5,9 +5,12 @@ import pytest
 
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.gui.domain.status import (
+    DeviceOffer,
     Status,
+    Switch,
     Tone,
     changes_status,
+    device_offer,
     log_unavailable,
     offers_virtual_device,
     outdated,
@@ -185,3 +188,33 @@ def test_the_log_says_why_it_does_not_come():
     old = log_unavailable(snapshot(), owned=True)
     assert old is not None
     assert "too old" in old.why
+
+
+@pytest.mark.parametrize(
+    ("file_virtual", "trying", "action", "switch"),
+    [
+        (True, False, "Switch to it", Switch.FILE),
+        (False, True, "End the trial", Switch.TRIAL),
+        # the trial wins: the file is not what the daemon runs with
+        (True, True, "End the trial", Switch.TRIAL),
+        (False, False, None, Switch.RESTART),
+    ],
+)
+def test_the_device_is_offered_once_it_is_plugged_in_while_the_daemon_drives_the_virtual_one(
+    file_virtual: bool, trying: bool, action: str | None, switch: Switch
+):
+    plugged = dataclasses.replace(snapshot(), virtual=True, device_plugged=True)
+
+    offer = device_offer(plugged, "X-Touch-Ext", file_virtual, trying)
+
+    assert offer is not None
+    assert (offer.action, offer.switch) == (action, switch)
+    assert offer.text.startswith("X-Touch-Ext is plugged in")
+
+
+def test_without_the_device_or_the_virtual_device_nothing_is_offered():
+    assert device_offer(None, "X-Touch-Ext", True, False) is None
+    assert device_offer(dataclasses.replace(snapshot(), virtual=True), "X-Touch-Ext", True, False) is None
+    # the daemon drives the device itself
+    unplugged: DeviceOffer | None = device_offer(snapshot(), "X-Touch-Ext", True, False)
+    assert unplugged is None
