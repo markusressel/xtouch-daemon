@@ -202,6 +202,7 @@ class Twin(Rig):
             self.voip,
             launcher=Launcher(spawn=_no_launch),
             processes=lambda: frozenset(),
+            commands=self.commands,
         )
 
     def _stepped(self, result: Result) -> None:

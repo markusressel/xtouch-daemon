@@ -24,6 +24,7 @@ from xtouch_daemon.runtime.desk import Desk, touchless
 from xtouch_daemon.runtime.slots import BATCH, PROCESS_INTERVAL, SlotEngine
 from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.states import Override
+from xtouch_daemon.system.commands import Commands, NoCommands
 from xtouch_daemon.voip.provider import VoipProvider
 
 MANUAL = "manual"
@@ -59,12 +60,15 @@ class Rig:
         capturer: Capturer | None = None,
         clock: Callable[[], float] = time.monotonic,
         logger: logging.Logger = SLOTS_LOGGER,
+        commands: Commands | None = None,
     ):
         """
         `state_dir` keeps the choices and the people of the slots (None: nowhere), `capture_command` or `capturer` is
-        what the meters capture with, `logger` where the states, slots and modes are logged.
+        what the meters capture with, `logger` where the states, slots and modes are logged. `commands` runs the
+        programs of command controls (by default nothing runs, as on a twin).
         """
         self.config = config
+        self.commands = commands if commands is not None else NoCommands()
         self.surface = surface
         self.backend = backend
         self.voip = voip

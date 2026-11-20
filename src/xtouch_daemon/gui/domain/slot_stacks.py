@@ -389,6 +389,9 @@ def controls_text(values: Mapping[str, Any], slot: int) -> list[str]:
 
 
 def _action(value: Any) -> str:
+    if isinstance(value, Mapping) and isinstance(command := value.get("command"), Mapping):  # pyright: ignore[reportUnknownMemberType]
+        argv = command.get("set", ())  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        return "command " + (argv if isinstance(argv, str) else " ".join(str(part) for part in argv))  # pyright: ignore[reportUnknownArgumentType, reportUnknownVariableType]
     if isinstance(value, Mapping):
         return "launch " + " ".join(str(part) for part in value.get("launch", ()))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportUnknownVariableType]
     return str(value)

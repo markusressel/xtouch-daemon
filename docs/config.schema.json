@@ -1138,6 +1138,110 @@
       "title": "ChoiceConfig",
       "type": "object"
     },
+    "CommandControl": {
+      "additionalProperties": false,
+      "description": "A fader or an encoder that sets a value with a program of your own (`{ command = { ... } }` in `[controls]`), e.g.\nthe brightness of a screen.",
+      "properties": {
+        "set": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "The program that sets the value, then each argument; `{value}` in an argument is the new value. E.g.\n`[\"brightnessctl\", \"set\", \"{value}%\"]`.",
+          "title": "Set"
+        },
+        "watch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A program that runs all the time and prints the value, one line per change. The fader and the LED ring follow it.",
+          "title": "Watch"
+        },
+        "range": {
+          "default": [
+            0.0,
+            100.0
+          ],
+          "description": "The lowest and the highest value: the fader at the bottom and at the top, the LED ring empty and full.",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Range",
+          "type": "array"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How much one step of the encoder changes the value. By default `behavior.encoder_step` percent of `range`.",
+          "title": "Step"
+        },
+        "push": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The value a push of the encoder sets, e.g. the full brightness. For the encoder only.",
+          "title": "Push"
+        }
+      },
+      "required": [
+        "set"
+      ],
+      "title": "CommandControl",
+      "type": "object"
+    },
+    "CommandSetting": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "$ref": "#/$defs/CommandControl",
+          "description": "The program that sets the value, and the one that watches it."
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "title": "CommandSetting",
+      "type": "object"
+    },
     "ControlsConfig": {
       "additionalProperties": false,
       "description": "Controls of a slot that act whatever it shows (`[controls]`), while `when` holds; of a list of them per slot the\nfirst whose `when` holds.",
@@ -1145,28 +1249,24 @@
         "fader": {
           "anyOf": [
             {
-              "const": "homeassistant",
-              "type": "string"
+              "$ref": "#/$defs/KnobControl"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Fader"
+          "default": null
         },
         "encoder": {
           "anyOf": [
             {
-              "const": "homeassistant",
-              "type": "string"
+              "$ref": "#/$defs/KnobControl"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Encoder"
+          "default": null
         },
         "select": {
           "anyOf": [
@@ -1302,6 +1402,17 @@
       },
       "title": "DeviceConfig",
       "type": "object"
+    },
+    "KnobControl": {
+      "oneOf": [
+        {
+          "const": "homeassistant",
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/CommandSetting"
+        }
+      ]
     },
     "Launch": {
       "additionalProperties": false,

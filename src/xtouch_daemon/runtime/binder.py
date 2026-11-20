@@ -31,6 +31,7 @@ from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.strips import build_strip, look_of
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
+from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.system.processes import running_processes
 from xtouch_daemon.voip.provider import VoipProvider
@@ -91,6 +92,7 @@ class SlotMixer:
         preview: bool = False,
         launcher: Launcher | None = None,
         processes: Callable[[], frozenset[str]] = running_processes,
+        commands: Commands | None = None,
     ):
         self.setup = config.slots
         self.config = config
@@ -142,6 +144,7 @@ class SlotMixer:
             self.env.launcher,
             lambda: self.processes,
             config.behavior.encoder_step,
+            commands,
         )
         """The `[controls]` of the slots: claims on the strips of the desk."""
         self.controls.on_change = self.controls.show
