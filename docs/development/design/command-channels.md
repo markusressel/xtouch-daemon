@@ -1,6 +1,7 @@
 # Design: command channels
 
-Status: proposed. It builds on the command controls of `[controls]` (see [Commands](../../configuration/slots.md#commands)).
+Status: being built; the value, the fader, the encoder, the LCD and `[controls]` are (steps 1 and 7). How to use it:
+[Commands](../../configuration/channels/commands.md).
 
 The idea: a channel type `command`, whose strip is driven by programs of your own. Its fader and encoder set a value,
 its buttons run programs, its LEDs, LCD and meter show what programs print. It is not about screens: a command can be
@@ -11,7 +12,7 @@ A command channel is a channel like the others: a candidate in `[slots]`, a memb
 
 ## Why a channel
 
-The command controls of `[controls]` claim a fader or an encoder of a slot, over whatever the slot shows. That is
+The command controls `[controls]` had first (`{ command = { ... } }`) claimed a fader or an encoder of a slot, over whatever the slot shows. That is
 right for "the brightness on the encoder of my speaker strip". It is not enough for a strip of its own:
 
 - A claim can't be a candidate of a slot, so it can't take a slot only while it matters.
@@ -26,11 +27,10 @@ Adding these to `[controls]` one by one would make it a second model of a strip.
 [channel.screen_left]
 type = "command"
 label = "Left"
-
-[channel.screen_left.value]
 set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}"
 watch = "sysctrl display redshift brightness -d DisplayPort-1 --watch"
-range = [0.1, 1.0]
+min = 0.1
+max = 1.0
 push = 1.0
 format = "{value:.0%}"   # 0.55 is 55% on the LCD
 
@@ -40,15 +40,15 @@ press = { run = ["sysctrl", "display", "redshift", "reset", "-d", "DisplayPort-1
 
 | Part | Does | By default |
 |---|---|---|
-| `value` | The value of the channel: `set`, `watch`, `range`, `step`, `push`, as for a command control. | Needed. |
-| Fader | Sets `value` over `range`. | On. |
-| Encoder | Sets `value` in fine steps (`step`), a push sets `push`, the LED ring shows it. `encoder = { ... }` gives it a value of its own (e.g. the color temperature next to the brightness). | `value`. |
-| LCD | The first line: `label`. The second: `value` with `format`, or `lcd = { watch = [...] }` for text of its own. | `label`, the value. |
+| Value | `set`, `watch`, `min`, `max`, `step`, `push`, `format`. | `set` is needed. |
+| Fader | Sets the value from `min` to `max`. | On. |
+| Encoder | Sets the value in fine steps (`step`), a push sets `push`, the LED ring shows it. `encoder_set` and `encoder_watch` (with `encoder_min`, `encoder_max`, `encoder_step`, `encoder_push`) give it a value of its own, e.g. the color temperature next to the brightness. | The value. |
+| LCD | The first line: `label`. The second: the value in `format`, or what `lcd_watch` prints. | `label`, the value. |
 | Buttons | Select, Rec, Solo and Mute take actions as on other channels, and `{ run = [...] }`. `{value}` in `run` is the value. | Nothing. |
-| LEDs | `led = { watch = [...] }`: a line `on`, `1`, `true` or `yes` lights it, `flash` flashes it, anything else turns it off. | Off. |
-| Meter | `meter = { watch = [...], range = [...] }`: each line is a level; the device lets the meter fall in between. | Dark. |
-| Presence | `present = { watch = [...] }`: a line with text makes the channel present, an empty line absent. | Always present. |
-| Color | `color` as on other channels, or `color = { watch = [...] }`: each line is a color name (`red`, `off`, ...). A line that is no color keeps the color. | `white`. |
+| LEDs | `led = { watch = [...] }` in the table of a button: a line `on`, `1`, `true` or `yes` lights it, `flash` flashes it, anything else turns it off. | Off. |
+| Meter | `meter_watch`: each line is a level from `meter_min` to `meter_max`; the device lets the meter fall in between. | Dark. |
+| Presence | `present_watch`: a line with text makes the channel present, an empty line absent. | Always present. |
+| Color | `color` as on other channels, or `color_watch`: each line is a color name (`red`, `off`, ...). A line that is no color keeps the color. | `white`. |
 
 `run` is new: it runs a short program and waits for its end, like `set`. It differs from `launch`, which starts an
 application detached and lights the LED while it runs. `run` could be an action of the buttons of `[controls]` and of
@@ -68,31 +68,34 @@ Two channels, two strips. Nothing new: each has its own commands.
 ```toml
 [channel.screen_left]
 type = "command"
-value = { set = "sysctrl ... -d DisplayPort-1 -b {value}", range = [0.1, 1.0] }
+set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}"
+min = 0.1
+max = 1.0
 
 [channel.screen_right]
 type = "command"
-value = { set = "sysctrl ... -d DisplayPort-2 -b {value}", range = [0.1, 1.0] }
+set = "sysctrl display redshift brightness -d DisplayPort-2 -b {value}"
+min = 0.1
+max = 1.0
 ```
 
 ### One channel, one target at a time
 
-`targets` names what the programs act on; each target sets placeholders for the commands. The strip controls one
-target at a time and the LCD shows its name. `next` (an action of Select, as on output strips with `device = [...]`)
-switches to the next target. Every target has its own value: the `watch` of each runs all the time, so the fader and
-the ring show the right value at once.
+`targets` names what the programs act on: each target has a `name` and a `value` for `{target}` in the commands. The
+strip controls one target at a time and the LCD shows its name. `next` (an action of Select, as on output strips with
+`device = [...]`) switches to the next target. Every target has its own value: the `watch` of each runs all the time,
+so the fader and the ring show the right value at once.
 
 ```toml
 [channel.screens]
 type = "command"
 label = "Screens"
-targets = { Left = { display = "DisplayPort-1" }, Right = { display = "DisplayPort-2" } }
+set = "sysctrl display redshift brightness -d {target} -b {value}"
+watch = "sysctrl display redshift brightness -d {target} --watch"
+min = 0.1
+max = 1.0
+targets = [{ name = "Left", value = "DisplayPort-1" }, { name = "Right", value = "DisplayPort-2" }]
 select = { press = "next" }
-
-[channel.screens.value]
-set = "sysctrl display redshift brightness -d {display} -b {value}"
-watch = "sysctrl display redshift brightness -d {display} --watch"
-range = [0.1, 1.0]
 ```
 
 ### One channel, all targets together
@@ -103,12 +106,14 @@ of the first target.
 ```toml
 [channel.screens]
 type = "command"
-targets = { Left = { display = "DisplayPort-1" }, Right = { display = "DisplayPort-2" } }
+set = "sysctrl display redshift brightness -d {target} -b {value}"
+targets = [{ name = "Left", value = "DisplayPort-1" }, { name = "Right", value = "DisplayPort-2" }]
 together = true
 ```
 
-A target name is what the LCD shows, so it fits 7 characters. A placeholder that no target sets is an error when the
-file is loaded, so is a target that misses one the commands use.
+A target name is what the LCD shows, so it fits 7 characters. `{target}` without `targets` is an error when the file
+is loaded, so are `targets` whose commands don't use `{target}`. A list of tables with fixed columns (`name`, `value`)
+has a field in the GUI already, as `profiles` do.
 
 ## Slots, pools and conditions
 
@@ -124,7 +129,7 @@ A command channel takes part like any channel:
 
 ## In the daemon
 
-- A `CommandStrip` controller, built on the `CommandLink` of the command controls (`strips/command.py`). The
+- A `CommandStrip` controller with a `CommandValue` (`strips/command.py`). The
   programs run with `system.commands`, which the tests replace with `FakeCommands`.
 - The `watch` programs run for as long as the configuration, not only while a slot shows the channel. A strip that
   comes on a slot shows the current value at once.
@@ -145,10 +150,18 @@ A command channel takes part like any channel:
 4. `targets`, `next` and `together`.
 5. `meter` and `color`.
 6. The number entity in Home Assistant.
-7. `[controls]`: `encoder = { channel = "screen_left" }` sets the value of a channel from any slot. It replaces
-   `{ command = { ... } }` there, or both stay.
+7. `[controls]`: `encoder = { channel = "screen_left" }` and `fader = { channel = "screen_left" }` set the value of a
+   command channel from any slot. They replace `{ command = { ... } }` there.
 
 ## Decisions
+
+- Flat options, as on the other channels (`set`, `watch`, `min`, `max`, `step`, `push`, `format`), not a table
+  `value = { ... }`: the GUI builds its forms from the options, and has fields for flat ones only. The later parts
+  follow: `lcd_watch`, `color_watch`, `meter_watch`, `present_watch`, `encoder_*`, and `targets` as a list of tables
+  with fixed columns. The LED of a button needs a field for `led = { watch = [...] }` in the GUI's button field.
+
+- No compatibility with the command controls of `[controls]`: the project is at 0.x. `{ command = { ... } }` goes, a
+  claim names a command channel instead (`{ channel = "screen_left" }`).
 
 - The value is a number entity in Home Assistant, with `[mqtt]`.
 - The LEDs take `on`, `1`, `true`, `yes` and `flash`; anything else is off.

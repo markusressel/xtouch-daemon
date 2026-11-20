@@ -27,10 +27,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: when the device is plugged in while the daemon drives the virtual device, a bar above the drawing says so and
   switches to it: "Switch to it" turns `[device] virtual` off and saves, "End the trial" ends the daemon of "Try
   without a device". The daemon looks for the device every 2 seconds meanwhile and logs when it is there.
-- `[controls]` can give a fader or an encoder of a slot to a program of your own, e.g. for the brightness of a
-  screen: `{ command = { set = [...], watch = [...], range = [...], step = ..., push = ... } }`. `set` runs with the
-  new value (`{value}`), `watch` prints the value when something else changes it, and the fader and the LED ring follow.
-  The slot keeps showing what it shows.
+- Command channels (`type = "command"`): a value that programs of your own set and watch, e.g. the brightness of a
+  screen. `set` runs with the new value (`{value}`), `watch` prints the value when something else changes it; the
+  fader, the encoder, the LED ring and the LCD show it, between `min` and `max`. `[controls]` can give the fader or the
+  encoder of any slot to such a channel (`{ channel = "screen" }`); the slot keeps showing what it shows. Simulate in
+  the GUI runs the `watch` programs, never `set`.
 
 ### Changed
 

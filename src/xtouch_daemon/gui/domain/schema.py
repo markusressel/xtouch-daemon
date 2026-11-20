@@ -238,6 +238,14 @@ STRIP_OPTION_ORDER = (
     "match",
     "profiles",
     "person",
+    # a value that programs set
+    "set",
+    "watch",
+    "min",
+    "max",
+    "step",
+    "push",
+    "format",
     # then the parts of the strip from the top of the device to the bottom: the encoder with its ring, the LCD, the
     # meter, the buttons, the fader
     "encoder",

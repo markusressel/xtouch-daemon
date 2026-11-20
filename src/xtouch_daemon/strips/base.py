@@ -19,6 +19,7 @@ from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips.knobs import BalanceKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
+from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.launch import LaunchButton, Launcher
 from xtouch_daemon.voip.provider import VoipProvider
 
@@ -65,6 +66,8 @@ class StripEnv:
     """The modes and states of the slots, for buttons with `mode:`, `toggle:` and `cycle_modes`."""
     solo: Callable[[StripController, bool], None] = lambda strip, on: None
     """Mutes the strips but this one (True), and unmutes them again (False): `mute_others`."""
+    commands: Commands = field(default_factory=Commands)
+    """Runs the programs of command channels."""
 
 
 @dataclass(frozen=True)

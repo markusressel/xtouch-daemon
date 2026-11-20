@@ -19,6 +19,7 @@ color = "red"
 | `apps` | [Applications](applications.md) |
 | `person` | [People and the voice chat](people.md) |
 | `homeassistant` | [Home Assistant](../../guides/home-assistant.md) |
+| `command` | [Commands](commands.md) |
 
 The strips of `auto` (the next application that plays) and empty slots (`-`) are no channels: they are written in
 the [slots](../slots.md#slots).

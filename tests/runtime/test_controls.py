@@ -253,30 +253,38 @@ def test_home_assistant_needs_mqtt(text: str, problem: str) -> None:
 
 
 COMMANDS = """
+[channel.screen]
+type = "command"
+label = "Screen"
+set = "brightness -d DP-1 -b {value}"
+watch = "brightness -d DP-1 --watch"
+min = 0.1
+max = 1.0
+push = 1.0
+
 [controls]
-1.encoder.command.set = "brightness -d DP-1 -b {value}"
-1.encoder.command.watch = "brightness -d DP-1 --watch"
-1.encoder.command.range = [0.1, 1.0]
-1.encoder.command.push = 1.0
-3 = { fader = { command = { set = ["brightness", "-d", "DP-2", "-b", "{value}"] } }, when = "not gaming" }
+1 = { encoder = { channel = "screen" } }
+3 = { fader = { channel = "screen" }, when = "not gaming" }
 """
 
 
-async def test_a_fader_and_an_encoder_run_commands_whatever_the_slot_shows(surface: RecordingSurface) -> None:
+async def test_a_fader_and_an_encoder_set_a_command_channel_whatever_the_slot_shows(surface: RecordingSurface) -> None:
     commands = FakeCommands()
     rig = Rig(surface, parse_config(BASE + COMMANDS), commands=commands)
     rig.step(STATE)
     await settle()
-    # slot 1 shows the speaker, whose encoder sets the balance: the claim's encoder sets the brightness
+    # slot 1 shows the speaker, whose encoder sets the balance: the claim's encoder sets the screen's value
     assert rig.labels()[0] == "Speaker"
     claim = rig.desk.claims[0]
     assert claim is not None
     assert claim.taken == frozenset({"encoder"})
+    # the channel watches, though no slot shows it
     assert commands.watches == [["brightness", "-d", "DP-1", "--watch"]]
     commands.print("0.55")
     await settle()
-    # the watch shows on the ring
     assert surface.strips[0].ring == (6, RingMode.WRAP)
+    # slot 3's fader follows the same value
+    assert surface.strips[2].fader == protocol.fader_value(0.5)
     surface.on_event(protocol.EncoderTurned(0, -5))
     await settle()
     assert commands.runs == [["brightness", "-d", "DP-1", "-b", "0.505"]]
@@ -285,12 +293,14 @@ async def test_a_fader_and_an_encoder_run_commands_whatever_the_slot_shows(surfa
     await settle()
     assert commands.runs[-1] == ["brightness", "-d", "DP-1", "-b", "1"]
     assert surface.strips[0].ring == (11, RingMode.WRAP)
-    # slot 3's fader, from 0 to 100 by default
+    assert surface.strips[2].fader == protocol.fader_value(1.0)
+    # under the finger, the motor waits; let go, it stays where the hand left it
     surface.on_event(protocol.FaderTouched(2, True))
     surface.on_event(protocol.FaderMoved(2, protocol.fader_value(0.25)))
-    surface.on_event(protocol.FaderTouched(2, False))
     await settle()
-    assert commands.runs[-1] == ["brightness", "-d", "DP-2", "-b", "25"]
+    assert commands.runs[-1] == ["brightness", "-d", "DP-1", "-b", "0.325"]
+    surface.on_event(protocol.FaderTouched(2, False))
+    assert surface.strips[2].fader == protocol.fader_value(0.25)
     rig.mixer.close()
     await commands.wait_closed()
 
@@ -299,18 +309,22 @@ async def test_a_fader_and_an_encoder_run_commands_whatever_the_slot_shows(surfa
     ("text", "problem"),
     [
         (
-            '[controls]\n2 = { fader = { command = { set = "brightness", push = 1 } } }\n',
-            "controls.2.fader.command: set: no argument has {value}, so the value goes nowhere",
+            '[controls]\n2 = { fader = { channel = "monitor" } }\n',
+            "controls.2.fader.channel: monitor is no channel",
         ),
         (
-            '[controls]\n2 = { fader = { command = { set = "brightness {value}", push = 1 } } }\n',
-            "controls.2: fader.command.push: a fader has no push, only the encoder",
+            '[controls]\n2 = { encoder = { channel = "out" } }\n',
+            "controls.2.encoder.channel: out is of type output; only command channels have a value",
         ),
-        ('[controls]\n2 = { encoder = { program = "x" } }\n', "controls.2.encoder.command: Field required"),
+        ('[controls]\n2 = { encoder = { program = "x" } }\n', "controls.2.encoder.channel: Field required"),
         ('[controls]\n2 = { encoder = "commands" }\n', "controls.2.encoder: Input should be 'homeassistant'"),
+        (
+            '[channel.screen]\ntype = "command"\nset = "brightness"\n',
+            "channel.screen: set: no argument has {value}, so the value goes nowhere",
+        ),
     ],
 )
-def test_a_command_control_is_checked(text: str, problem: str) -> None:
+def test_a_command_channel_and_its_claims_are_checked(text: str, problem: str) -> None:
     with pytest.raises(ConfigError) as error:
         parse_config(BASE + text)
     assert problem in str(error.value)

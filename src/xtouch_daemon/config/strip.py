@@ -161,6 +161,8 @@ STRIP_TYPE_MEANINGS = Meanings(
         "auto": "The next application that plays and has no channel of its own, and the people of the voice chat.",
         "homeassistant": "A strip for Home Assistant: its fader, encoder, LCD, LEDs and buttons are entities there, "
         "and automations decide what they do. Needs `[mqtt]`.",
+        "command": "A value that programs of your own set and watch, e.g. the brightness of a screen: the fader and "
+        "the encoder set it, the LED ring and the LCD show it.",
         "empty": "A dark strip that does nothing; its fader stays at the bottom.",
         "voip": "A participant of the voice chat: the fader sets their volume, Mute mutes them for you, the meter "
         "shows their voice. With `person` always the same one, else one of the people `auto` hands out.",

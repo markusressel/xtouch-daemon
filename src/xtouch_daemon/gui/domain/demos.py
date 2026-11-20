@@ -84,7 +84,7 @@ class Strip:
     """What a scene needs to know about the strip: its type and its options, unset ones at their defaults."""
 
     strip_type: str
-    """The type of its strip: "output", "input", "apps", "auto", "voip" or "homeassistant"."""
+    """The type of its strip: "output", "input", "apps", "auto", "voip", "homeassistant" or "command"."""
     values: Mapping[str, Any]
     behavior: BehaviorConfig
 
@@ -261,6 +261,11 @@ def _display(strip: Strip) -> tuple[Frame, ...]:
             Frame("Talks", replace(base, color=talking, text=(strip.label, "talks"))),
             Frame("Muted by you", replace(base, text=(strip.label, "muted"), meter=0)),
             Frame("Away", replace(base, color="off", text=(strip.label, "away"), fader=0.0, meter=0)),
+        )
+    if strip.strip_type == "command":
+        return (
+            Frame("Shows the value", replace(base, text=(strip.label, "50"), meter=0)),
+            Frame("The fader moves: the new value", replace(base, text=(strip.label, "72"), fader=0.72, meter=0)),
         )
     if strip.strip_type == "homeassistant":
         return (

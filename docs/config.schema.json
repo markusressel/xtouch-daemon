@@ -88,6 +88,7 @@
               "input",
               "apps",
               "homeassistant",
+              "command",
               "person"
             ],
             "title": "Type",
@@ -175,6 +176,27 @@
           "launch_when_running": {
             "$ref": "#/$defs/strip.launch_when_running"
           },
+          "set": {
+            "$ref": "#/$defs/strip.set"
+          },
+          "watch": {
+            "$ref": "#/$defs/strip.watch"
+          },
+          "min": {
+            "$ref": "#/$defs/strip.min"
+          },
+          "max": {
+            "$ref": "#/$defs/strip.max"
+          },
+          "step": {
+            "$ref": "#/$defs/strip.step"
+          },
+          "push": {
+            "$ref": "#/$defs/strip.push"
+          },
+          "format": {
+            "$ref": "#/$defs/strip.format"
+          },
           "person": {
             "$ref": "#/$defs/strip.person"
           },
@@ -250,6 +272,27 @@
             "launch_when_running": {
               "$ref": "#/$defs/strip.launch_when_running"
             },
+            "set": {
+              "$ref": "#/$defs/strip.set"
+            },
+            "watch": {
+              "$ref": "#/$defs/strip.watch"
+            },
+            "min": {
+              "$ref": "#/$defs/strip.min"
+            },
+            "max": {
+              "$ref": "#/$defs/strip.max"
+            },
+            "step": {
+              "$ref": "#/$defs/strip.step"
+            },
+            "push": {
+              "$ref": "#/$defs/strip.push"
+            },
+            "format": {
+              "$ref": "#/$defs/strip.format"
+            },
             "person": {
               "$ref": "#/$defs/strip.person"
             },
@@ -313,6 +356,27 @@
             },
             "launch_when_running": {
               "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "set": {
+              "$ref": "#/$defs/strip.set"
+            },
+            "watch": {
+              "$ref": "#/$defs/strip.watch"
+            },
+            "min": {
+              "$ref": "#/$defs/strip.min"
+            },
+            "max": {
+              "$ref": "#/$defs/strip.max"
+            },
+            "step": {
+              "$ref": "#/$defs/strip.step"
+            },
+            "push": {
+              "$ref": "#/$defs/strip.push"
+            },
+            "format": {
+              "$ref": "#/$defs/strip.format"
             },
             "person": {
               "$ref": "#/$defs/strip.person"
@@ -405,6 +469,27 @@
             "launch_when_running": {
               "$ref": "#/$defs/strip.launch_when_running"
             },
+            "set": {
+              "$ref": "#/$defs/strip.set"
+            },
+            "watch": {
+              "$ref": "#/$defs/strip.watch"
+            },
+            "min": {
+              "$ref": "#/$defs/strip.min"
+            },
+            "max": {
+              "$ref": "#/$defs/strip.max"
+            },
+            "step": {
+              "$ref": "#/$defs/strip.step"
+            },
+            "push": {
+              "$ref": "#/$defs/strip.push"
+            },
+            "format": {
+              "$ref": "#/$defs/strip.format"
+            },
             "person": {
               "$ref": "#/$defs/strip.person"
             },
@@ -487,6 +572,27 @@
             },
             "launch_when_running": {
               "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "set": {
+              "$ref": "#/$defs/strip.set"
+            },
+            "watch": {
+              "$ref": "#/$defs/strip.watch"
+            },
+            "min": {
+              "$ref": "#/$defs/strip.min"
+            },
+            "max": {
+              "$ref": "#/$defs/strip.max"
+            },
+            "step": {
+              "$ref": "#/$defs/strip.step"
+            },
+            "push": {
+              "$ref": "#/$defs/strip.push"
+            },
+            "format": {
+              "$ref": "#/$defs/strip.format"
             },
             "person": {
               "$ref": "#/$defs/strip.person"
@@ -587,6 +693,27 @@
               "launch_when_running": {
                 "$ref": "#/$defs/strip.launch_when_running"
               },
+              "set": {
+                "$ref": "#/$defs/strip.set"
+              },
+              "watch": {
+                "$ref": "#/$defs/strip.watch"
+              },
+              "min": {
+                "$ref": "#/$defs/strip.min"
+              },
+              "max": {
+                "$ref": "#/$defs/strip.max"
+              },
+              "step": {
+                "$ref": "#/$defs/strip.step"
+              },
+              "push": {
+                "$ref": "#/$defs/strip.push"
+              },
+              "format": {
+                "$ref": "#/$defs/strip.format"
+              },
               "person": {
                 "$ref": "#/$defs/strip.person"
               },
@@ -669,6 +796,27 @@
               },
               "launch_when_running": {
                 "$ref": "#/$defs/strip.launch_when_running"
+              },
+              "set": {
+                "$ref": "#/$defs/strip.set"
+              },
+              "watch": {
+                "$ref": "#/$defs/strip.watch"
+              },
+              "min": {
+                "$ref": "#/$defs/strip.min"
+              },
+              "max": {
+                "$ref": "#/$defs/strip.max"
+              },
+              "step": {
+                "$ref": "#/$defs/strip.step"
+              },
+              "push": {
+                "$ref": "#/$defs/strip.push"
+              },
+              "format": {
+                "$ref": "#/$defs/strip.format"
               },
               "person": {
                 "$ref": "#/$defs/strip.person"
@@ -776,6 +924,27 @@
               },
               "launch_when_running": {
                 "$ref": "#/$defs/strip.launch_when_running"
+              },
+              "set": {
+                "$ref": "#/$defs/strip.set"
+              },
+              "watch": {
+                "$ref": "#/$defs/strip.watch"
+              },
+              "min": {
+                "$ref": "#/$defs/strip.min"
+              },
+              "max": {
+                "$ref": "#/$defs/strip.max"
+              },
+              "step": {
+                "$ref": "#/$defs/strip.step"
+              },
+              "push": {
+                "$ref": "#/$defs/strip.push"
+              },
+              "format": {
+                "$ref": "#/$defs/strip.format"
               },
               "person": {
                 "$ref": "#/$defs/strip.person"
@@ -1051,6 +1220,21 @@
       "title": "ButtonConfig",
       "type": "object"
     },
+    "ChannelControl": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "description": "The command channel whose value the fader or the encoder sets, e.g. `screen_left`.",
+          "title": "Channel",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "title": "ChannelControl",
+      "type": "object"
+    },
     "ChoiceConfig": {
       "additionalProperties": false,
       "description": "One of the devices a strip switches between with Select, maybe in a profile of its sound card.",
@@ -1136,110 +1320,6 @@
         "device"
       ],
       "title": "ChoiceConfig",
-      "type": "object"
-    },
-    "CommandControl": {
-      "additionalProperties": false,
-      "description": "A fader or an encoder that sets a value with a program of your own (`{ command = { ... } }` in `[controls]`), e.g.\nthe brightness of a screen.",
-      "properties": {
-        "set": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          ],
-          "description": "The program that sets the value, then each argument; `{value}` in an argument is the new value. E.g.\n`[\"brightnessctl\", \"set\", \"{value}%\"]`.",
-          "title": "Set"
-        },
-        "watch": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "A program that runs all the time and prints the value, one line per change. The fader and the LED ring follow it.",
-          "title": "Watch"
-        },
-        "range": {
-          "default": [
-            0.0,
-            100.0
-          ],
-          "description": "The lowest and the highest value: the fader at the bottom and at the top, the LED ring empty and full.",
-          "maxItems": 2,
-          "minItems": 2,
-          "prefixItems": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "number"
-            }
-          ],
-          "title": "Range",
-          "type": "array"
-        },
-        "step": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How much one step of the encoder changes the value. By default `behavior.encoder_step` percent of `range`.",
-          "title": "Step"
-        },
-        "push": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The value a push of the encoder sets, e.g. the full brightness. For the encoder only.",
-          "title": "Push"
-        }
-      },
-      "required": [
-        "set"
-      ],
-      "title": "CommandControl",
-      "type": "object"
-    },
-    "CommandSetting": {
-      "additionalProperties": false,
-      "properties": {
-        "command": {
-          "$ref": "#/$defs/CommandControl",
-          "description": "The program that sets the value, and the one that watches it."
-        }
-      },
-      "required": [
-        "command"
-      ],
-      "title": "CommandSetting",
       "type": "object"
     },
     "ControlsConfig": {
@@ -1410,7 +1490,7 @@
           "type": "string"
         },
         {
-          "$ref": "#/$defs/CommandSetting"
+          "$ref": "#/$defs/ChannelControl"
         }
       ]
     },
@@ -1908,6 +1988,11 @@
       ],
       "type": "string"
     },
+    "strip.format": {
+      "default": "{value:g}",
+      "description": "How the LCD shows the value, in the format of Python, e.g. `{value:.0%}` shows 0.55 as `55%`.",
+      "type": "string"
+    },
     "strip.label": {
       "anyOf": [
         {
@@ -1966,6 +2051,11 @@
       "minLength": 1,
       "type": "array"
     },
+    "strip.max": {
+      "default": 100.0,
+      "description": "The value with the fader at the top and the LED ring full.",
+      "type": "number"
+    },
     "strip.max_volume": {
       "anyOf": [
         {
@@ -2016,6 +2106,11 @@
       "default": null,
       "description": "Where the meter takes the level: before the volume and Mute of the strip, or after them. By default\n`behavior.meter_point`."
     },
+    "strip.min": {
+      "default": 0.0,
+      "description": "The value with the fader at the bottom and the LED ring empty.",
+      "type": "number"
+    },
     "strip.min_volume": {
       "anyOf": [
         {
@@ -2052,6 +2147,18 @@
         "$ref": "#/$defs/ProfileConfig"
       },
       "type": "array"
+    },
+    "strip.push": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The value a push of the encoder sets, e.g. the full brightness. Without it, a push does nothing."
     },
     "strip.rec": {
       "anyOf": [
@@ -2106,6 +2213,20 @@
       },
       "description": "What Select does (`press`, `hold`) and what its LED shows (`led`). By default it makes the device the default\n(with `device` or `choices`) or starts `launch`, and its LED shows that. `true`/`false` stand for that or nothing."
     },
+    "strip.set": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "The program that sets the value, then each argument; `{value}` in an argument is the new value. E.g.\n`[\"brightnessctl\", \"set\", \"{value}%\"]`."
+    },
     "strip.solo": {
       "anyOf": [
         {
@@ -2131,6 +2252,18 @@
       },
       "description": "What Solo does (`press`, `hold`) and what its LED shows (`led`). By default nothing. An indicator alone (`solo =\n\"muted\"`) sets the LED."
     },
+    "strip.step": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How much one step of the encoder changes the value. By default `behavior.encoder_step` percent of the range."
+    },
     "strip.talking_color": {
       "default": "green",
       "description": "The backlight of the LCD while the participant talks.",
@@ -2145,6 +2278,24 @@
         "white"
       ],
       "type": "string"
+    },
+    "strip.watch": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "A program that runs all the time and prints the value, one line per change. The fader, the LED ring and the LCD\nfollow it."
     }
   }
 }

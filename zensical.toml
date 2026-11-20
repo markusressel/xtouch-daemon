@@ -41,6 +41,7 @@ nav = [
       { "Devices" = "configuration/channels/devices.md" },
       { "Applications" = "configuration/channels/applications.md" },
       { "People and the voice chat" = "configuration/channels/people.md" },
+      { "Commands" = "configuration/channels/commands.md" },
     ] },
     { "Parts of a strip" = [
       { "Encoders" = "configuration/strip/encoders.md" },

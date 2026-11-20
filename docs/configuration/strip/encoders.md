@@ -22,8 +22,8 @@ Which channel types have which modes, the default first:
 | `devices` (a place in a slot, or the pool) | `balance`, `volume` |
 
 The strips of people have no encoder. On a slot, whatever it shows, `[controls]` can give the encoder to Home
-Assistant: `5 = { encoder = "homeassistant" }` (see [Controls](../slots.md#controls-and-the-chord)), or to a program of
-your own, e.g. for the brightness of a screen (see [Commands](../slots.md#commands)).
+Assistant: `5 = { encoder = "homeassistant" }` (see [Controls](../slots.md#controls-and-the-chord)), or to the value of
+a [command channel](../channels/commands.md), e.g. the brightness of a screen: `5 = { encoder = { channel = "screen" } }`.
 
 A mode that the type does not have is an error, e.g.
 `channel.web: encoder: pick is not for apps strips (media, volume, balance, homeassistant)`. With

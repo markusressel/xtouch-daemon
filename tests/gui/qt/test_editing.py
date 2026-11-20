@@ -97,6 +97,7 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
         "Applications",
         "Person",
         "Home Assistant",
+        "Command",
         "",
         "Output from the sound server",
         "Input from the sound server",

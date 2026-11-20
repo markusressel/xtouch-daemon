@@ -15,7 +15,7 @@ from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, 
 from xtouch_daemon.config.buttons import BUTTON_NAMES, describe_action
 from xtouch_daemon.config.files import default_config_path, example_config
 from xtouch_daemon.config.json_schema import schema_text
-from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.strips import CommandStripConfig, EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.slots.model import DEFAULT
@@ -45,6 +45,10 @@ def describe_strip(config: StripConfig, name: str, meter_point: MeterPoint = "pr
         case HomeAssistantStripConfig():
             label = f"{config.label!r} " if config.label else ""
             return f"{label}Home Assistant, entities *.*_{name}_* ({config.color})"
+        case CommandStripConfig():
+            label = f"{config.label!r} " if config.label else ""
+            watch = f", watch: {shlex.join(config.watch)}" if config.watch is not None else ""
+            return f"{label}a value from {config.min:g} to {config.max:g}, set: {shlex.join(config.set)}{watch}"
         case EmptyStripConfig():
             return "empty"
         case VoipStripConfig():

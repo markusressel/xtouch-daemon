@@ -158,7 +158,7 @@ class Daemon(Rig):
         `instance.voip_socket_file()`), `processes` tells the processes that run, for the states. `state_dir` is where
         the slots keep the overrides, the mode picked by hand and the order of the people for the next start (see
         `instance.state_dir()`), None for nowhere. `log` keeps the records of the log for the GUI (`live.WatchLog`).
-        `commands` runs the programs of command controls.
+        `commands` runs the programs of command channels.
         """
         self.players = players
         self.config = config

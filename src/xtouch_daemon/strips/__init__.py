@@ -5,13 +5,14 @@ from typing import assert_never
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.buttons import ButtonName
-from xtouch_daemon.config.strips import EmptyStripConfig, HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.strips import CommandStripConfig, EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
+from xtouch_daemon.strips.command import CommandStrip
 from xtouch_daemon.strips.device import ChoiceStrip, DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
 from xtouch_daemon.strips.voip import VoipStrip
@@ -34,7 +35,7 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
     match config:
         case EmptyStripConfig():
             return Look(meter=False)
-        case HomeAssistantStripConfig():
+        case HomeAssistantStripConfig() | CommandStripConfig():
             return Look(config.label, config.color, meter=False)
         case VoipStripConfig():
             return Look(config.label, config.color, config.meter, meter_point)
@@ -79,6 +80,8 @@ def build_strip(
     if isinstance(config, HomeAssistantStripConfig):
         assert env.bridge is not None, "the configuration has no homeassistant strips without [mqtt]"
         return HomeAssistantStrip(strip, env, env.bridge, identity, look)
+    if isinstance(config, CommandStripConfig):
+        return CommandStrip(strip, env, identity, look, config, env.commands)
     encoder = config.encoder or default_encoder(config.type, config.fader)
     controls = None
     if config.uses_home_assistant:
