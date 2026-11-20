@@ -22,7 +22,7 @@ How the daemon works inside and why. To set up the project and run the tests, se
 | [The form of a channel](design/channel-form.md) | Built, not released; the meter is open |
 | [Output choices](design/choices.md) | Built (0.1.0) |
 | [Launching applications](design/launch.md) | Built (0.1.0) |
-| [Command channels](design/command-channels.md) | Being built: the value, the fader, the encoder, the LCD |
+| [Bindings and custom channels](design/bindings.md) | Being built |
 | [Presets](design/presets.md) | Built (0.1.0) |
 | [The voice chat](design/voice-chat.md) | Built (0.1.0) |
 | [An interactive device test](design/interactive-test.md) | Designed, not built |
