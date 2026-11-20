@@ -81,6 +81,7 @@ nav = [
       { "The form of a channel" = "development/design/channel-form.md" },
       { "Output choices" = "development/design/choices.md" },
       { "Launching applications" = "development/design/launch.md" },
+      { "Command channels" = "development/design/command-channels.md" },
       { "Presets" = "development/design/presets.md" },
       { "The voice chat" = "development/design/voice-chat.md" },
       { "An interactive device test" = "development/design/interactive-test.md" },
