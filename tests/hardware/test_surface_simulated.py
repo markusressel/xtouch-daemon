@@ -5,6 +5,7 @@ The `Surface` against the simulated device, end to end: what the device shows af
 
 import asyncio
 import contextlib
+import time
 from collections.abc import AsyncIterator
 
 import pytest
@@ -15,6 +16,7 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.surface import Surface
+from xtouch_daemon.live.server import strip_states
 from xtouch_daemon.simulator.device import SimulatedDevice
 
 HALF = protocol.fader_value(0.5)
@@ -166,6 +168,12 @@ async def test_the_show_runs_a_wave_over_the_faders_of_the_device_and_back_at_th
     assert device.strips[0].color == Color.WHITE
     assert device.strips[0].ring[0] == protocol.RING_MAX
     assert fader(device, 7) == 0
+    # the live view tells where the wave has the faders, not a glide from where they were before it
+    states = strip_states(surface, time.monotonic())
+    assert states[1].glide is None
+    assert states[1].fader is not None
+    assert states[1].fader == pytest.approx(device.strips[1].target / protocol.FADER_MAX, abs=0.01)
+    assert states[1].fader > 0.5
     await surface.settled()
     assert fader(device, 0) == 0
     assert fader(device, 1) == HALF
