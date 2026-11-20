@@ -66,7 +66,7 @@ def run_gui(path: Path) -> int:
         name_application()
         os.environ[SCALE_FACTOR] = scale_for(load_zoom(), own)
         app = create_application()
-        window = MainWindow(document, Service(), lambda: read_state("xtouch-daemon-gui"), session=session)
+        window = MainWindow(document, Service(wait=False), lambda: read_state("xtouch-daemon-gui"), session=session)
         window.show()
         _quit_on_signals(app)
         code = app.exec()

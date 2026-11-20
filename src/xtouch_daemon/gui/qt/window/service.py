@@ -189,13 +189,13 @@ class ServiceControls(QWidget):
             if not state.installed:
                 path = self.service.install(executable(), start=True)
                 done = "Enabled the unit of the package" if path is None else f"Installed {path}"
-                self.told.emit(f"{done} and started the service.")
+                self.told.emit(f"{done}; starting the service…")
             elif state.running:
                 self.service.restart()
-                self.told.emit("Restarted the service.")
+                self.told.emit("Restarting the service…")
             else:
                 self.service.start()
-                self.told.emit("Started the service.")
+                self.told.emit("Starting the service…")
         except ServiceError as e:
             QMessageBox.warning(self.window(), "Service", str(e))
         self.changed.emit()
@@ -223,5 +223,5 @@ class ServiceControls(QWidget):
         except ServiceError as e:
             QMessageBox.warning(self.window(), "Service", str(e))
         else:
-            self.told.emit("Stopped the service.")
+            self.told.emit("Stopping the service…")
         self.changed.emit()
