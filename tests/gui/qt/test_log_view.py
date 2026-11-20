@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import FakeLiveDaemon, MakeWindow, click, strip_state, type_into
+from xtouch_daemon.gui.qt import log_view as log_view_module
 from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.messages import FEATURES, EndLog, LogEntry, LogLines, Snapshot, WatchLog, fingerprint
@@ -155,7 +156,7 @@ def test_the_search_marks_its_matches_and_goes_from_one_to_the_next(
 def test_many_matches_are_counted_but_not_all_marked(
     qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr("xtouch_daemon.gui.qt.log_view.MAX_MATCHES", 2)
+    monkeypatch.setattr(log_view_module, "MAX_MATCHES", 2)
     window = live_window(qtbot, make_window, live_daemon)
     open_log(qtbot, window, live_daemon, *(entry(seq) for seq in range(1, 5)))
 
