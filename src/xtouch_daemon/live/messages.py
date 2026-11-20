@@ -222,6 +222,11 @@ class Snapshot:
     """Whether the device shows a situation of the preview (`StartPreview.situation`): `slots` are its slots then."""
     test: bool = False
     """Whether the device runs its test (`StartTest`): the strips show the test, not the slots."""
+    device_plugged: bool = False
+    """
+    Whether the device of `[device] name` is plugged in while the daemon drives the virtual one (`virtual`): the GUI
+    offers to switch to it.
+    """
 
 
 @dataclass(frozen=True)

@@ -11,11 +11,18 @@ from collections.abc import Callable
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
-from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.looks import device_faces, twin_faces
 from xtouch_daemon.gui.domain.slots import MODES
-from xtouch_daemon.gui.domain.status import Reason, Status, Tone, play_unavailable, test_unavailable
+from xtouch_daemon.gui.domain.status import (
+    DeviceOffer,
+    Reason,
+    Status,
+    Tone,
+    play_unavailable,
+    test_unavailable,
+)
 from xtouch_daemon.gui.qt.fields.basics import label, show_status
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
@@ -59,6 +66,8 @@ class DeviceView(QWidget):
     """"Use the virtual device": the daemon finds no device, so it drives the virtual one, hosted here."""
     test_toggled = pyqtSignal(bool, arguments=["on"])
     """"Test the device" was clicked: start the test (True) or end it."""
+    switch_to_device = pyqtSignal(arguments=[])
+    """The button of the bar of a device that is plugged in while the daemon drives the virtual one."""
 
     def __init__(
         self,
@@ -100,6 +109,7 @@ class DeviceView(QWidget):
         """What each control does while the test runs."""
         self.test_bar.hide()
         layout.addWidget(self.test_bar)
+        layout.addWidget(self._device_bar())
         self.virtual_bar: VirtualDeviceBar | None = None
         self.preview.clicked.connect(self.select)
         self.preview.moved.connect(lambda source, target: self.moved.emit(source + 1, target + 1))
@@ -336,6 +346,30 @@ class DeviceView(QWidget):
             "The X-Touch Extender, through the daemon: the mouse is a hand on it, and what it does acts on the sound "
             "server.",
         )
+
+    def _device_bar(self) -> QFrame:
+        """The bar while the device is plugged in and the daemon drives the virtual one (see `show_device_offer()`)."""
+        self.device_bar = QFrame()
+        set_role(self.device_bar, "banner")
+        bar = QHBoxLayout(self.device_bar)
+        bar.setContentsMargins(Space.M, Space.S, Space.M, Space.S)
+        self.device_message = label("", wrap=True)
+        bar.addWidget(self.device_message, 1)
+        self.device_button = QPushButton()
+        set_icon(self.device_button, "swap-horizontal")
+        self.device_button.clicked.connect(self.switch_to_device.emit)
+        bar.addWidget(self.device_button)
+        self.device_bar.hide()
+        return self.device_bar
+
+    def show_device_offer(self, offer: DeviceOffer | None) -> None:
+        """The device is plugged in while the daemon drives the virtual one: what to do (None: nothing to say)."""
+        self.device_bar.setVisible(offer is not None)
+        if offer is None:
+            return
+        self.device_message.setText(offer.text)
+        self.device_button.setVisible(offer.action is not None)
+        self.device_button.setText(offer.action or "")
 
     def show_test(self, running: bool) -> None:
         """Whether the test of this window runs: the button checked, and the bar of what each control does."""

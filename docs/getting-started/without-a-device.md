@@ -30,4 +30,5 @@ waits for the device: a click opens it in the window, and the mouse on the drawi
 
 A daemon that runs but finds no device switches to the virtual one without a restart: "Use the virtual device" above
 the drawing sets `[device] virtual = true`, saves and opens it, and Play on a daemon that waits for the virtual device
-opens it too. Setting `virtual` back to `false` and saving switches to the real device again.
+opens it too. Setting `virtual` back to `false` and saving switches to the real device again: once the device is
+plugged in, a bar above the drawing says so, and "Switch to it" does that.

@@ -82,6 +82,8 @@ PREVIEW_CHECK = 1.0
 """How often a running preview checks for its GUI and whether the configuration file changed."""
 TEST_TIMEOUT = 10.0
 """How long the test of the device runs without a request of its client (`live.KeepTest`)."""
+DEVICE_CHECK = 2.0
+"""How often the daemon looks for the device of `[device] name` while it drives the virtual one (`device_plugged`)."""
 FILE_CHECK = 1.0
 """
 How often the daemon looks at the configuration file (its time and size). A change is loaded once the file looked the
@@ -179,6 +181,8 @@ class Daemon(Rig):
         self._closing: set[asyncio.Task[None]] = set()
         """The twins that ended and are stopping (see `_close_twin()`): the shutdown waits for them."""
         self._file_stamp = self._stamp()
+        self.device_plugged = False
+        """Whether the device of `[device] name` is plugged in while the daemon drives the virtual one."""
         self.bridge = bridge or (MqttBridge(config.mqtt) if config.mqtt is not None else None)
         if self.bridge is not None:
             self.bridge.on_connection = self._on_mqtt_connection
@@ -685,6 +689,20 @@ class Daemon(Rig):
         if self._bench is not None:
             self._bench.handle(event)
 
+    async def _watch_device_plugged(self) -> None:
+        """
+        While the daemon drives the virtual device: whether the device of `[device] name` is plugged in, so the GUI can
+        offer to switch to it (see `device_plugged`).
+        """
+        while True:
+            plugged = isinstance(self.surface.port, SocketPort) and AlsaPort(self.config.device.name).present()
+            if plugged != self.device_plugged:
+                self.device_plugged = plugged
+                if plugged:
+                    _LOGGER.info(f"{self.config.device.name} is plugged in; the daemon drives the virtual device")
+                self._changed()
+            await asyncio.sleep(DEVICE_CHECK)
+
     async def _watch_file(self) -> None:
         """
         Loads the configuration file once it changed and rested (see FILE_CHECK), like a reload (SIGHUP): a file
@@ -720,6 +738,7 @@ class Daemon(Rig):
         self._in_background(self.follow(), "slots")
         self._in_background(self._watch_twins(), "virtual twins")
         self._in_background(self._watch_file(), "configuration file")
+        self._in_background(self._watch_device_plugged(), "the device while virtual")
         if self.live is not None:
             # not one of the parts: the daemon works without it. It stops last, after the shutdown sequence, which the
             # GUI shows too
@@ -847,6 +866,7 @@ class Daemon(Rig):
             virtual=isinstance(self.surface.port, SocketPort),
             simulated=self.slots.situation is not None,
             test=self.testing,
+            device_plugged=self.device_plugged,
         )
 
     def _status(self) -> str:

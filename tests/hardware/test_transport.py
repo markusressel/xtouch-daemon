@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from xtouch_daemon.hardware.transport import SocketPort
+from xtouch_daemon.hardware.transport import AlsaPort, SocketPort
 
 
 async def test_the_virtual_device_is_a_socket():
@@ -52,3 +52,12 @@ async def test_the_virtual_device_is_a_socket():
 def test_a_socket_that_can_not_be_reached_is_an_error(tmp_path: Path):
     with pytest.raises(OSError, match="too long"):
         SocketPort(tmp_path / ("x" * 200)).open(lambda data: None, lambda: None)
+
+
+def test_the_device_is_present_while_its_sound_card_is_there(tmp_path: Path):
+    cards = tmp_path / "cards"
+    cards.write_text(" 0 [XTouchExt      ]: USB-Audio - X-Touch-Ext\n")
+    assert AlsaPort("X-Touch-Ext", proc_asound_cards=cards).present()
+    assert not AlsaPort("Nothing", proc_asound_cards=cards).present()
+    # no /proc/asound: no sound card at all
+    assert not AlsaPort("X-Touch-Ext", proc_asound_cards=tmp_path / "gone").present()

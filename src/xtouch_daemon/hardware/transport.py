@@ -45,6 +45,14 @@ class AlsaPort:
         self.proc_asound_cards = proc_asound_cards or midi.PROC_ASOUND_CARDS
         self.dev_snd = dev_snd or midi.DEV_SND
 
+    def present(self) -> bool:
+        """Whether the device is plugged in (its sound card is there), without opening it."""
+        try:
+            return find_card(self.proc_asound_cards.read_text(), self.name) is not None
+        except OSError:
+            # no /proc/asound: no sound cards at all
+            return False
+
     def open(self, on_data: Callable[[bytes], None], on_closed: Callable[[], None]) -> tuple[Transport, str]:
         card = find_card(self.proc_asound_cards.read_text(), self.name)
         if card is None:

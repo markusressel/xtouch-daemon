@@ -1,6 +1,6 @@
 """
-The virtual device the GUI hosts: the daemon on its socket, the mouse on the drawing as a hand, the bar, and the offer
-in the pill while the daemon waits for it.
+The virtual device the GUI hosts: the daemon on its socket, the mouse on the drawing as a hand, the bar, the offer
+in the pill while the daemon waits for it, and the way back to the device once it is plugged in.
 """
 
 import dataclasses
@@ -8,8 +8,9 @@ import socket
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QPoint, QPointF, Qt
+from PyQt6.QtCore import QPoint, QPointF, QProcess, Qt
 from PyQt6.QtNetwork import QLocalSocket
+from PyQt6.QtWidgets import QMessageBox
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import Dialogs, FakeLiveDaemon, MakeWindow, pill, snapshot, strip_state
@@ -343,3 +344,77 @@ def test_a_daemon_without_a_device_switches_to_the_virtual_one(
     assert window.daemon is not None
     assert window.daemon.reloads  # pyright: ignore[reportAttributeAccessIssue]
     assert window.hosted is not None
+
+
+def test_the_device_plugged_in_again_is_offered_and_switched_to(
+    qtbot: QtBot,
+    make_window: MakeWindow,
+    live_daemon: FakeLiveDaemon,
+    socket_dir: Path,
+    path: Path,
+    isolated: Dialogs,
+) -> None:
+    path.write_text("[device]\nvirtual = true\n" + path.read_text())
+    window = make_window(live_socket=live_daemon.path, virtual_socket=socket_dir / "virtual-device.sock")
+    view = window.device_view
+    window.open_virtual_device()
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    virtual = dataclasses.replace(snapshot(window, strip_state()), virtual=True)
+    live_daemon.send(virtual)
+    qtbot.waitUntil(lambda: window.live.snapshot is not None)
+    assert view.device_bar.isHidden()
+
+    live_daemon.send(dataclasses.replace(virtual, device_plugged=True))
+    qtbot.waitUntil(lambda: not view.device_bar.isHidden())
+    assert view.device_message.text().startswith("X-Touch-Ext is plugged in")
+    assert view.device_button.text() == "Switch to it"
+    # other changes are saved with it: only if the user says so
+    window.document.set(("channel", "out", "label"), "Boxes")
+    window.editor.edited()
+    isolated.answer = QMessageBox.StandardButton.No
+    view.device_button.click()
+    assert window.document.get(("device", "virtual")) is True
+    assert window.hosted is not None
+
+    isolated.answer = QMessageBox.StandardButton.Yes
+    view.device_button.click()
+
+    # saved and reloaded: the daemon goes to the device, the window closes the virtual one
+    assert window.document.get(("device", "virtual")) is None
+    assert "virtual" not in path.read_text()
+    assert not window.document.modified
+    assert window.daemon is not None
+    assert window.daemon.reloads  # pyright: ignore[reportAttributeAccessIssue]
+    assert window.hosted is None
+
+
+@pytest.mark.parametrize("trying", [True, False])
+def test_a_daemon_that_does_not_read_the_switch_from_the_file_is_not_switched_by_it(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon, trying: bool
+) -> None:
+    window = make_window(live_socket=live_daemon.path)
+    view = window.device_view
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    if trying:
+        # the trial of the window: a daemon with --virtual-device
+        window.trying = QProcess(window)
+        window.trying.start("sleep", ["30"])
+        assert window.trying.waitForStarted()
+    live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), virtual=True, device_plugged=True))
+    qtbot.waitUntil(lambda: not view.device_bar.isHidden())
+
+    if trying:
+        assert view.device_button.text() == "End the trial"
+        process = window.trying
+        assert process is not None
+        view.device_button.click()
+        assert process.waitForFinished(5000)
+        qtbot.wait(10)
+        assert window.trying is None
+        assert window.status.text() == "Ending the trial: start the service to use the device."
+    else:
+        # started elsewhere with --virtual-device: the bar only says so
+        assert view.device_button.isHidden()
+        assert "--virtual-device" in view.device_message.text()
+        window.switch_to_device()
+        assert window.document.get(("device", "virtual")) is None
