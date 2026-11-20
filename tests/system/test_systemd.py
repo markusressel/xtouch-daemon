@@ -230,6 +230,22 @@ def test_installs_starts_restarts_and_stops(tmp_path: Path, monkeypatch: pytest.
     ]
 
 
+def test_a_service_that_does_not_wait_only_queues_its_jobs() -> None:
+    # the GUI: it goes on drawing (and being) the device while the daemon stops
+    systemctl = FakeSystemctl()
+    service = systemd.Service(systemctl, wait=False)
+
+    service.start()
+    service.restart()
+    service.stop()
+
+    assert systemctl.commands == [
+        ["systemctl", "--user", "enable", "--now", "--no-block", systemd.UNIT_NAME],
+        ["systemctl", "--user", "restart", "--no-block", systemd.UNIT_NAME],
+        ["systemctl", "--user", "stop", "--no-block", systemd.UNIT_NAME],
+    ]
+
+
 def test_this_program_is_the_one_of_the_package_when_it_lives_there() -> None:
     assert not systemd.runs_packaged()
     assert not systemd.uses_packaged_unit()

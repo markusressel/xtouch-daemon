@@ -1063,7 +1063,7 @@ class MainWindow(QMainWindow):
         except ServiceError as e:
             QMessageBox.warning(self, "Service", str(e))
             return
-        self.status.setText("Restarted the service.")
+        self.status.setText("Restarting the service…")
         self.refresh_service()
 
     # -- the file -------------------------------------------------------------------------------------------------

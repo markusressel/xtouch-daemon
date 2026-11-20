@@ -157,6 +157,8 @@ class Surface:
         self._revealer: asyncio.Task[None] | None = None
         self._lit: set[int] = set()
         """The strips the wave of light of `show` lights white at the moment."""
+        self._waving: set[Strip] = set()
+        """The strips whose fader the wave of `show` drives at the moment (see `in_wave()`)."""
         self._banner: asyncio.TimerHandle | None = None
         self._flashes: dict[int, asyncio.TimerHandle] = {}
         """The strips (from 0) that flash something (see `flash()`), with the timer that ends it."""
@@ -264,10 +266,17 @@ class Surface:
             )
         )
 
+    def in_wave(self, strip: Strip) -> bool:
+        """
+        Whether the wave of `show` drives the fader of the strip: it glides on from where the wave leaves it (see
+        `Strip.arrived()`), and the mirror tells where it is meanwhile.
+        """
+        return strip in self._waving
+
     def glide(self, strip: Strip) -> None:
         """Moves the fader of the strip to its target smoothly (see FADER_SMOOTH_TIME)."""
-        if not strip.shown:
-            # it moves when its turn in the startup sequence comes
+        if not strip.shown or self.in_wave(strip):
+            # it moves when its turn in the startup sequence comes, or once the wave is past
             return
         self._gliding.add(strip)
         if self._glider is None or self._glider.done():
@@ -327,6 +336,7 @@ class Surface:
         """
         index = strip.index
         self._gliding.discard(strip)
+        self._waving.add(strip)
         ticks_per_step = max(1, round(SHOW_STEP / FADER_TICK))
         ticks = 2 * SHOW_STEPS * ticks_per_step
         # after a connect the fader is where the device leaves it (see FADER_REST); at the end where the strip put it
@@ -352,6 +362,7 @@ class Surface:
                 sent_fader = round(value)
                 self.send(protocol.fader(index, sent_fader))
         self._lit.discard(index)
+        self._waving.discard(strip)
         if startup:
             strip.reveal(sent_fader)
         else:

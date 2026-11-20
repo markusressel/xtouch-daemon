@@ -225,7 +225,8 @@ class LiveServer:
             # it does not read: dropped rather than waited for (it can connect again)
             self.clients.discard(client)
             self._unwatch(client)
-            client.close()
+            # at once: closing would wait for it to read what is still queued
+            client.transport.abort()
             _LOGGER.warning("Dropping a live view client that does not keep up")
             return
         client.write(line)
@@ -251,7 +252,12 @@ class LiveServer:
             self.clients.discard(writer)
             self._unwatch(writer)
             self._on_close(writer)
-            writer.close()
+            if writer.transport.get_write_buffer_size():
+                # a client that does not read what is still queued would keep the connection, and the daemon from
+                # ending, until it did
+                writer.transport.abort()
+            else:
+                writer.close()
             with contextlib.suppress(ConnectionError):
                 await writer.wait_closed()
 

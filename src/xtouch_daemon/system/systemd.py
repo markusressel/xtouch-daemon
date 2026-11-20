@@ -197,8 +197,18 @@ class ServiceState:
 class Service:
     """The systemd user service of the daemon: its state, installing, starting, stopping and reloading it."""
 
-    def __init__(self, run: Runner | None = None):
+    def __init__(self, run: Runner | None = None, wait: bool = True):
         self._run = run or run_command
+        self._wait = wait
+        """
+        Whether starting, restarting and stopping wait until the service did (`systemctl` waits for the end of the
+        daemon, its shutdown sequence included). The GUI doesn't: meanwhile it draws the device and may be the device
+        (the virtual one), which the daemon still talks to.
+        """
+
+    def _job(self, *args: str) -> list[str]:
+        """A systemctl command that changes the service: queued only (`--no-block`) unless the service waits."""
+        return _systemctl(*args, UNIT_NAME) if self._wait else _systemctl(*args, "--no-block", UNIT_NAME)
 
     def state(self) -> ServiceState:
         output = self._run(
@@ -251,11 +261,11 @@ class Service:
 
     def start(self) -> None:
         """Enables the service and starts it."""
-        self._run(_systemctl("enable", "--now", UNIT_NAME))
+        self._run(self._job("enable", "--now"))
 
     def restart(self) -> None:
-        self._run(_systemctl("restart", UNIT_NAME))
+        self._run(self._job("restart"))
 
     def stop(self) -> None:
         """Stops the service; it stays enabled, so it starts again with the next session."""
-        self._run(_systemctl("stop", UNIT_NAME))
+        self._run(self._job("stop"))

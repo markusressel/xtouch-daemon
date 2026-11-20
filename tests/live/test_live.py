@@ -235,6 +235,37 @@ async def test_clients_are_closed_when_the_server_stops(surface: RecordingSurfac
     writer.close()
 
 
+async def test_a_client_that_does_not_read_keeps_neither_the_server_nor_the_daemon_from_ending(
+    surface: RecordingSurface, socket_dir: Path
+):
+    # e.g. the GUI, frozen while it waits for `systemctl stop`: the daemon ends all the same
+    server = LiveServer(socket_dir / "live.sock", lambda: snapshot_of(surface))
+    task = await serve(server)
+    frozen = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    frozen.connect(str(server.path))
+    for _ in range(100):
+        if server.clients:
+            break
+        await asyncio.sleep(0.005)
+    (client,) = server.clients
+    # more than the socket takes: the rest waits in the server for a read that never comes
+    client.write(b"x" * 10_000_000)
+    assert client.transport.get_write_buffer_size() > 0
+    serving = [
+        other for other in asyncio.all_tasks() if getattr(other.get_coro(), "__qualname__", "") == "LiveServer._serve"
+    ]
+    assert len(serving) == 1
+
+    # the server stops, then the end of the daemon (`asyncio.run()`) cancels what is left and waits for it
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    for other in serving:
+        other.cancel()
+    _, pending = await asyncio.wait(serving, timeout=1)
+    frozen.close()
+    assert not pending
+
+
 async def test_a_socket_left_behind_is_replaced(surface: RecordingSurface, socket_dir: Path):
     path = socket_dir / "live.sock"
     path.write_text("left behind")

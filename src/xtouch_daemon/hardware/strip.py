@@ -253,9 +253,10 @@ class Strip:
     def glide(self) -> tuple[float, float, int, bool] | None:
         """
         How the fader glides now: its position and velocity (fader steps, per second), its target and whether it
-        moves slowly; None while it doesn't (a finger holds it, it is at its target, or it is not known yet).
+        moves slowly; None while it doesn't (a finger holds it, it is at its target, or it is not known yet), and while
+        the wave of `show` drives it.
         """
-        if self.touched or self.held or self.fader is None or self._position is None:
+        if self.touched or self.held or self.fader is None or self._position is None or self._surface.in_wave(self):
             return None
         if self._position == self.fader and self._velocity == 0.0:
             return None

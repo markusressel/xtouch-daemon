@@ -93,7 +93,8 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         document = session.history.document if session is not None else SlotsDocument.open(file)
         window = MainWindow(
             document,
-            Service(systemctl),
+            # as the GUI has it: the jobs are queued, the window goes on
+            Service(systemctl, wait=False),
             read_audio,
             find_daemon,
             live_socket,
