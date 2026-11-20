@@ -106,6 +106,11 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
         "Pool of applications",
         "Pool of people",
     ]
+    # a command channel has a form too
+    menu.actions()[5].trigger()
+    assert page.selection == ("channel", "command")
+    assert window.document.get(("channel", "command")) == {"type": "command"}
+    click(qtbot, page.remove_button)
     menu.actions()[1].trigger()
     assert page.selection == ("channel", "input")
     assert window.document.get(("channel", "input")) == {"type": "input"}
