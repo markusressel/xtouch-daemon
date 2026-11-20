@@ -48,6 +48,7 @@ press = { run = ["sysctrl", "display", "redshift", "reset", "-d", "DisplayPort-1
 | LEDs | `led = { watch = [...] }`: a line `on`, `1`, `true` or `yes` lights it, `flash` flashes it, anything else turns it off. | Off. |
 | Meter | `meter = { watch = [...], range = [...] }`: each line is a level; the device lets the meter fall in between. | Dark. |
 | Presence | `present = { watch = [...] }`: a line with text makes the channel present, an empty line absent. | Always present. |
+| Color | `color` as on other channels, or `color = { watch = [...] }`: each line is a color name (`red`, `off`, ...). A line that is no color keeps the color. | `white`. |
 
 `run` is new: it runs a short program and waits for its end, like `set`. It differs from `launch`, which starts an
 application detached and lights the LED while it runs. `run` could be an action of the buttons of `[controls]` and of
@@ -127,8 +128,13 @@ A command channel takes part like any channel:
   programs run with `system.commands`, which the tests replace with `FakeCommands`.
 - The `watch` programs run for as long as the configuration, not only while a slot shows the channel. A strip that
   comes on a slot shows the current value at once.
-- Simulate in the GUI runs no programs (`NoCommands`). Its strips show the middle of `range`, so the preview is not
-  dark.
+- Simulate in the GUI runs the `watch` programs, so it shows real values, colors and presence. It never runs `set`
+  or `run`: a move in Simulate changes the value of the simulation only. Until the first line of a `watch`, its
+  strips show the middle of `range`, so the preview is not dark. A `Commands` that runs only watches replaces today's
+  `NoCommands`.
+- With `[mqtt]` the value is `number.<ns>_<id>_value` in Home Assistant, in `range`. A change there runs `set`, as a
+  move of the fader does; the entity follows `watch` and the hands. With `targets`, the number is the value of the
+  target shown (with `together`, of all of them).
 - `xtouch-daemon check-config` lists the commands of every channel, with the placeholders filled in.
 
 ## The parts in order
@@ -137,14 +143,14 @@ A command channel takes part like any channel:
 2. `{ run = [...] }` for buttons, and `led = { watch = [...] }`.
 3. `present`.
 4. `targets`, `next` and `together`.
-5. `meter`.
-6. `[controls]`: `encoder = { channel = "screen_left" }` sets the value of a channel from any slot. It replaces
+5. `meter` and `color`.
+6. The number entity in Home Assistant.
+7. `[controls]`: `encoder = { channel = "screen_left" }` sets the value of a channel from any slot. It replaces
    `{ command = { ... } }` there, or both stay.
 
-## Open questions
+## Decisions
 
-- Should the value of a command channel be a number entity in Home Assistant too?
-- `led = { watch = [...] }` takes `on`, `1`, `true`, `yes` and `flash`. Is that enough, or should a line name the
-  state of each LED?
-- Should `color = { watch = [...] }` change the backlight of the LCD, e.g. red while a fan is at full speed?
-- Should Simulate run the `watch` programs (not `set`) to show real values?
+- The value is a number entity in Home Assistant, with `[mqtt]`.
+- The LEDs take `on`, `1`, `true`, `yes` and `flash`; anything else is off.
+- `color` can follow a `watch`.
+- Simulate runs the `watch` programs, never `set` or `run`.
