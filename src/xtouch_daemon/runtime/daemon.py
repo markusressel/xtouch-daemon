@@ -69,6 +69,7 @@ from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.world import Names
 from xtouch_daemon.system import instance, systemd
+from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.processes import running_processes
 from xtouch_daemon.voip import VoipProvider, build_provider
 
@@ -147,6 +148,7 @@ class Daemon(Rig):
         processes: Callable[[], frozenset[str]] = running_processes,
         state_dir: Path | None = None,
         log: LogBuffer | None = None,
+        commands: Commands | None = None,
     ):
         """
         `bridge` is by default the one of the [mqtt] section, if there is one. `capture_command` is what the meters
@@ -156,6 +158,7 @@ class Daemon(Rig):
         `instance.voip_socket_file()`), `processes` tells the processes that run, for the states. `state_dir` is where
         the slots keep the overrides, the mode picked by hand and the order of the people for the next start (see
         `instance.state_dir()`), None for nowhere. `log` keeps the records of the log for the GUI (`live.WatchLog`).
+        `commands` runs the programs of command controls.
         """
         self.players = players
         self.config = config
@@ -205,6 +208,7 @@ class Daemon(Rig):
             self._build_voip(config),
             state_dir=state_dir,
             capture_command=capture_command,
+            commands=commands if commands is not None else Commands(),
         )
         self._background: set[asyncio.Task[None]] = set()
         self._stop = asyncio.Event()
@@ -240,6 +244,7 @@ class Daemon(Rig):
             shared_entities=shared,
             preview=self.previewing,
             processes=self._scan_processes,
+            commands=self.commands,
         )
 
     def _configure_surface(self, config: Config) -> None:
@@ -799,6 +804,7 @@ class Daemon(Rig):
         await asyncio.gather(*others, return_exceptions=True)
         await asyncio.gather(*self._closing, return_exceptions=True)
         await self.desk.wait_closed()
+        await self.commands.wait_closed()
 
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self.surface.put_away(), SHUTDOWN_TIMEOUT)

@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: when the device is plugged in while the daemon drives the virtual device, a bar above the drawing says so and
   switches to it: "Switch to it" turns `[device] virtual` off and saves, "End the trial" ends the daemon of "Try
   without a device". The daemon looks for the device every 2 seconds meanwhile and logs when it is there.
+- `[controls]` can give a fader or an encoder of a slot to a program of your own, e.g. for the brightness of a
+  screen: `{ command = { set = [...], watch = [...], range = [...], step = ..., push = ... } }`. `set` runs with the
+  new value (`{value}`), `watch` prints the value when something else changes it, and the fader and the LED ring follow.
+  The slot keeps showing what it shows.
 
 ### Changed
 

@@ -246,6 +246,37 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 `when` takes a [condition](#conditions) of states and modes: the controls apply while it holds. Actions:
 `homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, or `{ launch = [...] }` (see
 [Launching the application](channels/applications.md#launching-the-application)).
+A fader or an encoder takes `homeassistant` (a number entity there), or a [command](#commands) of your own.
+
+### Commands
+
+A fader or an [encoder](strip/encoders.md) can set a value with a program of your own, e.g. the brightness of a
+screen. The slot keeps showing what it shows; only the claimed control changes the value. The [LED](strip/leds.md)
+ring shows the value.
+
+```toml
+[controls]
+7 = { encoder = { command = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}", watch = "sysctrl display redshift brightness -d DisplayPort-1 --watch", range = [0.1, 1.0], push = 1.0 } } }
+8 = { fader = { command = { set = ["brightnessctl", "set", "{value}%"] } } }
+```
+
+| Option of `command` | Default | Meaning |
+|---|---|---|
+| `set` | | The program that sets the value, then each argument; `{value}` in an argument is the new value, e.g. `0.55`. A string is split like a shell does, but nothing is expanded. |
+| `watch` | none | A program that runs all the time and prints the value, one line per change. The first number of a line counts. The fader and the LED ring follow it. |
+| `range` | `[0, 100]` | The lowest and the highest value: the fader at the bottom and at the top, the LED ring empty and full. |
+| `step` | `behavior.encoder_step` percent of `range` | How much one step of the encoder changes the value. |
+| `push` | none | The value a push of the encoder sets. Not for a fader. |
+
+The fader and the ring show a change at once. The program runs with the newest value only: turns and moves that come
+while it runs wait for it, and only the last of them runs next. A program that fails or takes longer than 10 seconds
+is logged as a warning.
+
+Without `watch` the daemon knows only the values it set: until the first one, the ring is dark, the fader stays where
+it is, and a turn starts from `push`, or else from the bottom of `range`. While a value is set or the fader is under a
+finger, the lines of `watch` don't move it. A `watch` that ends or can't start runs again after 5 seconds.
+
+`watch` runs as long as the configuration, whatever `when` says. Simulate in the GUI runs none of the programs.
 
 | Option of `[switching]` | Default | Meaning |
 |---|---|---|

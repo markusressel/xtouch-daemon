@@ -8,6 +8,7 @@ import asyncio
 import pytest
 
 from tests.support.audio import output, stream
+from tests.support.commands import FakeCommands
 from tests.support.hardware import RecordingSurface
 from tests.support.launch import FakeLauncher
 from tests.support.mqtt import FakeBroker
@@ -246,6 +247,70 @@ async def test_a_fader_an_encoder_and_buttons_in_home_assistant(surface: Recordi
     ],
 )
 def test_home_assistant_needs_mqtt(text: str, problem: str) -> None:
+    with pytest.raises(ConfigError) as error:
+        parse_config(BASE + text)
+    assert problem in str(error.value)
+
+
+COMMANDS = """
+[controls]
+1.encoder.command.set = "brightness -d DP-1 -b {value}"
+1.encoder.command.watch = "brightness -d DP-1 --watch"
+1.encoder.command.range = [0.1, 1.0]
+1.encoder.command.push = 1.0
+3 = { fader = { command = { set = ["brightness", "-d", "DP-2", "-b", "{value}"] } }, when = "not gaming" }
+"""
+
+
+async def test_a_fader_and_an_encoder_run_commands_whatever_the_slot_shows(surface: RecordingSurface) -> None:
+    commands = FakeCommands()
+    rig = Rig(surface, parse_config(BASE + COMMANDS), commands=commands)
+    rig.step(STATE)
+    await settle()
+    # slot 1 shows the speaker, whose encoder sets the balance: the claim's encoder sets the brightness
+    assert rig.labels()[0] == "Speaker"
+    claim = rig.desk.claims[0]
+    assert claim is not None
+    assert claim.taken == frozenset({"encoder"})
+    assert commands.watches == [["brightness", "-d", "DP-1", "--watch"]]
+    commands.print("0.55")
+    await settle()
+    # the watch shows on the ring
+    assert surface.strips[0].ring == (6, RingMode.WRAP)
+    surface.on_event(protocol.EncoderTurned(0, -5))
+    await settle()
+    assert commands.runs == [["brightness", "-d", "DP-1", "-b", "0.505"]]
+    surface.on_event(protocol.EncoderPressed(0, True))
+    surface.on_event(protocol.EncoderPressed(0, False))
+    await settle()
+    assert commands.runs[-1] == ["brightness", "-d", "DP-1", "-b", "1"]
+    assert surface.strips[0].ring == (11, RingMode.WRAP)
+    # slot 3's fader, from 0 to 100 by default
+    surface.on_event(protocol.FaderTouched(2, True))
+    surface.on_event(protocol.FaderMoved(2, protocol.fader_value(0.25)))
+    surface.on_event(protocol.FaderTouched(2, False))
+    await settle()
+    assert commands.runs[-1] == ["brightness", "-d", "DP-2", "-b", "25"]
+    rig.mixer.close()
+    await commands.wait_closed()
+
+
+@pytest.mark.parametrize(
+    ("text", "problem"),
+    [
+        (
+            '[controls]\n2 = { fader = { command = { set = "brightness", push = 1 } } }\n',
+            "controls.2.fader.command: set: no argument has {value}, so the value goes nowhere",
+        ),
+        (
+            '[controls]\n2 = { fader = { command = { set = "brightness {value}", push = 1 } } }\n',
+            "controls.2: fader.command.push: a fader has no push, only the encoder",
+        ),
+        ('[controls]\n2 = { encoder = { program = "x" } }\n', "controls.2.encoder.command: Field required"),
+        ('[controls]\n2 = { encoder = "commands" }\n', "controls.2.encoder: Input should be 'homeassistant'"),
+    ],
+)
+def test_a_command_control_is_checked(text: str, problem: str) -> None:
     with pytest.raises(ConfigError) as error:
         parse_config(BASE + text)
     assert problem in str(error.value)

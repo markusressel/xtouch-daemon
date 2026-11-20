@@ -17,9 +17,11 @@ from xtouch_daemon.hardware.protocol import Button, Led, RingMode
 from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.desk import Desk
-from xtouch_daemon.slots.model import DEFAULT, ControlsConfig, Launch, Scene
+from xtouch_daemon.slots.model import DEFAULT, CommandSetting, ControlsConfig, Launch, Scene
 from xtouch_daemon.strips.base import Identity, SlotActions
+from xtouch_daemon.strips.command import CommandLink
 from xtouch_daemon.strips.homeassistant import LEDS, EncoderLink, FaderLink, StripEntities
+from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.launch import LaunchButton, Launcher
 
 _LOGGER = logging.getLogger(__name__)
@@ -107,6 +109,8 @@ class SlotClaim:
         launcher: Launcher,
         processes: Callable[[], frozenset[str]],
         encoder_step: int,
+        commands: Commands,
+        on_change: Callable[[], None],
     ):
         self.slot = slot
         self.config = config
@@ -126,6 +130,16 @@ class SlotClaim:
             assert entities is not None
             assert entities.encoder is not None
             self.encoder = EncoderLink(strip, entities.encoder, encoder_step)
+        self.command_fader: CommandLink | None = None
+        self.command_encoder: CommandLink | None = None
+        if isinstance(config.fader, CommandSetting):
+            self.command_fader = CommandLink(
+                strip, config.fader.command, commands, encoder_step, f"{self.what}.fader", on_change
+            )
+        if isinstance(config.encoder, CommandSetting):
+            self.command_encoder = CommandLink(
+                strip, config.encoder.command, commands, encoder_step, f"{self.what}.encoder", on_change
+            )
         self.launches = {
             button: LaunchButton(action.launch, launcher, self.what, action.launch_when_running)
             for name, button in BUTTONS.items()
@@ -155,6 +169,10 @@ class SlotClaim:
             self.fader.show()
         if self.encoder is not None:
             self.strip.set_ring(*(self.encoder.ring() if connected else (0, RingMode.DOT)))
+        if self.command_fader is not None:
+            self.command_fader.show_fader()
+        if self.command_encoder is not None:
+            self.strip.set_ring(*self.command_encoder.ring())
         for name, button in BUTTONS.items():
             if (action := getattr(self.config, name)) is not None:
                 self.strip.set_led(button, self._led(button, action))
@@ -175,24 +193,36 @@ class SlotClaim:
 
     # -- the device -----------------------------------------------------------------------------------------------
 
+    # the desk hands it only the controls it takes: a fader and an encoder in Home Assistant or of a command
+
     def on_fader(self, fraction: float) -> None:
+        if self.command_fader is not None:
+            self.command_fader.moved(fraction)
+            return
         assert self.fader is not None
         if self.connected:
             self.fader.moved(fraction)
 
-    # the desk hands it only the controls it takes: a fader and an encoder only in Home Assistant
-
     def on_touch(self, touched: bool) -> None:
+        if self.command_fader is not None:
+            self.command_fader.touch(touched)
+            return
         assert self.fader is not None
         self.fader.touch(touched)
         self._event("fader_touched" if touched else "fader_released")
 
     def on_encoder(self, steps: int) -> None:
+        if self.command_encoder is not None:
+            self.command_encoder.turn(steps)
+            return
         assert self.encoder is not None
         if self.connected:
             self.encoder.turn(steps)
 
     def on_encoder_press(self, pressed: bool) -> None:
+        if self.command_encoder is not None:
+            self.command_encoder.push(pressed)
+            return
         self._event("encoder_pressed" if pressed else "encoder_released")
 
     def on_button(self, button: Button, pressed: bool) -> None:
@@ -221,7 +251,7 @@ class SlotClaim:
         task.add_done_callback(self._tasks.discard)
 
     def close(self) -> None:
-        for link in (self.fader, self.encoder):
+        for link in (self.fader, self.encoder, self.command_fader, self.command_encoder):
             if link is not None:
                 link.close()
         for task in self._tasks:
@@ -243,11 +273,12 @@ class Controls:
         launcher: Launcher,
         processes: Callable[[], frozenset[str]],
         encoder_step: int,
+        commands: Commands | None = None,
     ):
         self.scene = scene
         self.desk = desk
         self.on_change: Callable[[], None] = lambda: None
-        """Called when Home Assistant changed one of their entities."""
+        """Called when Home Assistant or a `watch` of a command changed one of their values."""
         self.entities: dict[MQTTEntity, str | None] = {}
         """Their entities in Home Assistant, for the MQTT bridge."""
         self._links: list[ControlEntities] = []
@@ -275,6 +306,8 @@ class Controls:
                     launcher,
                     processes,
                     encoder_step,
+                    commands if commands is not None else Commands(),
+                    lambda: self.on_change(),
                 )
                 for index, entry in enumerate(entries)
             )

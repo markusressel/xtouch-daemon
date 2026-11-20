@@ -9,11 +9,22 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Discriminator,
+    Field,
+    Tag,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from xtouch_daemon.config.base import ConfigError, Meanings
 from xtouch_daemon.config.names import Presets
 from xtouch_daemon.config.presets import Kind, expand
+from xtouch_daemon.config.values import Command
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.slots.expressions import RESERVED, Condition, ExpressionError, parse
 
@@ -338,14 +349,72 @@ class Launch(_Section):
     launch_when_running: bool = False
 
 
+VALUE = "{value}"
+"""What `set` of a command control replaces by the value."""
+
+
+class CommandControl(_Section):
+    """
+    A fader or an encoder that sets a value with a program of your own (`{ command = { ... } }` in `[controls]`), e.g.
+    the brightness of a screen.
+    """
+
+    set: Command
+    """
+    The program that sets the value, then each argument; `{value}` in an argument is the new value. E.g.
+    `["brightnessctl", "set", "{value}%"]`.
+    """
+    watch: Command | None = None
+    """
+    A program that runs all the time and prints the value, one line per change. The fader and the LED ring follow it.
+    """
+    range: tuple[float, float] = (0.0, 100.0)
+    """The lowest and the highest value: the fader at the bottom and at the top, the LED ring empty and full."""
+    step: float | None = None
+    """
+    How much one step of the encoder changes the value. By default `behavior.encoder_step` percent of `range`.
+    """
+    push: float | None = None
+    """The value a push of the encoder sets, e.g. the full brightness. For the encoder only."""
+
+    @model_validator(mode="after")
+    def _a_value(self) -> CommandControl:
+        low, high = self.range
+        if low >= high:
+            raise ValueError(f"range: {low:g} is not below {high:g}")
+        if not any(VALUE in part for part in self.set[1:]):
+            raise ValueError(f"set: no argument has {VALUE}, so the value goes nowhere")
+        if self.step is not None and self.step <= 0:
+            raise ValueError("step: needs to be above 0")
+        if self.push is not None and not low <= self.push <= high:
+            raise ValueError(f"push: {self.push:g} is outside of range ({low:g} to {high:g})")
+        return self
+
+
+class CommandSetting(_Section):
+    command: CommandControl
+    """The program that sets the value, and the one that watches it."""
+
+
+def _text_or_table(value: object) -> str:
+    return "~table" if isinstance(value, Mapping | BaseModel) else "~text"
+
+
+type KnobControl = Annotated[
+    Annotated[Literal["homeassistant"], Tag("~text")] | Annotated[CommandSetting, Tag("~table")],
+    Discriminator(_text_or_table),
+]
+"""What `[controls]` can make of a fader or an encoder: a number in Home Assistant, or a command of your own."""
+
+
 class ControlsConfig(_Section):
     """
     Controls of a slot that act whatever it shows (`[controls]`), while `when` holds; of a list of them per slot the
     first whose `when` holds.
     """
 
-    fader: Literal["homeassistant"] | None = None
-    encoder: Literal["homeassistant"] | None = None
+    fader: KnobControl | None = None
+    encoder: KnobControl | None = None
     select: str | Launch | None = None
     rec: str | Launch | None = None
     solo: str | Launch | None = None
@@ -356,6 +425,12 @@ class ControlsConfig(_Section):
     @property
     def claimed(self) -> tuple[str, ...]:
         return tuple(name for name in CONTROLS if getattr(self, name) is not None)
+
+    @model_validator(mode="after")
+    def _push_on_the_encoder(self) -> ControlsConfig:
+        if isinstance(self.fader, CommandSetting) and self.fader.command.push is not None:
+            raise ValueError("fader.command.push: a fader has no push, only the encoder")
+        return self
 
 
 class StateConfig(_Section):
@@ -946,6 +1021,7 @@ def _did_you_mean(name: str, known: Iterable[str]) -> str:
 
 
 def _message(error: Any) -> str:
-    where = ".".join(str(part) for part in error["loc"])
+    # the tags of `KnobControl` say which kind of value it is, not where
+    where = ".".join(str(part) for part in error["loc"] if not str(part).startswith("~"))
     # pydantic puts "Value error, " before the messages of the validators
     return f"{where}: {error['msg'].removeprefix('Value error, ')}"
