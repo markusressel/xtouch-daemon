@@ -9,7 +9,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QProcess, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QFileSystemWatcher, QProcess, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
@@ -252,6 +252,10 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh_service)
         self.timer.start(SERVICE_POLL_MS)
+        # a daemon that starts: its live view at once, not at the next poll, so the drawing shows its startup sequence
+        self.runtime_watch = QFileSystemWatcher([str(self.live.path.parent)], self)
+        self.runtime_watch.directoryChanged.connect(self._runtime_changed)
+        self._live_socket_there = self.live.path.exists()
         self.loader = AudioLoader(read_audio)
         self.loader.loaded.connect(self._audio_loaded)
         self.loader.failed.connect(self._audio_failed)
@@ -1045,6 +1049,13 @@ class MainWindow(QMainWindow):
         self.refresh_preview()
 
     # -- the service ----------------------------------------------------------------------------------------------
+
+    def _runtime_changed(self, _directory: str) -> None:
+        """Something changed in the directory of the live view: the daemon may have started or stopped."""
+        there = self.live.path.exists()
+        if there != self._live_socket_there:
+            self._live_socket_there = there
+            self.refresh_service()
 
     def refresh_service(self) -> None:
         """Finds the daemon (and its live view) and the state of the service again."""
