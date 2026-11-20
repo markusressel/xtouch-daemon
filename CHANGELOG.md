@@ -42,6 +42,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: Start, Stop and Restart of the service no longer freeze the window until the daemon is done: they queue the
   job (`systemctl --no-block`) and the window shows the service changing. A frozen window could not be the virtual
   device the daemon drew its shutdown sequence on, nor read the live view.
+- GUI: a daemon that starts shows in the window at once, so the drawing shows its startup sequence from the start. The
+  window found it only at its next check, up to 3 s later.
 - GUI: the drawing shows the shutdown sequence when the daemon stops. The daemon used to end its live view first, so
   the strips went dark at once.
 

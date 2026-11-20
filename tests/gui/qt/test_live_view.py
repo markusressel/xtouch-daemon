@@ -2,12 +2,15 @@
 The live view of the running daemon in the window.
 """
 
+import tempfile
 from pathlib import Path
 
+import pytest
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import FakeLiveDaemon, MakeWindow, pill, snapshot, strip_state
 from tests.support.instance import RecordingInstance
+from xtouch_daemon.gui.qt.window import main_window as main_window_module
 from xtouch_daemon.system.instance import Instance
 
 
@@ -87,3 +90,22 @@ def test_the_live_view_ends_with_the_daemon(qtbot: QtBot, make_window: MakeWindo
     assert window.live.snapshot is None
     assert pill(window.device_view.live_pill) == "No daemon"
     assert pill(window.changes_pill) == "Not running"
+
+
+def test_a_daemon_that_starts_is_watched_at_once_not_at_the_next_poll(
+    qtbot: QtBot, make_window: MakeWindow, monkeypatch: pytest.MonkeyPatch
+):
+    # so that the drawing shows the startup sequence from its start (it takes about a second)
+    monkeypatch.setattr(main_window_module, "SERVICE_POLL_MS", 3_600_000)
+    with tempfile.TemporaryDirectory(prefix="xtw-") as directory:
+        socket = Path(directory) / "live.sock"
+        window = make_window(live_socket=socket)
+        assert window.live.snapshot is None
+        # something else changes in the directory: nothing to do
+        (Path(directory) / "other").write_text("")
+        qtbot.wait(50)
+
+        daemon = FakeLiveDaemon(socket)
+
+        qtbot.waitUntil(lambda: bool(daemon.clients), timeout=1000)
+        daemon.close()
