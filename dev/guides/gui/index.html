@@ -3148,6 +3148,15 @@ of an older version has no log for the window: restart it to run the installed v
 as on the device), and breaks the touch sensor of faders ("Broken touch"), to try <code>touchless_faders</code>. "Close" closes
 it, and so does closing the window: for the daemon it is unplugged. What the drawing shows still comes from the
 daemon, which is what reached the device.</p>
+<p>When the device (<code>[device] name</code>) is plugged in while the daemon drives the virtual one, a bar above the drawing says
+so. Its button switches to the device:</p>
+<ul>
+<li><strong>Switch to it</strong> (<code>[device] virtual = true</code> in the file): turns <code>virtual</code> off, saves the file (after asking, when
+  it has other changes) and closes the virtual device. The daemon reloads and takes the device, without a restart.</li>
+<li><strong>End the trial</strong> (the daemon of "Try without a device"): ends that daemon. Start the service to use the device.</li>
+<li>A daemon started elsewhere with <code>--virtual-device</code> only uses the device after a restart without it: the bar says so,
+  without a button.</li>
+</ul>
 <h2 id="preview">Preview<a class="headerlink" href="#preview" title="Permanent link">&para;</a></h2>
 <p>Next to Save and apply, a pill says what the device runs: "Saved, on the device", "Unsaved changes" (the device
 runs the saved file), "In the GUI, not saved", "On the device, not saved", or what is wrong (e.g. "Not running",
