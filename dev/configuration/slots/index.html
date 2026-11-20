@@ -1,4 +1,6 @@
 
+
+
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -16,6 +18,7 @@
       
       
       
+      
         <link rel="prev" href="../">
       
       
@@ -26,7 +29,7 @@
       
       
       <link rel="icon" href="../../images/icon.svg">
-      <meta name="generator" content="zensical-0.1.2">
+      <meta name="generator" content="zensical-0.1.3">
     
     
       
@@ -37,12 +40,13 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
       
       
 
@@ -876,6 +880,23 @@
       </span>
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Controls and the chord">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Commands
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2688,6 +2709,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Controls and the chord">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Commands
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3101,7 +3139,59 @@ another one.</p>
 </span></code></pre></div>
 <p><code>when</code> takes a <a href="#conditions">condition</a> of states and modes: the controls apply while it holds. Actions:
 <code>homeassistant</code>, <code>cycle_modes</code>, <code>mode:&lt;id&gt;</code>, <code>toggle:&lt;state or mode&gt;</code>, or <code>{ launch = [...] }</code> (see
-<a href="../channels/applications/#launching-the-application">Launching the application</a>).</p>
+<a href="../channels/applications/#launching-the-application">Launching the application</a>).
+A fader or an encoder takes <code>homeassistant</code> (a number entity there), or a <a href="#commands">command</a> of your own.</p>
+<h3 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h3>
+<p>A fader or an <a href="../strip/encoders/">encoder</a> can set a value with a program of your own, e.g. the brightness of a
+screen. The slot keeps showing what it shows; only the claimed control changes the value. The <a href="../strip/leds/">LED</a>
+ring shows the value.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[controls]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">range</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">],</span><span class="w"> </span><span class="n">push</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fader</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"brightnessctl"</span><span class="p">,</span><span class="w"> </span><span class="s2">"set"</span><span class="p">,</span><span class="w"> </span><span class="s2">"{value}%"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option of <code>command</code></th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>set</code></td>
+<td></td>
+<td>The program that sets the value, then each argument; <code>{value}</code> in an argument is the new value, e.g. <code>0.55</code>. A string is split like a shell does, but nothing is expanded.</td>
+</tr>
+<tr>
+<td><code>watch</code></td>
+<td>none</td>
+<td>A program that runs all the time and prints the value, one line per change. The first number of a line counts. The fader and the LED ring follow it.</td>
+</tr>
+<tr>
+<td><code>range</code></td>
+<td><code>[0, 100]</code></td>
+<td>The lowest and the highest value: the fader at the bottom and at the top, the LED ring empty and full.</td>
+</tr>
+<tr>
+<td><code>step</code></td>
+<td><code>behavior.encoder_step</code> percent of <code>range</code></td>
+<td>How much one step of the encoder changes the value.</td>
+</tr>
+<tr>
+<td><code>push</code></td>
+<td>none</td>
+<td>The value a push of the encoder sets. Not for a fader.</td>
+</tr>
+</tbody>
+</table>
+<p>The fader and the ring show a change at once. The program runs with the newest value only: turns and moves that come
+while it runs wait for it, and only the last of them runs next. A program that fails or takes longer than 10 seconds
+is logged as a warning.</p>
+<p>Without <code>watch</code> the daemon knows only the values it set: until the first one, the ring is dark, the fader stays where
+it is, and a turn starts from <code>push</code>, or else from the bottom of <code>range</code>. While a value is set or the fader is under a
+finger, the lines of <code>watch</code> don't move it. A <code>watch</code> that ends or can't start runs again after 5 seconds.</p>
+<p><code>watch</code> runs as long as the configuration, whatever <code>when</code> says. Simulate in the GUI runs none of the programs.</p>
 <table>
 <thead>
 <tr>
@@ -3237,7 +3327,8 @@ and <code>reason</code>). See <a href="../../guides/home-assistant/">Home Assist
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.action.edit","content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      
       
         <script src="../../javascripts/entities.js"></script>
       
