@@ -18,7 +18,6 @@ from tests.support.waiting import until
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
-from xtouch_daemon.config.bindings import ValueBinding
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Led, RingMode
@@ -27,7 +26,6 @@ from xtouch_daemon.slots.states import Override
 from xtouch_daemon.strips import homeassistant as homeassistant_module
 from xtouch_daemon.strips.custom import CustomStrip
 from xtouch_daemon.strips.knobs import VolumeKnob
-from xtouch_daemon.strips.value import CommandValue
 
 BASE = """
 [voip]
@@ -377,7 +375,17 @@ def test_a_custom_channel_and_its_claims_are_checked(text: str, problem: str) ->
 
 async def test_a_claim_follows_the_values_of_a_channel_that_switched(surface: RecordingSurface) -> None:
     commands = FakeCommands()
-    rig = Rig(surface, parse_config(BASE + COMMANDS), commands=commands)
+    targets = """
+[channel.screen]
+type = "custom"
+label = "Screen"
+targets = [{ name = "Left", value = "DP-1" }, { name = "Right", value = "DP-2" }]
+fader = { set = "brightness -d {target} -b {value}", max = 10, step = 0.1 }
+
+[controls]
+3 = { fader = { channel = "screen" }, encoder = { channel = "screen" } }
+"""
+    rig = Rig(surface, parse_config(BASE + targets), commands=commands)
     rig.step(STATE)
     await settle()
     screen = rig.mixer.channels["screen"]
@@ -385,15 +393,15 @@ async def test_a_claim_follows_the_values_of_a_channel_that_switched(surface: Re
     before = screen.fader_value()
     assert before is not None
     # another target: other values, which the claims set and show from now on
-    other = CommandValue(ValueBinding.model_validate({"set": "other {value}", "max": 10}), commands, 1, "other")
-    screen._fader = other  # pyright: ignore[reportPrivateUsage]
-    for listener in list(screen.listeners):
-        listener()
+    screen.switch()
+    other = screen.fader_value()
+    assert other is not None
+    assert other is not before
     other.set(5)
     assert surface.strips[2].fader == protocol.fader_value(0.5)
-    surface.on_event(protocol.EncoderTurned(0, 1))
+    surface.on_event(protocol.EncoderTurned(2, 1))
     await settle()
-    assert commands.runs[-1] == ["other", "5.1"]
+    assert commands.runs[-1] == ["brightness", "-d", "DP-2", "-b", "5.1"]
     # the old value is not followed any more
     before.set(1.0)
     assert surface.strips[2].fader == protocol.fader_value(0.51)

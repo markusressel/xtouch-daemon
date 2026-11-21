@@ -123,6 +123,8 @@ class Observation:
     """The node names of the default output and the default input."""
     homeassistant: frozenset[str] = frozenset()
     """The states whose input switch in Home Assistant is on."""
+    absent: frozenset[str] = frozenset()
+    """The custom channels whose `present` program says they are not there; the others are."""
 
 
 def app_matches(app: str, parts: Iterable[str]) -> bool:
@@ -182,8 +184,8 @@ def excluded(scene: Scene, app: str) -> bool:
     return owner is not None and not scene.channels[owner].in_pool
 
 
-def present_now(channel: ChannelConfig, observation: Observation) -> bool:
-    """Whether a channel has something to control in the observation (without `absent_after`)."""
+def present_now(name: str, channel: ChannelConfig, observation: Observation) -> bool:
+    """Whether a channel (`name` is its id) has something to control in the observation (without `absent_after`)."""
     match channel.type:
         case "apps":
             return any(app_matches(app, channel.streams) for app in observation.playing)
@@ -195,6 +197,8 @@ def present_now(channel: ChannelConfig, observation: Observation) -> bool:
         case "person":
             names = {name.lower() for name in channel.people}
             return any(person.name.lower() in names for person in observation.people)
+        case "custom":
+            return name not in observation.absent
         case _:
             # homeassistant: its entities are always there
             return True
@@ -324,7 +328,7 @@ class Presence:
 
     def update(self, observation: Observation, now: float) -> frozenset[str]:
         for name, delayed in self._delayed.items():
-            delayed.update(present_now(self.scene.channels[name], observation), now)
+            delayed.update(present_now(name, self.scene.channels[name], observation), now)
         return frozenset(name for name, delayed in self._delayed.items() if delayed.value)
 
     def deadline(self) -> float | None:

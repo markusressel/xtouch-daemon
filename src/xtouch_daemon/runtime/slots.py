@@ -82,6 +82,10 @@ class SlotEngine:
         self.observer = Observer()
         self.homeassistant: frozenset[str] = frozenset()
         """The states whose input in Home Assistant is on (`homeassistant = true`, see `runtime.homeassistant`)."""
+        self.absent: frozenset[str] = frozenset()
+        """The custom channels whose `present` says they are not there (see `runtime.binder`)."""
+        self.made_absent: frozenset[str] = frozenset()
+        """The custom channels a twin's situation makes absent, on top of `absent`."""
         self.situation: Situation | None = None
         """The what-if the GUI tries on the device (see `simulate()`), None for reality."""
         self.what_if: Simulation | None = None
@@ -288,7 +292,9 @@ class SlotEngine:
         now: float,
     ) -> Result:
         """Resolves the slots with what the system shows at `now`; `held` are the slots (from 1) under a finger."""
-        observation = self.observer.observe(audio, processes, voip, now, self.homeassistant)
+        observation = self.observer.observe(
+            audio, processes, voip, now, self.homeassistant, self.absent | self.made_absent
+        )
         if self.what_if is not None and self.situation is not None:
             # reality waits; nothing of the situation is kept
             what_if = self.what_if

@@ -218,6 +218,11 @@ class Situation:
         }
         return overrides, self.mode
 
+    def absent(self, scene: Scene) -> frozenset[str]:
+        """The custom channels the situation makes absent (flipped, or in a pool that is): no `present` tells them."""
+        flipped = (channel for name in self.flipped if not _fills(scene, name) for channel in _channels_of(scene, name))
+        return frozenset(name for name in flipped if name in scene.channels and scene.channels[name].type == "custom")
+
     def observation(self, scene: Scene, real: Observation) -> Observation:
         """
         What the sound server and the voice chat would show in the situation: a present channel has something to
@@ -273,6 +278,7 @@ class Situation:
                 devices=frozenset(devices),
                 sound_devices=tuple(sound_devices),
                 defaults=real.defaults,
+                absent=self.absent(scene),
             ),
         )
 

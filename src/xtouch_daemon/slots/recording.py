@@ -39,6 +39,7 @@ class Observer:
         voip: VoipState | None,
         now: float,
         homeassistant: frozenset[str] = frozenset(),
+        absent: frozenset[str] = frozenset(),
     ) -> Observation:
         names = [stream_name(stream.app, stream.binary) for stream in audio.streams]
         for stream in audio.streams:
@@ -62,6 +63,7 @@ class Observer:
             ),
             defaults=frozenset(name for name in (audio.default_output, audio.default_input) if name),
             homeassistant=homeassistant,
+            absent=absent,
         )
 
 
@@ -102,6 +104,7 @@ def to_line(now: float, observation: Observation) -> str:
             "sound_devices": [[d.name, d.description, d.direction] for d in observation.sound_devices],
             "defaults": sorted(observation.defaults),
             "homeassistant": sorted(observation.homeassistant),
+            "absent": sorted(observation.absent),
         }
     )
 
@@ -122,6 +125,8 @@ def from_line(line: str) -> tuple[float, Observation]:
         sound_devices=tuple(SoundDevice(*device) for device in data.get("sound_devices", ())),
         defaults=frozenset(data.get("defaults", ())),
         homeassistant=frozenset(data["homeassistant"]),
+        # a recording made before custom channels has none absent
+        absent=frozenset(data.get("absent", ())),
     )
 
 

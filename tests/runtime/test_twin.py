@@ -86,6 +86,22 @@ async def test_a_twin_follows_a_new_situation_configuration_and_names():
         await twin.wait_closed()
 
 
+async def test_a_situation_makes_a_custom_channel_absent():
+    config = '[channel.out]\ntype = "output"\nlabel = "Out"\n\n[channel.lamp]\ntype = "custom"\nlabel = "Lamp"\n\n'
+    config += '[slots]\n1 = ["lamp if present", "out"]\n'
+    twin = Twin(parse_config(config), Situation(flipped=frozenset({"lamp"})))
+    task = asyncio.create_task(twin.run())
+    try:
+        await until(lambda: (view := twin.view()) is not None and view.strips[0].text[0] == "Out")
+        assert twin.slots.made_absent == {"lamp"}
+        twin.set_situation(Situation())
+        await until(lambda: (view := twin.view()) is not None and view.strips[0].text[0] == "Lamp")
+    finally:
+        task.cancel()
+        twin.close()
+        await twin.wait_closed()
+
+
 async def test_the_backend_is_in_memory_and_keeps_what_the_strips_set():
     changed = []
     backend = TwinBackend(changed.append)

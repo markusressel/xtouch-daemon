@@ -203,6 +203,7 @@ class Twin(Rig):
             launcher=Launcher(spawn=_no_launch),
             processes=lambda: frozenset(),
             commands=self.commands,
+            on_presence=self.wake_slots,
         )
 
     def _stepped(self, result: Result) -> None:
@@ -239,6 +240,8 @@ class Twin(Rig):
         engine = self.slots.simulation.engine
         engine.overrides = overrides
         engine.mode_pick = mode
+        # custom channels are there as their `present` says, and absent as the situation says
+        self.slots.made_absent = frozenset() if self.real else situation.absent(scene)
         made = world_of_now(self.names) if self.real else world(scene, situation, self.names)
         self.sound.set_state(made.audio)
         self.people.set_people(made.people)
