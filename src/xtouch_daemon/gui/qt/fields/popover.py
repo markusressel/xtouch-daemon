@@ -111,6 +111,11 @@ class Popover(QFrame):
         super().__init__(window)
         self.anchor = anchor
         self.host = window
+        # an anchor deleted while it shows sends no Hide: the next click would ask a deleted widget where it is
+        anchor.destroyed.connect(self._anchor_gone)
+
+    def _anchor_gone(self) -> None:
+        self.close()
 
     def showEvent(self, event: QShowEvent | None) -> None:
         super().showEvent(event)

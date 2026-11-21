@@ -1,5 +1,6 @@
 """The menus that open inside their window, without a grab of the keyboard and the mouse."""
 
+from PyQt6 import sip
 from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtGui import QAction, QContextMenuEvent, QEnterEvent, QKeySequence
 from PyQt6.QtWidgets import (
@@ -28,6 +29,7 @@ from xtouch_daemon.gui.qt.fields.menu import (
     text_menu,
     with_icon,
 )
+from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.theme.tokens import Entity
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
@@ -351,3 +353,23 @@ def test_a_text_wider_than_the_window_wraps(qtbot: QtBot) -> None:
     assert panel is not None
     assert panel.width() <= window.width()
     assert panel.rows[0].title.wordWrap()
+
+
+def test_a_menu_or_popover_closes_when_its_anchor_is_deleted(qtbot: QtBot) -> None:
+    window, button = a_window(qtbot)
+    # a menu that is not the anchor's, as the menu of a bar is the bar's
+    menu = a_menu(window, [])
+    panel = show_menu(menu, button)
+    assert panel is not None
+    other = QPushButton("Other", window)
+    other.show()
+    popover = show_popover(other, "Popover", [Entry("Row")])
+
+    # deleted without being hidden first (e.g. the bar of the virtual device): no Hide comes
+    sip.delete(button)
+    sip.delete(other)
+
+    for opened in (panel, popover):
+        assert sip.isdeleted(opened) or opened.isHidden()
+    # a click in the window reaches no filter of an anchor that is gone
+    qtbot.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(250, 400))
