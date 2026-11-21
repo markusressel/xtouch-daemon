@@ -1659,6 +1659,8 @@
       
         
       
+        
+      
     
     
     
@@ -2250,6 +2252,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../development/design/multiple-users/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Several users on one machine
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../development/design/state-files/" class="md-nav__link">
         
   
@@ -2733,6 +2762,11 @@ file instead and writes it at the first save.</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>init-config<span class="w">      </span><span class="c1"># writes the example to the default path (-f overwrites)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w">     </span><span class="c1"># validates the file and shows what each slot shows when</span>
 </span></code></pre></div>
+<p>Only you can change the file. The daemon runs the commands of the file as you, so it refuses a file that other
+users can change: one that belongs to another user, or that the group or others can write. The same applies to the
+directory of the file, and to the target of a link and its directory. The error names the file and the fix, e.g.
+<code>chmod go-w ~/.config/xtouch-daemon/config.toml</code>. A file with a secret, such as <code>[mqtt] password_file</code>, is only for
+you to read: if others can read it, the log has a warning.</p>
 <p>Unknown options are errors, so a typo does not go unnoticed. <code>check-config</code> names the place of every error, e.g.
 <code>channel.mic.label: String should have at most 7 characters</code>.</p>
 <p>The <a href="../guides/gui/">GUI</a> edits the same options in a window and shows the same errors next to them.</p>

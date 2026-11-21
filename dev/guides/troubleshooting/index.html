@@ -690,6 +690,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#starting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Starting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1772,6 +1783,8 @@
       
         
       
+        
+      
     
     
     
@@ -2363,6 +2376,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../development/design/multiple-users/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Several users on one machine
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../development/design/state-files/" class="md-nav__link">
         
   
@@ -2700,6 +2740,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#starting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Starting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2860,6 +2911,18 @@
 </span></code></pre></div>
 <p>The GUI shows the same log in View → <a href="../gui/#log">Log</a>, also for a daemon started in a terminal.</p>
 <p>For more detail, stop the service and run the daemon in the foreground with <code>xtouch-daemon run -l debug</code>.</p>
+<h2 id="starting">Starting<a class="headerlink" href="#starting" title="Permanent link">&para;</a></h2>
+<p><strong>xtouch-daemon refuses to run as root.</strong> It says <code>xtouch-daemon runs as your user, not as root: ...</code>. The commands
+of the configuration would run as root. Run it as your user, without <code>sudo</code>, e.g. as the systemd user service. Only
+<code>schema</code>, <code>simulate</code>, <code>--help</code> and <code>--version</code> work as root. Each user who wants the device runs their own daemon,
+see <a href="../../development/design/multiple-users/">Several users on one machine</a>.</p>
+<p><strong><code>other users can change ..., so the daemon does not use it</code>.</strong> The group or others can change the configuration
+file or its directory. Someone else could put a command into it, and the daemon would run it as you. Run
+the command of the message, e.g. <code>chmod go-w ~/.config/xtouch-daemon/config.toml</code>. A file that belongs to another
+user is refused too (<code>... belongs to ..., not to you</code>). On a reload, the daemon logs the error and keeps the
+configuration it runs.</p>
+<p><strong><code>other users can read ...</code>.</strong> A warning: the file with a secret, e.g. <code>[mqtt] password_file</code> or <code>[homeassistant] token_file</code>, can be read by other
+users. The daemon still uses it. Keep it to yourself with <code>chmod go-rw</code> and the file of the message.</p>
 <h2 id="the-device">The device<a class="headerlink" href="#the-device" title="Permanent link">&para;</a></h2>
 <p><strong>The device shows <code>IP: 192.168.001.100 wait...</code>.</strong> It is set to its network interface and ignores USB. Switch it to
 MC mode on USB in its setup menu, see <a href="../../getting-started/first-steps/#set-up-the-device">Getting started</a>.</p>

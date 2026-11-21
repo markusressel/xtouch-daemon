@@ -1871,6 +1871,8 @@
       
         
       
+        
+      
     
     
     
@@ -2443,6 +2445,33 @@
     
   
   The log in the GUI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/multiple-users/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Several users on one machine
 
     
   </span>
@@ -3122,6 +3151,9 @@
 </table>
 <p>Every command takes <code>-h</code>/<code>--help</code>. <code>xtouch-daemon -V</code> (<code>--version</code>) shows the version.</p>
 <p><code>-c FILE</code> (<code>--config FILE</code>) selects the configuration file; the default is <code>~/.config/xtouch-daemon/config.toml</code>.</p>
+<p>As root, every command except <code>schema</code> and <code>simulate</code> fails with an error: the daemon and the tools around it run as
+your user. A configuration file that other users can change is an error too, see
+<a href="../../configuration/">Configuration</a>.</p>
 <h2 id="run"><code>run</code><a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>run<span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span><span class="w"> </span><span class="o">[</span>-l<span class="w"> </span>LEVEL<span class="o">]</span><span class="w"> </span><span class="o">[</span>--virtual-device<span class="o">]</span>
 </span></code></pre></div>
