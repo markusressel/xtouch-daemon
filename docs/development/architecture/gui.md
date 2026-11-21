@@ -75,6 +75,9 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
   in `gui/qt/fields/menu.py`, with `describe` for an entry that says what it does. Drop-downs are `Choice`, the
   suggestions under a field a `SuggestionList` (`gui/qt/fields/suggestions.py`). The fixture `no_popups` of the GUI
   tests fails a test in which a popup shows.
+- **The keyboard reaches the popovers.** A pill that opens one (`make_clickable`) takes the focus with Tab and opens
+  it with Space or Enter. A popover takes the focus, Tab goes on to its buttons, and when it closes the focus goes
+  back to its anchor (unless the user put it elsewhere meanwhile).
 
 ## Drawing and updating
 

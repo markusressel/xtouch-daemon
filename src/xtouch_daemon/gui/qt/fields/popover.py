@@ -9,9 +9,10 @@ import html
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from PyQt6 import sip
 from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QSize, Qt
 from PyQt6.QtGui import QHideEvent, QKeyEvent, QMouseEvent, QShowEvent
-from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, help_text, label, show_status
@@ -70,7 +71,8 @@ def show_popover(
     top.addWidget(label(heading, "section"), 1)
     for text, action in actions:
         button = QPushButton(text)
-        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # Tab reaches it, a click leaves the focus where it is
+        button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         button.clicked.connect(lambda _=False, action=action: action())
         top.addWidget(button)
     layout.addLayout(top)
@@ -86,6 +88,9 @@ def show_popover(
     popup.move(place(anchor, window, popup.size()))
     popup.show()
     popup.raise_()
+    # the keys go to it: Tab to its buttons, Esc closes it, and the focus goes back to the anchor
+    popup.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+    popup.setFocus()
     return popup
 
 
@@ -124,7 +129,17 @@ class Popover(QFrame):
     def hideEvent(self, event: QHideEvent | None) -> None:
         # before it is deleted: no event may reach the filter of a popover that is half gone
         _app().removeEventFilter(self)  # pyright: ignore[reportArgumentType]
+        self._focus_back()
         super().hideEvent(event)
+
+    def _focus_back(self) -> None:
+        """The focus goes back to the anchor where it was in the popover, as after a menu, if the anchor takes it."""
+        focused = QApplication.focusWidget()
+        if focused is not None and focused is not self and not QWidget.isAncestorOf(self, focused):
+            return
+        anchor = self.anchor
+        if not sip.isdeleted(anchor) and anchor.isVisible() and anchor.focusPolicy() != Qt.FocusPolicy.NoFocus:
+            anchor.setFocus(Qt.FocusReason.PopupFocusReason)
 
     def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
         if event is None:
@@ -225,7 +240,7 @@ def _buttons(popup: QFrame, entry: Entry, tone: Tone) -> QHBoxLayout | None:
     buttons.setSpacing(Space.XS)
     for index, (text, action) in enumerate(entry.actions):
         button = QPushButton(text)
-        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         if index == 0 and tone in (Tone.WARN, Tone.BAD):
             # what fixes it
             set_role(button, "primary", "variant")
@@ -234,11 +249,28 @@ def _buttons(popup: QFrame, entry: Entry, tone: Tone) -> QHBoxLayout | None:
     return buttons
 
 
+OPEN_KEYS = (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter)
+"""The keys that open the popover of a pill with the focus, as they press a button."""
+
+
 def make_clickable(pill: QLabel, clicked: Callable[[], None]) -> None:
-    """A pill that opens a popover (`clicked`); show its status with `show_status(..., more=True)`."""
+    """
+    A pill that opens a popover (`clicked`) on a click, or on Space or Enter once Tab gave it the focus; show its
+    status with `show_status(..., more=True)`.
+    """
     pill.setCursor(Qt.CursorShape.PointingHandCursor)
+    pill.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+    set_role(pill, "true", "clickable")
+    pill.setAccessibleDescription("Opens the details")
 
     def press(event: QMouseEvent | None) -> None:
         clicked()
 
+    def key(event: QKeyEvent | None) -> None:
+        if event is not None and event.key() in OPEN_KEYS:
+            clicked()
+        else:
+            QLabel.keyPressEvent(pill, event)
+
     pill.mousePressEvent = press  # type: ignore[method-assign]
+    pill.keyPressEvent = key  # type: ignore[method-assign]

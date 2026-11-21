@@ -5,7 +5,9 @@ from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
 from PyQt6.QtGui import QAction, QContextMenuEvent, QEnterEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
+    QFrame,
     QLabel,
+    QLineEdit,
     QMenu,
     QPlainTextEdit,
     QPushButton,
@@ -29,7 +31,7 @@ from xtouch_daemon.gui.qt.fields.menu import (
     text_menu,
     with_icon,
 )
-from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
+from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.theme.tokens import Entity
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
@@ -393,3 +395,53 @@ def test_a_menu_or_popover_closes_when_its_anchor_is_deleted(qtbot: QtBot) -> No
         assert sip.isdeleted(opened) or opened.isHidden()
     # a click in the window reaches no filter of an anchor that is gone
     qtbot.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(250, 400))
+
+
+def test_a_pill_opens_its_popover_from_the_keyboard_and_gets_the_focus_back(qtbot: QtBot) -> None:
+    window, button = a_window(qtbot)
+    pill = QLabel("Live  ▾", window)
+    pill.show()
+    opened: list[QFrame] = []
+    make_clickable(
+        pill, lambda: opened.append(show_popover(pill, "Live", [Entry("Row", actions=(("Fix", lambda: None),))]))
+    )
+    button.setFocus()
+    # the window gets active a moment later
+    qtbot.waitUntil(button.hasFocus)
+
+    # Tab reaches the pill, Space opens what it means
+    qtbot.keyClick(button, Qt.Key.Key_Tab)
+    assert pill.hasFocus()
+    assert pill.accessibleDescription()
+    qtbot.keyClick(pill, Qt.Key.Key_Space)
+    (popover,) = opened
+    assert popover.hasFocus()
+    # Tab goes on to its button
+    qtbot.keyClick(popover, Qt.Key.Key_Tab)
+    focused = QApplication.focusWidget()
+    assert isinstance(focused, QPushButton)
+    assert focused.text() == "Fix"
+
+    qtbot.keyClick(focused, Qt.Key.Key_Escape)
+
+    assert popover.isHidden() or sip.isdeleted(popover)
+    assert pill.hasFocus()
+    # Enter opens it too
+    qtbot.keyClick(pill, Qt.Key.Key_Return)
+    assert len(opened) == 2
+
+
+def test_a_popover_leaves_the_focus_where_it_is_outside_of_it(qtbot: QtBot) -> None:
+    window, button = a_window(qtbot)
+    field = QLineEdit(window)
+    field.show()
+    button.setFocus()
+    qtbot.waitUntil(button.hasFocus)
+    popover = show_popover(button, "Popover", [Entry("Row")])
+    assert popover.hasFocus()
+    # e.g. a click into a field of the window after it opened
+    field.setFocus()
+
+    popover.close()
+
+    assert field.hasFocus()

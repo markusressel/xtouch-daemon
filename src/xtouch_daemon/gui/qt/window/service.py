@@ -11,7 +11,7 @@ from xtouch_daemon import installed_version
 from xtouch_daemon.gui.domain.connections import Connection, worst
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, unit_status
 from xtouch_daemon.gui.qt.fields.basics import label, show_status
-from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
+from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.system.instance import Instance
@@ -50,8 +50,7 @@ class ServiceControls(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(label("Service", "hint"))
         self.pill = label("…", "pill")
-        self.pill.mousePressEvent = lambda event: self.show_details()  # type: ignore[method-assign]
-        self.pill.setCursor(Qt.CursorShape.PointingHandCursor)
+        make_clickable(self.pill, self.show_details)
         layout.addWidget(self.pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self.service_status = Status("…", Tone.NEUTRAL)
         """The state of the service alone, without the connections of the daemon."""

@@ -350,4 +350,7 @@ QLabel[role="pill"][tone="good"] {{ background: {tint(c.success)}; color: {c.ton
 QLabel[role="pill"][tone="bad"] {{ background: {tint(c.error)}; color: {c.tone_bad}; }}
 QLabel[role="pill"][tone="warn"] {{ background: {tint(c.warning)}; color: {c.tone_warn}; }}
 QLabel[role="pill"][tone="neutral"] {{ background: {tint(c.tone_neutral)}; color: {c.tone_neutral}; }}
+/* a pill that opens details takes the focus (Tab): a ring shows it, its room taken from the padding */
+QLabel[role="pill"][clickable="true"] {{ border: 1px solid transparent; padding: 2px {Space.M - 3}px; }}
+QLabel[role="pill"][clickable="true"]:focus {{ border-color: {c.accent}; }}
 """
