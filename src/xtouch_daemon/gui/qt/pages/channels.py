@@ -248,6 +248,7 @@ class ChannelsPage(Page):
         device, those about a part of the strip with a preview of what they do there.
         """
         form = QWidget()
+        self.forms.add(form)
         cards = QVBoxLayout(form)
         cards.setContentsMargins(0, 0, 0, 0)
         cards.setSpacing(Space.M)

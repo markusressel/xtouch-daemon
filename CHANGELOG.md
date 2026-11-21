@@ -121,6 +121,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: a form wider than its pane (e.g. a channel in a narrow window) is laid out once. The pane made its content as
   wide as the rows with their names beside their fields wanted, and at that width they asked for it again: a new
   theme took up to 15 s, or did not end.
+- GUI: after a new theme, the parts of a page that were hidden (e.g. the options of a section that is not in the file)
+  show its colors too: their help kept the colors of the theme before. They also no longer stay in memory after the
+  window of a zoom closed.
 - GUI: the icons are drawn once per name and color. Every new page, window and theme drew all of them again and kept
   each copy, about 760 per window, for as long as the GUI ran.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its

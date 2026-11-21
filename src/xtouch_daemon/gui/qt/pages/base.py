@@ -186,6 +186,14 @@ class Stack(QWidget):
         self.stack.setContentsMargins(0, 0, 0, 0)
         self.part: QWidget | None = None
 
+    def add(self, part: QWidget) -> None:
+        """
+        A part, hidden until it shows: it is in the window from the start, so a new theme reaches it (see
+        `refresh_icons`) and it goes with the window. A part without a parent would be a window of its own.
+        """
+        part.setParent(self)
+        part.hide()
+
     def show_part(self, part: QWidget) -> None:
         if part is self.part:
             return

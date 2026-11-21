@@ -81,6 +81,8 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
 - **Built once, updated in place.** The pages build their widgets once, and showing the document loads the values
   into them (`OptionRow.load()`); no page is cleared and built again. A part that comes and goes (an absent section,
   the form of each channel type) is a page of a `Stack` sized to its current part, not a widget shown and hidden.
+  `Stack.add` puts a part in the window, hidden, as soon as it is built: a new theme reaches it (`refresh_icons`,
+  `refresh_help` go through the children of the window), and it goes with the window.
 - **Built when first shown.** The page Channels builds the form of a channel type (or a pool) the first time it
   shows, and keeps it: most types never show in a session, and building all of them took most of the start of the
   window. While the page is hidden, the form of the selection waits (`ChannelsPage.pending`) until the page shows or

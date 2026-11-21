@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QToolButton,
+    QWidget,
 )
 from pytestqt.qtbot import QtBot
 
@@ -24,6 +25,7 @@ from tests.support.gui import (
     pill,
     plain,
     row,
+    show_channel,
     shows,
     snapshot,
     strip_state,
@@ -31,12 +33,37 @@ from tests.support.gui import (
 )
 from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.qt.fields.basics import _HELP_PROPERTY as HELP_PROPERTY  # pyright: ignore[reportPrivateUsage]
+from xtouch_daemon.gui.qt.fields.basics import help_html
 from xtouch_daemon.gui.qt.fields.names import completer_of
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
 from xtouch_daemon.gui.qt.pages.sections import MumbleInstaller, SectionPage
+from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipState
 from xtouch_daemon.voip import mumble
+
+
+def test_the_parts_that_do_not_show_are_in_the_window_and_follow_the_theme(window: MainWindow):
+    # [mqtt] is not in the file: its options don't show
+    page = window.pages["mqtt"]
+    assert isinstance(page, SectionPage)
+    assert page.present.isHidden()
+    show_channel(window, "browser")
+    show_channel(window, "out")
+    hidden = [page.present, window.channels_page.form_widgets["apps"]]
+    assert all(QWidget.isAncestorOf(window, part) for part in hidden)
+
+    window.set_theme(ThemeMode.LIGHT)
+
+    helps = [
+        (label, source)
+        for part in hidden
+        for label in part.findChildren(QLabel)
+        if (source := label.property(HELP_PROPERTY)) is not None
+    ]
+    assert helps
+    assert all(label.text() == help_html(*source) for label, source in helps)
 
 
 def test_an_optional_section_is_added_and_removed(qtbot: QtBot, window: MainWindow):

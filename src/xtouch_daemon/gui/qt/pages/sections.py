@@ -89,6 +89,8 @@ class SectionPage(Page):
         if name == "device":
             layout.addWidget(label("A changed name takes a restart of the service.", "help"))
         present.addWidget(frame)
+        self.parts.add(self.absent)
+        self.parts.add(self.present)
         self.layout_.addWidget(self.parts)
         self.layout_.addStretch()
         self._show()
