@@ -290,9 +290,12 @@ QPlainTextEdit[role="log"] {{ background: {c.sunken}; color: {c.text}; border: 1
     border-radius: {Radius.MEDIUM}px; padding: {Space.XS}px; }}
 QWidget[role="rail"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-right-width: 1px; }}
 QToolBar {{ background: {c.chrome}; border: none; padding: 0; spacing: 0; }}
-QMenuBar {{ background: {c.chrome}; border-bottom: 1px solid {c.border}; }}
-QMenuBar::item {{ background: transparent; padding: {Space.XS}px {Space.M}px; border-radius: {Radius.SMALL}px; }}
-QMenuBar::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
+QWidget[role="menubar"] {{ background: {c.chrome}; border: 0 solid {c.border}; border-bottom-width: 1px; }}
+/* the padding of a QMenuBar::item: a tool button adds a few pixels of its own */
+QToolButton[role="menubar_item"] {{ background: transparent; border: none; padding: 0 {Space.M - 2}px;
+    border-radius: {Radius.SMALL}px; }}
+QToolButton[role="menubar_item"]:hover, QToolButton[role="menubar_item"][open="true"] {{
+    background: {c.accent_tint}; color: {c.text}; }}
 QDockWidget::title {{ background: {c.chrome}; padding: {Space.XS}px {Space.M}px; }}
 QFrame[role="card"] {{ background: {c.raised}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px; }}
 QFrame[role="card"] QLabel {{ background: transparent; border: none; }}
@@ -309,6 +312,21 @@ QMenu {{ background: {c.raised}; border: 1px solid {c.border}; padding: {Space.X
 QMenu::item {{ padding: {Space.S - 2}px {Space.M}px; border-radius: {Radius.SMALL}px; }}
 QMenu::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
 QMenu::item:disabled {{ color: {c.text_muted}; }}
+/* the menus in the window (fields/menu.py): rows as those of a QMenu */
+QFrame[variant="menu"] {{ border-radius: {Radius.MEDIUM}px; }}
+QWidget[role="menu_content"], QScrollArea[role="menu"], QScrollArea[role="menu"] > QWidget > QWidget {{
+    background: transparent; }}
+QFrame[role="menu_item"] {{ border-radius: {Radius.SMALL}px; background: transparent; }}
+QFrame[role="menu_item"][current="true"] {{ background: {c.accent_tint}; }}
+QFrame[role="menu_item"] QLabel {{ background: transparent; }}
+QFrame[role="menu_item"]:disabled QLabel {{ color: {c.text_muted}; }}
+QLabel[role="menu_detail"] {{ color: {c.text_muted}; }}
+QLabel[role="menu_key"] {{ color: {c.text_muted}; }}
+QLabel[role="menu_section"] {{ color: {c.text_muted}; font-size: {size(TypeScale.CAPTION)}; font-weight: 700;
+    padding: {Space.S - 2}px {Space.S}px {Space.XS}px {Space.S}px; background: transparent; }}
+QFrame[role="menu_separator"] {{ background: {c.border}; border: none; margin: 0 {Space.S}px; }}
+QPushButton[menu="true"] {{ padding-right: {Space.XL + Space.XS}px; }}
+QLabel[role="menu_mark"] {{ background: transparent; }}
 QScrollBar:vertical {{ background: transparent; width: {Space.M}px; margin: 0; }}
 QScrollBar:horizontal {{ background: transparent; height: {Space.M}px; margin: 0; }}
 /* round ends: Qt draws no round corners for a radius above half the width of the handle */

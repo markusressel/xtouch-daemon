@@ -109,7 +109,7 @@ def test_a_list_without_suggestions_suggests_nothing(qtbot: QtBot):
     qtbot.addWidget(chips)
     # the input alone
     assert chips.flow.count() == 1
-    assert chips.input.completer() is None
+    assert chips.completer is None
 
 
 def listed(completer: NameCompleter | None, text: str = "") -> list[str]:
@@ -182,7 +182,7 @@ def test_a_list_of_processes_suggests_the_presets_for_processes(qtbot: QtBot):
     chips.show_values(["@browsers", "@nope", "steam"])
 
     # the presets, though the sound server has nothing for processes
-    assert chips.input.completer() is not None
+    assert chips.completer is not None
     assert (
         chips.chips[0]
         .toolTip()

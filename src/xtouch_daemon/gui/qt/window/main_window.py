@@ -65,6 +65,7 @@ from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
 from xtouch_daemon.gui.qt.device_test import DeviceTest
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
+from xtouch_daemon.gui.qt.fields.menu import MenuBar, TextMenus, attach_menu
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.file_watch import FileWatch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
@@ -239,6 +240,8 @@ class MainWindow(QMainWindow):
         self._menus()
         # the menus of the window list its docks and bars: the menu View has the dock, the bars always show
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
+        self.text_menus = TextMenus(self)
+        """The menus of the right mouse button in fields and texts, inside the window."""
         state = load_window_state()
         if state is not None:
             self.restoreState(state)
@@ -507,9 +510,13 @@ class MainWindow(QMainWindow):
         return dock
 
     def _menus(self) -> None:
-        """The menus: what is used now and then, with the keys of what is used often."""
-        bar = self.menuBar()
-        assert bar is not None
+        """
+        The menus: what is used now and then, with the keys of what is used often. They open inside the window (see
+        `MenuBar`), so a screenshot tool still gets its key.
+        """
+        bar = MenuBar(self)
+        self.setMenuWidget(bar)
+        self.menu_bar = bar
 
         def action(
             menu: QMenu, text: str, slot: Callable[[], object], *keys: QKeySequence.StandardKey | str
@@ -606,8 +613,7 @@ class MainWindow(QMainWindow):
         The keys of the window, under the menus: those of the menus as the desktop has them, the lists and the
         drawing.
         """
-        bar = self.menuBar()
-        assert bar is not None
+        bar = self.menu_bar
 
         def keys(menu: QMenu | None) -> tuple[tuple[str, str], ...]:
             assert menu is not None
@@ -657,9 +663,8 @@ class MainWindow(QMainWindow):
         set_role(self.problems_button, "problems")
         set_icon(self.problems_button, "alert-circle", "error")
         self.problems_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.problems_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.problems_menu = QMenu(self.problems_button)
-        self.problems_button.setMenu(self.problems_menu)
+        attach_menu(self.problems_button, self.problems_menu)
         layout.addWidget(self.problems_button)
         self.status = ElidedLabel("", "hint")
         layout.addWidget(self.status, 1)

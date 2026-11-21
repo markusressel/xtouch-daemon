@@ -30,7 +30,7 @@ something in the browser first, so that `list-apps` has an application to show.
 
 ## 2. The main output
 
-**GUI:** page **Channels**, **Add**, **Output from the sound server**, pick your speakers. Rename the id to
+**GUI:** page **Channels**, **Add**, **Outputs** (under "From the sound server"), pick your speakers. Rename the id to
 `main_output` (field next to the title; the slots that name it follow), set the label to `Main` (up to 7 characters:
 that is all the LCD has) and the color to cyan.
 
@@ -94,7 +94,7 @@ lit_when_idle = true        # the LCD stays lit while nothing plays: it is where
 
 ## 4. The microphone
 
-**GUI:** page **Channels**, **Add**, **Input from the sound server**, pick the microphone, then give it the label and the
+**GUI:** page **Channels**, **Add**, **Inputs** (under "From the sound server"), pick the microphone, then give it the label and the
 color.
 
 ```toml
@@ -109,7 +109,7 @@ encoder = "balance"
 ## 5. A state: in a call
 
 A *state* is when something matters. VoIP and the microphone should only take a strip while you are in a call, so
-make that a state. **GUI:** page **States**, **Add**, **In a call (state)**; its sources are "You are in the voice chat"
+make that a state. **GUI:** page **States**, **Add**, **In a call** (under "Starting points"); its sources are "You are in the voice chat"
 (Mumble, with its [plugin](../guides/mumble.md)) and "An application records" (Discord and the like have the
 microphone open while you talk):
 

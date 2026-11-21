@@ -56,10 +56,14 @@ just screenshot      # renders docs/images/ (README and docs) offscreen from scr
   `conftest.no_host` fails a test that touches the processes, sound devices, the user's files, the session bus or the
   runtime directory of the machine; a test that does so on purpose is marked `host`.
 - Type hints everywhere; `ruff` and `pyright` must pass.
-- GUI: never use `Qt.WindowType.Popup` (or `QMenu` for more than a menu): a popup grabs the keyboard and the mouse,
-  on X11 the whole display, so screenshot tools and the keys of the window manager stop working. Details a click away
-  are popovers (`gui/qt/fields/popover.py`), drawn inside the window. Drop-down lists are `Choice`
-  (`gui/qt/fields/choice.py`), never a plain `QComboBox`: its list is a popup.
+- GUI: never show a popup window (`Qt.WindowType.Popup`): it grabs the keyboard and the mouse, on X11 the whole
+  display, so screenshot tools and the keys of the window manager stop working (and Alt closes a `QMenu`). Everything
+  opens inside the window: details a click away are popovers (`gui/qt/fields/popover.py`); menus are `QMenu`s that are
+  never shown, opened by `show_menu`/`attach_menu` and the `MenuBar` of `gui/qt/fields/menu.py` (`describe` gives an
+  entry a line under it); drop-down lists are `Choice` (`gui/qt/fields/choice.py`), never a plain `QComboBox`;
+  suggestions under a field are a `SuggestionList` (`gui/qt/fields/suggestions.py`, used by `NameCompleter`), never a
+  `QCompleter`. No `QMenu.exec`/`popup`, `setMenu`, `menuBar()`. `conftest.no_popups` fails a test in which a popup
+  shows.
 - Git: on a branch, commit and push the finished, checked work; on `main` only when the user asks. Never force-push.
 
 ## Writing help
