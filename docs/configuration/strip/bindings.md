@@ -99,7 +99,7 @@ WebSocket API of Home Assistant; `[mqtt]` is not needed for them.
 | `entity` | every part | required | The entity, by its ID, e.g. `sensor.cpu_temp`: `<domain>.<name>`. |
 | `attribute` | every part | the state | An attribute of the entity instead of its state, e.g. `media_title` of a `media_player`. For a value, the one of its domain (below). |
 | `min`, `max` | `meter` | `0`, `100` | The number with the meter dark, and with the meter full. |
-| `min`, `max` | `fader`, `encoder` | the entity's, else its domain's | The value with the fader at the bottom and at the top. A `number` tells its own range. |
+| `min`, `max` | `fader`, `encoder` | the entity's, else its domain's, else `0`, `100` | The value with the fader at the bottom and at the top. A `number` tells its own range. |
 | `step`, `push`, `format` | `fader`, `encoder` | as for [a value](../channels/custom.md#a-value) | One step of the encoder, the value a push sets (the encoder only), how the LCD shows the value. |
 | `service` | `fader`, `encoder` | the one of its domain | The service a move calls, with the entity as its target, e.g. `script.set_level`. |
 | `data` | `fader`, `encoder` | the value of its domain | The data of `service`: `{value}` in it is the new value, e.g. `{ level = "{value}" }`. |
@@ -109,7 +109,7 @@ What a part makes of the entity:
 | Part | Shows |
 |---|---|
 | `lcd` | The state, a number shortened to fit (`21.5`, `1013`), with its unit (`21.5°C`, `45%`, `3.2 kW`); or the attribute. |
-| `color` | A light: its color (`rgb_color`, else `hs_color`), the nearest one the LCD has; `off` while it is off; white for a light without a color. Another entity: its state as a color name (an `input_select` with `red`, `blue`, ...). An attribute: a color name, or a list of red, green and blue. |
+| `color` | A light: its color (`rgb_color`, else `hs_color`), the nearest one the LCD has; `off` (dark) while it is off; white for a light without a color. Another entity: its state as a color name (an `input_select` with `red`, `blue`, ...). An attribute: a color name, or a list of red, green and blue. |
 | `meter` | The number of the state (or the attribute), from `min` to `max`. |
 | A button's `led` | Lit while the state is `on`, `open`, `playing` or `home` (and `1`, `true`, `yes`, as for a watch); flashing on `flash`; else dark. |
 | `present` of a custom channel | Present unless the entity is `unavailable` or `unknown`, or Home Assistant does not have it. |
@@ -126,7 +126,8 @@ does. These domains need no `service`:
 | `fan` | `percentage` (`0` while off) | 0..100 | `fan.set_percentage` with `percentage` |
 
 Any other entity, or another attribute, needs `service` and `data` with `{value}`. `{value}` alone is the number,
-`{value}` within a text is its digits. A button calls a service with `{ service, entity, data }`:
+`{value}` within a text is its digits. A press or a hold calls a service with `{ service, entity, data }`. It sends
+`data` as it is: `{value}` in it is an error.
 
 ```toml
 [channel.lamp]
@@ -148,7 +149,8 @@ solo = { press = { service = "scene.turn_on", entity = "scene.movie" } }
   rests, an LED is dark, a color stays, a value is not known. It connects again by itself.
 - An entity that Home Assistant does not have is a warning in the log, once per connection, not an error of the
   file: it may come later.
-- A service that fails (e.g. an entity that is unavailable) is a warning in the log.
+- A service that fails (e.g. an entity that is unavailable) is a warning in the log. The fader or the encoder goes
+  back to the value of the entity. After a call that works, it stays where you put it until the entity reports.
 
 ## Home Assistant
 

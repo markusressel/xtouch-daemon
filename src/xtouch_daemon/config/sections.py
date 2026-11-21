@@ -161,7 +161,7 @@ _SCHEMES = {"http": "ws", "https": "wss", "ws": "ws", "wss": "wss"}
 
 
 class HomeAssistantConfig(Model):
-    """The Home Assistant whose entities parts can show and set directly, e.g. `meter = { entity = "sensor.cpu" }`."""
+    """The API of Home Assistant, for parts that show or set an entity, e.g. `meter = { entity = "sensor.cpu" }`."""
 
     url: str
     """The address of Home Assistant, as in the browser. E.g. `http://homeassistant.local:8123`."""
@@ -174,7 +174,8 @@ class HomeAssistantConfig(Model):
     """A file with the token (`~` is your home directory). Whitespace around it is ignored."""
     token_env: str | None = None
     """
-    An environment variable with the token, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`).
+    An environment variable with the token, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`). The
+    GUI reads its own environment: start it with the variable set too.
     """
 
     @field_validator("url")

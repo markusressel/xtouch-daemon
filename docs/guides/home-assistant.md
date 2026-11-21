@@ -96,16 +96,21 @@ select = { press = { service = "light.toggle", entity = "light.desk" }, led = { 
 The token acts as your user: the daemon sees every entity and can call every service you can. A user of its own in
 Home Assistant (Settings → People → Users) limits that to what that user may do.
 
-- A reload takes a changed section: the daemon connects again with it. No restart is needed.
-- A connection that breaks is tried again, after 1 second, then after longer waits, up to a minute. Meanwhile the
-  entities are not known: the parts show nothing.
-- A token that Home Assistant refuses is not tried again: the log says so. Make a new one and reload.
-- A token file that can't be read, or a variable that is not set, is an error in the log; the daemon runs without
-  the connection.
-- The log says when the daemon connected to Home Assistant, and why it can't (View → Log in the [GUI](gui.md)).
+| When | The daemon |
+|---|---|
+| You change the section and reload | Connects again with it. No restart is needed. |
+| The connection breaks | Tries again after 1, 2, 5, 10 and 30 seconds, then every 60 seconds. The waits start at 1 second again only after a connection got the states. Meanwhile the parts show nothing. |
+| Home Assistant refuses the token | Logs an error and stops trying. A reload sends a token again only if it is another one: Home Assistant can ban an address after failed logins. Make a new token, put it where the section reads it, and reload. |
+| It can't read `token_file`, or `token_env` is not set | Logs an error and runs without the connection. A reload tries again once there is a token. |
+
+- A new token in the variable of `token_env` takes a restart of the service: a reload keeps its environment.
+- A fader or an encoder bound to an entity gets no entity of the daemon's own over `[mqtt]`: the entity is already in
+  Home Assistant.
+- The log says when the daemon connects to Home Assistant, and why it can't (View → Log in the [GUI](gui.md)).
 - In the GUI, the page "Home Assistant API" tests the settings before you save them, and shows how the daemon's
-  connection is doing. With the section, the fields of entities suggest the entities of Home Assistant (see
-  [the GUI](gui.md#suggestions-from-home-assistant)).
+  connection is doing. The fields of entities suggest the entities of Home Assistant (see
+  [the GUI](gui.md#suggestions-from-home-assistant)). The window reads them with the token in the editor: with
+  `token_env`, start the GUI with that variable set, or it has no suggestions.
 
 ## `homeassistant` channels
 

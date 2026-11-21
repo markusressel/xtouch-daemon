@@ -139,8 +139,10 @@ an automation that copies an entity into the daemon's own.
 The connection (`homeassistant/client.py`, `HomeAssistant`) is one for the daemon: it follows every entity
 (`subscribe_entities`, compressed, as the frontend of Home Assistant does) and calls services. `Commands.hass` hands it
 to the strips, the controls and the twins, as `Commands` hands them the programs. It connects only while the
-configuration (or a twin) has a part bound to an entity, and again after it broke (1, 2, 5, 10, 30, then 60 seconds);
-a refused token stops it until the next configuration. A reload takes a changed section.
+configuration (or a twin) has a part bound to an entity, and again after it broke (`RECONNECT_DELAYS`: 1, 2, 5, 10,
+30, then 60 seconds; back to 1 only after a connection got the states). A refused token, or one that can't be read,
+ends it (`_hopeless`): the same section connects again only when its token resolves to another one. A reload takes a
+changed section.
 
 
 ## The GUI
@@ -152,7 +154,7 @@ take `service: ...` (a press, a hold) and `entity: ...` (an LED), with their opt
 The fields of an entity suggest the entities of Home Assistant. The window reads them itself (`client.fetch()` in a
 thread, `fields/entities.EntitySource`), with the settings in the editor, saved or not: the daemon's live view tells
 only how many there are, and the window works without a daemon. Reading them is the test of `[homeassistant]` on its
-page too. The list is drawn inside the window (`SuggestionList`), not a popup.
+page too. A `token_env` resolves in the window's environment, not in the service's. The list is drawn inside the window (`SuggestionList`), not a popup.
 
 ## Simulate
 
@@ -198,5 +200,9 @@ range. It reads the entities of Home Assistant through the connection of the dae
   color of the LCD; a light that is off is `off`.
 - A fader or an encoder bound to an entity has no number of the daemon's own in Home Assistant: the entity is there
   already.
-- A refused token is not tried again (Home Assistant can ban addresses that fail to log in); other problems are.
+- A refused token is never sent again (Home Assistant can ban addresses that fail to log in); other problems are
+  tried again.
+- After a service call that failed, a fader or an encoder goes back to the value of the entity. After one that
+  worked, it stays until the entity reports: many devices report a moment later, and the motor would jump.
+- A press sends its `data` as it is: `{value}` in it is an error of the file, not a text Home Assistant gets.
 - Simulate reads the entities but calls no services; a move changes the simulation only.

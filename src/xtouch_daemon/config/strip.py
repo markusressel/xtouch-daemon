@@ -52,8 +52,8 @@ PARTS = ("fader", "encoder", "lcd", "color", "meter")
 class BaseStripConfig(Model):
     color: ColorPart = "white"
     """
-    The backlight of the LCD. It goes dark while the strip has nothing to control, unless `lit_when_idle` is on. A
-    `watch` sets it with each line that is a color name.
+    The backlight of the LCD, dark while the strip has nothing to control unless `lit_when_idle` is on. A `watch` sets
+    it by color name. An entity sets its own color: a light that is off makes it dark.
     """
     lit_when_idle: bool = False
     """
@@ -62,8 +62,8 @@ class BaseStripConfig(Model):
     """
     meter: MeterPart = True
     """
-    The LED meter shows the level. Needs `behavior.meters`. A `watch` makes it show each number it prints, from
-    `min` to `max`.
+    The LED meter shows the level. Needs `behavior.meters`. A `watch` or an entity makes it show a number, from `min`
+    to `max`.
     """
     meter_point: Annotated[MeterPoint, METER_POINTS] | None = None
     """
@@ -98,8 +98,8 @@ class BaseStripConfig(Model):
     """What the fader sets. Bound to something else, it gives the volume to the encoder."""
     lcd: LcdPart | None = None
     """
-    The second line of the LCD, instead of the volume. A `watch` shows each line it prints. By default what the
-    strip type shows.
+    The second line of the LCD, instead of the volume. A `watch` shows each line it prints, an entity its state. By
+    default what the strip type shows.
     """
 
     @property

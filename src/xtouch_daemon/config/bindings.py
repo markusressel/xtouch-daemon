@@ -375,7 +375,9 @@ class ServiceAction(_Hashed):
     entity: EntityId | None = None
     """The entity the service acts on. E.g. `light.desk`."""
     data: ServiceData | None = None
-    """More data for the service. E.g. `{ brightness_pct = 50 }`."""
+    """
+    More data for the service, sent as it is: `{value}` is for a fader or an encoder. E.g. `{ brightness_pct = 50 }`.
+    """
 
     @model_validator(mode="after")
     def _as_it_is(self) -> ServiceAction:
