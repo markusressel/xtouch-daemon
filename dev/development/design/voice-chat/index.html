@@ -2960,6 +2960,12 @@ outside for TeamSpeak (ClientQuery) and Discord (RPC), not for Mumble.</p>
 <li><code>BridgeProvider</code>: the daemon serves a Unix socket; a plugin inside the client connects, sends the participants as
   JSON lines and gets the commands back. The protocol is the same for every client, so the daemon needs no client
   libraries. To try it by hand: <code>socat - UNIX-CONNECT:$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock</code> and a pasted line.</li>
+<li><strong>One plugin per client.</strong> The bridge takes one connection per client (the <code>client</code> of its first state line) and
+  refuses another one of the same client; plugins of different clients are connected at the same time. Their people
+  are together, each id with the client in front (<code>mumble:12</code>), so a command finds its plugin and the id there.
+  Capabilities are per client (<code>capabilities_of()</code>), and <code>clients</code> lists each with its channel for the GUI. <code>client</code>
+  is all their names, and <code>channel</code> the first one there is, so the state <code>voice_chat</code> is on while any client is in a
+  channel. When a plugin goes, only the people of its client go. The kept volume and mute are by name, across clients.</li>
 <li><code>DemoProvider</code>: participants from the configuration, with volume and mute kept in memory and a talking pattern.</li>
 <li><strong>Volume and mute while away.</strong> The Mumble plugin keeps them per session (one who comes back gets a new session at
   100 %), and the bridge has no notion of names. So the provider remembers what the strips set by the participant's

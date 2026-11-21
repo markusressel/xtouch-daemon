@@ -3236,9 +3236,11 @@ without a condition) and people with no slot to sit on.</p>
 <code>~/.config/xtouch-daemon/config.toml</code>, or to <code>PATH</code>. An existing file stays, unless <code>-f</code> (<code>--force</code>) overwrites it.</p>
 <h2 id="schema"><code>schema</code><a class="headerlink" href="#schema" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>xtouch-daemon<span class="w"> </span>schema<span class="w"> </span>&gt;<span class="w"> </span>~/.config/xtouch-daemon/config.schema.json
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>xtouch-daemon<span class="w"> </span>schema<span class="w"> </span>--bridge
 </span></code></pre></div>
 <p>Prints the <a href="../../configuration/#editors-and-ai-assistants">JSON Schema</a> of the configuration of the installed
-version. Editors with a TOML language server complete the options from it and show their help.</p>
+version. Editors with a TOML language server complete the options from it and show their help. <code>--bridge</code> prints the
+schema of the <a href="../voice-chat-bridge/">voice chat bridge</a> instead, for plugins of other voice chat clients.</p>
 <h2 id="list-devices"><code>list-devices</code><a class="headerlink" href="#list-devices" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w"> </span><span class="o">[</span>--snippet<span class="o">]</span>
 </span></code></pre></div>

@@ -2980,7 +2980,8 @@ that <code>xtouch-daemon mumble-plugin</code> says "In Mumble: ..." with a path.
 free <code>auto</code> slots, or <code>person</code> channels on slots (<code>xtouch-daemon check-config</code> shows which slots are <code>auto</code>).</p>
 <p><strong>Two Mumble clients at once</strong> (e.g. a second one with <code>mumble -m -c &lt;other settings file&gt;</code> to test with another
 user): enable the plugin in one of them only. The daemon keeps the plugin that connected first and refuses the other
-one; it logs "Refusing another voice chat plugin while one is connected" once.</p>
+one; it logs "Refusing another voice chat plugin of mumble while one is connected" once. A plugin of another client,
+e.g. TeamSpeak, can be connected besides it.</p>
 <p>Next: <a href="../../configuration/channels/applications/#launching-the-application">Applications</a> (start Mumble with Select), <a href="../../configuration/channels/people/">People</a> (where people sit).</p>
 
 
