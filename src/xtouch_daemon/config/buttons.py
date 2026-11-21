@@ -77,8 +77,8 @@ LedPart = Annotated[
     WORD_OR_TABLE,
 ]
 """
-What the LED of a button shows: a word, a program of your own that watches it (`{ watch = [...] }`), or an entity of
-Home Assistant (`{ entity = "..." }`).
+What the LED of a button shows: a word, a program of your own that watches or polls it (`{ watch = [...] }`,
+`{ poll = [...] }`), or an entity of Home Assistant (`{ entity = "..." }`).
 """
 
 
@@ -142,8 +142,8 @@ class ButtonConfig(Model):
     """What holding it for longer than half a second does; then a press acts when the button is let go."""
     led: LedPart | None = None
     """
-    What its LED shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on `flash`. An
-    entity lights it while it is `on`, `open`, `playing` or `home`.
+    What its LED shows. A `watch` or a `poll` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on
+    `flash`. An entity lights it while it is `on`, `open`, `playing` or `home`.
     """
 
 

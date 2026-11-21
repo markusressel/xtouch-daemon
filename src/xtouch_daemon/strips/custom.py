@@ -142,9 +142,9 @@ class Programs:
             return value
         if not isinstance(part, ValueBinding):
             return None
-        programs = tuple(tuple(fill(argv, **self._placeholders)) for argv in part.programs.values())
+        programs = tuple((option, *fill(argv, **self._placeholders)) for option, argv in part.programs.items())
         # the first target makes it: with `together`, it leads
-        key = (what, programs)
+        key = (what, programs, part.every)
         if (value := self._shared.get(key)) is None:
             kind = TogetherValue if self._first else CommandValue
             value = kind(part, self._commands, self._step, f"{self.title}.{what}", self._placeholders)
@@ -156,7 +156,7 @@ class Programs:
         if not isinstance(part, LineBinding):
             return None
         if isinstance(part, WatchBinding):
-            part = part.model_copy(update={"watch": tuple(fill(part.watch, **self._placeholders))})
+            part = part.filled(**self._placeholders)
         key = line_source(part, kind)
         if (line := self._shared.get(key)) is None:
             line = self._shared[key] = open_line(part, self._commands, f"{self.title}.{what}", kind)

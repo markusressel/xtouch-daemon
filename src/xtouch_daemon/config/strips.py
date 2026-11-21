@@ -69,7 +69,7 @@ CUSTOM_PARTS = ("fader", "encoder", "lcd", "color", "meter", "present")
 CUSTOM_ACTIONS = frozenset({"off", "next", "cycle_modes", "homeassistant"})
 """The actions of the buttons of a `custom` channel that are a word; `mode:`, `toggle:` and `{ run = [...] }` too."""
 CUSTOM_LEDS = frozenset({"off", "press", "homeassistant"})
-"""What the LEDs of a `custom` channel show as a word; a `{ watch = [...] }` too."""
+"""What the LEDs of a `custom` channel show as a word; a `{ watch = [...] }` or `{ poll = [...] }` too."""
 
 
 class CustomStripConfig(Model):
@@ -83,8 +83,8 @@ class CustomStripConfig(Model):
     """The top line of the LCD. By default the name of the channel, or of the target with `targets`."""
     color: ColorPart = "white"
     """
-    The backlight of the LCD. A `watch` sets it by color name. An entity sets its own color: a light that is off makes
-    it dark.
+    The backlight of the LCD. A `watch` or a `poll` sets it by color name. An entity sets its own color: a light that
+    is off makes it dark.
     """
     fader: CustomValuePart | None = None
     """What the fader sets. Without it, the fader stays down. E.g. the brightness of a screen."""
@@ -92,11 +92,11 @@ class CustomStripConfig(Model):
     """What the encoder sets. By default the value of the fader, by its `step`."""
     lcd: LcdPart | None = None
     """
-    The second line of the LCD. A `watch` shows each line it prints, an entity its state. By default the value of the
-    fader, else of the encoder.
+    The second line of the LCD. A `watch` or a `poll` shows each line it prints, an entity its state. By default the
+    value of the fader, else of the encoder.
     """
     meter: CustomMeterPart | None = None
-    """What the LED meter shows. A `watch` or an entity makes it show a number, from `min` to `max`."""
+    """What the LED meter shows. A `watch`, a `poll` or an entity makes it show a number, from `min` to `max`."""
     select: SelectButton = ButtonConfig()
     """What Select does (`press`, `hold`) and what its LED shows (`led`). By default nothing."""
     rec: RecButton = ButtonConfig()
@@ -107,8 +107,8 @@ class CustomStripConfig(Model):
     """What Mute does (`press`, `hold`) and what its LED shows (`led`). By default nothing."""
     present: PresentPart | None = None
     """
-    Whether the channel is there. A `watch`: a line with text makes it present, an empty line absent. An entity: it is
-    present unless it is `unavailable` or `unknown`. Without it, the channel is always present.
+    Whether the channel is there. A `watch` or a `poll`: a line with text makes it present, an empty line absent. An
+    entity: it is present unless it is `unavailable` or `unknown`. Without it, the channel is always present.
     """
     targets: tuple[Target, ...] = ()
     """
@@ -227,7 +227,8 @@ def _led_problem(name: str, led: str) -> str | None:
     if led in CUSTOM_LEDS:
         return None
     words = ", ".join(sorted(CUSTOM_LEDS))
-    return f"{name}.led: {led} is not for custom channels ({words}, {{ watch = [...] }}, or {{ entity = ... }})"
+    bindings = "{ watch = [...] }, { poll = [...] }, or { entity = ... }"
+    return f"{name}.led: {led} is not for custom channels ({words}, {bindings})"
 
 
 StripConfig = Annotated[

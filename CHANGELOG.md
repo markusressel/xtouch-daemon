@@ -36,6 +36,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     `color`, `meter` and an LED take a `{ watch = "..." }` whose lines they show. A press or a hold takes
     `{ run = "..." }`. A fader bound away from the volume gives the volume to the encoder. The new option `lcd` is the
     second line of the LCD.
+  - `poll` instead of `watch` runs a program to its end every `every` seconds (10 by default) and takes the last line
+    it prints, e.g. `lcd = { poll = "date +%H:%M", every = 10 }`. It works wherever `watch` does: a value, `lcd`,
+    `color`, `meter`, an LED, `present` and `[controls]`. Only one run is on at a time; a run that takes longer than
+    `every` is stopped. A part takes `watch` or `poll`, not both.
   - With `[mqtt]`, each part in Home Assistant has an entity of its own, and a bound value is a number there too.
   - Custom channels (`type = "custom"`) replace the `command` channels of the development branch: a strip with no
     defaults, every part it uses bound. `targets` switch what it controls (Select's `next`, `{target}` in the

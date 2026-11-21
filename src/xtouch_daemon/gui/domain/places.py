@@ -18,8 +18,8 @@ from xtouch_daemon.gui.domain.schema import describe, strip_options
 from xtouch_daemon.gui.domain.slot_stacks import EMPTY, is_pool, pool_kind, pool_strip
 from xtouch_daemon.slots.model import DEVICES, MEMBER_OPTIONS
 
-PROGRAM_KEYS = ("launch", "run", "watch")
-"""The tables of a part, by their key: what a press starts or runs, what an LED or a meter watches."""
+PROGRAM_KEYS = ("launch", "run", "watch", "poll")
+"""The tables of a part, by their key: what a press starts or runs, what an LED or a meter watches or polls."""
 
 
 HOME_ASSISTANT_KEYS = ("service", "entity")

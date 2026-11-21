@@ -12,7 +12,7 @@ defaults at all: every part it uses is bound.
 [channel.out]
 type = "output"
 device = "alsa_output.usb-*"
-meter = { watch = ["sh", "-c", "vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'"] }   # the meter shows the CPU load, the fader stays the volume
+meter = { watch = "/home/me/bin/cpu-load" }   # a script of your own: the meter shows the CPU load, the fader stays the volume
 color = "homeassistant"                       # select.xtouch_out_color, an automation sets it
 
 [channel.screen_left]

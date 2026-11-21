@@ -348,14 +348,14 @@ there. It follows the values in the form at once, saved or not, at the step show
 - a bind button next to each part that can be [bound](../configuration/strip/bindings.md) (the fader, the encoder,
   the LCD, the color, the meter, `present`): "Not bound", "Home Assistant" (with `[mqtt]`), "An entity" (with
   `[homeassistant]`) or "A program". "A program" shows the options of the program under the part, e.g. `set`,
-  `watch`, `min` and `max`; "An entity" those of the [entity](../configuration/strip/bindings.md), e.g. `entity`,
+  `watch` (or `poll` and `every`), `min` and `max`; "An entity" those of the [entity](../configuration/strip/bindings.md), e.g. `entity`,
   `attribute`, `min`, `service`. A problem in one of them shows under its row. Set back to "Not bound", the part does
   what its type says again;
 - the field of an entity suggests the entities of Home Assistant (see [below](#suggestions-from-home-assistant)), the
   field of an attribute those of the entity picked, with their values now. An unset option says what the domain of
   the entity does, e.g. "default: 255, of a light" for `max` of a light, or "default: light.turn_on, of a light" for
   `service`. `data` is typed as an inline table, e.g. `{ brightness_pct = 50 }`;
-- in the lists of a button's press, hold and LED on a channel page, typing `run: ...` or `watch: ...` binds the
+- in the lists of a button's press, hold and LED on a channel page, typing `run: ...`, `watch: ...` or `poll: ...` binds the
   button to a program. `service:` (in the list of a press or a hold) calls a service of Home Assistant, `entity:` (in
   the list of an LED) shows an entity: their options (the service, the entity, `data`, `attribute`) show under the
   list. Places and pools take the words of the lists only;
