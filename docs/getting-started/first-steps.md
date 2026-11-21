@@ -110,6 +110,10 @@ systemctl --user enable --now xtouch-daemon
 A unit in `~/.config/systemd/user` overrides the one of the package; see
 [`install-service`](../reference/commands.md#install-service).
 
+The daemon runs as your user, not as root: it controls your PipeWire and runs the commands of your configuration.
+Don't start it with `sudo`. The daemon refuses to run as root, and it refuses a configuration that other users can
+change, see [Troubleshooting](../guides/troubleshooting.md#starting).
+
 | Task | Command |
 |---|---|
 | Apply a changed configuration | Nothing: the daemon takes the saved file. By hand: `systemctl --user reload xtouch-daemon` |

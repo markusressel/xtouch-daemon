@@ -232,6 +232,37 @@ async def test_the_lcd_shows_what_its_watch_prints(
     strip.close()
 
 
+async def test_the_lcd_shows_what_its_poll_prints_and_another_every_runs_it_anew(
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
+) -> None:
+    programs.polled = {"date +%H:%M": "12:00\n"}
+    strip = strip_of(surface, env, 'lcd = { poll = "date +%H:%M" }')
+    strip.update(GONE)
+    await settle()
+    assert surface.strips[0].text[1] == "12:00"
+    programs.polled = {"date +%H:%M": "12:01\n"}
+    # between two runs
+    await asyncio.sleep(11)
+    strip.update(GONE)
+    assert surface.strips[0].text[1] == "12:01"
+    assert programs.polling("date +%H:%M") == 2
+    # the same poll goes on, another every starts it anew
+    (same,) = strips_of('[channel.it]\ntype = "output"\ndevice = "speaker"\nlcd = { poll = "date +%H:%M" }')
+    strip.set_look(look_of(same))
+    await settle()
+    assert programs.polling("date +%H:%M") == 2
+    (faster,) = strips_of(
+        '[channel.it]\ntype = "output"\ndevice = "speaker"\nlcd = { poll = "date +%H:%M", every = 1 }'
+    )
+    strip.set_look(look_of(faster))
+    await settle()
+    assert programs.polling("date +%H:%M") == 3
+    await asyncio.sleep(1.5)
+    assert programs.polling("date +%H:%M") == 4
+    strip.close()
+    await programs.wait_closed()
+
+
 COLOR = "light-color --watch"
 
 

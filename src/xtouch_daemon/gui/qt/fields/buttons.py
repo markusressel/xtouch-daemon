@@ -44,6 +44,7 @@ PROGRAM_MEANINGS = {
     "launch": "Starts the program.",
     "run": "Runs the program to its end. `{value}` is the value of the fader, else of the encoder.",
     "watch": "Lit while the program's newest line is `on`, `1`, `true` or `yes`; it flashes on `flash`.",
+    "poll": "Lit while the last line of the program's last run is `on`, `1`, `true` or `yes`; it flashes on `flash`.",
     "service": "Calls the service of Home Assistant, with the entity and the data below.",
     "entity": "Lit while the entity of Home Assistant is `on`, `open`, `playing` or `home`.",
 }
@@ -51,7 +52,7 @@ PROGRAM_MEANINGS = {
 
 def program_table(text: str) -> dict[str, Any] | None:
     """
-    The table of a text typed as `run: prog arg` (or `launch:`, `watch:`), `service: light.toggle` or `entity:
+    The table of a text typed as `run: prog arg` (or `launch:`, `watch:`, `poll:`), `service: light.toggle` or `entity:
     light.desk`; None for other text.
     """
     key, colon, rest = text.partition(":")

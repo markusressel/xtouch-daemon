@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://markusressel.github.io/xtouch-daemon/latest/voice-chat-bridge.schema.json",
+  "title": "xtouch-daemon voice chat bridge",
+  "description": "A line of the voice chat bridge between xtouch-daemon and a plugin of a voice chat client, one JSON object per line on the socket `$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock`. Both sides ignore keys they don't know.",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/FromPlugin"
+    },
+    {
+      "$ref": "#/$defs/FromDaemon"
+    }
+  ],
+  "$defs": {
+    "Capability": {
+      "description": "What a provider can do besides telling who is there and who talks.",
+      "enum": [
+        "volume",
+        "mute",
+        "levels"
+      ],
+      "title": "Capability",
+      "type": "string"
+    },
+    "FromDaemon": {
+      "description": "A line of the daemon to the plugin.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Greeting"
+        },
+        {
+          "$ref": "#/$defs/Refusal"
+        },
+        {
+          "$ref": "#/$defs/SetVolume"
+        },
+        {
+          "$ref": "#/$defs/SetMuted"
+        }
+      ]
+    },
+    "FromPlugin": {
+      "description": "A line of the plugin to the daemon.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PluginState"
+        }
+      ]
+    },
+    "Greeting": {
+      "description": "The first line of the daemon to a plugin that connects.",
+      "properties": {
+        "daemon": {
+          "const": "xtouch-daemon",
+          "description": "Who answers: always `xtouch-daemon`.",
+          "title": "Daemon",
+          "type": "string"
+        },
+        "version": {
+          "description": "The version of the daemon, e.g. `0.2.0`.",
+          "title": "Version",
+          "type": "string"
+        },
+        "protocol": {
+          "description": "The version of the protocol that the daemon speaks. A plugin that speaks an older one can tell from it whether\nthe daemon understands it.",
+          "title": "Protocol",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "daemon",
+        "version",
+        "protocol"
+      ],
+      "title": "Greeting",
+      "type": "object"
+    },
+    "MuteChange": {
+      "description": "The mute that Mute sets for a participant.",
+      "properties": {
+        "id": {
+          "description": "The `id` of the participant, as text.",
+          "title": "Id",
+          "type": "string"
+        },
+        "muted": {
+          "description": "True mutes the participant for the user, false unmutes them.",
+          "title": "Muted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "muted"
+      ],
+      "title": "MuteChange",
+      "type": "object"
+    },
+    "ParticipantState": {
+      "description": "A participant of the voice chat, as the plugin knows them.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "description": "What the client knows the participant by. It stays the same while they are there. A number is taken as text: the\ncommands of the daemon send it back as a string.",
+          "title": "Id"
+        },
+        "name": {
+          "description": "The name of the participant: the LCD shows it, and the daemon keeps volume and mute by it.",
+          "title": "Name",
+          "type": "string"
+        },
+        "talking": {
+          "default": false,
+          "description": "The participant talks right now: the LCD lights in `talking_color`.",
+          "title": "Talking",
+          "type": "boolean"
+        },
+        "muted": {
+          "default": false,
+          "description": "The user muted the participant, for themselves only (in Mumble: the local mute). Mute lights.",
+          "title": "Muted",
+          "type": "boolean"
+        },
+        "volume": {
+          "default": 100,
+          "description": "The volume of the participant for the user, in percent, 0 to 200; the fader shows it. The daemon rounds it and\nclamps it to 0..200.",
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Volume",
+          "type": "number"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How loud the participant talks, 0 to 1, after their volume: the peak since the line before. The meter shows it\nwith `meter_point = \"post_fader\"`. Leave it out if the client can't tell. The daemon clamps it to 0..1.",
+          "title": "Level"
+        },
+        "pre_fader_level": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How loud the participant talks, 0 to 1, before their volume: the peak since the line before. The meter shows it\nwith `meter_point = \"pre_fader\"`, so it stays up while the fader is down. Without it, the meter shows `level`.\nThe daemon clamps it to 0..1.",
+          "title": "Pre Fader Level"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "ParticipantState",
+      "type": "object"
+    },
+    "PluginState": {
+      "description": "A line of the plugin: its whole state, on every change, and while someone talks for the levels (e.g. 20 times a\nsecond).",
+      "properties": {
+        "protocol": {
+          "default": 1,
+          "description": "The version of the protocol that the plugin speaks. The daemon ignores (and logs) the lines of a version it does\nnot speak.",
+          "title": "Protocol",
+          "type": "integer"
+        },
+        "client": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The voice chat client, e.g. `mumble`: the log and the GUI name it.",
+          "title": "Client"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel the user is in: the GUI shows it. Leave it out, or empty, outside a channel.",
+          "title": "Channel"
+        },
+        "capabilities": {
+          "default": [],
+          "description": "What the plugin can do besides telling who is there and who talks: `volume` (the fader sets volumes), `mute`\n(Mute mutes) and `levels` (it sends `level`, the meter shows it).",
+          "items": {
+            "$ref": "#/$defs/Capability"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "participants": {
+          "description": "The participants in the channel of the user, without the user, in the order they came.",
+          "items": {
+            "$ref": "#/$defs/ParticipantState"
+          },
+          "title": "Participants",
+          "type": "array"
+        }
+      },
+      "required": [
+        "participants"
+      ],
+      "title": "PluginState",
+      "type": "object"
+    },
+    "Refusal": {
+      "description": "The only line of the daemon to a plugin that it refuses; the daemon closes the connection after it.",
+      "properties": {
+        "error": {
+          "description": "Why the daemon refuses the plugin, e.g. `another mumble plugin is connected` while a plugin of the same client is\nconnected.",
+          "title": "Error",
+          "type": "string"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "title": "Refusal",
+      "type": "object"
+    },
+    "SetMuted": {
+      "description": "A command of the daemon: mute or unmute a participant for the user. Needs the capability `mute`.",
+      "properties": {
+        "set_muted": {
+          "$ref": "#/$defs/MuteChange",
+          "description": "The participant and their new mute."
+        }
+      },
+      "required": [
+        "set_muted"
+      ],
+      "title": "SetMuted",
+      "type": "object"
+    },
+    "SetVolume": {
+      "description": "A command of the daemon: set the volume of a participant. Needs the capability `volume`.",
+      "properties": {
+        "set_volume": {
+          "$ref": "#/$defs/VolumeChange",
+          "description": "The participant and their new volume."
+        }
+      },
+      "required": [
+        "set_volume"
+      ],
+      "title": "SetVolume",
+      "type": "object"
+    },
+    "VolumeChange": {
+      "description": "The volume a fader sets for a participant.",
+      "properties": {
+        "id": {
+          "description": "The `id` of the participant, as text.",
+          "title": "Id",
+          "type": "string"
+        },
+        "volume": {
+          "description": "The volume, in percent, 0 to 200. The plugin clamps a volume out of its range.",
+          "title": "Volume",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "volume"
+      ],
+      "title": "VolumeChange",
+      "type": "object"
+    }
+  }
+}

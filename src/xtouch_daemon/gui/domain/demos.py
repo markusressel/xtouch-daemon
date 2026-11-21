@@ -439,7 +439,7 @@ def _bound_lcd(strip: Strip) -> tuple[str, str] | None:
     if strip.value("lcd") == HOME_ASSISTANT:
         return "The second line: the text Home Assistant sets", "HA text"
     if (watch := strip.binding("lcd", WatchBinding)) is not None:
-        return f"The second line: each line {_program(watch.watch)} prints", "line"
+        return f"The second line: each line {_program(watch.feed.argv)} prints", "line"
     if (entity := strip.binding("lcd", EntityBinding)) is not None:
         return f"The second line: {_entity_place(entity)}", "state"
     return None
@@ -450,7 +450,7 @@ def _bound_color(strip: Strip) -> str | None:
     if strip.value("color") == HOME_ASSISTANT:
         return "the color Home Assistant sets"
     if (watch := strip.binding("color", WatchBinding)) is not None:
-        return f"the color {_program(watch.watch)} prints"
+        return f"the color {_program(watch.feed.argv)} prints"
     if (entity := strip.binding("color", EntityBinding)) is not None:
         return f"the color {_entity_place(entity)} names"
     return None
@@ -504,7 +504,7 @@ def _buttons(strip: Strip) -> tuple[Frame, ...]:
     leds = [setup.led for setup in setups.values()]
     for led in leds:
         if isinstance(led, WatchBinding):
-            situations.append((f"{_program(led.watch)} prints on", {"playing", "watch"}))
+            situations.append((f"{_program(led.feed.argv)} prints on", {"playing", "watch"}))
             break
     for led in leds:
         if isinstance(led, EntityBinding):
@@ -630,7 +630,7 @@ def _bound_meter(strip: Strip) -> str | None:
     if strip.value("meter") == HOME_ASSISTANT:
         return "meter: the level Home Assistant sets"
     if (watch := strip.binding("meter", LevelBinding)) is not None:
-        return f"meter: each number {_program(watch.watch)} prints"
+        return f"meter: each number {_program(watch.feed.argv)} prints"
     if (entity := strip.binding("meter", EntityLevelBinding)) is not None:
         return f"meter: {_entity_place(entity)}, from {entity.min:g} to {entity.max:g}"
     return None

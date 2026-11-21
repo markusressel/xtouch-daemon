@@ -9,22 +9,29 @@ channels](../../development/design/bindings.md).
 ```toml
 [channel.out]
 type = "output"
-meter = { watch = ["sh", "-c", "vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'"] }   # the meter shows the CPU load, the fader stays the volume
+meter = { watch = "/home/me/bin/cpu-load" }   # the meter shows the CPU load, the fader stays the volume
 color = "homeassistant"                       # Home Assistant sets the color
 lcd = { entity = "sensor.outside_temperature" }   # the second line shows an entity of Home Assistant
+```
+
+`/home/me/bin/cpu-load` is a script of your own. It prints the CPU load in percent, once a second:
+
+```sh
+#!/bin/sh
+vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'
 ```
 
 The parts of the `output`, `input`, `apps` and `auto` channels:
 
 | Part | Default | A program | An entity |
 |---|---|---|---|
-| ![](../../images/controls/fader.png){ .xt-icon } `fader` | The volume (`"volume"`). | A value: `{ set, watch, min, max, step, format }`. | `{ entity, attribute, min, max, step, format, service, data }`: sets it. |
-| ![](../../images/controls/encoder.png){ .xt-icon } `encoder` | The type's modes ([Encoders](encoders.md)). | A value: `{ set, watch, min, max, step, push, format }`. | As the fader, with `push`. |
-| ![](../../images/controls/lcd.png){ .xt-icon } `lcd` | What the type shows on the second line. | `{ watch }`: each line is the text. | `{ entity, attribute }`: its state or attribute. |
-| ![](../../images/controls/color.png){ .xt-icon } `color` | A color name. | `{ watch }`: each line is a color name. | `{ entity, attribute }`: its color. |
-| ![](../../images/controls/meter.png){ .xt-icon } `meter` | The level of the audio (`true`), or dark (`false`). | `{ watch, min, max }`: each line is a level. | `{ entity, attribute, min, max }`: its number. |
+| ![](../../images/controls/fader.png){ .xt-icon } `fader` | The volume (`"volume"`). | A value: `{ set, watch, min, max, step, format }`, or `poll` and `every` instead of `watch`. | `{ entity, attribute, min, max, step, format, service, data }`: sets it. |
+| ![](../../images/controls/encoder.png){ .xt-icon } `encoder` | The type's modes ([Encoders](encoders.md)). | A value: `{ set, watch, min, max, step, push, format }`, or `poll` and `every` instead of `watch`. | As the fader, with `push`. |
+| ![](../../images/controls/lcd.png){ .xt-icon } `lcd` | What the type shows on the second line. | `{ watch }` or `{ poll, every }`: each line is the text. | `{ entity, attribute }`: its state or attribute. |
+| ![](../../images/controls/color.png){ .xt-icon } `color` | A color name. | `{ watch }` or `{ poll, every }`: each line is a color name. | `{ entity, attribute }`: its color. |
+| ![](../../images/controls/meter.png){ .xt-icon } `meter` | The level of the audio (`true`), or dark (`false`). | `{ watch, min, max }` or `{ poll, every, min, max }`: each line is a level. | `{ entity, attribute, min, max }`: its number. |
 | ![](../../images/controls/select.png){ .xt-icon } A button's `press`, `hold` | The type's actions ([Buttons and LEDs](leds.md)). | `{ run }`: runs to its end. | `{ service, entity, data }`: calls a service. |
-| ![](../../images/controls/rec.png){ .xt-icon } A button's `led` | The type's indicators. | `{ watch }`: `on`, `1`, `true`, `yes` light it, `flash` flashes it. | `{ entity, attribute }`: lit while `on`, `open`, `playing`, `home`. |
+| ![](../../images/controls/rec.png){ .xt-icon } A button's `led` | The type's indicators. | `{ watch }` or `{ poll, every }`: `on`, `1`, `true`, `yes` light it, `flash` flashes it. | `{ entity, attribute }`: lit while `on`, `open`, `playing`, `home`. |
 
 Each part also takes `"homeassistant"`: Home Assistant sets it, with an entity of its own (see below).
 
@@ -32,13 +39,35 @@ A place of a slot takes the words of a part only, no binding. A part that a slot
 takes the same bindings in [`[controls]`](../slots.md#controls-and-the-chord): the fader, the encoder, the meter, the
 color, the second line of the LCD, and the press and the LED of Select, Rec and Solo.
 
-- `set` runs with the new value in `{value}`; `watch` prints the value, one line per change. See
-  [A value](../channels/custom.md#a-value) for `min`, `max`, `step`, `push` and `format`.
+- `set` runs with the new value in `{value}`; `watch` prints the value, one line per change, or `poll` prints it at
+  each run. See [A value](../channels/custom.md#a-value) for `min`, `max`, `step`, `push` and `format`.
 - `{value}` in `run` is the value of the fader, else of the encoder, else the volume in percent. `{target}` is for custom
   channels with `targets`.
 - A fader bound away from the volume gives the volume to the encoder. A fader has no `push`, only the encoder.
 - A bound meter shows its level whatever `behavior.meters` says.
-- Strings are split like a shell does, without expanding anything; a list is the program and its arguments.
+- A command is a program and its arguments, run without a shell. See [Commands](#commands).
+
+## Commands
+
+`set`, `watch`, `poll` and `run` each take a command: a program and its arguments. The daemon runs the program
+itself, without a shell. A string is split at spaces, and quotes keep an argument together:
+`"notify-send 'Volume {value}'"`. A list gives each argument as it is: `["notify-send", "Volume {value}"]`.
+
+Nothing else is expanded: no `~`, no `$HOME`, no `*`, no `|`, `>` or `&&`. Give a program by its name (the daemon
+looks for it in its `PATH`) or by its full path. Pipes, redirects and loops belong in a script of your own: write
+it, make it executable (`chmod +x`), and give its full path, e.g. `watch = "/home/me/bin/cpu-load"`.
+
+## Watch or poll
+
+A part that shows what a program prints takes one of two:
+
+| Option | The program | The part shows | E.g. |
+|---|---|---|---|
+| `watch` | Runs all the time and prints a line per change. | Each new line. | `watch = "playerctl status --follow"` |
+| `poll` | Runs to its end every `every` seconds (10 by default). | The last line with text of each run. | `poll = "date +%H:%M", every = 10` |
+
+Take `watch` for a program that tells each change by itself. Take `poll` for a program that prints the current value
+once and ends. A part takes `watch` or `poll`, not both; `every` is for `poll` only.
 
 ## The options of a binding
 
@@ -49,12 +78,15 @@ encoder of its own), and of its number in Home Assistant. The other bindings hav
 | Binding | For | Option | Default | Meaning |
 |---|---|---|---|---|
 | A watch | `lcd`, `color`, a button's `led`, `present` of a custom channel | `watch` | | A program that runs all the time and prints a line per change. The part shows the newest line. |
+| | | `poll` | | Instead of `watch`: a program that runs to its end every `every` seconds. The part shows the last line it prints. |
+| | | `every` | `10` | Seconds from one run of `poll` to the next, above 0. |
 | A level | `meter` | `watch` | | A program that prints a number per change. |
+| | | `poll`, `every` | | Instead of `watch`: a program that prints a number at each run, and the seconds between the runs. |
 | | | `min`, `max` | `0`, `100` | The number with the meter dark, and with the meter full. |
 | A program to run | a button's `press`, `hold` | `run` | | The program and its arguments; `{value}` is the value (above). |
 
-A `watch` takes no `{value}`; `set` needs it in an argument after the program. `min` must be below `max`, `push`
-between them, and `step` above 0. `format` must show a number, e.g. `{value:.0%}`.
+A `watch` and a `poll` take no `{value}`; `set` needs it in an argument after the program. `min` must be below `max`,
+`push` between them, and `step` above 0. `format` must show a number, e.g. `{value:.0%}`.
 
 ## Values and watches
 
@@ -63,7 +95,13 @@ between them, and `step` above 0. `format` must show a number, e.g. `{value:.0%}
 - `set` and `run` that fail, or take longer than 10 seconds, are logged as warnings.
 - A `watch` runs for as long as the configuration, also while no slot shows the channel. A `watch` that ends or
   can't start runs again after 5 seconds.
-- While a value is set, or its fader is under a finger, the lines of `watch` don't move it.
+- A `poll` also runs for as long as the configuration: first when the configuration is loaded, then every `every`
+  seconds. Only one run is on at a time. A run that takes longer than `every` is stopped, and the next one starts
+  at once.
+- A run of `poll` that fails (an exit status other than 0), can't start or is stopped gives no line: the part keeps
+  the line before. The log has a warning, and has the same warning again only after a run that worked. A run that
+  prints no text gives an empty line.
+- While a value is set, or its fader is under a finger, the lines of `watch` and `poll` don't move it.
 
 ## Example: the brightness of a screen
 
@@ -177,5 +215,5 @@ entity has no number of its own: the entity is already in Home Assistant.
 
 ## Simulate
 
-Simulate runs the `watch` programs, but never `set` or `run`: a move changes only the simulation. It shows the
-entities of Home Assistant while the daemon is connected, but calls no services.
+Simulate runs the `watch` and `poll` programs, but never `set` or `run`: a move changes only the simulation. It shows
+the entities of Home Assistant while the daemon is connected, but calls no services.

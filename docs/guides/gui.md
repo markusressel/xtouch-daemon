@@ -618,7 +618,7 @@ The bind button
     | Not bound | Nothing: the part does what its type says again. |
     | Home Assistant (with `[mqtt]`) | Nothing. |
     | An entity (with `[homeassistant]`) | The options of the [entity](../configuration/strip/bindings.md), e.g. `entity`, `attribute`, `min`, `service`. |
-    | A program | The options of the program, e.g. `set`, `watch`, `min` and `max`. |
+    | A program | The options of the program, e.g. `set`, `watch` (or `poll` and `every`), `min` and `max`. |
 
     A problem in one of the options shows under its row.
 
@@ -635,6 +635,7 @@ A button's press, hold and LED
     |---|---|---|
     | `run: ...` | a press or a hold | Runs a program. |
     | `watch: ...` | an LED | Shows what a program prints. |
+    | `poll: ...` | an LED | Shows what a program prints, run every `every` seconds. |
     | `service: ...` | a press or a hold | Calls a service of Home Assistant. |
     | `entity: ...` | an LED | Shows an entity. |
 

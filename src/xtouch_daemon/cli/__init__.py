@@ -11,6 +11,7 @@ from xtouch_daemon.cli.daemon import run, test
 from xtouch_daemon.cli.editor import gui
 from xtouch_daemon.cli.modes import mode, why
 from xtouch_daemon.cli.mumble import mumble_plugin
+from xtouch_daemon.cli.root import ALLOWED_AS_ROOT, not_as_root
 from xtouch_daemon.cli.service import install_service
 from xtouch_daemon.cli.simulator import virtual_device
 from xtouch_daemon.cli.slots import observe, simulate
@@ -40,4 +41,5 @@ for command in (
     virtual_device,
     why,
 ):
-    main.add_command(command)
+    # the commands that start the daemon or run configured commands, and new ones: not as root
+    main.add_command(command if command.name in ALLOWED_AS_ROOT else not_as_root(command))

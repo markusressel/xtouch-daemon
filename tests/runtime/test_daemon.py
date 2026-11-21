@@ -226,6 +226,24 @@ async def test_a_configuration_with_errors_is_reported_and_the_current_one_kept(
     assert notifications[-1] == ("READY=1", "STATUS=Configuration has errors, see the log")
 
 
+async def test_a_configuration_other_users_can_change_is_reported_and_the_current_one_kept(
+    config_path: Path,
+    surface: RecordingSurface,
+    backend: FakeBackend,
+    notifications: Notifications,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    daemon = make(config_path, surface, backend)
+    old = daemon.mixer
+
+    config_path.chmod(0o666)
+    assert not daemon.reload()
+
+    assert daemon.mixer is old
+    assert f"Keeping the current configuration: other users can change {config_path.resolve()}" in caplog.text
+    assert notifications[-1] == ("READY=1", "STATUS=Configuration has errors, see the log")
+
+
 async def test_the_options_of_the_device_apply_with_a_reload(
     config_path: Path,
     surface: RecordingSurface,

@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A JSON Schema of the configuration, published with the documentation and printed by `xtouch-daemon schema`. The
   example configuration points to it (`#:schema`), so editors with a TOML language server (Taplo, Tombi) complete the
   options, show their help on hover and mark mistakes while typing.
+- A JSON Schema of the voice chat bridge, for plugins of other clients than Mumble: published with the documentation
+  (`voice-chat-bridge.schema.json`) and printed by `xtouch-daemon schema --bridge`. The daemon reads and writes the
+  lines of the bridge with the same models, so the schema can't drift from what it takes.
 - `xtouch-daemon test`: after the sweep every strip answers its own controls, so each output of the device can be
   checked by hand: the meter follows the fader, a button steps its LED through on, flashing and off, the encoder
   changes the position and the mode of the ring (also with the two LEDs at its ends), the color of the LCD and the motor
@@ -36,6 +39,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     `color`, `meter` and an LED take a `{ watch = "..." }` whose lines they show. A press or a hold takes
     `{ run = "..." }`. A fader bound away from the volume gives the volume to the encoder. The new option `lcd` is the
     second line of the LCD.
+  - `poll` instead of `watch` runs a program to its end every `every` seconds (10 by default) and takes the last line
+    it prints, e.g. `lcd = { poll = "date +%H:%M", every = 10 }`. It works wherever `watch` does: a value, `lcd`,
+    `color`, `meter`, an LED, `present` and `[controls]`. Only one run is on at a time; a run that takes longer than
+    `every` is stopped. A part takes `watch` or `poll`, not both.
   - With `[mqtt]`, each part in Home Assistant has an entity of its own, and a bound value is a number there too.
   - Custom channels (`type = "custom"`) replace the `command` channels of the development branch: a strip with no
     defaults, every part it uses bound. `targets` switch what it controls (Select's `next`, `{target}` in the
@@ -95,6 +102,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   the GUI draws them, beside the text of Concepts, the pages of the parts of a strip, custom channels, `[controls]`
   and the hardware. `just screenshot` renders them to `docs/images/controls/`. The page GUI is split into shorter
   sections, with tabs, tables, notes and the keys drawn as keys; Slots has a section Places.
+- Voice chat bridge: plugins of several voice chat clients can be connected at once, one per client (the `client`
+  of their state lines). The strips show the people of all of them, each strip with what the client of its person
+  can do, and commands go to the plugin of that person. When a plugin goes, only the people of its client go. Another
+  plugin of a client that is connected is still refused, now with `{"error": "another mumble plugin is connected"}`
+  at its first state line. The GUI lists each client with its channel; the state `voice_chat` is on while any of them
+  is in a channel. The protocol stays version 1.
 - GUI: the menus Add of the pages Channels and States, and Add source of a state, say under each entry what it does
   on the device, with its icon and its title in the color of what it adds, in groups: the types of channels, the
   devices of the sound server ("Outputs" and "Inputs") and the pools; the kinds of states and the starting points
@@ -112,6 +125,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Voice chat bridge: a line with `capabilities` that is not a list (e.g. `null`) is ignored and logged, like other
+  lines that are not the protocol. Before, it ended the connection of the plugin.
+- Docs: the page of the voice chat bridge said that a new plugin replaces the connected one; the daemon refuses it.
+  The page now also explains `pre_fader_level`.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its
   hint ends in … where it is short. Before, the right side of the window was cut off, and the drawing was off center
   with its right strips hidden.
@@ -142,6 +159,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - AUR (`xtouch-daemon-gui-bin` 0.2.0-2): `xtouch-daemon-gui-bin` needs `xtouch-daemon-bin` of its version or a newer one, no longer exactly its
   version, so an AUR helper can upgrade `xtouch-daemon-bin` first. An upgrade from 0.1.0 still needs one step by hand
   (see `RELEASING.md`).
+
+### Security
+
+- The daemon refuses to run as root, because the commands of the configuration would run as root. As root, only
+  `schema`, `simulate`, `--help` and `--version` work. There is no option to allow it.
+- The daemon refuses a configuration file that other users can change: one of another user (not root), or one that
+  the group or others can write. The same applies to its directory, and to the target of a link and its directory,
+  as with `StrictModes` of OpenSSH. The error names the file and the fix (`chmod go-w ...`). On a reload, the daemon
+  logs the error and keeps the configuration it runs.
+- A `[mqtt] password_file` or `[homeassistant] token_file` that other users can read is a warning in the log.
 
 ## [0.2.0] - 2026-11-19
 

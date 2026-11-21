@@ -1,8 +1,9 @@
+import dataclasses
 from pathlib import Path
 
 from xtouch_daemon.gui.domain.sources import Suggestion
-from xtouch_daemon.gui.domain.voip import install_hint, install_steps, participants
-from xtouch_daemon.live.messages import Snapshot, VoipState
+from xtouch_daemon.gui.domain.voip import install_hint, install_steps, participants, voip_status
+from xtouch_daemon.live.messages import Snapshot, VoipClient, VoipState
 from xtouch_daemon.voip.mumble import Setup
 
 
@@ -32,3 +33,18 @@ def test_what_install_does():
 def test_the_steps_say_whether_mumble_has_the_plugin():
     assert install_steps(Setup(None, True, None, True))[0].endswith("Mumble asks: confirm.")
     assert "(/p/libxtouch-daemon.so)" in install_steps(Setup(None, True, Path("/p/libxtouch-daemon.so"), True))[0]
+
+
+def test_the_status_lists_each_client_with_its_channel():
+    both = VoipState(
+        "bridge",
+        True,
+        "mumble, teamspeak",
+        "Lobby",
+        3,
+        clients=(VoipClient("mumble", "Lobby"), VoipClient("teamspeak")),
+    )
+    status = voip_status(snapshot(both))
+    assert (status.text, status.tip) == ("Mumble and TeamSpeak connected", "3 people: Mumble in Lobby, TeamSpeak.")
+    one = dataclasses.replace(both, client="mumble", participants=1, clients=(VoipClient("mumble", "Lobby"),))
+    assert voip_status(snapshot(one)).tip == "1 person in Lobby."
