@@ -29,6 +29,7 @@ from xtouch_daemon.live.messages import (
     Snapshot,
     StripState,
     TwinView,
+    VoipClient,
     VoipState,
     WatchLog,
 )
@@ -102,6 +103,7 @@ def voip_state(provider: VoipProvider) -> VoipState:
         participants=len(provider.participants),
         names=tuple(participant.name for participant in provider.participants),
         ids=tuple(participant.id for participant in provider.participants),
+        clients=tuple(VoipClient(client.name, client.channel) for client in provider.clients),
     )
 
 
