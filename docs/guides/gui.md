@@ -328,6 +328,12 @@ there. It follows the values in the form at once, saved or not, at the step show
   the order, which is the order Select goes through them. While a channel has `choices`, `device` and `profiles` are
   hidden, and the other way around: a channel has one or the other;
 - the meter as one choice: the level before the fader, after it, or off;
+- a bind button next to each part that can be [bound](../configuration/strip/bindings.md) (the fader, the encoder,
+  the LCD, the color, the meter): "Not bound", "Home Assistant" (with `[mqtt]`) or "A program". "A program" shows the
+  options of the program under the part, e.g. `set`, `watch`, `min` and `max`; a problem in one of them shows under
+  its row. Back to "Not bound", the part does what its type says again;
+- in the lists of a button's press, hold and LED on a channel page, `run: ...` and `watch: ...` typed in bind the
+  button to a program. Places and pools take the words of the lists only;
 - for choices, what the chosen value does (e.g. `recording` for the Rec LED), and each value says it as a tooltip in
   the list;
 - the mouse wheel scrolls the page, also over a number or a choice: it never changes a value;

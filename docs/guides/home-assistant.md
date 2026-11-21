@@ -80,17 +80,24 @@ while none does.
 
 ## Audio strips with Home Assistant controls
 
-An `output`, `input` or `apps` channel with `encoder = "homeassistant"` or `fader = "homeassistant"` keeps the
-volume on the other control and gets these entities of the [list below](#entities):
+An `output`, `input`, `apps` or `auto` channel can give any of its parts to Home Assistant (see
+[Bindings](../configuration/strip/bindings.md)). With `encoder = "homeassistant"` or `fader = "homeassistant"` it
+keeps the volume on the other control. Each part gets its entity of the [list below](#entities):
 
 | Option | Entities |
 |---|---|
 | `encoder = "homeassistant"` | `number.<ns>_<id>_encoder`, and `event.<ns>_<id>_buttons` with `encoder_pressed`, `encoder_released`. |
 | `fader = "homeassistant"` | `number.<ns>_<id>_fader`, and `event.<ns>_<id>_buttons` with `fader_touched`, `fader_released`. |
+| `lcd = "homeassistant"` | `text.<ns>_<id>_bottom`: the second line of the LCD. |
+| `color = "homeassistant"` | `select.<ns>_<id>_color`. |
+| `meter = "homeassistant"` | `number.<ns>_<id>_meter`. |
 | `select = { press = "homeassistant" }` (also `rec`, `solo`) | `event.<ns>_<id>_buttons` with `select_pressed`, `select_released`. |
+| `select = { led = "homeassistant" }` (also `rec`, `solo`) | `select.<ns>_<id>_select_led`. |
 
-The LCD and the LEDs stay with PipeWire, and so do the buttons unless they say `homeassistant` (see
-[Buttons](../configuration/strip/leds.md#buttons)). The channel's id names the entities, its `label` starts their
+A fader or an encoder bound to a program of your own is a number too: from the binding's `min` to its `max`, and a
+change there runs `set`. The parts that are not bound stay with PipeWire (see
+[Buttons](../configuration/strip/leds.md#buttons)). A [`custom` channel](../configuration/channels/custom.md) takes
+the same parts, and Mute is a button like the others there. The channel's id names the entities, its `label` starts their
 names. See [Encoders](../configuration/strip/encoders.md#homeassistant) for the details.
 
 ```toml

@@ -77,12 +77,12 @@ BOUND_OPTIONS: dict[str, str] = {
 
 STRIP_TYPE_OPTIONS: dict[tuple[str, str], str] = {
     ("voip", "label"): "configuration/channels/people/#strips-for-one-person",
-    ("custom", "fader"): "configuration/channels/custom/",
-    ("custom", "encoder"): "configuration/channels/custom/",
+    ("custom", "fader"): "configuration/channels/custom/#a-value",
+    ("custom", "encoder"): "configuration/channels/custom/#a-value",
     ("custom", "meter"): "configuration/strip/bindings/",
-    ("custom", "present"): "configuration/channels/custom/",
-    ("custom", "targets"): "configuration/channels/custom/#several-screens",
-    ("custom", "together"): "configuration/channels/custom/#several-screens",
+    ("custom", "present"): "configuration/channels/custom/#present",
+    ("custom", "targets"): "configuration/channels/custom/#targets",
+    ("custom", "together"): "configuration/channels/custom/#targets",
 }
 
 SECTION_OPTIONS: dict[str, dict[str, str]] = {

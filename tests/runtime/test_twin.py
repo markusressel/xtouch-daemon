@@ -176,3 +176,28 @@ async def test_a_twin_shows_parts_in_home_assistant_as_offline():
         task.cancel()
         twin.close()
         await twin.wait_closed()
+
+
+async def test_a_twin_shows_a_homeassistant_channel_as_offline():
+    """The twin has no MQTT: a channel of type homeassistant shows its label and that Home Assistant is not there."""
+    config = parse_config(
+        CONFIG.replace('type = "output"\nlabel = "Out"', 'type = "homeassistant"\nlabel = "Lamp"')
+        + '\n[mqtt]\nhost = "broker"\n'
+    )
+    twin = Twin(config, HOME)
+    task = asyncio.create_task(twin.run())
+    try:
+        await until(lambda: (view := twin.view()) is not None and tuple(view.strips[0].text) == ("Lamp", "offline"))
+        # the hands do nothing
+        twin.play(protocol.FaderMoved(0, protocol.fader_value(0.5)))
+        twin.play(protocol.EncoderTurned(0, 1))
+        twin.play(protocol.ButtonPressed(0, protocol.Button.SELECT, True))
+        await asyncio.sleep(0.05)
+        view = twin.view()
+        assert view is not None
+        assert tuple(view.strips[0].text) == ("Lamp", "offline")
+        assert view.strips[0].leds["select"] == "off"
+    finally:
+        task.cancel()
+        twin.close()
+        await twin.wait_closed()

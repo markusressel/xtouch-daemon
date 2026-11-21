@@ -405,6 +405,21 @@ def _lit(text: str | None) -> Lit | None:
     return None if percent is None else Lit(round(max(0.0, min(100.0, percent)) / 100 * METER_MAX))
 
 
+class OfflineHomeAssistantStrip(StripController):
+    """
+    A `homeassistant` strip without MQTT (Simulate has none): it looks as while Home Assistant is not there, and the
+    hands do nothing.
+    """
+
+    def update(self, state: AudioState) -> None:
+        self.strip.set_color(self.color)
+        self.strip.set_text(0, self.look.label or "")
+        self.strip.set_text(1, OFFLINE_TEXT)
+        for button in Button:
+            self.strip.set_led(button, Led.OFF)
+        self.strip.set_ring(0, RingMode.DOT)
+
+
 class HomeAssistantStrip(StripController):
     def __init__(
         self,

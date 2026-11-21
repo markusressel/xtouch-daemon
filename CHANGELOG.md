@@ -27,14 +27,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: when the device is plugged in while the daemon drives the virtual device, a bar above the drawing says so and
   switches to it: "Switch to it" turns `[device] virtual` off and saves, "End the trial" ends the daemon of "Try
   without a device". The daemon looks for the device every 2 seconds meanwhile and logs when it is there.
-- Custom channels (`type = "custom"`) and bindings: a fader or an encoder takes a value that programs of your own set
-  and watch (`fader = { set = "...{value}", watch = "...", min = 0.1, max = 1.0 }`), e.g. the brightness of a screen.
-  `set` runs with the new value (`{value}`), `watch` prints the value when something else changes it; the fader, the
-  encoder, the LED ring and the LCD show it. `[controls]` can give the fader or the encoder of any slot to such a
-  channel (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
-  (`{ run = "..." }`). Simulate in the GUI runs the `watch` programs, never `set` or `run`. The audio strips take
-  the new options `lcd`, and bindings of `fader`, `encoder`, `color`, `meter` and the LEDs of their buttons (being
-  built: see the design of bindings).
+- Bindings: every part of a strip (fader, encoder and its ring, the second line of the LCD, the color, the meter,
+  each button's press, hold and LED) does what its channel type says, unless the channel binds it to Home Assistant
+  (`"homeassistant"`) or to programs of your own. A fader or an encoder takes a value that programs set and watch
+  (`fader = { set = "...{value}", watch = "...", min = 0.1, max = 1.0 }`), e.g. the brightness of a screen; `lcd`,
+  `color`, `meter` and an LED take a `{ watch = "..." }` whose lines they show; a press or a hold takes
+  `{ run = "..." }`. A fader bound away from the volume gives the volume to the encoder. With `[mqtt]`, each part in
+  Home Assistant has an entity of its own, and a bound value is a number there too. The new option `lcd` is the second
+  line of the LCD.
+- Custom channels (`type = "custom"`): a strip with no defaults, every part it uses bound. `targets` switch what it
+  controls (Select's `next`, `{target}` in the programs), `together` sets every target at once, and `present`
+  watches whether the channel is there. `check-config` lists the programs per target.
+- `[controls]` can give the fader or the encoder of any slot to the value of a custom channel
+  (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
+  (`{ run = "..." }`).
+- Simulate in the GUI and `xtouch-daemon simulate` run the `watch` programs, never `set` or `run`; parts in Home
+  Assistant look as while it is not there, and the situation alone says whether a custom channel is there.
+- GUI: a bind button next to the fader, the encoder, the LCD, the color and the meter binds them to Home Assistant or
+  to a program, with the options of the program under the part. The lists of a button on a channel take
+  `run: ...` and `watch: ...`.
 
 ### Changed
 
@@ -48,6 +59,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Simulate (the GUI and `xtouch-daemon simulate`) no longer fails on a channel of type `homeassistant`: it shows
+  its label and `offline`, as while Home Assistant is not there.
 - The daemon no longer hangs at its end while a client of the live view (the GUI) does not read: systemd killed it
   after 90 s. It drops such a client at once now.
 - GUI: Start, Stop and Restart of the service no longer freeze the window until the daemon is done: they queue the

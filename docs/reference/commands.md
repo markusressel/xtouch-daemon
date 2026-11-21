@@ -73,6 +73,10 @@ A channel with [`choices`](../configuration/channels/devices.md#choices) lists t
 `output: Phones, Speaker or Buds (Select switches)`. A channel whose meter shows the level after its fader
 (`meter_point = "post_fader"`, see [Meters](../configuration/channels/index.md#meters)) says `meter post-fader`.
 
+A [custom channel](../configuration/channels/custom.md) describes each bound part with its programs; with
+`targets`, a line per target follows with the programs as they run for it, e.g.
+`Left: fader.set sysctrl display redshift brightness -d DisplayPort-1 -b '{value}'`.
+
 A table of more than 12 rows shows the situations that differ in one thing; `--all` shows every combination.
 
 A file with errors names the place of each one and its line in the file, e.g.
@@ -282,4 +286,5 @@ xtouch-daemon observe LOG [--interval 2.0] [--process NAME]...
 
 Records, every `--interval` seconds, what plays and records on the sound server, the devices, the running processes
 (those of the presets, and `--process`) and the voice chat of the running daemon, and appends a line of JSON to LOG
-when that changed. Runs until interrupted (Ctrl+C). `simulate FILE --replay LOG` replays it.
+when that changed. `absent` lists the custom channels whose `present` says they are not there. Runs until
+interrupted (Ctrl+C). `simulate FILE --replay LOG` replays it.

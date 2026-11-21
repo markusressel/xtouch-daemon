@@ -366,6 +366,27 @@ async def test_next_switches_the_target_with_values_and_watches_of_its_own(
     await commands.wait_closed()
 
 
+async def test_a_finger_on_the_fader_goes_over_to_the_new_target(surface: RecordingSurface, env: StripEnv) -> None:
+    commands = ProgramCommands()
+    strip = custom(env, surface, commands, **SCREENS)
+    left = strip.fader_value()
+    strip.on_touch(True)
+    strip.switch()
+    right = strip.fader_value()
+    assert left is not None
+    assert right is not None
+    assert (left.touched, right.touched) == (False, True)
+    # the same touch again holds the value once
+    strip.on_touch(True)
+    strip.on_touch(False)
+    assert not right.touched
+    # a finger on it when the strip closes lets go
+    strip.on_touch(True)
+    strip.close()
+    assert not right.touched
+    await commands.wait_closed()
+
+
 async def test_without_a_label_the_lcd_names_the_target(surface: RecordingSurface, env: StripEnv) -> None:
     commands = ProgramCommands()
     strip = custom(env, surface, commands, **SCREENS)

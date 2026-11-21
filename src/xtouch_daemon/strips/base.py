@@ -678,7 +678,7 @@ class VolumeStrip(StripController):
 
     def on_touch(self, touched: bool) -> None:
         if (value := self.bound.fader) is not None:
-            value.touched = touched
+            value.touch(touched)
             if not touched:
                 # let go, it stays where the hand left it (or goes where `watch` said meanwhile)
                 self._show_value_fader()

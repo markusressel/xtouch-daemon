@@ -325,6 +325,8 @@ class CustomStrip(StripController):
         self._running: dict[Button, int] = {}
         """The buttons whose `run` still runs, with how many runs (their LED with `led = "press"`)."""
         self._closed = False
+        self._gripped: CommandValue | None = None
+        """The value the finger on this strip's fader holds: the only one whose touch it sets and clears."""
 
     # -- what it controls -----------------------------------------------------------------------------------------
 
@@ -351,6 +353,9 @@ class CustomStrip(StripController):
         target = self.target
         assert target is not None
         _LOGGER.info(f"{self.identity.name}: {target.name}")
+        if self._gripped is not None:
+            # the finger on the fader goes over to the value of the new target
+            self._grip(self.current.fader)
         for listener in list(self.listeners):
             listener()
         self._publish_values()
@@ -565,12 +570,21 @@ class CustomStrip(StripController):
     def on_touch(self, touched: bool) -> None:
         fader = self.current.fader
         if fader is not None:
-            fader.touched = touched
+            self._grip(fader if touched else None)
             # let go, it stays where the hand left it
             self._show_fader()
         elif self.ha is not None and self.ha.fader is not None:
             self.ha.fader.touch(touched)
             self.ha.event("fader_touched" if touched else "fader_released")
+
+    def _grip(self, value: CommandValue | None) -> None:
+        """Moves the finger of the fader to `value` (None: lets go)."""
+        if self._gripped is not value:
+            if self._gripped is not None:
+                self._gripped.touch(False)
+            if value is not None:
+                value.touch(True)
+            self._gripped = value
 
     def on_encoder(self, steps: int) -> None:
         knob = self.current.knob()
@@ -692,6 +706,7 @@ class CustomStrip(StripController):
         self.commands.start(run(), f"{what}: run")
 
     def close(self) -> None:
+        self._grip(None)
         super().close()
         self._closed = True
         self._end_notice_timer()

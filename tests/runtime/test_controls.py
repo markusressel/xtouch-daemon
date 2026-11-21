@@ -19,6 +19,7 @@ from tests.support.waiting import until
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.bindings import ValueBinding
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Led, RingMode
@@ -370,6 +371,10 @@ async def test_controls_set_values_and_run_programs_of_their_own(
         ),
         ("[controls]\n2 = { select = { run = [] } }\n", "controls.2.select.run: an empty command"),
         (
+            '[controls]\n2 = { solo = { run = "b {value}" }, fader = "homeassistant" }\n',
+            "controls.2: solo.run: {value} needs a fader or an encoder bound to a value",
+        ),
+        (
             '[channel.screen]\ntype = "custom"\nfader = { set = "brightness" }\n',
             "channel.screen: fader.set: no argument has {value}, so the value goes nowhere",
         ),
@@ -455,7 +460,7 @@ async def test_a_finger_on_the_fader_goes_over_to_the_value_of_a_switched_channe
     assert before is not None
     surface.on_event(protocol.FaderTouched(2, True))
     other = CommandValue(ValueBinding.model_validate({"set": "other {value}", "max": 10}), commands, 1, "other")
-    screen._fader = other  # pyright: ignore[reportPrivateUsage]
+    screen.current.fader = other
     for listener in list(screen.listeners):
         listener()
     # the hand moves the new value; the motor waits for it
@@ -484,7 +489,7 @@ async def test_a_claim_on_a_channel_without_a_value_does_nothing(surface: Record
     before = screen.fader_value()
     assert before is not None
     surface.on_event(protocol.FaderTouched(2, True))
-    screen._fader = None  # pyright: ignore[reportPrivateUsage]
+    screen.current.fader = None
     for listener in list(screen.listeners):
         listener()
     assert not before.touched

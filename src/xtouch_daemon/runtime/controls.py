@@ -271,11 +271,12 @@ class SlotClaim:
         Moves the finger of the fader to `value` (None: lets go): it clears only the touch it set, not the one of the
         channel's own fader on its slot or of an encoder that steps the same value.
         """
-        # TODO(custom): one `touched` flag per CommandValue; two faders on one value at once need a count of touches
-        if self._touched_value is not None and self._touched_value is not value:
-            self._touched_value.touched = False
+        if self._touched_value is value:
+            return
+        if self._touched_value is not None:
+            self._touched_value.touch(False)
         if value is not None:
-            value.touched = True
+            value.touch(True)
         self._touched_value = value
 
     def on_encoder(self, steps: int) -> None:

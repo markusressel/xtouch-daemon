@@ -5,7 +5,6 @@ own, and the LCD, the color, the meter and the LEDs that show what a `watch` pri
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Sequence
 
 import pytest
 
@@ -15,6 +14,7 @@ from tests.support.hardware import RecordingSurface
 from tests.support.slots import Rig
 from tests.support.strips import build, strips_of
 from tests.support.tasks import settle
+from tests.support.watches import ProgramCommands
 from xtouch_daemon.audio.meter import CaptureTarget, Lit
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
@@ -33,34 +33,13 @@ SPEAKER = AudioState(outputs=(output("speaker", 50),))
 GONE = AudioState()
 
 
-class Programs(FakeCommands):
-    """`FakeCommands` with a line queue per `watch` program: `say(argv, line)` prints for that one only."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.queues: dict[tuple[str, ...], asyncio.Queue[str | None]] = {}
-
-    def queue(self, argv: Sequence[str]) -> asyncio.Queue[str | None]:
-        return self.queues.setdefault(tuple(argv), asyncio.Queue())
-
-    def say(self, program: str, line: str | None) -> None:
-        """A line the `watch` program (as written in the configuration) prints; END: it ends."""
-        self.queue(program.split()).put_nowait(line)
-
-    async def lines(self, argv: Sequence[str]) -> AsyncIterator[str]:
-        self.watches.append(list(argv))
-        queue = self.queue(argv)
-        while (line := await queue.get()) is not None:
-            yield line
+@pytest.fixture
+def programs() -> ProgramCommands:
+    return ProgramCommands()
 
 
 @pytest.fixture
-def programs() -> Programs:
-    return Programs()
-
-
-@pytest.fixture
-def env(backend: FakeBackend, programs: Programs) -> StripEnv:
+def env(backend: FakeBackend, programs: ProgramCommands) -> StripEnv:
     return StripEnv(backend, BehaviorConfig(max_volume=100, encoder_step=5), commands=programs)
 
 
@@ -99,7 +78,7 @@ FADER = f'fader = {{ set = "{SET}", watch = "{WATCH}", min = 0.1, max = 1.0, for
 
 
 async def test_a_fader_bound_to_a_program_sets_and_shows_its_value(
-    surface: RecordingSurface, env: StripEnv, programs: Programs, backend: FakeBackend
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands, backend: FakeBackend
 ) -> None:
     strip = strip_of(surface, env, FADER)
     strip.update(SPEAKER)
@@ -108,7 +87,7 @@ async def test_a_fader_bound_to_a_program_sets_and_shows_its_value(
     # not known yet: the fader is down, the LCD shows the volume
     assert s.fader == 0
     assert s.text == ["It", "50%"]
-    programs.say(WATCH, "0.55")
+    programs.print_to(WATCH, "0.55")
     await settle()
     assert s.fader == protocol.fader_value(0.5)
     # a move sets the value, and the LCD shows it for a moment
@@ -118,13 +97,13 @@ async def test_a_fader_bound_to_a_program_sets_and_shows_its_value(
     assert ran(programs) == ["brightness -d DP-1 -b 1"]
     assert s.text[1] == "100%"
     # under the finger, the watch does not move the motor
-    programs.say(WATCH, "0.1")
+    programs.print_to(WATCH, "0.1")
     await settle()
     assert s.fader == protocol.fader_value(0.5)
     strip.on_touch(False)
     await asyncio.sleep(NOTICE_TIME)
     assert s.text[1] == "50%"
-    programs.say(WATCH, "0.1")
+    programs.print_to(WATCH, "0.1")
     await settle()
     assert s.fader == 0
     # the encoder sets the volume, the fader stays
@@ -136,11 +115,11 @@ async def test_a_fader_bound_to_a_program_sets_and_shows_its_value(
 
 
 async def test_a_bound_fader_works_while_the_strip_is_idle(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, FADER)
     strip.update(GONE)
-    programs.say(WATCH, "1.0")
+    programs.print_to(WATCH, "1.0")
     await settle()
     s = surface.strips[0]
     assert s.fader == protocol.fader_value(1.0)
@@ -163,14 +142,14 @@ ENCODER = f'encoder = {{ set = "{SET}", watch = "{WATCH}", min = 0, max = 1, ste
 
 
 async def test_an_encoder_bound_to_a_program_turns_its_value(
-    surface: RecordingSurface, env: StripEnv, programs: Programs, backend: FakeBackend
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands, backend: FakeBackend
 ) -> None:
     strip = strip_of(surface, env, ENCODER)
     assert isinstance(strip.knob, CommandKnob)
     strip.update(SPEAKER)
     s = surface.strips[0]
     assert s.ring == (0, RingMode.DOT)
-    programs.say(WATCH, "0.5")
+    programs.print_to(WATCH, "0.5")
     await settle()
     assert s.ring == (ring_position(0.5), RingMode.WRAP)
     strip.on_encoder(2)
@@ -197,7 +176,7 @@ async def test_an_encoder_bound_to_a_program_turns_its_value(
 
 
 async def test_an_encoder_without_push_does_nothing_on_a_push(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, f'encoder = {{ set = "{SET}" }}')
     strip.update(SPEAKER)
@@ -209,7 +188,7 @@ async def test_an_encoder_without_push_does_nothing_on_a_push(
 
 
 async def test_a_taken_fader_gives_the_encoder_to_the_volume(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, ENCODER)
     strip.set_taken(frozenset({"fader"}))
@@ -225,14 +204,14 @@ STATUS = "playerctl status --follow"
 
 
 async def test_the_lcd_shows_what_its_watch_prints(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, f'lcd = {{ watch = "{STATUS}" }}\nencoder = "balance"')
     strip.update(AudioState(outputs=(output("speaker", 50, balance=0.0),)))
     s = surface.strips[0]
     # nothing printed yet
     assert s.text == ["It", ""]
-    programs.say(STATUS, "Playing")
+    programs.print_to(STATUS, "Playing")
     await settle()
     assert s.text == ["It", "Playing"]
     # a notice wins while it lasts
@@ -247,7 +226,7 @@ async def test_the_lcd_shows_what_its_watch_prints(
     assert s.text[1] == "Playing"
     # also while the strip is idle
     strip.update(GONE)
-    programs.say(STATUS, "Paused")
+    programs.print_to(STATUS, "Paused")
     await settle()
     assert s.text == ["It", "Paused"]
     strip.close()
@@ -256,19 +235,21 @@ async def test_the_lcd_shows_what_its_watch_prints(
 COLOR = "light-color --watch"
 
 
-async def test_the_color_is_what_its_watch_names(surface: RecordingSurface, env: StripEnv, programs: Programs) -> None:
+async def test_the_color_is_what_its_watch_names(
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
+) -> None:
     strip = strip_of(surface, env, f'color = {{ watch = "{COLOR}" }}')
     strip.update(SPEAKER)
     s = surface.strips[0]
     assert s.color == Color.WHITE
-    programs.say(COLOR, "Red")
+    programs.print_to(COLOR, "Red")
     await settle()
     assert s.color == Color.RED
     # a line that is no color keeps the color
-    programs.say(COLOR, "purple-ish")
+    programs.print_to(COLOR, "purple-ish")
     await settle()
     assert s.color == Color.RED
-    programs.say(COLOR, "blue")
+    programs.print_to(COLOR, "blue")
     await settle()
     assert s.color == Color.BLUE
     # idle, it goes dark as ever
@@ -278,11 +259,11 @@ async def test_the_color_is_what_its_watch_names(surface: RecordingSurface, env:
 
 
 async def test_a_watched_color_stays_lit_when_idle_if_asked(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, f'color = {{ watch = "{COLOR}" }}\nlit_when_idle = true')
     strip.update(GONE)
-    programs.say(COLOR, "green")
+    programs.print_to(COLOR, "green")
     await settle()
     assert surface.strips[0].color == Color.GREEN
     strip.close()
@@ -292,26 +273,26 @@ LOAD = "cpu-load --watch"
 
 
 async def test_the_meter_shows_the_level_its_watch_prints(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, f'meter = {{ watch = "{LOAD}", min = 0, max = 200 }}')
     strip.update(SPEAKER)
     # no audio meter: nothing is captured
     assert strip.meter_targets(SPEAKER) == set()
     assert strip.held_meter("pre_fader") is None
-    programs.say(LOAD, "load: 100")
+    programs.print_to(LOAD, "load: 100")
     await settle()
     assert strip.held_meter("pre_fader") == Lit(round(0.5 * protocol.METER_MAX))
-    programs.say(LOAD, "400")
+    programs.print_to(LOAD, "400")
     await settle()
     assert strip.held_meter("post_fader") == Lit(protocol.METER_MAX)
     # a line without a number: nothing to show
-    programs.say(LOAD, "busy")
+    programs.print_to(LOAD, "busy")
     await settle()
     assert strip.held_meter("pre_fader") is None
     # idle too
     strip.update(GONE)
-    programs.say(LOAD, "0")
+    programs.print_to(LOAD, "0")
     await settle()
     assert strip.held_meter("pre_fader") == Lit(0)
     strip.close()
@@ -326,7 +307,7 @@ async def test_a_meter_that_is_off_shows_nothing(surface: RecordingSurface, env:
 
 
 async def test_an_apps_strip_with_a_bound_meter_captures_nothing(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, f'meter = {{ watch = "{LOAD}" }}', kind='type = "apps"\nmatch = ["brave"]')
     state = AudioState(streams=(stream(1),))
@@ -343,13 +324,15 @@ async def test_an_apps_strip_with_a_bound_meter_captures_nothing(
 LED = "vpn-status --watch"
 
 
-async def test_an_led_shows_what_its_watch_prints(surface: RecordingSurface, env: StripEnv, programs: Programs) -> None:
+async def test_an_led_shows_what_its_watch_prints(
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
+) -> None:
     strip = strip_of(surface, env, f'solo = {{ led = {{ watch = "{LED}" }} }}')
     strip.update(SPEAKER)
     s = surface.strips[0]
     assert s.leds[Button.SOLO] == Led.OFF
     for line, led in (("Yes", Led.ON), ("flash", Led.FLASH), ("no", Led.OFF), ("1", Led.ON)):
-        programs.say(LED, line)
+        programs.print_to(LED, line)
         await settle()
         assert s.leds[Button.SOLO] == led
     strip.close()
@@ -358,7 +341,7 @@ async def test_an_led_shows_what_its_watch_prints(surface: RecordingSurface, env
 RESET = "brightness -d DP-1 --reset"
 
 
-async def test_a_button_runs_a_program(surface: RecordingSurface, env: StripEnv, programs: Programs) -> None:
+async def test_a_button_runs_a_program(surface: RecordingSurface, env: StripEnv, programs: ProgramCommands) -> None:
     strip = strip_of(surface, env, f'select = {{ press = {{ run = "{RESET}" }}, hold = {{ run = "say {{value}}" }} }}')
     strip.update(SPEAKER)
     strip.on_button(Button.SELECT, True)
@@ -377,7 +360,7 @@ async def test_a_button_runs_a_program(surface: RecordingSurface, env: StripEnv,
 
 
 async def test_value_in_a_program_of_a_button_is_the_value_of_the_fader(
-    surface: RecordingSurface, env: StripEnv, programs: Programs, caplog: pytest.LogCaptureFixture
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands, caplog: pytest.LogCaptureFixture
 ) -> None:
     strip = strip_of(surface, env, f'{FADER}\nsolo = {{ press = {{ run = "remember {{value}}" }} }}')
     strip.update(SPEAKER)
@@ -387,7 +370,7 @@ async def test_value_in_a_program_of_a_button_is_the_value_of_the_fader(
     # not known yet: nothing runs
     assert programs.runs == []
     assert "It.solo: remember needs the value, which is not known yet" in caplog.text
-    programs.say(WATCH, "0.6")
+    programs.print_to(WATCH, "0.6")
     await settle()
     strip.on_button(Button.SOLO, True)
     await settle()
@@ -396,11 +379,11 @@ async def test_value_in_a_program_of_a_button_is_the_value_of_the_fader(
 
 
 async def test_value_in_a_program_of_a_button_is_else_the_value_of_the_encoder(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, f'{ENCODER}\nrec = {{ press = {{ run = "remember {{value}}" }} }}')
     strip.update(SPEAKER)
-    programs.say(WATCH, "0.25")
+    programs.print_to(WATCH, "0.25")
     await settle()
     strip.on_button(Button.REC, True)
     await settle()
@@ -410,7 +393,7 @@ async def test_value_in_a_program_of_a_button_is_else_the_value_of_the_encoder(
 
 
 async def test_a_program_of_a_button_that_fails_is_logged(
-    surface: RecordingSurface, env: StripEnv, programs: Programs, caplog: pytest.LogCaptureFixture
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands, caplog: pytest.LogCaptureFixture
 ) -> None:
     programs.failing = "reset failed (1)"
     strip = strip_of(surface, env, f'select = {{ press = {{ run = "{RESET}" }} }}')
@@ -436,13 +419,13 @@ async def test_value_for_a_program_is_the_volume_being_set(surface: RecordingSur
 
 
 async def test_another_look_keeps_the_watches_that_stay(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, f'lcd = {{ watch = "{STATUS}" }}\ncolor = {{ watch = "{COLOR}" }}')
     strip.update(SPEAKER)
     await settle()
     assert len(programs.watches) == 2
-    programs.say(COLOR, "red")
+    programs.print_to(COLOR, "red")
     await settle()
     (config,) = strips_of(
         f'[channel.it]\ntype = "output"\ndevice = "speaker"\nlcd = {{ watch = "{STATUS}" }}\n{ENCODER}'
@@ -465,21 +448,21 @@ async def test_another_look_keeps_the_watches_that_stay(
 
 
 async def test_an_auto_strip_follows_the_bindings_of_its_place(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, "", kind='type = "auto"')
     assert isinstance(strip, AutoStrip)
     (config,) = strips_of(f'[channel.it]\ntype = "auto"\nlcd = {{ watch = "{STATUS}" }}')
     strip.set_look(look_of(config))
     strip.update(GONE)
-    programs.say(STATUS, "Stopped")
+    programs.print_to(STATUS, "Stopped")
     await settle()
     assert surface.strips[0].text[1] == "Stopped"
     strip.close()
 
 
 async def test_closing_the_strip_ends_its_programs(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     strip = strip_of(surface, env, f'{FADER}\nlcd = {{ watch = "{STATUS}" }}')
     await settle()
@@ -489,11 +472,13 @@ async def test_closing_the_strip_ends_its_programs(
     assert strip.bound.fader is None
 
 
-async def test_a_watch_that_ends_runs_again(surface: RecordingSurface, env: StripEnv, programs: Programs) -> None:
+async def test_a_watch_that_ends_runs_again(
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
+) -> None:
     strip = strip_of(surface, env, f'lcd = {{ watch = "{STATUS}" }}')
     strip.update(SPEAKER)
-    programs.say(STATUS, "Playing")
-    programs.say(STATUS, END)
+    programs.print_to(STATUS, "Playing")
+    programs.print_to(STATUS, END)
     await settle()
     assert surface.strips[0].text[1] == "Playing"
     await asyncio.sleep(5)
@@ -503,7 +488,7 @@ async def test_a_watch_that_ends_runs_again(surface: RecordingSurface, env: Stri
 
 
 async def test_simulated_the_value_starts_in_the_middle(
-    surface: RecordingSurface, env: StripEnv, programs: Programs
+    surface: RecordingSurface, env: StripEnv, programs: ProgramCommands
 ) -> None:
     programs.simulated = True
     strip = strip_of(surface, env, FADER)
@@ -513,7 +498,7 @@ async def test_simulated_the_value_starts_in_the_middle(
 
 
 async def test_on_the_device_the_meter_and_the_lcd_show_the_watches(
-    surface: RecordingSurface, programs: Programs
+    surface: RecordingSurface, programs: ProgramCommands
 ) -> None:
     config = parse_config(
         f"""
@@ -533,8 +518,8 @@ provider = "demo"
     )
     rig = Rig(surface, config, commands=programs)
     rig.step(SPEAKER)
-    programs.say(STATUS, "Playing")
-    programs.say(LOAD, "100")
+    programs.print_to(STATUS, "Playing")
+    programs.print_to(LOAD, "100")
     await settle()
     assert surface.strips[0].text == ["It", "Playing"]
     rig.desk.show_meters()

@@ -133,8 +133,8 @@ class CommandValue:
         self.step = binding.step if binding.step is not None else (self.high - self.low) * encoder_step / 100
         self.value: float | None = (self.low + self.high) / 2 if commands.simulated else None
         """The value: the one set last, or the one `watch` printed last; None before either."""
-        self.touched = False
-        """Whether a fader that sets it is under a finger."""
+        self._touches = 0
+        """How many faders that set it are under a finger (two slots can show one value)."""
         self.listeners: list[Callable[[], None]] = []
         self._wanted: float | None = None
         """The value to set next, None while there is none."""
@@ -162,6 +162,15 @@ class CommandValue:
         return "" if self.value is None else self.binding.format.format(value=self.value)
 
     # -- hands ----------------------------------------------------------------------------------------------------
+
+    @property
+    def touched(self) -> bool:
+        """Whether a fader that sets it is under a finger."""
+        return self._touches > 0
+
+    def touch(self, touched: bool) -> None:
+        """A finger on a fader that sets it (True) or off it (False): it is touched while any finger is on one."""
+        self._touches = self._touches + 1 if touched else max(0, self._touches - 1)
 
     def turn(self, steps: int) -> None:
         """Changes the value by `step` per step: from the value, else from `push`, else from `min`."""

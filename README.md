@@ -18,6 +18,9 @@ The device has 8 strips. Each has a slot in the configuration: a list of what th
 - **Devices, applications, people, Home Assistant.** A strip controls an output or input (with Select switching
   between several), all streams of a group of applications (presets for browsers, games, voice chats, ...), one
   person of your Mumble channel, or entities for your Home Assistant automations.
+- **Programs of your own.** Any part of a strip can be bound to Home Assistant or to a program, e.g. a fader that
+  sets the brightness of two screens (`set` with the value, `watch` for changes). See
+  [Bindings](docs/configuration/strip/bindings.md) and [Custom channels](docs/configuration/channels/custom.md).
 - **Pools** fill slots with whatever is there: the next application that plays, the next person of the voice chat,
   an output without a channel.
 - **Modes** (gaming, work, ...) by rules or by hand: the chord (two Solo buttons together), `xtouch-daemon mode`, or

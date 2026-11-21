@@ -166,17 +166,34 @@ async def test_watch_tells_the_value() -> None:
     await settle()
     assert changes == [None]
     # under the finger the hand knows better
-    knob.touched = True
+    knob.touch(True)
     commands.print("0.8")
     await settle()
     assert knob.value == 0.6
-    knob.touched = False
+    knob.touch(False)
     # and while a value is set
     commands.run_time = 1.0
     knob.turn(1)
     commands.print("0.1")
     await settle()
     assert knob.value == 0.609
+    knob.close()
+
+
+async def test_a_value_stays_touched_while_any_finger_is_on_a_fader_of_it() -> None:
+    commands = FakeCommands()
+    knob = value(commands)
+    # two slots show the value: one finger lets go, the other still holds it
+    knob.touch(True)
+    knob.touch(True)
+    knob.touch(False)
+    assert knob.touched
+    knob.touch(False)
+    assert not knob.touched
+    # a release without a touch (e.g. at the start) leaves it free
+    knob.touch(False)
+    knob.touch(True)
+    assert knob.touched
     knob.close()
 
 

@@ -27,6 +27,7 @@ from xtouch_daemon.config.bindings import (
     TABLE,
     TARGET,
     TEXT,
+    VALUE,
     RunAction,
     ValueBinding,
     placeholders_of,
@@ -419,6 +420,11 @@ class ControlsConfig(_Section):
             for option, argv in programs_of(getattr(self, name)).items():
                 if "target" in placeholders_of(argv):
                     raise ValueError(f"{name}.{option}: {TARGET} is for custom channels with targets")
+        valued = any(isinstance(knob, ValueBinding | ChannelControl) for knob in (self.fader, self.encoder))
+        for name in ("select", "rec", "solo"):
+            action = getattr(self, name)
+            if isinstance(action, RunAction) and "value" in placeholders_of(action.run) and not valued:
+                raise ValueError(f"{name}.run: {VALUE} needs a fader or an encoder bound to a value")
         return self
 
     @property

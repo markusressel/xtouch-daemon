@@ -17,7 +17,7 @@ from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv,
 from xtouch_daemon.strips.bound import Parts
 from xtouch_daemon.strips.custom import CustomStrip
 from xtouch_daemon.strips.device import ChoiceStrip, DeviceStrip
-from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
+from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip, OfflineHomeAssistantStrip
 from xtouch_daemon.strips.voip import VoipStrip
 from xtouch_daemon.system.launch import LaunchButton
 from xtouch_daemon.voip.provider import VoipProvider
@@ -41,7 +41,7 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
         case HomeAssistantStripConfig():
             return Look(config.label, config.color, meter=False)
         case CustomStripConfig():
-            # bindings: done by the custom strips (a bound color)
+            # a bound color is white in the look; the custom strip shows the color of its line itself
             return Look(config.label, color_name(config.color), meter=False)
         case VoipStripConfig():
             return Look(config.label, config.color, config.meter, meter_point)
@@ -124,7 +124,9 @@ def build_strip(
         assert voip is not None, "the strips of people need the voice chat"
         return VoipStrip(strip, env, identity, look, voip, config)
     if isinstance(config, HomeAssistantStripConfig):
-        assert env.bridge is not None, "the configuration has no homeassistant strips without [mqtt]"
+        if env.bridge is None:
+            # Simulate has no MQTT: the strip looks as while Home Assistant is not there
+            return OfflineHomeAssistantStrip(strip, env, identity, look)
         return HomeAssistantStrip(strip, env, env.bridge, identity, look)
     if isinstance(config, CustomStripConfig):
         return CustomStrip(strip, env, identity, look, config, env.commands)

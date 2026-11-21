@@ -104,7 +104,7 @@ def test_links_are_addresses_on_the_site():
     # the color of a person can't be bound: no page of bindings for it
     assert docs.option_link("strip", "color", "voip") is None
     assert docs.option_link("strip", "meter", "custom") == docs.url("configuration/strip/bindings/")
-    assert docs.option_link("strip", "fader", "custom") == docs.url("configuration/channels/custom/")
+    assert docs.option_link("strip", "fader", "custom") == docs.url("configuration/channels/custom/#a-value")
     assert docs.strip_type_link("custom") == docs.url("configuration/channels/custom/")
     assert docs.option_link("behavior", "unity_at") == docs.url("configuration/channels/#100-at-the-0-db-mark")
     assert docs.option_link("behavior", "meters") is None
