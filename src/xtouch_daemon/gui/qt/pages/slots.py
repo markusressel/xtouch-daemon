@@ -23,12 +23,12 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from xtouch_daemon.config.values import default_encoder
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
 from xtouch_daemon.gui.domain.clipboard import candidates_text, parse_candidates
 from xtouch_daemon.gui.domain.demos import GROUPS, group_of
+from xtouch_daemon.gui.domain.places import Origin, Source, inherited, inherited_part, origin, place_help
 from xtouch_daemon.gui.domain.schema import Kind, Option, look_options
 from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text
 from xtouch_daemon.gui.domain.slot_stacks import (
@@ -61,6 +61,7 @@ from xtouch_daemon.gui.qt.fields.basics import (
     help_text,
     indent_text,
     label,
+    set_help,
 )
 from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
@@ -120,16 +121,18 @@ class SlotsPanel(Page):
         twin_slots: Callable[[], SlotsState | None] = lambda: None,
         simulate_unavailable: Callable[[], Reason | None] = lambda: None,
         shows_twin: Callable[[], bool] = lambda: False,
+        show_pool: Callable[[str], None] = lambda _: None,
     ):
         """
-        `show_channel` opens a channel on the page Channels, `twin_slots` tells the slots of the virtual twin of the
-        window (the preview in the GUI), `shows_twin` whether the drawing shows it, and `simulate_unavailable` why
-        Simulate can't run.
+        `show_channel` opens a channel on the page Channels, `show_pool` a pool there, `twin_slots` tells the slots of
+        the virtual twin of the window (the preview in the GUI), `shows_twin` whether the drawing shows it, and
+        `simulate_unavailable` why Simulate can't run.
         """
         super().__init__(editor, audio)
         self.snapshot = snapshot
         self.request = request
         self.show_channel = show_channel
+        self.show_pool = show_pool
         self.twin_slots = twin_slots
         self.simulate_unavailable = simulate_unavailable
         self.shows_twin = shows_twin
@@ -240,8 +243,27 @@ class SlotsPanel(Page):
         self.when_help = help_label(WHEN_HELP, "help", docs.guide_link("conditions"))
         inspector.addWidget(self.when_help)
         inspector.addWidget(self.problem)
+        self.place_header = QWidget()
+        """Above the form of the place: its title, and where the parts of what it shows are set."""
+        header = QVBoxLayout(self.place_header)
+        header.setContentsMargins(0, Space.M, 0, 0)
+        header.setSpacing(Space.XS)
+        self.place_title = label("", "section")
+        header.addWidget(self.place_title)
+        parts = QHBoxLayout()
+        parts.setSpacing(Space.S)
+        self.place_parts = help_label("", "help")
+        parts.addWidget(self.place_parts, 1)
+        self.channel_button = button("pencil-outline", "Edit the channel")
+        """Opens the channel (or the pool) the candidate shows on the page Channels."""
+        self.channel_button.clicked.connect(self._edit_origin)
+        parts.addWidget(self.channel_button, 0, Qt.AlignmentFlag.AlignTop)
+        header.addWidget(row(parts))
+        inspector.addWidget(self.place_header)
         self.place = Stack()
         inspector.addWidget(self.place)
+        self.place_origin: Origin | None = None
+        """Where the place of the candidate picked takes what it leaves unset."""
         self.place_forms: dict[tuple[str, frozenset[str], bool], tuple[QWidget, list[OptionRow]]] = {}
         """The forms of the options of a place, by strip type and the options it takes: built once, then reused."""
         self.place_rows: list[OptionRow] = []
@@ -250,9 +272,6 @@ class SlotsPanel(Page):
         """What the candidate shows, and where it is now: as the help (`code`, the colors of states and channels)."""
         self.channel.setTextFormat(Qt.TextFormat.RichText)
         status.addWidget(self.channel)
-        self.channel_button = button("pencil-outline", "Edit the channel")
-        self.channel_button.clicked.connect(lambda: self.show_channel(self._candidate_row().show))
-        status.addWidget(self.channel_button, 0, Qt.AlignmentFlag.AlignLeft)
         self.controls = label("", "hint", wrap=True)
         self.controls.setTextFormat(Qt.TextFormat.RichText)
         status.addWidget(self.controls)
@@ -382,10 +401,11 @@ class SlotsPanel(Page):
         for widget in (self.channel, self.show_help, self.when_help):
             widget.setVisible(self.candidate is not None)
         self.place.setVisible(False)
+        self.place_header.setVisible(False)
         self.place_rows = []
+        self.place_origin = None
         if self.candidate is None:
             set_text(self.title, f"Slot {self.slot}")
-            self.channel_button.hide()
             self.show_problems(self.editor.validation)
             return
         candidate = stack[self.candidate]
@@ -407,7 +427,6 @@ class SlotsPanel(Page):
         self.when_edit.set_names([*self.document.values.get("state", {}), DEFAULT], targets(self.document.values))
         self.when_edit.setText(candidate.when)
         channel = self.document.get(("channel", candidate.show))
-        self.channel_button.setVisible(isinstance(channel, dict))
         if isinstance(channel, dict):
             kind = CHANNEL_TYPES.get(str(channel.get("type")))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
             elsewhere = [use for use in uses(self.document.values, candidate.show) if use != f"slot {self.slot}"]
@@ -426,12 +445,17 @@ class SlotsPanel(Page):
             )
             set_text(self.channel, _help(text))
             strip = pool_strip(candidate.show, self.document.values)
-        if strip is not None:
+        self.place_origin = origin(self.document.values, candidate.show)
+        if self.place_origin is not None:
+            self._show_place_header(self.place_origin)
+        # the channels of a pool of channels bring their own look: its place has none
+        if strip is not None and self.place_origin is not None and self.place_origin.source is not Source.CHANNELS:
             # a pool of applications of your own has no `pick` encoder
             own = pool_kind(self.document.values, candidate.show) == "apps" and candidate.show not in BUILT_IN
             form, self.place_rows = self._place_form(
                 strip, place_options(candidate.show, self.document.values), pick=not own
             )
+            self._fit_place_rows(self.place_origin)
             self.place.show_part(form)
             self.place.setVisible(True)
             self._load_rows(self.place_rows)
@@ -541,15 +565,16 @@ class SlotsPanel(Page):
                 if option.name == "meter_point":
                     # one choice with `meter`
                     continue
+                # no default of its own: unset, it is as where the place takes it from (see `_fit_place_rows`)
+                option = dataclasses.replace(option, default=None)
                 if option.name == "meter":
-                    option_row = self._place_meter_row()
+                    option_row = self._place_meter_row(pick)
                 elif option.kind == Kind.BUTTON:
                     option_row = self._place_button_row(option)
                 else:
                     option_row = self._place_row(
                         dataclasses.replace(option, choices=tuple(c for c in option.choices if pick or c != "pick")),
-                        # unset, the encoder does what its strip does by default
-                        (lambda: default_encoder("apps" if not pick else strip)) if option.name == "encoder" else None,
+                        pick,
                     )
                 option_rows.append(option_row)
                 groups.setdefault(group_of(option.name), []).append(option_row)
@@ -583,38 +608,72 @@ class SlotsPanel(Page):
         option_row.edited.connect(edited)
         return option_row
 
-    def _place_row(self, option: Option, placeholder: Callable[[], str] | None = None) -> OptionRow:
+    def _inherited(self, name: str, pick: bool = True) -> str:
+        """What an option the place of the candidate picked leaves unset takes, as a word ("" where it is not known)."""
+        place = self.place_origin
+        return (inherited(place, name, pick) if place is not None else None) or ""
+
+    def _place_row(self, option: Option, pick: bool = True) -> OptionRow:
         """A row for an option of the place of the candidate picked, whichever it is when it is shown or edited."""
         name = option.name
         option_row = OptionRow(
             option,
             lambda: self._place_option(name),
             lambda value: self._set_place_option(name, value),
-            placeholder=placeholder,
+            placeholder=lambda: self._inherited(name, pick),
         )
         return self._place_edited(option_row, name)
 
-    def _place_meter_row(self) -> OptionRow:
-        """`meter` and `meter_point` of the place as one choice; unset, those of the channel."""
-        option_row = meter_row(self._place_option, self._set_place_option, lambda: "the channel's")
+    def _place_meter_row(self, pick: bool) -> OptionRow:
+        """`meter` and `meter_point` of the place as one choice; unset, those of the channel or the pool."""
+        option_row = meter_row(self._place_option, self._set_place_option, lambda: self._inherited("meter", pick))
         return self._place_edited(option_row, "meter")
 
     def _place_button_row(self, option: Option) -> OptionRow:
         """
         A button of the place: only what its LED shows (and for Select whether it does something); what a button does
-        belongs to the channel. Unset, the channel's.
+        belongs to the channel. Unset, as on the channel or in the pool.
         """
         parts = ("press", "led") if option.name == "select" else ("led",)
-        button = option.title
-        help_text = f"What the LED of {button} shows at this place; unset, what it shows on the channel." + (
-            ' `press = "off"`: Select does nothing here.' if option.name == "select" else ""
-        )
-        option = dataclasses.replace(
-            option, help=help_text, columns=tuple(c for c in option.columns if c.name in parts)
-        )
+        option = dataclasses.replace(option, columns=tuple(c for c in option.columns if c.name in parts))
         option_row = self._place_row(option)
-        option_row.buttons.inherited = "the channel's"
+        name = option.name
+
+        def placeholder(part: str) -> str:
+            place = self.place_origin
+            assert place is not None
+            value = inherited_part(place, name, part)
+            return f"{place.prefix}: {value}" if value else place.prefix
+
+        option_row.buttons.inherited = placeholder
         return option_row
+
+    def _show_place_header(self, place: Origin) -> None:
+        """The title of the form of the place, and where the parts of what it shows are set, with a way there."""
+        set_text(self.place_title, f"Look in slot {self.slot}")
+        set_help(self.place_parts, place.parts)
+        self.channel_button.setText("Edit the channel" if place.source is Source.CHANNEL else "Edit the pool")
+        self.place_header.setVisible(True)
+
+    def _fit_place_rows(self, place: Origin) -> None:
+        """The rows of a form of a place, shared by what shows on a strip of a type: their help for this one."""
+        for option_row in self.place_rows:
+            option_row.inherited = place.prefix
+            name = option_row.option.name
+            # a switch and the colors show the value they take unset as if it were set: the help says it too
+            value = self._inherited(name) if option_row.option.kind in (Kind.SWITCH, Kind.COLOR) else None
+            set_help(option_row.help, place_help(place, name, self.slot, value), docs.guide_link("slots"))
+            option_row.help.show()
+            option_row.reset.setToolTip(place.back)
+
+    def _edit_origin(self) -> None:
+        """Opens the channel or the pool the candidate picked shows on the page Channels."""
+        place = self.place_origin
+        assert place is not None
+        if place.source is Source.CHANNEL:
+            self.show_channel(place.show)
+        else:
+            self.show_pool(place.show)
 
     def show_problems(self, validation: Validation) -> None:
         if self.candidate is None:

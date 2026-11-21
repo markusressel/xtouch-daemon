@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QComboBox, QGridLayout, QWidget
 
 from xtouch_daemon.config.buttons import ButtonSetup, describe_action, table_of
+from xtouch_daemon.gui.domain.places import PROGRAM_KEYS, program_text
 from xtouch_daemon.gui.domain.schema import Kind, Option
 from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label, set_help
 from xtouch_daemon.gui.qt.fields.choice import Choice
@@ -28,20 +29,11 @@ def parts_of(name: str, value: object) -> dict[str, Any]:
     return dict(table) if isinstance(table, Mapping) else {}
 
 
-PROGRAM_KEYS = ("launch", "run", "watch")
-"""The tables of a part of a button, by their key: what a press starts or runs, what its LED watches."""
 PROGRAM_MEANINGS = {
     "launch": "Starts the program.",
     "run": "Runs the program to its end. `{value}` is the value of the fader, else of the encoder.",
     "watch": "Lit while the program's newest line is `on`, `1`, `true` or `yes`; it flashes on `flash`.",
 }
-
-
-def program_text(table: Mapping[str, Any]) -> str:
-    """A table of a button as the list shows it: `launch: mumble -m`, `run: ...`, `watch: ...`."""
-    key = next((key for key in PROGRAM_KEYS if key in table), "launch")
-    command = table.get(key, ())
-    return f"{key}: " + (command if isinstance(command, str) else shlex.join(map(str, command)))
 
 
 def program_table(text: str) -> dict[str, Any] | None:
@@ -72,8 +64,11 @@ class ButtonField(QWidget):
         self.columns = columns
         self.defaults: Callable[[], ButtonSetup] = ButtonSetup
         self.extra: Callable[[], list[str]] = list
-        self.inherited: str | None = None
-        """What an unset part takes when it is not the type's default, e.g. "the channel's" at a place."""
+        self.inherited: Callable[[str], str] | None = None
+        """
+        The placeholder of an unset part where it takes no default of the type, by part, e.g. "As on the channel:
+        muted" at a place.
+        """
         self._unknown: set[str] = set()
         """Parts whose value in the file is none of the list: they mean nothing (their problem says why)."""
         self._kept: dict[str, Any] = {}
@@ -126,7 +121,7 @@ class ButtonField(QWidget):
                 part = parts.get(column.name)
                 default = getattr(defaults, column.name)
                 shown = describe_action(default) if column.kind == Kind.ACTION else default
-                placeholder = f"default: {self.inherited or shown}"
+                placeholder = self.inherited(column.name) if self.inherited is not None else f"default: {shown}"
                 if isinstance(part, Mapping):
                     self._kept[column.name] = dict(part)
                     part = program_text(part)
