@@ -45,6 +45,6 @@ def test_the_status_lists_each_client_with_its_channel():
         clients=(VoipClient("mumble", "Lobby"), VoipClient("teamspeak")),
     )
     status = voip_status(snapshot(both))
-    assert (status.text, status.tip) == ("Mumble and Teamspeak connected", "3 people: Mumble in Lobby, Teamspeak.")
+    assert (status.text, status.tip) == ("Mumble and TeamSpeak connected", "3 people: Mumble in Lobby, TeamSpeak.")
     one = dataclasses.replace(both, client="mumble", participants=1, clients=(VoipClient("mumble", "Lobby"),))
     assert voip_status(snapshot(one)).tip == "1 person in Lobby."

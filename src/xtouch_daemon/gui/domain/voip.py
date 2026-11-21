@@ -44,8 +44,13 @@ def voip_status(snapshot: Snapshot | None) -> Status:
     return Status(f"{names} connected", Tone.GOOD, f"{people}: {channels}.")
 
 
+CLIENT_NAMES = {"mumble": "Mumble", "teamspeak": "TeamSpeak"}
+"""How the clients the GUI knows write their names; any other is capitalized."""
+
+
 def _client_name(client: VoipClient) -> str:
-    return (client.client or "a client").capitalize()
+    name = client.client or "a client"
+    return CLIENT_NAMES.get(name, name.capitalize())
 
 
 def participants(snapshot: Snapshot | None) -> tuple[Suggestion, ...]:
