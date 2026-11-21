@@ -2,7 +2,7 @@
 The field of a button (`select`, `rec`, `solo`, and `mute` of a `custom` channel): what a press does, what a hold does
 and what its LED shows, each a list of its choices; unset, each shows what the strip type does by default. A program
 is a table in the file and a text in the list: `launch: mumble`, `run: sysctrl display reset`, `watch: led-state
---follow`.
+--follow`. A button of `[controls]` (`claim`) has a press and an LED only, and a text or a program alone is its press.
 """
 
 import shlex
@@ -23,8 +23,15 @@ PART_TITLES = {"press": "Press", "hold": "Hold", "led": "LED"}
 """The names of the parts of a button, for people."""
 
 
-def parts_of(name: str, value: object) -> dict[str, Any]:
-    """The parts of a button in the file (see `table_of`): {} for a value that is no table."""
+def parts_of(name: str, value: object, claim: bool = False) -> dict[str, Any]:
+    """
+    The parts of a button in the file (see `table_of`): {} for a value that is no table. Of a button of `[controls]`
+    (`claim`), an action alone (a text, `{ launch }`, `{ run }`) is the press.
+    """
+    if claim:
+        if isinstance(value, str) or (isinstance(value, Mapping) and {"launch", "run"} & set(value)):  # pyright: ignore[reportUnknownArgumentType]
+            return {"press": value}
+        return dict(value) if isinstance(value, Mapping) else {}  # pyright: ignore[reportUnknownArgumentType]
     table = table_of(name, value)
     return dict(table) if isinstance(table, Mapping) else {}
 
@@ -58,10 +65,12 @@ class ButtonField(QWidget):
 
     changed = pyqtSignal(object, arguments=["value"])
 
-    def __init__(self, name: str, columns: tuple[Option, ...]):
+    def __init__(self, name: str, columns: tuple[Option, ...], claim: bool = False):
         super().__init__()
         self.name = name
         self.columns = columns
+        self.claim = claim
+        """A button of `[controls]`: its short form is the press alone, not the LED."""
         self.defaults: Callable[[], ButtonSetup] = ButtonSetup
         self.extra: Callable[[], list[str]] = list
         self.inherited: Callable[[str], str] | None = None
@@ -109,7 +118,7 @@ class ButtonField(QWidget):
 
     def show_value(self, value: object) -> None:
         """Shows the table of the button in the file (or a shorthand of it), the defaults as placeholders."""
-        parts = parts_of(self.name, value)
+        parts = parts_of(self.name, value, self.claim)
         defaults = self.defaults()
         self._loading = True
         try:
@@ -154,6 +163,9 @@ class ButtonField(QWidget):
                 table[name] = program
             elif text:
                 table[name] = text
+        if self.claim:
+            # the short form of `[controls]`: the press alone, e.g. `rec = "toggle:call"`
+            return table["press"] if set(table) == {"press"} else table or None
         # the shorthands where they say it all: `rec = "muted"`, `select = false`
         if self.name != "select" and set(table) == {"led"} and isinstance(table["led"], str):
             return table["led"]

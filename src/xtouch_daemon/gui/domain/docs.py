@@ -30,6 +30,7 @@ GUIDES: dict[str, str] = {
     "mumble": "guides/mumble/",
     "slots": "configuration/slots/#slots",
     "conditions": "configuration/slots/#conditions",
+    "controls": "configuration/slots/#controls-and-the-chord",
 }
 """
 Pages on a topic the editor links to: setting up something outside the daemon (the plugin of a voice chat client),

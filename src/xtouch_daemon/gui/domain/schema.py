@@ -9,7 +9,7 @@ import types
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Any, Literal, Union, get_args, get_origin
+from typing import Annotated, Any, Literal, TypeAliasType, Union, get_args, get_origin
 
 import annotated_types
 from pydantic import BaseModel, SecretStr
@@ -17,13 +17,14 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from xtouch_daemon.config.base import Meanings
-from xtouch_daemon.config.bindings import HOME_ASSISTANT, ValueBinding, WatchBinding
-from xtouch_daemon.config.buttons import ActionValue, ButtonConfig
+from xtouch_daemon.config.bindings import HOME_ASSISTANT, VALUE_PARTS, ValueBinding, WatchBinding
+from xtouch_daemon.config.buttons import ACTIONS, ActionValue, ButtonConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.names import Presets
 from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.config.strips import CUSTOM_ACTIONS, CUSTOM_LEDS, STRIP_MODELS
 from xtouch_daemon.config.values import ENCODERS, ColorName
+from xtouch_daemon.slots.model import CONTROL_BUTTONS, CONTROL_PARTS, ButtonClaim, ChannelControl, ControlsConfig
 
 
 class Kind(StrEnum):
@@ -54,6 +55,12 @@ class Kind(StrEnum):
     A part of a strip that can be bound (docs/development/design/bindings.md): its words (`Option.base`: a choice, a
     switch or a color, or none), `homeassistant` (`Option.home_assistant`), or a table of programs of your own
     (`Option.columns`: e.g. `set`, `watch`, `min`, `max`).
+    """
+    CLAIM = "claim"
+    """
+    A button of `[controls]` (`ButtonControl`): what a press does (`ACTION`), what its LED shows (`BINDING`), or both
+    (`Option.columns`). Unlike `BUTTON`, a text alone is the press, and the parts it leaves unset stay with what the
+    slot shows.
     """
 
 
@@ -87,6 +94,8 @@ class Option:
     """For `BINDING`: whether the part can belong to Home Assistant (`"homeassistant"`)."""
     binding: str = ""
     """For `BINDING`: what a table of it is (the docstring of its model), e.g. "A value that programs ... set"."""
+    channel: bool = False
+    """For `BINDING` of `[controls]`: whether the part can set the value of a `custom` channel (`{ channel = ... }`)."""
     signed: bool = False
     """
     For a `NUMBER` of a binding (`min`, `step`, ...): a number of your own, of any sign and size (e.g. a brightness
@@ -123,7 +132,9 @@ def _unwrap(annotation: Any) -> tuple[Any, list[Any]]:
     """The type of an annotation without `None` and `Annotated`, and the constraints that came with them."""
     constraints: list[Any] = []
     while annotation != ActionValue:
-        if get_origin(annotation) in (Union, types.UnionType):
+        if isinstance(annotation, TypeAliasType):
+            annotation = annotation.__value__
+        elif get_origin(annotation) in (Union, types.UnionType):
             (annotation,) = [arg for arg in get_args(annotation) if arg is not type(None)]
         elif get_origin(annotation) is Annotated:
             annotation, *metadata = get_args(annotation)
@@ -136,6 +147,8 @@ def _unwrap(annotation: Any) -> tuple[Any, list[Any]]:
 
 def _branches(annotation: Any, constraints: tuple[Any, ...] = ()) -> list[tuple[Any, tuple[Any, ...]]]:
     """The types a union (of `Annotated` ones) takes, each with the constraints that came with it."""
+    if isinstance(annotation, TypeAliasType):
+        return _branches(annotation.__value__, constraints)
     if get_origin(annotation) is Annotated:
         inner, *metadata = get_args(annotation)
         found = [item for each in metadata for item in (each.metadata if isinstance(each, FieldInfo) else [each])]
@@ -267,6 +280,7 @@ def _binding_option(
     else:
         base, choices = None, ()
     constraints = [item for _, found in words for item in found] + list(field.metadata)
+    channel = any(kind is ChannelControl for kind, _ in words)
     return Option(
         name=name,
         kind=Kind.BINDING,
@@ -283,6 +297,7 @@ def _binding_option(
         base=base,
         home_assistant=HOME_ASSISTANT in values,
         binding=" ".join((model.__doc__ or "").split()),
+        channel=channel,
         **_bounds(constraints, Kind.BINDING),
     )
 
@@ -432,3 +447,49 @@ def _words_only(option: Option) -> Option:
     if option.kind != Kind.BINDING or option.base is None:
         return option
     return dataclasses.replace(option, kind=option.base, base=None, columns=(), home_assistant=False, binding="")
+
+
+CLAIM_ACTIONS = ("homeassistant", "cycle_modes")
+"""The actions of a button of `[controls]` that are a word; `mode:<id>` and `toggle:<state>` come on top."""
+
+
+def controls_options() -> tuple[Option, ...]:
+    """
+    The options of an entry of `[controls]`, in the order of `CONTROL_PARTS`, then `when` and `id`. A fader or an
+    encoder is a part that can be bound (or set a `custom` channel), a button a `CLAIM`, the rest as on a strip.
+    """
+    fields = ControlsConfig.model_fields
+    found: dict[str, Option] = {}
+    for name in CONTROL_PARTS:
+        field = fields[name]
+        if name in CONTROL_BUTTONS:
+            found[name] = Option(
+                name=name,
+                kind=Kind.CLAIM,
+                help=field.description or "",
+                default=None,
+                required=False,
+                columns=_claim_columns(),
+            )
+            continue
+        part = option(name, field)
+        if name in ("fader", "encoder"):
+            # what `homeassistant` does there, as on a `custom` channel
+            part = dataclasses.replace(part, meanings=tuple(VALUE_PARTS.meanings.items()))
+        found[name] = part
+    return (*found.values(), option("when", fields["when"]), option("id", fields["id"]))
+
+
+def _claim_columns() -> tuple[Option, ...]:
+    """The press and the LED of a button of `[controls]`."""
+    claim = ButtonClaim.model_fields
+    press = Option(
+        name="press",
+        kind=Kind.ACTION,
+        help=claim["press"].description or "",
+        default=None,
+        required=False,
+        choices=CLAIM_ACTIONS,
+        meanings=tuple((action, ACTIONS.meanings[action]) for action in CLAIM_ACTIONS),
+    )
+    return press, option("led", claim["led"])

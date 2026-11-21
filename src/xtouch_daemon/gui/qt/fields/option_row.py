@@ -242,7 +242,7 @@ class OptionRow(QWidget):
             self.top.addWidget(self.reset, 1, 1)
         else:
             # a list of entries: its name and reset at the top, not beside its middle
-            tall = (Kind.TABLES, Kind.BUTTON, Kind.BINDING)
+            tall = (Kind.TABLES, Kind.BUTTON, Kind.CLAIM, Kind.BINDING)
             top = Qt.AlignmentFlag.AlignTop if self.option.kind in tall else Qt.AlignmentFlag(0)
             self.title.setFixedWidth(self.title_width)
             self.top.addWidget(self.title, 0, 0, top)
@@ -330,8 +330,8 @@ class OptionRow(QWidget):
                 self.tables.changed.connect(self._edit)
                 self.input = self.tables
                 return self.tables
-            case Kind.BUTTON:
-                self.buttons = ButtonField(option.name, option.columns)
+            case Kind.BUTTON | Kind.CLAIM:
+                self.buttons = ButtonField(option.name, option.columns, claim=option.kind == Kind.CLAIM)
                 self.buttons.changed.connect(self._edit)
                 self.input = self.buttons
                 return self.buttons
@@ -473,7 +473,7 @@ class OptionRow(QWidget):
                     # a value of another type shows none; its problem says what is wrong
                     tables = shown if isinstance(shown, list | tuple) else ()
                     self.tables.show_values([dict(table) for table in tables if isinstance(table, dict)])
-                case Kind.BUTTON:
+                case Kind.BUTTON | Kind.CLAIM:
                     self.buttons.show_value(value)
                 case Kind.BINDING:
                     self.binding.show_value(value)

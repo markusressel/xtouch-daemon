@@ -8,7 +8,6 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     Step,
     StepKind,
     choices,
-    controls_text,
     free_text,
     free_words,
     lcd_colors,
@@ -59,33 +58,6 @@ def test_what_a_place_can_show_and_take():
     assert "encoder" in place_options("auto")
     assert "encoder" not in place_options("out")
     assert "color" in place_options("out")
-
-
-def test_controls_are_text():
-    values = {
-        "controls": {
-            "2": {"select": {"launch": ["mumble", "-m"]}, "when": "not call"},
-            "5": [{"select": "toggle:call", "solo": "mode:gaming"}, "broken"],
-            "7": {"encoder": {"set": ["brightness", "-b", "{value}"]}, "select": {"run": "reset"}},
-            "8": {"fader": {"channel": "screen"}},
-            "3": {
-                "rec": {"press": "toggle:call", "led": {"watch": "lamp --watch"}},
-                "solo": {"led": "homeassistant"},
-                "meter": {"watch": ["cpu-load"], "max": 8},
-                "color": "red",
-                "lcd": "homeassistant",
-            },
-        }
-    }
-    assert controls_text(values, 3) == [
-        "rec: press toggle:call and led watch lamp --watch, solo: led homeassistant, meter: watch cpu-load, "
-        "color: red, lcd: homeassistant"
-    ]
-    assert controls_text(values, 2) == ["select: launch mumble -m (when not call)"]
-    assert controls_text(values, 5) == ["select: toggle:call, solo: mode:gaming"]
-    assert controls_text(values, 7) == ["encoder: set brightness -b {value}, select: run reset"]
-    assert controls_text(values, 8) == ["fader: channel screen"]
-    assert controls_text(values, 1) == []
 
 
 def test_candidates_stand_against_the_one_shown():

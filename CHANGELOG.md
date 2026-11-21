@@ -53,7 +53,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     (`{ run = "..." }`). It claims the meter, the color, the second line of the LCD and the LEDs of a slot too, with
     Home Assistant or a `watch`, e.g. `8 = { meter = { watch = "cpu-load --watch" } }`: slot 8's meter shows the CPU
     whatever the slot shows. `select = { led = { watch = "..." } }` claims only the LED; the press stays with what the
-    slot shows. When `when` stops holding, the slot shows its own parts again.
+    slot shows. When `when` stops holding, the slot shows its own parts again. GUI: "Controls of slot 3" on the
+    page Slots edits them, with the same fields as the page Channels, `when` and `id`, an entry or a list of them.
   - Simulate in the GUI and `xtouch-daemon simulate` run the `watch` programs, never `set` or `run`. Parts in Home
     Assistant look as while Home Assistant is not there, and the situation alone says whether a custom channel is
     there.

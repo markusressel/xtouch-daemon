@@ -22,6 +22,7 @@ from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, cha
 from xtouch_daemon.gui.domain.clipboard import Tables, parse_tables, tables_text
 from xtouch_daemon.gui.domain.demos import GROUPS, PREVIEWED, Part, Strip, group_of, scene
 from xtouch_daemon.gui.domain.schema import Kind, Option, options
+from xtouch_daemon.gui.domain.slot_controls import modes_and_states
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.voip import participants
@@ -340,13 +341,8 @@ class ChannelsPage(Page):
                 launch=self.document.get(path("launch")) is not None,
             )
 
-        def modes_and_states() -> list[str]:
-            states: dict[str, Any] = self.document.get(("state",), {})
-            modes = [f"mode:{state}" for state, options in states.items() if options.get("mode")]
-            return [*(["cycle_modes", *modes, "mode:default"] if modes else []), *(f"toggle:{s}" for s in states)]
-
         option_row.buttons.defaults = defaults
-        option_row.buttons.extra = modes_and_states
+        option_row.buttons.extra = lambda: modes_and_states(self.document.values)
         option_row.load()
 
     def _resolved(self, path: Callable[[str], OptionPath], option: Option) -> Any:

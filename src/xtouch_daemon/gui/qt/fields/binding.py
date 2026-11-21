@@ -2,7 +2,8 @@
 The field of a part of a strip that can be bound (`Kind.BINDING`, see docs/development/design/bindings.md): the field
 of its words as without bindings (a list, a switch or colors), and a button that binds the part to Home Assistant or
 to a program of your own. Bound to a program, the options of the program show below the field (`set`, `watch`,
-`min`, ...), each a row of its own.
+`min`, ...), each a row of its own. A fader or an encoder of `[controls]` can set the value of a `custom` channel too
+(`Option.channel`): a list of those channels.
 """
 
 from collections.abc import Callable, Mapping
@@ -10,7 +11,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QHBoxLayout, QMenu, QToolButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QComboBox, QHBoxLayout, QMenu, QToolButton, QVBoxLayout, QWidget
 
 from xtouch_daemon.config.bindings import HOME_ASSISTANT
 from xtouch_daemon.config.sections import BehaviorConfig
@@ -29,8 +30,10 @@ PROGRAM = "program"
 """The mode of a part bound to a program of your own (a table)."""
 WORDS = "words"
 """The mode of a part that is not bound: its words, or its default."""
+CHANNEL = "channel"
+"""The mode of a fader or an encoder of `[controls]` that sets the value of a `custom` channel (`{ channel = ... }`)."""
 
-MODE_TITLES = {HOME_ASSISTANT: "Home Assistant", PROGRAM: "A program", WORDS: "Not bound"}
+MODE_TITLES = {HOME_ASSISTANT: "Home Assistant", PROGRAM: "A program", CHANNEL: "A channel", WORDS: "Not bound"}
 """The modes of a part for people, as the menu of the button and the button show them."""
 
 COLUMN_PLACEHOLDERS: dict[str, Callable[[], str]] = {
@@ -44,16 +47,20 @@ DEFAULT_ENCODER_STEP = BehaviorConfig.model_fields["encoder_step"].default
 
 
 def mode_of(value: object) -> str:
-    """How a part is bound: `PROGRAM` for a table, `HOME_ASSISTANT`, or `WORDS` for a word, a switch or nothing."""
+    """
+    How a part is bound: `CHANNEL` for a table with `channel`, `PROGRAM` for another table, `HOME_ASSISTANT`, or
+    `WORDS` for a word, a switch or nothing.
+    """
     if isinstance(value, Mapping):
-        return PROGRAM
+        return CHANNEL if "channel" in value else PROGRAM
     return HOME_ASSISTANT if value == HOME_ASSISTANT else WORDS
 
 
 class BindingField(QWidget):
     """
     A part that can be bound. `changed` has the value for the file: a word, a bool, a table of the program, or None
-    (not set: the default). `placeholder` tells what an unset part does where it is no plain value.
+    (not set: the default). `placeholder` tells what an unset part does where it is no plain value, `channels` the
+    `custom` channels a part with `Option.channel` can set.
     """
 
     changed = pyqtSignal(object, arguments=["value"])
@@ -66,6 +73,7 @@ class BindingField(QWidget):
         self._table: dict[str, Any] = {}
         """The options of the program: those in the file, or the last ones while the part is bound otherwise."""
         self._loading = False
+        self.channels: Callable[[], list[str]] = list
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(Space.XS)
@@ -74,6 +82,17 @@ class BindingField(QWidget):
         top.setSpacing(Space.XS)
         self.words = self._words_field(option)
         top.addWidget(self.words)
+        self.channel = Choice(self)
+        """The `custom` channel whose value the part sets, in `CHANNEL`: typed, or picked from `channels`."""
+        self.channel.setEditable(True)
+        self.channel.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.channel.setMinimumWidth(160)
+        self.channel.setToolTip("The `custom` channel whose value it sets")
+        self.channel.lineEdit().setPlaceholderText("a custom channel")  # pyright: ignore[reportOptionalMemberAccess]
+        self.channel.activated.connect(lambda _: self._channel())
+        self.channel.lineEdit().editingFinished.connect(self._channel)  # pyright: ignore[reportOptionalMemberAccess]
+        self.channel.hide()
+        top.addWidget(self.channel)
         self.bind = QToolButton(self)
         set_icon(self.bind, "link-variant")
         self.bind.setAutoRaise(True)
@@ -82,7 +101,12 @@ class BindingField(QWidget):
         self.bind.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.menu = QMenu(self.bind)
         self.actions_: dict[str, QAction] = {}
-        modes = [*([HOME_ASSISTANT] if option.home_assistant else []), PROGRAM, WORDS]
+        modes = [
+            *([HOME_ASSISTANT] if option.home_assistant else []),
+            PROGRAM,
+            *([CHANNEL] if option.channel else []),
+            WORDS,
+        ]
         for mode in modes:
             action = self.menu.addAction(MODE_TITLES[mode])
             assert action is not None
@@ -175,23 +199,38 @@ class BindingField(QWidget):
         self._loading = True
         try:
             self._show_words(value)
+            if mode == CHANNEL:
+                self._show_channel(cast(Mapping[str, Any], value).get("channel"))
             for row in self.rows.values():
                 row.load()
         finally:
             self._loading = False
         in_words = mode == WORDS or (mode == HOME_ASSISTANT and HOME_ASSISTANT in self.option.choices)
         self.words.setVisible(in_words)
+        self.channel.setVisible(mode == CHANNEL)
         self.program.setVisible(mode == PROGRAM)
         bound = not in_words
         self.bind.setText(MODE_TITLES[mode] if bound else "")
+        targets = [
+            *(["Home Assistant"] if self.option.home_assistant else []),
+            "a program of your own",
+            *(["a custom channel"] if self.option.channel else []),
+        ]
         self.bind.setToolTip(
-            f"Bound to {MODE_TITLES[mode].lower() if mode == PROGRAM else MODE_TITLES[mode]}: click to change"
+            f"Bound to {MODE_TITLES[mode] if mode == HOME_ASSISTANT else MODE_TITLES[mode].lower()}: click to change"
             if bound
-            else "Bind it to " + ("Home Assistant or " if self.option.home_assistant else "") + "a program of your own"
+            else "Bind it to " + (", ".join(targets[:-1]) + " or " if len(targets) > 1 else "") + targets[-1]
         )
         for each, action in self.actions_.items():
             action.setChecked(each == mode)
         self.actions_[WORDS].setVisible(value is not None)
+
+    def _show_channel(self, name: object) -> None:
+        """The channel of `CHANNEL` and the ones it could be: the `custom` channels of the file."""
+        self.channel.clear()
+        self.channel.addItems(self.channels())
+        self.channel.setCurrentIndex(-1)
+        self.channel.setEditText(name if isinstance(name, str) else "")
 
     def _default_text(self) -> str:
         return self._placeholder() if self._placeholder is not None else describe(self.option.default)
@@ -211,8 +250,8 @@ class BindingField(QWidget):
                 self.unbound.setText(f"default: {self._default_text()}" if value is None else "")
 
     def word(self) -> object:
-        """The word shown (or what it is by default), None while the part is bound to a program."""
-        if self.mode == PROGRAM:
+        """The word shown (or what it is by default), None while the part is bound to a program or a channel."""
+        if self.mode in (PROGRAM, CHANNEL):
             return None
         if self._value is None and self.option.default is None and self._placeholder is not None:
             return self._placeholder()
@@ -221,9 +260,24 @@ class BindingField(QWidget):
     # -- editing --------------------------------------------------------------------------------------------------
 
     def bind_to(self, mode: str) -> None:
-        """Binds the part to Home Assistant or a program (with the options it had last), or not (its default)."""
+        """
+        Binds the part to Home Assistant, a program (with the options it had last) or a channel (the first `custom`
+        one), or not (its default).
+        """
+        if mode == CHANNEL:
+            channels = self.channels()
+            self._emit({"channel": channels[0] if channels else ""})
+            return
         value: object = {HOME_ASSISTANT: HOME_ASSISTANT, PROGRAM: dict(self._table), WORDS: None}[mode]
         self._emit(value)
+
+    def _channel(self) -> None:
+        """A channel was picked or typed."""
+        name = self.channel.currentText().strip()
+        if self._loading or self.mode != CHANNEL or name == cast(Mapping[str, Any], self._value).get("channel"):
+            return
+        self._value = {"channel": name}
+        self.changed.emit(self._value)
 
     def _word(self, value: object) -> None:
         if self._loading:

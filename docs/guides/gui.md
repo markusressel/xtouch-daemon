@@ -286,7 +286,7 @@ On the page Slots:
   highlighted, ● the one the slot shows, ○ the one it came to that has none left; a click picks one) and a box of
   what goes on: why the slot shows what it shows, a step a line (✗ a candidate passed over and why, → what it shows,
   the same as `xtouch-daemon why 3`), which channel the candidate shows, where else that is used and where it is
-  now, or what a pool hands out and from which side, and what `[controls]` claims of the slot. Below it, it edits
+  now, or what a pool hands out and from which side. Below it, it edits
   the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or `auto`, `-`), when (the
   [condition](../configuration/slots.md#conditions):
   states violet, channels in `present(...)` teal, a mistake underlined in red with what is wrong in its tooltip;
@@ -296,6 +296,15 @@ On the page Slots:
   (or "Edit the pool") at the top opens it on the page Channels. An option left unset is as on the channel, or as in
   the pool: the field shows that value ("As on the channel: red"), and the button next to a set option unsets it
   again. A pool of channels has no options here: its channels bring their own look.
+- **Controls of slot 3**, at the end of the inspector, edits [`[controls]`](../configuration/slots.md#controls-and-the-chord)
+  of the slot: the parts that act the same whatever the slot shows. "Add a part" claims one (the fader, the encoder,
+  Select, Rec, Solo, the meter, the color or the line of the LCD); only the parts an entry sets show. Each has the
+  field it has on the page Channels: the bind button gives the fader, the encoder, the meter, the color and the line
+  to Home Assistant or to a program (the fader and the encoder also to a custom channel), and a button takes its
+  press and its LED, each left empty to stay with what the slot shows. When takes a condition of states and modes,
+  Id names the entities in Home Assistant (shown once a part is there). "Add controls" adds another entry, e.g. for
+  another `when`: the first whose `when` holds acts, and the arrows move an entry up or down. A problem shows at its
+  field.
 
 Clicking a strip in the window Device (or Left, Right, Home, End) picks its card, with the candidate it shows.
 

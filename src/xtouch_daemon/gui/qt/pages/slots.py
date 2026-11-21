@@ -36,7 +36,6 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     Row,
     StepKind,
     choice_groups,
-    controls_text,
     member_summary,
     place_options,
     pool_kind,
@@ -71,6 +70,7 @@ from xtouch_daemon.gui.qt.fields.option_row import OptionRow, add_groups, align_
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import StackList
+from xtouch_daemon.gui.qt.pages.slot_controls import SlotControls
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
@@ -206,7 +206,7 @@ class SlotsPanel(Page):
         self.status_box = QFrame()
         """
         What goes on, at the top: why the slot shows what it shows (while the daemon tells it), what the candidate
-        shows and where it is now, and what `[controls]` claims; a bar in the color of how it is doing.
+        shows and where it is now; a bar in the color of how it is doing.
         """
         set_role(self.status_box, "popover_row")
         status = QVBoxLayout(self.status_box)
@@ -272,9 +272,13 @@ class SlotsPanel(Page):
         """What the candidate shows, and where it is now: as the help (`code`, the colors of states and channels)."""
         self.channel.setTextFormat(Qt.TextFormat.RichText)
         status.addWidget(self.channel)
-        self.controls = label("", "hint", wrap=True)
-        self.controls.setTextFormat(Qt.TextFormat.RichText)
-        status.addWidget(self.controls)
+        self.hint = label("", "hint", wrap=True)
+        """What to do next: pick a candidate, or add one."""
+        self.hint.setTextFormat(Qt.TextFormat.RichText)
+        status.addWidget(self.hint)
+        self.slot_controls = SlotControls(editor)
+        """The controls of the slot (`[controls]`), whatever it shows."""
+        inspector.addWidget(self.slot_controls)
         inspector.addStretch()
         self.inspector_scroll = scrolled(self.inspector)
         self.splitter = PaneSplitter("slots", self.card_scroll, self.inspector_scroll)
@@ -306,8 +310,8 @@ class SlotsPanel(Page):
     # -- showing --------------------------------------------------------------------------------------------------
 
     def show_document(self, change: Change) -> None:
-        if change.scope is Scope.VALUE and change.path[:1] == ("slots",):
-            # an option of the place, from a row of the inspector: it shows it already
+        if change.scope is Scope.VALUE and change.path[:1] in (("slots",), ("controls",)):
+            # an option of the place or of the controls, from a row of the inspector: it shows it already
             self._show_cards()
         else:
             self._show()
@@ -381,10 +385,8 @@ class SlotsPanel(Page):
         if self.candidate is not None and self.candidate >= len(stack):
             self.candidate = len(stack) - 1 if stack else None
         self._show_why()
-        controls = controls_text(self.document.values, self.slot)
-        if controls:
-            text = f"`[controls]` claims parts of slot {self.slot}: " + "; ".join(controls) + "."
-        elif not stack:
+        self.slot_controls.show_slot(self.slot)
+        if not stack:
             text = (
                 f"Slot {self.slot} has no candidate: it shows `auto`, the next application that plays or person of "
                 "the voice chat. Add a candidate (+ on its card) to show a channel here, e.g. an output."
@@ -393,8 +395,8 @@ class SlotsPanel(Page):
             text = "Pick a candidate to edit it. The first one whose condition holds is shown; + adds one at the end."
         else:
             text = ""
-        set_text(self.controls, _help(text))
-        self.controls.setVisible(bool(text))
+        set_text(self.hint, _help(text))
+        self.hint.setVisible(bool(text))
         self._show_crumbs(stack)
         for widget in (self.show_box, self.when_edit):
             widget.parentWidget().setVisible(self.candidate is not None)  # pyright: ignore[reportOptionalMemberAccess]
@@ -676,6 +678,7 @@ class SlotsPanel(Page):
             self.show_pool(place.show)
 
     def show_problems(self, validation: Validation) -> None:
+        self.slot_controls.show_problems(validation)
         if self.candidate is None:
             self._show_rest([str(problem) for problem in validation.at("slots", str(self.slot))])
             return

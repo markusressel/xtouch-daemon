@@ -90,7 +90,7 @@ def test_the_cards_show_the_stacks(window: MainWindow):
     assert texts(page.lists[1]) == ["1 when call → browser", "2 when app or person without a slot → auto"]
     assert texts(page.lists[2]) == ["auto (no entry)"]
     assert page.title.text() == "Slot 1"
-    assert plain(page.controls.text()).startswith("Pick a candidate to edit it.")
+    assert plain(page.hint.text()).startswith("Pick a candidate to edit it.")
 
     window.device_view.select(1)
     assert (page.slot, page.candidate) == (2, 0)
@@ -333,10 +333,12 @@ def test_problems_show_on_the_card_and_in_the_inspector(window: MainWindow):
     assert window.current_page == "slots"
 
 
-def test_controls_of_a_slot_are_listed(window: MainWindow):
+def test_the_inspector_has_the_controls_of_the_slot(window: MainWindow):
     window.document.set(("controls", "1"), {"select": "toggle:call"})
     window.editor.edited()
-    assert plain(panel(window).controls.text()) == "[controls] claims parts of slot 1: select: toggle:call."
+    controls = panel(window).slot_controls
+    assert controls.title.text() == "Controls of slot 1"
+    assert [list(box.rows) for box in controls.boxes] == [["select", "id"]]
 
 
 def test_simulate_needs_a_daemon(window: MainWindow):
