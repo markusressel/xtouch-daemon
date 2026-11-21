@@ -1,13 +1,15 @@
 # Buttons and LEDs
 
+![The buttons of a strip, lit: Rec and Mute red, Solo yellow, Select green](../../images/controls/buttons.png){ .xt-part width="64" }
+
 Every strip has four buttons with LEDs: Rec, Solo, Mute and Select. Mute mutes the strip, and its LED is on while
 the strip is muted. What the other three do, and what their LEDs show, is up to you.
 
 | Button | By default |
 |---|---|
-| Select | On device strips with `device` or `choices`: makes the device the default; its LED is on while it is. On application strips with `launch`: starts the application; its LED flashes while it starts and is on while it runs. Otherwise nothing. |
-| Rec | On device strips with [profiles](../channels/devices.md#profiles): switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise nothing, and its LED is lit while an application records (`recording`). |
-| Solo | Nothing; its LED stays dark. |
+| ![Select](../../images/controls/select.png){ .xt-icon }<br>Select | On device strips with `device` or `choices`: makes the device the default; its LED is on while it is. On application strips with `launch`: starts the application; its LED flashes while it starts and is on while it runs. Otherwise nothing. |
+| ![Rec](../../images/controls/rec.png){ .xt-icon }<br>Rec | On device strips with [profiles](../channels/devices.md#profiles): switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise nothing, and its LED is lit while an application records (`recording`). |
+| ![Solo](../../images/controls/solo.png){ .xt-icon }<br>Solo | Nothing; its LED stays dark. |
 
 A button can also run a program of your own, and an LED can show what Home Assistant or a program says: see
 [What the LED shows](#what-the-led-shows) and [Bindings](bindings.md).

@@ -65,6 +65,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Documentation: pictures of a strip and of its parts (encoder, LCD and its colors, meter, buttons, fader), drawn as
+  the GUI draws them, beside the text of Concepts, the pages of the parts of a strip, custom channels, `[controls]`
+  and the hardware. `just screenshot` renders them to `docs/images/controls/`. The page GUI is split into shorter
+  sections, with tabs, tables, notes and the keys drawn as keys; Slots has a section Places.
 - GUI: the menus Add of the pages Channels and States, and Add source of a state, say under each entry what it does
   on the device, with its icon and its title in the color of what it adds, in groups: the types of channels, the
   devices of the sound server ("Outputs" and "Inputs") and the pools; the kinds of states and the starting points

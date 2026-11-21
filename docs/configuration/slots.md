@@ -50,45 +50,53 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   the right). `apps` and `people` are each of them alone. A slot without an entry is `auto`, and so is a stack whose
   candidates all don't hold.
 - `-` is nothing: the slot is dark.
-- The table form `{ show = ..., when = ..., ... }` takes options of the look at this place. The built-in pools
-  (`[pool.apps]`, `[pool.auto]`, `[pool.devices]`, `[pool.people]`) take the same for all their places.
-
-  | Candidate | Options |
-  |---|---|
-  | a channel | `color`, `lit_when_idle`, `rec`, `solo` (what their LEDs show), `meter`, `meter_point`, `label` |
-  | `apps`, `auto` | the look (not `label`), and for the applications without a channel `encoder`, `min_volume`, `max_volume` |
-  | `devices` | those of `apps`, and `select = false` |
-  | `people` | `color`, `meter`, `meter_point` |
-  | a pool of channels | none: each channel brings its own look |
-
-  `rec` and `solo` at a place set what the LED shows; the press stays the channel's.
-
-  Three levels decide what the parts of a strip do and show:
-
-  - The channel (`[channel.out]`, or the pool): what each part does and how it looks, in every slot. A
-    [binding](strip/bindings.md) (`{ watch = ... }`) belongs here.
-  - The place: the look of what it shows, in this slot only. Its options take words only (e.g. `color = "red"`,
-    `meter = false`), no bindings.
-  - [`[controls]`](#controls-and-the-chord): parts of the slot, whatever it shows, while its `when` holds. A binding
-    for the slot belongs here.
-
-  A control for Home Assistant, or one that starts an application (`{ launch = [...] }`), is a control of the slot, not
-  a place option: [`[controls]`](#controls-and-the-chord). How to start an application with Select:
-  [Launching the application](channels/applications.md#launching-the-application).
+- The table form `{ show = ..., when = ..., ... }` takes options of the look at this place, see [Places](#places).
 - The [GUI](../guides/gui.md)'s page Slots simulates other modes and states (Simulate), in the drawing or on the device.
 - `xtouch-daemon why 2` says why slot 2 shows what it shows, `xtouch-daemon why voip` where the channel is and
   why.
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
   `switching.banner` seconds.
 
-Four pools are built in: `apps` (applications, see [Applications](channels/applications.md#apps-and-auto)), `people` (the
-people of the voice chat, see [People](channels/people.md#where-people-sit)), `auto` (both) and `devices` (the outputs and
-inputs no channel has, see [Devices](channels/devices.md#devices-without-a-channel)). `[pool.apps]` has `from`, `hold` and
-`exclude`, `[pool.people]` `from`, `order` and the look of the strips of people, `[pool.auto]` the look of the
-applications on its slots, `[pool.devices]` `from`, `hold`, `exclude` and the look of the strips of devices.
+Four pools are built in:
+
+| Pool | Members | Options |
+|---|---|---|
+| `apps` | Applications, see [Applications](channels/applications.md#apps-and-auto). | `[pool.apps]`: `from`, `hold` and `exclude`. |
+| `people` | The people of the voice chat, see [People](channels/people.md#where-people-sit). | `[pool.people]`: `from`, `order` and the look of the strips of people. |
+| `auto` | Both. | `[pool.auto]`: the look of the applications on its slots. |
+| `devices` | The outputs and inputs no channel has, see [Devices](channels/devices.md#devices-without-a-channel). | `[pool.devices]`: `from`, `hold`, `exclude` and the look of the strips of devices. |
 
 A pool that has no member for a slot hands it to the pool (or `-`) right below it: `["people", "apps"]` is a person,
 else an application. A slot that two pools could fill goes to the one higher in its stack.
+
+### Places
+
+A candidate in the table form (`{ show = "auto", color = "blue" }`) takes options of the look at this place. The
+built-in pools (`[pool.apps]`, `[pool.auto]`, `[pool.devices]`, `[pool.people]`) take the same for all their places.
+
+| Candidate | Options |
+|---|---|
+| a channel | `color`, `lit_when_idle`, `rec`, `solo` (what their LEDs show), `meter`, `meter_point`, `label` |
+| `apps`, `auto` | the look (not `label`), and for the applications without a channel `encoder`, `min_volume`, `max_volume` |
+| `devices` | those of `apps`, and `select = false` |
+| `people` | `color`, `meter`, `meter_point` |
+| a pool of channels | none: each channel brings its own look |
+
+`rec` and `solo` at a place set what the LED shows; the press stays the channel's.
+
+Three levels decide what the parts of a strip do and show:
+
+| Level | Decides | Takes |
+|---|---|---|
+| The channel (`[channel.out]`, or the pool) | What each part does and how it looks, in every slot. | Words and [bindings](strip/bindings.md) (`{ watch = ... }`). |
+| The place | The look of what it shows, in this slot only. | Words only (e.g. `color = "red"`, `meter = false`), no bindings. |
+| [`[controls]`](#controls-and-the-chord) | Parts of the slot, whatever it shows, while its `when` holds. | Words and bindings for the slot. |
+
+!!! tip "Home Assistant and launching"
+
+    A control for Home Assistant, or one that starts an application (`{ launch = [...] }`), is a control of the slot,
+    not a place option: [`[controls]`](#controls-and-the-chord). How to start an application with Select:
+    [Launching the application](channels/applications.md#launching-the-application).
 
 ### Pools of channels
 
@@ -185,19 +193,29 @@ label = "Gaming"            # the banner across the LCDs
 processes = ["@steam-games"]
 ```
 
-A state is on while any of its sources is: `apps` (playing), `recording`, `voice_chat`, `processes`, `devices`,
-`channels`, `homeassistant` (a switch in Home Assistant), or `when` (a [condition](#conditions) of other states). `delay_on`
-(default 0) and `delay_off` (default 3 seconds, 10 for a mode) smooth it: the state goes on only after its sources
-were on that long, and off only after they were off that long. A state with `when` has no delays by default (both
-0): it follows the states it names, which have theirs already; delays you give it add to theirs. Modes are states with `mode = true`: the one with the highest `priority` whose sources are
-on is the mode, else `default`. When the mode changes, the LCDs show its `label` across the strips for
-`switching.banner` seconds.
+Sources
+:   A state is on while any of its sources is: `apps` (playing), `recording`, `voice_chat`, `processes`, `devices`,
+    `channels`, `homeassistant` (a switch in Home Assistant), or `when` (a [condition](#conditions) of other states).
 
-`apps` and `processes` take parts of names, ignoring case, and [presets](presets.md). For games from Steam,
-`processes = ["@steam-games"]` is on while any game runs, native or with Proton: Steam starts every game through its
-`reaper` process, which is what the preset stands for. Proton games play as `<Game>.exe` (e.g. "Planet
-Crafter.exe"), which `apps = ["@games"]` catches once they make a sound. Don't use `steam` (the client runs all the
-time) or `.exe` in `processes` (Wine's helpers, like `explorer.exe`, run for other Windows programs too).
+Delays
+:   `delay_on` (default 0) and `delay_off` (default 3 seconds, 10 for a mode) smooth it: the state goes on only after
+    its sources were on that long, and off only after they were off that long. A state with `when` has no delays by
+    default (both 0): it follows the states it names, which have theirs already; delays you give it add to theirs.
+
+Modes
+:   Modes are states with `mode = true`: the one with the highest `priority` whose sources are on is the mode, else
+    `default`. When the mode changes, the LCDs show its `label` across the strips for `switching.banner` seconds.
+
+`apps` and `processes` take parts of names, ignoring case, and [presets](presets.md).
+
+??? tip "Games from Steam and Proton"
+
+    `processes = ["@steam-games"]` is on while any game runs, native or with Proton: Steam starts every game through
+    its `reaper` process, which is what the preset stands for. Proton games play as `<Game>.exe` (e.g. "Planet
+    Crafter.exe"), which `apps = ["@games"]` catches once they make a sound.
+
+    Don't use `steam` (the client runs all the time) or `.exe` in `processes` (Wine's helpers, like `explorer.exe`,
+    run for other Windows programs too).
 `ps -eo comm,args` while a game runs shows the names to use for others. Kernel threads don't count.
 
 Every state can be overridden (`on`, `off`, `auto`) from Home Assistant, the GUI's live view or a button; the
@@ -281,10 +299,10 @@ Select, Rec and Solo. They take the same [bindings](strip/bindings.md) as on a c
 
 | Part | Takes |
 |---|---|
-| `meter` | `homeassistant` (`number.<ns>_<id>_meter`, 0..100), or `{ watch, min, max }`: the number a program prints. |
-| `color` | A color, `homeassistant` (`select.<ns>_<id>_color`), or `{ watch }`: the color a program prints. |
-| `lcd` | `homeassistant` (`text.<ns>_<id>_bottom`), or `{ watch }`: the newest line a program prints. |
-| `select`, `rec`, `solo` | An action as above, or a table `{ press = <action>, led = <LED> }`. |
+| ![](../images/controls/meter.png){ .xt-icon } `meter` | `homeassistant` (`number.<ns>_<id>_meter`, 0..100), or `{ watch, min, max }`: the number a program prints. |
+| ![](../images/controls/color.png){ .xt-icon } `color` | A color, `homeassistant` (`select.<ns>_<id>_color`), or `{ watch }`: the color a program prints. |
+| ![](../images/controls/lcd.png){ .xt-icon } `lcd` | `homeassistant` (`text.<ns>_<id>_bottom`), or `{ watch }`: the newest line a program prints. |
+| ![](../images/controls/select.png){ .xt-icon } `select`, `rec`, `solo` | An action as above, or a table `{ press = <action>, led = <LED> }`. |
 
 `<id>` is the `id` of the controls, else `slot_<n>`. In the table of a button, either key can be left out. `led` alone
 claims the LED only: a press still goes to what the slot shows. `press` alone is the same as the action without a
