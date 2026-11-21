@@ -114,6 +114,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   logged, the status line says it, and the window goes on.
 - GUI: Ctrl+C or SIGTERM no longer crash the GUI while the window is built or draws: they close the window from its
   event loop, which asks about unsaved changes, and do nothing while a dialog asks already.
+- GUI: a new zoom while "Try without a device" runs no longer crashes the GUI when that daemon ends: the window
+  before the zoom let go of it.
 - GUI: the icons are drawn once per name and color. Every new page, window and theme drew all of them again and kept
   each copy, about 760 per window, for as long as the GUI ran.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its

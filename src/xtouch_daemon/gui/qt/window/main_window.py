@@ -1265,7 +1265,8 @@ class MainWindow(QMainWindow):
     def _keep_trying(self, process: QProcess) -> None:
         """The daemon to try without a device is this window's: it ends with it."""
         process.setParent(self)  # pyright: ignore[reportArgumentType]: PyQt's stub types the parent as Self
-        process.finished.connect(lambda code, _status: self._tried(process, code))
+        self.trying_ended = process.finished.connect(lambda code, _status: self._tried(process, code))
+        """The end of the trial for this window: let go when the next window takes it over (see `closeEvent`)."""
         self.trying = process
 
     def _tried(self, process: QProcess, code: int) -> None:
@@ -1402,7 +1403,8 @@ class MainWindow(QMainWindow):
         self.hover_tips.stop()
         self.close_virtual_device()
         if self.trying is not None and self.rezoom is not None:
-            # the next window takes it over (see `session()`)
+            # the next window takes it over (see `session()`): its end is no longer this window's
+            self.trying.finished.disconnect(self.trying_ended)
             self.trying.setParent(None)  # pyright: ignore[reportArgumentType]
         elif self.trying is not None:
             trying, self.trying = self.trying, None
