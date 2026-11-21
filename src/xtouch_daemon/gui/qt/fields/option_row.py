@@ -10,7 +10,6 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QResizeEvent
 from PyQt6.QtWidgets import (
     QBoxLayout,
-    QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QFrame,
@@ -42,6 +41,7 @@ from xtouch_daemon.gui.qt.fields.basics import (
 from xtouch_daemon.gui.qt.fields.binding import BindingField
 from xtouch_daemon.gui.qt.fields.buttons import ButtonField
 from xtouch_daemon.gui.qt.fields.chips import Chips
+from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Switch
 from xtouch_daemon.gui.qt.fields.names import NameCompleter
 from xtouch_daemon.gui.qt.fields.tables import Tables
@@ -292,7 +292,7 @@ class OptionRow(QWidget):
                 self.switch.toggled.connect(self._edit)
                 return self._left(self.switch)
             case Kind.CHOICE:
-                self.combo = QComboBox(self)
+                self.combo = Choice(self)
                 self.combo.addItems(list(option.choices))
                 for index, choice in enumerate(option.choices):
                     # what each one means, while the list is open

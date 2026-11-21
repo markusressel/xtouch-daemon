@@ -7,7 +7,6 @@ matches, and the end of the log in view while new records come in (Follow).
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont, QFontDatabase, QTextCharFormat, QTextCursor
 from PyQt6.QtWidgets import (
-    QComboBox,
     QHBoxLayout,
     QLineEdit,
     QPlainTextEdit,
@@ -20,6 +19,7 @@ from PyQt6.QtWidgets import (
 from xtouch_daemon.gui.domain.log import LEVELS, MAX_MATCHES, LogHistory, line, matches, shown
 from xtouch_daemon.gui.domain.status import log_unavailable
 from xtouch_daemon.gui.qt.fields.basics import label
+from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -54,7 +54,7 @@ class LogView(QWidget):
         layout.setSpacing(Space.S)
         bar = QHBoxLayout()
         bar.setSpacing(Space.S)
-        self.level = QComboBox()
+        self.level = Choice()
         for level in LEVELS:
             self.level.addItem(level.capitalize(), level)
         self.level.setCurrentIndex(LEVELS.index(DEFAULT_LEVEL))

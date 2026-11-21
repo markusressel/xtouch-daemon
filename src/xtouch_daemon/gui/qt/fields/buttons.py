@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QComboBox, QGridLayout, QWidget
 from xtouch_daemon.config.buttons import ButtonSetup, describe_action, table_of
 from xtouch_daemon.gui.domain.schema import Kind, Option
 from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label, set_help
+from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.theme.tokens import Space
 
 PART_TITLES = {"press": "Press", "hold": "Hold", "led": "LED"}
@@ -84,7 +85,7 @@ class ButtonField(QWidget):
         grid.setVerticalSpacing(Space.XS)
         self.combos: dict[str, QComboBox] = {}
         for row, column in enumerate(columns):
-            combo = QComboBox(self)
+            combo = Choice(self)
             combo.setMinimumWidth(180)
             combo.setToolTip(help_text(column.help))
             if column.kind in (Kind.ACTION, Kind.BINDING):

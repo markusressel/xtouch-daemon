@@ -12,7 +12,6 @@ from typing import Any
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QKeySequence, QShortcut, QStandardItemModel
 from PyQt6.QtWidgets import (
-    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -63,6 +62,7 @@ from xtouch_daemon.gui.qt.fields.basics import (
     indent_text,
     label,
 )
+from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.meter import meter_row
@@ -221,7 +221,7 @@ class SlotsPanel(Page):
         inspector.addWidget(self.status_box)
         what = QHBoxLayout()
         what.addWidget(label("Shows"))
-        self.show_box = QComboBox()
+        self.show_box = Choice()
         self.show_box.setEditable(True)
         self.show_box.setToolTip("A channel, a pool (`auto`) or `-` for nothing")
         self.show_box.activated.connect(lambda _: self._edit_show())
@@ -704,7 +704,7 @@ class SlotsPanel(Page):
     def _show_what_if_bar(self, inputs: Inputs, what_if: WhatIf) -> None:
         _clear(self.what_if_bar)
         self.what_if_bar.addWidget(label("What if", "hint"))
-        mode = QComboBox()
+        mode = Choice()
         mode.addItems(inputs.modes)
         mode.setCurrentText(what_if.mode)
         mode.setToolTip("The mode")

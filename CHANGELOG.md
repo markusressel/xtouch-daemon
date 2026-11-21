@@ -67,6 +67,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- GUI: the lists of drop-down fields open inside the window, as popovers do: they no longer grab the keyboard and
+  the mouse, so screenshot tools and the keys of the window manager work while one is open.
+
 - Simulate (the GUI and `xtouch-daemon simulate`) no longer fails on a channel of type `homeassistant`: it shows
   its label and `offline`, as while Home Assistant is not there.
 - The daemon no longer hangs at its end while a client of the live view (the GUI) does not read: systemd killed it

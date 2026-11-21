@@ -10,12 +10,13 @@ from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QComboBox, QHBoxLayout, QMenu, QToolButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QMenu, QToolButton, QVBoxLayout, QWidget
 
 from xtouch_daemon.config.bindings import HOME_ASSISTANT
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
 from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label
+from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, Switch
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -107,7 +108,7 @@ class BindingField(QWidget):
         """The field of the words of the part, as an option of them has it without bindings."""
         match option.base:
             case Kind.CHOICE:
-                self.combo = QComboBox(self)
+                self.combo = Choice(self)
                 self.combo.addItems([str(choice) for choice in option.choices])
                 for index, choice in enumerate(option.choices):
                     self.combo.setItemData(index, help_text(option.meaning(choice)), Qt.ItemDataRole.ToolTipRole)
