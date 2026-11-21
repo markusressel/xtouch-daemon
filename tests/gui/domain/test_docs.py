@@ -69,7 +69,17 @@ def test_every_link_goes_to_a_page_and_heading_of_the_docs(link: str):
 
 
 def test_every_page_and_strip_type_has_its_docs():
-    assert set(docs.PAGES) == {"device", "behavior", "aliases", "mqtt", "channels", "states", "switching", "voip"}
+    assert set(docs.PAGES) == {
+        "device",
+        "behavior",
+        "aliases",
+        "mqtt",
+        "homeassistant",
+        "channels",
+        "states",
+        "switching",
+        "voip",
+    }
     assert set(docs.STRIP_TYPES) == set(STRIP_TYPES)
 
 

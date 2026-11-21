@@ -34,6 +34,7 @@ from xtouch_daemon.hardware.selftest import TestBench, sweep
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.hardware.transport import AlsaPort, Port, SocketPort
+from xtouch_daemon.homeassistant.client import HomeAssistant
 from xtouch_daemon.live.log import LogBuffer
 from xtouch_daemon.live.messages import (
     FEATURES,
@@ -41,6 +42,7 @@ from xtouch_daemon.live.messages import (
     EndPreview,
     EndTest,
     ForgetDevice,
+    HomeAssistantState,
     KeepPreview,
     KeepTest,
     MqttState,
@@ -69,7 +71,7 @@ from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.world import Names
 from xtouch_daemon.system import instance, systemd
-from xtouch_daemon.system.commands import Commands
+from xtouch_daemon.system.commands import Commands, SimulatedCommands
 from xtouch_daemon.system.processes import running_processes
 from xtouch_daemon.voip import VoipProvider, build_provider
 
@@ -101,6 +103,21 @@ def mqtt_state(bridge: MqttBridge) -> MqttState:
         ready=bridge.ready,
         error=bridge.error,
         entities=bridge.entity_count,
+    )
+
+
+def homeassistant_state(hass: HomeAssistant) -> HomeAssistantState | None:
+    """The connection to Home Assistant, for the live view; None while there is none."""
+    if hass.config is None:
+        return None
+    return HomeAssistantState(
+        url=hass.config.url,
+        connected=hass.connected,
+        synced=hass.synced,
+        error=hass.error,
+        entities=len(hass.states),
+        watched=hass.watched,
+        version=hass.version,
     )
 
 
@@ -149,6 +166,7 @@ class Daemon(Rig):
         state_dir: Path | None = None,
         log: LogBuffer | None = None,
         commands: Commands | None = None,
+        hass: HomeAssistant | None = None,
     ):
         """
         `bridge` is by default the one of the [mqtt] section, if there is one. `capture_command` is what the meters
@@ -158,7 +176,9 @@ class Daemon(Rig):
         `instance.voip_socket_file()`), `processes` tells the processes that run, for the states. `state_dir` is where
         the slots keep the overrides, the mode picked by hand and the order of the people for the next start (see
         `instance.state_dir()`), None for nowhere. `log` keeps the records of the log for the GUI (`live.WatchLog`).
-        `commands` runs the programs of bindings and custom channels (`set`, `watch`, `run`).
+        `commands` runs the programs of bindings and custom channels (`set`, `watch`, `run`). `hass` is the connection
+        to Home Assistant for the parts bound to its entities (it connects while the configuration has some, with
+        `[homeassistant]`); the twins read it too.
         """
         self.players = players
         self.config = config
@@ -199,6 +219,11 @@ class Daemon(Rig):
         """When the processes were scanned for the states of the slots last, and what ran."""
         self.slot_entities: SlotEntities | None = None
         """The states, the mode, the channels and the slots in Home Assistant (with slots and [mqtt])."""
+        self.hass = hass if hass is not None else HomeAssistant()
+        """The connection to the API of Home Assistant, shared by the strips, the controls and the twins."""
+        self.hass.on_change = self._changed
+        commands = commands if commands is not None else Commands()
+        commands.hass = self.hass
         self.devices_seen = DeviceMemory(state_dir / DEVICES_FILE_NAME if state_dir is not None else None)
         """The devices the sound server had, for the suggestions of the GUI (see `runtime.device_memory`)."""
         super().__init__(
@@ -208,7 +233,7 @@ class Daemon(Rig):
             self._build_voip(config),
             state_dir=state_dir,
             capture_command=capture_command,
-            commands=commands if commands is not None else Commands(),
+            commands=commands,
         )
         self._background: set[asyncio.Task[None]] = set()
         self._stop = asyncio.Event()
@@ -292,12 +317,26 @@ class Daemon(Rig):
     def _use(self, config: Config) -> None:
         """
         Runs `config` (the file's, or a preview while one runs): its VoIP provider, then like `reconfigure()`, on the
-        same broker too.
+        same broker too; and its connection to Home Assistant.
         """
         if config.voip != self.config.voip:
             self._replace_voip(config)
         self.reconfigure(config)
+        self._connect_hass()
         self._changed()
+
+    def _connect_hass(self) -> None:
+        """
+        Connects to Home Assistant with the `[homeassistant]` of the configuration that runs, while it or a twin has
+        parts bound to entities; else no connection. Once the daemon runs.
+        """
+        if self._mixer_task is None:
+            return
+        section = self.config.homeassistant
+        wanted = bool(self.config.slots.entities) or any(
+            session.twin.config.slots.entities for session in self._twins.values()
+        )
+        self.hass.configure(section if wanted else None)
 
     def _replace_mixer(self) -> None:
         super()._replace_mixer()
@@ -502,16 +541,18 @@ class Daemon(Rig):
         now = asyncio.get_running_loop().time()
         session = self._twins.get(client)
         if session is None:
-            twin = Twin(config, situation, self._names(), real=real)
+            twin = Twin(config, situation, self._names(), real=real, commands=SimulatedCommands(self.hass))
             twin.on_change = lambda: self._twin_changed(client)
             task = asyncio.create_task(twin.run(), name="virtual twin")
             task.add_done_callback(lambda done: self._twin_stopped(client, done))
             self._twins[client] = TwinSession(twin, task, now)
+            self._connect_hass()
             _LOGGER.debug("A virtual twin for a client of the live view")
             return Reply("preview", True)
         session.seen = now
         if fingerprint(config) != fingerprint(session.twin.config):
             session.twin.reconfigure(config)
+            self._connect_hass()
         session.twin.set_situation(situation, real)
         return Reply("preview", True)
 
@@ -523,6 +564,8 @@ class Daemon(Rig):
         closing = asyncio.create_task(self._close_twin(session), name="virtual twin closing")
         self._closing.add(closing)
         closing.add_done_callback(self._closing.discard)
+        if not self._stopping:
+            self._connect_hass()
         if why is not None and self.live is not None:
             self.live.tell(client, Reply("ended", True, why))
         _LOGGER.debug(f"A virtual twin ended: {why or 'the client asked, or went away'}")
@@ -740,6 +783,7 @@ class Daemon(Rig):
         if self.bridge is not None:
             parts.append(asyncio.create_task(self.bridge.run(), name="mqtt"))
         self._start_mixer()
+        self._connect_hass()
         self._start_voip()
         self._in_background(self.follow(), "slots")
         self._in_background(self._watch_twins(), "virtual twins")
@@ -796,6 +840,7 @@ class Daemon(Rig):
         if self.bridge is not None:
             # while it is still connected: Home Assistant sees the entities unavailable right away
             await self.bridge.close()
+        await self.hass.close()
         assert self._mixer_task is not None, "run() starts the mixer"
         others = [*parts, self._mixer_task, *self._background, *([self._voip_task] if self._voip_task else [])]
         if self._watchdog is not None:
@@ -874,6 +919,7 @@ class Daemon(Rig):
             simulated=self.slots.situation is not None,
             test=self.testing,
             device_plugged=self.device_plugged,
+            homeassistant=homeassistant_state(self.hass),
         )
 
     def _status(self) -> str:
@@ -883,6 +929,8 @@ class Daemon(Rig):
         mqtt = ""
         if self.bridge is not None:
             mqtt = ", MQTT connected" if self.bridge.connected else ", waiting for MQTT"
+        if self.hass.config is not None:
+            mqtt += ", Home Assistant connected" if self.hass.connected else ", waiting for Home Assistant"
         preview = ", previewing unsaved changes of the GUI" if self.previewing else ""
         test = ", testing the device" if self.testing else ""
         return f"STATUS={surface}, {sound}{mqtt}{preview}{test}"

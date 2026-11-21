@@ -23,6 +23,7 @@ from pydantic import (
 
 from xtouch_daemon.config.base import ConfigError, Meanings, error_message, error_path, error_place
 from xtouch_daemon.config.bindings import (
+    ENTITY,
     FADER_PUSH,
     HOME_ASSISTANT,
     TABLE,
@@ -32,10 +33,14 @@ from xtouch_daemon.config.bindings import (
     WORD_OR_TABLE,
     ColorPart,
     CustomMeterPart,
+    EntityBinding,
+    EntityValueBinding,
     LcdPart,
     RunAction,
+    ServiceAction,
     ValueBinding,
     WatchBinding,
+    entities_of,
     placeholders_of,
     programs_of,
     text_or_table,
@@ -389,11 +394,15 @@ def _kind_of_knob(value: object) -> str:
 def _kind_of_action(value: object) -> str:
     if isinstance(value, Launch) or (isinstance(value, Mapping) and "launch" in value):
         return "~launch"
+    if isinstance(value, ServiceAction) or (isinstance(value, Mapping) and "service" in value):
+        return "~service"
     return "~run" if isinstance(value, Mapping | BaseModel) else TEXT
 
 
 def _kind_of_button(value: object) -> str:
-    if isinstance(value, ButtonClaim) or (isinstance(value, Mapping) and not {"launch", "run"} & set(value)):  # pyright: ignore[reportUnknownArgumentType]
+    if isinstance(value, ButtonClaim) or (
+        isinstance(value, Mapping) and not {"launch", "run", "service"} & set(value)  # pyright: ignore[reportUnknownArgumentType]
+    ):  # pyright: ignore[reportUnknownArgumentType]
         return "~claim"
     return _kind_of_action(value)
 
@@ -401,18 +410,25 @@ def _kind_of_button(value: object) -> str:
 type KnobControl = Annotated[
     Annotated[Literal["homeassistant"], Tag(TEXT)]
     | Annotated[ChannelControl, Tag("~channel")]
-    | Annotated[ValueBinding, Tag(TABLE)],
+    | Annotated[ValueBinding, Tag(TABLE)]
+    | Annotated[EntityValueBinding, Tag(ENTITY)],
     Discriminator(_kind_of_knob),
 ]
 """
-What `[controls]` can make of a fader or an encoder: a number in Home Assistant, the value of a `custom` channel, or a
-value of your own.
+What `[controls]` can make of a fader or an encoder: a number in Home Assistant, the value of a `custom` channel, a
+value of your own, or of an entity of Home Assistant.
 """
 type ButtonAction = Annotated[
-    Annotated[str, Tag(TEXT)] | Annotated[Launch, Tag("~launch")] | Annotated[RunAction, Tag("~run")],
+    Annotated[str, Tag(TEXT)]
+    | Annotated[Launch, Tag("~launch")]
+    | Annotated[RunAction, Tag("~run")]
+    | Annotated[ServiceAction, Tag("~service")],
     Discriminator(_kind_of_action),
 ]
-"""What a press of a button of `[controls]` does: an action of the slots, an application to start, or a program."""
+"""
+What a press of a button of `[controls]` does: an action of the slots, an application to start, a program, or a
+service of Home Assistant.
+"""
 
 CLAIM_LEDS = Meanings(
     {
@@ -425,10 +441,12 @@ CLAIM_LEDS = Meanings(
 """What the LED of a button of `[controls]` can show as a word."""
 ClaimLedWord = Literal["off", "press", "homeassistant"]
 type ClaimLed = Annotated[
-    Annotated[Annotated[ClaimLedWord, CLAIM_LEDS], Tag(TEXT)] | Annotated[WatchBinding, Tag(TABLE)],
+    Annotated[Annotated[ClaimLedWord, CLAIM_LEDS], Tag(TEXT)]
+    | Annotated[WatchBinding, Tag(TABLE)]
+    | Annotated[EntityBinding, Tag(ENTITY)],
     WORD_OR_TABLE,
 ]
-"""What the LED of a button of `[controls]` shows: a word, or the lines of a program of your own."""
+"""What the LED of a button of `[controls]` shows: a word, the lines of a program of your own, or an entity."""
 
 
 class ButtonClaim(_Section):
@@ -458,6 +476,7 @@ type ButtonControl = Annotated[
     Annotated[str, Tag(TEXT)]
     | Annotated[Launch, Tag("~launch")]
     | Annotated[RunAction, Tag("~run")]
+    | Annotated[ServiceAction, Tag("~service")]
     | Annotated[ButtonClaim, Tag("~claim")],
     Discriminator(_kind_of_button),
 ]
@@ -519,12 +538,14 @@ class ControlsConfig(_Section):
 
     @model_validator(mode="after")
     def _bound(self) -> ControlsConfig:
-        if isinstance(self.fader, ValueBinding) and self.fader.push is not None:
+        if isinstance(self.fader, ValueBinding | EntityValueBinding) and self.fader.push is not None:
             raise ValueError(FADER_PUSH)
         for where, argv in self.programs.items():
             if "target" in placeholders_of(argv):
                 raise ValueError(f"{where}: {TARGET} is for custom channels with targets")
-        valued = any(isinstance(knob, ValueBinding | ChannelControl) for knob in (self.fader, self.encoder))
+        valued = any(
+            isinstance(knob, ValueBinding | EntityValueBinding | ChannelControl) for knob in (self.fader, self.encoder)
+        )
         for name in CONTROL_BUTTONS:
             action = self.press(name)
             if isinstance(action, RunAction) and "value" in placeholders_of(action.run) and not valued:
@@ -536,7 +557,7 @@ class ControlsConfig(_Section):
         """The parts it claims, in the order of `CONTROL_PARTS`."""
         return tuple(name for name in CONTROL_PARTS if getattr(self, name) is not None)
 
-    def press(self, button: str) -> str | Launch | RunAction | None:
+    def press(self, button: str) -> str | Launch | RunAction | ServiceAction | None:
         """What a press of the button (`select`, `rec`, `solo`) does; None: the press stays with what the slot shows."""
         value = getattr(self, button)
         return value.press if isinstance(value, ButtonClaim) else value
@@ -545,7 +566,7 @@ class ControlsConfig(_Section):
         """Where the press of a button is in the entry: `select`, or `select.press` in a table."""
         return f"{button}.press" if isinstance(getattr(self, button), ButtonClaim) else button
 
-    def led(self, button: str) -> ClaimLedWord | WatchBinding | None:
+    def led(self, button: str) -> ClaimLedWord | WatchBinding | EntityBinding | None:
         """What the LED of a button shows: its `led`, `press` with only a press, None while it is not claimed."""
         value = getattr(self, button)
         if isinstance(value, ButtonClaim):
@@ -569,6 +590,14 @@ class ControlsConfig(_Section):
             else:
                 bound[name] = value
         return {f"{at}.{option}": argv for at, part in bound.items() for option, argv in programs_of(part).items()}
+
+    @property
+    def entities(self) -> dict[str, EntityBinding | ServiceAction]:
+        """Its parts and presses with entities of Home Assistant by where they are, e.g. `meter`, `select.press`."""
+        bound: dict[str, object] = {name: getattr(self, name) for name in ("fader", "encoder", *CONTROL_DISPLAYS)}
+        for name in CONTROL_BUTTONS:
+            bound |= {f"{name}.press": self.press(name), f"{name}.led": self.led(name)}
+        return entities_of(bound)
 
     @property
     def uses_home_assistant(self) -> bool:

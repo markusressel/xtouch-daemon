@@ -11,6 +11,7 @@ from typing import Any
 from pydantic import TypeAdapter, ValidationError
 
 from xtouch_daemon.config.base import ConfigError, error_message, error_place
+from xtouch_daemon.config.bindings import EntityBinding, ServiceAction
 from xtouch_daemon.config.buttons import table_of
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.sections import VoipConfig
@@ -48,6 +49,11 @@ class SlotsSetup:
     """The look of the strips of people (the options of `[pool.people]`)."""
     channels: Mapping[str, StripConfig] = field(default_factory=dict)
     """The strip of each channel on its own (its look where a candidate adds none)."""
+    entities: Mapping[str, EntityBinding | ServiceAction] = field(default_factory=dict)
+    """
+    The parts and actions with entities of Home Assistant, by where they are in the file (e.g. `channel.out.meter`):
+    with any, the daemon connects to the API of Home Assistant (`[homeassistant]`).
+    """
 
     def device(self, place: StripConfig, name: str, direction: str) -> StripConfig:
         """The strip of a device of `devices` on a place of it: an output or input strip of that device."""
@@ -191,10 +197,33 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 if entry.uses_home_assistant:
                     where = f"controls.{slot}" + (f"[{index}]" if len(entries) > 1 else "")
                     problems.append(f"{where}: Home Assistant needs an [mqtt] section")
+    entities = entity_places(own_strips, scene)
+    if config.homeassistant is None:
+        problems += [
+            f"{where}.{'service' if isinstance(part, ServiceAction) else 'entity'}: an entity of Home Assistant "
+            "needs a [homeassistant] section"
+            for where, part in entities.items()
+        ]
     if problems:
         raise ConfigError("\n".join(dict.fromkeys(problems)))
     # the people are members of auto in every configuration: the section has defaults for everything
     result = config.model_copy(update={"voip": config.voip or VoipConfig()})
     channel_strips = {name: strip for name, strip in own_strips.items() if strip is not None}
-    result._slots = SlotsSetup(scene, data, strips, people, channel_strips)
+    result._slots = SlotsSetup(scene, data, strips, people, channel_strips, entities)
     return result
+
+
+def entity_places(channels: Mapping[str, StripConfig | None], scene: Scene) -> dict[str, EntityBinding | ServiceAction]:
+    """
+    The parts and actions with entities of Home Assistant by where they are: of the channels, and of `[controls]` (the
+    places of pools take words only).
+    """
+    found: dict[str, EntityBinding | ServiceAction] = {}
+    for name, strip in channels.items():
+        if isinstance(strip, BaseStripConfig | CustomStripConfig):
+            found |= {f"channel.{name}.{where}": part for where, part in strip.entities().items()}
+    for slot, entries in scene.controls.items():
+        for index, entry in enumerate(entries):
+            place = f"controls.{slot}" + (f"[{index}]" if len(entries) > 1 else "")
+            found |= {f"{place}.{where}": part for where, part in entry.entities.items()}
+    return found

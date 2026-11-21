@@ -10,7 +10,15 @@ from typing import Any, Literal, assert_never, cast
 
 from pydantic import ValidationError
 
-from xtouch_daemon.config.bindings import HOME_ASSISTANT, LevelBinding, RunAction, ValueBinding, WatchBinding
+from xtouch_daemon.config.bindings import (
+    HOME_ASSISTANT,
+    EntityBinding,
+    LevelBinding,
+    RunAction,
+    ServiceAction,
+    ValueBinding,
+    WatchBinding,
+)
 from xtouch_daemon.config.buttons import (
     BUTTON_NAMES,
     LEDS,
@@ -214,11 +222,11 @@ class Strip:
         )
 
 
-def _led(value: object, default: LedWord | WatchBinding) -> LedWord | WatchBinding:
+def _led(value: object, default: LedWord | WatchBinding | EntityBinding) -> LedWord | WatchBinding | EntityBinding:
     """What an LED of the form shows, `default` for none or for one that shows nothing (the form shows its problem)."""
     if isinstance(value, Mapping):
         try:
-            return WatchBinding.model_validate(value)
+            return EntityBinding.model_validate(value) if "entity" in value else WatchBinding.model_validate(value)
         except ValidationError:
             return default
     return cast(LedWord, value) if value in LEDS.meanings else default
@@ -243,6 +251,8 @@ def _action(value: object, default: Action) -> Action:
         return value
     if isinstance(value, Mapping):
         try:
+            if "service" in value:
+                return ServiceAction.model_validate(value)
             return RunAction.model_validate(value) if "run" in value else LaunchAction.model_validate(value)
         except ValidationError:
             return default
@@ -474,6 +484,8 @@ def _does(action: Action) -> str:
     """What an action does, in a few words."""
     if isinstance(action, LaunchAction):
         return f"starts {action.launch[0]}"
+    if isinstance(action, ServiceAction):
+        return f"calls {action.service}"
     if not isinstance(action, str):
         return f"runs {action.run[0]}"
     if action.startswith("mode:"):

@@ -17,10 +17,14 @@ from xtouch_daemon.config.bindings import (
     ColorPart,
     CustomMeterPart,
     CustomValuePart,
+    EntityBinding,
+    EntityValueBinding,
     LcdPart,
+    PresentPart,
+    ServiceAction,
     Target,
     ValueBinding,
-    WatchBinding,
+    entities_in,
     placeholders_of,
     programs_in,
 )
@@ -98,10 +102,10 @@ class CustomStripConfig(Model):
     """What Solo does (`press`, `hold`) and what its LED shows (`led`). By default nothing."""
     mute: MuteButton = ButtonConfig()
     """What Mute does (`press`, `hold`) and what its LED shows (`led`). By default nothing."""
-    present: WatchBinding | None = None
+    present: PresentPart | None = None
     """
-    A program that tells whether the channel is there: a line with text makes it present, an empty line absent.
-    Without it, the channel is always present.
+    Whether the channel is there. A `watch`: a line with text makes it present, an empty line absent. An entity: it is
+    present unless it is `unavailable` or `unknown`. Without it, the channel is always present.
     """
     targets: tuple[Target, ...] = ()
     """
@@ -123,6 +127,11 @@ class CustomStripConfig(Model):
         """Whether the fader or the encoder is a value of your own: `{value}` of `run` is its value."""
         return isinstance(self.fader, ValueBinding) or isinstance(self.encoder, ValueBinding)
 
+    @property
+    def valued(self) -> bool:
+        """Whether the fader or the encoder has a value (of your own, or of an entity): `{value}` of `run` is it."""
+        return any(isinstance(knob, ValueBinding | EntityValueBinding) for knob in (self.fader, self.encoder))
+
     def button(self, name: CustomButtonName) -> ButtonSetup:
         """What a button does: its table, the rest nothing."""
         return resolved(getattr(self, name), ButtonSetup())
@@ -130,6 +139,10 @@ class CustomStripConfig(Model):
     def programs(self) -> dict[str, tuple[str, ...]]:
         """The programs of its parts, by where they are, e.g. `fader.set`, `select.press.run`."""
         return programs_in(self, CUSTOM_PARTS, CUSTOM_BUTTONS)
+
+    def entities(self) -> dict[str, EntityBinding | ServiceAction]:
+        """Its parts and actions with entities of Home Assistant, by where they are, e.g. `meter`, `select.press`."""
+        return entities_in(self, CUSTOM_PARTS, CUSTOM_BUTTONS)
 
     @field_validator("targets")
     @classmethod
@@ -160,7 +173,7 @@ class CustomStripConfig(Model):
 
     @model_validator(mode="after")
     def _all_bound(self) -> CustomStripConfig:
-        if isinstance(self.fader, ValueBinding) and self.fader.push is not None:
+        if isinstance(self.fader, ValueBinding | EntityValueBinding) and self.fader.push is not None:
             raise ValueError(FADER_PUSH)
         if self.together and not self.targets:
             raise ValueError("together: needs targets")
@@ -171,8 +184,8 @@ class CustomStripConfig(Model):
             used = placeholders_of(argv)
             if "target" in used and not self.targets:
                 raise ValueError(f"{where}: {TARGET} needs targets")
-            if "value" in used and where.endswith(".run") and not self.value_bound:
-                raise ValueError(f"{where}: {VALUE} needs a fader or an encoder bound to a program")
+            if "value" in used and where.endswith(".run") and not self.valued:
+                raise ValueError(f"{where}: {VALUE} needs a fader or an encoder bound to a value")
         if self.targets and not any("target" in placeholders_of(argv) for argv in programs.values()):
             raise ValueError(f"targets: no program has {TARGET}, so the targets would all be the same")
         return self
@@ -201,7 +214,8 @@ def _action_problem(name: str, part: str, action: str) -> str | None:
         return None
     words = ", ".join(sorted(CUSTOM_ACTIONS))
     return (
-        f"{name}.{part}: {action} is not for custom channels ({words}, mode:<id>, toggle:<state>, or {{ run = [...] }})"
+        f"{name}.{part}: {action} is not for custom channels ({words}, mode:<id>, toggle:<state>, {{ run = [...] }}, "
+        "or { service = ... })"
     )
 
 
@@ -210,7 +224,7 @@ def _led_problem(name: str, led: str) -> str | None:
     if led in CUSTOM_LEDS:
         return None
     words = ", ".join(sorted(CUSTOM_LEDS))
-    return f"{name}.led: {led} is not for custom channels ({words}, or {{ watch = [...] }})"
+    return f"{name}.led: {led} is not for custom channels ({words}, {{ watch = [...] }}, or {{ entity = ... }})"
 
 
 StripConfig = Annotated[

@@ -12,10 +12,14 @@ from xtouch_daemon.config.bindings import (
     TARGET,
     ColorPart,
     EncoderPart,
+    EntityBinding,
+    EntityValueBinding,
     FaderPart,
     LcdPart,
     MeterPart,
+    ServiceAction,
     ValueBinding,
+    entities_in,
     placeholders_of,
     programs_in,
 )
@@ -161,9 +165,15 @@ class BaseStripConfig(Model):
                 f"encoder: {self.encoder} is not for {strip_type} strips ({', '.join(ENCODERS[strip_type])})"
             )
         if self.fader != "volume" and self.encoder not in (None, "volume"):
-            where = "in Home Assistant" if self.fader == "homeassistant" else "bound to a program"
+            where = (
+                "in Home Assistant"
+                if self.fader == "homeassistant"
+                else "bound to an entity"
+                if isinstance(self.fader, EntityValueBinding)
+                else "bound to a program"
+            )
             raise ValueError(f"encoder: with the fader {where}, the encoder sets the volume")
-        if isinstance(self.fader, ValueBinding) and self.fader.push is not None:
+        if isinstance(self.fader, ValueBinding | EntityValueBinding) and self.fader.push is not None:
             raise ValueError(FADER_PUSH)
         if getattr(self, "launch_when_running", False) and getattr(self, "launch", None) is None:
             raise ValueError("launch_when_running: needs launch")
@@ -180,6 +190,10 @@ class BaseStripConfig(Model):
     def programs(self) -> dict[str, tuple[str, ...]]:
         """The programs of its parts, by where they are, e.g. `fader.set`, `select.press.run`."""
         return programs_in(self, PARTS, BUTTON_NAMES)
+
+    def entities(self) -> dict[str, EntityBinding | ServiceAction]:
+        """Its parts and actions with entities of Home Assistant, by where they are, e.g. `meter`, `select.press`."""
+        return entities_in(self, PARTS, BUTTON_NAMES)
 
     def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
         """Where each volume range of the strip is configured (e.g. `profiles[2]`, "" for the strip), and the range."""
