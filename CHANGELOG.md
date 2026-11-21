@@ -74,7 +74,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - They work on channels and in `[controls]`. Without `[homeassistant]` they are errors at their place; an entity
     Home Assistant does not have is a warning in the log. While the daemon is not connected, the parts show nothing.
   - The daemon connects only while the configuration uses entities, and again after the connection broke; a refused
-    token is logged and not tried again. Simulate reads the entities and calls no services.
+    token is logged and not tried again until the token changes (a reload with another `token`, or a `token_file` or
+    `token_env` that has another one now). Simulate reads the entities and calls no services.
     The status line of the service says when the connection comes and goes.
   - GUI: "An entity" in the bind button of a part shows its options under it: the entity with suggestions of what
     Home Assistant has (its domain's icon, its name and its state now; filtered as you type, picked with the keyboard),

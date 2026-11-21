@@ -151,6 +151,107 @@ async def test_a_token_it_cant_read_is_an_error(home: FakeHomeAssistant, monkeyp
     await hass.close()
 
 
+async def test_the_same_section_tries_again_with_a_token_that_changed(
+    home: FakeHomeAssistant, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    token = tmp_path / "token"
+    token.write_text("wrong\n")
+    config = HomeAssistantConfig(url="http://ha.test:8123", token_file=token)
+    hass = HomeAssistant(home.connect)
+    hass.configure(config)
+    await settle()
+    assert hass.error is not None
+    assert "refused the token" in hass.error
+    # a reload with the token Home Assistant refused does not try it again
+    hass.configure(config)
+    await settle()
+    assert len(home.connections) == 1
+    # a reload after the file has the new token connects
+    token.write_text(TOKEN)
+    hass.configure(config)
+    await settle()
+    assert hass.synced
+    assert len(home.connections) == 2
+    await hass.close()
+    # a variable that was not set, then is
+    monkeypatch.delenv("HA_TOKEN", raising=False)
+    config = HomeAssistantConfig(url="http://ha.test:8123", token_env="HA_TOKEN")
+    hass.configure(config)
+    await settle()
+    assert hass.error is not None
+    assert "HA_TOKEN is not set" in hass.error
+    hass.configure(config)
+    await settle()
+    assert len(home.connections) == 2
+    monkeypatch.setenv("HA_TOKEN", TOKEN)
+    hass.configure(config)
+    await settle()
+    assert hass.synced
+    await hass.close()
+
+
+async def test_a_connection_that_closes_slowly_leaves_the_next_one_alone(home: FakeHomeAssistant) -> None:
+    home.closing = 5.0
+    hass = await connected(home)
+    calls: list[str] = []
+    hass.watch("light.desk", lambda: calls.append("desk"))
+    hass.configure(hass_config(url="http://other.test:8123"))
+    # the entities have no state at once, while the old connection still closes
+    assert hass.state("light.desk") is None
+    assert not hass.connected
+    assert calls == ["desk"]
+    await settle()
+    assert hass.synced
+    await asyncio.sleep(10)
+    # the old one closed: the new one keeps its states and takes requests
+    assert home.connections[0].closed
+    assert hass.connected
+    assert hass.state("light.desk") is not None
+    await hass.call_service("light.toggle", None, "light.desk")
+    assert home.calls[-1] == ("light.toggle", {}, "light.desk")
+    await hass.close()
+
+
+async def test_a_login_without_the_states_waits_longer_each_time(home: FakeHomeAssistant) -> None:
+    loop = asyncio.get_running_loop()
+    times: list[float] = []
+    connect = home.connect
+
+    async def refusing(url: str) -> FakeTransport:
+        times.append(loop.time())
+        transport = await connect(url)
+        send = transport.send
+
+        async def no_subscriptions(message: str) -> None:
+            if json.loads(message).get("type") == "subscribe_entities":
+                transport.push({"id": json.loads(message)["id"], "type": "result", "success": False, "error": {}})
+                return
+            await send(message)
+
+        transport.send = no_subscriptions  # type: ignore[method-assign]
+        return transport
+
+    hass = HomeAssistant(refusing)
+    hass.configure(hass_config())
+    await asyncio.sleep(sum(RECONNECT_DELAYS[:3]) + 0.1)
+    assert [round(later - earlier, 6) for earlier, later in itertools.pairwise(times)] == [1.0, 2.0, 5.0]
+    await hass.close()
+
+
+async def test_an_event_it_cant_read_ends_the_connection_not_the_daemon(home: FakeHomeAssistant) -> None:
+    hass = await connected(home)
+    transport = home.connections[0]
+    transport.push({"id": transport.subscription, "type": "event", "event": {"c": {"light.desk": "garbage"}}})
+    await settle()
+    assert hass.error is not None
+    assert hass.error.startswith("Home Assistant sent something unexpected")
+    assert transport.closed
+    await asyncio.sleep(RECONNECT_DELAYS[0] + 0.01)
+    assert hass.synced
+    assert len(home.connections) == 2
+    await hass.close()
+
+
 async def test_the_same_section_keeps_the_connection_none_ends_it(home: FakeHomeAssistant) -> None:
     changes: list[bool] = []
     hass = await connected(home)
@@ -291,7 +392,9 @@ async def test_a_login_that_answers_oddly(home: FakeHomeAssistant) -> None:
 
 
 @pytest.mark.looptime(False)
-async def test_a_real_websocket_on_the_loopback() -> None:
+async def test_a_real_websocket_on_the_loopback(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG)
+
     async def handler(connection: ServerConnection) -> None:
         await connection.send(json.dumps({"type": "auth_required"}))
         auth = json.loads(await connection.recv())
@@ -320,6 +423,11 @@ async def test_a_real_websocket_on_the_loopback() -> None:
         assert hass.connected
         assert [entity.entity_id for entity in await hass.get_states()] == ["sensor.x"]
         await hass.close()
+    # the frames are no records of the daemon's log, even in its details: the login has the token (the test's server
+    # logs them)
+    client = [record.getMessage() for record in caplog.records if not record.name.startswith("websockets.server")]
+    assert client
+    assert not [message for message in client if TOKEN in message]
     # nothing there any more
     with pytest.raises(HomeAssistantError, match="can't connect"):
         await websocket_connect(f"ws://127.0.0.1:{port}/api/websocket")
