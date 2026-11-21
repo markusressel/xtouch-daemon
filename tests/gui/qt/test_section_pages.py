@@ -224,6 +224,7 @@ def test_the_voice_chat_page_tells_whether_mumble_is_connected(
         (VoipState("demo", True, None, None, 5), "demo", "made up"),
         (VoipState("bridge", False, None, None, 0), "waiting for Mumble", "enable the plugin"),
         (VoipState("bridge", True, "mumble", "Lobby", 1), "Mumble connected", "1 person in Lobby."),
+        (VoipState("bridge", True, "teamspeak", "Lobby", 2), "TeamSpeak connected", "2 people in Lobby."),
         (VoipState("bridge", True, None, None, 3), "A client connected", "3 people."),
     ]:
         live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), voip=voip))

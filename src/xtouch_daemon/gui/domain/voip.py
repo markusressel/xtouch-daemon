@@ -8,6 +8,9 @@ from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.voip.mumble import Setup
 
+CLIENT_NAMES = {"mumble": "Mumble", "teamspeak": "TeamSpeak"}
+"""How the voice chat clients of the plugins write their names (the plugins send them in lowercase)."""
+
 
 def voip_status(snapshot: Snapshot | None) -> Status:
     """Where the participants of the running daemon come from, and whether a plugin is connected."""
@@ -34,7 +37,7 @@ def voip_status(snapshot: Snapshot | None) -> Status:
         )
     people = f"{voip.participants} {'person' if voip.participants == 1 else 'people'}"
     channel = f" in {voip.channel}" if voip.channel else ""
-    client = (voip.client or "a client").capitalize()
+    client = CLIENT_NAMES.get(voip.client or "") or (voip.client or "a client").capitalize()
     return Status(f"{client} connected", Tone.GOOD, f"{people}{channel}.")
 
 

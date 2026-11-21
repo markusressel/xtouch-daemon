@@ -13,6 +13,7 @@
 | [`xtouch-daemon mode`](#mode) | Shows the running daemon's mode, or picks another one. |
 | [`xtouch-daemon why`](#why) | Says why a slot shows what it shows, or where a channel is and why. |
 | [`xtouch-daemon mumble-plugin`](#mumble-plugin) | Shows, builds or installs the Mumble plugin for the strips of people. |
+| [`xtouch-daemon teamspeak-plugin`](#teamspeak-plugin) | Shows, builds or installs the TeamSpeak plugin for the strips of people. |
 | [`xtouch-daemon install-service`](#install-service) | Sets the daemon up as a systemd user service. |
 | [`xtouch-daemon gui`](#gui) | Edits the configuration in a window. |
 | [`xtouch-daemon simulate`](#simulate) | What the slots of a configuration show in a situation you give it. |
@@ -229,6 +230,29 @@ In Mumble: /home/me/.local/share/Mumble/Mumble/Plugins/libxtouch-daemon.so
 | `--build` | Builds the plugin from the sources of a checkout (`integrations/mumble`, needs `cmake` and a C compiler) into `integrations/mumble/build/`. With `--install`: builds it again first. |
 
 A release has the plugin in `/usr/share/xtouch-daemon/`; a checkout builds it.
+
+## `teamspeak-plugin`
+
+```shell
+xtouch-daemon teamspeak-plugin [--build] [--install]
+```
+
+The [TeamSpeak plugin](../guides/teamspeak.md) that gives the strips of people the people of your TeamSpeak channel.
+Without options it tells where the plugin is, whether TeamSpeak 3 is installed, and whether TeamSpeak has the plugin:
+
+```
+Plugin: /usr/share/xtouch-daemon/xtouch-daemon_linux_amd64.so
+TeamSpeak: installed
+In TeamSpeak: /home/me/.ts3client/plugins/xtouch-daemon_linux_amd64.so
+```
+
+| Option | Meaning |
+|---|---|
+| `--install` | Copies the plugin into `~/.ts3client/plugins`, replacing an older one; then TeamSpeak needs "Reload All" (Tools, Options, Addons) or a restart. Without a plugin it builds one first. |
+| `--build` | Builds the plugin from the sources of a checkout (`integrations/teamspeak`, needs `cmake` and a C compiler) into `integrations/teamspeak/build/`. The first build downloads the headers of TeamSpeak's plugin SDK into `integrations/teamspeak/sdk/`. With `--install`: builds it again first. |
+
+A release has the plugin in `/usr/share/xtouch-daemon/`; a checkout builds it. TeamSpeak counts as installed with
+a `teamspeak3` command, `/opt/teamspeak3` or `~/.ts3client`.
 
 ## `install-service`
 

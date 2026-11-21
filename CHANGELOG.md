@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- A TeamSpeak 3 plugin (`integrations/teamspeak`, TeamSpeak 3.6 and later) for the strips of people: the people of
+  your channel in the shown server tab, who talks and how loud, the fader for TeamSpeak's own volume of each person
+  (100 % is 0 dB, 200 % is +6 dB; a volume changed in TeamSpeak moves the fader) and Mute for TeamSpeak's "Mute
+  Client" (a mute set in TeamSpeak lights the button). `xtouch-daemon teamspeak-plugin --install` copies it into
+  `~/.ts3client/plugins`, building it first in a checkout; the build downloads the headers of TeamSpeak's plugin SDK
+  once. Releases have it in `/usr/share/xtouch-daemon/`. See the [TeamSpeak guide](docs/guides/teamspeak.md).
 - A JSON Schema of the configuration, published with the documentation and printed by `xtouch-daemon schema`. The
   example configuration points to it (`#:schema`), so editors with a TOML language server (Taplo, Tombi) complete the
   options, show their help on hover and mark mistakes while typing.

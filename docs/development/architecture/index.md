@@ -52,7 +52,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `simulator/` | The virtual device: `device` (`SimulatedDevice`, without IO) and `server` (on a Unix socket). See [Design: a simulated device](../design/device-simulator.md). |
 | `system/` | `processes` (from `/proc`), `launch` ([Design: launching applications](../design/launch.md)), `instance` (the runtime file and sockets of the running daemon), `systemd` (notify, journal levels, the unit, the user service). |
 | `live/` | The live view: `messages`, `codec` (lines of JSON), `server` (`LiveServer`), `device_test` (`xtouch-daemon test` through a running daemon), `log` (the records the GUI shows). See [Live view](live-view.md). |
-| `voip/` | `VoipProvider`: the people of a voice chat, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). `voip/mumble.py` and `integrations/mumble/` build and install the Mumble plugin (C). See [Design: the voice chat](../design/voice-chat.md). |
+| `voip/` | `VoipProvider`: the people of a voice chat, with `DemoProvider` and `BridgeProvider` (a client plugin on a Unix socket). `voip/mumble.py` and `integrations/mumble/` build and install the Mumble plugin (C), `voip/teamspeak.py` and `integrations/teamspeak/` the TeamSpeak plugin (C). See [Design: the voice chat](../design/voice-chat.md). |
 | `cli/` | The command line: a module per topic, put together by `main` in `cli/__init__.py`. |
 | `gui/domain/` | The editor without a toolkit. See [GUI](gui.md). |
 | `gui/qt/` | The widgets (the `gui` extra): `window/`, `preview/` (the drawing of the device), `pages/`, `fields/`, `theme/`. |

@@ -111,7 +111,7 @@ pythonVersion = "3.14"
 typeCheckingMode = "standard"
 
 [tool.codespell]
-# integrations/mumble/include is Mumble's header, as it is upstream
-skip = "*.lock,./site,./.venv,./integrations/mumble/include,./integrations/mumble/build"
+# integrations/mumble/include is Mumble's header, as it is upstream; integrations/teamspeak/sdk is TeamSpeak's SDK
+skip = "*.lock,./site,./.venv,./integrations/mumble/include,./integrations/mumble/build,./integrations/teamspeak/sdk,./integrations/teamspeak/build"
 # "bu" and "pres" are typed into fields (the starts of "buds" and "present"), HDA is a sound card (HDA Intel)
 ignore-words-list = "bu,hda,pres"

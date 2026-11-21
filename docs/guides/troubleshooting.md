@@ -83,8 +83,9 @@ popover of the service pill, and on the page Settings, Home Assistant, where "Te
 
 ## Voice chat
 
-**"waiting for Mumble", or nobody on the strips.** See [Mumble](mumble.md#troubleshooting): the plugin must be enabled in
-Mumble, and people need free `auto` slots or `person` channels on slots.
+**"waiting for Mumble", or nobody on the strips.** See [Mumble](mumble.md#troubleshooting) or
+[TeamSpeak](teamspeak.md#troubleshooting): the plugin must be enabled in the client, and people need free `auto` slots
+or `person` channels on slots.
 
 ## GUI
 
