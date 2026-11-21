@@ -188,6 +188,8 @@ def test_a_bound_meter_of_an_audio_fader_shows_its_level():
     frames = scene("fader", strip("output", meter={"watch": "/usr/bin/cpu-load"}, meter_point="post_fader"))
     assert captions(frames)[0] == "Bottom: 0 %; meter: each number cpu-load prints"
     assert {frame.state.meter for frame in frames} == {LEVEL}
+    frames = scene("fader", strip("output", meter={"poll": "cat /sys/class/power_supply/BAT0/capacity"}))
+    assert captions(frames)[0] == "Bottom: 0 %; meter: each number cat prints"
     frames = scene("fader", strip("output", fader="homeassistant", meter="homeassistant"))
     assert (
         captions(frames)[0] == "The fader at 20 %: the number in Home Assistant; meter: the level Home Assistant sets"
@@ -203,6 +205,9 @@ def test_the_lcd_of_a_custom_channel_shows_its_value_or_its_lines():
     assert captions(scene("display", strip("custom", color={"watch": "x"}))) == [
         "Shows the label: no value, no lcd, lit in the color x prints"
     ]
+    # a poll as a watch
+    frames = scene("display", strip("custom", lcd={"poll": "date +%H:%M"}, color={"poll": "/usr/bin/theme"}))
+    assert captions(frames) == ["The second line: each line date prints, lit in the color theme prints"]
     # the targets: the first one's name, the next one after Select
     targets = [{"name": "Left", "value": "DP-1"}, {"name": "Right", "value": "DP-2"}]
     frames = scene("display", strip("custom", fader=BRIGHTNESS, targets=targets))

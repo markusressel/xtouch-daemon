@@ -1,6 +1,7 @@
 # Design: the voice chat
 
-Status: built. How to use it: [People](../../configuration/channels/people.md) and [Mumble](../../guides/mumble.md);
+Status: built. How to use it: [People](../../configuration/channels/people.md), [Mumble](../../guides/mumble.md) and
+[TeamSpeak](../../guides/teamspeak.md);
 the protocol of the bridge: [The voice chat bridge](../../reference/voice-chat-bridge.md). First designed with the
 [layouts](../history/layouts.md).
 
@@ -27,9 +28,10 @@ outside for TeamSpeak (ClientQuery) and Discord (RPC), not for Mumble.
 ```mermaid
 graph LR
     Mumble[Mumble + plugin] -- "JSON lines" --> Bridge
+    TeamSpeak[TeamSpeak 3 + plugin] -- "JSON lines" --> Bridge
     Bridge[BridgeProvider<br/>$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock] --> Strips[strips of people]
     Demo[DemoProvider] --> Strips
-    Later[later: TeamSpeak, Discord] -.-> Strips
+    Later[later: Discord] -.-> Strips
 ```
 
 - `VoipProvider` (`voip/provider.py`): a snapshot of `Participant`s (id, name, talking, muted, volume, level),
@@ -38,6 +40,12 @@ graph LR
 - `BridgeProvider`: the daemon serves a Unix socket; a plugin inside the client connects, sends the participants as
   JSON lines and gets the commands back. The protocol is the same for every client, so the daemon needs no client
   libraries. To try it by hand: `socat - UNIX-CONNECT:$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock` and a pasted line.
+- **One plugin per client.** The bridge takes one connection per client (the `client` of its first state line) and
+  refuses another one of the same client; plugins of different clients are connected at the same time. Their people
+  are together, each id with the client in front (`mumble:12`), so a command finds its plugin and the id there.
+  Capabilities are per client (`capabilities_of()`), and `clients` lists each with its channel for the GUI. `client`
+  is all their names, and `channel` the first one there is, so the state `voice_chat` is on while any client is in a
+  channel. When a plugin goes, only the people of its client go. The kept volume and mute are by name, across clients.
 - `DemoProvider`: participants from the configuration, with volume and mute kept in memory and a talking pattern.
 - **Volume and mute while away.** The Mumble plugin keeps them per session (one who comes back gets a new session at
   100 %), and the bridge has no notion of names. So the provider remembers what the strips set by the participant's

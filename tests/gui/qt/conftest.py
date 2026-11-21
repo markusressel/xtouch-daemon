@@ -14,13 +14,12 @@ from pytestqt.qtbot import QtBot
 
 from tests.support.gui import (
     CONFIG,
-    NO_MUMBLE,
     RUNNING,
     STATE,
     Dialogs,
     FakeLiveDaemon,
     MakeWindow,
-    no_install,
+    no_plugins,
     unreachable_broker,
     unreachable_home_assistant,
 )
@@ -30,7 +29,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.entities import Fetch
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.app_events import app_events
-from xtouch_daemon.gui.qt.pages.sections import BrokerTest, MumbleInstaller
+from xtouch_daemon.gui.qt.pages.sections import BrokerTest, PluginInstaller
 from xtouch_daemon.gui.qt.theme.style import apply_theme
 from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -117,7 +116,7 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         live_socket: Path | None = None,
         test_broker: BrokerTest = unreachable_broker,
         session: Session | None = None,
-        mumble_installer: MumbleInstaller | None = None,
+        plugin_installers: list[PluginInstaller] | None = None,
         virtual_socket: Path | None = None,
         read_entities: Fetch = unreachable_home_assistant,
     ) -> MainWindow:
@@ -132,8 +131,8 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
             live_socket,
             test_broker,
             session,
-            # nothing of this machine: no plugin, no Mumble
-            mumble_installer or MumbleInstaller(no_install, lambda: NO_MUMBLE),
+            # nothing of this machine: no plugin, no Mumble, no TeamSpeak
+            plugin_installers if plugin_installers is not None else no_plugins(),
             virtual_socket,
             read_entities,
         )

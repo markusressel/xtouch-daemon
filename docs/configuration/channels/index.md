@@ -38,9 +38,9 @@ into a place in a slot, for the strips they show; a place of `apps`, `auto` or `
 
 | Option | Default | Meaning |
 |---|---|---|
-| `color` | `"white"` | The LCD backlight: `off` (no backlight), `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `"homeassistant"` or `{ watch }` ([Bindings](../strip/bindings.md)). Dark while the strip has nothing to control, unless `lit_when_idle` is on. |
+| `color` | `"white"` | The LCD backlight: `off` (no backlight), `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `"homeassistant"`, `{ watch }` or `{ poll }` ([Bindings](../strip/bindings.md)). Dark while the strip has nothing to control, unless `lit_when_idle` is on. |
 | `lit_when_idle` | `false` | Whether the LCD keeps its backlight while the strip has nothing to control: no application of an `apps` group plays, the device is not there, an `auto` strip has no application. The fader stays down all the same. |
-| `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). `"homeassistant"` or `{ watch, min, max }` show another level, see [Bindings](../strip/bindings.md). |
+| `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). `"homeassistant"`, `{ watch, min, max }` or `{ poll, min, max }` show another level, see [Bindings](../strip/bindings.md). |
 | `meter_point` | `behavior.meter_point` | Where the meter takes the level: `"pre_fader"` before the volume and Mute of the strip, `"post_fader"` after them, see [Meters](#meters). |
 | `rec` | `"recording"` | What the Rec button does and what its LED shows; an indicator alone (`recording`, `playing`, `default`, `muted` or `off`) sets the LED, see [Buttons and LEDs](../strip/leds.md). |
 | `solo` | `"off"` | The same for Solo, see [Buttons and LEDs](../strip/leds.md). |
@@ -49,10 +49,10 @@ into a place in a slot, for the strips they show; a place of `apps`, `auto` or `
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
 | `encoder` | depends on the type | What the encoder does: a mode, or a value of your own, see [Encoders](../strip/encoders.md). |
 | `fader` | `"volume"` | `"homeassistant"` hands the fader to Home Assistant, see [Encoders](../strip/encoders.md#fader-homeassistant); a value of your own (`{ set, watch, ... }`) binds it to programs, see [Bindings](../strip/bindings.md). Either gives the volume to the encoder. |
-| `lcd` | what the type shows | The second line of the LCD: `"homeassistant"` or `{ watch }`, see [Bindings](../strip/bindings.md). |
+| `lcd` | what the type shows | The second line of the LCD: `"homeassistant"`, `{ watch }` or `{ poll }`, see [Bindings](../strip/bindings.md). |
 
 Device and application channels also have a `label`, see their pages. A candidate of a slot can change the look at
-that place: `{ show = "mic", color = "blue" }` (see [Slots](../slots.md#slots)).
+that place: `{ show = "mic", color = "blue" }` (see [Places](../slots.md#places)).
 
 ## Labels
 
@@ -115,20 +115,27 @@ top. The GUI has the option under Settings, Behavior.
 
 | Element | What it does on an audio strip |
 |---|---|
-| Fader | Sets the volume. Follows changes made elsewhere. Only a touched fader changes the volume. |
-| Encoder | What `encoder` says, see [Encoders](../strip/encoders.md). |
-| Mute | Toggles mute. Its LED is on while muted. |
-| Rec, Solo | Their LEDs are [indicators](../strip/leds.md#indicators). By default the buttons do nothing, except Rec with [profiles](devices.md#profiles). |
-| Select | On device strips: makes the device the default, or with [`choices`](devices.md#choices) goes to the next one. On application strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. |
-| | Every channel can give Rec, Solo and Select other actions, for a press and a hold: see [Buttons](../strip/leds.md#buttons). [`[controls]`](../slots.md#controls-and-the-chord) gives the buttons of a slot an action whatever it shows. |
-| LCD | Top: the label. Bottom: the volume, or `muted`, `idle`, `off`. The backlight in `color`, dark while the strip has nothing to control. |
+| ![](../../images/controls/fader.png){ .xt-icon } Fader | Sets the volume. Follows changes made elsewhere. Only a touched fader changes the volume. |
+| ![](../../images/controls/encoder.png){ .xt-icon } Encoder | What `encoder` says, see [Encoders](../strip/encoders.md). |
+| ![](../../images/controls/mute.png){ .xt-icon } Mute | Toggles mute. Its LED is on while muted. |
+| ![](../../images/controls/rec.png){ .xt-icon } Rec, Solo | Their LEDs are [indicators](../strip/leds.md#indicators). By default the buttons do nothing, except Rec with [profiles](devices.md#profiles). |
+| ![](../../images/controls/select.png){ .xt-icon } Select | On device strips: makes the device the default, or with [`choices`](devices.md#choices) goes to the next one. On application strips with [`launch`](applications.md#launching-the-application): starts the application. Otherwise nothing on application strips. |
+| ![](../../images/controls/lcd.png){ .xt-icon } LCD | Top: the label. Bottom: the volume, or `muted`, `idle`, `off`. The backlight in `color`, dark while the strip has nothing to control. |
 | Ring | What the encoder controls. |
-| Meter | The level of what the strip controls, see [Meters](#meters). |
+| ![](../../images/controls/meter.png){ .xt-icon } Meter | The level of what the strip controls, see [Meters](#meters). |
+
+!!! tip "Other actions"
+
+    Every channel can give Rec, Solo and Select other actions, for a press and a hold: see
+    [Buttons](../strip/leds.md#buttons). [`[controls]`](../slots.md#controls-and-the-chord) gives the buttons of a slot
+    an action whatever it shows.
 
 A strip with nothing to control (a device that is gone, an application that ended) goes dark, and its fader glides
 slowly to the bottom. When it is back, the fader goes up to its volume again.
 
 ## Meters
+
+![The meter: green LEDs from SIG at the bottom, then orange, and the red clip LED at the top](../../images/controls/meter.png){ .xt-part width="56" }
 
 The LED meter shows the peak level of what the strip controls, 10 times a second: from -60 dB (the lowest LED) up to
 just below full scale (the seventh LED), 5 dB per level of the device (about two levels per LED, see

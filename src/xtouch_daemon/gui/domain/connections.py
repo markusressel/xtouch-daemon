@@ -64,7 +64,8 @@ def connections(snapshot: Snapshot | None, device_name: str) -> tuple[Connection
                 else Status(
                     "not connected",
                     Tone.NEUTRAL,
-                    "No plugin of a voice chat client is connected: people show once one is (e.g. Mumble runs).",
+                    "No plugin of a voice chat client is connected: people show once one is (e.g. Mumble or "
+                    "TeamSpeak runs).",
                 ),
                 "voip",
             )

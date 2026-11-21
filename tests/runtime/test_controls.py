@@ -686,6 +686,32 @@ select = { press = "toggle:call", led = "off" }
 """
 
 
+POLLED = """
+[[controls.1]]
+meter = { poll = "cpu", every = 2 }
+lcd = { poll = "date +%H:%M", every = 30 }
+rec = { led = { poll = "lamp" } }
+"""
+
+
+async def test_a_slot_shows_what_its_controls_poll(surface: RecordingSurface) -> None:
+    commands = ProgramCommands()
+    commands.polled = {"cpu": "50\n", "date +%H:%M": "12:00\n", "lamp": "on\n"}
+    rig = Rig(surface, parse_config(BASE + POLLED), commands=commands)
+    rig.step(STATE)
+    await settle()
+    device = surface.strips[0]
+    assert (device.text[1], device.leds[Button.REC]) == ("12:00", Led.ON)
+    rig.desk.show_meters()
+    assert surface.meters(0) == [round(0.5 * protocol.METER_MAX)]
+    commands.polled["lamp"] = "off\n"
+    await asyncio.sleep(11)
+    assert device.leds[Button.REC] == Led.OFF
+    assert (commands.polling("cpu"), commands.polling("date +%H:%M"), commands.polling("lamp")) == (6, 1, 2)
+    rig.mixer.close()
+    await commands.wait_closed()
+
+
 async def test_a_slot_shows_what_its_controls_watch_while_their_when_holds(surface: RecordingSurface) -> None:
     commands = ProgramCommands()
     rig = Rig(surface, parse_config(BASE + SHOWN), commands=commands)

@@ -9,6 +9,8 @@ from pydantic import ValidationError
 from xtouch_daemon.cli.configuration import describe_strip
 from xtouch_daemon.config.base import ConfigError, error_place
 from xtouch_daemon.config.bindings import (
+    POLL_EVERY,
+    Feed,
     LevelBinding,
     RunAction,
     ValueBinding,
@@ -17,6 +19,7 @@ from xtouch_daemon.config.bindings import (
     describe_part,
     fill,
     placeholders_of,
+    programs_of,
 )
 from xtouch_daemon.config.buttons import ButtonConfig, describe_action, indicator
 from xtouch_daemon.config.files import parse_config
@@ -101,12 +104,72 @@ def test_a_watch_a_level_a_run_and_a_target():
     assert RunAction.model_validate({"run": "reset {value}"}).run == ("reset", "{value}")
 
 
+def test_a_poll_runs_every_so_many_seconds_instead_of_a_watch():
+    clock = WatchBinding.model_validate({"poll": "date +%H:%M"})
+    assert (clock.watch, clock.poll, clock.every) == (None, ("date", "+%H:%M"), POLL_EVERY)
+    assert clock.feed == Feed(("date", "+%H:%M"), POLL_EVERY)
+    assert clock.feed.option == "poll"
+    assert programs_of(clock) == {"poll": ("date", "+%H:%M")}
+    watch = WatchBinding.model_validate({"watch": "status --follow"})
+    assert watch.feed == Feed(("status", "--follow"))
+    assert watch.feed.option == "watch"
+    assert programs_of(watch) == {"watch": ("status", "--follow")}
+    level = LevelBinding.model_validate({"poll": "load", "every": 2.5, "max": 4})
+    assert (level.feed, level.max) == (Feed(("load",), 2.5), 4)
+    value = ValueBinding.model_validate({"set": "b {value}", "poll": "b -g", "every": 1})
+    assert value.feed == Feed(("b", "-g"), 1)
+    assert value.programs == {"set": ("b", "{value}"), "poll": ("b", "-g")}
+    assert ValueBinding.model_validate({"set": "b {value}"}).feed is None
+    # `{target}` filled in, in the binding and in its feed
+    target = WatchBinding.model_validate({"poll": "b -d {target}", "every": 3})
+    assert target.filled(target="DP-1").poll == ("b", "-d", "DP-1")
+    assert target.feed.filled(target="DP-1") == Feed(("b", "-d", "DP-1"), 3)
+    assert watch.filled(target="DP-1") == watch
+
+
+@pytest.mark.parametrize(
+    ("options", "problem"),
+    [
+        ({}, "watch or poll: give the program that prints the lines"),
+        ({"watch": "a", "poll": "b"}, "watch and poll: give one of them, watch for a program that runs all the time"),
+        ({"watch": "a", "every": 5}, "every: is for poll, which has none here"),
+        ({"poll": "a", "every": -1}, "every\n  Input should be greater than 0"),
+        ({"poll": "a {value}"}, "poll\n  Value error, {value} is for set and run: a poll has no value to give"),
+    ],
+)
+def test_a_watch_and_a_poll_are_one_or_the_other(options: dict[str, object], problem: str) -> None:
+    for model in (WatchBinding, LevelBinding):
+        with pytest.raises(ValidationError) as error:
+            model.model_validate(options)
+        assert problem in str(error.value)
+
+
+@pytest.mark.parametrize(
+    ("options", "problem"),
+    [
+        ({"watch": "a", "poll": "b"}, "watch and poll: give one of them"),
+        ({"watch": "a", "every": 5}, "every: is for poll, which has none here"),
+        ({"every": 5}, "every: is for poll, which has none here"),
+    ],
+)
+def test_a_value_takes_a_watch_or_a_poll(options: dict[str, object], problem: str) -> None:
+    with pytest.raises(ValidationError, match=problem):
+        ValueBinding.model_validate({"set": "b {value}"} | options)
+
+
 def test_parts_are_described_for_people():
     value = ValueBinding.model_validate({"set": "b {value}", "watch": "b -w", "min": 0.1, "max": 1})
     assert describe_part(value) == "a value from 0.1 to 1, set: b '{value}', watch: b -w"
     assert describe_part(ValueBinding.model_validate({"set": "b {value}"})) == "a value from 0 to 100, set: b '{value}'"
     assert describe_part(LevelBinding.model_validate({"watch": "load"})) == "from 0 to 100, watch: load"
     assert describe_part(WatchBinding.model_validate({"watch": "status"})) == "watch: status"
+    assert describe_part(WatchBinding.model_validate({"poll": "date +%H:%M"})) == "poll: date +%H:%M (every 10 s)"
+    assert describe_part(LevelBinding.model_validate({"poll": "load", "every": 2})) == (
+        "from 0 to 100, poll: load (every 2 s)"
+    )
+    assert describe_part(ValueBinding.model_validate({"set": "b {value}", "poll": "b -g", "every": 0.5})) == (
+        "a value from 0 to 100, set: b '{value}', poll: b -g (every 0.5 s)"
+    )
     assert describe_part(RunAction.model_validate({"run": "reset now"})) == "run reset now"
     assert describe_action(RunAction.model_validate({"run": "reset"})) == "run reset"
     assert describe_part("homeassistant") == "homeassistant"
@@ -195,7 +258,13 @@ def test_every_part_in_home_assistant_needs_mqtt(text: str) -> None:
         ('meter = "loud"\n', "channel.it: meter: Input should be 'homeassistant'"),
         ('meter = { watch = "load", min = 5, max = 5 }\n', "channel.it: meter.max: 5 is not above min (5)"),
         ('color = "pink"\n', "channel.it: color: Input should be 'off', 'red',"),
-        ('lcd = { text = "x" }\n', "channel.it: lcd.watch: Field required"),
+        ('lcd = { text = "x" }\n', "channel.it: lcd.text: Extra inputs are not permitted"),
+        ("lcd = {}\n", "channel.it: lcd: watch or poll: give the program that prints the lines"),
+        ('lcd = { watch = "a", poll = "b" }\n', "channel.it: lcd: watch and poll: give one of them"),
+        ('meter = { watch = "load", every = 5 }\n', "channel.it: meter: every: is for poll, which has none here"),
+        ('lcd = { poll = "date", every = 0 }\n', "channel.it: lcd.every: Input should be greater than 0"),
+        ('lcd = { poll = "s {target}" }\n', "channel.it: lcd.poll: {target} is for custom channels with targets"),
+        ('color = { poll = "x {value}" }\n', "channel.it: color.poll: {value} is for set and run: a poll has"),
         ('lcd = { watch = "s {target}" }\n', "channel.it: lcd.watch: {target} is for custom channels with targets"),
         ('select = { press = { run = "" } }\n', "channel.it: select.press.run: an empty command"),
         ('rec = { led = "blink" }\n', "channel.it: rec.led: Input should be 'off', 'recording',"),

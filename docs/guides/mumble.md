@@ -118,6 +118,7 @@ free `auto` slots, or `person` channels on slots (`xtouch-daemon check-config` s
 
 **Two Mumble clients at once** (e.g. a second one with `mumble -m -c <other settings file>` to test with another
 user): enable the plugin in one of them only. The daemon keeps the plugin that connected first and refuses the other
-one; it logs "Refusing another voice chat plugin while one is connected" once.
+one; it logs "Refusing another voice chat plugin of mumble while one is connected" once. A plugin of another client,
+e.g. TeamSpeak, can be connected besides it.
 
 Next: [Applications](../configuration/channels/applications.md#launching-the-application) (start Mumble with Select), [People](../configuration/channels/people.md) (where people sit).

@@ -24,8 +24,10 @@ from tests.support.audio import output, source, stream
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.config.sections import HomeAssistantConfig, MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.domain.voip import CLIENTS, NO_PLUGIN
 from xtouch_daemon.gui.qt.fields.menu import MenuPanel, open_menu
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.pages.sections import PluginInstaller
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.homeassistant.client import Fetched, HomeAssistantError
 from xtouch_daemon.live.codec import decode_request, encode, encode_log, encode_twin
@@ -133,11 +135,13 @@ def pill(widget: QLabel | QAbstractButton) -> str:
     return dot + widget.text().removesuffix("  ▾")
 
 
-NO_MUMBLE = mumble.Setup(bundle=None, buildable=False, installed=None, mumble=False)
-
-
 def no_install() -> str:
     raise mumble.MumbleError("Mumble is not installed")
+
+
+def no_plugins() -> list[PluginInstaller]:
+    """Nothing of this machine: neither a plugin nor a voice chat client."""
+    return [PluginInstaller(client, no_install, lambda: NO_PLUGIN) for client in CLIENTS]
 
 
 async def unreachable_broker(config: MqttConfig) -> Status:

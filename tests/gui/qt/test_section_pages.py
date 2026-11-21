@@ -17,7 +17,6 @@ from PyQt6.QtWidgets import (
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import (
-    NO_MUMBLE,
     FakeLiveDaemon,
     MakeWindow,
     buttons,
@@ -33,15 +32,16 @@ from tests.support.gui import (
 )
 from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.domain.voip import CLIENTS, MUMBLE, NO_PLUGIN, TEAMSPEAK, ClientSetup, PluginSetup
 from xtouch_daemon.gui.qt.fields.basics import _HELP_PROPERTY as HELP_PROPERTY  # pyright: ignore[reportPrivateUsage]
 from xtouch_daemon.gui.qt.fields.basics import help_html
 from xtouch_daemon.gui.qt.fields.names import completer_of
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
-from xtouch_daemon.gui.qt.pages.sections import BrokerTester, MumbleInstaller, SectionPage
+from xtouch_daemon.gui.qt.pages.sections import BrokerTester, PluginInstaller, SectionPage
 from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
-from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipState
-from xtouch_daemon.voip import mumble
+from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipClient, VoipState
+from xtouch_daemon.voip import mumble, teamspeak
 
 
 def test_the_parts_that_do_not_show_are_in_the_window_and_follow_the_theme(window: MainWindow):
@@ -231,31 +231,81 @@ def test_a_failed_test_says_what_to_check(qtbot: QtBot, window: MainWindow):
     assert page.box.test_result.isHidden()
 
 
-def test_the_voice_chat_page_tells_whether_mumble_is_connected(
+def test_the_voice_chat_page_tells_whether_each_plugin_is_connected(
     qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
 ):
+    found = PluginSetup(None, True, None, True)
+    window = make_window(
+        live_socket=live_daemon.path,
+        plugin_installers=[PluginInstaller(client, lambda: "", lambda: found) for client in CLIENTS],
+    )
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    window.show_page("voip")
+    mumble_box, teamspeak_box = window.voip_page.boxes
+    assert mumble_box.live_pill.text() == teamspeak_box.live_pill.text() == "unknown"
+    assert "Reload plugins" in mumble_box.steps.text()
+    assert "guides/mumble/" in mumble_box.steps.text()
+    assert "Tools, Options, Addons" in teamspeak_box.steps.text()
+    assert "guides/teamspeak/" in teamspeak_box.steps.text()
+    assert teamspeak_box.install_button.text() == "Install TeamSpeak plugin"
+
+    live_daemon.send(snapshot(window, strip_state()))
+    qtbot.waitUntil(lambda: mumble_box.live_pill.text() == "not in use")
+    for voip, mumble_text, teamspeak_text, tip in [
+        (VoipState("demo", True, None, None, 5), "demo", "demo", "made up"),
+        (VoipState("bridge", False, None, None, 0), "waiting for Mumble", "waiting for TeamSpeak", "enable the plugin"),
+        (VoipState("bridge", True, "mumble", "Lobby", 1), "Mumble connected", "not connected", "1 person in Lobby."),
+        (VoipState("bridge", True, "teamspeak", "Lobby", 2), "not connected", "TeamSpeak connected", "2 people"),
+        # several plugins, as a daemon with one plugin per client tells them
+        (
+            VoipState(
+                "bridge",
+                True,
+                "mumble, teamspeak",
+                "Lobby",
+                3,
+                clients=(VoipClient("mumble", "Lobby"), VoipClient("teamspeak")),
+            ),
+            "Mumble connected",
+            "TeamSpeak connected",
+            "3 people: Mumble in Lobby, TeamSpeak.",
+        ),
+        (VoipState("bridge", True, None, None, 3), "not connected", "not connected", "A client connected: 3 people."),
+    ]:
+        live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), voip=voip))
+        qtbot.waitUntil(
+            lambda mumble_text=mumble_text, teamspeak_text=teamspeak_text: (
+                (
+                    mumble_box.live_pill.text(),
+                    teamspeak_box.live_pill.text(),
+                )
+                == (mumble_text, teamspeak_text)
+            )
+        )
+        assert tip in plain(mumble_box.live_detail.text())
+
+
+def test_a_client_that_is_not_installed_gets_a_line(qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon):
+    # neither a plugin nor a client on this machine
     window = make_window(live_socket=live_daemon.path)
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     window.show_page("voip")
-    box = window.voip_page.box
-    assert box.live_pill.text() == "unknown"
-    # neither a plugin nor Mumble on this machine: nothing to install, the steps say what to do
-    assert not box.install_button.isEnabled()
-    assert "Mumble is not installed" in box.install_button.toolTip()
-    assert "Reload plugins" in box.steps.text()
-    assert "guides/mumble/" in box.steps.text()
-
-    live_daemon.send(snapshot(window, strip_state()))
-    qtbot.waitUntil(lambda: box.live_pill.text() == "not in use")
-    for voip, text, tip in [
-        (VoipState("demo", True, None, None, 5), "demo", "made up"),
-        (VoipState("bridge", False, None, None, 0), "waiting for Mumble", "enable the plugin"),
-        (VoipState("bridge", True, "mumble", "Lobby", 1), "Mumble connected", "1 person in Lobby."),
-        (VoipState("bridge", True, None, None, 3), "A client connected", "3 people."),
-    ]:
-        live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), voip=voip))
-        qtbot.waitUntil(lambda text=text: box.live_pill.text() == text)
-        assert tip in plain(box.live_detail.text())
+    page = window.voip_page
+    for box, hint in zip(page.boxes, ["Mumble is not installed", "TeamSpeak is not installed"], strict=True):
+        assert box.live_pill.text() == "not installed"
+        assert not shows(box.install_button, page)
+        assert not shows(box.live_detail, page)
+        assert hint in box.steps.text()
+        assert "Set up the plugin once" not in box.steps.text()
+    # its plugin connects all the same (e.g. a client of its own): the box shows it, with the steps
+    live_daemon.send(
+        dataclasses.replace(snapshot(window, strip_state()), voip=VoipState("bridge", True, "teamspeak", "Lobby", 1))
+    )
+    teamspeak_box = page.boxes[1]
+    qtbot.waitUntil(lambda: teamspeak_box.live_pill.text() == "TeamSpeak connected")
+    assert "Set up the plugin once" in teamspeak_box.steps.text()
+    assert not teamspeak_box.install_button.isEnabled()
+    assert page.boxes[0].live_pill.text() == "not installed"
 
 
 def test_the_voice_chat_page_shows_the_plugin_without_the_section(make_window: MakeWindow):
@@ -264,35 +314,56 @@ def test_the_voice_chat_page_shows_the_plugin_without_the_section(make_window: M
     window.show_page("voip")
     page = window.voip_page
     assert not window.document.has_section("voip")
-    assert shows(page.box, page)
+    assert all(shows(box, page) for box in page.boxes)
     assert shows(page.absent, page)
     note = page.absent.findChild(QLabel)
     assert note is not None
     assert "voip strips use its defaults" in note.text()
 
     window.editor.add_section("voip")
-    assert shows(page.box, page)
+    assert all(shows(box, page) for box in page.boxes)
     assert not shows(page.absent, page)
 
 
-def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: MakeWindow, tmp_path: Path):
+@pytest.mark.parametrize(
+    ("client", "error", "target", "reload"),
+    [
+        (MUMBLE, mumble.MumbleError, "Mumble's plugin directory", '"Reload plugins"'),
+        (TEAMSPEAK, teamspeak.TeamSpeakError, "~/.ts3client/plugins", '"Reload All" in Tools, Options, Addons'),
+    ],
+)
+def test_the_plugin_is_installed_with_a_click(
+    client: ClientSetup,
+    error: type[Exception],
+    target: str,
+    reload: str,
+    qtbot: QtBot,
+    make_window: MakeWindow,
+    tmp_path: Path,
+):
     installs: list[str] = []
-    setups = [mumble.Setup(None, True, None, True)]
+    setups = [PluginSetup(None, True, None, True)]
 
     def install() -> str:
         installs.append("install")
         if len(installs) > 1:
-            raise mumble.MumbleError("cmake --build failed: boom")
-        setups.append(mumble.Setup(tmp_path / "b.mumble_plugin", True, tmp_path / "libxtouch-daemon.so", True))
+            raise error("cmake --build failed: boom")
+        setups.append(PluginSetup(tmp_path / "plugin", True, tmp_path / "installed.so", True))
         return "Installed into the plugin directory."
 
-    window = make_window(mumble_installer=MumbleInstaller(install, lambda: setups[-1]))
+    other = next(each for each in CLIENTS if each != client)
+    window = make_window(
+        plugin_installers=[
+            PluginInstaller(client, install, lambda: setups[-1]),
+            PluginInstaller(other, lambda: "", lambda: NO_PLUGIN),
+        ]
+    )
     window.show_page("voip")
-    box = window.voip_page.box
+    box = window.voip_page.boxes[0]
     assert box.install_button.isEnabled()
     assert (
         box.install_button.toolTip()
-        == 'Builds the plugin, then copies it into Mumble\'s plugin directory; then Mumble needs "Reload plugins".'
+        == f"Builds the plugin, then copies it into {target}; then {client.name} needs {reload}."
     )
     assert box.result.isHidden()
 
@@ -300,17 +371,15 @@ def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: 
     qtbot.waitUntil(lambda: box.result.text().startswith("Installed into"))
     assert installs == ["install"]
     assert box.install_button.isEnabled()
-    assert box.install_button.toolTip() == (
-        'Copies it into Mumble\'s plugin directory; then Mumble needs "Reload plugins".'
-    )
-    assert "Mumble has the plugin" in box.steps.text()
+    assert box.install_button.toolTip() == f"Copies it into {target}; then {client.name} needs {reload}."
+    assert f"{client.name} has the plugin" in box.steps.text()
 
     click(qtbot, box.install_button)
     qtbot.waitUntil(lambda: box.result.text() == "cmake --build failed: boom")
     assert box.result.property("role") == "error"
     # the result stays when the document is shown again
     window.editor.edited()
-    assert window.voip_page.box.result.text() == "cmake --build failed: boom"
+    assert window.voip_page.boxes[0].result.text() == "cmake --build failed: boom"
 
 
 def test_a_test_of_the_broker_always_ends_and_only_the_latest_one_shows():
@@ -343,7 +412,7 @@ def test_an_install_that_fails_in_any_way_ends_with_it():
     def broken() -> str:
         raise PermissionError("read-only")
 
-    installer = MumbleInstaller(broken, lambda: NO_MUMBLE)
+    installer = PluginInstaller(TEAMSPEAK, broken, lambda: NO_PLUGIN)
     installer.finished.connect(results.append)
     installer._run()  # pyright: ignore[reportPrivateUsage]
     assert results == [Status("The setup failed: PermissionError: read-only.", Tone.BAD)]
@@ -351,11 +420,13 @@ def test_an_install_that_fails_in_any_way_ends_with_it():
 
 def test_the_installer_runs_in_a_thread():
     results: list[Status] = []
-    installer = MumbleInstaller(lambda: "done", lambda: NO_MUMBLE)
+    installer = PluginInstaller(TEAMSPEAK, lambda: "done", lambda: NO_PLUGIN)
     installer.finished.connect(results.append)
     installer._run()  # pyright: ignore[reportPrivateUsage]
     assert results == [Status("done", Tone.GOOD)]
-    assert installer.setup() == NO_MUMBLE
+    assert installer.setup() == NO_PLUGIN
+    # by default the client's own
+    assert PluginInstaller(MUMBLE).setup == MUMBLE.setup
 
 
 def test_the_mode_of_a_daemon_with_slots_shows_next_to_the_preview(

@@ -1,6 +1,7 @@
 # People and the voice chat
 
-The people of the voice chat come from the provider of [`[voip]`](#voice-chat) (by default the Mumble plugin). They
+The people of the voice chat come from the provider of [`[voip]`](#voice-chat) (by default the plugin of Mumble or
+TeamSpeak). They
 sit on the slots that show the pool `people`, and share the slots of `auto` with the applications: people from the
 right, in their order, applications from the left (see [Where people sit](#where-people-sit)). Someone who should
 always have a strip of their own gets a [`person` channel](#strips-for-one-person).
@@ -83,14 +84,15 @@ the people (of `people` and `auto`) as itself; `in_pool = false` keeps it out.
 | `participants` | `["Alice", "Bob", "Carol", "Dave", "Eve"]` | The names of the `demo` people. |
 
 Without the section, its defaults apply. None of the voice chat clients tells another program the volume of each
-person, so the daemon can't read them from PipeWire: they all come out of one stream. Mumble has a
-plugin API that can, and the bridge is what such a plugin talks to. For Mumble there is one: see
-[Mumble](../../guides/mumble.md), which the GUI installs with a click. Other clients, TeamSpeak included, are not
-supported yet; open an issue if you need one.
+person, so the daemon can't read them from PipeWire: they all come out of one stream. Mumble and TeamSpeak 3 have
+plugin APIs that can, and the bridge is what such a plugin talks to. There is a plugin for each: see
+[Mumble](../../guides/mumble.md), which the GUI installs with a click, and [TeamSpeak](../../guides/teamspeak.md).
+Other clients, e.g. Discord, are not supported yet; open an issue if you need one.
 
 The state `voice_chat = true` (see [States and modes](../slots.md#states-and-modes)) is on while you are in a channel of
-the voice chat.
+the voice chat. With plugins of several clients connected, the strips show the people of all of them, and the state
+is on while you are in a channel of any of them.
 
 A plugin for another client speaks the [bridge protocol](../../reference/voice-chat-bridge.md).
 
-Next: [Mumble](../../guides/mumble.md) for the plugin, [slots](../slots.md#pools-of-applications-and-of-people) for pools of people of your own.
+Next: [Mumble](../../guides/mumble.md) or [TeamSpeak](../../guides/teamspeak.md) for the plugin, [slots](../slots.md#pools-of-applications-and-of-people) for pools of people of your own.

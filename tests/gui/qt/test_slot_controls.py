@@ -51,8 +51,9 @@ def test_a_slot_without_controls_offers_its_parts(window: MainWindow):
     (entry,) = page.boxes
     assert list(entry.rows) == ["meter", "id"]
     assert entry.rows["meter"].binding.mode == PROGRAM
-    # the problem shows at the option of the program it is about
-    assert not entry.rows["meter"].binding.rows["watch"].error.isHidden()
+    # the problem shows at the part: it takes watch or poll
+    assert not entry.rows["meter"].error.isHidden()
+    assert "watch or poll" in entry.rows["meter"].error.text()
     assert entry.rows["id"].isHidden()
     assert page.add.placeholderText() == "Add controls"
     assert entry.title.text() == "Meter"
@@ -119,7 +120,7 @@ def test_several_entries_are_a_list(window: MainWindow):
     assert not first.up.isEnabled()
     assert first.down.isEnabled()
     # problems of an entry of the list show at its fields
-    assert not second.rows["lcd"].binding.rows["watch"].error.isHidden()
+    assert not second.rows["lcd"].error.isHidden()
 
     second.up.click()
     assert window.document.get(("controls", "1")) == [{"lcd": {}}, {"color": "red", "when": "call"}]

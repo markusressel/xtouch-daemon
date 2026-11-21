@@ -17,7 +17,7 @@ The device has 8 strips. Each has a slot in the configuration: a list of what th
 
 - **Devices, applications, people, Home Assistant.** A strip controls an output or input (with Select switching
   between several), all streams of a group of applications (presets for browsers, games, voice chats, ...), one
-  person of your Mumble channel, or entities for your Home Assistant automations.
+  person of your Mumble or TeamSpeak channel, or entities for your Home Assistant automations.
 - **Programs of your own.** Any part of a strip can be bound to Home Assistant or to a program, e.g. a fader that
   sets the brightness of two screens (`set` with the value, `watch` for changes). See
   [Bindings](docs/configuration/strip/bindings.md) and [Custom channels](docs/configuration/channels/custom.md).
@@ -102,6 +102,7 @@ processes = ["@steam-games"]
   [people](docs/configuration/channels/people.md)
 - [Home Assistant](docs/guides/home-assistant.md)
 - [Mumble](docs/guides/mumble.md)
+- [TeamSpeak](docs/guides/teamspeak.md)
 - [GUI](docs/guides/gui.md)
 - [Commands](docs/reference/commands.md)
 - [Troubleshooting](docs/guides/troubleshooting.md)

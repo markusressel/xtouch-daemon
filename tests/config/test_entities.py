@@ -139,7 +139,7 @@ def custom(part: str) -> str:
             "select.press: data: {value} is for a fader or an encoder; a press sends the data as it is",
         ),
         ('present = "on"', "present: Input should be a valid dictionary or instance of WatchBinding"),
-        ('select = { led = "playing" }', "{ watch = [...] }, or { entity = ... })"),
+        ('select = { led = "playing" }', "{ watch = [...] }, { poll = [...] }, or { entity = ... })"),
         ('select = { press = "default" }', "or { service = ... })"),
     ],
 )

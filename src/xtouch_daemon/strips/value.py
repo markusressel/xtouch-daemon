@@ -1,9 +1,9 @@
 """
 What the bindings of programs of your own do on a strip (`config.bindings`): a value that `set` changes and `watch`
-tells (`CommandValue`, a `BoundValue` as the values of entities are), the lines of a `watch` (`WatchedLine`), a program
-a button runs (`run_program()`), and how a line becomes a value, an LED, a color or a level. `ValueSource` is what has
-values for the faders and encoders of `[controls]`: a `custom` channel. The same for entities of Home Assistant is in
-`strips.entity`.
+or `poll` tells (`CommandValue`, a `BoundValue` as the values of entities are), the lines of a `watch` or a `poll`
+(`WatchedLine`, `feed_lines()`), a program a button runs (`run_program()`), and how a line becomes a value, an LED, a
+color or a level. `ValueSource` is what has values for the faders and encoders of `[controls]`: a `custom` channel.
+The same for entities of Home Assistant is in `strips.entity`.
 """
 
 import asyncio
@@ -12,7 +12,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Protocol, get_args
 
-from xtouch_daemon.config.bindings import EntityValueBinding, ValueBinding, fill
+from xtouch_daemon.config.bindings import EntityValueBinding, Feed, ValueBinding, fill
 from xtouch_daemon.config.values import ColorName
 from xtouch_daemon.hardware.protocol import Led, RingMode
 from xtouch_daemon.strips.knobs import ring_position
@@ -88,20 +88,62 @@ async def watch_lines(commands: Commands, argv: Sequence[str], what: str, on_lin
         await asyncio.sleep(WATCH_RESTART)
 
 
+def last_line(output: str) -> str:
+    """The line a run of a `poll` gives: the last one with text, stripped; "" for none."""
+    return next((line.strip() for line in reversed(output.splitlines()) if line.strip()), "")
+
+
+async def poll_lines(
+    commands: Commands, argv: Sequence[str], every: float, what: str, on_line: Callable[[str], None]
+) -> None:
+    """
+    Runs a `poll` program every `every` seconds, each run to its end, and calls `on_line` with the last line it
+    printed (`last_line()`), until cancelled. A run that takes longer than `every` is killed, so runs never overlap. A
+    failed run gives no line; it is logged as a warning, the same failure again only after a run that worked.
+    """
+    loop = asyncio.get_running_loop()
+    failure: str | None = None
+    while True:
+        started = loop.time()
+        try:
+            output = await commands.output(argv, every)
+        except CommandError as e:
+            if str(e) != failure:
+                _LOGGER.warning(f"{what}: poll: {e}")
+            failure = str(e)
+        else:
+            failure = None
+            on_line(last_line(output))
+        await asyncio.sleep(max(0.0, started + every - loop.time()))
+
+
+async def feed_lines(commands: Commands, feed: Feed, what: str, on_line: Callable[[str], None]) -> None:
+    """The lines of a `watch` (`watch_lines()`) or of a `poll` (`poll_lines()`) to `on_line`, until cancelled."""
+    if feed.every is None:
+        await watch_lines(commands, feed.argv, what, on_line)
+    else:
+        await poll_lines(commands, feed.argv, feed.every, what, on_line)
+
+
+def start_feed(commands: Commands, feed: Feed, what: str, on_line: Callable[[str], None]) -> asyncio.Task[None]:
+    """A task of `commands` that runs `feed_lines()`."""
+    return commands.start(feed_lines(commands, feed, what, on_line), f"{what}: {feed.option}")
+
+
 class WatchedLine:
     """
-    The newest line of a `watch` program, for as long as it lives (until `close()`; see `watch_lines()`). Its
-    listeners are called when the line changed. `strips.entity.EntityLine` is the same for an entity.
+    The newest line of a `watch` or a `poll` program, for as long as it lives (until `close()`; see `feed_lines()`).
+    Its listeners are called when the line changed. `strips.entity.EntityLine` is the same for an entity.
     """
 
-    def __init__(self, argv: Sequence[str], commands: Commands, what: str):
-        self.argv = tuple(argv)
-        self.source: tuple[object, ...] = ("watch", self.argv)
+    def __init__(self, feed: Feed, commands: Commands, what: str):
+        self.feed = feed
+        self.source: tuple[object, ...] = ("program", feed)
         """What it shows the lines of: the same source, the same lines."""
         self.line: str | None = None
         """The line the program printed last; None before the first."""
         self.listeners: list[Callable[[], None]] = []
-        self._task = commands.start(watch_lines(commands, self.argv, what, self._printed), f"{what}: watch")
+        self._task = start_feed(commands, feed, what, self._printed)
 
     def _printed(self, line: str) -> None:
         if line != self.line:
@@ -235,8 +277,8 @@ class BoundValue:
 
 class CommandValue(BoundValue):
     """
-    A value that programs of your own set and watch (`ValueBinding`): `set` runs with the newest value, `watch` prints
-    it. `placeholders` fill the programs (`{target}`).
+    A value that programs of your own set and watch (`ValueBinding`): `set` runs with the newest value, `watch` or
+    `poll` prints it. `placeholders` fill the programs (`{target}`).
     """
 
     binding: ValueBinding
@@ -251,12 +293,9 @@ class CommandValue(BoundValue):
     ):
         super().__init__(binding, commands, encoder_step, what, binding.min, binding.max)
         self.placeholders = dict(placeholders or {})
+        feed = binding.feed
         self._watcher = (
-            commands.start(
-                watch_lines(commands, fill(binding.watch, **self.placeholders), what, self._printed), f"{what}: watch"
-            )
-            if binding.watch is not None
-            else None
+            start_feed(commands, feed.filled(**self.placeholders), what, self._printed) if feed is not None else None
         )
 
     async def _apply(self, value: float) -> None:

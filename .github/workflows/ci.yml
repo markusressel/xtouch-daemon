@@ -71,3 +71,18 @@ jobs:
         with:
           name: xtouch-daemon.mumble_plugin
           path: integrations/mumble/build/xtouch-daemon.mumble_plugin
+
+  # the library TeamSpeak loads (integrations/teamspeak, downloads TeamSpeak's plugin SDK);
+  # tests/voip/test_teamspeak_plugin.py tests it in the job above
+  teamspeak-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the TeamSpeak plugin
+        run: |
+          cmake -S integrations/teamspeak -B integrations/teamspeak/build -DCMAKE_C_FLAGS=-Werror
+          cmake --build integrations/teamspeak/build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xtouch-daemon_linux_amd64.so
+          path: integrations/teamspeak/build/xtouch-daemon_linux_amd64.so

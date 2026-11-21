@@ -1,5 +1,6 @@
 import asyncio
 import dataclasses
+import json
 import logging
 import os
 import socket
@@ -49,6 +50,7 @@ from xtouch_daemon.live.messages import (
     StateView,
     StripState,
     TwinView,
+    VoipClient,
     VoipState,
     fingerprint,
     meter_now,
@@ -542,8 +544,23 @@ def test_the_live_view_shows_a_banner(surface: RecordingSurface):
 
 
 def test_the_voice_chat_goes_through_a_line(surface: RecordingSurface):
-    voip = VoipState("bridge", True, "mumble", "Lobby", 3, ("Ann", "Bob", "Carol"), ("a", "b", "c"))
+    voip = VoipState(
+        "bridge",
+        True,
+        "mumble, teamspeak",
+        "Lobby",
+        3,
+        ("Ann", "Bob", "Carol"),
+        ("mumble:a", "mumble:b", "teamspeak:c"),
+        (VoipClient("mumble", "Lobby"), VoipClient("teamspeak")),
+    )
     snapshot = dataclasses.replace(snapshot_of(surface), voip=voip)
     assert decode(encode(snapshot)) == snapshot
+    # from an older daemon, without the clients
+    line = json.loads(encode(snapshot))
+    del line["voip"]["clients"]
+    decoded = decode((json.dumps(line) + "\n").encode())
+    assert isinstance(decoded, Snapshot)
+    assert decoded.voip == dataclasses.replace(voip, clients=())
     # without [voip]
     assert decode(encode(snapshot_of(surface))) == snapshot_of(surface)

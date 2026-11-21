@@ -16,6 +16,7 @@ from xtouch_daemon.cli.service import install_service
 from xtouch_daemon.cli.simulator import virtual_device
 from xtouch_daemon.cli.slots import observe, simulate
 from xtouch_daemon.cli.sound import list_apps, list_devices
+from xtouch_daemon.cli.teamspeak import teamspeak_plugin
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -37,6 +38,7 @@ for command in (
     run,
     schema,
     simulate,
+    teamspeak_plugin,
     test,
     virtual_device,
     why,

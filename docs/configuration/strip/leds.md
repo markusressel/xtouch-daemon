@@ -1,13 +1,15 @@
 # Buttons and LEDs
 
+![The buttons of a strip, lit: Rec and Mute red, Solo yellow, Select green](../../images/controls/buttons.png){ .xt-part width="64" }
+
 Every strip has four buttons with LEDs: Rec, Solo, Mute and Select. Mute mutes the strip, and its LED is on while
 the strip is muted. What the other three do, and what their LEDs show, is up to you.
 
 | Button | By default |
 |---|---|
-| Select | On device strips with `device` or `choices`: makes the device the default; its LED is on while it is. On application strips with `launch`: starts the application; its LED flashes while it starts and is on while it runs. Otherwise nothing. |
-| Rec | On device strips with [profiles](../channels/devices.md#profiles): switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise nothing, and its LED is lit while an application records (`recording`). |
-| Solo | Nothing; its LED stays dark. |
+| ![Select](../../images/controls/select.png){ .xt-icon }<br>Select | On device strips with `device` or `choices`: makes the device the default; its LED is on while it is. On application strips with `launch`: starts the application; its LED flashes while it starts and is on while it runs. Otherwise nothing. |
+| ![Rec](../../images/controls/rec.png){ .xt-icon }<br>Rec | On device strips with [profiles](../channels/devices.md#profiles): switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise nothing, and its LED is lit while an application records (`recording`). |
+| ![Solo](../../images/controls/solo.png){ .xt-icon }<br>Solo | Nothing; its LED stays dark. |
 
 A button can also run a program of your own, and an LED can show what Home Assistant or a program says: see
 [What the LED shows](#what-the-led-shows) and [Bindings](bindings.md).
@@ -78,6 +80,7 @@ that belongs to the channel. The buttons of a slot that act whatever the slot sh
 | `shown` | The strip shows another device than the default one (after `next`). |
 | `homeassistant` | Home Assistant says so: the LED is a select entity (`off`, `on`, `flash`) of its own. Needs [`[mqtt]`](../../guides/home-assistant.md#entities). |
 | `{ watch = [...] }` | The newest line of the program is `on`, `1`, `true` or `yes`; `flash` flashes the LED, any other line turns it off. Until the first line, the LED is off. |
+| `{ poll = [...], every = 10 }` | The same for the last line of a program that runs to its end every `every` seconds ([Watch or poll](bindings.md#watch-or-poll)). |
 | `{ entity = "..." }` | The entity (or its `attribute`) is `on`, `open`, `playing` or `home`, or a word that lights a watch. Dark while the daemon is not connected. See [An entity of Home Assistant](bindings.md#an-entity-of-home-assistant). |
 
 On `output`, `input`, `apps` and `auto` strips, `press` stays dark for a `{ run }`. On a
@@ -86,13 +89,22 @@ On `output`, `input`, `apps` and `auto` strips, `press` stays dark for a `{ run 
 ```toml
 [channel.main.solo]
 press = { run = "notify-send 'Volume {value}'" }
-led = { watch = ["sh", "-c", "while :; do systemctl --user is-active --quiet syncthing && echo on || echo off; sleep 5; done"] }   # lit while Syncthing runs
+led = { poll = "/home/me/bin/syncthing-running", every = 5 }   # lit while Syncthing runs
+```
+
+`/home/me/bin/syncthing-running` is a script of your own. It prints `on` while the user service of Syncthing runs,
+else `off`:
+
+```sh
+#!/bin/sh
+systemctl --user is-active --quiet syncthing && echo on || echo off
 ```
 
 ## Run a program
 
-`{ run = [...] }` runs a program of your own, to its end, as `set` of a [binding](bindings.md) does. A string is
-split like a shell does, but nothing is expanded; a list is the program and its arguments. `{value}` in an argument
+`{ run = [...] }` runs a program of your own, to its end, as `set` of a [binding](bindings.md) does. It runs without
+a shell: a string is split at spaces, a list is the program and its arguments (see
+[Commands](bindings.md#commands)). `{value}` in an argument
 is the value of the fader if it is [bound](bindings.md), else of the encoder, else the volume in percent. While the
 value is not known yet, the program does not run and the log says so. A program that fails or takes longer than 10
 seconds is logged as a warning. [Simulate](bindings.md#simulate) never runs it.

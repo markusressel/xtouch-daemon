@@ -18,7 +18,7 @@ uv, src layout. Start with [docs/development/architecture/index.md](docs/develop
 | `src/xtouch_daemon/system/` | The system around it: `instance` (runtime file), `systemd` (incl. controlling the user service), `processes` (`/proc`), `launch` (starting a strip's `launch` detached from the daemon; tests use `FakeLauncher`, `conftest.no_launches` makes a real start fail). |
 | `src/xtouch_daemon/live/` | The live view of the device for the GUI over a Unix socket: `messages`, `codec`, `server`, `log` (the log of the daemon for the GUI). |
 | `src/xtouch_daemon/cli/` | The CLI, one module per topic; `cli/__init__.py` puts the commands together. |
-| `src/xtouch_daemon/voip/`, `integrations/mumble/` | VoIP providers (`bridge` socket for plugins, `demo`); the Mumble plugin (C, CMake, vendored `MumblePlugin.h`) and finding, building and installing its bundle (`voip/mumble.py`). `test/fake_mumble.c` is the host `tests/voip/test_mumble_plugin.py` loads it into. |
+| `src/xtouch_daemon/voip/`, `integrations/mumble/`, `integrations/teamspeak/` | VoIP providers (`bridge` socket for plugins, `demo`), the messages of the bridge as pydantic models (`protocol`, the source of `docs/voice-chat-bridge.schema.json`); the Mumble plugin (C, CMake, vendored `MumblePlugin.h`) and finding, building and installing its bundle (`voip/mumble.py`). `test/fake_mumble.c` is the host `tests/voip/test_mumble_plugin.py` loads it into. The TeamSpeak 3 plugin (C, CMake; the build downloads TeamSpeak's SDK headers into the git-ignored `integrations/teamspeak/sdk/`, they can't be vendored) and installing it into `~/.ts3client/plugins` (`voip/teamspeak.py`); its host is `test/fake_teamspeak.c`. |
 | `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested, `qt/` the widgets (`window/`, `preview/`, `pages/`, `fields/`, `theme/`). Forms come from the pydantic models, so new options need no GUI code. |
 | `tests/` | Mirrors the source: `tests/<package>/test_<module>.py`. Fixtures in the `conftest.py` files (the guards in `tests/conftest.py`), fakes and helpers that tests import in `tests/support/` (e.g. the in-memory MQTT broker in `tests/support/mqtt.py`). |
 | `docs/`, `zensical.toml` | The documentation site (Zensical, published to GitHub Pages by `.github/workflows/docs.yml`): sections as folders, as in the navigation: `getting-started/` (install, first steps, without a device), `guides/` (GUI, Home Assistant, Mumble, troubleshooting), `configuration/` (an overview, `slots.md`, `channels/` with a page per type, `strip/` for encoders and LEDs, presets, behavior), `reference/` (commands, hardware and protocol, the voice chat bridge), `development/` (an index, `architecture/` with a page per topic, `design/` with `slots/`, `history/` for replaced designs). A new page goes into the section of its kind, and into `nav` of `zensical.toml`. Build it with `just docs`. |
@@ -43,8 +43,9 @@ just screenshot      # renders docs/images/ (README and docs) offscreen from scr
   documented command and option against `cli/` and `config/`. Links between pages are relative (they work on
   GitHub and on the site); links to files outside `docs/` are absolute GitHub URLs. `just docs` must pass.
 - Every behaviour change needs tests. Coverage stays ≥ 90 % (lines and branches).
-- The C plugin is tested end to end (built with CMake, loaded into `fake_mumble`, against `BridgeProvider`); those
-  tests are skipped without cmake and a C compiler. Never test against a real Mumble in the tests.
+- The C plugins are tested end to end (built with CMake, loaded into `fake_mumble` or `fake_teamspeak`, against
+  `BridgeProvider`); those tests are skipped without cmake and a C compiler (the TeamSpeak ones also without its SDK).
+  Never test against a real Mumble or TeamSpeak in the tests.
 - No hardware and no PipeWire/PulseAudio in unit tests: use a fake `AudioBackend`, a fake pulsectl connection, a
   recording surface, a FIFO or pty for MIDI, a fake `pw-record` script.
 - Tests run in parallel (pytest-xdist) and must not depend on each other or on the order they run in.

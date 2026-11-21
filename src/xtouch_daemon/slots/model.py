@@ -459,8 +459,8 @@ class ButtonClaim(_Section):
     """
     led: ClaimLed | None = None
     """
-    What the LED shows, whatever the slot shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and
-    flashes it on `flash`. Unset: what the press does.
+    What the LED shows, whatever the slot shows. A `watch` or a `poll` lights it with each line `on`, `1`, `true` or
+    `yes`, and flashes it on `flash`. Unset: what the press does.
     """
 
     @model_validator(mode="after")
