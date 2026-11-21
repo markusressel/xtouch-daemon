@@ -172,8 +172,10 @@ class EntryBox(QFrame):
     def _button_placeholder(self, name: str, part: str) -> str:
         """What a press or an LED the entry leaves unset does: as the slot shows it, or what the press does."""
         value = self.entry().get(name)
-        # a press: an action, `{ launch }` or `{ run }`, or the `press` of a table
-        pressed = isinstance(value, str) or (isinstance(value, dict) and bool({"press", "launch", "run"} & set(value)))  # pyright: ignore[reportUnknownArgumentType]
+        # a press: an action, `{ launch }`, `{ run }` or `{ service }`, or the `press` of a table
+        pressed = isinstance(value, str) or (
+            isinstance(value, dict) and bool({"press", "launch", "run", "service"} & set(value))  # pyright: ignore[reportUnknownArgumentType]
+        )
         if part == "led" and pressed:
             return "What the press does"
         return PRESS_UNSET

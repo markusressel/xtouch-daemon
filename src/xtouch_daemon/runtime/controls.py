@@ -18,7 +18,19 @@ from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 from haad_mqtt_autodiscovery.entity.text import MQTTText
 
 from xtouch_daemon.audio.meter import Lit
-from xtouch_daemon.config.bindings import LevelBinding, RunAction, ValueBinding, WatchBinding, fill, placeholders_of
+from xtouch_daemon.config.bindings import (
+    EntityBinding,
+    EntityLevelBinding,
+    EntityValueBinding,
+    LevelBinding,
+    LineBinding,
+    RunAction,
+    ServiceAction,
+    ValueBinding,
+    WatchBinding,
+    fill,
+    placeholders_of,
+)
 from xtouch_daemon.config.values import ColorName, color_of
 from xtouch_daemon.hardware.protocol import METER_MAX, Button, Led, RingMode
 from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable, Maskable, Strip
@@ -26,11 +38,12 @@ from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.slots.model import DEFAULT, ChannelControl, ControlsConfig, Launch, Scene
 from xtouch_daemon.strips.base import OFFLINE_TEXT, Identity, SlotActions
+from xtouch_daemon.strips.bound import kind_of
+from xtouch_daemon.strips.entity import Line, call_service, open_line, open_value
 from xtouch_daemon.strips.homeassistant import COLORS, LEDS, EncoderLink, FaderLink, StripEntities, lit_of
 from xtouch_daemon.strips.value import (
-    CommandValue,
+    BoundValue,
     ValueSource,
-    WatchedLine,
     color_of_line,
     led_of_line,
     level_of_line,
@@ -170,44 +183,46 @@ class SlotClaim:
         self._fader_source = sources[config.fader.channel] if isinstance(config.fader, ChannelControl) else None
         self._encoder_source = sources[config.encoder.channel] if isinstance(config.encoder, ChannelControl) else None
         self._own = {
-            part: CommandValue(binding, commands, encoder_step, f"{self.what}.{part}")
+            part: open_value(binding, commands, encoder_step, f"{self.what}.{part}")
             for part in ("fader", "encoder")
-            if isinstance(binding := getattr(config, part), ValueBinding)
+            if isinstance(binding := getattr(config, part), ValueBinding | EntityValueBinding)
         }
         for source in dict.fromkeys(s for s in (self._fader_source, self._encoder_source) if s is not None):
             source.listeners.append(self._switched)
-        self._subscribed: list[CommandValue] = []
+        self._subscribed: list[BoundValue] = []
         self._subscribe()
         self._touched = False
         """Whether the fader is under a finger: the value it sets now waits for it (also after a switch)."""
-        self._touched_value: CommandValue | None = None
+        self._touched_value: BoundValue | None = None
         """The value this claim's finger holds: the only one whose `touched` it sets and clears."""
         self.launches = {
             button: LaunchButton(action.launch, launcher, self.what, action.launch_when_running)
             for name, button in BUTTONS.items()
             if isinstance(action := config.press(name), Launch)
         }
-        self.lines: dict[str, WatchedLine] = {}
-        """The watches of what it shows, by part: `meter`, `color`, `lcd`, `select.led`, ..."""
+        self.lines: dict[str, Line] = {}
+        """The watches and entities of what it shows, by part: `meter`, `color`, `lcd`, `select.led`, ..."""
         watches: dict[str, object] = {part: getattr(config, part) for part in DISPLAYS}
         watches |= {f"{name}.led": config.led(name) for name in BUTTONS}
         for part, binding in watches.items():
-            if isinstance(binding, WatchBinding):
-                line = self.lines[part] = WatchedLine(binding.watch, commands, f"{self.what}.{part}")
+            if isinstance(binding, WatchBinding | EntityBinding):
+                line = self.lines[part] = open_line(binding, commands, f"{self.what}.{part}", kind_of(part))
                 line.listeners.append(self._watched)
         self._color: ColorName = WATCHED_COLOR
-        """The last color the watch of `color` printed: a line that is no color keeps it."""
+        """The last color the watch (or the entity) of `color` named: a line that is no color keeps it."""
+        if (color := self.lines.get("color")) is not None and (name := color_of_line(color.line or "")) is not None:
+            self._color = name
         self._tasks: set[asyncio.Task[None]] = set()
 
     @property
-    def command_fader(self) -> CommandValue | None:
+    def command_fader(self) -> BoundValue | None:
         """The value the fader sets: of a custom channel, or of its own."""
         if self._fader_source is not None:
             return self._fader_source.fader_value()
         return self._own.get("fader")
 
     @property
-    def command_encoder(self) -> CommandValue | None:
+    def command_encoder(self) -> BoundValue | None:
         """The value the encoder sets: of a custom channel (its encoder's, else its fader's), or of its own."""
         if self._encoder_source is not None:
             return self._encoder_source.encoder_value() or self._encoder_source.fader_value()
@@ -241,7 +256,7 @@ class SlotClaim:
         self._subscribe()
         self._on_change()
 
-    def action(self, button: Button) -> str | Launch | RunAction | None:
+    def action(self, button: Button) -> str | Launch | RunAction | ServiceAction | None:
         """What a press of the button does; None for one it leaves to what the slot shows."""
         return self.config.press(CLAIMABLE_BUTTONS[button]) if button in CLAIMABLE_BUTTONS else None
 
@@ -281,8 +296,8 @@ class SlotClaim:
         if self.config.lcd is not None:
             self.strip.set_text(1, self._second_line())
 
-    def _led(self, button: Button, name: str, led: str | WatchBinding) -> Led:
-        if isinstance(led, WatchBinding):
+    def _led(self, button: Button, name: str, led: str | WatchBinding | EntityBinding) -> Led:
+        if isinstance(led, LineBinding):
             line = self.lines[f"{name}.led"].line
             return led_of_line(line) if line is not None else Led.OFF
         if led == HOME_ASSISTANT:
@@ -298,9 +313,9 @@ class SlotClaim:
         state = self.entities.leds[button].target_state
         return LEDS.get(state or "", Led.OFF) if self.entities.bridge.ready else Led.OFF
 
-    def _press_led(self, button: Button, action: str | Launch | RunAction) -> Led:
+    def _press_led(self, button: Button, action: str | Launch | RunAction | ServiceAction) -> Led:
         """What the LED shows for what the press does."""
-        if isinstance(action, RunAction):
+        if isinstance(action, RunAction | ServiceAction):
             return Led.OFF
         if isinstance(action, Launch):
             launch = self.launches[button]
@@ -316,7 +331,7 @@ class SlotClaim:
     def _color_name(self) -> ColorName:
         """The claimed color: its name, Home Assistant's, or the last a watch printed (white until either is known)."""
         color = self.config.color
-        if isinstance(color, WatchBinding):
+        if isinstance(color, LineBinding):
             return self._color
         if color == HOME_ASSISTANT:
             assert self.entities is not None
@@ -329,7 +344,7 @@ class SlotClaim:
 
     def _second_line(self) -> str:
         """The claimed second line of the LCD: the newest line of its watch, or Home Assistant's text (else offline)."""
-        if isinstance(self.config.lcd, WatchBinding):
+        if isinstance(self.config.lcd, LineBinding):
             return self.lines["lcd"].line or ""
         assert self.entities is not None
         entity = self.entities.bottom
@@ -339,7 +354,7 @@ class SlotClaim:
     def meter_level(self) -> Lit | None:
         """The level of the claimed meter, over its LEDs: a watch's or Home Assistant's; None while it is not known."""
         meter = self.config.meter
-        if isinstance(meter, LevelBinding):
+        if isinstance(meter, LevelBinding | EntityLevelBinding):
             line = self.lines["meter"].line
             level = level_of_line(line, meter.min, meter.max) if line is not None else None
             return Lit(round(level * METER_MAX)) if level is not None else None
@@ -374,7 +389,7 @@ class SlotClaim:
         self.fader.touch(touched)
         self._event("fader_touched" if touched else "fader_released")
 
-    def _hold(self, value: CommandValue | None) -> None:
+    def _hold(self, value: BoundValue | None) -> None:
         """
         Moves the finger of the fader to `value` (None: lets go): it clears only the touch it set, not the one of the
         channel's own fader on its slot or of an encoder that steps the same value.
@@ -410,6 +425,8 @@ class SlotClaim:
             return
         if isinstance(action, RunAction):
             self._run(button, action)
+        elif isinstance(action, ServiceAction):
+            call_service(self.commands, action, f"{self.what}.{button.name.lower()}")
         elif isinstance(action, Launch):
             launch = self.launches[button]
             launch.press(launch.program_runs(self.processes()))

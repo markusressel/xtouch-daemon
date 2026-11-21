@@ -1,13 +1,20 @@
 """
 The programs of bindings and custom channels (`set`, `watch`, `run`): one that sets a value (or runs for a button) and
-ends, and one that watches it and prints a line per change. They run without a shell. The tests use a `Commands` of
-their own (`tests/support/commands.py`), the twin one that only watches (`SimulatedCommands`).
+ends, and one that watches it and prints a line per change. They run without a shell. The services of Home Assistant
+that bindings of entities call go through here too (`call_service()`, with the connection `hass`). The tests use a
+`Commands` of their own (`tests/support/commands.py`), the twin one that only watches (`SimulatedCommands`), and reads
+entities but calls no services.
 """
 
 import asyncio
 import contextlib
-from collections.abc import AsyncIterator, Coroutine, Sequence
-from typing import Any
+from collections.abc import AsyncIterator, Coroutine, Mapping, Sequence
+from typing import TYPE_CHECKING, Any
+
+from xtouch_daemon.homeassistant.client import HomeAssistantError
+
+if TYPE_CHECKING:
+    from xtouch_daemon.homeassistant.client import HomeAssistant
 
 RUN_TIMEOUT = 10.0
 """Seconds a program that sets a value may take before it is killed."""
@@ -23,8 +30,10 @@ class Commands:
     simulated = False
     """Whether nothing is set for real (Simulate): values start in the middle, so the preview is not dark."""
 
-    def __init__(self) -> None:
+    def __init__(self, hass: HomeAssistant | None = None) -> None:
         self._tasks: set[asyncio.Task[None]] = set()
+        self.hass = hass
+        """The connection to Home Assistant, for the parts bound to its entities; None without one."""
 
     def start(self, coroutine: Coroutine[Any, Any, None], name: str) -> asyncio.Task[None]:
         """A task that runs programs; it is waited for by `wait_closed()`."""
@@ -75,13 +84,25 @@ class Commands:
         finally:
             await end(process)
 
+    async def call_service(self, service: str, data: Mapping[str, Any] | None, entity_id: str | None) -> None:
+        """Calls a service of Home Assistant, on an entity; HomeAssistantError if it can't."""
+        if self.hass is None:
+            raise HomeAssistantError("no connection to Home Assistant")
+        await self.hass.call_service(service, data, entity_id)
+
 
 class SimulatedCommands(Commands):
-    """Runs the `watch` programs only, never `set`: for the twin, whose controls must not change the machine."""
+    """
+    Runs the `watch` programs only, never `set`, and calls no services: for the twin, whose controls must not change
+    the machine or the home. It reads the entities of `hass`, if it has one.
+    """
 
     simulated = True
 
     async def run(self, argv: Sequence[str]) -> None:
+        pass
+
+    async def call_service(self, service: str, data: Mapping[str, Any] | None, entity_id: str | None) -> None:
         pass
 
 

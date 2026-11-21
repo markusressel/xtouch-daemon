@@ -12,7 +12,17 @@ from typing import Annotated, Literal, get_args
 from pydantic import BaseModel, BeforeValidator, Discriminator, Field, Tag
 
 from xtouch_daemon.config.base import Meanings, Model
-from xtouch_daemon.config.bindings import TABLE, TEXT, WORD_OR_TABLE, RunAction, WatchBinding, describe_part
+from xtouch_daemon.config.bindings import (
+    ENTITY,
+    TABLE,
+    TEXT,
+    WORD_OR_TABLE,
+    EntityBinding,
+    RunAction,
+    ServiceAction,
+    WatchBinding,
+    describe_part,
+)
 from xtouch_daemon.config.values import INDICATORS, LAUNCH_WHEN_RUNNING_HELP, Command, Indicator
 
 HOLD_TIME = 0.5
@@ -61,17 +71,22 @@ LedShows = Literal["off", "recording", "playing", "default", "muted", "press", "
 LedWord = Literal[LedShows, "homeassistant"]
 """What the LED of a button can show as a word: `LedShows`, or `homeassistant`."""
 LedPart = Annotated[
-    Annotated[Annotated[LedWord, LEDS], Tag(TEXT)] | Annotated[WatchBinding, Tag(TABLE)],
+    Annotated[Annotated[LedWord, LEDS], Tag(TEXT)]
+    | Annotated[WatchBinding, Tag(TABLE)]
+    | Annotated[EntityBinding, Tag(ENTITY)],
     WORD_OR_TABLE,
 ]
-"""What the LED of a button shows: a word, or a program of your own that watches it (`{ watch = [...] }`)."""
+"""
+What the LED of a button shows: a word, a program of your own that watches it (`{ watch = [...] }`), or an entity of
+Home Assistant (`{ entity = "..." }`).
+"""
 
 
 def _an_action(value: object) -> object:
     if isinstance(value, str) and value not in ACTIONS.meanings and not PATTERN_ACTIONS.fullmatch(value):
         raise ValueError(
             f"{value} is no action ({', '.join(ACTIONS.meanings)}, mode:<id>, toggle:<state>, {{ launch = [...] }}, "
-            "or { run = [...] })"
+            '{ run = [...] }, or { service = "..." })'
         )
     return value
 
@@ -87,23 +102,32 @@ class LaunchAction(Model):
 def _kind_of_action(value: object) -> str:
     if isinstance(value, LaunchAction) or (isinstance(value, Mapping) and "launch" in value):
         return "~launch"
+    if isinstance(value, ServiceAction) or (isinstance(value, Mapping) and "service" in value):
+        return SERVICE_TAG
     return "~run" if isinstance(value, Mapping | BaseModel) else TEXT
 
 
-ActionValue = Annotated[str, Tag(TEXT)] | Annotated[LaunchAction, Tag("~launch")] | Annotated[RunAction, Tag("~run")]
+SERVICE_TAG = "~service"
+"""The tag of an action that calls a service of Home Assistant (`{ service = "..." }`)."""
+ActionValue = (
+    Annotated[str, Tag(TEXT)]
+    | Annotated[LaunchAction, Tag("~launch")]
+    | Annotated[RunAction, Tag("~run")]
+    | Annotated[ServiceAction, Tag(SERVICE_TAG)]
+)
 Action = Annotated[ActionValue, Discriminator(_kind_of_action), BeforeValidator(_an_action)]
 """
-An action of a button: a word of `ACTIONS`, `mode:<id>`, `toggle:<state>`, a program to start (`launch`), or a
-program of your own to run (`run`).
+An action of a button: a word of `ACTIONS`, `mode:<id>`, `toggle:<state>`, a program to start (`launch`), a
+program of your own to run (`run`), or a service of Home Assistant to call (`service`).
 """
 
 
-def describe_action(action: str | LaunchAction | RunAction) -> str:
-    """An action for people: the word, the program a launch starts, or the one it runs."""
+def describe_action(action: str | LaunchAction | RunAction | ServiceAction) -> str:
+    """An action for people: the word, the program a launch starts, the one it runs, or the service it calls."""
     match action:
         case LaunchAction():
             return f"launch {' '.join(action.launch)}"
-        case RunAction():
+        case RunAction() | ServiceAction():
             return describe_part(action)
         case _:
             return action
@@ -117,7 +141,10 @@ class ButtonConfig(Model):
     hold: Annotated[Action, ACTIONS] | None = None
     """What holding it for longer than half a second does; then a press acts when the button is let go."""
     led: LedPart | None = None
-    """What its LED shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on `flash`."""
+    """
+    What its LED shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on `flash`. An
+    entity lights it while it is `on`, `open`, `playing` or `home`.
+    """
 
 
 def table_of(name: str, value: object) -> object:
@@ -151,7 +178,7 @@ class ButtonSetup:
 
     press: Action = "off"
     hold: Action = "off"
-    led: LedWord | WatchBinding = "off"
+    led: LedWord | WatchBinding | EntityBinding = "off"
 
     @property
     def acts(self) -> bool:
@@ -187,10 +214,10 @@ def resolved(button: ButtonConfig, default: ButtonSetup) -> ButtonSetup:
     )
 
 
-def indicator(led: LedWord | WatchBinding) -> Indicator | None:
-    """The indicator an LED shows, None for `press`, `shown`, and a binding (`homeassistant`, a watch)."""
+def indicator(led: LedWord | WatchBinding | EntityBinding) -> Indicator | None:
+    """The indicator an LED shows, None for `press`, `shown`, and a binding (`homeassistant`, a watch, an entity)."""
     match led:
-        case "press" | "shown" | "homeassistant" | WatchBinding():
+        case "press" | "shown" | "homeassistant" | WatchBinding() | EntityBinding():
             return None
         case _:
             return led
