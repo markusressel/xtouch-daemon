@@ -4,7 +4,7 @@ from typing import assert_never
 
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
-from xtouch_daemon.config.bindings import HOME_ASSISTANT, ValueBinding, WatchBinding, color_name
+from xtouch_daemon.config.bindings import HOME_ASSISTANT, EntityValueBinding, LineBinding, ValueBinding, color_name
 from xtouch_daemon.config.buttons import BUTTON_NAMES, ButtonName
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import CustomStripConfig, EmptyStripConfig, HomeAssistantStripConfig, StripConfig
@@ -63,10 +63,10 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
 def parts_of(config: BaseStripConfig) -> Parts:
     """The parts of an audio strip that are bound (`config.bindings`)."""
     return Parts(
-        config.fader if isinstance(config.fader, ValueBinding) else None,
-        config.encoder if isinstance(config.encoder, ValueBinding) else None,
+        config.fader if isinstance(config.fader, ValueBinding | EntityValueBinding) else None,
+        config.encoder if isinstance(config.encoder, ValueBinding | EntityValueBinding) else None,
         config.lcd,
-        config.color if config.color == HOME_ASSISTANT or isinstance(config.color, WatchBinding) else None,
+        config.color if config.color == HOME_ASSISTANT or isinstance(config.color, LineBinding) else None,
         config.meter if not isinstance(config.meter, bool) else None,
     )
 
@@ -135,7 +135,7 @@ def build_strip(
     # an encoder bound to a program does what its binding says (`Look.parts`), whatever its mode
     encoder = (
         default_encoder(config.type, config.fader)
-        if config.encoder is None or isinstance(config.encoder, ValueBinding)
+        if config.encoder is None or isinstance(config.encoder, ValueBinding | EntityValueBinding)
         else config.encoder
     )
     # without a bridge (Simulate) the parts in Home Assistant stay as while it is not connected

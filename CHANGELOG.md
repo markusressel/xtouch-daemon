@@ -65,6 +65,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - GUI: a bind button next to the fader, the encoder, the LCD, the color and the meter binds them to Home Assistant
     or to a program, with the options of the program under the part. The lists of a button on a channel take
     `run: ...` and `watch: ...`.
+- Entities of Home Assistant, read and set through its API (`[homeassistant]` with `url` and a long-lived `token`,
+  `token_file` or `token_env`):
+  - `lcd`, `color`, `meter`, an LED and `present` take `{ entity = "sensor.cpu_temp", attribute = "..." }`: the LCD
+    shows the state with its unit, the color follows a light (dark while it is off) or a color name, an LED is lit by
+    `on`, `open`, `playing` and `home`.
+  - A fader or an encoder takes `{ entity = "light.desk" }` and sets it: the brightness of a light, the volume of a
+    media player, the position of a cover, the percentage of a fan, a `number` or an `input_number`. Any other entity
+    or attribute takes `service` and `data` with `{value}`. After a service call that failed, the fader goes back to
+    the value of the entity; after one that worked, it stays until the entity reports. It gets no entity of its own
+    over `[mqtt]`.
+  - A press or a hold takes `{ service = "light.toggle", entity = "light.desk", data = { ... } }`. It sends its
+    data as it is: `{value}` in it is an error.
+  - They work on channels and in `[controls]`. Without `[homeassistant]` they are errors at their place; an entity
+    Home Assistant does not have is a warning in the log. While the daemon is not connected, the parts show nothing.
+  - The daemon connects only while the configuration uses entities. After the connection broke, it tries again after
+    1, 2, 5, 10, 30, then every 60 seconds. A refused token is logged and never sent again: a reload connects again
+    only with another token. Simulate reads the entities and calls no services. The status line of the service says
+    when the connection comes and goes.
+  - GUI: "An entity" in the bind button of a part shows its options under it: the entity with suggestions of what
+    Home Assistant has (its domain's icon, its name and its state now; filtered as you type, picked with the keyboard),
+    its attributes, and what unset options do by its domain (e.g. "default: 255, of a light"). A press or a hold takes
+    `service: ...`, an LED `entity: ...`, with their options below the list. A line says why a field has no
+    suggestions, with a button to the settings. The page "Home Assistant API" tests the settings (the version and
+    the entities of Home Assistant, or a refused token, an address where nothing answers) and shows the daemon's
+    connection, which the connections of the service list too. The previews of the controls show entities. The
+    window reads the entities with the token in the editor: with `token_env` it needs the variable too.
 
 ### Changed
 

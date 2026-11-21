@@ -558,6 +558,7 @@ def test_the_rail_shows_one_page_at_a_time(qtbot: QtBot, window: MainWindow):
         "Behavior",
         "Aliases",
         "Home Assistant",
+        "Home Assistant API",
         "Modes and chord",
         "Voice chat",
         "Extender",

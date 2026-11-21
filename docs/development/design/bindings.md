@@ -12,7 +12,7 @@ defaults at all: every part it uses is bound.
 [channel.out]
 type = "output"
 device = "alsa_output.usb-*"
-meter = { watch = "cpu-load --watch" }        # the meter shows the CPU, the fader stays the volume
+meter = { watch = ["sh", "-c", "vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'"] }   # the meter shows the CPU load, the fader stays the volume
 color = "homeassistant"                       # select.xtouch_out_color, an automation sets it
 
 [channel.screen_left]
@@ -118,18 +118,50 @@ The entities of the bound parts are those of the `homeassistant` type, by the ch
 the file is loaded. With `[mqtt]`, the value of a fader or an encoder bound to a program is a number there too
 (`number.<ns>_<id>_fader`, from `min` to `max`): a change in Home Assistant runs `set`, as a move does.
 
-Reading any entity of Home Assistant (`meter = { entity = "sensor.cpu_temp" }`) needs its API: in TODO.md.
+### Any entity
+
+A part can also be bound to any entity of Home Assistant itself, through its WebSocket API: the `[homeassistant]`
+section (`url`, a long-lived `token`, `token_file` or `token_env` like the password of `[mqtt]`). It takes the place of
+an automation that copies an entity into the daemon's own.
+
+- `{ entity, attribute }` goes wherever `{ watch }` goes: the LCD, the color, a button's LED, `present`. The state of
+  the entity becomes a line, as a watch prints it (`homeassistant/parts.py`), so the strips show it as they show those
+  lines (`strips/entity.py`: `EntityLine` next to `WatchedLine`).
+- `{ entity, attribute, min, max }` goes where `{ watch, min, max }` goes: the meter.
+- `{ entity, attribute, min, max, step, push, format, service, data }` goes where a value goes: the fader and the
+  encoder. `EntityValue` is a `BoundValue` like `CommandValue`: it follows the entity, and a move calls a service
+  with the newest value only. The domains `light` (brightness), `number`, `input_number`, `media_player` (volume),
+  `cover` (position) and `fan` (percentage) have a value and a service of their own (`homeassistant/domains.py`); any
+  other entity needs `service` and `data` with `{value}`. The range is the binding's, else the entity's (a `number`),
+  else the domain's.
+- `{ service, entity, data }` is an action of a button, like `{ run }`.
+
+The connection (`homeassistant/client.py`, `HomeAssistant`) is one for the daemon: it follows every entity
+(`subscribe_entities`, compressed, as the frontend of Home Assistant does) and calls services. `Commands.hass` hands it
+to the strips, the controls and the twins, as `Commands` hands them the programs. It connects only while the
+configuration (or a twin) has a part bound to an entity, and again after it broke (`RECONNECT_DELAYS`: 1, 2, 5, 10,
+30, then 60 seconds; back to 1 only after a connection got the states). A refused token, or one that can't be read,
+ends it (`_hopeless`): the same section connects again only when its token resolves to another one. A reload takes a
+changed section.
+
 
 ## The GUI
 
-A part that can be bound has one field: the default of the type, Home Assistant, or a program. Its options show only
-when a program is chosen. A channel without bindings looks as it does today.
+A part that can be bound has one field: the default of the type, Home Assistant, an entity, or a program. Its options
+show only when an entity or a program is chosen. A channel without bindings looks as it does today. A button's lists
+take `service: ...` (a press, a hold) and `entity: ...` (an LED), with their options below the list.
+
+The fields of an entity suggest the entities of Home Assistant. The window reads them itself (`client.fetch()` in a
+thread, `fields/entities.EntitySource`), with the settings in the editor, saved or not: the daemon's live view tells
+only how many there are, and the window works without a daemon. Reading them is the test of `[homeassistant]` on its
+page too. A `token_env` resolves in the window's environment, not in the service's. The list is drawn inside the window (`SuggestionList`), not a popup.
 
 ## Simulate
 
 Simulate runs the `watch` programs, so it shows real values, colors, texts and presence. It never runs `set` or
 `run`: a move there changes the simulation only. Until the first line of a watch, a value shows the middle of its
-range.
+range. It reads the entities of Home Assistant through the connection of the daemon, but calls no services
+(`SimulatedCommands`).
 
 ## Decisions
 
@@ -154,3 +186,23 @@ range.
   with parts in Home Assistant are not announced yet: that needs entities that change at runtime.
 - Simulate has no Home Assistant: a `homeassistant` channel shows its label, its color and `offline`, and its
   controls do nothing. Whether a custom channel with `present` is there comes from the simulated situation.
+- An entity of Home Assistant is a binding of its own (`{ entity }`), not a word: it has options (`attribute`, `min`,
+  `max`, ...), and the parts of the daemon's own entities stay `"homeassistant"`.
+- The client follows all entities, not only the bound ones: one subscription for every configuration (a reload needs
+  none of its own), and the entities the GUI suggests come with it (`HomeAssistant.entities()`, or
+  `fetch_entities()` without the daemon).
+- An entity the configuration names but Home Assistant does not have is a warning in the log, not an error of the
+  file: entities come and go in Home Assistant, and the file is checked without it.
+- While the daemon is not connected, an entity is not known: the parts show nothing, an LED is dark, a value is
+  unknown, a custom channel with `present` is absent (but before the first connection: not known, so the slots do
+  not move at the start).
+- An LED is lit by `on`, `open`, `playing` and `home`, besides the words of a watch. A light's color is the nearest
+  color of the LCD; a light that is off is `off`.
+- A fader or an encoder bound to an entity has no number of the daemon's own in Home Assistant: the entity is there
+  already.
+- A refused token is never sent again (Home Assistant can ban addresses that fail to log in); other problems are
+  tried again.
+- After a service call that failed, a fader or an encoder goes back to the value of the entity. After one that
+  worked, it stays until the entity reports: many devices report a moment later, and the motor would jump.
+- A press sends its `data` as it is: `{value}` in it is an error of the file, not a text Home Assistant gets.
+- Simulate reads the entities but calls no services; a move changes the simulation only.

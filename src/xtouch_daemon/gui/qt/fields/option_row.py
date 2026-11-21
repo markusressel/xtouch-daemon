@@ -2,6 +2,7 @@
 One option of a form: its label, the field for its type, its help and its problems.
 """
 
+import dataclasses
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, assert_never
@@ -26,6 +27,7 @@ from PyQt6.QtWidgets import (
 
 from xtouch_daemon.config.files import Problem
 from xtouch_daemon.gui.domain import sources
+from xtouch_daemon.gui.domain.entities import data_text, parse_data
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
 from xtouch_daemon.gui.qt.fields.basics import (
     LABEL_WIDTH,
@@ -284,6 +286,8 @@ class OptionRow(QWidget):
         match option.kind:
             case Kind.TEXT | Kind.SECRET | Kind.PATH | Kind.ACTION:
                 return self._text_field(option, None if isinstance(suggest, Mapping) else suggest)
+            case Kind.DATA:
+                return self._text_field(option, None)
             case Kind.INTEGER:
                 self.spin: QSpinBox | QDoubleSpinBox = QSpinBox(self)
                 indent_text(self.spin)
@@ -446,7 +450,7 @@ class OptionRow(QWidget):
         self.matches.show()
 
     def _edit_text(self, text: str) -> None:
-        self._edit(text)
+        self._edit(parse_data(text) if self.option.kind == Kind.DATA else text)
         self._show_matches()
 
     # -- showing and editing --------------------------------------------------------------------------------------
@@ -463,6 +467,10 @@ class OptionRow(QWidget):
                     self._show_matches()
                     default = self._placeholder() if self._placeholder else self.option.default
                     self.line.setPlaceholderText(self._unset_text(default, ""))
+                case Kind.DATA:
+                    self.line.setText(data_text(value))
+                    default = self._placeholder() if self._placeholder else None
+                    self.line.setPlaceholderText(self._unset_text(default))
                 case Kind.INTEGER | Kind.NUMBER:
                     # a value of another type shows the default; its problem says what is wrong
                     number = shown if isinstance(shown, int | float) else self.option.default
@@ -556,15 +564,23 @@ class OptionRow(QWidget):
     def show_problems(self, problems: list[Problem]) -> None:
         if self.option.kind == Kind.BINDING:
             # a problem of an option of the program (`fader.max`) shows under its row
-            nested: dict[str, list[Problem]] = {name: [] for name in self.binding.rows}
+            shown = self.binding.shown_rows()
+            for hidden in (*self.binding.rows.values(), *self.binding.entity_rows.values()):
+                if hidden not in shown.values():
+                    hidden.show_problems([])
+            nested: dict[str, list[Problem]] = {name: [] for name in shown}
             rest: list[Problem] = []
             for problem in problems:
                 column = self._rest_of(problem)[:1]
+                # a problem of the whole table that names its option, e.g. "service: nothing sets ..."
+                named, colon, said = problem.message.partition(": ")
                 if column and column[0] in nested:
                     nested[str(column[0])].append(problem)
+                elif not column and colon and named in nested:
+                    nested[named].append(dataclasses.replace(problem, message=said[:1].upper() + said[1:]))
                 else:
                     rest.append(problem)
-            for name, row in self.binding.rows.items():
+            for name, row in shown.items():
                 row.show_problems(nested[name])
             problems = rest
         self.error.setText("\n".join(self._problem_text(problem) for problem in problems))

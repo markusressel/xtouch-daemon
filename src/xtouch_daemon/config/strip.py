@@ -12,10 +12,14 @@ from xtouch_daemon.config.bindings import (
     TARGET,
     ColorPart,
     EncoderPart,
+    EntityBinding,
+    EntityValueBinding,
     FaderPart,
     LcdPart,
     MeterPart,
+    ServiceAction,
     ValueBinding,
+    entities_in,
     placeholders_of,
     programs_in,
 )
@@ -48,8 +52,8 @@ PARTS = ("fader", "encoder", "lcd", "color", "meter")
 class BaseStripConfig(Model):
     color: ColorPart = "white"
     """
-    The backlight of the LCD. It goes dark while the strip has nothing to control, unless `lit_when_idle` is on. A
-    `watch` sets it with each line that is a color name.
+    The backlight of the LCD, dark while the strip has nothing to control unless `lit_when_idle` is on. A `watch` sets
+    it by color name. An entity sets its own color: a light that is off makes it dark.
     """
     lit_when_idle: bool = False
     """
@@ -58,8 +62,8 @@ class BaseStripConfig(Model):
     """
     meter: MeterPart = True
     """
-    The LED meter shows the level. Needs `behavior.meters`. A `watch` makes it show each number it prints, from
-    `min` to `max`.
+    The LED meter shows the level. Needs `behavior.meters`. A `watch` or an entity makes it show a number, from `min`
+    to `max`.
     """
     meter_point: Annotated[MeterPoint, METER_POINTS] | None = None
     """
@@ -94,8 +98,8 @@ class BaseStripConfig(Model):
     """What the fader sets. Bound to something else, it gives the volume to the encoder."""
     lcd: LcdPart | None = None
     """
-    The second line of the LCD, instead of the volume. A `watch` shows each line it prints. By default what the
-    strip type shows.
+    The second line of the LCD, instead of the volume. A `watch` shows each line it prints, an entity its state. By
+    default what the strip type shows.
     """
 
     @property
@@ -161,9 +165,15 @@ class BaseStripConfig(Model):
                 f"encoder: {self.encoder} is not for {strip_type} strips ({', '.join(ENCODERS[strip_type])})"
             )
         if self.fader != "volume" and self.encoder not in (None, "volume"):
-            where = "in Home Assistant" if self.fader == "homeassistant" else "bound to a program"
+            where = (
+                "in Home Assistant"
+                if self.fader == "homeassistant"
+                else "bound to an entity"
+                if isinstance(self.fader, EntityValueBinding)
+                else "bound to a program"
+            )
             raise ValueError(f"encoder: with the fader {where}, the encoder sets the volume")
-        if isinstance(self.fader, ValueBinding) and self.fader.push is not None:
+        if isinstance(self.fader, ValueBinding | EntityValueBinding) and self.fader.push is not None:
             raise ValueError(FADER_PUSH)
         if getattr(self, "launch_when_running", False) and getattr(self, "launch", None) is None:
             raise ValueError("launch_when_running: needs launch")
@@ -180,6 +190,10 @@ class BaseStripConfig(Model):
     def programs(self) -> dict[str, tuple[str, ...]]:
         """The programs of its parts, by where they are, e.g. `fader.set`, `select.press.run`."""
         return programs_in(self, PARTS, BUTTON_NAMES)
+
+    def entities(self) -> dict[str, EntityBinding | ServiceAction]:
+        """Its parts and actions with entities of Home Assistant, by where they are, e.g. `meter`, `select.press`."""
+        return entities_in(self, PARTS, BUTTON_NAMES)
 
     def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
         """Where each volume range of the strip is configured (e.g. `profiles[2]`, "" for the strip), and the range."""
