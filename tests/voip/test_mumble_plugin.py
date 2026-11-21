@@ -4,6 +4,7 @@ calls its callbacks like Mumble does, against the daemon's `BridgeProvider`. Ski
 """
 
 import asyncio
+import json
 import os
 import shutil
 import subprocess
@@ -12,11 +13,13 @@ import zipfile
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
+import jsonschema
 import pytest
 
 from tests.support.waiting import until
 from xtouch_daemon.voip import mumble
 from xtouch_daemon.voip.bridge import BridgeProvider
+from xtouch_daemon.voip.protocol import bridge_schema
 from xtouch_daemon.voip.provider import Capability, Participant
 
 pytestmark = [
@@ -71,11 +74,23 @@ class FakeMumble:
         raise AssertionError(f"{command}: {output}")
 
 
+class RecordingBridge(BridgeProvider):
+    """The bridge, keeping the lines of the plugin."""
+
+    def __init__(self, path: Path):
+        super().__init__(path)
+        self.lines: list[bytes] = []
+
+    def _receive(self, line: bytes) -> None:
+        self.lines.append(line)
+        super()._receive(line)
+
+
 @pytest.fixture
-async def setup(built: Path) -> AsyncIterator[tuple[BridgeProvider, FakeMumble]]:
+async def setup(built: Path) -> AsyncIterator[tuple[RecordingBridge, FakeMumble]]:
     with tempfile.TemporaryDirectory(prefix="xtd-") as directory:
         path = Path(directory) / "voip.sock"
-        provider = BridgeProvider(path)
+        provider = RecordingBridge(path)
         task = asyncio.create_task(provider.run())
         await until(path.exists, seconds=5)
         process = await asyncio.create_subprocess_exec(
@@ -104,7 +119,7 @@ def test_the_bundle_has_the_manifest_and_the_library_only(built: Path):
     assert "<name>xtouch-daemon</name>" in manifest
 
 
-async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[BridgeProvider, FakeMumble]):
+async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[RecordingBridge, FakeMumble]):
     provider, host = setup
     seen: list[Participant | None] = []
     provider.subscribe(lambda: seen.append(provider.participant("2")))
@@ -167,6 +182,16 @@ async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[
     await host.do("disconnect")
     await until(lambda: provider.channel is None)
 
+    # every line is what the schema of the bridge says a plugin sends, without keys it doesn't know
+    schema = bridge_schema()
+    plugin_state = jsonschema.Draft202012Validator({**schema, "$ref": "#/$defs/PluginState"})
+    participant_keys = set(schema["$defs"]["ParticipantState"]["properties"])
+    for line in provider.lines:
+        state = json.loads(line)
+        assert list(plugin_state.iter_errors(state)) == [], line
+        assert set(state) <= set(schema["$defs"]["PluginState"]["properties"]), line
+        assert all(set(each) <= participant_keys for each in state["participants"]), line
+
 
 async def test_the_plugin_connects_again(built: Path):
     with tempfile.TemporaryDirectory(prefix="xtd-") as directory:
@@ -194,7 +219,7 @@ async def test_the_plugin_connects_again(built: Path):
         assert await process.wait() == 0
 
 
-async def test_a_mute_set_in_mumble_lights_the_button(setup: tuple[BridgeProvider, FakeMumble]):
+async def test_a_mute_set_in_mumble_lights_the_button(setup: tuple[RecordingBridge, FakeMumble]):
     provider, host = setup
     await host.do("connect 1 5")
     await host.do("user 2 5 Alice")
@@ -218,7 +243,7 @@ async def test_a_mute_set_in_mumble_lights_the_button(setup: tuple[BridgeProvide
     assert await host.do("record") == []
 
 
-async def test_a_mute_mumble_refuses_goes_back(setup: tuple[BridgeProvider, FakeMumble]):
+async def test_a_mute_mumble_refuses_goes_back(setup: tuple[RecordingBridge, FakeMumble]):
     provider, host = setup
     await host.do("connect 1 5")
     await host.do("user 2 5 Alice")
@@ -233,7 +258,7 @@ async def test_a_mute_mumble_refuses_goes_back(setup: tuple[BridgeProvider, Fake
     assert await host.do("audio 2 0.5") == ["audio 0 0.500"]
 
 
-async def test_the_plugin_shuts_down_with_a_mute_under_way(setup: tuple[BridgeProvider, FakeMumble]):
+async def test_the_plugin_shuts_down_with_a_mute_under_way(setup: tuple[RecordingBridge, FakeMumble]):
     provider, host = setup
     await host.do("connect 1 5")
     await host.do("user 2 5 Alice")
@@ -253,7 +278,7 @@ async def test_the_plugin_shuts_down_with_a_mute_under_way(setup: tuple[BridgePr
     assert await host.process.wait() == 0
 
 
-async def test_a_shutdown_drops_the_requests_that_did_not_start(setup: tuple[BridgeProvider, FakeMumble]):
+async def test_a_shutdown_drops_the_requests_that_did_not_start(setup: tuple[RecordingBridge, FakeMumble]):
     provider, host = setup
     await host.do("connect 1 5")
     await host.do("user 2 5 Alice")

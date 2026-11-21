@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A JSON Schema of the configuration, published with the documentation and printed by `xtouch-daemon schema`. The
   example configuration points to it (`#:schema`), so editors with a TOML language server (Taplo, Tombi) complete the
   options, show their help on hover and mark mistakes while typing.
+- A JSON Schema of the voice chat bridge, for plugins of other clients than Mumble: published with the documentation
+  (`voice-chat-bridge.schema.json`) and printed by `xtouch-daemon schema --bridge`. The daemon reads and writes the
+  lines of the bridge with the same models, so the schema can't drift from what it takes.
 - `xtouch-daemon test`: after the sweep every strip answers its own controls, so each output of the device can be
   checked by hand: the meter follows the fader, a button steps its LED through on, flashing and off, the encoder
   changes the position and the mode of the ring (also with the two LEDs at its ends), the color of the LCD and the motor
@@ -82,6 +85,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Voice chat bridge: a line with `capabilities` that is not a list (e.g. `null`) is ignored and logged, like other
+  lines that are not the protocol. Before, it ended the connection of the plugin.
+- Docs: the voice chat bridge refuses a second plugin while one is connected, as the daemon always did; the page said
+  that the new one replaces the old one. The page now also explains `pre_fader_level`.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its
   hint ends in … where it is short. Before, the right side of the window was cut off, and the drawing was off center
   with its right strips hidden.

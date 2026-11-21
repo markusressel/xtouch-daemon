@@ -2,30 +2,30 @@
 The participants from a plugin inside the voice chat client: the daemon serves a Unix socket
 (`$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock`, mode 0600), a plugin connects and sends what it knows, one JSON object
 per line, and gets the commands back the same way. The protocol is the same for every client, so the daemon needs no
-library of any of them.
+library of any of them. Its messages are the models in `protocol.py`, which say what each key means.
 
-The daemon greets a plugin that connects with its protocol version (`PROTOCOL`):
+The daemon greets a plugin that connects with its protocol version (`Greeting`):
 
-    {"daemon": "xtouch-daemon", "version": "0.1.0", "protocol": 1}
+    {"daemon":"xtouch-daemon","version":"0.1.0","protocol":1}
 
-From the plugin, the whole state each time (like the live view: a plugin that sends 20 times a second while someone
-talks needs nothing else):
+From the plugin, the whole state each time (`PluginState`, like the live view: a plugin that sends 20 times a second
+while someone talks needs nothing else):
 
     {"protocol": 1, "client": "mumble", "channel": "Lobby", "capabilities": ["volume", "mute", "levels"],
      "participants": [{"id": "12", "name": "Alice", "talking": true, "muted": false, "volume": 100, "level": 0.4,
                        "pre_fader_level": 0.8}]}
 
-`id` and `name` are needed, the rest is optional; `protocol` is 1 without it. `level` is the peak of the voice after
-the volume of the participant, `pre_fader_level` before it. To the plugin:
+To the plugin (`SetVolume`, `SetMuted`):
 
-    {"set_volume": {"id": "12", "volume": 80}}
-    {"set_muted": {"id": "12", "muted": true}}
+    {"set_volume":{"id":"12","volume":80}}
+    {"set_muted":{"id":"12","muted":true}}
 
 A new protocol version means lines that an older side would get wrong; new optional keys don't need one, and both
-sides ignore keys they don't know. The daemon ignores the lines of a protocol it does not know (and says so).
+sides ignore keys they don't know. The daemon ignores the lines of a protocol it does not know (and says so), and the
+lines that are not the protocol.
 
-One plugin at a time: while one is connected, another one gets `{"error": "another plugin is connected"}` and is
-closed (two clients with the plugin enabled would otherwise take the socket from each other). When the plugin
+One plugin at a time: while one is connected, another one gets `{"error":"another plugin is connected"}` (`Refusal`)
+and is closed (two clients with the plugin enabled would otherwise take the socket from each other). When the plugin
 goes, so do the participants.
 """
 
@@ -36,66 +36,71 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from xtouch_daemon import __version__
-from xtouch_daemon.voip.provider import VOLUME_LIMIT, Capability, Participant, VoipProvider
+from xtouch_daemon.voip.protocol import (
+    PROTOCOL,
+    Greeting,
+    Message,
+    MuteChange,
+    PluginState,
+    Refusal,
+    SetMuted,
+    SetVolume,
+    VolumeChange,
+    encode,
+)
+from xtouch_daemon.voip.provider import VoipProvider
+
+__all__ = ["LINE_LIMIT", "PROTOCOL", "BridgeProvider", "ProtocolError", "parse_state"]
 
 _LOGGER = logging.getLogger(__name__)
 
 LINE_LIMIT = 1024 * 1024
 """The longest line a plugin may send (about 5000 participants)."""
-PROTOCOL = 1
-"""The version of the protocol, see the module."""
 
 
 class ProtocolError(ValueError):
     """A line of the plugin that is not what the protocol says."""
 
 
-def parse_state(line: bytes) -> tuple[tuple[Participant, ...], frozenset[Capability]]:
-    """The participants and capabilities of a line of the plugin (`ProtocolError` for one that is not)."""
+def parse_state(line: bytes) -> PluginState:
+    """The state in a line of the plugin (`ProtocolError` for one that is not, see `protocol.PluginState`)."""
     try:
         data = json.loads(line)
     except ValueError as e:
         raise ProtocolError(f"no JSON: {e}") from e
-    if not isinstance(data, dict) or not isinstance(data.get("participants"), list):
+    if not isinstance(data, dict):
         raise ProtocolError("no object with participants")
     state: dict[str, Any] = data  # pyright: ignore[reportUnknownVariableType]: JSON
-    protocol = state.get("protocol", 1)
-    if protocol != PROTOCOL:
+    # before the rest: the lines of another version may look different altogether
+    protocol = state.get("protocol", PROTOCOL)
+    if protocol != PROTOCOL and isinstance(state.get("participants"), list):
         raise ProtocolError(f"protocol {protocol!r}, this daemon speaks {PROTOCOL}: update the plugin or the daemon")
     try:
-        capabilities = frozenset(Capability(name) for name in state.get("capabilities", ()))
-    except ValueError as e:
-        raise ProtocolError(f"capabilities: {e}") from e
-    participants: list[Participant] = []
-    for item in state["participants"]:
-        if (
-            not isinstance(item, dict)
-            or not isinstance(item.get("id"), str | int)
-            or not isinstance(item.get("name"), str)
-        ):
-            raise ProtocolError(f"a participant without id or name: {item!r}")
-        entry: dict[str, Any] = item  # pyright: ignore[reportUnknownVariableType]: JSON
-        level = entry.get("level")
-        pre_fader_level = entry.get("pre_fader_level")
-        try:
-            volume = max(0, min(VOLUME_LIMIT, round(float(entry.get("volume", 100)))))
-            level = None if level is None else max(0.0, min(1.0, float(level)))
-            pre_fader_level = None if pre_fader_level is None else max(0.0, min(1.0, float(pre_fader_level)))
-        except (TypeError, ValueError, OverflowError) as e:
-            raise ProtocolError(f"the volume or level of {entry['name']}: {e}") from e
-        participants.append(
-            Participant(
-                id=str(entry["id"]),
-                name=entry["name"],
-                talking=bool(entry.get("talking", False)),
-                muted=bool(entry.get("muted", False)),
-                volume=volume,
-                level=level,
-                pre_fader_level=pre_fader_level,
-            )
-        )
-    return tuple(participants), capabilities
+        return PluginState.model_validate(state)
+    except ValidationError as e:
+        raise ProtocolError(_problem(e, state)) from e
+
+
+def _problem(error: ValidationError, state: dict[str, Any]) -> str:
+    """What is wrong with a line, the first problem in the order of its keys."""
+    errors = error.errors()
+    if any(each["loc"] == ("participants",) for each in errors):
+        return "no object with participants"
+    first = errors[0]
+    match first["loc"]:
+        case ("participants", int(index), *rest):
+            item = state["participants"][index]
+            if not rest or rest[0] in ("id", "name"):
+                return f"a participant without id or name: {item!r}"
+            cause = first.get("ctx", {}).get("error", first["msg"])
+            return f"the volume or level of {item['name']}: {cause}"
+        case (key, *_):
+            return f"{key}: {first['msg']}"
+        case _:  # pragma: no cover: a model has keys
+            return first["msg"]
 
 
 class BridgeProvider(VoipProvider):
@@ -136,11 +141,11 @@ class BridgeProvider(VoipProvider):
                 )
                 self._refused = True
             with contextlib.suppress(ConnectionError):
-                writer.write(json.dumps({"error": "another plugin is connected"}).encode() + b"\n")
+                writer.write(encode(Refusal(error="another plugin is connected")))
             writer.close()
             return
         self._writer = writer
-        self._send({"daemon": "xtouch-daemon", "version": __version__, "protocol": PROTOCOL})
+        self._send(Greeting(daemon="xtouch-daemon", version=__version__, protocol=PROTOCOL))
         try:
             with contextlib.suppress(ConnectionError, ValueError):
                 while line := await reader.readline():
@@ -159,25 +164,23 @@ class BridgeProvider(VoipProvider):
         if not line.strip():
             return
         try:
-            participants, capabilities = parse_state(line)
+            state = parse_state(line)
         except ProtocolError as e:
             _LOGGER.warning(f"Ignoring a line of the voice chat plugin: {e}")
             return
-        data = json.loads(line)
         if not self.connected:
-            self.client = str(data.get("client") or "a client")
+            self.client = state.client or "a client"
             _LOGGER.info(f"Voice chat plugin connected ({self.client})")
-        channel = data.get("channel")
-        self.channel = channel if isinstance(channel, str) and channel else None
-        self.capabilities = capabilities
-        self.update(participants)
+        self.channel = state.channel
+        self.capabilities = frozenset(state.capabilities)
+        self.update(tuple(each.participant() for each in state.participants))
 
-    def _send(self, message: dict[str, Any]) -> None:
+    def _send(self, message: Message) -> None:
         if self._writer is not None:
-            self._writer.write(json.dumps(message, separators=(",", ":")).encode() + b"\n")
+            self._writer.write(encode(message))
 
     async def set_volume(self, participant_id: str, volume: int) -> None:
-        self._send({"set_volume": {"id": participant_id, "volume": volume}})
+        self._send(SetVolume(set_volume=VolumeChange(id=participant_id, volume=volume)))
 
     async def set_muted(self, participant_id: str, muted: bool) -> None:
-        self._send({"set_muted": {"id": participant_id, "muted": muted}})
+        self._send(SetMuted(set_muted=MuteChange(id=participant_id, muted=muted)))

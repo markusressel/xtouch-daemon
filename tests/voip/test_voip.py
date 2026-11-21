@@ -108,17 +108,37 @@ async def test_the_demo_tells_its_listeners_while_it_runs(monkeypatch: pytest.Mo
 
 
 def test_the_lines_of_the_plugin():
-    participants, capabilities = parse_state(
-        b'{"client": "mumble", "capabilities": ["volume", "levels"], "participants": ['
-        b'{"id": 12, "name": "Ann", "talking": true, "volume": 250, "level": 1.5, "pre_fader_level": -0.5},'
+    state = parse_state(
+        b'{"client": "mumble", "capabilities": ["volume", "levels"], "unknown": 1, "participants": ['
+        b'{"id": 12, "name": "Ann", "talking": true, "volume": 250, "level": 1.5, "pre_fader_level": -0.5, "x": 1},'
         b'{"id": "b", "name": "Bob", "muted": true, "volume": 80.4}]}'
     )
-    assert capabilities == {Capability.VOLUME, Capability.LEVELS}
-    assert participants == (
+    assert state.client == "mumble"
+    assert state.capabilities == (Capability.VOLUME, Capability.LEVELS)
+    assert tuple(each.participant() for each in state.participants) == (
         Participant("12", "Ann", talking=True, volume=200, level=1.0, pre_fader_level=0.0),
         Participant("b", "Bob", muted=True, volume=80),
     )
-    assert parse_state(b'{"participants": []}') == ((), frozenset())
+    empty = parse_state(b'{"participants": []}')
+    assert (empty.protocol, empty.client, empty.channel, empty.capabilities, empty.participants) == (
+        1,
+        None,
+        None,
+        (),
+        (),
+    )
+
+
+def test_the_plugin_may_send_numbers_and_truths_of_other_kinds():
+    # as the daemon always took them: a number as text, any value for its truth, an empty channel as none
+    state = parse_state(
+        b'{"protocol": 1.0, "client": 7, "channel": "", "participants": ['
+        b'{"id": "1", "name": "Ann", "talking": 1, "muted": "", "volume": "80.6", "level": "0.25", '
+        b'"pre_fader_level": null}]}'
+    )
+    assert state.client == "7"
+    assert state.channel is None
+    assert state.participants[0].participant() == Participant("1", "Ann", talking=True, volume=81, level=0.25)
 
 
 @pytest.mark.parametrize(
@@ -128,10 +148,23 @@ def test_the_lines_of_the_plugin():
         (b"[]", "no object with participants"),
         (b'{"participants": 3}', "no object with participants"),
         (b'{"participants": [], "capabilities": ["fly"]}', "capabilities"),
+        (b'{"participants": [], "capabilities": null}', "capabilities"),
+        (b'{"protocol": "one", "participants": [{"id": 1}]}', "protocol 'one', this daemon speaks 1"),
+        (b'{"protocol": 2}', "no object with participants"),
+        (b'{"capabilities": ["fly"]}', "no object with participants"),
+        (b'{"participants": [{"id": 1.5, "name": "Ann"}]}', "without id or name"),
+        (b'{"participants": [{"id": 1, "name": 2}]}', "without id or name"),
+        (b'{"participants": [{"id": 1, "name": "Ann", "volume": null}]}', "the volume or level of Ann"),
+        (b'{"participants": [{"id": 1, "name": "Ann", "volume": NaN}]}', "the volume or level of Ann"),
+        (b'{"participants": [{"id": 1, "name": "Ann", "pre_fader_level": "x"}]}', "the volume or level of Ann"),
+        (b'{"participants": [{"id": 1, "name": "Ann", "volume": "x"}, {"name": "Bob"}]}', "the volume or level of"),
         (b'{"participants": [{"name": "Ann"}]}', "without id or name"),
         (b'{"participants": [{"id": 1}]}', "without id or name"),
         (b'{"participants": ["Ann"]}', "without id or name"),
-        (b'{"participants": [{"id": 1, "name": "Ann", "volume": "loud"}]}', "the volume or level of Ann"),
+        (
+            b'{"participants": [{"id": 1, "name": "Ann", "volume": "loud"}]}',
+            "the volume or level of Ann: could not convert string to float: 'loud'",
+        ),
         (b'{"participants": [{"id": 1, "name": "Ann", "volume": 1e999}]}', "the volume or level of Ann"),
         (b'{"participants": [{"id": 1, "name": "Ann", "level": []}]}', "the volume or level of Ann"),
         (b'{"protocol": 2, "participants": []}', "protocol 2, this daemon speaks 1: update the plugin or the daemon"),
