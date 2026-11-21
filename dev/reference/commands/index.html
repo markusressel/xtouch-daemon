@@ -3234,10 +3234,14 @@
 </tbody>
 </table>
 <p>Every command takes <code>-h</code>/<code>--help</code>. <code>xtouch-daemon -V</code> (<code>--version</code>) shows the version.</p>
-<p><code>-c FILE</code> (<code>--config FILE</code>) selects the configuration file; the default is <code>~/.config/xtouch-daemon/config.toml</code>.</p>
+<p><code>-c FILE</code> (<code>--config FILE</code>) selects the configuration file; the default is <code>~/.config/xtouch-daemon/config.toml</code>.
+Write it after the command name (<code>xtouch-daemon check-config -c FILE</code>). Only the commands that read the configuration
+take it: <code>run</code>, <code>check-config</code>, <code>list-apps</code>, <code>test</code> and <code>gui</code>. (<code>simulate</code> and <code>init-config</code> take the file as an
+argument.)</p>
 <p>As root, every command except <code>schema</code> and <code>simulate</code> fails with an error: the daemon and the tools around it run as
-your user. A configuration file that other users can change is an error too, see
-<a href="../../configuration/">Configuration</a>.</p>
+your user. (<code>schema</code> and <code>simulate</code> run no commands of a configuration and read no configuration of your user, so root may use
+them.) A configuration file that other users can change (a file or directory that is writable by the group or by everyone) is
+an error too, see <a href="../../configuration/">Configuration</a>.</p>
 <h2 id="run"><code>run</code><a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>run<span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span><span class="w"> </span><span class="o">[</span>-l<span class="w"> </span>LEVEL<span class="o">]</span><span class="w"> </span><span class="o">[</span>--virtual-device<span class="o">]</span>
 </span></code></pre></div>
@@ -3256,7 +3260,7 @@ your user. A configuration file that other users can change is an error too, see
 </tr>
 <tr>
 <td><code>-l</code>, <code>--log-level LEVEL</code></td>
-<td><code>debug</code>, <code>info</code> (default), <code>warning</code> or <code>error</code>. <code>debug</code> also logs the messages of the device the daemon doesn't use.</td>
+<td><code>debug</code>, <code>info</code> (default), <code>warning</code> or <code>error</code>. <code>debug</code> also logs the MIDI messages of the device that the daemon has no use for.</td>
 </tr>
 <tr>
 <td><code>--virtual-device</code></td>
@@ -3266,7 +3270,7 @@ your user. A configuration file that other users can change is an error too, see
 </table>
 <p>The daemon notes its process and configuration file in <code>$XDG_RUNTIME_DIR/xtouch-daemon.json</code> while it runs, and
 serves what the device shows on <code>$XDG_RUNTIME_DIR/xtouch-daemon.sock</code> for the <a href="../../guides/gui/">GUI</a>. A second daemon does not
-start: it names the one that runs.</p>
+start: it prints the process of the daemon that already runs, and exits.</p>
 <p>Signals:</p>
 <table>
 <thead>
@@ -3278,7 +3282,7 @@ start: it names the one that runs.</p>
 <tbody>
 <tr>
 <td><code>SIGHUP</code></td>
-<td>Reloads the configuration (<code>systemctl --user reload xtouch-daemon</code>), as the daemon does by itself when the file changes. A file with errors is logged, and the current configuration stays.</td>
+<td>Reloads the configuration (<code>systemctl --user reload xtouch-daemon</code>), as the daemon does by itself when the file changes. If the file has errors, the daemon logs them and keeps the current configuration.</td>
 </tr>
 <tr>
 <td><code>SIGTERM</code>, <code>SIGINT</code></td>
@@ -3290,7 +3294,7 @@ start: it names the one that runs.</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--all<span class="o">]</span>
 </span></code></pre></div>
 <p>Validates the configuration, describes each channel and shows a table of what the slots show in which states.
-Without a file at the default path it checks the defaults. Example output:</p>
+Without a file at the default path it checks the built-in defaults of every option (not the example file). It needs no running daemon. Example output:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>/home/me/.config/xtouch-daemon/config.toml: valid
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Channels:
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  out: 'Speaker' output alsa_output.pci-0000_11_00.4.analog-stereo, select makes it the default (cyan, rec: recording, solo: off, encoder: balance)
@@ -3302,22 +3306,35 @@ Without a file at the default path it checks the defaults. Example output:</p>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>default  out  browser  auto  auto
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>call     out  browser  mic   auto
 </span></code></pre></div>
+<p>The line of a channel says what it is: its label (<code>'Speaker'</code>), its kind (<code>output</code>, or <code>Home Assistant</code> for a
+<code>homeassistant</code> channel, whose entities are <code>*.*_lamp_*</code>) and its sound device or applications. The brackets after it
+say how it looks and what its controls do: the color of the LCD (<code>cyan</code>), what the LED
+of Rec and Solo shows (<code>rec: recording</code> lights while an application records, <code>solo: off</code> never lights) and what the
+encoder edits (<code>encoder: balance</code>, or <code>media</code> for the media player of an application). The table at the end has a row for each situation:
+the first column (<code>when</code>) names the situation: <code>default</code> when no mode and no state is on, else the mode or the
+state that is on (here <code>call</code>). The other columns are the slots 1 to 8 (equal neighbors are joined: <code>4-8</code>). A cell is what the slot
+shows in that situation: a channel (<code>out</code>), or the pool <code>auto</code>.</p>
 <p>A channel with <a href="../../configuration/channels/devices/#choices"><code>choices</code></a> lists them, e.g.
 <code>output: Phones, Speaker or Buds (Select switches)</code>. A channel whose meter shows the level after its fader
 (<code>meter_point = "post_fader"</code>, see <a href="../../configuration/channels/#meters">Meters</a>) says <code>meter post-fader</code>.</p>
-<p>A <a href="../../configuration/channels/custom/">custom channel</a> describes each bound part with its programs; with
-<code>targets</code>, a line per target follows with the programs as they run for it, e.g.
+<p>For a <a href="../../configuration/channels/custom/">custom channel</a> (a strip whose parts you bound to programs of your own)
+the line names each part that has a binding and the shell command it runs. If the channel has <code>targets</code> (the things
+it controls one at a time), a line per target follows with the commands as they run for that target, e.g.
 <code>Left: fader.set sysctrl display redshift brightness -d DisplayPort-1 -b '{value}'</code>.</p>
-<p>A table of more than 12 rows shows the situations that differ in one thing; <code>--all</code> shows every combination.</p>
+<p>The table can have many rows: one for each combination of modes and states. With more than 12 rows, <code>check-config</code>
+shows only the situations that differ from <code>default</code> in one thing (one mode, or one state turned on or off) and
+says how many it left out. <code>--all</code> shows every combination.</p>
 <p>A file with errors names the place of each one and its line in the file, e.g.
 <code>channel.mic (line 12): label: String should have at most 7 characters</code>, with what is likely meant where it can be
-guessed (<code>browsr is no channel or pool (did you mean browser?)</code>), and the command fails. After the table, <code>Notes:</code> lists candidates that can never show (e.g. a channel below a pool
-without a condition) and people with no slot to sit on.</p>
+guessed (<code>browsr is no channel or pool (did you mean browser?)</code>), and the command fails. After the table, <code>Notes:</code> lists candidates that can never show and people with no slot to sit on. An example of a
+candidate that can never show is <code>["auto", "browser"]</code>: the pool <code>auto</code> always has something for the slot, so the
+candidate <code>browser</code> below it never comes up.</p>
 <h2 id="init-config"><code>init-config</code><a class="headerlink" href="#init-config" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>xtouch-daemon<span class="w"> </span>init-config<span class="w"> </span><span class="o">[</span>PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>-f<span class="o">]</span>
 </span></code></pre></div>
 <p>Writes the example configuration with <a href="../../configuration/slots/">channels, states and slots</a> to
-<code>~/.config/xtouch-daemon/config.toml</code>, or to <code>PATH</code>. An existing file stays, unless <code>-f</code> (<code>--force</code>) overwrites it.</p>
+<code>~/.config/xtouch-daemon/config.toml</code>, or to <code>PATH</code>. If the file exists already, the command fails and leaves it
+alone; <code>-f</code> (<code>--force</code>) overwrites it.</p>
 <h2 id="schema"><code>schema</code><a class="headerlink" href="#schema" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>xtouch-daemon<span class="w"> </span>schema<span class="w"> </span>&gt;<span class="w"> </span>~/.config/xtouch-daemon/config.schema.json
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>xtouch-daemon<span class="w"> </span>schema<span class="w"> </span>--bridge
@@ -3329,7 +3346,7 @@ schema of the <a href="../voice-chat-bridge/">voice chat bridge</a> instead, for
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w"> </span><span class="o">[</span>--snippet<span class="o">]</span>
 </span></code></pre></div>
 <p>Lists the outputs and inputs with the node names to use as <code>device</code>, their descriptions, volumes and states; <code>*</code>
-marks the defaults. Then it lists each sound card by its name and description, with its devices and its profiles
+marks the defaults (the devices that the sound server uses when nothing else is set). Then it lists each sound card by its name and description, with its devices and its profiles
 (name and description), for <code>card</code> and <code>profile</code> of <a href="../../configuration/channels/devices/#choices"><code>choices</code></a> and for
 <a href="../../configuration/channels/devices/#profiles"><code>profiles</code></a>; <code>*</code> marks the active ones. <code>--snippet</code> prints a
 <code>[channel.&lt;id&gt;]</code> for each device instead, ready to paste into the file (Bluetooth devices by a wildcard like
@@ -3375,7 +3392,7 @@ LED, the ring, the colors, the motor and the touch of every fader:</p>
 </tr>
 <tr>
 <td>Encoder turned</td>
-<td>Changes what the <a href="../../configuration/strip/encoders/">encoder</a> edits, wrapping around, and shows its value.</td>
+<td>Changes the value of the thing the <a href="../../configuration/strip/encoders/">encoder</a> edits at that moment (wrapping around), and shows that value.</td>
 </tr>
 <tr>
 <td>Encoder pushed</td>
@@ -3386,11 +3403,14 @@ LED, the ring, the colors, the motor and the touch of every fader:</p>
 <p>The top line of the LCD names the strip, the bottom line shows the last input for 2 seconds, then what the encoder
 edits. The command prints every input with the answer, and the messages from the device the daemon doesn't use.
 <code>--no-events</code> ends after the sweep.</p>
-<p>While the daemon runs, it has the device: <code>test</code> asks it to run the test instead (the GUI's "Test the device" does the
-same). The slots go on, but show on the device again only when the test ends; the daemon's log shows the inputs
-(<code>journalctl --user -u xtouch-daemon -f</code>). <code>--no-events</code> needs the daemon stopped.</p>
-<p>Without a daemon it takes the name of the device from <code>[device]</code> of the configuration. <code>--virtual-device</code> (or
-<code>[device] virtual = true</code>) tests the <a href="#virtual-device">virtual device</a>, which has to run (in another terminal).</p>
+<p>While the daemon runs, it has the device, so <code>test</code> cannot open it. Instead <code>test</code> asks the daemon to run the test
+(the GUI's "Test the device" does the same). The slots go on, but show on the device again only when the test ends;
+the log of the daemon shows the inputs (<code>journalctl --user -u xtouch-daemon -f</code>). In this case the test runs until
+Ctrl+C and the sweep alone is not possible: <code>--no-events</code> fails while the daemon runs. Stop the daemon first
+for <code>--no-events</code>.</p>
+<p>Without a daemon, <code>test</code> opens the device itself. It finds the sound card by the <code>name</code> in <code>[device]</code> of the
+configuration. <code>--virtual-device</code> (or <code>[device] virtual = true</code>) tests the <a href="#virtual-device">virtual device</a> instead;
+that device has to run already, in another terminal.</p>
 <h2 id="virtual-device"><code>virtual-device</code><a class="headerlink" href="#virtual-device" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>xtouch-daemon<span class="w"> </span>virtual-device<span class="w"> </span><span class="o">[</span>--broken-touch<span class="w"> </span><span class="m">1</span>,4<span class="o">]</span><span class="w"> </span><span class="o">[</span>--log-level<span class="w"> </span>debug<span class="o">]</span>
 </span></code></pre></div>
@@ -3407,7 +3427,7 @@ interrupted (Ctrl+C); the GUI can host one itself, with the mouse on its strips.
 <tbody>
 <tr>
 <td><code>--broken-touch</code></td>
-<td>The faders (from 1) whose touch sensor failed: they never report a touch, see <a href="../hardware/#motor-faders">Motor faders</a>.</td>
+<td>The faders whose touch sensor failed, counted from 1 on the left, e.g. <code>1,4</code>: they never report a touch, see <a href="../hardware/#motor-faders">Motor faders</a>.</td>
 </tr>
 <tr>
 <td><code>--log-level</code></td>
@@ -3418,21 +3438,27 @@ interrupted (Ctrl+C); the GUI can host one itself, with the mouse on its strips.
 <h2 id="mode"><code>mode</code><a class="headerlink" href="#mode" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>xtouch-daemon<span class="w"> </span>mode<span class="w"> </span><span class="o">[</span>NAME<span class="w"> </span><span class="p">|</span><span class="w"> </span>auto<span class="w"> </span><span class="p">|</span><span class="w"> </span>--next<span class="w"> </span><span class="p">|</span><span class="w"> </span>--previous<span class="o">]</span>
 </span></code></pre></div>
-<p>Without arguments it prints the <a href="../../configuration/slots/#states-and-modes">modes</a> of the running daemon, marks the
-one that is on, and says whether it was picked by hand. <code>mode gaming</code> picks the mode <code>gaming</code>, <code>--next</code> and
-<code>--previous</code> the one after or before it, <code>auto</code> lets the rules decide again. It talks to the daemon over its live
-view socket, so it needs a running daemon.</p>
+<p>Without arguments it prints the <a href="../../configuration/slots/#states-and-modes">modes</a> of the running daemon (a mode is
+a state of which only one is on at a time), marks the one that is on, and says whether it was picked by hand.
+<code>mode gaming</code> picks the mode <code>gaming</code>, <code>--next</code> and <code>--previous</code> pick the one after or before it, and the word
+<code>auto</code> lets the rules decide again. (<code>auto</code> here is no mode name.) It talks to the running daemon over a socket, so it
+needs the daemon.</p>
 <h2 id="why"><code>why</code><a class="headerlink" href="#why" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>xtouch-daemon<span class="w"> </span>why<span class="w"> </span>SLOT<span class="w"> </span><span class="p">|</span><span class="w"> </span>CHANNEL
 </span></code></pre></div>
-<p>Asks the running daemon why a slot (its number, 1 for the leftmost one) shows what it shows: why not each candidate
-above, and what it shows. For a channel (its id) it tells on which slots it is and why not on the others that ask
-for it:</p>
+<p>Asks the running daemon why a slot (its number, 1 for the leftmost one) shows what it shows. It says which candidate
+of the slot wins and why each candidate before it (higher in the entry of the slot) does not. For a channel (its id)
+it tells on which slots the channel is and why it is not on the others that offer it:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$ xtouch-daemon why 2
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>Slot 2: voip if call: doesn't hold (call is off); shows auto:app:firefox
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>$ xtouch-daemon why browser
 </span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>browser: on slot 4; not slot 8 (on slot 4 (tie, to the left))
 </span></code></pre></div>
+<p>The first example reads: the first candidate of slot 2, <code>voip if call</code>, does not hold because the state <code>call</code> is
+off, so the slot shows the next one: <code>auto</code>, which gave it the application Firefox (<code>auto:app:firefox</code>). In the
+second example, the channel <code>browser</code> is offered by slots 4 and 8, but a channel takes one strip only. The daemon
+gives each slot a rank for the channel (how high it is in the list of that slot). Here both ranks are the same, a
+"tie", and then the left slot wins. (The two examples come from different configurations.)</p>
 <p>The GUI shows the same above the inspector of a slot on the page Slots.</p>
 <h2 id="mumble-plugin"><code>mumble-plugin</code><a class="headerlink" href="#mumble-plugin" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>xtouch-daemon<span class="w"> </span>mumble-plugin<span class="w"> </span><span class="o">[</span>--build<span class="o">]</span><span class="w"> </span><span class="o">[</span>--install<span class="o">]</span>
@@ -3457,11 +3483,11 @@ options it tells where the plugin is, whether Mumble is installed, and whether M
 </tr>
 <tr>
 <td><code>--build</code></td>
-<td>Builds the plugin from the sources of a checkout (<code>integrations/mumble</code>, needs <code>cmake</code> and a C compiler) into <code>integrations/mumble/build/</code>. With <code>--install</code>: builds it again first.</td>
+<td>Builds the plugin from the sources in a git clone of the project (<code>integrations/mumble</code>, needs <code>cmake</code> and a C compiler; a release has the plugin built already) into <code>integrations/mumble/build/</code>. With <code>--install</code>: builds it again first.</td>
 </tr>
 </tbody>
 </table>
-<p>A release has the plugin in <code>/usr/share/xtouch-daemon/</code>; a checkout builds it.</p>
+<p>A release has the plugin in <code>/usr/share/xtouch-daemon/</code>; a checkout (a git clone of the source) builds it.</p>
 <h2 id="teamspeak-plugin"><code>teamspeak-plugin</code><a class="headerlink" href="#teamspeak-plugin" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>xtouch-daemon<span class="w"> </span>teamspeak-plugin<span class="w"> </span><span class="o">[</span>--build<span class="o">]</span><span class="w"> </span><span class="o">[</span>--install<span class="o">]</span>
 </span></code></pre></div>
@@ -3485,7 +3511,7 @@ Without options it tells where the plugin is, whether TeamSpeak 3 is installed, 
 </tr>
 <tr>
 <td><code>--build</code></td>
-<td>Builds the plugin from the sources of a checkout (<code>integrations/teamspeak</code>, needs <code>cmake</code> and a C compiler) into <code>integrations/teamspeak/build/</code>. The first build downloads the headers of TeamSpeak's plugin SDK into <code>integrations/teamspeak/sdk/</code>. With <code>--install</code>: builds it again first.</td>
+<td>Builds the plugin from the sources in a git clone of the project (<code>integrations/teamspeak</code>, needs <code>cmake</code> and a C compiler; a release has the plugin built already) into <code>integrations/teamspeak/build/</code>. The first build downloads the headers of TeamSpeak's plugin SDK into <code>integrations/teamspeak/sdk/</code>. With <code>--install</code>: builds it again first.</td>
 </tr>
 </tbody>
 </table>
@@ -3515,7 +3541,7 @@ package (systemd prefers it), e.g. one written before by a checkout; the command
 </tr>
 <tr>
 <td><code>--remove-override</code></td>
-<td>Only remove <code>~/.config/systemd/user/xtouch-daemon.service</code>, so the unit of the package is in effect. An enabled service stays enabled, and a running one restarts with the program of the package.</td>
+<td>Only remove <code>~/.config/systemd/user/xtouch-daemon.service</code>, so the unit of the package is in effect (an "override" here is the unit file in your home directory that takes the place of the package's unit). An enabled service stays enabled, and a running one restarts with the program of the package.</td>
 </tr>
 </tbody>
 </table>
@@ -3523,12 +3549,14 @@ package (systemd prefers it), e.g. one written before by a checkout; the command
 <h2 id="gui"><code>gui</code><a class="headerlink" href="#gui" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>xtouch-daemon<span class="w"> </span>gui<span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span>
 </span></code></pre></div>
-<p>Edits the configuration in a window, and applies it. Needs the <code>gui</code> extra, or the package <code>xtouch-daemon-gui-bin</code>
-(which has the command <code>xtouch-daemon-gui</code>). See <a href="../../guides/gui/">GUI</a>.</p>
+<p>Edits the configuration in a window, and applies it. It needs the optional part <code>gui</code> of the package (the "extra"; install it with
+<code>uv tool install --force './xtouch-daemon[gui]'</code>; the command does not run without it), or on Arch Linux the package
+<code>xtouch-daemon-gui-bin</code> (which has the command <code>xtouch-daemon-gui</code>). See <a href="../../guides/gui/">GUI</a> and
+<a href="../../getting-started/install/">Install</a>.</p>
 <h2 id="simulate"><code>simulate</code><a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>xtouch-daemon<span class="w"> </span>simulate<span class="w"> </span>FILE<span class="w"> </span><span class="o">[</span>--mode<span class="w"> </span>NAME<span class="o">]</span><span class="w"> </span><span class="o">[</span>--state<span class="w"> </span>NAME<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--absent<span class="w"> </span>CHANNEL<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--playing<span class="w"> </span>APP<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--person<span class="w"> </span>NAME<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>--table<span class="w"> </span><span class="p">|</span><span class="w"> </span>--replay<span class="w"> </span>LOG<span class="o">]</span>
 </span></code></pre></div>
-<p>What the 8 slots of FILE show in the given states, and why not the candidates above (see
+<p>Shows what the 8 slots of FILE show in the situation you give, and why not the candidates before the one shown (see
 <a href="../../configuration/slots/">Channels, states and slots</a>).</p>
 <table>
 <thead>
@@ -3552,7 +3580,7 @@ package (systemd prefers it), e.g. one written before by a checkout; the command
 </tr>
 <tr>
 <td><code>--table</code></td>
-<td>Every combination of the states and presence the stacks ask about that changes what the slots show.</td>
+<td>Instead of one situation, a table like that of <code>check-config</code>: a row for each combination of states and absent channels that changes what the slots show.</td>
 </tr>
 <tr>
 <td><code>--replay LOG</code></td>
@@ -3565,8 +3593,9 @@ package (systemd prefers it), e.g. one written before by a checkout; the command
 </span></code></pre></div>
 <p>Records, every <code>--interval</code> seconds, what plays and records on the sound server, the devices, the running processes
 (those of the presets, and <code>--process</code>) and the voice chat of the running daemon, and appends a line of JSON to LOG
-when that changed. <code>absent</code> lists the custom channels whose <code>present</code> says they are not there. Runs until
-interrupted (Ctrl+C). <code>simulate FILE --replay LOG</code> replays it.</p>
+when that changed. The field <code>absent</code> of a line lists the channels that are not there now: a channel can say when it is present
+(for a <a href="../../configuration/channels/custom/"><code>custom</code> channel</a>, its option <code>present</code>). It runs until you interrupt it (Ctrl+C); a line is written only when something changed, so a quiet machine
+makes a small file. <code>simulate FILE --replay LOG</code> replays the log.</p>
 
 
 

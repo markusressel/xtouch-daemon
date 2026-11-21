@@ -2862,45 +2862,75 @@
 <h1 id="xtouch-daemon">xtouch-daemon<a class="headerlink" href="#xtouch-daemon" title="Permanent link">&para;</a></h1>
 <p>xtouch-daemon turns a Behringer X-Touch Extender into a hardware mixer for PipeWire on Linux. Its motor faders, LED
 meters and scribble strips control your devices, your applications and the people of your voice chat. A strip can
-also belong to Home Assistant instead, for lights, speakers in other rooms or scenes. It needs the extender (in MC
+also belong to Home Assistant instead, for lights, speakers in other rooms or scenes. To use it for real, you need the extender (in MC
 mode, on USB) and a Linux desktop with PipeWire; there is no Windows or macOS version.</p>
 <p><img alt="The GUI: the device as it is, the slots and the inspector of the slot picked" src="images/gui.png" /></p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
-<p>The device has 8 strips, and the configuration has a <strong>slot</strong> for each. A slot lists what its strip can show, top
-first, and <strong>states</strong> such as "in a call" or "gaming" decide which entry wins now:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[slots]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"buds if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">   </span><span class="c1"># Bluetooth headphones while they are connected, else the next application</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">    </span><span class="c1"># the game while you play, else the next application</span>
+<p>The device has 8 strips, and the configuration has a <strong>slot</strong> for each. A slot is a list of the things its strip can control, such as a device or an application.
+The daemon shows the first entry of the list whose condition is true. An entry without a condition is always true, so
+it is the fallback at the end. A condition is written with <strong>states</strong>, such as "gaming" or "in a call", which are on or off. You define a state
+in the same file, from what the daemon can see: a program that runs, an application that plays, a device that is
+connected, your presence in the voice chat. The word <code>present</code> is not a state. It is a ready-made condition that needs no definition: it
+is true while the channel has something to control: for <code>buds</code>, while the headphones are connected.</p>
+<p>Here is a small configuration with two slots:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.buds]</span><span class="w">                  </span><span class="c1"># a channel: you define it, and it controls one thing</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span><span class="w">       </span><span class="c1"># any Bluetooth headphones</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">[channel.game]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span><span class="w">                   </span><span class="c1"># every sound stream of some applications</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@steam-games"</span><span class="p">]</span><span class="w">        </span><span class="c1"># a preset: the games started from Steam</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Game"</span><span class="w">                  </span><span class="c1"># the top line of the LCD</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">[state.gaming]</span><span class="w">                  </span><span class="c1"># a state: on while a Steam game runs</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">processes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@steam-games"</span><span class="p">]</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">[slots]</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"buds if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">   </span><span class="c1"># the buds while they are connected, else the next application or person</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">    </span><span class="c1"># the game while you play, else the next application or person</span>
 </span></code></pre></div>
-<p>What a slot names is a <strong>channel</strong> or a <strong>pool</strong>. A channel is something you define that takes one strip: an output,
-an input, a group of applications, a person or Home Assistant. A pool supplies members to every slot that names it:
-<code>auto</code> and <code>apps</code> the applications that play, <code>people</code> the people of the voice chat, <code>devices</code> outputs without a
-channel.</p>
-<p>So the device follows what you do: the game gets a fader while it runs, the voice chat and the microphone while you
-are in a call, and the next application that plays takes a free strip. When one strip changes the others stay as they
-are, and a strip you are touching keeps what it shows until you let go.</p>
-<p><a href="concepts/">Concepts</a> explains each of these words and the ones that look alike.</p>
+<p>Each entry of a slot is a channel or a pool:</p>
+<ul>
+<li>A <strong>channel</strong> is one thing you define, such as your headphones, a group of applications, a person or a strip for
+  Home Assistant. It always takes exactly one strip.</li>
+<li>A <strong>pool</strong> fills strips by itself, so you don't list what is in it. The four pools are:<ul>
+<li><code>apps</code> hands out the applications that play, one per strip. An application whose channel has a slot of its
+  own appears there instead.</li>
+<li><code>people</code> hands out the people of your voice chat.</li>
+<li><code>auto</code> hands out the applications and the people together.</li>
+<li><code>devices</code> hands out the sound devices that have no channel of their own.</li>
+</ul>
+</li>
+</ul>
+<p>In the example above, <code>buds</code> and <code>game</code> are channels, <code>gaming</code> is a state, and <code>auto</code> is a pool.</p>
+<p>So the device follows what you do: the game gets a fader while it runs, the voice chat while you are in a call, and the next application that plays takes a free strip. When a strip changes, the other strips keep what they show, and a strip you are touching keeps what it shows until you let go.</p>
+<p>To install it and try it, start with <a href="getting-started/install/">Getting started</a>. <a href="concepts/">Concepts</a> explains
+each of these words and the ones that look alike.</p>
 <h2 id="what-a-strip-can-control">What a strip can control<a class="headerlink" href="#what-a-strip-can-control" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Devices</strong> (<code>output</code>, <code>input</code>): an output or input, whichever of several is there, or the default one. With
-  <code>choices</code>, Select switches between devices, e.g. headphones, speakers and Bluetooth buds. See
+<li><strong>Devices</strong> (<code>output</code>, <code>input</code>): one sound output or input: a device you name, the first of several that is connected, or the system default. With
+  a list of <code>choices</code>, the Select button of the strip switches between devices, e.g. headphones, speakers and
+  Bluetooth buds. See
   <a href="configuration/channels/devices/">Devices</a>.</li>
 <li><strong>Applications</strong> (<code>apps</code>): every stream of a group of applications at once, e.g. every browser, with
   <a href="configuration/presets/">presets</a> for browsers, voice chats, games, music and video players. Select can start the
-  application. See <a href="configuration/channels/applications/">Applications</a>.</li>
+  application, if you give the channel a <code>launch</code> command. See <a href="configuration/channels/applications/">Applications</a>.</li>
 <li><strong>The people of the voice chat</strong>: a strip per person in your Mumble or TeamSpeak channel, with their name, their
   voice on the meter and their volume on the fader. See <a href="configuration/channels/people/">People</a>,
   <a href="guides/mumble/">Mumble</a> and <a href="guides/teamspeak/">TeamSpeak</a>.</li>
 <li><strong>Home Assistant</strong>: a strip whose fader, encoder, LCD, LEDs and buttons are entities for your automations, e.g. to
   dim a light or set the volume of a speaker in another room. See <a href="guides/home-assistant/">Home Assistant</a>.</li>
+<li><strong>Custom</strong> (<code>custom</code>): something other than audio, e.g. the brightness of a screen, with each part of the strip
+  connected to a command of your own. See <a href="configuration/channels/custom/">Custom channels</a>.</li>
 </ul>
 <p>Every strip has a motor fader that glides to new values and stays still under your finger, a volume range up to 200 %,
-an LCD with a label and the volume, an encoder (balance, volume, picking an application, or the media player),
+an LCD with a label and the volume, an encoder (a rotary knob that you turn and push; it sets the balance or the volume, picks an application or controls
+the media player),
 LEDs for Mute, Select, Rec and Solo, and a level meter that never wakes a device or switches Bluetooth headphones
 into headset mode. See <a href="configuration/strip/encoders/">Encoders</a> and <a href="configuration/strip/leds/">Buttons and LEDs</a>.</p>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>A GUI</strong> (<code>xtouch-daemon gui</code>): the device as it is right now, every option with its help and errors, suggestions
+<li><strong>A GUI</strong> (<code>xtouch-daemon gui</code>, or <code>xtouch-daemon-gui</code> with the Arch Linux package): the device as it is right now, every option with its help and errors, suggestions
   from the sound server, Simulate (what the slots show in another situation), and a preview of the changes, in the
   window or on the device, before you save. See <a href="guides/gui/">GUI</a>.</li>
 <li><strong>No device needed to start</strong>: a virtual device stands in for it. See
@@ -2912,11 +2942,14 @@ into headset mode. See <a href="configuration/strip/encoders/">Encoders</a> and 
 </ul>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Linux with PipeWire and <code>pipewire-pulse</code> (or PulseAudio).</li>
-<li><code>pw-record</code> (part of PipeWire) for the meters.</li>
-<li>Python 3.14 (the Arch Linux package brings its own).</li>
-<li>A Behringer X-Touch Extender in <strong>MC</strong> mode on <strong>USB</strong> (see <a href="getting-started/first-steps/#set-up-the-device">Getting started</a>).</li>
-<li>For Home Assistant: an MQTT broker that Home Assistant uses (e.g. the Mosquitto add-on).</li>
+<li>Linux with PipeWire and its PulseAudio server <code>pipewire-pulse</code>. Plain PulseAudio is not enough, because the meters need
+  <code>pw-record</code> from PipeWire.</li>
+<li><code>pw-record</code> for the meters. It comes with PipeWire; you install nothing extra.</li>
+<li>Python 3.14. You don't install it yourself: the Arch Linux package brings its own, and <code>uv</code> installs it when you
+  <a href="getting-started/install/">install from the source</a>.</li>
+<li>A Behringer X-Touch Extender set to <strong>MC</strong> (Mackie Control) mode and connected by <strong>USB</strong>; <a href="getting-started/first-steps/#set-up-the-device">Getting
+  started</a> shows how to set it.</li>
+<li>For Home Assistant: an MQTT broker that Home Assistant also uses (e.g. the Mosquitto add-on). The daemon talks to Home Assistant through it.</li>
 </ul>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <table>

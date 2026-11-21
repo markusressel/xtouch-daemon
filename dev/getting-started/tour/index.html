@@ -3024,26 +3024,26 @@
 </tr>
 <tr>
 <td>2, 3</td>
-<td>Slot 2 the browser and slot 3 the game, each while it plays; otherwise the next application that plays, otherwise a person of the voice chat.</td>
+<td>Slot 2 shows the browser and slot 3 the game, each while it plays. When it does not, the slot shows the next application that plays, and when there is none, a person of the voice chat.</td>
 </tr>
 <tr>
 <td>4 to 6</td>
-<td>People of the voice chat (from the right), otherwise applications.</td>
+<td>A person of the voice chat each. People start at the right: the first person gets slot 6, the next slot 5, then slot 4. A slot without a person shows an application.</td>
 </tr>
 <tr>
 <td>7, 8</td>
-<td>VoIP (7) and the microphone (8) while you are in a call; otherwise applications.</td>
+<td>VoIP on slot 7 and the microphone on slot 8 while you are in a call. Otherwise they show applications.</td>
 </tr>
 </tbody>
 </table>
 <p>You need the daemon installed and the device <a href="../first-steps/">set up and tested</a>. The GUI starts with
 <code>xtouch-daemon gui</code>; without a configuration file it edits a new one and writes it with the first "Save and apply".
-That new file is empty: every slot shows <code>auto</code>, the next application that plays. The drawing of the device at the top
+That new file is empty: every slot shows <code>auto</code>, the next application that plays (or a person of the voice chat). The drawing of the device at the top
 shows what the file shows, as you edit.
 No device? <a href="../without-a-device/">Run the virtual one</a> and use that one as the device in this tour.</p>
 <h2 id="1-see-what-you-have">1. See what you have<a class="headerlink" href="#1-see-what-you-have" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w">    </span><span class="c1"># outputs and inputs: the names to use as `device`</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>xtouch-daemon<span class="w"> </span>list-apps<span class="w">       </span><span class="c1"># what plays now, and which preset (@browsers, @games, ...) it belongs to</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>xtouch-daemon<span class="w"> </span>list-apps<span class="w">       </span><span class="c1"># what plays now, and which preset (a ready-made group of applications, e.g. `@browsers` or `@games`) it belongs to</span>
 </span></code></pre></div>
 <p>The GUI offers the same lists wherever a field asks for a device or an application (a click into the field opens them). Play
 something in the browser first, so that <code>list-apps</code> has an application to show.</p>
@@ -3052,8 +3052,8 @@ something in the browser first, so that <code>list-apps</code> has an applicatio
 <code>main_output</code> (field next to the title; the slots that name it follow), set the label to <code>Main</code> (up to 7 characters:
 that is all the LCD has) and the color to cyan.</p>
 <p>Select should switch between several devices, so add <strong>Choices</strong>: one per device, each with a label. A device that
-only exists in another profile of the sound card (the digital output, say) also needs the <code>card</code> and <code>profile</code>:
-<code>list-devices</code> prints both. Bluetooth headphones are best matched by a wildcard, because their name holds their address
+only exists in another profile of the sound card (a profile is a setting of the card, such as analog or digital
+output) also needs the <code>card</code> and <code>profile</code>: <code>list-devices</code> prints both. Bluetooth headphones are best matched by a wildcard, because their name holds their address
 (<code>bluez_output.*</code>; <code>list-devices --snippet</code> writes it for you):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.main_output]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
@@ -3070,8 +3070,8 @@ only exists in another profile of the sound card (the digital output, say) also 
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.pci-0000_11_00.4.iec958-stereo"</span>
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_card.pci-0000_11_00.4"</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output:iec958-stereo+input:analog-stereo"</span><span class="w">   </span><span class="c1"># keeps the microphone (analog input) alive</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">200</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output:iec958-stereo+input:analog-stereo"</span><span class="w">   </span><span class="c1"># the card switches to this profile when you pick Speaker; it keeps the microphone (analog input) alive</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">200</span><span class="w">            </span><span class="c1"># the fader reaches 200 % at the top for this device</span>
 </span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
 </span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="k">[[channel.main_output.choices]]</span>
 </span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Buds"</span>
@@ -3087,7 +3087,7 @@ the daemon (<a href="../../configuration/presets/">Presets</a>).</p>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@browsers"</span><span class="p">]</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Browser"</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"blue"</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                </span><span class="c1"># the level meter of the strip (on by default; written out here)</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">[channel.game]</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
@@ -3099,7 +3099,7 @@ the daemon (<a href="../../configuration/presets/">Presets</a>).</p>
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@voip"</span><span class="p">]</span>
 </span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"VoIP"</span>
 </span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"yellow"</span>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">lit_when_idle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">        </span><span class="c1"># the LCD stays lit while nothing plays: it is where the voice chat goes</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">lit_when_idle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">        </span><span class="c1"># the LCD stays lit while no VoIP application plays, e.g. in a call that is quiet</span>
 </span></code></pre></div>
 <h2 id="4-the-microphone">4. The microphone<a class="headerlink" href="#4-the-microphone" title="Permanent link">&para;</a></h2>
 <p><strong>GUI:</strong> page <strong>Channels</strong>, <strong>Add</strong>, <strong>Inputs</strong> (under "From the sound server"), pick the microphone, then give it the label and the
@@ -3112,10 +3112,10 @@ color.</p>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"balance"</span>
 </span></code></pre></div>
 <h2 id="5-a-state-in-a-call">5. A state: in a call<a class="headerlink" href="#5-a-state-in-a-call" title="Permanent link">&para;</a></h2>
-<p>A <em>state</em> is when something matters. VoIP and the microphone should only take a strip while you are in a call, so
+<p>A <em>state</em> is a fact about your situation that is either on or off, such as "I am in a call". VoIP and the microphone should only take a strip while you are in a call, so
 make that a state. <strong>GUI:</strong> page <strong>States</strong>, <strong>Add</strong>, <strong>In a call</strong> (under "Starting points"); its sources are "You are in the voice chat"
-(Mumble, with its <a href="../../guides/mumble/">plugin</a>) and "An application records" (Discord and the like have the
-microphone open while you talk):</p>
+(Mumble or TeamSpeak, with their plugins: <a href="../../guides/mumble/">Mumble</a>, <a href="../../guides/teamspeak/">TeamSpeak</a>) and "An application records" (<code>recording</code>: Discord and the like have the
+microphone open while you talk, so a recording application counts as a call):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[state.call]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">voice_chat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">recording</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@voip"</span><span class="p">]</span>
@@ -3124,14 +3124,14 @@ microphone open while you talk):</p>
 <h2 id="6-the-slots">6. The slots<a class="headerlink" href="#6-the-slots" title="Permanent link">&para;</a></h2>
 <p><strong>GUI:</strong> page <strong>Slots</strong>. Each slot is a card with its candidates, the first whose condition holds is shown. <strong>+</strong> adds a
 candidate at the end; pick one and the inspector sets what it shows ("Shows") and when ("When": empty is always, or a
-condition such as <code>call</code>, <code>present</code>, <code>call and not gaming</code>). Pick a slot's first candidate before adding the next: an
-empty slot is <code>auto</code>, so the first <strong>+</strong> shows it as a candidate you can change.</p>
+condition such as <code>call</code>, <code>present</code>, <code>call and not gaming</code>). A slot you have not edited shows <code>auto</code>: change that
+candidate to what you want first, then press <strong>+</strong> for the next one.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[slots]</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"main_output"</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># the browser and the game while they play, else the next application, else a person</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"browser if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="s2">"people"</span><span class="p">]</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="s2">"people"</span><span class="p">]</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="c1"># people from the right (6, 5, 4), else applications</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="c1"># people (the first on slot 6, then 5, then 4), else applications</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
@@ -3140,14 +3140,16 @@ empty slot is <code>auto</code>, so the first <strong>+</strong> shows it as a c
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
 </span></code></pre></div>
 <ul>
-<li><code>apps</code> is the next application that plays and has no channel; <code>people</code> the next person of the voice chat;
-  <code>auto</code> is both. A candidate that has nothing to show hands the slot to the one below it.</li>
-<li><code>present</code> means the candidate's own channel has something to control: the browser is playing.</li>
-<li>Anything you leave out is <code>auto</code>.</li>
+<li><code>apps</code> is the next application that plays and has no channel. <code>people</code> is the next person of the voice chat. <code>auto</code>
+  is both together. A candidate that has nothing to show hands the slot to the one below it.</li>
+<li><code>present</code> is a ready-made condition, not a state. It means that the channel of this candidate has something to
+  control: for <code>browser</code>, a browser is playing. <code>call</code> is the state you defined in step 5.</li>
+<li>A single name without a list, such as <code>1 = "main_output"</code>, is a slot with one candidate that always shows.</li>
+<li>A slot you leave out is <code>auto</code>.</li>
 </ul>
 <h2 id="7-settings-of-the-whole-daemon">7. Settings of the whole daemon<a class="headerlink" href="#7-settings-of-the-whole-daemon" title="Permanent link">&para;</a></h2>
-<p><strong>GUI:</strong> page <strong>Settings</strong>. The author lowers the volume a push on an encoder resets to, and renames an application
-that calls itself something unreadable:</p>
+<p><strong>GUI:</strong> page <strong>Settings</strong>. The author sets the volume (in percent) that a push on a <code>volume</code> encoder resets to, and
+renames an application that calls itself something unreadable:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">[behavior]</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">reset_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">35</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
@@ -3156,8 +3158,9 @@ that calls itself something unreadable:</p>
 </span></code></pre></div>
 <p>Three more settings finish the file. On <strong>Settings</strong>, <strong>Extender</strong>, the author picks the startup sequence <code>show</code> and
 switches fader 1 to <code>touchless_faders</code>, because its touch sensor is broken and the fader jumps back after every move
-(<a href="../../configuration/behavior/#faders-without-a-touch-sensor">Behavior</a>). On <strong>Channels</strong>, in the built-in pool
-<strong>People</strong>, the strips of people light up yellow:</p>
+(<a href="../../configuration/behavior/#faders-without-a-touch-sensor">Behavior</a>). On <strong>Channels</strong>, in the pool
+<strong>People</strong> (a built-in pool: it is there without you adding it), the strips of people light up yellow, as the settings
+<code>[pool.people]</code> say:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[device]</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">touchless_faders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">startup</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"show"</span>
@@ -3168,12 +3171,15 @@ switches fader 1 to <code>touchless_faders</code>, because its touch sensor is b
 <h2 id="8-check-it-then-apply-it">8. Check it, then apply it<a class="headerlink" href="#8-check-it-then-apply-it" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w">     </span><span class="c1"># errors with the line they are in, then what every slot shows when</span>
 </span></code></pre></div>
-<p>A long table shows the situations that change one thing; <code>check-config --all</code> has every combination.</p>
+<p>The table lists only the situations in which something changes (for example "in a call"). <code>check-config --all</code> lists
+every combination of states.</p>
 <p>The GUI shows the same on the page <strong>Slots</strong>: <strong>Simulate</strong> puts the device in another situation (in a call, nothing
-playing, a game running) and the drawing shows what the strips would show, on a virtual twin of the device in the
-daemon (so Simulate needs the running daemon), or on the device itself with the preview "On the device".</p>
-<p><strong>Save and apply</strong> writes the file. A running daemon takes it at once; otherwise the button next to the service at the
-top right ("Install and start") starts it as a systemd user service, so it is there from your next login on.</p>
+playing, a game running) and the drawing shows what the strips would show, on a virtual twin of the device inside the
+daemon (a copy that the daemon keeps for this, so Simulate needs the running daemon), or on the device itself with the
+preview "On the device".</p>
+<p><strong>Save and apply</strong> writes the file. A running daemon takes it at once. If no daemon runs, the button "Install and
+start" next to the service at the top right installs and starts the systemd user service now, and it starts again at
+every login.</p>
 <h2 id="whole-file">Whole file<a class="headerlink" href="#whole-file" title="Permanent link">&para;</a></h2>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">[device]</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">touchless_faders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>

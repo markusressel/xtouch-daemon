@@ -2990,10 +2990,12 @@
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">processes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@steam-games"</span><span class="p">]</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">[slots]</span><span class="w">                           </span><span class="c1"># a slot: what one strip of the device shows, top candidate first</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"buds if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">   </span><span class="c1"># the buds while they are connected, else the next application that plays</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">    </span><span class="c1"># the game while the mode gaming is on, else the next application</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"buds if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">   </span><span class="c1"># the buds while they are connected, else the next application or person</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">    </span><span class="c1"># the game while the mode gaming is on, else the next application or person</span>
 </span></code></pre></div>
-<p>Strips 3 to 8 have no entry, so each shows <code>auto</code>. Everything else in this documentation refines one of these
+<p>Strips 3 to 8 have no entry, so each shows <code>auto</code>: the applications that play, or the people of the voice chat (see
+<a href="#pools">Pools</a>). (<code>@steam-games</code> is a <a href="#more-words">preset</a>, a name for a group of
+applications that comes with the daemon.) Everything else in this documentation refines one of these
 parts.</p>
 <h2 id="strips-and-slots">Strips and slots<a class="headerlink" href="#strips-and-slots" title="Permanent link">&para;</a></h2>
 <p><img alt="One strip of the device, from the top: the encoder with its ring, the LCD, the meter beside Rec, Solo, Mute and Select, and the fader" class="xt-part" src="../images/controls/strip.png" width="88" /></p>
@@ -3030,7 +3032,8 @@ parts.</p>
 strip shows.</p>
 <h2 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h2>
 <p>A <strong>channel</strong> is a thing you define in the file and give one strip: a sound device, a group of applications, a person
-of the voice chat, or a strip for <a href="../guides/home-assistant/">Home Assistant</a>. Its <code>type</code> says which:</p>
+of the voice chat, a strip for <a href="../guides/home-assistant/">Home Assistant</a>, or a value that your own programs read and
+set. Its <code>type</code> says which:</p>
 <table>
 <thead>
 <tr>
@@ -3055,17 +3058,22 @@ of the voice chat, or a strip for <a href="../guides/home-assistant/">Home Assis
 <td><code>homeassistant</code></td>
 <td>Nothing by itself: its fader, encoder, display and buttons are entities in Home Assistant.</td>
 </tr>
+<tr>
+<td><code>custom</code></td>
+<td>Something other than audio, e.g. the brightness of a screen: you connect its fader, encoder, display and buttons to commands of your own. See <a href="../configuration/channels/custom/">Custom channels</a>.</td>
+</tr>
 </tbody>
 </table>
-<p>A channel has an id (<code>buds</code>, <code>game</code>) that names it in slots, conditions and Home Assistant. It takes a strip only
+<p>These are all the types. <code>auto</code> and <code>-</code> are not channel types: <code>auto</code> is a pool (see <a href="#pools">Pools</a>) and <code>-</code> is a dark
+strip. A channel has an id (<code>buds</code>, <code>game</code>) that names it in slots, conditions and Home Assistant. It takes a strip only
 when a slot names it.</p>
 <p>Applications are controlled on the playback side only. An <code>apps</code> channel sets the volume of what an application
-plays. What an application records is only observed: it lights the Rec LED and can turn on a state (see below), but
+plays. What an application records is only observed: it lights the Rec LED and can turn on a state (see <a href="#states-and-modes">States and modes</a>), but
 no fader or Mute acts on it.</p>
 <h2 id="slots">Slots<a class="headerlink" href="#slots" title="Permanent link">&para;</a></h2>
 <p>A slot is a list of <strong>candidates</strong>, top first. It shows the first candidate whose condition holds:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[slots]</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">    </span><span class="c1"># the game in the mode gaming, else the next application</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">    </span><span class="c1"># the game in the mode gaming, else the next application or person</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"mic"</span><span class="w">                         </span><span class="c1"># a single candidate: always the microphone</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"-"</span><span class="p">]</span><span class="w">       </span><span class="c1"># the game in the mode gaming, else a dark strip</span>
 </span></code></pre></div>
@@ -3073,19 +3081,30 @@ no fader or Mute acts on it.</p>
 goes dark). A slot without an entry is <code>auto</code>. Only the slots whose candidate changes move; the others stay as they
 are, and a strip you are touching keeps what it shows until you let go.</p>
 <h2 id="states-and-modes">States and modes<a class="headerlink" href="#states-and-modes" title="Permanent link">&para;</a></h2>
-<p>A <strong>state</strong> is on or off. It is on while any of its sources is: an application plays or records, you are in the voice
-chat, a process runs, a device is there, or Home Assistant says so. Slots ask about states in their conditions
+<p>A <strong>state</strong> is on or off. You define it in a <code>[state.&lt;name&gt;]</code> section and list its sources, such as <code>apps</code>,
+<code>recording</code>, <code>voice_chat</code>, <code>processes</code>, <code>devices</code> or <code>homeassistant</code>. It is on while any of its sources is: an application
+plays or records, you are in the voice chat, a process runs, a device is there, or Home Assistant says so. Slots ask about states in their conditions
 (<code>game if gaming</code>).</p>
-<p>A <strong>mode</strong> is a state with <code>mode = true</code>. One mode at a time is on, the one with the highest <code>priority</code>; without any,
-the mode is <code>default</code>. A new mode shows its name across all displays for a moment. Modes can also be picked by hand:
-the chord, <code>xtouch-daemon mode</code>, a button or Home Assistant.</p>
+<p>A <strong>mode</strong> is a state with <code>mode = true</code>. States are independent: <code>gaming</code> and <code>call</code> can be on together. Modes are
+not: only one mode is on at a time, so a mode names the situation you are in now. In the example above, <code>gaming</code> is
+a mode.</p>
+<ul>
+<li>When the sources of several modes are on, the one with the highest <code>priority</code> wins. <code>priority</code> is a number; it is 0
+  if you give none.</li>
+<li>When no mode has a source on, the mode is <code>default</code>. You don't define it.</li>
+<li>A new mode shows its name across all displays for a moment (the banner).</li>
+<li>You can also pick a mode by hand: with the chord (see <a href="#more-words">More words</a>), <code>xtouch-daemon mode</code>, a button or
+  Home Assistant.</li>
+</ul>
+<p>A condition such as <code>game if gaming</code> reads the same for a state and for a mode.</p>
 <h2 id="conditions">Conditions<a class="headerlink" href="#conditions" title="Permanent link">&para;</a></h2>
 <p>A condition is the text after <code>if</code>: names of states and modes joined with <code>and</code>, <code>or</code>, <code>not</code> and parentheses, plus
 <code>present</code>. A channel is <strong>present</strong> while it has something to control: an application of an <code>apps</code> channel plays, its
 device is there, the person is in the voice chat. <code>"buds if present"</code> shows the buds only while they are connected.</p>
 <h2 id="pools">Pools<a class="headerlink" href="#pools" title="Permanent link">&para;</a></h2>
-<p>A <strong>pool</strong> supplies members that you don't list one by one. Each slot that names the pool gets the next member, so one
-pool can fill several strips: the next application that plays, the next person in the voice chat. A channel is the
+<p>A <strong>pool</strong> supplies members that you don't list one by one. Each slot that names the pool gets one member, in the order of
+the slots, so one pool can fill several strips (<code>apps</code> and <code>devices</code> start at the left, at slot 1; <code>people</code> at the right, at slot 8. The option <code>from</code> of a pool
+changes that): the next application that plays, the next person in the voice chat. A channel is the
 opposite: you define it, and it takes exactly one strip, even when its <code>match</code> finds several streams.</p>
 <table>
 <thead>
@@ -3097,15 +3116,15 @@ opposite: you define it, and it takes exactly one strip, even when its <code>mat
 <tbody>
 <tr>
 <td><code>apps</code></td>
-<td>The applications that play and have no channel of their own, one per slot.</td>
+<td>The applications that play, one per slot. An application whose channel has a slot of its own appears there instead; a channel that no slot names is one member, with all its streams, unless it has <code>in_pool = false</code>.</td>
 </tr>
 <tr>
 <td><code>people</code></td>
-<td>The people of the voice chat without a <code>person</code> channel.</td>
+<td>The people of the voice chat. For a <code>person</code> channel, the same rule as for <code>apps</code>.</td>
 </tr>
 <tr>
 <td><code>auto</code></td>
-<td>The people and the applications together: people first, from the right.</td>
+<td>The people and the applications together. The people fill the slots from the right (slot 8 first), the applications from the left (slot 1 first).</td>
 </tr>
 <tr>
 <td><code>devices</code></td>
@@ -3113,7 +3132,7 @@ opposite: you define it, and it takes exactly one strip, even when its <code>mat
 </tr>
 <tr>
 <td>your own, <code>[pool.&lt;id&gt;]</code></td>
-<td>Channels of a list (the first present one on the first slot, the next on the next), or with <code>kind</code>, the applications that match or the listed people.</td>
+<td>A list of channels you name: the first one that is present goes to the first slot that names the pool, the next one to the next slot. With <code>kind = "apps"</code>, the applications that match a <code>match</code> list. With <code>kind = "people"</code>, the people on a <code>people</code> list. See <a href="../configuration/slots/#pools-of-channels">Channels, states and slots</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -3135,7 +3154,7 @@ for as long as there is one, else an application.</p>
 </tr>
 <tr>
 <td><code>auto</code></td>
-<td>The pool of people and applications; what a slot without an entry shows; the override <code>auto</code> of a state or mode (the rules decide); the mode <code>auto</code> in Home Assistant (the same).</td>
+<td>The pool of people and applications; what a slot without an entry shows; the value <code>auto</code> of an override or of the mode pick in Home Assistant (nothing set by hand: the sources decide).</td>
 </tr>
 <tr>
 <td><code>device</code></td>
@@ -3143,7 +3162,7 @@ for as long as there is one, else an application.</p>
 </tr>
 <tr>
 <td><code>select</code></td>
-<td>The Select button, the option <code>select</code> of a device channel (whether the button makes it the default), and the Home Assistant entity type <code>select</code>.</td>
+<td>The Select button, the option <code>select</code> of a device channel (<code>select = true</code>: pressing the button makes that device the system default), and the Home Assistant entity type <code>select</code>.</td>
 </tr>
 <tr>
 <td><code>controls</code></td>
@@ -3157,19 +3176,28 @@ for as long as there is one, else an application.</p>
 </table>
 <h2 id="more-words">More words<a class="headerlink" href="#more-words" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Place:</strong> the options of a candidate in its slot, written <code>{ show = "auto", color = "blue" }</code> instead of a plain
-  name.</li>
+<li><strong>Place:</strong> the options of a candidate in its slot. You write a table instead of a plain name, e.g.
+  <code>4 = [{ show = "auto", color = "blue" }]</code> shows <code>auto</code> on slot 4 with a blue backlight.</li>
 <li><strong>Preset:</strong> a name for a group of well-known applications, written with an <code>@</code> (<code>@browsers</code>, <code>@voip</code>). They come
   with the daemon, you can't define your own. See <a href="../configuration/presets/">Presets</a>.</li>
 <li><strong>Choices:</strong> the devices Select switches between on one <code>output</code> or <code>input</code> channel. A <strong>profile</strong> is a setting of
-  a sound card (analog or digital output) that a choice may need.</li>
-<li><strong>Override:</strong> a state forced <code>on</code> or <code>off</code> from Home Assistant, the GUI or a button, until its sources change.</li>
+  a sound card (analog or digital output) that a choice may need: a choice can say "this device, with the card in
+  the digital profile". See <a href="../configuration/channels/devices/#choices">Devices</a>.</li>
+<li><strong>Override:</strong> you set a state <code>on</code> or <code>off</code> by hand (in Home Assistant, in the GUI or with a button), whatever its
+  sources say. It lasts until the sources change (with <code>persist = true</code>, until you set it back). The third value,
+  <code>auto</code>, means no override: the sources decide.</li>
 <li><strong>Chord:</strong> two Solo buttons held together (slots 1 and 8 by default): it cycles the modes. The settings are in
   <code>[switching]</code>, which the GUI calls "Modes and chord".</li>
 <li><strong>Banner:</strong> the label of a new mode (and why a slot changed) shown on the displays for <code>switching.banner</code> seconds.</li>
-<li><strong>Hold:</strong> how long an application or device keeps its slot after it stopped (<code>hold</code> of <code>[pool.apps]</code> and
-  <code>[pool.devices]</code>). A state's <code>delay_on</code> and <code>delay_off</code> smooth when the state turns on and off, and <code>absent_after</code>
-  keeps a channel present for a moment. They are different settings for different things.</li>
+<li><strong>Hold, <code>delay_off</code> and <code>absent_after</code>:</strong> three waiting times in seconds, each for a different thing.<ul>
+<li><code>hold</code> (<code>[pool.apps]</code> and <code>[pool.devices]</code>, 5 by default): how long an application or device that stopped keeps
+  its slot, so a pause between two songs does not hand the strip to another application.</li>
+<li><code>delay_off</code> (a state, 3 by default, 10 for a mode): how long the state stays on after its sources went off.
+  <code>delay_on</code> (0 by default) is the wait before it turns on.</li>
+<li><code>absent_after</code> (a channel, 3 by default): a channel that has nothing to control any more still counts as <code>present</code> for this long, so a short gap
+  does not make its slot move.</li>
+</ul>
+</li>
 </ul>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <p><a href="../configuration/slots/">Channels, states and slots</a> has every option of the model above, and the channel types have a

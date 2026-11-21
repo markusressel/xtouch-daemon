@@ -1130,6 +1130,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#the-parts-and-what-they-take" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The parts and what they take
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#commands" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2822,6 +2833,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#the-parts-and-what-they-take" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The parts and what they take
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#commands" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3045,22 +3067,35 @@
 
 
 <h1 id="bindings">Bindings<a class="headerlink" href="#bindings" title="Permanent link">&para;</a></h1>
-<p>Every part of a strip does what its <a href="../../channels/">channel</a> type says, unless the channel binds it: to Home
-Assistant (<code>"homeassistant"</code>), to programs of your own, or to an <a href="#an-entity-of-home-assistant">entity of Home Assistant</a>
-(<code>{ entity = "..." }</code>). A channel without bindings works as before. A
-<a href="../../channels/custom/">custom channel</a> has no defaults: every part it uses is bound. The design: <a href="../../../development/design/bindings/">Bindings and custom
-channels</a>.</p>
+<p>A strip has parts: the fader, the encoder, the LCD, the backlight color, the meter, and the buttons Select, Rec and
+Solo. Each part does what the type of its <a href="../../channels/">channel</a> says. The fader of an <code>output</code> channel sets
+the volume, for example. A <strong>binding</strong> replaces that for one part. A part without a binding keeps its default.</p>
+<p>A binding is one of three things. (The defaults, such as <code>"volume"</code> or <code>true</code>, are no bindings.)</p>
+<ul>
+<li>A <strong>program of your own</strong> (<code>{ watch = "..." }</code>, <code>{ set = "..." }</code>, <code>{ run = "..." }</code>). The daemon starts it and
+  uses what it prints, or tells it what you did.</li>
+<li>An <strong>entity of Home Assistant</strong> (<code>{ entity = "..." }</code>). The part shows the entity, or sets it. The daemon talks to
+  Home Assistant itself, see <a href="#an-entity-of-home-assistant">An entity of Home Assistant</a>.</li>
+<li>The word <code>"homeassistant"</code>. The part does not read from Home Assistant here. It becomes a new entity that the daemon creates in Home
+  Assistant, and an automation of yours decides what it does. See <a href="#home-assistant">Home Assistant</a>.</li>
+</ul>
+<p>A <a href="../../channels/custom/">custom channel</a> has no defaults: every part it uses is bound. The design behind this:
+<a href="../../../development/design/bindings/">Bindings and custom channels</a>.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"/home/me/bin/cpu-load"</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># the meter shows the CPU load, the fader stays the volume</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">                       </span><span class="c1"># Home Assistant sets the color</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">lcd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sensor.outside_temperature"</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># the second line shows an entity of Home Assistant</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"/home/me/bin/cpu-load"</span><span class="w"> </span><span class="p">}</span><span class="w">       </span><span class="c1"># a program of your own: the meter shows the CPU load, the fader stays the volume</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">                           </span><span class="c1"># the word: Home Assistant sets the color</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">lcd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sensor.outside_temperature"</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># an entity: the second line of the LCD shows its state</span>
 </span></code></pre></div>
-<p><code>/home/me/bin/cpu-load</code> is a script of your own. It prints the CPU load in percent, once a second:</p>
+<p><code>/home/me/bin/cpu-load</code> is a script of your own. It prints the CPU load in percent, once a second. The meter shows a
+level from 0 to 100, so percent fits:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="ch">#!/bin/sh</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>vmstat<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">'NR &gt; 2 { print 100 - $15; fflush() }'</span>
 </span></code></pre></div>
-<p>The parts of the <code>output</code>, <code>input</code>, <code>apps</code> and <code>auto</code> channels:</p>
+<p>Make the script executable with <code>chmod +x</code>.</p>
+<h2 id="the-parts-and-what-they-take">The parts and what they take<a class="headerlink" href="#the-parts-and-what-they-take" title="Permanent link">&para;</a></h2>
+<p>The table is for the <code>output</code>, <code>input</code> and <code>apps</code> channels, and for the strips that the <code>auto</code> pool fills with applications. Each row is a
+part. The columns say what the part does without a binding, and what a program or an entity can do for it.</p>
 <table>
 <thead>
 <tr>
@@ -3075,18 +3110,18 @@ channels</a>.</p>
 <td><img alt="" class="xt-icon" src="../../../images/controls/fader.png" /> <code>fader</code></td>
 <td>The volume (<code>"volume"</code>).</td>
 <td>A value: <code>{ set, watch, min, max, step, format }</code>, or <code>poll</code> and <code>every</code> instead of <code>watch</code>.</td>
-<td><code>{ entity, attribute, min, max, step, format, service, data }</code>: sets it.</td>
+<td><code>{ entity, attribute, min, max, step, format, service, data }</code>: shows the entity and sets it.</td>
 </tr>
 <tr>
 <td><img alt="" class="xt-icon" src="../../../images/controls/encoder.png" /> <code>encoder</code></td>
 <td>The type's modes (<a href="../encoders/">Encoders</a>).</td>
 <td>A value: <code>{ set, watch, min, max, step, push, format }</code>, or <code>poll</code> and <code>every</code> instead of <code>watch</code>.</td>
-<td>As the fader, with <code>push</code>.</td>
+<td>The same as the fader, plus <code>push</code>.</td>
 </tr>
 <tr>
 <td><img alt="" class="xt-icon" src="../../../images/controls/lcd.png" /> <code>lcd</code></td>
 <td>What the type shows on the second line.</td>
-<td><code>{ watch }</code> or <code>{ poll, every }</code>: each line is the text.</td>
+<td><code>{ watch }</code> or <code>{ poll, every }</code>: each line the program prints is the text.</td>
 <td><code>{ entity, attribute }</code>: its state or attribute.</td>
 </tr>
 <tr>
@@ -3102,38 +3137,51 @@ channels</a>.</p>
 <td><code>{ entity, attribute, min, max }</code>: its number.</td>
 </tr>
 <tr>
-<td><img alt="" class="xt-icon" src="../../../images/controls/select.png" /> A button's <code>press</code>, <code>hold</code></td>
+<td><img alt="" class="xt-icon" src="../../../images/controls/select.png" /> <code>select</code>, <code>rec</code>, <code>solo</code>: <code>press</code> and <code>hold</code></td>
 <td>The type's actions (<a href="../leds/">Buttons and LEDs</a>).</td>
-<td><code>{ run }</code>: runs to its end.</td>
-<td><code>{ service, entity, data }</code>: calls a service.</td>
+<td><code>{ run }</code>: the program runs once to its end.</td>
+<td><code>{ service, entity, data }</code>: calls a service of Home Assistant.</td>
 </tr>
 <tr>
-<td><img alt="" class="xt-icon" src="../../../images/controls/rec.png" /> A button's <code>led</code></td>
+<td><img alt="" class="xt-icon" src="../../../images/controls/rec.png" /> <code>select</code>, <code>rec</code>, <code>solo</code>: <code>led</code></td>
 <td>The type's indicators.</td>
-<td><code>{ watch }</code> or <code>{ poll, every }</code>: <code>on</code>, <code>1</code>, <code>true</code>, <code>yes</code> light it, <code>flash</code> flashes it.</td>
-<td><code>{ entity, attribute }</code>: lit while <code>on</code>, <code>open</code>, <code>playing</code>, <code>home</code>.</td>
+<td><code>{ watch }</code> or <code>{ poll, every }</code>: the line <code>on</code>, <code>1</code>, <code>true</code> or <code>yes</code> lights the LED, <code>flash</code> flashes it.</td>
+<td><code>{ entity, attribute }</code>: lit while the state is <code>on</code>, <code>open</code>, <code>playing</code> or <code>home</code>.</td>
 </tr>
 </tbody>
 </table>
-<p>Each part also takes <code>"homeassistant"</code>: Home Assistant sets it, with an entity of its own (see below).</p>
-<p>A place of a slot takes the words of a part only, no binding. A part that a slot shows or does whatever it shows
-takes the same bindings in <a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a>: the fader, the encoder, the meter, the
-color, the second line of the LCD, and the press and the LED of Select, Rec and Solo.</p>
+<p>Each part also takes the word <code>"homeassistant"</code> (a button takes it as <code>press</code>, the LED as <code>led</code>), see
+<a href="#home-assistant">Home Assistant</a>. On <code>output</code>, <code>input</code> and <code>apps</code>
+channels the Mute button has no binding: it always mutes the strip. A custom channel can bind it.
+The defaults are written as you would write them: <code>fader = "volume"</code>, <code>meter = true</code> (the audio) or
+<code>meter = false</code> (dark).</p>
+<p>The <a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a> section takes the same bindings for a slot, whatever the slot
+shows. A <strong>place</strong> (an entry of a slot like <code>{ show = "auto", color = "blue" }</code>) takes plain words only, no binding:
+bind the part in the channel, or in <code>[controls]</code> for a slot that shows pool strips (<code>auto</code>).</p>
+<p>What the options do:</p>
 <ul>
-<li><code>set</code> runs with the new value in <code>{value}</code>; <code>watch</code> prints the value, one line per change, or <code>poll</code> prints it at
-  each run. See <a href="../../channels/custom/#a-value">A value</a> for <code>min</code>, <code>max</code>, <code>step</code>, <code>push</code> and <code>format</code>.</li>
-<li><code>{value}</code> in <code>run</code> is the value of the fader, else of the encoder, else the volume in percent. <code>{target}</code> is for custom
-  channels with <code>targets</code>.</li>
-<li>A fader bound away from the volume gives the volume to the encoder. A fader has no <code>push</code>, only the encoder.</li>
-<li>A bound meter shows its level whatever <code>behavior.meters</code> says.</li>
-<li>A command is a program and its arguments, run without a shell. See <a href="#commands">Commands</a>.</li>
+<li><code>set</code> is a program that runs with the new value in place of <code>{value}</code>. <code>watch</code> is a program that prints the value,
+  one line per change. <code>poll</code> is a program that prints it at each run. <a href="../../channels/custom/#a-value">A value</a> explains
+  <code>min</code>, <code>max</code>, <code>step</code>, <code>push</code> and <code>format</code>.</li>
+<li><code>{value}</code> in the <code>run</code> of a button is, in this order:<ol>
+<li>the value of the fader of the strip, if you bound it to a program of your own;</li>
+<li>else the value of the encoder, if you bound that;</li>
+<li>else the volume in percent. <code>{target}</code> is only for custom channels that have <code>targets</code>, see <a href="../../channels/custom/">Custom channels</a>.</li>
+</ol>
+</li>
+<li>When the fader is bound to something other than the volume, the encoder sets the volume instead of its own mode.
+  In that case you can't bind the encoder of an <code>output</code>, <code>input</code> or <code>apps</code> channel to something else.
+  A custom channel has no such rule: it binds the fader and the encoder separately.</li>
+<li>A bound meter shows its level whatever the <a href="../../behavior/"><code>behavior.meters</code></a> option says (it can switch the meters off).</li>
+<li>A program is a command: the program and its arguments, run without a shell. See <a href="#commands">Commands</a>.</li>
 </ul>
 <h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
 <p><code>set</code>, <code>watch</code>, <code>poll</code> and <code>run</code> each take a command: a program and its arguments. The daemon runs the program
 itself, without a shell. A string is split at spaces, and quotes keep an argument together:
 <code>"notify-send 'Volume {value}'"</code>. A list gives each argument as it is: <code>["notify-send", "Volume {value}"]</code>.</p>
 <p>Nothing else is expanded: no <code>~</code>, no <code>$HOME</code>, no <code>*</code>, no <code>|</code>, <code>&gt;</code> or <code>&amp;&amp;</code>. Give a program by its name (the daemon
-looks for it in its <code>PATH</code>) or by its full path. Pipes, redirects and loops belong in a script of your own: write
+looks for it in its own <code>PATH</code>, which can differ from the one of your shell when the daemon runs as a systemd
+service) or by its full path. Pipes, redirects and loops belong in a script of your own: write
 it, make it executable (<code>chmod +x</code>), and give its full path, e.g. <code>watch = "/home/me/bin/cpu-load"</code>.</p>
 <h2 id="watch-or-poll">Watch or poll<a class="headerlink" href="#watch-or-poll" title="Permanent link">&para;</a></h2>
 <p>A part that shows what a program prints takes one of two:</p>
@@ -3156,7 +3204,7 @@ it, make it executable (<code>chmod +x</code>), and give its full path, e.g. <co
 <tr>
 <td><code>poll</code></td>
 <td>Runs to its end every <code>every</code> seconds (10 by default).</td>
-<td>The last line with text of each run.</td>
+<td>The last line of each run that has text.</td>
 <td><code>poll = "date +%H:%M", every = 10</code></td>
 </tr>
 </tbody>
@@ -3165,8 +3213,8 @@ it, make it executable (<code>chmod +x</code>), and give its full path, e.g. <co
 once and ends. A part takes <code>watch</code> or <code>poll</code>, not both; <code>every</code> is for <code>poll</code> only.</p>
 <h2 id="the-options-of-a-binding">The options of a binding<a class="headerlink" href="#the-options-of-a-binding" title="Permanent link">&para;</a></h2>
 <p>A value (<code>fader</code>, <code>encoder</code>) has <code>set</code>, <code>watch</code>, <code>min</code>, <code>max</code>, <code>step</code>, <code>push</code> and <code>format</code>: see
-<a href="../../channels/custom/#a-value">A value</a>. The <code>step</code> of a fader is that of the encoder of a custom channel (without an
-encoder of its own), and of its number in Home Assistant. The other bindings have fewer options:</p>
+<a href="../../channels/custom/#a-value">A value</a>. <code>step</code> is how much one click of the encoder changes the value. Set it on the encoder. A fader takes it too, for Home Assistant: the number of the fader moves in this step, and on a custom channel without an <code>encoder</code> the
+encoder uses it too. The other bindings have fewer options:</p>
 <table>
 <thead>
 <tr>
@@ -3229,8 +3277,8 @@ encoder of its own), and of its number in Home Assistant. The other bindings hav
 </tr>
 </tbody>
 </table>
-<p>A <code>watch</code> and a <code>poll</code> take no <code>{value}</code>; <code>set</code> needs it in an argument after the program. <code>min</code> must be below <code>max</code>,
-<code>push</code> between them, and <code>step</code> above 0. <code>format</code> must show a number, e.g. <code>{value:.0%}</code>.</p>
+<p><code>{value}</code> is only for <code>set</code> and <code>run</code>: put it in one of the arguments after the program. A <code>watch</code> and a <code>poll</code>
+program take no <code>{value}</code>. <code>min</code> must be below <code>max</code>, <code>push</code> between them, and <code>step</code> above 0. <code>format</code> must show a number, e.g. <code>{value:.0%}</code>.</p>
 <h2 id="values-and-watches">Values and watches<a class="headerlink" href="#values-and-watches" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The fader, the ring and the LCD show a move at once. <code>set</code> runs with the newest value only: moves that come while
@@ -3243,12 +3291,14 @@ encoder of its own), and of its number in Home Assistant. The other bindings hav
   at once.</li>
 <li>A run of <code>poll</code> that fails (an exit status other than 0), can't start or is stopped gives no line: the part keeps
   the line before. The log has a warning, and has the same warning again only after a run that worked. A run that
-  prints no text gives an empty line.</li>
+  ends well but prints no text at all gives an empty line.</li>
 <li>While a value is set, or its fader is under a finger, the lines of <code>watch</code> and <code>poll</code> don't move it.</li>
 </ul>
 <h2 id="example-the-brightness-of-a-screen">Example: the brightness of a screen<a class="headerlink" href="#example-the-brightness-of-a-screen" title="Permanent link">&para;</a></h2>
-<p>The encoder of the speakers sets the brightness of a screen with <a href="https://github.com/markusressel/system-control">system-control</a> (<code>sysctrl</code>); the fader stays the volume. A
-push sets the full brightness. <code>watch</code> prints the brightness, e.g. <code>0.60</code>, at each change.</p>
+<p>The encoder of the speakers sets the brightness of a screen with
+<a href="https://github.com/markusressel/system-control">system-control</a> (<code>sysctrl</code>, a separate tool: adapt the commands to
+yours). The fader stays the volume. A push sets the full brightness. <code>watch</code> prints the brightness, e.g. <code>0.60</code>, at
+each change.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
@@ -3257,15 +3307,15 @@ push sets the full brightness. <code>watch</code> prints the brightness, e.g. <c
 </span></code></pre></div>
 <p>A strip of its own for the screen is a <a href="../../channels/custom/#two-screens">custom channel</a>.</p>
 <h2 id="the-second-line-of-the-lcd">The second line of the LCD<a class="headerlink" href="#the-second-line-of-the-lcd" title="Permanent link">&para;</a></h2>
-<p>The second line shows, first to last: a notice (e.g. the name of a choice), the volume while it is being set, the
-line of a bound <code>lcd</code>, then what the type shows. While Home Assistant is not there, a part in Home Assistant shows
-<code>offline</code>.</p>
+<p>The LCD has two lines of 7 characters. The second line shows, from the most important to the least: a notice (e.g. the name of a choice), the
+volume while it is being set, the line of a bound <code>lcd</code>, then what the type shows. While Home Assistant is not there,
+a part set to <code>"homeassistant"</code> shows <code>offline</code>.</p>
 <h2 id="an-entity-of-home-assistant">An entity of Home Assistant<a class="headerlink" href="#an-entity-of-home-assistant" title="Permanent link">&para;</a></h2>
 <p>A part can show any entity of Home Assistant, and a fader or an encoder can set one, without an automation in
 between: <code>meter = { entity = "sensor.cpu_temp", min = 30, max = 90 }</code>, <code>color = { entity = "light.desk" }</code>,
 <code>fader = { entity = "light.desk" }</code>. It needs the <a href="../../../guides/home-assistant/#homeassistant"><code>[homeassistant]</code></a>
 section: the address of Home Assistant and a long-lived access token. The daemon follows the entities through the
-WebSocket API of Home Assistant; <code>[mqtt]</code> is not needed for them.</p>
+WebSocket API of Home Assistant; <code>[mqtt]</code> is not needed for them, only for the word <code>"homeassistant"</code>.</p>
 <table>
 <thead>
 <tr>
@@ -3335,7 +3385,7 @@ WebSocket API of Home Assistant; <code>[mqtt]</code> is not needed for them.</p>
 </tr>
 <tr>
 <td><code>color</code></td>
-<td>A light: its color (<code>rgb_color</code>, else <code>hs_color</code>), the nearest one the LCD has; <code>off</code> (dark) while it is off; white for a light without a color. Another entity: its state as a color name (an <code>input_select</code> with <code>red</code>, <code>blue</code>, ...). An attribute: a color name, or a list of red, green and blue.</td>
+<td>A light: its color (<code>rgb_color</code>, else <code>hs_color</code>), the nearest of the colors of the LCD (<code>red</code>, <code>green</code>, <code>yellow</code>, <code>blue</code>, <code>magenta</code>, <code>cyan</code>, <code>white</code>); <code>off</code> (dark) while it is off; white for a light without a color. Another entity: its state as a color name (an <code>input_select</code> with <code>red</code>, <code>blue</code>, ...). An attribute: a color name, or a list of red, green and blue.</td>
 </tr>
 <tr>
 <td><code>meter</code></td>
@@ -3395,9 +3445,9 @@ does. These domains need no <code>service</code>:</p>
 </tr>
 </tbody>
 </table>
-<p>Any other entity, or another attribute, needs <code>service</code> and <code>data</code> with <code>{value}</code>. <code>{value}</code> alone is the number,
-<code>{value}</code> within a text is its digits. A press or a hold calls a service with <code>{ service, entity, data }</code>. It sends
-<code>data</code> as it is: <code>{value}</code> in it is an error.</p>
+<p>Any other entity, or another attribute, needs <code>service</code> and <code>data</code> with <code>{value}</code>. In <code>data</code>, a value that is only <code>"{value}"</code> becomes a number (<code>0.6</code>). <code>{value}</code> within a longer text becomes
+part of that text (<code>"level {value}"</code> becomes <code>level 0.6</code>). A press or a hold of a button calls a service with <code>{ service, entity, data }</code>. A button has no new value, so it
+sends <code>data</code> as it is, and <code>{value}</code> in it is an error.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[channel.lamp]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"custom"</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Lamp"</span>
@@ -3414,15 +3464,18 @@ does. These domains need no <code>service</code>:</p>
 </span></code></pre></div>
 <ul>
 <li>While the daemon is not connected to Home Assistant, the entities are not known: the LCD shows nothing, the meter
-  rests, an LED is dark, a color stays, a value is not known. It connects again by itself.</li>
+  rests, an LED is dark, a color stays as it was, and a fader or an encoder has no value. It connects again by itself.</li>
 <li>An entity that Home Assistant does not have is a warning in the log, once per connection, not an error of the
   file: it may come later.</li>
 <li>A service that fails (e.g. an entity that is unavailable) is a warning in the log. The fader or the encoder goes
   back to the value of the entity. After a call that works, it stays where you put it until the entity reports.</li>
 </ul>
 <h2 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h2>
-<p>A part in Home Assistant needs <code>[mqtt]</code>, and it gets an entity, named by the id of the channel (see
-<a href="../../../guides/home-assistant/#entities">Entities</a>):</p>
+<p>A part set to <code>"homeassistant"</code> needs the <a href="../../../guides/home-assistant/#mqtt"><code>[mqtt]</code></a> section. The daemon
+creates an entity for it in Home Assistant; an automation of yours decides what the entity does. <code>&lt;ns&gt;</code> is the
+<code>namespace</code> of <code>[mqtt]</code> (<code>xtouch</code> by default) and <code>&lt;id&gt;</code> the id of the channel; see
+<a href="../../../guides/home-assistant/#entities">Entities</a>. "Starts with" is the state of the entity before Home Assistant
+sets it:</p>
 <table>
 <thead>
 <tr>
@@ -3468,12 +3521,16 @@ does. These domains need no <code>service</code>:</p>
 <code>number.&lt;ns&gt;_&lt;id&gt;_encoder</code>): from the binding's <code>min</code> to its <code>max</code>, in steps of its <code>step</code>, else in fine steps of the
 range. It has no state until the value is known; a change in Home Assistant runs <code>set</code>.</p>
 <p>Only the channel itself has these entities, not the applications and devices that a place of <code>apps</code>, <code>auto</code> or
-<code>devices</code> shows. A <a href="../../slots/#places">place</a> that sets a part to <code>"homeassistant"</code> does nothing; the log says so.
-Simulate has no Home Assistant: its parts look as while Home Assistant is not there. A fader or an encoder bound to an
-entity has no number of its own: the entity is already in Home Assistant.</p>
+<code>devices</code> shows. A <a href="../../slots/#places">place</a> that sets a part to <code>"homeassistant"</code> does nothing: the daemon loads
+the file, and the log says that the place can't do it. The entity belongs to the channel, so set the part in the
+channel.</p>
+<p>A fader or an encoder that you bound to an entity of Home Assistant (<code>{ entity = "..." }</code>) gets no number of its own,
+because the entity is already in Home Assistant. Only a fader or an encoder bound to a program of your own gets one.</p>
 <h2 id="simulate">Simulate<a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h2>
-<p>Simulate runs the <code>watch</code> and <code>poll</code> programs, but never <code>set</code> or <code>run</code>: a move changes only the simulation. It shows
-the entities of Home Assistant while the daemon is connected, but calls no services.</p>
+<p>Simulate is the preview of a situation in the GUI, also on the command line as <code>xtouch-daemon simulate</code>. It runs
+the <code>watch</code> and <code>poll</code> programs, but never <code>set</code> or <code>run</code>: a move changes only the simulation. It shows the entities
+of Home Assistant while the daemon is connected, but calls no services. Parts set to <code>"homeassistant"</code> look as they do
+while Home Assistant is not there.</p>
 
 
 

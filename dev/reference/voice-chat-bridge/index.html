@@ -2895,27 +2895,36 @@
 
 
 <h1 id="the-voice-chat-bridge">The voice chat bridge<a class="headerlink" href="#the-voice-chat-bridge" title="Permanent link">&para;</a></h1>
-<p>What a plugin of a voice chat client (see <a href="../../configuration/channels/people/#voice-chat">People</a>) and the daemon
-say to each other, for a plugin of another client than <a href="../../guides/mumble/">Mumble</a>. The messages are also a
+<p>The bridge is how a plugin that runs inside a voice chat program (a "client", e.g. Mumble) and the daemon talk to each
+other. Read this page if you write a plugin for a client other than <a href="../../guides/mumble/">Mumble</a> or
+<a href="../../guides/teamspeak/">TeamSpeak</a>; to use the strips of people, see <a href="../../configuration/channels/people/#voice-chat">People</a>.
+The plugin tells the daemon who is in the user's channel and who talks. The daemon tells the plugin to set a volume
+or a mute. A working example is the <a href="../../development/mumble-plugin/">Mumble plugin</a> (its sources are in
+<code>integrations/mumble</code>). The messages are also a
 <a href="https://json-schema.org/">JSON Schema</a>, <a href="../../voice-chat-bridge.schema.json">voice-chat-bridge.schema.json</a>, made from
 the models in the daemon. Its descriptions say what each key means. <code>xtouch-daemon schema --bridge</code> prints the schema
 of the installed version.</p>
 <h2 id="connection">Connection<a class="headerlink" href="#connection" title="Permanent link">&para;</a></h2>
-<p>The daemon serves the Unix socket <code>$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock</code> (mode 0600). Each side sends one JSON
-object per line. When a plugin connects, the daemon says who it is and which version of the protocol it speaks:</p>
+<p>The daemon serves the Unix socket <code>$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock</code> (mode 0600, so only your user can
+connect). Each side sends one JSON object per line, in UTF-8. When a plugin connects, the daemon sends a greeting
+first. It says who it is and which version of the protocol it speaks:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="nt">"daemon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"xtouch-daemon"</span><span class="p">,</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0.1.0"</span><span class="p">,</span><span class="w"> </span><span class="nt">"protocol"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}</span>
 </span></code></pre></div>
-<p>One plugin per client, and plugins of several clients at once, e.g. Mumble and TeamSpeak. The client is the
-<code>client</code> of the first state line of a connection; a plugin that sends none counts as one more client. While a plugin
-of that client is connected, the daemon refuses the new one: the connected plugin stays, and the new one gets this
-line and is closed:</p>
+<p>The daemon accepts one plugin for each client, and plugins of several clients at the same time, e.g. Mumble and
+TeamSpeak. The plugin names its client in the key <code>client</code> of its first state line (see <a href="#state">State</a>). If the key is
+missing, the daemon uses the name "a client": all such plugins share that one name, so only one of them can be
+connected at a time. A connection that has not sent a state line yet has no client, and keeps nobody else out.</p>
+<p>While a plugin of a client is connected, the daemon refuses a second plugin of the same client: the connected plugin
+stays, and the new one gets this line and the daemon closes its connection. The line names the client
+(<code>another plugin is connected</code> without a name):</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="s2">"another mumble plugin is connected"</span><span class="p">}</span>
 </span></code></pre></div>
-<p>Two instances of a client with the plugin enabled would otherwise take the socket from each other. Before its first
-state line, a connection keeps no other one out. When a plugin goes, so do the participants of its client, and the
-next plugin of that client can connect.</p>
-<p>The daemon puts the people of all clients together. Inside the daemon, the id of a participant has the client in
-front, e.g. <code>mumble:12</code>, so the same id in two clients is two people. A plugin sees only its own ids.</p>
+<p>The daemon does this because two instances of a client with the plugin enabled (e.g. two Mumble programs) would
+otherwise take the connection from each other, again and again. When a plugin disconnects, the daemon drops the
+participants of its client, and the next plugin of that client can connect.</p>
+<p>The daemon puts the people of all clients together. Inside the daemon, the id of a participant gets the client in
+front, e.g. <code>mumble:12</code>, so the same id in two clients is two people. A plugin never sees this: it sends and
+receives only its own ids.</p>
 <h2 id="state">State<a class="headerlink" href="#state" title="Permanent link">&para;</a></h2>
 <p>The plugin sends its whole state on every change. While someone talks, it also sends it for the levels, e.g. 20
 times a second:</p>
@@ -2933,11 +2942,11 @@ times a second:</p>
 <tbody>
 <tr>
 <td><code>protocol</code></td>
-<td>The version of the protocol, 1 without it.</td>
+<td>The version of the protocol that the plugin speaks. Optional: the daemon takes 1 if the key is missing.</td>
 </tr>
 <tr>
 <td><code>client</code></td>
-<td>The voice chat client, e.g. <code>mumble</code>. The log and the GUI name it.</td>
+<td>The name of the voice chat client, e.g. <code>mumble</code>. Any text; the log and the GUI show it, and the daemon uses it to allow one plugin for each client. Send the same name every time.</td>
 </tr>
 <tr>
 <td><code>channel</code></td>
@@ -2945,11 +2954,11 @@ times a second:</p>
 </tr>
 <tr>
 <td><code>capabilities</code></td>
-<td>What the plugin can do: <code>volume</code> (the faders set volumes), <code>mute</code> (Mute mutes), <code>levels</code> (it sends levels).</td>
+<td>What the plugin can do besides telling who is there and who talks: <code>volume</code> (a fader sets the volume of a person: the daemon may send <code>set_volume</code>), <code>mute</code> (the Mute button mutes a person: the daemon may send <code>set_muted</code>), <code>levels</code> (the plugin sends <code>level</code>, and the meter shows it). A strip of a person has no fader function or no Mute function when the plugin does not list the capability.</td>
 </tr>
 <tr>
 <td><code>participants</code></td>
-<td>The participants in the channel of the user, in the order they came. Needed.</td>
+<td>The participants in the channel of the user, without the user, in the order they came. Needed.</td>
 </tr>
 </tbody>
 </table>
@@ -2968,15 +2977,15 @@ times a second:</p>
 </tr>
 <tr>
 <td><code>name</code></td>
-<td>The name on the LCD. The daemon keeps volume and mute by it. Needed.</td>
+<td>The name on the LCD. Needed. The daemon remembers the volume and the mute that the faders and Mute set for each name, while it runs, and sends them again when a participant with that name comes back. Two participants with the same name share what it remembers.</td>
 </tr>
 <tr>
 <td><code>talking</code></td>
-<td><code>true</code> while the participant talks: the LCD lights in <code>talking_color</code>.</td>
+<td><code>true</code> while the participant talks. The backlight of the LCD then has the color <code>talking_color</code> of the strip (the strips of people have this option, see <a href="../../configuration/channels/people/#the-strips-of-people">People</a>).</td>
 </tr>
 <tr>
 <td><code>muted</code></td>
-<td><code>true</code> while the user muted the participant for themselves (Mumble's local mute). Mute lights.</td>
+<td><code>true</code> while the user has muted this participant, for themselves only (in Mumble: the local mute). The Mute LED of the strip then lights.</td>
 </tr>
 <tr>
 <td><code>volume</code></td>
@@ -2984,31 +2993,37 @@ times a second:</p>
 </tr>
 <tr>
 <td><code>level</code></td>
-<td>How loud the participant talks after their volume, 0 to 1: the peak since the line before.</td>
+<td>How loud the participant talks after their volume, 0 to 1: the peak since the previous state line of the plugin.</td>
 </tr>
 <tr>
 <td><code>pre_fader_level</code></td>
-<td>How loud the participant talks before their volume, 0 to 1.</td>
+<td>How loud the participant talks before their volume, 0 to 1 (the same peak since the previous state line).</td>
 </tr>
 </tbody>
 </table>
-<p>With <code>meter_point = "pre_fader"</code> (the default), the meter of the strip shows <code>pre_fader_level</code>: it stays up while the
-fader is down. With <code>post_fader</code>, it shows <code>level</code>. Without <code>pre_fader_level</code>, the meter shows <code>level</code> either way.
-Leave out a level that the client can't tell.</p>
+<p>The option <code>meter_point</code> of the strip of the person (default: <code>behavior.meter_point</code>, which is <code>"pre_fader"</code>) picks
+the level. With <code>"pre_fader"</code>, the meter shows <code>pre_fader_level</code>: it stays up while the fader is down. With
+<code>"post_fader"</code>, it shows <code>level</code>. If the plugin sends no <code>pre_fader_level</code>, the meter shows <code>level</code> either way. If the
+client cannot measure a level, leave the key out.</p>
 <p>The daemon clamps a volume or a level that is out of range, and rounds the volume. It ignores (and logs) a line that
 is not JSON, or that has a participant without <code>id</code> or <code>name</code>.</p>
 <h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
-<p>The daemon sends commands back the same way, without spaces:</p>
+<p>The daemon sends commands to the plugin the same way: one JSON object per line. It writes them without spaces (you
+can parse them with any JSON reader):</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="nt">"set_volume"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"12"</span><span class="p">,</span><span class="w"> </span><span class="nt">"volume"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">}}</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p">{</span><span class="nt">"set_muted"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"12"</span><span class="p">,</span><span class="w"> </span><span class="nt">"muted"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}}</span>
 </span></code></pre></div>
-<p><code>set_volume</code> needs the capability <code>volume</code>, <code>set_muted</code> needs <code>mute</code>. A command goes to the plugin of the
-participant, with the id that the plugin sent. The strip of a person uses the capabilities of the client of that
-person.</p>
+<p><code>set_volume</code> needs the capability <code>volume</code>, <code>set_muted</code> needs <code>mute</code>. A command goes to the plugin that reported the
+participant, with the <code>id</code> that this plugin sent (as text, also if it sent a number). The daemon sends a command only
+if the plugin of that person lists the capability; otherwise the fader or Mute of the strip does nothing to the
+voice chat.</p>
+<p>When a user changes the volume in the client itself, the plugin reports it in its next state line (<code>volume</code>).</p>
 <h2 id="versions">Versions<a class="headerlink" href="#versions" title="Permanent link">&para;</a></h2>
-<p>Both sides ignore keys they don't know, so new optional keys keep the version. A change that an older side would get
-wrong gets a new <code>protocol</code> number. The daemon ignores (and logs) the lines of a protocol it does not speak. A plugin
-can tell from the greeting whether to speak an older one.</p>
+<p>Both sides ignore keys they don't know, so a new optional key keeps the version. A change that an older side would
+get wrong gets a new <code>protocol</code> number. At present the only version is 1. The daemon ignores (and logs) a state line
+whose <code>protocol</code> it does not speak, so a plugin of a newer protocol has no effect on an older daemon. The <code>protocol</code> of the
+greeting is how a plugin finds out which version the daemon speaks; a plugin can then send the lines of that version
+if it knows it.</p>
 
 
 

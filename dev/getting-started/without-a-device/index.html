@@ -508,6 +508,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#when-the-daemon-finds-no-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        When the daemon finds no device
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2764,6 +2775,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#when-the-daemon-finds-no-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        When the daemon finds no device
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2853,29 +2875,44 @@
 
 
 <h1 id="without-a-device">Without a device<a class="headerlink" href="#without-a-device" title="Permanent link">&para;</a></h1>
-<p>A virtual X-Touch Extender stands in for the device, e.g. to follow the <a href="../tour/">Setup tour</a> before the device
-arrives, to try a configuration, or while the device is away. It speaks the bytes of the real one, so the daemon does
-the same with it, down to faders that wait for a touch; <a href="../../reference/hardware/#the-virtual-device">Hardware</a> lists
-what it does like the device and what is assumed.</p>
+<p>A virtual X-Touch Extender stands in for the real one. You can use it to follow the <a href="../tour/">Setup tour</a> before the
+device arrives, to try a configuration, or while the device is away. It sends and understands the same bytes as the
+real device, so the daemon treats it like the real one. For example, its motor never moves a fader while a finger touches it.
+<a href="../../reference/hardware/#the-virtual-device">Hardware</a> lists what it does like the device and what is assumed.</p>
+<p>There are two ways to use it: in the GUI, which is the easy one, or in terminals.</p>
 <h2 id="in-the-gui">In the GUI<a class="headerlink" href="#in-the-gui" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>gui
 </span></code></pre></div>
-<p>"Try without a device" above the drawing starts a daemon with the virtual device inside the window: the drawing is the
-device, and the mouse on it is a hand on it (<strong>Play</strong>: press a fader to touch it, drag to move it, click a button; see
-<a href="../../guides/gui/#select-and-play">GUI</a>). The daemon ends with the window. Nothing else to set up.</p>
+<p>The GUI shows a drawing of the device. While no daemon runs, click the button "Try without a device" above the
+drawing. The GUI then starts a daemon with a virtual device and shows that device in the drawing. Nothing else needs
+setting up. This daemon belongs to the window and ends when you close the window.</p>
+<p>The mouse works on the drawing like a hand on the device. This mode is called <strong>Play</strong>: press a fader to touch it,
+drag to move it, click a button. <a href="../../guides/gui/#select-and-play">GUI</a> has the details.</p>
 <h2 id="in-terminals">In terminals<a class="headerlink" href="#in-terminals" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>xtouch-daemon<span class="w"> </span>virtual-device<span class="w">                </span><span class="c1"># the device, headless, until Ctrl+C</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--virtual-device<span class="w">         </span><span class="c1"># the self-test of the device, see First steps</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>xtouch-daemon<span class="w"> </span>run<span class="w"> </span>--virtual-device<span class="w">          </span><span class="c1"># or [device] virtual = true: the daemon drives it</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>xtouch-daemon<span class="w"> </span>gui<span class="w">                           </span><span class="c1"># shows what the daemon shows</span>
+<p>First start the virtual device in a terminal. It has no window and runs until you press Ctrl+C:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>xtouch-daemon<span class="w"> </span>virtual-device
 </span></code></pre></div>
-<p>The pill on the bar of the window Device in the GUI says "virtual device not running · Open it" while the daemon
-waits for the device: a click opens it in the window, and the mouse on the drawing is a hand on the device (see
-<a href="../../guides/gui/#the-virtual-device">GUI</a>). One daemon at a time can use the virtual device.</p>
-<p>A daemon that runs but finds no device switches to the virtual one without a restart: "Use the virtual device" above
-the drawing sets <code>[device] virtual = true</code>, saves and opens it, and Play on a daemon that waits for the virtual device
-opens it too. Setting <code>virtual</code> back to <code>false</code> and saving switches to the real device again: once the device is
-plugged in, a bar above the drawing says so, and "Switch to it" does that.</p>
+<p>Then, in another terminal, use it in place of the real device. Only one program can use the virtual device at a time,
+so pick one of these two. The <a href="../first-steps/#test-the-device">self-test</a> checks every control of the device; <code>run</code>
+starts the daemon:</p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--virtual-device<span class="w">         </span><span class="c1"># the self-test of the device</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>xtouch-daemon<span class="w"> </span>run<span class="w"> </span>--virtual-device<span class="w">          </span><span class="c1"># the daemon, using the virtual device instead of the real one</span>
+</span></code></pre></div>
+<p>While the daemon runs, <code>xtouch-daemon gui</code> shows what the daemon shows. The GUI talks to the daemon, not to the virtual
+device, so it does not count as a second user of it. To make the daemon use the
+virtual device every time, set <code>virtual = true</code> in the <code>[device]</code> section of the configuration instead of passing
+<code>--virtual-device</code>.</p>
+<p>Suppose you start <code>run --virtual-device</code> (or set <code>virtual = true</code>) but forget <code>virtual-device</code>. The GUI can host the
+virtual device instead. The status pill on the right of the Device bar, at the top of the drawing, says "virtual device not running · Open it". Click it, and the GUI opens a virtual device in its
+window. It is the same kind of device as the one <code>virtual-device</code> starts, but it lives in the window, not in a terminal. The daemon connects to it, and Play
+works on it (see <a href="../../guides/gui/#the-virtual-device">GUI</a>).</p>
+<h2 id="when-the-daemon-finds-no-device">When the daemon finds no device<a class="headerlink" href="#when-the-daemon-finds-no-device" title="Permanent link">&para;</a></h2>
+<p>A daemon that runs but finds no real device can use the virtual one without a restart. In the GUI, click "Use the
+virtual device" above the drawing. It sets <code>virtual = true</code> in <code>[device]</code> of your configuration file, saves the file and opens the virtual device
+in the window. The daemon takes it at once.</p>
+<p>To go back, set <code>virtual</code> to <code>false</code> and save. Later, whenever the real device is plugged in while the daemon uses the
+virtual one, a bar above the drawing says so.
+Click "Switch to it" in that bar, and the daemon uses the real device again.</p>
 
 
 

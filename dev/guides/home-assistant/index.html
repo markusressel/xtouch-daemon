@@ -3031,15 +3031,41 @@
 
 
 <h1 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h1>
-<p>A <code>homeassistant</code> channel is a strip that belongs to Home Assistant instead of PipeWire: every part of it is an entity there, and
-automations decide what it does. For example, the fader dims a light, the encoder sets the volume of a speaker in
-another room, a button toggles a scene. The daemon reaches Home Assistant over MQTT discovery, so it needs the
-<a href="#mqtt"><code>[mqtt]</code></a> section.</p>
-<p>Any part of a channel can also show an entity of Home Assistant itself, and a fader or an encoder can set one, e.g.
-the meter shows a temperature, the fader dims a light, Select toggles it. That needs no automation and no <code>[mqtt]</code>,
-but the API of Home Assistant: the <a href="#homeassistant"><code>[homeassistant]</code></a> section, with a token.</p>
+<p><a href="https://www.home-assistant.io/">Home Assistant</a> is a home automation program. An <em>entity</em> is one thing in it, such
+as the light <code>light.desk</code>. This page shows three ways to connect the device to it, and a related case for programs. Choose by what you want:</p>
+<table>
+<thead>
+<tr>
+<th>You want</th>
+<th>Use</th>
+<th>Needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A strip that does nothing by itself, and your Home Assistant automations decide what it does (the fader dims a light, a button toggles a scene)</td>
+<td>A <a href="#homeassistant-channels"><code>homeassistant</code> channel</a>. The daemon creates entities in Home Assistant for every part of the strip, and an automation of yours reacts to them.</td>
+<td>The <a href="#mqtt"><code>[mqtt]</code></a> section</td>
+</tr>
+<tr>
+<td>A strip whose parts are tied straight to an entity that is already in Home Assistant (the meter shows a temperature, the fader dims a light, the Select button toggles it), with no automation</td>
+<td>A <a href="../../configuration/strip/bindings/">binding</a> of the part, e.g. <code>fader = { entity = "light.desk" }</code>, in a <code>custom</code> channel (a strip you build part by part).</td>
+<td>The <a href="#homeassistant"><code>[homeassistant]</code></a> section, with a token</td>
+</tr>
+<tr>
+<td>An audio strip that keeps the volume on one control and hands the other control to Home Assistant</td>
+<td><code>encoder = "homeassistant"</code> or <code>fader = "homeassistant"</code> on an audio channel, see <a href="#audio-strips-with-home-assistant-controls">below</a>.</td>
+<td>The <a href="#mqtt"><code>[mqtt]</code></a> section</td>
+</tr>
+</tbody>
+</table>
+<p>An <em>entity of the daemon</em> is one that the daemon creates in Home Assistant (e.g. <code>number.xtouch_living_room_fader</code>).
+The first and the third way use them. The second way uses entities that Home Assistant has anyway. All routes need
+a strip: a <a href="../../configuration/slots/">slot</a> must show the channel, as in the examples below.</p>
+<p>The daemon announces its entities to Home Assistant through the MQTT broker (the program that passes messages between
+them), by <em>MQTT discovery</em>: Home Assistant finds them without any setup on its side.</p>
 <h2 id="pipewire-or-home-assistant">PipeWire or Home Assistant?<a class="headerlink" href="#pipewire-or-home-assistant" title="Permanent link">&para;</a></h2>
-<p>Each control has one owner:</p>
+<p>Each control has one owner, PipeWire or Home Assistant:</p>
 <table>
 <thead>
 <tr>
@@ -3050,11 +3076,11 @@ but the API of Home Assistant: the <a href="#homeassistant"><code>[homeassistant
 <tbody>
 <tr>
 <td>PipeWire</td>
-<td>The audio channels (<code>output</code>, <code>input</code>, <code>apps</code>) and the pools (<code>auto</code>, <code>apps</code>, ...) control audio on this computer and need nothing else.</td>
+<td>The audio channels and the pools of strips control audio on this computer and need nothing else.</td>
 </tr>
 <tr>
 <td>Home Assistant</td>
-<td>A <code>homeassistant</code> channel controls nothing by itself; it only reports what happens on it and shows what Home Assistant sets.</td>
+<td>A <code>homeassistant</code> channel controls nothing by itself. It reports to Home Assistant what happens on its controls (as an event: a message in Home Assistant that tells "this button was pressed", see <a href="#entities">Entities</a>), and shows what Home Assistant sets (the entities of its parts). What follows is up to your automations.</td>
 </tr>
 <tr>
 <td>Both, a control each</td>
@@ -3064,12 +3090,13 @@ but the API of Home Assistant: the <a href="#homeassistant"><code>[homeassistant
 </table>
 <div class="admonition warning">
 <p class="admonition-title">Never both on one control</p>
-<p>A fader that both set a PipeWire volume and were moved by Home Assistant would fight over the motor.</p>
+<p>If a fader set a PipeWire volume and Home Assistant moved it too, the two would fight over the motor of the fader.</p>
 </div>
 <h2 id="mqtt"><code>[mqtt]</code><a class="headerlink" href="#mqtt" title="Permanent link">&para;</a></h2>
-<p>The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. Anything that is an entity in Home Assistant needs it
-(<code>homeassistant</code> channels and controls, <code>homeassistant = true</code> on a state); without such, the section is optional,
-and with it the daemon still shows the device, its modes, states and slots in Home Assistant.</p>
+<p>The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. You must add the section for everything that makes the
+daemon create entities in Home Assistant: <code>homeassistant</code> channels, <code>"homeassistant"</code> as the value of a part or
+control, and <code>homeassistant = true</code> on a state. Without those, the section is optional. With it, the daemon also
+shows the device, its modes, states and slots in Home Assistant.</p>
 <table>
 <thead>
 <tr>
@@ -3117,7 +3144,7 @@ and with it the daemon still shows the device, its modes, states and slots in Ho
 <tr>
 <td><code>namespace</code></td>
 <td><code>"xtouch"</code></td>
-<td>Starts every entity ID (<code>number.xtouch_lamp_fader</code>) and is part of the topics. Lower case letters, digits, <code>_</code>.</td>
+<td>Starts every entity ID (<code>number.xtouch_living_room_fader</code>) and is part of the MQTT topics. Lower case letters, digits, <code>_</code>.</td>
 </tr>
 <tr>
 <td><code>device_name</code></td>
@@ -3133,16 +3160,22 @@ variable that is not set, stops the daemon at the start with a message.</p>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">username</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"xtouch"</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">password_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"~/.config/xtouch-daemon/mqtt-password"</span>
 </span></code></pre></div>
-<p>A changed <code>[mqtt]</code> section needs a restart of the daemon (<code>systemctl --user restart xtouch-daemon</code>). Until then, a
-reload keeps the whole current configuration.</p>
-<p>The entities are available in Home Assistant while the daemon runs and the device is connected; otherwise they are
-greyed out. A last will covers a crash. The daemon connects to the broker again by itself when it was gone.</p>
+<p>A changed <code>[mqtt]</code> section needs a restart of the daemon (<code>systemctl --user restart xtouch-daemon</code>). The daemon
+reloads a saved file by itself, but it ignores a file whose <code>[mqtt]</code> section changed: it keeps the whole
+configuration it runs, also the changes in other sections, until you restart.</p>
+<p>The entities are available in Home Assistant while the daemon runs and the device is connected; otherwise Home
+Assistant greys them out. This also holds after a crash: the broker tells Home Assistant that the daemon is gone
+(an MQTT "last will", a message that the daemon leaves with the broker for this case). The daemon connects to the
+broker again by itself when the broker was gone.</p>
 <p>The <a href="../gui/#live-view">GUI</a> shows whether the daemon is connected, and why not (e.g. a wrong password),
-and its "Test connection" button tries settings before they are saved.</p>
+and its "Test connection" button tries settings before they are saved. To check that it works, open Settings →
+Devices &amp; services → MQTT in Home Assistant: the device "X-Touch Extender" (<code>device_name</code>) is listed there with its
+entities.</p>
 <h2 id="homeassistant"><code>[homeassistant]</code><a class="headerlink" href="#homeassistant" title="Permanent link">&para;</a></h2>
-<p>The API of Home Assistant, for the parts bound to its entities (<code>{ entity = "..." }</code> and <code>{ service = "..." }</code>, see
+<p>The API of Home Assistant, for the parts bound to entities that Home Assistant has (<code>{ entity = "..." }</code> and
+<code>{ service = "..." }</code>, see
 <a href="../../configuration/strip/bindings/#an-entity-of-home-assistant">An entity of Home Assistant</a>). The daemon connects
-only while the configuration has such parts.</p>
+only while the configuration has such parts (in a channel or in <code>[controls]</code>). This needs no <code>[mqtt]</code> section.</p>
 <table>
 <thead>
 <tr>
@@ -3184,6 +3217,11 @@ only while the configuration has such parts.</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>install<span class="w"> </span>-m<span class="w"> </span><span class="m">600</span><span class="w"> </span>/dev/null<span class="w"> </span>~/.config/xtouch-daemon/homeassistant-token
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">$EDITOR</span><span class="w"> </span>~/.config/xtouch-daemon/homeassistant-token
 </span></code></pre></div>
+<p>(<code>~/.config/xtouch-daemon/</code> is the directory of the configuration file <code>config.toml</code>. Create it with
+<code>mkdir -p ~/.config/xtouch-daemon</code> if it does not exist.) Then add this to <code>config.toml</code>. The example has a
+<code>custom</code> channel with an entity binding. The fader sets the brightness of the light <code>light.desk</code> (0 to 100 % of the
+fader is the brightness range of the light). Select toggles the light, and its LED shows whether the light is on. The
+slot puts the channel on the first strip:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[homeassistant]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"http://homeassistant.local:8123"</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">token_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"~/.config/xtouch-daemon/homeassistant-token"</span>
@@ -3193,6 +3231,9 @@ only while the configuration has such parts.</p>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Lamp"</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.desk"</span><span class="w"> </span><span class="p">}</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">press</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">service</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.toggle"</span><span class="p">,</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.desk"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.desk"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="k">[slots]</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"lamp"</span>
 </span></code></pre></div>
 <p>The token acts as your user: the daemon sees every entity and can call every service you can. A user of its own in
 Home Assistant (Settings → People → Users) limits that to what that user may do.</p>
@@ -3205,27 +3246,27 @@ Home Assistant (Settings → People → Users) limits that to what that user may
 </thead>
 <tbody>
 <tr>
-<td>You change the section and reload</td>
-<td>Connects again with it. No restart is needed.</td>
+<td>You change the section and save the file</td>
+<td>The daemon reloads and connects again with the new section. No restart is needed.</td>
 </tr>
 <tr>
 <td>The connection breaks</td>
-<td>Tries again after 1, 2, 5, 10 and 30 seconds, then every 60 seconds. The waits start at 1 second again only after a connection got the states. Meanwhile the parts show nothing.</td>
+<td>Tries again after 1, 2, 5, 10 and 30 seconds, then every 60 seconds. The waits get longer with each failed try; they start at 1 second again only after a connection that received the states of the entities. Meanwhile the parts show nothing.</td>
 </tr>
 <tr>
 <td>Home Assistant refuses the token</td>
-<td>Logs an error and stops trying. A token Home Assistant refused is never sent to it again, not even from another section: Home Assistant can ban an address after failed logins. Make a new token, put it where the section reads it, and reload.</td>
+<td>Logs an error and stops trying. The daemon never sends a refused token to that address again, even if you move the same token to another option (e.g. from <code>token</code> to <code>token_file</code>), because Home Assistant can ban an address after failed logins. Make a new token, put it where the section reads it, and save the file.</td>
 </tr>
 <tr>
 <td>It can't read <code>token_file</code>, or <code>token_env</code> is not set</td>
-<td>Logs an error and runs without the connection. A reload tries again once there is a token.</td>
+<td>Logs an error and runs without the connection. Save the file again once there is a token.</td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li>A new token in the variable of <code>token_env</code> takes a restart of the service: a reload keeps its environment.</li>
-<li>A fader or an encoder bound to an entity gets no entity of the daemon's own over <code>[mqtt]</code>: the entity is already in
-  Home Assistant.</li>
+<li>A fader or an encoder bound to an entity of Home Assistant gets no entity of the daemon's own over <code>[mqtt]</code>: the
+  entity is already in Home Assistant.</li>
 <li>The log says when the daemon connects to Home Assistant, and why it can't (View → Log in the <a href="../gui/">GUI</a>).</li>
 <li>In the GUI, the page "Home Assistant API" tests the settings before you save them, and shows how the daemon's
   connection is doing. The fields of entities suggest the entities of Home Assistant (see
@@ -3250,7 +3291,7 @@ Home Assistant (Settings → People → Users) limits that to what that user may
 <tr>
 <td><code>label</code></td>
 <td>none</td>
-<td>The top line of the LCD until Home Assistant sets one, and the start of the entity names (the id without it).</td>
+<td>The top line of the LCD until Home Assistant sets one. It also starts the names of the entities in Home Assistant (<code>Living fader</code>); without it, the id of the channel does. The entity IDs always use the id.</td>
 </tr>
 <tr>
 <td><code>color</code></td>
@@ -3265,7 +3306,7 @@ Home Assistant (Settings → People → Users) limits that to what that user may
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">password_env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"XTOUCH_MQTT_PASSWORD"</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">[channel.living_room]</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">   </span><span class="c1"># number.xtouch_living_room_fader, ...</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">   </span><span class="c1"># the id is living_room: it makes number.xtouch_living_room_fader, ...</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Living"</span>
 </span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"yellow"</span>
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
@@ -3273,11 +3314,13 @@ Home Assistant (Settings → People → Users) limits that to what that user may
 </span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"living_room"</span>
 </span></code></pre></div>
 <p>The entities belong to the channel, not to a slot: they stay in Home Assistant whichever slot shows the channel, and
-while none does.</p>
+while none does. The list of all entities of a strip is <a href="#entities">below</a>.</p>
 <h2 id="audio-strips-with-home-assistant-controls">Audio strips with Home Assistant controls<a class="headerlink" href="#audio-strips-with-home-assistant-controls" title="Permanent link">&para;</a></h2>
-<p>An <code>output</code>, <code>input</code>, <code>apps</code> or <code>auto</code> channel can give any of its parts to Home Assistant (see
-<a href="../../configuration/strip/bindings/">Bindings</a>). With <code>encoder = "homeassistant"</code> or <code>fader = "homeassistant"</code> it
-keeps the volume on the other control. Each part gets its entity of the <a href="#entities">list below</a>:</p>
+<p>An audio channel (a channel of the type <code>output</code>, <code>input</code>, <code>apps</code> or <code>auto</code>) can give its parts to Home Assistant (see
+<a href="../../configuration/strip/bindings/">Bindings</a>). If you hand over only the fader, the encoder sets the volume; if you
+hand over only the encoder, the fader keeps it. Each part you hand over gets its entity of the <a href="#entities">list below</a>.
+The Select, Rec and Solo buttons keep their audio function unless you hand them over too. Mute always keeps
+muting the audio on these channels. The options are:</p>
 <table>
 <thead>
 <tr>
@@ -3316,20 +3359,24 @@ keeps the volume on the other control. Each part gets its entity of the <a href=
 </tr>
 </tbody>
 </table>
-<p>With <code>[mqtt]</code>, a fader or an encoder bound to a program of your own is a number too: from the binding's <code>min</code> to
-its <code>max</code>, and a change there runs <code>set</code>. The parts that are not bound stay with PipeWire (see
+<p>A related case is a fader or an encoder of a <code>custom</code> channel that is bound to a program on this computer instead of
+a light, e.g. <code>fader = { set = "sysctrl display redshift brightness -b {value}", min = 0.1, max = 1.0 }</code> (see
+<a href="../../configuration/strip/bindings/">Bindings</a>). With <code>[mqtt]</code>, such a part also becomes a number in Home Assistant,
+from the <code>min</code> of the binding to its <code>max</code>. When Home Assistant changes the number, the daemon runs <code>set</code>, a shell
+command, with the new value. On an audio channel, the parts that you do not hand over stay with PipeWire (see
 <a href="../../configuration/strip/leds/#buttons">Buttons</a>). A <a href="../../configuration/channels/custom/"><code>custom</code> channel</a> takes
-the same parts, and Mute is a button like the others there. The channel's id names the entities, its <code>label</code> starts their
-names. See <a href="../../configuration/strip/encoders/#homeassistant">Encoders</a> for the details.</p>
+the same parts, and Mute is a button like the others there. The id of the channel names the entities, its <code>label</code>
+starts their names. See <a href="../../configuration/strip/encoders/#homeassistant">Encoders</a> for the details.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[channel.desk]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.usb-*"</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Desk"</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">    </span><span class="c1"># the fader sets the volume, the encoder dims the desk lamp</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">    </span><span class="c1"># the fader sets the volume; the encoder is number.xtouch_desk_encoder, which an automation of yours can turn into the brightness of the desk lamp</span>
 </span></code></pre></div>
 <h2 id="controls-of-a-slot">Controls of a slot<a class="headerlink" href="#controls-of-a-slot" title="Permanent link">&para;</a></h2>
-<p>A control of a slot can belong to Home Assistant whatever the slot shows, with
-<a href="../../configuration/slots/#controls-and-the-chord"><code>[controls]</code></a>: the fader, the encoder (turn and push), the
+<p>The options of a channel above hand a part over for one channel. The section
+<a href="../../configuration/slots/#controls-and-the-chord"><code>[controls]</code></a> hands a control over for one slot instead: it belongs
+to Home Assistant whatever channel the slot shows. You can hand over: the fader, the encoder (turn and push), the
 Select, Rec and Solo buttons (an event per press, and a select for the LED), the meter, the color and the second line
 of the LCD. The entities are named by the slot
 (<code>number.xtouch_slot_6_fader</code>), or by <code>id</code>:</p>
@@ -3380,9 +3427,9 @@ keeps it.</p>
 </tr>
 </tbody>
 </table>
-<p>A button does not switch its LED: if a button should toggle something, an automation reacts to the event and sets
-the LED to show the result. Home Assistant keeps what it set last (retained on the broker), so after a restart of the
-daemon the strips show it again. New entities start with the configured label and color, the fader and encoder at 0
+<p>A button does not switch its own LED on a Home Assistant strip: if a button should toggle something, an automation reacts to the event and sets
+the LED to show the result. The broker keeps the last value that Home Assistant set (MQTT calls this a retained
+message), so after a restart of the daemon the strips show it again. New entities start with the configured label and color, the fader and encoder at 0
 and the LEDs off. While the broker can't be reached, a strip shows its label, <code>offline</code> and its color, and the
 device does nothing on it.</p>
 <p>Entities of a channel that was removed from the configuration are removed from Home Assistant on the next reload.</p>
@@ -3390,13 +3437,13 @@ device does nothing on it.</p>
 <p>With <code>[mqtt]</code>, an <code>output</code> or <code>input</code> channel with <a href="../../configuration/channels/devices/#choices"><code>choices</code></a> has
 <code>select.&lt;ns&gt;_&lt;id&gt;_output</code> (<code>select.&lt;ns&gt;_&lt;id&gt;_input</code>): the choice the strip shows, one option per choice, named by its
 <code>label</code> (or its <code>device</code>; a second choice of the same name gets a number, e.g. <code>Out 2</code>). Choosing one switches to it
-like Select on the device, profile first; one that isn't there is refused and the select goes back. The select
+like Select on the device (the sound card goes to the profile of the choice first, see <a href="../../configuration/channels/devices/#choices"><code>choices</code></a>); one that isn't there is refused and the select goes back. The select
 follows the strip, also when the default changes elsewhere.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">select.select_option</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">target</span><span class="p">:</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">entity_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">select.xtouch_out_output</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nt">data</span><span class="p">:</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">option</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Speaker</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">option</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Speaker</span><span class="w">       </span><span class="c1"># a choice of the channel `out`, see Choices</span>
 </span></code></pre></div>
 <h2 id="modes-states-and-slots">Modes, states and slots<a class="headerlink" href="#modes-states-and-slots" title="Permanent link">&para;</a></h2>
 <p>With <code>[mqtt]</code>, Home Assistant sees and sets the <a href="../../configuration/slots/#states-and-modes">states and modes</a>:</p>
@@ -3434,7 +3481,8 @@ follows the strip, also when the default changes elsewhere.</p>
 </tr>
 </tbody>
 </table>
-<p>For example, the mode gaming while the PC runs a game, from another room's automation:</p>
+<p>For example, an automation of Home Assistant sets the mode <code>gaming</code> while the PC runs a game (the mode is a
+<a href="../../configuration/slots/#states-and-modes">mode</a> you defined in <code>[state.gaming]</code>):</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">select.select_option</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">target</span><span class="p">:</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">entity_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">select.xtouch_mode</span>
@@ -3442,10 +3490,13 @@ follows the strip, also when the default changes elsewhere.</p>
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">option</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gaming</span>
 </span></code></pre></div>
 <h2 id="automations">Automations<a class="headerlink" href="#automations" title="Permanent link">&para;</a></h2>
-<p>An automation that dims a light with the fader, shows its brightness on the LCD, and toggles it with Mute:</p>
+<p>An automation that dims a light with the fader, shows its brightness on the LCD, and toggles it with Mute. It is for
+the channel <code>living_room</code> of the <a href="#homeassistant-channels">example above</a>, and goes into your Home Assistant
+configuration (<code>automations.yaml</code>, or the automation editor in YAML mode; it uses the <code>triggers:</code> and <code>actions:</code>
+syntax of Home Assistant 2024.10 or later):</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">automation</span><span class="p">:</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">alias</span><span class="p">:</span><span class="w"> </span><span class="s">"X-Touch:</span><span class="nv"> </span><span class="s">fader</span><span class="nv"> </span><span class="s">dims</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">living</span><span class="nv"> </span><span class="s">room"</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">queued</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">queued</span><span class="w">          </span><span class="c1"># handle every change in turn, none is dropped while a run is busy</span>
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">triggers</span><span class="p">:</span>
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">trigger</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">state</span>
 </span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">        </span><span class="nt">entity_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">number.xtouch_living_room_fader</span>

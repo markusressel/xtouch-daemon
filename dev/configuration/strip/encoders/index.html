@@ -3002,10 +3002,13 @@
 
 <h1 id="encoders">Encoders<a class="headerlink" href="#encoders" title="Permanent link">&para;</a></h1>
 <p><img alt="The encoder: a knob in a ring of 13 LEDs, lit from the left" class="xt-part" src="../../../images/controls/encoder.png" width="110" /></p>
-<p>The fader of an audio strip sets the volume, unless it is in <a href="#fader-homeassistant">Home Assistant</a> or
-<a href="../bindings/">bound</a> to a value of your own. The encoder
-does what the strip's <code>encoder</code> option says, and its <a href="../leds/">LED</a> ring shows it. After a turn or a push, the second line of
-the LCD shows the exact value for 2 seconds instead of the volume; moving the fader ends that.</p>
+<p>The encoder is the knob above the display of a strip. It turns and it pushes. What it does is set by the <code>encoder</code>
+option of the strip's channel, and the ring of 13 <a href="../leds/">LEDs</a> around it shows the result. After a turn or a push, the
+second line of the LCD shows the exact value for 2 seconds instead of the volume; moving the fader ends that.</p>
+<p>The fader of an audio strip sets the volume. You can give the fader another job: Home Assistant controls it
+(<a href="#fader-homeassistant"><code>fader = "homeassistant"</code></a>), or it sets a value of your own
+(<a href="../bindings/">bound</a>), such as the brightness of a screen. Then the encoder takes over the volume, and the volume is its only mode.</p>
+<p>The <code>encoder</code> option takes a mode, which is a word, or a table for a value of your own:</p>
 <table>
 <thead>
 <tr>
@@ -3033,7 +3036,7 @@ the LCD shows the exact value for 2 seconds instead of the volume; moving the fa
 </tr>
 <tr>
 <td><code>pick</code></td>
-<td>Picks the application among those without a strip of their own.</td>
+<td>Picks the application of the slot among the ones without a channel of their own, paused or not.</td>
 <td>Pins it.</td>
 <td>Which of them, as a dot; pinned, lit up to there.</td>
 <td>Which of how many (<code>2/5</code>); <code>pinned</code> or <code>auto</code>.</td>
@@ -3047,8 +3050,8 @@ the LCD shows the exact value for 2 seconds instead of the volume; moving the fa
 </tr>
 <tr>
 <td><code>homeassistant</code></td>
-<td>Changes a number entity in Home Assistant.</td>
-<td>An event in Home Assistant.</td>
+<td>Changes a number entity in Home Assistant that the daemon creates.</td>
+<td>Sends an event to Home Assistant.</td>
 <td>The number.</td>
 <td>The number (<code>42%</code>).</td>
 </tr>
@@ -3061,50 +3064,55 @@ the LCD shows the exact value for 2 seconds instead of the volume; moving the fa
 </tr>
 </tbody>
 </table>
-<p>Which channel types have which modes, the default first:</p>
+<p>Which modes a strip takes depends on what it shows. In each row of this table, the first mode is the default:</p>
 <table>
 <thead>
 <tr>
-<th>Channel type</th>
+<th>What the strip shows</th>
 <th>Encoder modes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>output</code>, <code>input</code></td>
+<td>A channel of type <code>output</code> or <code>input</code></td>
 <td><code>balance</code>, <code>volume</code>, <code>homeassistant</code></td>
 </tr>
 <tr>
-<td><code>apps</code></td>
+<td>A channel of type <code>apps</code></td>
 <td><code>media</code>, <code>volume</code>, <code>balance</code>, <code>homeassistant</code></td>
 </tr>
 <tr>
-<td><code>apps</code>, <code>auto</code> (a place in a slot, or the pool)</td>
+<td>An application that a slot takes from the pool <code>apps</code> or <code>auto</code>, without a channel of its own</td>
 <td><code>pick</code>, <code>media</code>, <code>volume</code>, <code>balance</code></td>
 </tr>
 <tr>
-<td><code>devices</code> (a place in a slot, or the pool)</td>
+<td>A device that a slot takes from the pool <code>devices</code></td>
 <td><code>balance</code>, <code>volume</code></td>
 </tr>
 </tbody>
 </table>
-<p>The strips of people have no encoder. On a slot, whatever it shows, <code>[controls]</code> can give the encoder to Home
-Assistant: <code>5 = { encoder = "homeassistant" }</code> (see <a href="../../slots/#controls-and-the-chord">Controls</a>), or to the value of
-a <a href="../../channels/custom/">custom channel</a>, e.g. the brightness of a screen: <code>5 = { encoder = { channel = "screen" } }</code>.</p>
-<p>A mode that the type does not have is an error, e.g.
-<code>channel.web: encoder: pick is not for apps strips (media, volume, balance, homeassistant)</code>. With
-<a href="#fader-homeassistant"><code>fader = "homeassistant"</code></a>, or a fader bound to a value, the default is <code>volume</code>, and it is
-the only mode.
+<p>The strips of people have no encoder at all: the encoder has nothing to do there.</p>
+<p>The modes above belong to the strip's channel or place. On top of that, the <code>[controls]</code> section can take over the
+encoder of a slot while a condition holds (its <code>when</code>), whatever the slot shows, and give it to Home Assistant or to a
+value (see <a href="../../slots/#controls-and-the-chord">Controls</a>). Slot 5 gives its encoder to Home Assistant, slot 6 uses it for the
+brightness of a <a href="../../channels/custom/">custom channel</a> named <code>screen</code>:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[controls]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"screen"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<p>A mode that the strip does not have is an error, e.g.
+<code>channel.web: encoder: pick is not for apps strips (media, volume, balance, homeassistant)</code>.
 <code>xtouch-daemon check-config</code> shows the encoder of every channel.</p>
-<p><code>homeassistant</code> channels have no <code>encoder</code> option: their encoder is a Home Assistant entity, see
-<a href="../../../guides/home-assistant/#entities">Home Assistant</a>.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.out]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"volume"</span><span class="w">   </span><span class="c1"># fine steps instead of the balance</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">[slots]</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">show</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">,</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"media"</span><span class="w"> </span><span class="p">}]</span><span class="w">   </span><span class="c1"># pick is the default for auto</span>
+<p>A channel of type <code>homeassistant</code> has no <code>encoder</code> option, because its encoder is always an entity in Home
+Assistant (see <a href="../../../guides/home-assistant/#entities">Home Assistant</a>). That is a different thing from the mode
+<code>homeassistant</code> above, which gives the encoder of an audio strip to Home Assistant.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.out]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"volume"</span><span class="w">   </span><span class="c1"># fine steps instead of the balance</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">[slots]</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">show</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">,</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"media"</span><span class="w"> </span><span class="p">}]</span><span class="w">   </span><span class="c1"># slot 5 shows auto; its encoder is in mode media, not pick</span>
 </span></code></pre></div>
 <h2 id="volume"><code>volume</code><a class="headerlink" href="#volume" title="Permanent link">&para;</a></h2>
 <p>Fine steps of the volume. One step is <code>behavior.encoder_step</code> percent (1 by default), and the fader follows. A push
@@ -3112,16 +3120,18 @@ sets <code>behavior.reset_volume</code> (100 % by default). Both stay within the
 channel.</p>
 <h2 id="balance"><code>balance</code><a class="headerlink" href="#balance" title="Permanent link">&para;</a></h2>
 <p>The balance between the left and the right channel. One step moves it 5 %, so 20 steps go from the center to one side.
-A push centers it. The ring lights from its center towards the side the balance leans to; only a balance exactly in
-the center lights the center LED alone, so one a hair off lights the next LED too. The LCD shows the exact balance,
-e.g. <code>L 15%</code> (the left side 15 % towards the full left), <code>R &lt;1%</code> or <code>center</code>. On mono devices and streams the encoder
+A push centers it. The ring lights from its center towards the side the balance leans to. If the balance is exactly in the
+center, only the center LED is lit. If it is a hair off, the next LED is lit too. The LCD shows the exact balance,
+e.g. <code>L 15%</code> (15 % of the way from the center to the full left), <code>R &lt;1%</code> (right, but by less than 1 %) or <code>center</code>. On mono devices and streams the encoder
 does nothing.</p>
 <h2 id="pick"><code>pick</code><a class="headerlink" href="#pick" title="Permanent link">&para;</a></h2>
-<p>For <code>auto</code>. Turning the encoder picks the slot's application among those without a channel of their own, paused
-ones too. One that another <code>auto</code> slot has swaps with it. It works on a slot without an application too.</p>
-<p>A push pins the application: it stays on the slot after it stopped playing, until the next push. The ring shows which
+<p>For slots that show <code>auto</code>, or the pool <code>apps</code>. Turning the encoder picks the slot's application among the <strong>candidates</strong>: the applications without a
+channel of their own, paused ones too. People are not candidates. If another <code>auto</code> slot shows the application you pick, the two slots swap applications. On a slot that shows
+no application yet, a turn puts one there.</p>
+<p>A push pins the application: it stays on the slot after it stopped playing. The next push unpins it, and the
+slot is picked by itself again. The ring shows which
 of the candidates the slot has, as a dot; while pinned, it is lit up to there. The LCD shows which one of how many
-(<code>2/5</code>) after a turn, and <code>pinned</code> or <code>auto</code> (picked by itself again) after a push.</p>
+(<code>2/5</code>) after a turn. After a push it shows <code>pinned</code>, or <code>auto</code> after a push that unpins (the slot picks by itself again).</p>
 <h2 id="media"><code>media</code><a class="headerlink" href="#media" title="Permanent link">&para;</a></h2>
 <p>The default for <code>apps</code> channels. The encoder controls the media player of the strip's applications: Spotify, a browser,
 mpv with mpv-mpris, anything that speaks <a href="https://specifications.freedesktop.org/mpris-spec/latest/">MPRIS</a> on the
@@ -3144,7 +3154,7 @@ session bus.</p>
 </tr>
 <tr>
 <td>Ring</td>
-<td>Fills up from the left with how far the track is, also while the strip is idle (e.g. paused). It blinks (0.5 s on, 0.5 s off) while the track is paused and is dark while it is stopped, or for live streams without a length.</td>
+<td>Fills up from the left with how far the track is, also while the strip is idle (e.g. paused). It blinks (0.5 s on, 0.5 s off) while the track is paused and is dark while it is stopped. It is also dark for live streams without a length; they never blink.</td>
 </tr>
 <tr>
 <td>LCD</td>
@@ -3152,14 +3162,18 @@ session bus.</p>
 </tr>
 </tbody>
 </table>
-<p>The player is the one of the process that plays a stream of the strip or of one of its parents, since browsers play
-from a child process. Without such a player, one named like the application (<code>spotify</code> for Spotify). Playing streams
-come first. Applications without a player leave the encoder without a function.</p>
-<p>A paused player keeps the strip active, also after its streams are gone: browsers end the stream of a paused video
-a few seconds after the pause, and the strip would go dark with it. It stays lit with its fader at the volume, and
-the ring blinks; a move of the fader sets the volume the stream gets when it plays again. The strip goes dark when
-the player is stopped or closed. On a slot of <code>apps</code> or <code>auto</code> this lasts as long as the slot keeps the application
-(<code>hold</code> of <code>[pool.apps]</code>).</p>
+<p>The daemon looks for the player like this:</p>
+<ol>
+<li>The player of the process that plays a stream of the strip, or of a parent of that process (browsers play from
+   a child process).</li>
+<li>Else a player named like the application (<code>spotify</code> for Spotify).</li>
+</ol>
+<p>Playing streams come first. An application without a player leaves the encoder without a function.</p>
+<p>When you pause a video in a browser, the browser ends its audio stream a few seconds later. Without the stream, the
+strip would go dark. So a paused player keeps the strip lit: the fader stays at the volume and the ring blinks. If
+you move the fader while it is paused, the stream gets that volume when it plays again. The strip goes dark when the
+player is stopped or closed. On a slot of <code>apps</code> or <code>auto</code>, the slot keeps the application for the time of <code>hold</code> of
+<a href="../../slots/#pools-of-applications-and-of-people"><code>[pool.apps]</code></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Needs the session bus</p>
 <p><code>xtouch-daemon</code> needs the D-Bus session bus for this, which a systemd user service has. Without it the daemon logs
@@ -3169,35 +3183,35 @@ the player is stopped or closed. On a slot of <code>apps</code> or <code>auto</c
 <p>The encoder belongs to Home Assistant, the fader still sets the volume. For example, the encoder dims the light next
 to the speakers. Turning changes <code>number.&lt;ns&gt;_&lt;id&gt;_encoder</code> (0..100) by <code>behavior.encoder_step</code> per step, the ring
 shows it, the LCD shows the value (<code>42%</code>), and a push sends <code>encoder_pressed</code>/<code>encoder_released</code> on <code>event.&lt;ns&gt;_&lt;id&gt;_buttons</code>. It works while the strip
-is idle too. An automation in Home Assistant decides what the number does, see
+is idle too. In the entity IDs, <code>&lt;ns&gt;</code> is the <code>namespace</code> of <code>[mqtt]</code> (<code>xtouch</code> by default) and <code>&lt;id&gt;</code> the id of the channel. An automation in Home Assistant decides what the number does, see
 <a href="../../../guides/home-assistant/#audio-strips-with-home-assistant-controls">Home Assistant</a>.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.desk]</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.usb-*"</span><span class="w">  </span><span class="c1"># number.xtouch_desk_encoder</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.desk]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.usb-*"</span><span class="w">  </span><span class="c1"># number.xtouch_desk_encoder</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span>
 </span></code></pre></div>
 <h2 id="a-value-of-your-own">A value of your own<a class="headerlink" href="#a-value-of-your-own" title="Permanent link">&para;</a></h2>
-<p>The encoder sets a value that programs of your own set and watch, e.g. the brightness of a screen with
+<p>The encoder sets a value that commands of your own change (<code>set</code>) and read (<code>watch</code>), e.g. the brightness of a screen with
 <a href="https://github.com/markusressel/system-control">system-control</a> (<code>sysctrl</code>). The fader still sets the volume. The
 options are those of a value in <a href="../bindings/">Bindings</a> (<code>set</code>, <code>watch</code>, <code>min</code>, <code>max</code>, <code>step</code>, <code>push</code>, <code>format</code>), and
 they are explained in <a href="../../channels/custom/#a-value">Custom channels</a>.</p>
 <p>The encoder can also set an entity of Home Assistant, e.g. <code>encoder = { entity = "media_player.kitchen" }</code> for the
 volume of a speaker. See <a href="../bindings/#an-entity-of-home-assistant">An entity of Home Assistant</a>.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.out]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">push</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"{value:.0%}"</span><span class="w"> </span><span class="p">}</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[channel.out]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">push</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"{value:.0%}"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="fader-homeassistant"><code>fader = "homeassistant"</code><a class="headerlink" href="#fader-homeassistant" title="Permanent link">&para;</a></h2>
 <p>The other way round: the fader belongs to Home Assistant (<code>number.&lt;ns&gt;_&lt;id&gt;_fader</code>, with <code>fader_touched</code> and
 <code>fader_released</code> events), and the encoder sets the volume in fine steps. The LCD still shows the volume. A fader
 bound to a <a href="../bindings/">value of your own</a> does the same: the encoder sets the volume. Both need the
 <a href="../../../guides/home-assistant/#mqtt"><code>[mqtt]</code></a> section.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[channel.music]</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"spotify"</span><span class="p">]</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Music"</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">      </span><span class="c1"># number.xtouch_music_fader; encoder: volume</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[channel.music]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"spotify"</span><span class="p">]</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Music"</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">      </span><span class="c1"># number.xtouch_music_fader; encoder: volume</span>
 </span></code></pre></div>
 
 

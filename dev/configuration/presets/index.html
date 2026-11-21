@@ -1191,6 +1191,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#surprises-to-know-about" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Surprises to know about
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-presets" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2732,6 +2743,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#surprises-to-know-about" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Surprises to know about
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-presets" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2838,8 +2860,11 @@
 
 <h1 id="presets">Presets<a class="headerlink" href="#presets" title="Permanent link">&para;</a></h1>
 <p>A preset is a name for a group of well-known applications, so you don't have to look up the names of every browser
-or the way games show up. Write it with an <code>@</code> in the lists that match applications, alone or next to names of your
-own:</p>
+or the way games show up. <code>@browsers</code> stands for Firefox, Chromium, Brave and the other browsers. The presets are
+built in: you can't define your own, but you can add names of your own next to a preset, as below.</p>
+<p>Write a preset with an <code>@</code> in the lists that match applications, alone or next to names of your own. These lines go
+into the <a href="../">configuration file</a>. A channel shows on a strip only when a slot lists it (<code>4 = "browser"</code>),
+see <a href="../slots/#slots">Slots</a>:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.browser]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Browser"</span>
@@ -2856,17 +2881,44 @@ own:</p>
 </span></code></pre></div>
 <p>Presets work in:</p>
 <ul>
-<li><code>match</code> of <a href="../channels/applications/#apps-channels"><code>apps</code> channels</a>, <code>apps</code> of <a href="../slots/#states-and-modes">states</a> and
-  <code>exclude</code> of <a href="../channels/applications/#apps-and-auto"><code>[pool.apps]</code></a>: they match the names and binaries of the applications' streams.</li>
-<li><code>processes</code> of <a href="../slots/#states-and-modes">states</a>: they match the names of processes.</li>
+<li>Lists of streams: <code>match</code> of <a href="../channels/applications/#apps-channels"><code>apps</code> channels</a>, the source <code>apps</code> of a
+  <a href="../slots/#states-and-modes">state</a> (on while a matching application plays) and <code>exclude</code> of <a href="../channels/applications/#apps-and-auto"><code>[pool.apps]</code></a>. A
+  stream is the sound that one application plays. The preset matches the name of the application, or the name of its
+  program file, that the sound server reports for the stream.</li>
+<li>Lists of processes: <code>processes</code> of <a href="../slots/#states-and-modes">states</a>. The preset matches the names of the programs
+  that run on the computer.</li>
 </ul>
-<p>A preset stands for different names in each: e.g. <code>@steam-games</code> is the streams of Windows games (<code>.exe</code>) in
-<code>match</code>, and Steam's <code>reaper</code> process in <code>processes</code>. Its names match like the ones you write, as parts of the
-name, ignoring case. On an <code>apps</code> channel with <code>launch</code>, the processes of its presets count as the application
-running. An unknown preset is an error that lists the known ones; a preset that can't be used in a list says where it
-can.</p>
-<p><code>xtouch-daemon check-config</code> shows what each preset stands for, <code>xtouch-daemon list-apps</code> the presets of the
-applications that play, and the <a href="../../guides/gui/">GUI</a> suggests the presets that fit each list.</p>
+<p>One preset stands for different names in these two kinds of list. <code>@steam-games</code> is the streams of Windows games
+(names that contain <code>.exe</code>) in <code>match</code>, and Steam's <code>reaper</code> process in <code>processes</code>. The table below has both columns.</p>
+<p>The names of a preset match like the names you write: as a part of the name, ignoring upper and lower case. So the
+name <code>signal</code> would also match <code>signal-desktop</code>.</p>
+<p>An <code>apps</code> channel can have a <code>launch</code> command, which Select runs to start the application
+(<a href="../channels/applications/#launching-the-application">Launching the application</a>). The channel then also counts as
+running when a process of its presets runs, not only when a stream plays. While it counts as running, pressing Select does not
+start the command again. Without this, a voice chat that is open but silent would have no stream, and Select would
+start a second one.</p>
+<p>An unknown preset is an error, and the message lists the known ones. A preset in a list where it makes no sense is
+an error too, and the message says which lists accept it.</p>
+<p>Three ways to see what presets do (all the commands are in <a href="../../reference/commands/">Commands</a>):</p>
+<ul>
+<li><code>xtouch-daemon check-config</code> shows what each preset in your file stands for.</li>
+<li><code>xtouch-daemon list-apps</code> lists the applications that play right now. Next to each it names the presets that match
+  it, and where it goes (a channel, <code>apps</code> or <code>auto</code>).</li>
+<li>The <a href="../../guides/gui/">GUI</a> suggests the presets that fit each list.</li>
+</ul>
+<h2 id="surprises-to-know-about">Surprises to know about<a class="headerlink" href="#surprises-to-know-about" title="Permanent link">&para;</a></h2>
+<p>The notes under the table say why. In short, for what you will see:</p>
+<ul>
+<li><code>@browsers</code> in <code>match</code> also catches the sounds of Electron applications older than Electron 40, e.g. Discord, which
+  then play as "Chromium". Run <code>xtouch-daemon list-apps</code> to see where each application goes.</li>
+<li><code>@browsers</code> in <code>processes</code> does not see Google Chrome. Add <code>chrome</code> yourself if you need it:
+  <code>processes = ["@browsers", "chrome"]</code>.</li>
+<li><code>@steam-games</code> in <code>match</code> also matches Windows games that Steam did not start, because a stream does not say who
+  started the game. To match only games that Steam started, use it in <code>processes</code>.</li>
+<li>If you have the audio program REAPER, <code>@steam-games</code> in <code>processes</code> is on while REAPER runs. Name your games in
+  <code>processes</code> instead.</li>
+<li><code>@games</code> in <code>processes</code> also stays on for a few seconds after the game ends, because <code>wineserver</code> (a helper of Wine and Proton) keeps running. The delay of the state (<code>delay_off</code>) comes on top.</li>
+</ul>
 <h2 id="the-presets">The presets<a class="headerlink" href="#the-presets" title="Permanent link">&para;</a></h2>
 <!-- presets: start -->
 <table>
@@ -2925,8 +2977,10 @@ applications that play, and the <a href="../../guides/gui/">GUI</a> suggests the
 </ul>
 <!-- presets: end -->
 
-<p>Missing an application? Add its name next to the preset (<code>match = ["@browsers", "netsurf"]</code>), and open an issue,
-so the preset gets it.</p>
+<p>Missing an application? Add its name next to the preset (<code>match = ["@browsers", "netsurf"]</code>), and
+<a href="https://github.com/markusressel/xtouch-daemon/issues">open an issue</a>, so the preset gets it. To match one specific
+game instead of every Wine program, put the name of its process in <code>processes</code>:
+<code>processes = ["mygame"]</code>.</p>
 <p>Next: <a href="../channels/applications/">Applications</a> uses them in <code>match</code>.</p>
 
 

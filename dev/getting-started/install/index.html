@@ -2876,7 +2876,7 @@
 
 <h1 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h1>
 <h2 id="arch-linux">Arch Linux<a class="headerlink" href="#arch-linux" title="Permanent link">&para;</a></h2>
-<p>The AUR has two packages, built from the <a href="https://github.com/markusressel/xtouch-daemon/releases">releases</a>:</p>
+<p>The AUR has two packages. They repackage the binaries of the <a href="https://github.com/markusressel/xtouch-daemon/releases">releases</a> on GitHub; you don't need to visit that page:</p>
 <table>
 <thead>
 <tr>
@@ -2891,30 +2891,36 @@
 </tr>
 <tr>
 <td><code>xtouch-daemon-gui-bin</code></td>
-<td>The <a href="../../guides/gui/">GUI</a>, <code>xtouch-daemon-gui</code>, with a menu entry. It runs on the system's Python and PyQt6, and needs <code>xtouch-daemon-bin</code> of the same version.</td>
+<td>The <a href="../../guides/gui/">GUI</a>, <code>xtouch-daemon-gui</code>, with a menu entry. It runs on the Python and PyQt6 of the system (these come as dependencies of the package), and needs <code>xtouch-daemon-bin</code> of the same version.</td>
 </tr>
 </tbody>
 </table>
 <p>Install them with an AUR helper, e.g.:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>paru<span class="w"> </span>-S<span class="w"> </span>xtouch-daemon-bin<span class="w"> </span>xtouch-daemon-gui-bin
 </span></code></pre></div>
-<p>Then enable the service, see <a href="../first-steps/#run-it-as-a-service">Run it as a service</a>. After an upgrade, restart it
-(<code>systemctl --user restart xtouch-daemon</code>): it runs the old version until then.</p>
+<p>Then enable the service as <a href="../first-steps/#run-it-as-a-service">First steps</a> shows: <code>systemctl --user enable --now
+xtouch-daemon</code>. After an upgrade, restart the service (<code>systemctl --user restart xtouch-daemon</code>): the service runs the
+old version until then.</p>
 <h2 id="from-the-source">From the source<a class="headerlink" href="#from-the-source" title="Permanent link">&para;</a></h2>
-<p>xtouch-daemon uses <a href="https://github.com/haad-org/haad-mqtt-autodiscovery">haad-mqtt-autodiscovery</a> from a checkout
-next to its own. Clone both side by side and install with <a href="https://docs.astral.sh/uv/">uv</a>:</p>
+<p>xtouch-daemon needs the library <a href="https://github.com/haad-org/haad-mqtt-autodiscovery">haad-mqtt-autodiscovery</a> (it
+speaks MQTT for Home Assistant). The project expects its source in a folder next to its own, even if you never use
+Home Assistant. Clone both side by side and install with <a href="https://docs.astral.sh/uv/">uv</a>:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/markusressel/xtouch-daemon
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/haad-org/haad-mqtt-autodiscovery
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>./xtouch-daemon
 </span></code></pre></div>
-<p>uv installs Python 3.14 if your system does not have it. The command <code>xtouch-daemon</code> is then on your <code>PATH</code>.</p>
-<p>For the <a href="../../guides/gui/">GUI</a>, install the <code>gui</code> extra instead. It brings Qt along, so it needs no system packages:</p>
+<p>uv installs Python 3.14 if your system does not have it. The command <code>xtouch-daemon</code> is then in <code>~/.local/bin</code>. If
+your shell does not find it, run <code>uv tool update-shell</code> and open a new terminal. To upgrade, pull both repositories and
+run the <code>uv tool install</code> command again with <code>--force</code>.</p>
+<p>The <a href="../../guides/gui/">GUI</a> is an optional part, the <code>gui</code> extra. Instead of the command above, install it with the
+extra (<code>--force</code> replaces the install you already have). The extra brings Qt along, so it needs no system packages
+for the GUI itself:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>--force<span class="w"> </span><span class="s1">'./xtouch-daemon[gui]'</span>
 </span></code></pre></div>
 <h2 id="the-gui">The GUI<a class="headerlink" href="#the-gui" title="Permanent link">&para;</a></h2>
 <p>The <a href="../../guides/gui/">GUI</a> comes with <code>xtouch-daemon-gui-bin</code> (Arch Linux) or the <code>gui</code> extra (from the source), see
-above. It starts with <code>xtouch-daemon-gui</code> (the package, also "X-Touch Extender" in the menu of the desktop) or
-<code>xtouch-daemon gui</code> (from the source):</p>
+above. Start it from the menu of your desktop (the entry is called "X-Touch Extender"), or in a terminal. The command
+is <code>xtouch-daemon-gui</code> for the Arch package and <code>xtouch-daemon gui</code> for the source install:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>xtouch-daemon-gui<span class="w">            </span><span class="c1"># the default configuration file</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>xtouch-daemon-gui<span class="w"> </span>-c<span class="w"> </span>FILE<span class="w">    </span><span class="c1"># another one</span>
 </span></code></pre></div>
