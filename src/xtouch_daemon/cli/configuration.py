@@ -1,6 +1,6 @@
 """
 The configuration file: writing the example (`init-config`), checking it and telling what each strip does
-(`check-config`), and its JSON Schema for editors (`schema`).
+(`check-config`), and its JSON Schema for editors (`schema`, also the one of the voice chat bridge).
 """
 
 import shlex
@@ -27,6 +27,7 @@ from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import notes, outcomes, table
+from xtouch_daemon.voip.protocol import schema_text as bridge_schema_text
 
 
 def describe_strip(config: StripConfig, name: str, meter_point: MeterPoint = "pre_fader") -> str:
@@ -202,9 +203,10 @@ def init_config(path: Path | None, force: bool) -> None:
 
 
 @click.command("schema")
-def schema() -> None:
+@click.option("--bridge", is_flag=True, help="The schema of the voice chat bridge instead, for plugins of clients.")
+def schema(bridge: bool) -> None:
     """
     Print the JSON Schema of the configuration file. Editors with a TOML language server (Taplo, Tombi) complete
     options from it, show their help and mark mistakes; the example configuration points to the published one.
     """
-    click.echo(schema_text(), nl=False)
+    click.echo(bridge_schema_text() if bridge else schema_text(), nl=False)

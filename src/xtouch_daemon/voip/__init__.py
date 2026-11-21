@@ -6,9 +6,9 @@ from typing import assert_never
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.voip.bridge import BridgeProvider
 from xtouch_daemon.voip.demo import DemoProvider
-from xtouch_daemon.voip.provider import Capability, Participant, VoipProvider
+from xtouch_daemon.voip.provider import Capability, Client, Participant, VoipProvider
 
-__all__ = ["Capability", "Participant", "VoipProvider", "build_provider"]
+__all__ = ["Capability", "Client", "Participant", "VoipProvider", "build_provider"]
 
 
 def build_provider(config: VoipConfig, socket: Path) -> VoipProvider:

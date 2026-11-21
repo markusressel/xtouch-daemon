@@ -5,7 +5,7 @@ The voice chat on the page of `[voip]`: whether the daemon has the participants,
 
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.live.messages import Snapshot
+from xtouch_daemon.live.messages import Snapshot, VoipClient
 from xtouch_daemon.voip.mumble import Setup
 
 
@@ -33,9 +33,24 @@ def voip_status(snapshot: Snapshot | None) -> Status:
             "The daemon waits for the plugin: start Mumble, and enable the plugin xtouch-daemon in its settings.",
         )
     people = f"{voip.participants} {'person' if voip.participants == 1 else 'people'}"
-    channel = f" in {voip.channel}" if voip.channel else ""
-    client = (voip.client or "a client").capitalize()
-    return Status(f"{client} connected", Tone.GOOD, f"{people}{channel}.")
+    clients = voip.clients or (VoipClient(voip.client or "a client", voip.channel),)
+    names = " and ".join(_client_name(client) for client in clients)
+    if len(clients) == 1:
+        channel = f" in {clients[0].channel}" if clients[0].channel else ""
+        return Status(f"{names} connected", Tone.GOOD, f"{people}{channel}.")
+    channels = ", ".join(
+        f"{_client_name(client)} in {client.channel}" if client.channel else _client_name(client) for client in clients
+    )
+    return Status(f"{names} connected", Tone.GOOD, f"{people}: {channels}.")
+
+
+CLIENT_NAMES = {"mumble": "Mumble", "teamspeak": "TeamSpeak"}
+"""How the clients the GUI knows write their names; any other is capitalized."""
+
+
+def _client_name(client: VoipClient) -> str:
+    name = client.client or "a client"
+    return CLIENT_NAMES.get(name, name.capitalize())
 
 
 def participants(snapshot: Snapshot | None) -> tuple[Suggestion, ...]:

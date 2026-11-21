@@ -52,7 +52,11 @@ class VoipStrip(StripController):
         return next((each for each in self.provider.participants if each.name.casefold() in self.names), None)
 
     def can(self, capability: Capability) -> bool:
-        return capability in self.provider.capabilities
+        """Whether the client of the participant can do `capability` (the provider, while they are not there)."""
+        person = self.participant
+        if person is None:
+            return capability in self.provider.capabilities
+        return capability in self.provider.capabilities_of(person.id)
 
     def update(self, state: AudioState) -> None:
         self.show()
