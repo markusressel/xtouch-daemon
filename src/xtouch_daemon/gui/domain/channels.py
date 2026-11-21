@@ -34,17 +34,44 @@ class ChannelType:
     strip: str
     """The type of the strip that shows it."""
     help: str
+    """What its strip does on the device, in a sentence or two (the menu Add says it under the title)."""
 
 
 CHANNEL_TYPES = {
     kind.name: kind
     for kind in (
-        ChannelType("output", "Output", "volume-high", "output", "A device that plays: speakers, headphones."),
-        ChannelType("input", "Input", "microphone", "input", "A device that records: a microphone."),
-        ChannelType("apps", "Applications", "apps", "apps", "The streams of a group of applications."),
-        ChannelType("person", "Person", "account", "voip", "Someone of the voice chat."),
-        ChannelType("homeassistant", "Home Assistant", "home-assistant", "homeassistant", "Its automations."),
-        ChannelType("custom", "Custom", "console", "custom", "Parts bound to programs of your own."),
+        ChannelType(
+            "output", "Output", "volume-high", "output", "The fader sets the volume of speakers or headphones."
+        ),
+        ChannelType("input", "Input", "microphone", "input", "The fader sets the volume of a microphone."),
+        ChannelType(
+            "apps",
+            "Applications",
+            "apps",
+            "apps",
+            "The fader sets the volume of a group of applications, e.g. every browser.",
+        ),
+        ChannelType(
+            "person",
+            "Person",
+            "account",
+            "voip",
+            "The fader sets the volume of someone in the voice chat. Mute mutes them for you.",
+        ),
+        ChannelType(
+            "homeassistant",
+            "Home Assistant",
+            "home-assistant",
+            "homeassistant",
+            "The fader, encoder and buttons are entities in Home Assistant. Its automations use them.",
+        ),
+        ChannelType(
+            "custom",
+            "Custom",
+            "console",
+            "custom",
+            "Each part does what you bind it to, e.g. a program that sets the brightness of a screen.",
+        ),
     )
 }
 """The types of channels, in the order the page offers them."""

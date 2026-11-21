@@ -8,7 +8,19 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QListWidgetItem
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import CONFIG, Dialogs, MakeWindow, click, pill, row, show_channel, type_into
+from tests.support.gui import (
+    CONFIG,
+    Dialogs,
+    MakeWindow,
+    click,
+    menu_texts,
+    open_menu_of,
+    pick,
+    pill,
+    row,
+    show_channel,
+    type_into,
+)
 from tests.support.instance import RecordingInstance
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
@@ -89,33 +101,38 @@ def test_a_channel_is_picked_edited_and_saved(qtbot: QtBot, window: MainWindow, 
 def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window: MainWindow):
     page = window.channels_page
     show_channel(window, "out")
-    menu = page.add_button.menu()
-    assert menu is not None
-    assert [action.text() for action in menu.actions()] == [
+    panel = open_menu_of(qtbot, page.add_button)
+    # a row for each type of channel, the devices of the sound server, and the pools, with what each does
+    assert menu_texts(panel) == [
         "Output",
         "Input",
         "Applications",
         "Person",
         "Home Assistant",
         "Custom",
-        "",
-        "Output from the sound server",
-        "Input from the sound server",
-        "",
+        "Outputs",
+        "Inputs",
         "Pool of channels",
         "Pool of applications",
         "Pool of people",
     ]
+    output = panel.row("Output").detail
+    assert output is not None
+    assert "volume of speakers" in output.text()
+    outputs = panel.row("Outputs").detail
+    assert outputs is not None
+    assert "one of the 2 outputs" in outputs.text()
     # a custom channel has a form too
-    menu.actions()[5].trigger()
+    pick(qtbot, panel, "Custom")
+    assert not panel.isVisible()
     assert page.selection == ("channel", "custom")
     assert window.document.get(("channel", "custom")) == {"type": "custom"}
     click(qtbot, page.remove_button)
-    menu.actions()[1].trigger()
+    pick(qtbot, open_menu_of(qtbot, page.add_button), "Input")
     assert page.selection == ("channel", "input")
     assert window.document.get(("channel", "input")) == {"type": "input"}
     assert page.used.rest.text() == "Not used by a slot, pool or state yet."
-    menu.actions()[1].trigger()
+    pick(qtbot, open_menu_of(qtbot, page.add_button), "Input")
     assert page.selection == ("channel", "input_2")
 
     # a copy of input_2 is input_3

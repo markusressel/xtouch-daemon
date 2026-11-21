@@ -31,6 +31,7 @@ from tests.support.gui import (
 )
 from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.qt.fields.names import completer_of
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
 from xtouch_daemon.gui.qt.pages.sections import MumbleInstaller, SectionPage
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -90,7 +91,7 @@ def test_aliases_are_edited(qtbot: QtBot, window: MainWindow):
     assert new_name.property("problem") is True
     assert page.problem.text() == "'': the name of the application is missing"
 
-    completer = new_name.completer()
+    completer = completer_of(new_name)
     assert completer is not None
     # the applications that play, picked from the list
     completer.activated.emit("Brave")

@@ -13,6 +13,7 @@ from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import QHBoxLayout, QMenu, QPushButton, QToolButton, QWidget
 
 from xtouch_daemon.gui.qt.fields.basics import label
+from xtouch_daemon.gui.qt.fields.menu import attach_menu
 from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
@@ -154,14 +155,15 @@ class VirtualDeviceBar(QWidget):
         self.broken = QToolButton()
         self.broken.setText("Broken touch")
         self.broken.setToolTip("Faders whose touch sensor failed: they never report a touch.")
-        self.broken.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        menu = QMenu(self.broken)
+        self.broken_menu = QMenu(self.broken)
+        """The faders whose touch is broken, checked."""
+        menu = self.broken_menu
         for strip in range(protocol.STRIPS):
             action = menu.addAction(f"Fader {strip + 1}")
             assert action is not None
             action.setCheckable(True)
             action.toggled.connect(lambda broken, strip=strip: hosted.set_broken_touch(strip, broken))
-        self.broken.setMenu(menu)
+        attach_menu(self.broken, menu)
         layout.addWidget(self.broken)
         layout.addWidget(close)
         hosted.changed.connect(self.refresh)

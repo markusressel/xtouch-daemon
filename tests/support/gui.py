@@ -24,6 +24,7 @@ from tests.support.audio import output, source, stream
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.config.sections import HomeAssistantConfig, MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.qt.fields.menu import MenuPanel, open_menu
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.homeassistant.client import Fetched, HomeAssistantError
@@ -177,6 +178,26 @@ def type_into(qtbot: QtBot, edit: QLineEdit, text: str) -> None:
 
 def click(qtbot: QtBot, button: object) -> None:
     qtbot.mouseClick(button, Qt.MouseButton.LeftButton)  # pyright: ignore[reportArgumentType]
+
+
+def open_menu_of(qtbot: QtBot, button: QWidget) -> MenuPanel:
+    """Clicks `button` and returns the menu it opens in its window."""
+    click(qtbot, button)
+    window = button.window()
+    assert window is not None
+    panel = open_menu(window)
+    assert panel is not None
+    return panel
+
+
+def pick(qtbot: QtBot, panel: MenuPanel, text: str) -> None:
+    """Clicks the row of `text` (without `&` and shortcut) of an open menu (or one of its submenus)."""
+    qtbot.mouseClick(panel.row(text), Qt.MouseButton.LeftButton)
+
+
+def menu_texts(panel: MenuPanel) -> list[str]:
+    """The rows of an open menu, by their text."""
+    return [row.title.text() for row in panel.rows]
 
 
 class FakeLiveDaemon:

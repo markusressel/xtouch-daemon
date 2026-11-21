@@ -67,6 +67,9 @@ window under them.
 
 The menus have what is used now and then: File (Save and apply, Revert, Quit), Edit (Undo, Redo), View (the window
 Device, the window [Log](#log), the dark or the light theme, the [zoom](#zoom)) and Help (this documentation).
+They open inside the window, as the lists of drop-down fields and of suggestions do: a screenshot key and the keys of
+the window manager work while one is open. Alt and the underlined letter open a menu; the arrows, Enter and Esc work
+in it as usual. The menus Add of the pages Channels and States say under each entry what it does.
 
 ## The service
 
