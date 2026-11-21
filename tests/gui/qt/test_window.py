@@ -9,16 +9,15 @@ from PyQt6.QtGui import QDesktopServices, QKeySequence
 from PyQt6.QtWidgets import QApplication, QToolBar
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import Dialogs, MakeWindow
+from tests.support.gui import Dialogs, MakeWindow, pick
 from xtouch_daemon.gui.domain import docs
+from xtouch_daemon.gui.qt.fields.menu import open_menu
 from xtouch_daemon.gui.qt.theme.settings import load_window_state
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
 
 def menu_titles(window: MainWindow) -> list[str]:
-    bar = window.menuBar()
-    assert bar is not None
-    return [action.text() for action in bar.actions()]
+    return [action.text() for action in window.menu_bar.actions()]
 
 
 def test_the_menus_have_what_is_used_now_and_then(window: MainWindow, isolated: Dialogs):
@@ -47,20 +46,19 @@ def test_the_menus_have_what_is_used_now_and_then(window: MainWindow, isolated: 
 def test_the_documentation_opens_in_the_browser(window: MainWindow, monkeypatch: pytest.MonkeyPatch):
     opened: list[QUrl] = []
     monkeypatch.setattr(QDesktopServices, "openUrl", opened.append)
-    bar = window.menuBar()
-    assert bar is not None
-    help_menu = bar.actions()[-1].menu()
+    help_menu = window.menu_bar.actions()[-1].menu()
     assert help_menu is not None
     help_menu.actions()[0].trigger()
     assert opened == [QUrl(docs.DOCS_URL)]
 
 
 def test_quit_closes_the_window(qtbot: QtBot, window: MainWindow):
-    bar = window.menuBar()
-    assert bar is not None
-    file = bar.actions()[0].menu()
-    assert file is not None
-    file.actions()[-1].trigger()
+    # Alt and the letter of the menu open it, in the window
+    qtbot.keyClick(window, Qt.Key.Key_F, Qt.KeyboardModifier.AltModifier)
+    panel = open_menu(window)
+    assert panel is not None
+    assert panel.menu.title() == "&File"
+    pick(qtbot, panel, "Quit")
     assert not window.isVisible()
 
 

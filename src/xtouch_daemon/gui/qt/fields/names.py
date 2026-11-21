@@ -5,13 +5,14 @@ list that opens on a click and narrows down while typing, and what a value match
 
 import html
 
-from PyQt6.QtCore import QEvent, QModelIndex, QObject, QPointF, QSize, Qt
-from PyQt6.QtGui import QFocusEvent, QKeyEvent, QPainter, QStandardItem, QStandardItemModel, QTextDocument
-from PyQt6.QtWidgets import QAbstractItemView, QCompleter, QLineEdit, QStyle, QStyledItemDelegate, QStyleOptionViewItem
+from PyQt6.QtCore import QEvent, QModelIndex, QObject, QPointF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QKeyEvent, QPainter, QStandardItem, QStandardItemModel, QTextDocument
+from PyQt6.QtWidgets import QAbstractItemView, QLineEdit, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from xtouch_daemon.gui.domain import sources
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.qt.fields.basics import NO_SUGGESTIONS, Suggest
+from xtouch_daemon.gui.qt.fields.suggestions import SuggestionList
 from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.gui.qt.theme.tokens import Space
 
@@ -85,28 +86,27 @@ class SuggestionDelegate(QStyledItemDelegate):
         return QSize(int(document.idealWidth()), int(document.size().height()))
 
 
-class NameCompleter(QCompleter):
+class NameCompleter(QObject):
     """
     Completes names of what the sound server (or the voice chat) has: the list opens on a click into the field and
     when it gets the focus, and narrows down while typing (by any part of a name or its description, or a pattern
-    with `*` and `?`), with the parts that match highlighted. Up/Down and Enter pick one; Esc closes it.
+    with `*` and `?`), with the parts that match highlighted. Up/Down and Enter pick one; Esc closes it. The list is a
+    popover in the window (see `SuggestionList`), not a popup window.
     """
 
+    activated = pyqtSignal(str, arguments=["name"])
+    """A name was picked: it is in the field already."""
+
     def __init__(self, edit: QLineEdit, suggest: Suggest, nothing: str = NO_SUGGESTIONS):
-        self.items = QStandardItemModel(edit)
-        super().__init__(self.items, edit)
+        super().__init__(edit)  # pyright: ignore[reportArgumentType]
+        self.items = QStandardItemModel(self)
         self.edit = edit
         self.suggest = suggest
         self.nothing = nothing
-        self.setCompletionMode(QCompleter.CompletionMode.UnfilteredPopupCompletion)
-        self.setMaxVisibleItems(8)
-        popup = self.popup()
-        assert popup is not None
-        # kept here: the view does not own its delegate, and Python would drop it
-        self.delegate = SuggestionDelegate(popup)
-        popup.setItemDelegate(self.delegate)
-        popup.setMinimumWidth(360)
-        edit.setCompleter(self)
+        self.list = SuggestionList(edit, self.items, SuggestionDelegate, rows=8, width=360)
+        self.list.picked.connect(lambda index: self.activated.emit(str(index.data())))
+        # first: the field has the name before anyone else hears of it
+        self.activated.connect(edit.setText)
         edit.textEdited.connect(self.refresh)
         # the stubs of PyQt6 name the wrong type: any QObject filters events
         edit.installEventFilter(self)  # pyright: ignore[reportArgumentType]
@@ -132,33 +132,33 @@ class NameCompleter(QCompleter):
     def refresh(self, text: str | None = None) -> None:
         """Fills the list again, for the text of the field, and shows it."""
         self.fill(self.edit.text() if text is None else text)
-        self.setCompletionPrefix("")
-        self.complete()
+        self.list.open()
 
     def suggestion(self, value: str) -> Suggestion | None:
         """What is known of a value that was picked (e.g. the card and profile of a device of another profile)."""
         return next((suggestion for suggestion in self.suggest() if suggestion.value == value), None)
 
-    def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
-        assert event is not None
-        popup = self.popup()
-        if watched is popup and isinstance(event, QKeyEvent) and event.key() == Qt.Key.Key_Delete:
-            # a device the daemon remembers, gone for good
-            current = popup.currentIndex() if popup is not None else None
-            suggestion = current.data(SUGGESTION_ROLE) if current is not None and current.isValid() else None
-            if isinstance(suggestion, Suggestion) and suggestion.forget is not None:
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
+        if a1 is None or a0 is not self.edit:
+            return False
+        if self.list.is_open and isinstance(a1, QKeyEvent) and a1.type() == QEvent.Type.KeyPress:
+            current = self.list.current()
+            suggestion = current.data(SUGGESTION_ROLE) if current.isValid() else None
+            if a1.key() == Qt.Key.Key_Delete and isinstance(suggestion, Suggestion) and suggestion.forget is not None:
+                # a device the daemon remembers, gone for good
                 suggestion.forget()
-                self.items.removeRow(current.row())  # pyright: ignore[reportOptionalMemberAccess]
+                self.items.removeRow(current.row())
                 return True
-        if watched is self.edit and event.type() in (QEvent.Type.FocusIn, QEvent.Type.MouseButtonPress):
-            popup = self.popup()
-            back = isinstance(event, QFocusEvent) and event.reason() == Qt.FocusReason.PopupFocusReason
-            # not when the focus comes back from the list itself
-            if popup is not None and not popup.isVisible() and not back:
-                self.refresh()
-        return super().eventFilter(watched, event)
+        if a1.type() in (QEvent.Type.FocusIn, QEvent.Type.MouseButtonPress) and not self.list.is_open:
+            self.refresh()
+        return False
 
 
 def completer(edit: QLineEdit, suggest: Suggest, nothing: str = NO_SUGGESTIONS) -> NameCompleter:
     """Completes names in `edit` (see `NameCompleter`)."""
     return NameCompleter(edit, suggest, nothing)
+
+
+def completer_of(edit: QLineEdit) -> NameCompleter | None:
+    """The completer of names of `edit`; None for none."""
+    return edit.findChild(NameCompleter, options=Qt.FindChildOption.FindDirectChildrenOnly)

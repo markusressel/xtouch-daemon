@@ -104,8 +104,7 @@ def test_unplugged_and_switched_off_the_daemon_loses_it(qtbot: QtBot, hosted: Ho
 def test_touch_sensors_break_and_work_again(qtbot: QtBot, hosted: HostedDevice) -> None:
     bar = VirtualDeviceBar(hosted, close=None)  # type: ignore[arg-type]
     qtbot.addWidget(bar)
-    menu = bar.broken.menu()
-    assert menu is not None
+    menu = bar.broken_menu
     fader_2 = menu.actions()[1]
 
     fader_2.setChecked(True)

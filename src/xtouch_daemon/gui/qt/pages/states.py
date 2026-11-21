@@ -36,13 +36,14 @@ from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, flat_button, help_label, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
+from xtouch_daemon.gui.qt.fields.menu import attach_menu, describe, with_icon
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, divider, text_width
 from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE, DotItemDelegate
 from xtouch_daemon.gui.qt.fields.used_by import UsedBy
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
-from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, Snapshot
 from xtouch_daemon.slots.model import DEFAULT, StateConfig
@@ -59,6 +60,28 @@ SOURCES = {
     "homeassistant": "A switch in Home Assistant is on",
 }
 """The sources of a state, in the words of the menu Add source."""
+SOURCE_DETAILS = {
+    "apps": "You list the applications, e.g. `@games`.",
+    "recording": "You list the applications, e.g. `@voip` for an open microphone.",
+    "voice_chat": "On during a call, e.g. in a channel of Mumble.",
+    "processes": "You list the names of the programs, e.g. `@steam-games`.",
+    "devices": "You list outputs or inputs, e.g. a USB headset that is plugged in.",
+    "channels": "You list channels of the file, e.g. one for a device that comes and goes.",
+    "homeassistant": "A switch for the state in Home Assistant turns it on. Needs `[mqtt]`.",
+}
+"""What each source of the menu Add source asks for, under its words."""
+SOURCE_ICONS = {
+    "apps": "play-circle-outline",
+    "recording": "record-circle-outline",
+    "voice_chat": "headset",
+    "processes": "cog-outline",
+    "devices": "headphones",
+    "channels": "tune-vertical",
+    "homeassistant": "home-assistant",
+}
+"""The icons of the sources in the menu Add source."""
+MODE_ICON = "view-dashboard-outline"
+STATE_ICON = "toggle-switch-outline"
 SWITCHES = frozenset({"voice_chat", "homeassistant"})
 """Sources that are a switch: added, they are on."""
 MODE_ONLY = ("label", "priority")
@@ -82,11 +105,28 @@ def _check(group: QButtonGroup, index: int) -> None:
         button.setChecked(True)
 
 
-TEMPLATES: tuple[tuple[str, str, bool, dict[str, Any]], ...] = (
-    ("In a call (state)", "call", False, {"voice_chat": True, "recording": ["@voip"], "delay_off": 5}),
-    ("Gaming (mode)", "gaming", True, {"label": "Gaming", "processes": ["@steam-games"]}),
+TEMPLATES: tuple[tuple[str, str, bool, dict[str, Any], str], ...] = (
+    (
+        "In a call",
+        "call",
+        False,
+        {"voice_chat": True, "recording": ["@voip"], "delay_off": 5},
+        "A state: on while you are in the voice chat or an application for calls records.",
+    ),
+    (
+        "Gaming",
+        "gaming",
+        True,
+        {"label": "Gaming", "processes": ["@steam-games"]},
+        "A mode: on while a game of Steam runs. The LCDs show Gaming when it comes.",
+    ),
 )
-"""The starting points in the menu Add: text, id, whether a mode, and the options."""
+"""The starting points in the menu Add: text, id, whether a mode, the options, and what it is."""
+KINDS = (
+    ("Mode", True, "One mode is on at a time. Slots and controls can change with it, e.g. for a game."),
+    ("State", False, "Any number of states can be on at once. A slot can show a channel only while one is on."),
+)
+"""The kinds in the menu Add: text, whether a mode, and what it is."""
 
 
 class StatesPage(Page):
@@ -131,17 +171,22 @@ class StatesPage(Page):
         side.addWidget(self.list, 1)
         buttons = QHBoxLayout()
         self.add_button = button("plus", "Add")
-        menu = QMenu(self.add_button)
-        for text, mode in (("Mode", True), ("State", False)):
-            action = menu.addAction(icon("view-dashboard-outline" if mode else "toggle-switch-outline"), text)
+        self.add_menu = QMenu(self.add_button)
+        """What Add offers: a mode, a state, and the usual ones to start from."""
+        menu = self.add_menu
+        menu.addSection("Kinds")
+        for text, mode, detail in KINDS:
+            action = menu.addAction(text)
             assert action is not None
+            describe(with_icon(action, MODE_ICON if mode else STATE_ICON), detail, Entity.STATE)
             action.triggered.connect(lambda _=False, mode=mode: self.add(mode))
-        menu.addSeparator()
-        for text, name, mode, preset in TEMPLATES:
-            action = menu.addAction(icon("view-dashboard-outline" if mode else "toggle-switch-outline"), text)
+        menu.addSection("Starting points")
+        for text, name, mode, preset, detail in TEMPLATES:
+            action = menu.addAction(text)
             assert action is not None
+            describe(with_icon(action, MODE_ICON if mode else STATE_ICON), detail, Entity.STATE)
             action.triggered.connect(lambda _=False, name=name, mode=mode, preset=preset: self.add(mode, name, preset))
-        self.add_button.setMenu(menu)
+        attach_menu(self.add_button, menu)
         self.duplicate_button = button("content-copy", "Duplicate")
         self.duplicate_button.setToolTip("Add a copy, with an id after its own (Ctrl+D)")
         self.duplicate_button.clicked.connect(self.duplicate_entry)
@@ -252,7 +297,8 @@ class StatesPage(Page):
         add = QHBoxLayout()
         self.add_source = button("plus", "Add source")
         self.source_menu = QMenu(self.add_source)
-        self.add_source.setMenu(self.source_menu)
+        """The sources the state does not have yet."""
+        attach_menu(self.add_source, self.source_menu)
         add.addWidget(self.add_source)
         add.addStretch()
         sources.addWidget(row(add))
@@ -355,6 +401,7 @@ class StatesPage(Page):
             if source not in shown:
                 action = self.source_menu.addAction(text)
                 assert action is not None
+                describe(with_icon(action, SOURCE_ICONS[source]), SOURCE_DETAILS[source])
                 action.triggered.connect(lambda _=False, source=source: self._add_source(source))
         self.add_source.setVisible(len(shown) < len(SOURCES))
 

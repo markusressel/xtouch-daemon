@@ -8,8 +8,9 @@ from collections.abc import Iterable
 
 from PyQt6.QtCore import QCoreApplication, QEvent, QStringListModel, Qt
 from PyQt6.QtGui import QColor, QFont, QInputMethodEvent, QKeyEvent, QTextCharFormat, QTextFormat
-from PyQt6.QtWidgets import QCompleter, QLineEdit
+from PyQt6.QtWidgets import QLineEdit
 
+from xtouch_daemon.gui.qt.fields.suggestions import SuggestionList
 from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.slots.expressions import ExpressionError, parse
 
@@ -29,11 +30,11 @@ class ConditionEdit(QLineEdit):
         self.states: frozenset[str] = frozenset()
         self.targets: frozenset[str] = frozenset()
         self.words = QStringListModel(self)
-        self.completer_ = QCompleter(self.words, self)
-        self.completer_.setWidget(self)
-        self.completer_.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self.completer_.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
-        self.completer_.activated.connect(self._complete)
+        """All the words it can take."""
+        self.offered = QStringListModel(self)
+        """The words that start like the one being typed."""
+        self.suggestions = SuggestionList(self, self.offered, width=200, first=True)
+        self.suggestions.picked.connect(lambda index: self._complete(str(index.data())))
         self.textChanged.connect(lambda _: self._highlight())
         self.textEdited.connect(lambda _: self._offer(False))
 
@@ -118,21 +119,17 @@ class ConditionEdit(QLineEdit):
     def _offer(self, always: bool) -> None:
         """Offers the words that start like the one being typed (all of them with `always`)."""
         partial = self._partial()
-        popup = self.completer_.popup()
-        assert popup is not None
         if not partial and not always:
-            popup.hide()
+            self.suggestions.close()
             return
-        self.completer_.setCompletionPrefix(partial)
-        if self.completer_.completionCount() == 0 or (
-            self.completer_.completionCount() == 1 and self.completer_.currentCompletion() == partial
-        ):
-            popup.hide()
+        matching = [word for word in self.words.stringList() if word.lower().startswith(partial.lower())]
+        if not matching or matching == [partial]:
+            self.suggestions.close()
             return
-        popup.setCurrentIndex(self.completer_.completionModel().index(0, 0))  # pyright: ignore[reportOptionalMemberAccess]
+        self.offered.setStringList(matching)
         rect = self.cursorRect()
         rect.setWidth(max(self.width() // 2, 200))
-        self.completer_.complete(rect)
+        self.suggestions.open(rect)
 
     def _complete(self, word: str) -> None:
         """Puts `word` in place of the one being typed."""
@@ -143,21 +140,7 @@ class ConditionEdit(QLineEdit):
 
     def keyPressEvent(self, a0: QKeyEvent | None) -> None:
         assert a0 is not None
-        popup = self.completer_.popup()
-        if (
-            popup is not None
-            and popup.isVisible()
-            and a0.key()
-            in (
-                Qt.Key.Key_Return,
-                Qt.Key.Key_Enter,
-                Qt.Key.Key_Tab,
-                Qt.Key.Key_Escape,
-            )
-        ):
-            # the list takes these: Enter and Tab pick, Esc closes it
-            a0.ignore()
-            return
+        # Enter, Tab and Esc are the list's while it shows (see `SuggestionList`)
         if a0.key() == Qt.Key.Key_Space and a0.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self._offer(True)
             return

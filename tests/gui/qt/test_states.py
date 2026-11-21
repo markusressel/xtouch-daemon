@@ -7,7 +7,7 @@ import dataclasses
 from PyQt6.QtWidgets import QListWidgetItem
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import click, row, type_into
+from tests.support.gui import click, menu_texts, open_menu_of, pick, row, type_into
 from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, Snapshot, StateView
@@ -32,15 +32,15 @@ def test_states_are_shown_edited_added_and_removed(qtbot: QtBot, window: MainWin
     row(window, "delay_off", "states").spin.setValue(4)
     assert window.document.get(("state", "call", "delay_off")) == 4
 
-    menu = page.add_button.menu()
-    assert menu is not None
-    menu.actions()[0].trigger()
+    panel = open_menu_of(qtbot, page.add_button)
+    assert menu_texts(panel) == ["Mode", "State", "In a call", "Gaming"]
+    pick(qtbot, panel, "Mode")
     assert page.selection == "mode"
     assert page.title.text() == "Mode"
     # modes first
     assert [item.text().split("\n")[0] for item in items(window)] == ["mode", "call"]
     assert page.used.rest.text() == "No slot or control asks about it yet."
-    menu.actions()[1].trigger()
+    pick(qtbot, open_menu_of(qtbot, page.add_button), "State")
     assert page.selection == "state"
     assert window.document.get(("state", "state")) == {}
 

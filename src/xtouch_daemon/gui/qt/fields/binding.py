@@ -19,6 +19,7 @@ from xtouch_daemon.gui.domain.schema import Kind, Option, describe
 from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label
 from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, Switch
+from xtouch_daemon.gui.qt.fields.menu import attach_menu
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -98,7 +99,6 @@ class BindingField(QWidget):
         self.bind.setAutoRaise(True)
         set_role(self.bind, "flat", "variant")
         self.bind.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.bind.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.menu = QMenu(self.bind)
         self.actions_: dict[str, QAction] = {}
         modes = [
@@ -113,7 +113,7 @@ class BindingField(QWidget):
             action.setCheckable(True)
             action.triggered.connect(lambda _=False, mode=mode: self.bind_to(mode))
             self.actions_[mode] = action
-        self.bind.setMenu(self.menu)
+        attach_menu(self.bind, self.menu)
         top.addWidget(self.bind)
         top.addStretch()
         outer.addLayout(top)

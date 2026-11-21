@@ -686,7 +686,7 @@ def test_profiles_are_entries_of_label_and_profile(qtbot: QtBot, window: MainWin
     second = tables.entries[1]
     type_into(qtbot, second.rows["label"].line, "Digital")
     assert profiles.error.text() == "2. profile: Field required"
-    completer = second.rows["profile"].line.completer()
+    completer = second.rows["profile"].completer
     assert completer is not None
     completer.activated.emit("output:iec958-stereo")
     assert profiles.error.text() == ""

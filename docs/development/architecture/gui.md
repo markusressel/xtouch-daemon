@@ -69,6 +69,12 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
 - **The comments stay.** Saving writes the changes into the TOML document with tomlkit: unchanged values keep their
   place, their comments and their form (a stack as a string, a list or tables), and a renamed channel keeps its
   table. The file is written in place, so a symlinked configuration stays one.
+- **Nothing pops up.** A popup window (a `QMenu`, the list of a `QComboBox` or a `QCompleter`) grabs the keyboard
+  and the mouse, on X11 the whole display, so a screenshot key would do nothing while it is open. Menus stay `QMenu`s
+  (their actions keep their shortcuts in the window) but open as popovers: `show_menu`, `attach_menu` and `MenuBar`
+  in `gui/qt/fields/menu.py`, with `describe` for an entry that says what it does. Drop-downs are `Choice`, the
+  suggestions under a field a `SuggestionList` (`gui/qt/fields/suggestions.py`). The fixture `no_popups` of the GUI
+  tests fails a test in which a popup shows.
 
 ## Drawing and updating
 

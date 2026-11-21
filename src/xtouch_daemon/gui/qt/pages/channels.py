@@ -30,6 +30,7 @@ from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, help_label, label, set_help
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.devices import device_row
+from xtouch_daemon.gui.qt.fields.menu import attach_menu, describe, with_icon
 from xtouch_daemon.gui.qt.fields.meter import meter_row
 from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow, add_rows, align_titles
 from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, EntityItemDelegate, Lines
@@ -56,9 +57,21 @@ CUSTOM_PEOPLE_POOL = f"{CUSTOM_POOL}.people"
 POOLS = tuple(("pool", name) for name, *_ in BUILT_IN_POOLS)
 """The built-in pools: their options and look."""
 _ID = re.compile(r"[a-z0-9_]+")
+_BREAKS = re.compile(r"([._:-])")
+
+
+def _breakable(name: str) -> str:
+    """A name of a device that breaks after its dots and dashes, where it does not fit on a line."""
+    return _BREAKS.sub("\\1\u200b", name)
 
 
 DIRECTIONS = (Direction.OUTPUT, Direction.INPUT)
+ADD_POOLS = (
+    (None, "Pool of channels", "Each slot of the pool shows the next channel of a list that is present."),
+    ("apps", "Pool of applications", "Each application of a group that plays gets a strip of its own."),
+    ("people", "Pool of people", "Each of the people you list gets a strip of their own while in the voice chat."),
+)
+"""The pools the menu Add offers: the kind (None for one of channels), title and what it does."""
 POOL_KINDS = {
     CUSTOM_POOL: "A pool of channels: it hands the first of its channels that is there to the first slot that names "
     "it, the next one to the next slot.",
@@ -123,31 +136,31 @@ class ChannelsPage(Page):
         side.addWidget(self.list, 1)
         buttons = QHBoxLayout()
         self.add_button = button("plus", "Add")
-        menu = QMenu(self.add_button)
+        self.add_menu = QMenu(self.add_button)
+        """What Add offers: a channel of each type, one for a device the sound server has, and the pools."""
+        menu = self.add_menu
+        menu.addSection("Channel types")
         for kind in CHANNEL_TYPES.values():
-            action = menu.addAction(icon(kind.icon), kind.title)
+            action = menu.addAction(kind.title)
             assert action is not None
-            action.setToolTip(kind.help)
+            describe(with_icon(action, kind.icon), kind.help, Entity.CHANNEL)
             action.triggered.connect(lambda _=False, name=kind.name: self.add(name))
-        menu.addSeparator()
-        self.device_menus = {
-            direction: menu.addMenu(f"{direction.value.capitalize()} from the sound server") for direction in DIRECTIONS
-        }
-        menu.addSeparator()
-        pool_action = menu.addAction(icon("format-list-bulleted"), "Pool of channels")
-        assert pool_action is not None
-        pool_action.setToolTip("Hands the first present channel of a list to the first slot, the next one to the next")
-        pool_action.triggered.connect(lambda _=False: self.add_pool())
-        for kind, title, tip in (
-            ("apps", "Pool of applications", "Gives each application of a group that plays its own slot"),
-            ("people", "Pool of people", "Gives each of the listed people of the voice chat their own slot"),
-        ):
-            action = menu.addAction(icon("format-list-bulleted"), title)
+        menu.addSection("From the sound server")
+        self.device_menus: dict[Direction, QMenu] = {}
+        for direction in DIRECTIONS:
+            kind = CHANNEL_TYPES[direction.value]
+            devices = menu.addMenu(f"{kind.title}s")
+            assert devices is not None
+            with_icon(devices.menuAction(), kind.icon)  # pyright: ignore[reportArgumentType]
+            self.device_menus[direction] = devices
+        menu.addSection("Pools")
+        for kind, title, tip in ADD_POOLS:
+            action = menu.addAction(title)
             assert action is not None
-            action.setToolTip(tip)
+            describe(with_icon(action, "format-list-bulleted"), tip, Entity.CHANNEL)
             action.triggered.connect(lambda _=False, kind=kind: self.add_pool(kind))
         menu.aboutToShow.connect(self._list_devices)
-        self.add_button.setMenu(menu)
+        attach_menu(self.add_button, menu)
         self.duplicate_button = button("content-copy", "Duplicate")
         self.duplicate_button.setToolTip("Add a copy, with an id after its own (Ctrl+D)")
         self.duplicate_button.clicked.connect(self.duplicate)
@@ -581,12 +594,22 @@ class ChannelsPage(Page):
         for direction, menu in self.device_menus.items():
             menu.clear()
             devices = state.devices(direction)
+            plural = f"{direction.value}s"
+            describe(
+                menu.menuAction(),  # pyright: ignore[reportArgumentType]
+                f"A channel for one of the {len(devices)} {plural} there are now."
+                if len(devices) > 1
+                else f"A channel for the {direction.value} there is now."
+                if devices
+                else f"The sound server has no {plural} now, or is not reachable.",
+                Entity.CHANNEL,
+            )
             menu.setEnabled(bool(devices))
-            menu.setToolTip("" if devices else "The sound server has none (or is not reachable)")
+            kind = CHANNEL_TYPES[direction.value]
             for device in devices:
                 action = menu.addAction(device.description)
                 assert action is not None
-                action.setToolTip(device.name)
+                describe(with_icon(action, kind.icon), f"`{_breakable(device.name)}`", Entity.CHANNEL)
                 action.triggered.connect(
                     lambda _=False, kind=direction.value, name=device.name: self.add(kind, {"device": name})
                 )

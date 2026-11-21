@@ -8,8 +8,8 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QCoreApplication, QSettings
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QSettings, Qt
+from PyQt6.QtWidgets import QApplication, QMessageBox, QWidget
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import (
@@ -55,6 +55,38 @@ def isolated(qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(QMessageBox, "exec", lambda box: dialogs.execute(box))
     apply_theme(ThemeMode.DARK)
     return dialogs
+
+
+class PopupWatch(QObject):
+    """Notes every popup window that shows (a QMenu, the list of a QComboBox or a QCompleter)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.shown: list[str] = []
+
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
+        if (
+            a1 is not None
+            and a1.type() == QEvent.Type.Show
+            and isinstance(a0, QWidget)
+            and a0.windowType() == Qt.WindowType.Popup
+        ):
+            self.shown.append(type(a0).__name__)
+        return False
+
+
+@pytest.fixture(autouse=True)
+def no_popups(qapp: QApplication) -> Iterator[PopupWatch]:
+    """
+    Fails a test in which a popup window shows: it grabs the keyboard and the mouse (on X11 the whole display), so the
+    key of a screenshot tool does nothing while it is open. Menus, drop-downs and suggestions open inside the window.
+    """
+    watch = PopupWatch()
+    qapp.installEventFilter(watch)  # pyright: ignore[reportArgumentType]
+    yield watch
+    qapp.removeEventFilter(watch)  # pyright: ignore[reportArgumentType]
+    assert watch.shown == [], f"popup windows showed: {watch.shown}"
+    assert QApplication.activePopupWidget() is None
 
 
 @pytest.fixture

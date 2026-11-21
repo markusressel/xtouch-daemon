@@ -65,6 +65,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the menus Add of the pages Channels and States, and Add source of a state, say under each entry what it does
+  on the device, with its icon and its title in the color of what it adds, in groups: the types of channels, the
+  devices of the sound server ("Outputs" and "Inputs") and the pools; the kinds of states and the starting points
+  ("In a call", "Gaming").
+
 - `[device] startup = "show"` and `shutdown = "show"`: one wave runs across the strips, light and faders together.
   Each strip turns white, its ring fills up from the left (the two LEDs at its ends last), its meter goes up and its
   buttons light up from the top; then all of it goes off again the same way. Its fader rises with the light and falls
@@ -84,6 +89,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   the next entry.
 - GUI: the lists of drop-down fields open inside the window, as popovers do: they no longer grab the keyboard and
   the mouse, so screenshot tools and the keys of the window manager work while one is open.
+- GUI: the menus (the menu bar, Add, Add source, the binding of a part, the problems, the menu of a strip of the
+  drawing and of a field) and the lists of suggestions under a field open inside the window too. A screenshot key
+  works while one is open, and Alt no longer closes a menu. The keys stay as they were: Alt and the letter open a
+  menu, the arrows move through it and its submenus, Enter picks, Esc closes.
 
 - Simulate (the GUI and `xtouch-daemon simulate`) no longer fails on a channel of type `homeassistant`: it shows
   its label and `offline`, as while Home Assistant is not there.
