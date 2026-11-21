@@ -1659,6 +1659,8 @@
       
         
       
+        
+      
     
     
     
@@ -2231,6 +2233,33 @@
     
   
   The log in the GUI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/state-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What the daemon remembers
 
     
   </span>
@@ -2819,7 +2848,7 @@ section: <a href="audio/">Audio</a>, <a href="live-view/">Live view</a>, <a href
 </tr>
 <tr>
 <td><code>runtime/slots.py</code>, <code>runtime/slot_files.py</code></td>
-<td><code>SlotEngine</code>: steps a <code>Simulation</code> (0.1 s after a change, at the deadlines of its delays, every 2 s for the processes), takes the requests (mode, override, pick and pin), keeps overrides, the mode picked (<code>slots.json</code>) and the people (<code>people.json</code>) across restarts, and carries its state over a reload by id.</td>
+<td><code>SlotEngine</code>: steps a <code>Simulation</code> (0.1 s after a change, at the deadlines of its delays, every 2 s for the processes), takes the requests (mode, override, pick and pin), keeps overrides, the mode picked (<code>slots.json</code>) and the people (<code>people.json</code>) across restarts (<a href="../design/state-files/">what the daemon remembers</a>), and carries its state over a reload by id.</td>
 </tr>
 <tr>
 <td><code>runtime/binder.py</code></td>
