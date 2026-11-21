@@ -25,7 +25,7 @@ from tests.support.gui import (
 )
 from xtouch_daemon.config.sections import HomeAssistantConfig
 from xtouch_daemon.gui.qt.fields.binding import ENTITY, PROGRAM, WORDS, BindingField
-from xtouch_daemon.gui.qt.fields.entities import SuggestionList, source_of
+from xtouch_daemon.gui.qt.fields.entities import EntityList, source_of
 from xtouch_daemon.gui.qt.fields.entity_table import EntityTable
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.homeassistant.client import Fetched, HomeAssistantError
@@ -95,7 +95,7 @@ def entity_table(field: BindingField) -> EntityTable:
     return field.entity
 
 
-def suggestions(qtbot: QtBot, edit: QLineEdit, found: SuggestionList | None) -> list[str]:
+def suggestions(qtbot: QtBot, edit: QLineEdit, found: EntityList | None) -> list[str]:
     """The lines of the list under `edit`, once it is open."""
     assert found is not None
     edit.setFocus()
