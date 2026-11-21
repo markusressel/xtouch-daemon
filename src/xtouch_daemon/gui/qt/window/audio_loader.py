@@ -3,6 +3,7 @@ Reading the sound server in a thread, so a slow or missing one does not block th
 """
 
 import contextlib
+import logging
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -11,6 +12,8 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
+
+log = logging.getLogger(__name__)
 
 
 class AudioLoader(QObject):
@@ -31,6 +34,10 @@ class AudioLoader(QObject):
             state = self._read()
         except SoundServerError as e:
             self._emit(self.failed, str(e))
+        except Exception as e:
+            # the read ends with a result, whatever happens: the window would say it reads the sound server for good
+            log.exception("Reading the sound server failed")
+            self._emit(self.failed, f"{type(e).__name__}: {e}")
         else:
             self._emit(self.loaded, state)
 

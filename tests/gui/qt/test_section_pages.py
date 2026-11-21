@@ -37,7 +37,7 @@ from xtouch_daemon.gui.qt.fields.basics import _HELP_PROPERTY as HELP_PROPERTY  
 from xtouch_daemon.gui.qt.fields.basics import help_html
 from xtouch_daemon.gui.qt.fields.names import completer_of
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
-from xtouch_daemon.gui.qt.pages.sections import MumbleInstaller, SectionPage
+from xtouch_daemon.gui.qt.pages.sections import BrokerTester, MumbleInstaller, SectionPage
 from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipState
@@ -311,6 +311,42 @@ def test_the_mumble_plugin_is_installed_with_a_click(qtbot: QtBot, make_window: 
     # the result stays when the document is shown again
     window.editor.edited()
     assert window.voip_page.box.result.text() == "cmake --build failed: boom"
+
+
+def test_a_test_of_the_broker_always_ends_and_only_the_latest_one_shows():
+    results: list[Status] = []
+
+    async def broken(config: MqttConfig) -> Status:
+        raise RuntimeError("no loop")
+
+    tester = BrokerTester(broken)
+    tester.finished.connect(results.append)
+    tester.started = 1
+    tester._run(MqttConfig(host="broker"), 1)  # pyright: ignore[reportPrivateUsage]
+    assert results == [Status("Can't connect: RuntimeError: no loop.", Tone.BAD)]
+
+    async def works(config: MqttConfig) -> Status:
+        return Status(config.host, Tone.GOOD)
+
+    tester = BrokerTester(works)
+    tester.finished.connect(results.append)
+    # a second test started before the first one ended: the first result is old
+    tester.started = 2
+    tester._run(MqttConfig(host="first"), 1)  # pyright: ignore[reportPrivateUsage]
+    tester._run(MqttConfig(host="second"), 2)  # pyright: ignore[reportPrivateUsage]
+    assert results[1:] == [Status("second", Tone.GOOD)]
+
+
+def test_an_install_that_fails_in_any_way_ends_with_it():
+    results: list[Status] = []
+
+    def broken() -> str:
+        raise PermissionError("read-only")
+
+    installer = MumbleInstaller(broken, lambda: NO_MUMBLE)
+    installer.finished.connect(results.append)
+    installer._run()  # pyright: ignore[reportPrivateUsage]
+    assert results == [Status("The setup failed: PermissionError: read-only.", Tone.BAD)]
 
 
 def test_the_installer_runs_in_a_thread():

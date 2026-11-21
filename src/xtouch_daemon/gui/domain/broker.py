@@ -140,4 +140,8 @@ async def try_broker(config: MqttConfig, client_factory: ClientFactory = aiomqtt
     except aiomqtt.MqttError as e:
         explanation = explain(str(e))
         return Status(f"Can't connect to {broker}{who}: {e}.", Tone.BAD, explanation.hint)
+    except Exception as e:
+        # anything else (e.g. a host name that is no name): the test ends with a result, or the window would wait for
+        # it for good
+        return Status(f"Can't connect to {broker}{who}: {type(e).__name__}: {e}.", Tone.BAD)
     return Status(f"Connected to {broker}{who}: these settings work.", Tone.GOOD)

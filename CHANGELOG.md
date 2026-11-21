@@ -124,6 +124,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: after a new theme, the parts of a page that were hidden (e.g. the options of a section that is not in the file)
   show its colors too: their help kept the colors of the theme before. They also no longer stay in memory after the
   window of a zoom closed.
+- GUI: the test of the broker always ends with a result. A host that is no name (e.g. `.bad..host`) left the button
+  at "Connecting to …" for good; a test started again while one ran showed the older result last. The setup of the
+  Mumble plugin and the read of the sound server end with an error too, whatever goes wrong.
 - GUI: the icons are drawn once per name and color. Every new page, window and theme drew all of them again and kept
   each copy, about 760 per window, for as long as the GUI ran.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its
