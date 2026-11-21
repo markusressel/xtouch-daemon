@@ -137,6 +137,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   moment later; the menu of the bar closes with it.
 - GUI: the dots of the states in the bar of Slots are drawn at the scale of the screen: they were drawn at twice the
   size and scaled, blurred at a scale of 1.5 or 3.
+- GUI: the marks of "why" on the page Slots take the colors of a new theme at once, not with the next change of the
+  slot.
 - GUI: the icons are drawn once per name and color. Every new page, window and theme drew all of them again and kept
   each copy, about 760 per window, for as long as the GUI ran.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its
