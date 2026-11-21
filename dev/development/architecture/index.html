@@ -2834,6 +2834,10 @@ section: <a href="audio/">Audio</a>, <a href="live-view/">Live view</a>, <a href
 <td><code>SlotEntities</code>: the entities of the mode, the states and their overrides, the channels shown and the slots, published after each step when they changed.</td>
 </tr>
 <tr>
+<td><code>homeassistant/</code></td>
+<td>The API of Home Assistant: <code>client</code> (<code>HomeAssistant</code>, one WebSocket connection for the daemon: it follows all entities and calls services; <code>fetch_entities()</code> once), <code>states</code> (<code>EntityState</code>), <code>parts</code> (what a part shows of an entity), <code>domains</code> (the value and service of each domain). <code>strips/entity.py</code> makes lines and values of them, next to the programs of <code>strips/value.py</code>.</td>
+</tr>
+<tr>
 <td><code>mqtt.py</code></td>
 <td><code>MqttBridge</code>: announces the entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability.</td>
 </tr>

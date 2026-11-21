@@ -1145,6 +1145,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#an-entity-of-home-assistant" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        An entity of Home Assistant
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#home-assistant" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2717,6 +2728,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#an-entity-of-home-assistant" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        An entity of Home Assistant
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#home-assistant" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2864,13 +2886,15 @@
 
 <h1 id="bindings">Bindings<a class="headerlink" href="#bindings" title="Permanent link">&para;</a></h1>
 <p>Every part of a strip does what its <a href="../../channels/">channel</a> type says, unless the channel binds it: to Home
-Assistant (<code>"homeassistant"</code>), or to programs of your own. A channel without bindings works as before. A
+Assistant (<code>"homeassistant"</code>), to programs of your own, or to an <a href="#an-entity-of-home-assistant">entity of Home Assistant</a>
+(<code>{ entity = "..." }</code>). A channel without bindings works as before. A
 <a href="../../channels/custom/">custom channel</a> has no defaults: every part it uses is bound. The design: <a href="../../../development/design/bindings/">Bindings and custom
 channels</a>.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"cpu-load --watch"</span><span class="w"> </span><span class="p">}</span><span class="w">        </span><span class="c1"># the meter shows the CPU, the fader stays the volume</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"sh"</span><span class="p">,</span><span class="w"> </span><span class="s2">"-c"</span><span class="p">,</span><span class="w"> </span><span class="s2">"vmstat -n 1 | awk 'NR &gt; 2 { print 100 - $15; fflush() }'"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># the meter shows the CPU load, the fader stays the volume</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">                       </span><span class="c1"># Home Assistant sets the color</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">lcd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sensor.outside_temperature"</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># the second line shows an entity of Home Assistant</span>
 </span></code></pre></div>
 <p>The parts of the <code>output</code>, <code>input</code>, <code>apps</code> and <code>auto</code> channels:</p>
 <table>
@@ -2879,6 +2903,7 @@ channels</a>.</p>
 <th>Part</th>
 <th>Default</th>
 <th>A program</th>
+<th>An entity</th>
 </tr>
 </thead>
 <tbody>
@@ -2886,36 +2911,43 @@ channels</a>.</p>
 <td><code>fader</code></td>
 <td>The volume (<code>"volume"</code>).</td>
 <td>A value: <code>{ set, watch, min, max, step, format }</code>.</td>
+<td><code>{ entity, attribute, min, max, step, format, service, data }</code>: sets it.</td>
 </tr>
 <tr>
 <td><code>encoder</code></td>
 <td>The type's modes (<a href="../encoders/">Encoders</a>).</td>
 <td>A value: <code>{ set, watch, min, max, step, push, format }</code>.</td>
+<td>As the fader, with <code>push</code>.</td>
 </tr>
 <tr>
 <td><code>lcd</code></td>
 <td>What the type shows on the second line.</td>
 <td><code>{ watch }</code>: each line is the text.</td>
+<td><code>{ entity, attribute }</code>: its state or attribute.</td>
 </tr>
 <tr>
 <td><code>color</code></td>
 <td>A color name.</td>
 <td><code>{ watch }</code>: each line is a color name.</td>
+<td><code>{ entity, attribute }</code>: its color.</td>
 </tr>
 <tr>
 <td><code>meter</code></td>
 <td>The level of the audio (<code>true</code>), or dark (<code>false</code>).</td>
 <td><code>{ watch, min, max }</code>: each line is a level.</td>
+<td><code>{ entity, attribute, min, max }</code>: its number.</td>
 </tr>
 <tr>
 <td>A button's <code>press</code>, <code>hold</code></td>
 <td>The type's actions (<a href="../leds/">Buttons and LEDs</a>).</td>
 <td><code>{ run }</code>: runs to its end.</td>
+<td><code>{ service, entity, data }</code>: calls a service.</td>
 </tr>
 <tr>
 <td>A button's <code>led</code></td>
 <td>The type's indicators.</td>
 <td><code>{ watch }</code>: <code>on</code>, <code>1</code>, <code>true</code>, <code>yes</code> light it, <code>flash</code> flashes it.</td>
+<td><code>{ entity, attribute }</code>: lit while <code>on</code>, <code>open</code>, <code>playing</code>, <code>home</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -2989,8 +3021,8 @@ between them, and <code>step</code> above 0. <code>format</code> must show a num
 <li>While a value is set, or its fader is under a finger, the lines of <code>watch</code> don't move it.</li>
 </ul>
 <h2 id="example-the-brightness-of-a-screen">Example: the brightness of a screen<a class="headerlink" href="#example-the-brightness-of-a-screen" title="Permanent link">&para;</a></h2>
-<p>The encoder of the speakers sets the brightness of a screen; the fader stays the volume. A push sets the full
-brightness. <code>watch</code> prints the brightness, e.g. <code>0.60</code>, at each change.</p>
+<p>The encoder of the speakers sets the brightness of a screen with <a href="https://github.com/markusressel/system-control">system-control</a> (<code>sysctrl</code>); the fader stays the volume. A
+push sets the full brightness. <code>watch</code> prints the brightness, e.g. <code>0.60</code>, at each change.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
@@ -3002,6 +3034,166 @@ brightness. <code>watch</code> prints the brightness, e.g. <code>0.60</code>, at
 <p>The second line shows, first to last: a notice (e.g. the name of a choice), the volume while it is being set, the
 line of a bound <code>lcd</code>, then what the type shows. While Home Assistant is not there, a part in Home Assistant shows
 <code>offline</code>.</p>
+<h2 id="an-entity-of-home-assistant">An entity of Home Assistant<a class="headerlink" href="#an-entity-of-home-assistant" title="Permanent link">&para;</a></h2>
+<p>A part can show any entity of Home Assistant, and a fader or an encoder can set one, without an automation in
+between: <code>meter = { entity = "sensor.cpu_temp", min = 30, max = 90 }</code>, <code>color = { entity = "light.desk" }</code>,
+<code>fader = { entity = "light.desk" }</code>. It needs the <a href="../../../guides/home-assistant/#homeassistant"><code>[homeassistant]</code></a>
+section: the address of Home Assistant and a long-lived access token. The daemon follows the entities through the
+WebSocket API of Home Assistant; <code>[mqtt]</code> is not needed for them.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>For</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>entity</code></td>
+<td>every part</td>
+<td>required</td>
+<td>The entity, by its ID, e.g. <code>sensor.cpu_temp</code>: <code>&lt;domain&gt;.&lt;name&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>attribute</code></td>
+<td>every part</td>
+<td>the state</td>
+<td>An attribute of the entity instead of its state, e.g. <code>media_title</code> of a <code>media_player</code>. For a value, the one of its domain (below).</td>
+</tr>
+<tr>
+<td><code>min</code>, <code>max</code></td>
+<td><code>meter</code></td>
+<td><code>0</code>, <code>100</code></td>
+<td>The number with the meter dark, and with the meter full.</td>
+</tr>
+<tr>
+<td><code>min</code>, <code>max</code></td>
+<td><code>fader</code>, <code>encoder</code></td>
+<td>the entity's, else its domain's, else <code>0</code>, <code>100</code></td>
+<td>The value with the fader at the bottom and at the top. A <code>number</code> tells its own range.</td>
+</tr>
+<tr>
+<td><code>step</code>, <code>push</code>, <code>format</code></td>
+<td><code>fader</code>, <code>encoder</code></td>
+<td>as for <a href="../../channels/custom/#a-value">a value</a></td>
+<td>One step of the encoder, the value a push sets (the encoder only), how the LCD shows the value.</td>
+</tr>
+<tr>
+<td><code>service</code></td>
+<td><code>fader</code>, <code>encoder</code></td>
+<td>the one of its domain</td>
+<td>The service a move calls, with the entity as its target, e.g. <code>script.set_level</code>.</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td><code>fader</code>, <code>encoder</code></td>
+<td>the value of its domain</td>
+<td>The data of <code>service</code>: <code>{value}</code> in it is the new value, e.g. <code>{ level = "{value}" }</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>What a part makes of the entity:</p>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lcd</code></td>
+<td>The state, a number shortened to fit (<code>21.5</code>, <code>1013</code>), with its unit (<code>21.5°C</code>, <code>45%</code>, <code>3.2 kW</code>); or the attribute.</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>A light: its color (<code>rgb_color</code>, else <code>hs_color</code>), the nearest one the LCD has; <code>off</code> (dark) while it is off; white for a light without a color. Another entity: its state as a color name (an <code>input_select</code> with <code>red</code>, <code>blue</code>, ...). An attribute: a color name, or a list of red, green and blue.</td>
+</tr>
+<tr>
+<td><code>meter</code></td>
+<td>The number of the state (or the attribute), from <code>min</code> to <code>max</code>.</td>
+</tr>
+<tr>
+<td>A button's <code>led</code></td>
+<td>Lit while the state is <code>on</code>, <code>open</code>, <code>playing</code> or <code>home</code> (and <code>1</code>, <code>true</code>, <code>yes</code>, as for a watch); flashing on <code>flash</code>; else dark.</td>
+</tr>
+<tr>
+<td><code>present</code> of a custom channel</td>
+<td>Present unless the entity is <code>unavailable</code> or <code>unknown</code>, or Home Assistant does not have it.</td>
+</tr>
+</tbody>
+</table>
+<p>A fader or an encoder follows the value of the entity and sets it with a service, the newest value only, as <code>set</code>
+does. These domains need no <code>service</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Value</th>
+<th>Range</th>
+<th>Service</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>light</code></td>
+<td><code>brightness</code> (<code>0</code> while off)</td>
+<td>0..255</td>
+<td><code>light.turn_on</code> with <code>brightness</code></td>
+</tr>
+<tr>
+<td><code>number</code>, <code>input_number</code></td>
+<td>the state</td>
+<td>the entity's <code>min</code>..<code>max</code></td>
+<td><code>number.set_value</code>, <code>input_number.set_value</code> with <code>value</code></td>
+</tr>
+<tr>
+<td><code>media_player</code></td>
+<td><code>volume_level</code></td>
+<td>0..1</td>
+<td><code>media_player.volume_set</code> with <code>volume_level</code></td>
+</tr>
+<tr>
+<td><code>cover</code></td>
+<td><code>current_position</code></td>
+<td>0..100</td>
+<td><code>cover.set_cover_position</code> with <code>position</code></td>
+</tr>
+<tr>
+<td><code>fan</code></td>
+<td><code>percentage</code> (<code>0</code> while off)</td>
+<td>0..100</td>
+<td><code>fan.set_percentage</code> with <code>percentage</code></td>
+</tr>
+</tbody>
+</table>
+<p>Any other entity, or another attribute, needs <code>service</code> and <code>data</code> with <code>{value}</code>. <code>{value}</code> alone is the number,
+<code>{value}</code> within a text is its digits. A press or a hold calls a service with <code>{ service, entity, data }</code>. It sends
+<code>data</code> as it is: <code>{value}</code> in it is an error.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.lamp]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"custom"</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Lamp"</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.desk"</span><span class="w"> </span><span class="p">}</span><span class="w">                         </span><span class="c1"># the brightness</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.desk"</span><span class="p">,</span><span class="w"> </span><span class="n">attribute</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"color_temp_kelvin"</span><span class="p">,</span><span class="w"> </span><span class="n">service</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.turn_on"</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">color_temp_kelvin</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"{value}"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">2700</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">6500</span><span class="p">,</span><span class="w"> </span><span class="n">step</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">100</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.desk"</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">press</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">service</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.toggle"</span><span class="p">,</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.desk"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.desk"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">present</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"light.desk"</span><span class="w"> </span><span class="p">}</span><span class="w">                       </span><span class="c1"># dark while the lamp is unavailable</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="k">[channel.out]</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sensor.cpu_temperature"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">90</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">solo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">press</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">service</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"scene.turn_on"</span><span class="p">,</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"scene.movie"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li>While the daemon is not connected to Home Assistant, the entities are not known: the LCD shows nothing, the meter
+  rests, an LED is dark, a color stays, a value is not known. It connects again by itself.</li>
+<li>An entity that Home Assistant does not have is a warning in the log, once per connection, not an error of the
+  file: it may come later.</li>
+<li>A service that fails (e.g. an entity that is unavailable) is a warning in the log. The fader or the encoder goes
+  back to the value of the entity. After a call that works, it stays where you put it until the entity reports.</li>
+</ul>
 <h2 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h2>
 <p>A part in Home Assistant needs <code>[mqtt]</code>, and it gets an entity, named by the id of the channel (see
 <a href="../../../guides/home-assistant/#entities">Entities</a>):</p>
@@ -3051,9 +3243,11 @@ line of a bound <code>lcd</code>, then what the type shows. While Home Assistant
 range. It has no state until the value is known; a change in Home Assistant runs <code>set</code>.</p>
 <p>Only the channel itself has these entities, not the applications and devices that a place of <code>apps</code>, <code>auto</code> or
 <code>devices</code> shows. A <a href="../../slots/#slots">place</a> that sets a part to <code>"homeassistant"</code> does nothing; the log says so.
-Simulate has no Home Assistant: its parts look as while Home Assistant is not there.</p>
+Simulate has no Home Assistant: its parts look as while Home Assistant is not there. A fader or an encoder bound to an
+entity has no number of its own: the entity is already in Home Assistant.</p>
 <h2 id="simulate">Simulate<a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h2>
-<p>Simulate runs the <code>watch</code> programs, but never <code>set</code> or <code>run</code>: a move changes only the simulation.</p>
+<p>Simulate runs the <code>watch</code> programs, but never <code>set</code> or <code>run</code>: a move changes only the simulation. It shows the
+entities of Home Assistant while the daemon is connected, but calls no services.</p>
 
 
 

@@ -2243,6 +2243,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Home Assistant">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#any-entity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Any entity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2781,6 +2798,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Home Assistant">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#any-entity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Any entity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2997,7 +3031,7 @@ defaults at all: every part it uses is bound.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.usb-*"</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"cpu-load --watch"</span><span class="w"> </span><span class="p">}</span><span class="w">        </span><span class="c1"># the meter shows the CPU, the fader stays the volume</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">meter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"sh"</span><span class="p">,</span><span class="w"> </span><span class="s2">"-c"</span><span class="p">,</span><span class="w"> </span><span class="s2">"vmstat -n 1 | awk 'NR &gt; 2 { print 100 - $15; fflush() }'"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># the meter shows the CPU load, the fader stays the volume</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">                       </span><span class="c1"># select.xtouch_out_color, an automation sets it</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">[channel.screen_left]</span>
@@ -3133,14 +3167,43 @@ follow. Bindings of a slot go through <code>[controls]</code>.</p>
 <code>select.&lt;ns&gt;_&lt;id&gt;_color</code>, <code>text.&lt;ns&gt;_&lt;id&gt;_bottom</code>, <code>select.&lt;ns&gt;_&lt;id&gt;_&lt;button&gt;_led</code>. With <code>[mqtt]</code> only, checked when
 the file is loaded. With <code>[mqtt]</code>, the value of a fader or an encoder bound to a program is a number there too
 (<code>number.&lt;ns&gt;_&lt;id&gt;_fader</code>, from <code>min</code> to <code>max</code>): a change in Home Assistant runs <code>set</code>, as a move does.</p>
-<p>Reading any entity of Home Assistant (<code>meter = { entity = "sensor.cpu_temp" }</code>) needs its API: in TODO.md.</p>
+<h3 id="any-entity">Any entity<a class="headerlink" href="#any-entity" title="Permanent link">&para;</a></h3>
+<p>A part can also be bound to any entity of Home Assistant itself, through its WebSocket API: the <code>[homeassistant]</code>
+section (<code>url</code>, a long-lived <code>token</code>, <code>token_file</code> or <code>token_env</code> like the password of <code>[mqtt]</code>). It takes the place of
+an automation that copies an entity into the daemon's own.</p>
+<ul>
+<li><code>{ entity, attribute }</code> goes wherever <code>{ watch }</code> goes: the LCD, the color, a button's LED, <code>present</code>. The state of
+  the entity becomes a line, as a watch prints it (<code>homeassistant/parts.py</code>), so the strips show it as they show those
+  lines (<code>strips/entity.py</code>: <code>EntityLine</code> next to <code>WatchedLine</code>).</li>
+<li><code>{ entity, attribute, min, max }</code> goes where <code>{ watch, min, max }</code> goes: the meter.</li>
+<li><code>{ entity, attribute, min, max, step, push, format, service, data }</code> goes where a value goes: the fader and the
+  encoder. <code>EntityValue</code> is a <code>BoundValue</code> like <code>CommandValue</code>: it follows the entity, and a move calls a service
+  with the newest value only. The domains <code>light</code> (brightness), <code>number</code>, <code>input_number</code>, <code>media_player</code> (volume),
+  <code>cover</code> (position) and <code>fan</code> (percentage) have a value and a service of their own (<code>homeassistant/domains.py</code>); any
+  other entity needs <code>service</code> and <code>data</code> with <code>{value}</code>. The range is the binding's, else the entity's (a <code>number</code>),
+  else the domain's.</li>
+<li><code>{ service, entity, data }</code> is an action of a button, like <code>{ run }</code>.</li>
+</ul>
+<p>The connection (<code>homeassistant/client.py</code>, <code>HomeAssistant</code>) is one for the daemon: it follows every entity
+(<code>subscribe_entities</code>, compressed, as the frontend of Home Assistant does) and calls services. <code>Commands.hass</code> hands it
+to the strips, the controls and the twins, as <code>Commands</code> hands them the programs. It connects only while the
+configuration (or a twin) has a part bound to an entity, and again after it broke (<code>RECONNECT_DELAYS</code>: 1, 2, 5, 10,
+30, then 60 seconds; back to 1 only after a connection got the states). A refused token, or one that can't be read,
+ends it (<code>_hopeless</code>): the same section connects again only when its token resolves to another one. A reload takes a
+changed section.</p>
 <h2 id="the-gui">The GUI<a class="headerlink" href="#the-gui" title="Permanent link">&para;</a></h2>
-<p>A part that can be bound has one field: the default of the type, Home Assistant, or a program. Its options show only
-when a program is chosen. A channel without bindings looks as it does today.</p>
+<p>A part that can be bound has one field: the default of the type, Home Assistant, an entity, or a program. Its options
+show only when an entity or a program is chosen. A channel without bindings looks as it does today. A button's lists
+take <code>service: ...</code> (a press, a hold) and <code>entity: ...</code> (an LED), with their options below the list.</p>
+<p>The fields of an entity suggest the entities of Home Assistant. The window reads them itself (<code>client.fetch()</code> in a
+thread, <code>fields/entities.EntitySource</code>), with the settings in the editor, saved or not: the daemon's live view tells
+only how many there are, and the window works without a daemon. Reading them is the test of <code>[homeassistant]</code> on its
+page too. A <code>token_env</code> resolves in the window's environment, not in the service's. The list is drawn inside the window (<code>SuggestionList</code>), not a popup.</p>
 <h2 id="simulate">Simulate<a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h2>
 <p>Simulate runs the <code>watch</code> programs, so it shows real values, colors, texts and presence. It never runs <code>set</code> or
 <code>run</code>: a move there changes the simulation only. Until the first line of a watch, a value shows the middle of its
-range.</p>
+range. It reads the entities of Home Assistant through the connection of the daemon, but calls no services
+(<code>SimulatedCommands</code>).</p>
 <h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Permanent link">&para;</a></h2>
 <ul>
 <li>No compatibility: the project is at 0.x. <code>type = "command"</code> and its flat options (<code>set</code>, <code>watch</code>, <code>min</code>, ... on the
@@ -3164,6 +3227,26 @@ range.</p>
   with parts in Home Assistant are not announced yet: that needs entities that change at runtime.</li>
 <li>Simulate has no Home Assistant: a <code>homeassistant</code> channel shows its label, its color and <code>offline</code>, and its
   controls do nothing. Whether a custom channel with <code>present</code> is there comes from the simulated situation.</li>
+<li>An entity of Home Assistant is a binding of its own (<code>{ entity }</code>), not a word: it has options (<code>attribute</code>, <code>min</code>,
+  <code>max</code>, ...), and the parts of the daemon's own entities stay <code>"homeassistant"</code>.</li>
+<li>The client follows all entities, not only the bound ones: one subscription for every configuration (a reload needs
+  none of its own), and the entities the GUI suggests come with it (<code>HomeAssistant.entities()</code>, or
+  <code>fetch_entities()</code> without the daemon).</li>
+<li>An entity the configuration names but Home Assistant does not have is a warning in the log, not an error of the
+  file: entities come and go in Home Assistant, and the file is checked without it.</li>
+<li>While the daemon is not connected, an entity is not known: the parts show nothing, an LED is dark, a value is
+  unknown, a custom channel with <code>present</code> is absent (but before the first connection: not known, so the slots do
+  not move at the start).</li>
+<li>An LED is lit by <code>on</code>, <code>open</code>, <code>playing</code> and <code>home</code>, besides the words of a watch. A light's color is the nearest
+  color of the LCD; a light that is off is <code>off</code>.</li>
+<li>A fader or an encoder bound to an entity has no number of the daemon's own in Home Assistant: the entity is there
+  already.</li>
+<li>A refused token is never sent again (Home Assistant can ban addresses that fail to log in); other problems are
+  tried again.</li>
+<li>After a service call that failed, a fader or an encoder goes back to the value of the entity. After one that
+  worked, it stays until the entity reports: many devices report a moment later, and the motor would jump.</li>
+<li>A press sends its <code>data</code> as it is: <code>{value}</code> in it is an error of the file, not a text Home Assistant gets.</li>
+<li>Simulate reads the entities but calls no services; a move changes the simulation only.</li>
 </ul>
 
 

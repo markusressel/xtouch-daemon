@@ -730,6 +730,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#suggestions-from-home-assistant" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Suggestions from Home Assistant
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#suggestions-from-the-sound-server" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2908,6 +2919,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#suggestions-from-home-assistant" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Suggestions from Home Assistant
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#suggestions-from-the-sound-server" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3078,7 +3100,8 @@ them again; the GUI remembers it):</p>
   Delays and overrides (<code>delay_on</code>, <code>delay_off</code>, <code>persist</code>) are folded away until a state has one. Above the form:
   what the daemon says about it right now (since when, from which source), its override (a mode: picked by hand),
   and which stacks and controls use it.</li>
-<li><strong>Settings:</strong> <code>[behavior]</code>, <code>[aliases]</code>, <code>[mqtt]</code> (as "<a href="../home-assistant/">Home Assistant</a>"), <code>[switching]</code> (as "Modes and chord"),
+<li><strong>Settings:</strong> <code>[behavior]</code>, <code>[aliases]</code>, <code>[mqtt]</code> (as "<a href="../home-assistant/">Home Assistant</a>"), <code>[homeassistant]</code> (as
+  "<a href="../home-assistant/#homeassistant">Home Assistant API</a>"), <code>[switching]</code> (as "Modes and chord"),
   <code>[voip]</code> (as "Voice chat") and <code>[device]</code> (as "Extender": the sound card of the extender, touch sensors, start-up). "Voice chat" also tells whether Mumble is connected, lists the steps of
   its setup, and installs the <a href="../mumble/">Mumble plugin</a> with "Install Mumble plugin".</li>
 </ul>
@@ -3156,8 +3179,9 @@ it was picked by hand). A mode is a state with <code>mode = true</code>: one at 
 turned each on, and picks a mode by hand ("Pick gaming", "Pick no mode", "Back to the rules").</p>
 <p>The pill of the service at the top tells what the daemon is connected to: "running" while all is well, else the worst
 problem, e.g. "running · Home Assistant not authorized" or "running · device not connected". A click lists each
-connection (the device, the sound server, Home Assistant with an <code>[mqtt]</code> section, the voice chat with <code>[voip]</code>), how
-it is doing and why (for Home Assistant the broker's own words and what to check), with a button to its settings.</p>
+connection (the device, the sound server, Home Assistant with an <code>[mqtt]</code> section, the Home Assistant API while a part
+shows or sets an entity, the voice chat with <code>[voip]</code>), how it is doing and why (for Home Assistant the broker's own
+words and what to check, for its API e.g. "bad token" or "unreachable"), with a button to its settings.</p>
 <h2 id="select-and-play">Select and Play<a class="headerlink" href="#select-and-play" title="Permanent link">&para;</a></h2>
 <p>A bar above the drawing of the device switches what the mouse does on it:</p>
 <ul>
@@ -3344,7 +3368,8 @@ version).</p>
   of the slot: the parts that act the same whatever the slot shows. "Add a part" claims one (the fader, the encoder,
   Select, Rec, Solo, the meter, the color or the line of the LCD); only the parts an entry sets show. Each has the
   field it has on the page Channels. The bind button gives the fader, the encoder, the meter, the color and the line
-  to Home Assistant or to a program (the fader and the encoder also to a custom channel). A button takes its press,
+  to Home Assistant, to an entity of it or to a program (the fader and the encoder also to a custom channel). A
+  button takes its press (also a service of Home Assistant),
   its LED or both. Without a press, a press goes to what the slot shows; without an LED, the LED shows what the press
   does. When takes a condition of states and modes. Id names the entities in Home Assistant (shown once a part is in
   Home Assistant). "Add controls" adds another entry, e.g. for another <code>when</code>: the first whose <code>when</code> holds acts, and
@@ -3380,11 +3405,19 @@ there. It follows the values in the form at once, saved or not, at the step show
   hidden, and the other way around: a channel has one or the other;</li>
 <li>the meter as one choice: the level before the fader, after it, or off;</li>
 <li>a bind button next to each part that can be <a href="../../configuration/strip/bindings/">bound</a> (the fader, the encoder,
-  the LCD, the color, the meter): "Not bound", "Home Assistant" (with <code>[mqtt]</code>) or "A program". "A program" shows the
-  options of the program under the part, e.g. <code>set</code>, <code>watch</code>, <code>min</code> and <code>max</code>; a problem in one of them shows under
-  its row. Set back to "Not bound", the part does what its type says again;</li>
+  the LCD, the color, the meter, <code>present</code>): "Not bound", "Home Assistant" (with <code>[mqtt]</code>), "An entity" (with
+  <code>[homeassistant]</code>) or "A program". "A program" shows the options of the program under the part, e.g. <code>set</code>,
+  <code>watch</code>, <code>min</code> and <code>max</code>; "An entity" those of the <a href="../../configuration/strip/bindings/">entity</a>, e.g. <code>entity</code>,
+  <code>attribute</code>, <code>min</code>, <code>service</code>. A problem in one of them shows under its row. Set back to "Not bound", the part does
+  what its type says again;</li>
+<li>the field of an entity suggests the entities of Home Assistant (see <a href="#suggestions-from-home-assistant">below</a>), the
+  field of an attribute those of the entity picked, with their values now. An unset option says what the domain of
+  the entity does, e.g. "default: 255, of a light" for <code>max</code> of a light, or "default: light.turn_on, of a light" for
+  <code>service</code>. <code>data</code> is typed as an inline table, e.g. <code>{ brightness_pct = 50 }</code>;</li>
 <li>in the lists of a button's press, hold and LED on a channel page, typing <code>run: ...</code> or <code>watch: ...</code> binds the
-  button to a program. Places and pools take the words of the lists only;</li>
+  button to a program. <code>service:</code> (in the list of a press or a hold) calls a service of Home Assistant, <code>entity:</code> (in
+  the list of an LED) shows an entity: their options (the service, the entity, <code>data</code>, <code>attribute</code>) show under the
+  list. Places and pools take the words of the lists only;</li>
 <li>for choices, what the chosen value does (e.g. <code>recording</code> for the Rec LED), and each value says it as a tooltip in
   the list;</li>
 <li>the mouse wheel scrolls the page, also over a number or a choice: it never changes a value;</li>
@@ -3395,6 +3428,24 @@ there. It follows the values in the form at once, saved or not, at the step show
 <p><code>[mqtt]</code> can be added and removed on its page. Above its options, the page shows how the daemon's connection is
 doing (or that the daemon runs without the section, which it reads only when it starts), and "Test connection"
 connects once with the settings as they are in the editor, saved or not, and says what is wrong if that fails.</p>
+<p>The page "Home Assistant API" (<code>[homeassistant]</code>) does the same for the API of Home Assistant: how the daemon's
+connection is doing (it connects only while a part shows or sets an entity), and "Test connection", which logs in
+with the address and the token in the editor and says the version of Home Assistant and how many entities it has, or
+what is wrong: a token it refuses, an address where nothing answers. The entities it found are the suggestions then.</p>
+<h2 id="suggestions-from-home-assistant">Suggestions from Home Assistant<a class="headerlink" href="#suggestions-from-home-assistant" title="Permanent link">&para;</a></h2>
+<p>With <code>[homeassistant]</code>, the field of an entity suggests the entities of Home Assistant: the window reads them with the
+address and the token in the editor, saved or not, when a field of an entity shows, and again a minute later or with
+other settings. Each line has the icon of its domain, the name of the entity, its state now (e.g. <code>21.5 °C</code>) and
+below it its id. A click into the field or the focus opens the list inside the window; typing narrows it down, by any
+part of the id or the name. Up and Down move in it, Enter or Tab picks, Esc closes it. The field of an attribute
+suggests the attributes of the entity picked.</p>
+<p>Without suggestions, a line under the field says why: no <code>[homeassistant]</code>, a problem of its settings, or that the
+window can't reach Home Assistant (with what to check, and whether the daemon reaches it). "Settings" opens the page
+of the section. You can always type the id.</p>
+<p>The window connects on its own, with the token in the editor, not through the daemon. With <code>token_env</code>, the token is
+in the environment of the service, and the window has none: the test fails and there are no suggestions. Start the
+GUI with the variable set (e.g. <code>HA_TOKEN=... xtouch-daemon gui</code> for <code>token_env = "HA_TOKEN"</code>), or use
+<code>token_file</code>.</p>
 <h2 id="suggestions-from-the-sound-server">Suggestions from the sound server<a class="headerlink" href="#suggestions-from-the-sound-server" title="Permanent link">&para;</a></h2>
 <p>The GUI reads the sound server and suggests what it has. A click into a field opens the list, and typing narrows it
 down (by any part of a name or a description, or a pattern with <code>*</code> and <code>?</code>), with the parts that match highlighted;

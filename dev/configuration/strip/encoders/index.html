@@ -3034,9 +3034,12 @@ is idle too. An automation in Home Assistant decides what the number does, see
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span>
 </span></code></pre></div>
 <h2 id="a-value-of-your-own">A value of your own<a class="headerlink" href="#a-value-of-your-own" title="Permanent link">&para;</a></h2>
-<p>The encoder sets a value that programs of your own set and watch, e.g. the brightness of a screen. The fader still
-sets the volume. The options are those of a value in <a href="../bindings/">Bindings</a> (<code>set</code>, <code>watch</code>, <code>min</code>, <code>max</code>, <code>step</code>,
-<code>push</code>, <code>format</code>), and they are explained in <a href="../../channels/custom/#a-value">Custom channels</a>.</p>
+<p>The encoder sets a value that programs of your own set and watch, e.g. the brightness of a screen with
+<a href="https://github.com/markusressel/system-control">system-control</a> (<code>sysctrl</code>). The fader still sets the volume. The
+options are those of a value in <a href="../bindings/">Bindings</a> (<code>set</code>, <code>watch</code>, <code>min</code>, <code>max</code>, <code>step</code>, <code>push</code>, <code>format</code>), and
+they are explained in <a href="../../channels/custom/#a-value">Custom channels</a>.</p>
+<p>The encoder can also set an entity of Home Assistant, e.g. <code>encoder = { entity = "media_player.kitchen" }</code> for the
+volume of a speaker. See <a href="../bindings/#an-entity-of-home-assistant">An entity of Home Assistant</a>.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
