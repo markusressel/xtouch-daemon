@@ -1,6 +1,7 @@
 """
 The screenshots of the documentation (`just screenshot`): the GUI with a demo configuration and a device that shows
-it, and small pictures of a strip and of its parts (`controls/`), rendered offscreen. Nothing of the machine is used: no daemon, device, sound server or settings of the user.
+it, and small pictures of a strip and of its parts (`controls/`), rendered offscreen. Nothing of the machine is used:
+no daemon, device, sound server or settings of the user.
 
     uv run --extra gui python scripts/screenshot.py [OUT_DIR]
 """
