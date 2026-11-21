@@ -783,6 +783,8 @@
       
         
       
+        
+      
     
     
     
@@ -914,6 +916,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./custom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Custom channels
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -931,6 +960,8 @@
   
     
     
+      
+        
       
         
       
@@ -992,6 +1023,33 @@
     
   
   Encoders
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../strip/bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Bindings
 
     
   </span>
@@ -1599,6 +1657,8 @@
       
         
       
+        
+      
     
     
     
@@ -2036,6 +2096,33 @@
     
   
   Launching applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Bindings
 
     
   </span>
@@ -2647,6 +2734,8 @@
       
         
       
+        
+      
     
     
     
@@ -2717,6 +2806,10 @@ digits and <code>_</code>.</p>
 <td><code>homeassistant</code></td>
 <td><a href="../../guides/home-assistant/">Home Assistant</a></td>
 </tr>
+<tr>
+<td><code>custom</code></td>
+<td><a href="custom/">Custom channels</a></td>
+</tr>
 </tbody>
 </table>
 <p>The strips of <code>auto</code> (the next application that plays) and empty slots (<code>-</code>) are no channels: they are written in
@@ -2742,7 +2835,7 @@ into a place in a slot, for the strips they show; a place of <code>apps</code>, 
 <tr>
 <td><code>color</code></td>
 <td><code>"white"</code></td>
-<td>The LCD backlight: <code>off</code> (no backlight), <code>red</code>, <code>green</code>, <code>yellow</code>, <code>blue</code>, <code>magenta</code>, <code>cyan</code>, <code>white</code>. Dark while the strip has nothing to control, unless <code>lit_when_idle</code> is on.</td>
+<td>The LCD backlight: <code>off</code> (no backlight), <code>red</code>, <code>green</code>, <code>yellow</code>, <code>blue</code>, <code>magenta</code>, <code>cyan</code>, <code>white</code>, <code>"homeassistant"</code> or <code>{ watch }</code> (<a href="../strip/bindings/">Bindings</a>). Dark while the strip has nothing to control, unless <code>lit_when_idle</code> is on.</td>
 </tr>
 <tr>
 <td><code>lit_when_idle</code></td>
@@ -2752,7 +2845,7 @@ into a place in a slot, for the strips they show; a place of <code>apps</code>, 
 <tr>
 <td><code>meter</code></td>
 <td><code>true</code></td>
-<td>Whether this strip's LED meter shows the level (if <code>behavior.meters</code> is on).</td>
+<td>Whether this strip's LED meter shows the level (if <code>behavior.meters</code> is on). <code>"homeassistant"</code> or <code>{ watch, min, max }</code> show another level, see <a href="../strip/bindings/">Bindings</a>.</td>
 </tr>
 <tr>
 <td><code>meter_point</code></td>
@@ -2787,12 +2880,17 @@ into a place in a slot, for the strips they show; a place of <code>apps</code>, 
 <tr>
 <td><code>encoder</code></td>
 <td>depends on the type</td>
-<td>What the encoder does, see <a href="../strip/encoders/">Encoders</a>.</td>
+<td>What the encoder does: a mode, or a value of your own, see <a href="../strip/encoders/">Encoders</a>.</td>
 </tr>
 <tr>
 <td><code>fader</code></td>
 <td><code>"volume"</code></td>
-<td><code>"homeassistant"</code> hands the fader to Home Assistant, see <a href="../strip/encoders/#fader-homeassistant">Encoders</a>.</td>
+<td><code>"homeassistant"</code> hands the fader to Home Assistant, see <a href="../strip/encoders/#fader-homeassistant">Encoders</a>; a value of your own (<code>{ set, watch, ... }</code>) binds it to programs, see <a href="../strip/bindings/">Bindings</a>. Either gives the volume to the encoder.</td>
+</tr>
+<tr>
+<td><code>lcd</code></td>
+<td>what the type shows</td>
+<td>The second line of the LCD: <code>"homeassistant"</code> or <code>{ watch }</code>, see <a href="../strip/bindings/">Bindings</a>.</td>
 </tr>
 </tbody>
 </table>

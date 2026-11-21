@@ -19,10 +19,10 @@
       
       
       
-        <link rel="prev" href="../../channels/people/">
+        <link rel="prev" href="../../channels/custom/">
       
       
-        <link rel="next" href="../leds/">
+        <link rel="next" href="../bindings/">
       
       
         
@@ -781,6 +781,8 @@
       
         
       
+        
+      
     
     
     
@@ -912,6 +914,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../channels/custom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Custom channels
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -931,6 +960,8 @@
   
     
     
+      
+        
       
         
       
@@ -1098,6 +1129,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-value-of-your-own" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A value of your own
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fader-homeassistant" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1112,6 +1154,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Bindings
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1712,6 +1781,8 @@
       
         
       
+        
+      
     
     
     
@@ -2149,6 +2220,33 @@
     
   
   Launching applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/design/bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Bindings
 
     
   </span>
@@ -2641,6 +2739,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-value-of-your-own" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A value of your own
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fader-homeassistant" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2737,6 +2846,8 @@
       
         
       
+        
+      
     
     
     
@@ -2774,7 +2885,8 @@
 
 
 <h1 id="encoders">Encoders<a class="headerlink" href="#encoders" title="Permanent link">&para;</a></h1>
-<p>The fader of an audio strip sets the volume, unless it is in <a href="#fader-homeassistant">Home Assistant</a>. The encoder
+<p>The fader of an audio strip sets the volume, unless it is in <a href="#fader-homeassistant">Home Assistant</a> or
+<a href="../bindings/">bound</a> to a value of your own. The encoder
 does what the strip's <code>encoder</code> option says, and its <a href="../leds/">LED</a> ring shows it. After a turn or a push, the second line of
 the LCD shows the exact value for 2 seconds instead of the volume; moving the fader ends that.</p>
 <table>
@@ -2823,6 +2935,13 @@ the LCD shows the exact value for 2 seconds instead of the volume; moving the fa
 <td>The number.</td>
 <td>The number (<code>42%</code>).</td>
 </tr>
+<tr>
+<td><code>{ set, watch, ... }</code></td>
+<td>Changes a <a href="#a-value-of-your-own">value of your own</a> by its <code>step</code>.</td>
+<td>Sets its <code>push</code>.</td>
+<td>The value, lit from the left.</td>
+<td>The value, in its <code>format</code>.</td>
+</tr>
 </tbody>
 </table>
 <p>Which channel types have which modes, the default first:</p>
@@ -2853,11 +2972,12 @@ the LCD shows the exact value for 2 seconds instead of the volume; moving the fa
 </tbody>
 </table>
 <p>The strips of people have no encoder. On a slot, whatever it shows, <code>[controls]</code> can give the encoder to Home
-Assistant: <code>5 = { encoder = "homeassistant" }</code> (see <a href="../../slots/#controls-and-the-chord">Controls</a>), or to a program of
-your own, e.g. for the brightness of a screen (see <a href="../../slots/#commands">Commands</a>).</p>
+Assistant: <code>5 = { encoder = "homeassistant" }</code> (see <a href="../../slots/#controls-and-the-chord">Controls</a>), or to the value of
+a <a href="../../channels/custom/">custom channel</a>, e.g. the brightness of a screen: <code>5 = { encoder = { channel = "screen" } }</code>.</p>
 <p>A mode that the type does not have is an error, e.g.
 <code>channel.web: encoder: pick is not for apps strips (media, volume, balance, homeassistant)</code>. With
-<a href="#fader-homeassistant"><code>fader = "homeassistant"</code></a> the default is <code>volume</code>, and it is the only mode.
+<a href="#fader-homeassistant"><code>fader = "homeassistant"</code></a>, or a fader bound to a value, the default is <code>volume</code>, and it is
+the only mode.
 <code>xtouch-daemon check-config</code> shows the encoder of every channel.</p>
 <p><code>homeassistant</code> channels have no <code>encoder</code> option: their encoder is a Home Assistant entity, see
 <a href="../../../guides/home-assistant/#entities">Home Assistant</a>.</p>
@@ -2913,15 +3033,25 @@ is idle too. An automation in Home Assistant decides what the number does, see
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.usb-*"</span><span class="w">  </span><span class="c1"># number.xtouch_desk_encoder</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span>
 </span></code></pre></div>
+<h2 id="a-value-of-your-own">A value of your own<a class="headerlink" href="#a-value-of-your-own" title="Permanent link">&para;</a></h2>
+<p>The encoder sets a value that programs of your own set and watch, e.g. the brightness of a screen. The fader still
+sets the volume. The options are those of a value in <a href="../bindings/">Bindings</a> (<code>set</code>, <code>watch</code>, <code>min</code>, <code>max</code>, <code>step</code>,
+<code>push</code>, <code>format</code>), and they are explained in <a href="../../channels/custom/#a-value">Custom channels</a>.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.out]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">push</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"{value:.0%}"</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
 <h2 id="fader-homeassistant"><code>fader = "homeassistant"</code><a class="headerlink" href="#fader-homeassistant" title="Permanent link">&para;</a></h2>
 <p>The other way round: the fader belongs to Home Assistant (<code>number.&lt;ns&gt;_&lt;id&gt;_fader</code>, with <code>fader_touched</code> and
-<code>fader_released</code> events), and the encoder sets the volume in fine steps. The LCD still shows the volume. Both need the
+<code>fader_released</code> events), and the encoder sets the volume in fine steps. The LCD still shows the volume. A fader
+bound to a <a href="../bindings/">value of your own</a> does the same: the encoder sets the volume. Both need the
 <a href="../../../guides/home-assistant/#mqtt"><code>[mqtt]</code></a> section.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.music]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"spotify"</span><span class="p">]</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Music"</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">      </span><span class="c1"># number.xtouch_music_fader; encoder: volume</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[channel.music]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"spotify"</span><span class="p">]</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Music"</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">      </span><span class="c1"># number.xtouch_music_fader; encoder: volume</span>
 </span></code></pre></div>
 
 
@@ -2960,7 +3090,7 @@ is idle too. An automation in Home Assistant decides what the number does, see
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../channels/people/" class="md-footer__link md-footer__link--prev" aria-label="Previous: People and the voice chat">
+          <a href="../../channels/custom/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Custom channels">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2970,20 +3100,20 @@ is idle too. An automation in Home Assistant decides what the number does, see
                 Previous
               </span>
               <div class="md-ellipsis">
-                People and the voice chat
+                Custom channels
               </div>
             </div>
           </a>
         
         
           
-          <a href="../leds/" class="md-footer__link md-footer__link--next" aria-label="Next: Buttons and LEDs">
+          <a href="../bindings/" class="md-footer__link md-footer__link--next" aria-label="Next: Bindings">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Buttons and LEDs
+                Bindings
               </div>
             </div>
             <div class="md-footer__button md-icon">

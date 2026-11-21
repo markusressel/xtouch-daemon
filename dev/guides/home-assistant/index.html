@@ -927,6 +927,8 @@
       
         
       
+        
+      
     
     
     
@@ -1058,6 +1060,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/channels/custom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Custom channels
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1075,6 +1104,8 @@
   
     
     
+      
+        
       
         
       
@@ -1136,6 +1167,33 @@
     
   
   Encoders
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/strip/bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Bindings
 
     
   </span>
@@ -1743,6 +1801,8 @@
       
         
       
+        
+      
     
     
     
@@ -2180,6 +2240,33 @@
     
   
   Launching applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Bindings
 
     
   </span>
@@ -2932,8 +3019,9 @@ and its "Test connection" button tries settings before they are saved.</p>
 <p>The entities belong to the channel, not to a slot: they stay in Home Assistant whichever slot shows the channel, and
 while none does.</p>
 <h2 id="audio-strips-with-home-assistant-controls">Audio strips with Home Assistant controls<a class="headerlink" href="#audio-strips-with-home-assistant-controls" title="Permanent link">&para;</a></h2>
-<p>An <code>output</code>, <code>input</code> or <code>apps</code> channel with <code>encoder = "homeassistant"</code> or <code>fader = "homeassistant"</code> keeps the
-volume on the other control and gets these entities of the <a href="#entities">list below</a>:</p>
+<p>An <code>output</code>, <code>input</code>, <code>apps</code> or <code>auto</code> channel can give any of its parts to Home Assistant (see
+<a href="../../configuration/strip/bindings/">Bindings</a>). With <code>encoder = "homeassistant"</code> or <code>fader = "homeassistant"</code> it
+keeps the volume on the other control. Each part gets its entity of the <a href="#entities">list below</a>:</p>
 <table>
 <thead>
 <tr>
@@ -2951,13 +3039,31 @@ volume on the other control and gets these entities of the <a href="#entities">l
 <td><code>number.&lt;ns&gt;_&lt;id&gt;_fader</code>, and <code>event.&lt;ns&gt;_&lt;id&gt;_buttons</code> with <code>fader_touched</code>, <code>fader_released</code>.</td>
 </tr>
 <tr>
+<td><code>lcd = "homeassistant"</code></td>
+<td><code>text.&lt;ns&gt;_&lt;id&gt;_bottom</code>: the second line of the LCD.</td>
+</tr>
+<tr>
+<td><code>color = "homeassistant"</code></td>
+<td><code>select.&lt;ns&gt;_&lt;id&gt;_color</code>.</td>
+</tr>
+<tr>
+<td><code>meter = "homeassistant"</code></td>
+<td><code>number.&lt;ns&gt;_&lt;id&gt;_meter</code>.</td>
+</tr>
+<tr>
 <td><code>select = { press = "homeassistant" }</code> (also <code>rec</code>, <code>solo</code>)</td>
 <td><code>event.&lt;ns&gt;_&lt;id&gt;_buttons</code> with <code>select_pressed</code>, <code>select_released</code>.</td>
 </tr>
+<tr>
+<td><code>select = { led = "homeassistant" }</code> (also <code>rec</code>, <code>solo</code>)</td>
+<td><code>select.&lt;ns&gt;_&lt;id&gt;_select_led</code>.</td>
+</tr>
 </tbody>
 </table>
-<p>The LCD and the LEDs stay with PipeWire, and so do the buttons unless they say <code>homeassistant</code> (see
-<a href="../../configuration/strip/leds/#buttons">Buttons</a>). The channel's id names the entities, its <code>label</code> starts their
+<p>With <code>[mqtt]</code>, a fader or an encoder bound to a program of your own is a number too: from the binding's <code>min</code> to
+its <code>max</code>, and a change there runs <code>set</code>. The parts that are not bound stay with PipeWire (see
+<a href="../../configuration/strip/leds/#buttons">Buttons</a>). A <a href="../../configuration/channels/custom/"><code>custom</code> channel</a> takes
+the same parts, and Mute is a button like the others there. The channel's id names the entities, its <code>label</code> starts their
 names. See <a href="../../configuration/strip/encoders/#homeassistant">Encoders</a> for the details.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.desk]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
@@ -2967,8 +3073,9 @@ names. See <a href="../../configuration/strip/encoders/#homeassistant">Encoders<
 </span></code></pre></div>
 <h2 id="controls-of-a-slot">Controls of a slot<a class="headerlink" href="#controls-of-a-slot" title="Permanent link">&para;</a></h2>
 <p>A control of a slot can belong to Home Assistant whatever the slot shows, with
-<a href="../../configuration/slots/#controls-and-the-chord"><code>[controls]</code></a>: the fader, the encoder (turn and push), and the
-Select, Rec and Solo buttons (an event per press, and a select for the LED). The entities are named by the slot
+<a href="../../configuration/slots/#controls-and-the-chord"><code>[controls]</code></a>: the fader, the encoder (turn and push), the
+Select, Rec and Solo buttons (an event per press, and a select for the LED), the meter, the color and the second line
+of the LCD. The entities are named by the slot
 (<code>number.xtouch_slot_6_fader</code>), or by <code>id</code>:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[controls]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fader</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"desk"</span><span class="w"> </span><span class="p">}</span><span class="w">      </span><span class="c1"># number.xtouch_desk_fader</span>

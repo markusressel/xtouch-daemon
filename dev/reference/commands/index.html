@@ -779,6 +779,8 @@
       
         
       
+        
+      
     
     
     
@@ -910,6 +912,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/channels/custom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Custom channels
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -927,6 +956,8 @@
   
     
     
+      
+        
       
         
       
@@ -988,6 +1019,33 @@
     
   
   Encoders
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/strip/bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Bindings
 
     
   </span>
@@ -1809,6 +1867,8 @@
       
         
       
+        
+      
     
     
     
@@ -2246,6 +2306,33 @@
     
   
   Launching applications
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design/bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Bindings
 
     
   </span>
@@ -3073,6 +3160,9 @@ Without a file at the default path it checks the defaults. Example output:</p>
 <p>A channel with <a href="../../configuration/channels/devices/#choices"><code>choices</code></a> lists them, e.g.
 <code>output: Phones, Speaker or Buds (Select switches)</code>. A channel whose meter shows the level after its fader
 (<code>meter_point = "post_fader"</code>, see <a href="../../configuration/channels/#meters">Meters</a>) says <code>meter post-fader</code>.</p>
+<p>A <a href="../../configuration/channels/custom/">custom channel</a> describes each bound part with its programs; with
+<code>targets</code>, a line per target follows with the programs as they run for it, e.g.
+<code>Left: fader.set sysctrl display redshift brightness -d DisplayPort-1 -b '{value}'</code>.</p>
 <p>A table of more than 12 rows shows the situations that differ in one thing; <code>--all</code> shows every combination.</p>
 <p>A file with errors names the place of each one and its line in the file, e.g.
 <code>channel.mic (line 12): label: String should have at most 7 characters</code>, with what is likely meant where it can be
@@ -3299,7 +3389,8 @@ package (systemd prefers it), e.g. one written before by a checkout; the command
 </span></code></pre></div>
 <p>Records, every <code>--interval</code> seconds, what plays and records on the sound server, the devices, the running processes
 (those of the presets, and <code>--process</code>) and the voice chat of the running daemon, and appends a line of JSON to LOG
-when that changed. Runs until interrupted (Ctrl+C). <code>simulate FILE --replay LOG</code> replays it.</p>
+when that changed. <code>absent</code> lists the custom channels whose <code>present</code> says they are not there. Runs until
+interrupted (Ctrl+C). <code>simulate FILE --replay LOG</code> replays it.</p>
 
 
 

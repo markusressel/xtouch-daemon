@@ -19,6 +19,9 @@
         <loc>https://markusressel.github.io/xtouch-daemon/latest/configuration/channels/applications/</loc>
       </url>
       <url>
+        <loc>https://markusressel.github.io/xtouch-daemon/latest/configuration/channels/custom/</loc>
+      </url>
+      <url>
         <loc>https://markusressel.github.io/xtouch-daemon/latest/configuration/channels/devices/</loc>
       </url>
       <url>
@@ -29,6 +32,9 @@
       </url>
       <url>
         <loc>https://markusressel.github.io/xtouch-daemon/latest/configuration/slots/</loc>
+      </url>
+      <url>
+        <loc>https://markusressel.github.io/xtouch-daemon/latest/configuration/strip/bindings/</loc>
       </url>
       <url>
         <loc>https://markusressel.github.io/xtouch-daemon/latest/configuration/strip/encoders/</loc>
@@ -53,6 +59,9 @@
       </url>
       <url>
         <loc>https://markusressel.github.io/xtouch-daemon/latest/development/architecture/testing/</loc>
+      </url>
+      <url>
+        <loc>https://markusressel.github.io/xtouch-daemon/latest/development/design/bindings/</loc>
       </url>
       <url>
         <loc>https://markusressel.github.io/xtouch-daemon/latest/development/design/channel-form/</loc>
