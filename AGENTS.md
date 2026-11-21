@@ -28,7 +28,7 @@ uv, src layout. Start with [docs/development/architecture/index.md](docs/develop
 
 ```shell
 uv sync
-just test            # uv run pytest -n auto (in parallel); one test: uv run pytest tests/<package>/test_x.py -k name
+just test            # uv run pytest -n auto --dist worksteal (in parallel); one test: uv run pytest tests/<package>/test_x.py -k name
 just coverage        # in parallel too, fails below 90 %
 just lint            # ruff check + ruff format --check + codespell
 just typecheck       # pyright

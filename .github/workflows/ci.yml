@@ -52,7 +52,7 @@ jobs:
       - name: Type check
         run: uv run pyright
       - name: Test
-        run: uv run pytest -n auto --cov --cov-report=term-missing
+        run: uv run pytest -n auto --dist worksteal --cov --cov-report=term-missing
       - name: Coverage without the Qt widgets
         run: uv run coverage report --omit="*/gui/qt/*" --fail-under=98 --format=total
       - name: Check the packaging scripts
