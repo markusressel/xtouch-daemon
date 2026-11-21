@@ -17,12 +17,12 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from xtouch_daemon.config.base import Meanings
-from xtouch_daemon.config.bindings import ColorWord
+from xtouch_daemon.config.bindings import HOME_ASSISTANT, ValueBinding, WatchBinding
 from xtouch_daemon.config.buttons import ActionValue, ButtonConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.names import Presets
 from xtouch_daemon.config.presets import Kind as PresetKind
-from xtouch_daemon.config.strips import STRIP_MODELS
+from xtouch_daemon.config.strips import CUSTOM_ACTIONS, CUSTOM_LEDS, STRIP_MODELS
 from xtouch_daemon.config.values import ENCODERS, ColorName
 
 
@@ -46,7 +46,15 @@ class Kind(StrEnum):
     BUTTON = "button"
     """What a button does (`ButtonConfig`): a table of its press, hold and LED (`Option.columns`)."""
     ACTION = "action"
-    """An action of a button: a word of its choices, `mode:<id>`, `toggle:<state>`, or a table with `launch`."""
+    """
+    An action of a button: a word of its choices, `mode:<id>`, `toggle:<state>`, or a table with `launch` or `run`.
+    """
+    BINDING = "binding"
+    """
+    A part of a strip that can be bound (docs/development/design/bindings.md): its words (`Option.base`: a choice, a
+    switch or a color, or none), `homeassistant` (`Option.home_assistant`), or a table of programs of your own
+    (`Option.columns`: e.g. `set`, `watch`, `min`, `max`).
+    """
 
 
 @dataclass(frozen=True)
@@ -70,6 +78,15 @@ class Option:
     """What the choices mean (`Meanings` of the option), as pairs of the value and its meaning."""
     presets: PresetKind | None = None
     """For a list of names that may have presets (`@browsers`): what its names are matched against."""
+    base: Kind | None = None
+    """
+    For `BINDING`: the kind of field of its words (`CHOICE`, `SWITCH` or `COLOR`), None for a part that has no words
+    but `homeassistant` (it is a binding or nothing).
+    """
+    home_assistant: bool = False
+    """For `BINDING`: whether the part can belong to Home Assistant (`"homeassistant"`)."""
+    binding: str = ""
+    """For `BINDING`: what a table of it is (the docstring of its model), e.g. "A value that programs ... set"."""
 
     @property
     def title(self) -> str:
@@ -102,24 +119,38 @@ def _unwrap(annotation: Any) -> tuple[Any, list[Any]]:
     constraints: list[Any] = []
     while annotation != ActionValue:
         if get_origin(annotation) in (Union, types.UnionType):
-            choices = [arg for arg in get_args(annotation) if arg is not type(None)]
-            # bindings: done by the GUI (a part that is a word or a binding: the form has the word for now)
-            words = [arg for arg in choices if not _is_model(arg)]
-            annotation = words[0] if words else choices[0]
+            (annotation,) = [arg for arg in get_args(annotation) if arg is not type(None)]
         elif get_origin(annotation) is Annotated:
             annotation, *metadata = get_args(annotation)
             for item in metadata:
                 constraints.extend(item.metadata if isinstance(item, FieldInfo) else [item])
         else:
             break
-    # bindings: done by the GUI (a color or "homeassistant": the colors for now)
-    return (ColorName if annotation == ColorWord else annotation), constraints
+    return annotation, constraints
 
 
-def _is_model(annotation: Any) -> bool:
-    while get_origin(annotation) is Annotated:
-        annotation = get_args(annotation)[0]
-    return isinstance(annotation, type) and issubclass(annotation, BaseModel)
+def _branches(annotation: Any, constraints: tuple[Any, ...] = ()) -> list[tuple[Any, tuple[Any, ...]]]:
+    """The types a union (of `Annotated` ones) takes, each with the constraints that came with it."""
+    if get_origin(annotation) is Annotated:
+        inner, *metadata = get_args(annotation)
+        found = [item for each in metadata for item in (each.metadata if isinstance(each, FieldInfo) else [each])]
+        return _branches(inner, (*constraints, *found))
+    if get_origin(annotation) in (Union, types.UnionType):
+        return [branch for arg in get_args(annotation) for branch in _branches(arg, constraints)]
+    return [(annotation, constraints)]
+
+
+def _is_binding(annotation: Any) -> bool:
+    return isinstance(annotation, type) and issubclass(annotation, ValueBinding | WatchBinding)
+
+
+def _binding(annotation: Any) -> tuple[type[BaseModel], list[tuple[Any, tuple[Any, ...]]]] | None:
+    """For a part that can be bound: the model of its tables, and its words with their constraints; else None."""
+    branches = [branch for branch in _branches(annotation) if branch[0] is not type(None)]
+    models = [kind for kind, _ in branches if _is_binding(kind)]
+    if not models:
+        return None
+    return models[0], [branch for branch in branches if not _is_binding(branch[0])]
 
 
 def _table_model(annotation: Any) -> type[BaseModel] | None:
@@ -160,28 +191,15 @@ def _kind(annotation: Any) -> Kind:
 
 
 def option(name: str, field: FieldInfo) -> Option:
+    if (binding := _binding(field.annotation)) is not None:
+        return _binding_option(name, field, *binding)
     annotation, constraints = _unwrap(field.annotation)
     constraints += field.metadata
     kind = _kind(annotation)
     if kind == Kind.NUMBERS:
         # the bounds of each number
         constraints += _unwrap(get_args(annotation)[0])[1]
-    bounds: dict[str, Any] = {}
-    for constraint in constraints:
-        match constraint:
-            case Meanings(meanings=meanings):
-                bounds["meanings"] = tuple(meanings.items())
-            case Presets(kind=preset_kind):
-                bounds["presets"] = preset_kind
-            case annotated_types.Ge(ge=value):
-                bounds["minimum"] = value
-            case annotated_types.Le(le=value):
-                bounds["maximum"] = value
-            case annotated_types.MaxLen(max_length=value) if kind == Kind.TEXT:
-                bounds["max_length"] = value
-            case _:
-                # the remaining ones are checked by validation only, e.g. the pattern of a label
-                pass
+    bounds = _bounds(constraints, kind)
     default = None if field.default is PydanticUndefined or kind == Kind.BUTTON else field.default
     columns = options(ButtonConfig) if kind == Kind.BUTTON else ()
     return Option(
@@ -196,21 +214,73 @@ def option(name: str, field: FieldInfo) -> Option:
     )
 
 
-def options(model: type[BaseModel], skip: tuple[str, ...] = ()) -> tuple[Option, ...]:
-    """The options of a model in the order it declares them."""
-    # an option named like a word of Python has an alias (`from_` is `from`)
-    return tuple(
-        option(field.alias or name, field)
-        for name, field in model.model_fields.items()
-        if name not in skip and not _binding_only(field)
+def _bounds(constraints: list[Any], kind: Kind) -> dict[str, Any]:
+    """What the constraints of an option say: what its choices mean, its presets, its bounds, its longest text."""
+    bounds: dict[str, Any] = {}
+    for constraint in constraints:
+        match constraint:
+            case Meanings(meanings=meanings):
+                # several of them (of the words of a part) add up
+                bounds["meanings"] = tuple((dict(bounds.get("meanings", ())) | dict(meanings)).items())
+            case Presets(kind=preset_kind):
+                bounds["presets"] = preset_kind
+            case annotated_types.Ge(ge=value):
+                bounds["minimum"] = value
+            case annotated_types.Le(le=value):
+                bounds["maximum"] = value
+            case annotated_types.MaxLen(max_length=value) if kind == Kind.TEXT:
+                bounds["max_length"] = value
+            case _:
+                # the remaining ones are checked by validation only, e.g. the pattern of a label
+                pass
+    return bounds
+
+
+def _words(annotation: Any) -> tuple[Any, ...]:
+    """The values of a `Literal` (of `Literal`s), `(True, False)` for `bool`."""
+    if annotation is bool:
+        return (True, False)
+    return tuple(word for arg in get_args(annotation) for word in (_words(arg) if get_origin(arg) else (arg,)))
+
+
+def _binding_option(
+    name: str, field: FieldInfo, model: type[BaseModel], words: list[tuple[Any, tuple[Any, ...]]]
+) -> Option:
+    """
+    A part that can be bound: its words without `homeassistant` are a switch (`bool`), colors or a choice (a choice
+    keeps `homeassistant` among its words, as it was before bindings); the columns are the options of its tables.
+    """
+    values = [word for kind, _ in words for word in _words(kind)]
+    others = tuple(word for word in values if word != HOME_ASSISTANT)
+    base: Kind | None
+    if True in others:
+        base, choices = Kind.SWITCH, ()
+    elif others and set(others) <= set(get_args(ColorName)):
+        base, choices = Kind.COLOR, others
+    elif others:
+        base, choices = Kind.CHOICE, tuple(values)
+    else:
+        base, choices = None, ()
+    constraints = [item for _, found in words for item in found] + list(field.metadata)
+    return Option(
+        name=name,
+        kind=Kind.BINDING,
+        help=field.description or "",
+        default=None if field.default is PydanticUndefined else field.default,
+        required=field.is_required(),
+        choices=choices,
+        columns=options(model),
+        base=base,
+        home_assistant=HOME_ASSISTANT in values,
+        binding=" ".join((model.__doc__ or "").split()),
+        **_bounds(constraints, Kind.BINDING),
     )
 
 
-def _binding_only(field: FieldInfo) -> bool:
-    """Whether an option is a binding only (`present`): the forms have no field for them yet."""
-    # bindings: done by the GUI
-    annotation, _ = _unwrap(field.annotation)
-    return _is_model(annotation) and annotation is not ButtonConfig
+def options(model: type[BaseModel], skip: tuple[str, ...] = ()) -> tuple[Option, ...]:
+    """The options of a model in the order it declares them."""
+    # an option named like a word of Python has an alias (`from_` is `from`)
+    return tuple(option(field.alias or name, field) for name, field in model.model_fields.items() if name not in skip)
 
 
 @dataclass(frozen=True)
@@ -296,35 +366,54 @@ from the top down. Not the order of the models, which is that of the configurati
 def strip_options(strip_type: str) -> tuple[Option, ...]:
     """
     The options of a strip of the type, without `type` itself, and only the encoders it has, in the order of
-    `STRIP_OPTION_ORDER`.
+    `STRIP_OPTION_ORDER`. The buttons of a `custom` channel offer only what they can do there.
     """
     return tuple(
         sorted(
-            (
-                (
-                    dataclasses.replace(option, choices=ENCODERS[strip_type])
-                    if option.name == "encoder" and strip_type in ENCODERS
-                    else option
-                )
-                for option in options(strip_models()[strip_type], skip=("type",))
-            ),
+            (_of_type(option, strip_type) for option in options(strip_models()[strip_type], skip=("type",))),
             key=lambda option: STRIP_OPTION_ORDER.index(option.name),
         )
     )
+
+
+def _of_type(option: Option, strip_type: str) -> Option:
+    if option.name == "encoder" and strip_type in ENCODERS:
+        return dataclasses.replace(option, choices=ENCODERS[strip_type])
+    if option.kind == Kind.BUTTON and strip_type == "custom":
+        allowed = {"press": CUSTOM_ACTIONS, "hold": CUSTOM_ACTIONS, "led": CUSTOM_LEDS}
+        columns = tuple(
+            dataclasses.replace(
+                column,
+                choices=tuple(choice for choice in column.choices if choice in allowed[column.name]),
+                meanings=tuple(meaning for meaning in column.meanings if meaning[0] in allowed[column.name]),
+            )
+            for column in option.columns
+        )
+        return dataclasses.replace(option, columns=columns)
+    return option
 
 
 def look_options(strip_type: str, allowed: frozenset[str]) -> tuple[Option, ...]:
     """
     The options of a strip of the type that a place or a built-in pool takes (`allowed`, see
     `slots.model.place_options()`), none of them required: the encoder without `homeassistant`, which is a control of
-    the slot (`[controls]`).
+    the slot (`[controls]`). A part that can be bound takes its words only there: bindings belong to the channel.
     """
     return tuple(
-        dataclasses.replace(
-            option,
-            required=False,
-            choices=tuple(choice for choice in option.choices if choice != "homeassistant"),
+        _words_only(
+            dataclasses.replace(
+                option,
+                required=False,
+                choices=tuple(choice for choice in option.choices if choice != "homeassistant"),
+            )
         )
         for option in strip_options(strip_type)
-        if option.name in allowed
+        if option.name in allowed and (option.kind != Kind.BINDING or option.base is not None)
     )
+
+
+def _words_only(option: Option) -> Option:
+    """A part that can be bound as the field of its words."""
+    if option.kind != Kind.BINDING or option.base is None:
+        return option
+    return dataclasses.replace(option, kind=option.base, base=None, columns=(), home_assistant=False, binding="")

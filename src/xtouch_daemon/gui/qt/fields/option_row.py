@@ -39,6 +39,7 @@ from xtouch_daemon.gui.qt.fields.basics import (
     label,
     set_help,
 )
+from xtouch_daemon.gui.qt.fields.binding import BindingField
 from xtouch_daemon.gui.qt.fields.buttons import ButtonField
 from xtouch_daemon.gui.qt.fields.chips import Chips
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Switch
@@ -218,7 +219,8 @@ class OptionRow(QWidget):
             self.top.addWidget(self.reset, 1, 1)
         else:
             # a list of entries: its name and reset at the top, not beside its middle
-            top = Qt.AlignmentFlag.AlignTop if self.option.kind in (Kind.TABLES, Kind.BUTTON) else Qt.AlignmentFlag(0)
+            tall = (Kind.TABLES, Kind.BUTTON, Kind.BINDING)
+            top = Qt.AlignmentFlag.AlignTop if self.option.kind in tall else Qt.AlignmentFlag(0)
             self.title.setFixedWidth(self.title_width)
             self.top.addWidget(self.title, 0, 0, top)
             self.top.addWidget(self.field, 0, 1)
@@ -253,6 +255,11 @@ class OptionRow(QWidget):
                 self.spin.setDecimals(1)
                 self.spin.setSingleStep(0.5)
                 low = option.minimum or 0
+                if option.minimum is None:
+                    # a number of your own (e.g. `min` of a binding): any sign, finer, steps after its size
+                    low = -1_000_000
+                    self.spin.setDecimals(3)
+                    self.spin.setStepType(QDoubleSpinBox.StepType.AdaptiveDecimalStepType)
                 if option.default is None:
                     # a step below the minimum is "not set", shown as text
                     self._unset = low - 0.5
@@ -303,6 +310,21 @@ class OptionRow(QWidget):
                 self.buttons.changed.connect(self._edit)
                 self.input = self.buttons
                 return self.buttons
+            case Kind.BINDING:
+                self.binding = BindingField(option, self._placeholder)
+                self.binding.changed.connect(self._edit)
+                # the field of the words, by the name it has without bindings
+                match option.base:
+                    case Kind.CHOICE:
+                        self.combo = self.binding.combo
+                    case Kind.SWITCH:
+                        self.switch = self.binding.switch
+                    case Kind.COLOR:
+                        self.colors = self.binding.colors
+                    case _:
+                        pass
+                self.input = self.binding
+                return self.binding
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -423,6 +445,9 @@ class OptionRow(QWidget):
                     self.tables.show_values([dict(table) for table in tables if isinstance(table, dict)])
                 case Kind.BUTTON:
                     self.buttons.show_value(value)
+                case Kind.BINDING:
+                    self.binding.show_value(value)
+                    self._show_meaning()
                 case _ as unreachable:
                     assert_never(unreachable)
         finally:
@@ -437,15 +462,21 @@ class OptionRow(QWidget):
             value = None
         self._put(value)
         self.reset.setVisible(self.resettable and value is not None and not self.option.required)
-        if self.option.kind == Kind.CHOICE:
+        if self.option.kind in (Kind.CHOICE, Kind.BINDING):
             self._show_meaning()
         self.edited.emit()
 
     def _show_meaning(self) -> None:
         """What the chosen value means; while none is chosen, what the default (the placeholder) means."""
-        value = self.combo.currentText() if self.combo.currentIndex() >= 0 else None
-        if value is None and self._placeholder:
-            value = self._placeholder()
+        if self.option.kind == Kind.BINDING:
+            # a word of a list, or Home Assistant: switches and colors say it themselves
+            value = self.binding.word()
+            if self.option.base != Kind.CHOICE and value != "homeassistant":
+                value = None
+        else:
+            value = self.combo.currentText() if self.combo.currentIndex() >= 0 else None
+            if value is None and self._placeholder:
+                value = self._placeholder()
         meaning = self.option.meaning(value)
         set_help(self.meaning, f"`{value}`: {meaning}" if meaning else "")
         self.meaning.setVisible(bool(meaning))

@@ -141,9 +141,101 @@ def test_a_button_runs_a_program_of_your_own():
     assert captions(frames)[-1] == "Solo pressed (runs reset): all dark"
 
 
-def test_the_encoder_of_a_custom_channel_sets_its_value():
-    frames = scene("encoder", strip("custom", label="Screen"))
-    assert [frame.state.text for frame in frames] == [("Screen", "40"), ("Screen", "45"), ("Screen", "50")]
+BRIGHTNESS = {"set": "sysctrl brightness -b {value}", "min": 0.1, "max": 1.0, "format": "{value:.0%}"}
+
+
+def test_the_encoder_of_a_custom_channel_sets_the_value_of_its_fader():
+    frames = scene("encoder", strip("custom", label="Screen", fader=BRIGHTNESS))
+    assert [frame.state.text for frame in frames] == [("Screen", "55%"), ("Screen", "56%"), ("Screen", "57%")]
+    assert captions(frames)[0] == "Turned right: 55%, set by sysctrl"
+    assert frames[0].state.ring <= frames[2].state.ring
+    # one of its own, with its step and push
+    own = {**BRIGHTNESS, "step": 0.1, "push": 1.0}
+    frames = scene("encoder", strip("custom", label="Screen", fader=BRIGHTNESS, encoder=own))
+    assert [frame.state.text[1] for frame in frames] == ["55%", "65%", "75%", "100%"]
+    assert captions(frames)[-1] == "Pushed: 100%"
+    # nothing to set
+    assert captions(scene("encoder", strip("custom"))) == ["Turned: nothing, the encoder is not bound"]
+    homeassistant = scene("encoder", strip("custom", encoder="homeassistant"))
+    assert captions(homeassistant)[-1] == "Pushed: an event in Home Assistant"
+
+
+def test_an_audio_encoder_bound_to_a_program_steps_by_the_encoder_step():
+    frames = scene("encoder", strip("output", encoder={"set": "light {value}", "format": "{value:.0f}"}))
+    assert [frame.state.text[1] for frame in frames] == ["50", "51", "52"]
+    # a broken table: the default of the type
+    assert captions(scene("encoder", strip("output", encoder={"set": "light"})))[0] == "Centered"
+
+
+def test_a_fader_bound_to_a_program_shows_its_value():
+    frames = scene("fader", strip("custom", label="Screen", fader=BRIGHTNESS, meter={"watch": "cpu-load --watch"}))
+    assert captions(frames) == [
+        "Bottom: 10%, set by sysctrl; meter: each number cpu-load prints",
+        "Middle: 55%, set by sysctrl; meter: each number cpu-load prints",
+        "Top: 100%, set by sysctrl; meter: each number cpu-load prints",
+    ]
+    assert [frame.state.fader for frame in frames] == [0.0, 0.5, 1.0]
+    assert {frame.state.meter for frame in frames} == {LEVEL}
+    assert captions(scene("fader", strip("custom"))) == ["The fader stays down: it is not bound"]
+    assert scene("fader", strip("custom"))[0].state.meter == 0
+    # an audio fader too; its meter from Home Assistant
+    frames = scene("fader", strip("output", fader={"set": "light {value}"}, meter="homeassistant"))
+    assert captions(frames)[0] == "Bottom: 0, set by light; meter: the level Home Assistant sets"
+
+
+def test_a_bound_meter_of_an_audio_fader_shows_its_level():
+    frames = scene("fader", strip("output", meter={"watch": "/usr/bin/cpu-load"}, meter_point="post_fader"))
+    assert captions(frames)[0] == "Bottom: 0 %; meter: each number cpu-load prints"
+    assert {frame.state.meter for frame in frames} == {LEVEL}
+    frames = scene("fader", strip("output", fader="homeassistant", meter="homeassistant"))
+    assert (
+        captions(frames)[0] == "The fader at 20 %: the number in Home Assistant; meter: the level Home Assistant sets"
+    )
+
+
+def test_the_lcd_of_a_custom_channel_shows_its_value_or_its_lines():
+    frames = scene("display", strip("custom", label="Screen", fader=BRIGHTNESS))
+    assert [frame.state.text for frame in frames] == [("Screen", "55%"), ("Screen", "75%")]
+    assert {frame.state.color for frame in frames} == {"white"}
+    frames = scene("display", strip("custom", lcd={"watch": "playerctl status --follow"}, color="homeassistant"))
+    assert captions(frames) == ["The second line: each line playerctl prints, lit in the color Home Assistant sets"]
+    assert captions(scene("display", strip("custom", color={"watch": "x"}))) == [
+        "Shows the label: no value, no lcd, lit in the color x prints"
+    ]
+    # the targets: the first one's name, the next one after Select
+    targets = [{"name": "Left", "value": "DP-1"}, {"name": "Right", "value": "DP-2"}]
+    frames = scene("display", strip("custom", fader=BRIGHTNESS, targets=targets))
+    assert [frame.state.text[0] for frame in frames] == ["Left", "Left", "Right"]
+    assert captions(frames)[-1] == "The next target: Right"
+    assert len(scene("display", strip("custom", fader=BRIGHTNESS, targets=targets, together=True))) == 2
+
+
+def test_the_lcd_of_an_audio_strip_can_be_bound():
+    frames = scene("display", strip("output", lcd="homeassistant", color={"watch": "color-of-the-day"}))
+    assert captions(frames)[:3] == [
+        "Plays: label and volume",
+        "The second line: the text Home Assistant sets",
+        "Lit in the color color-of-the-day prints",
+    ]
+    assert frames[1].state.text == ("Output", "HA text")
+    assert frames[0].state.color == "white"
+
+
+def test_the_buttons_of_a_custom_channel_do_nothing_unless_told():
+    frames = scene("buttons", strip("custom"))
+    assert captions(frames) == ["Nothing pressed: all dark"]
+    custom = strip(
+        "custom",
+        mute={"press": {"run": "mute-the-screen"}, "led": {"watch": "screen-muted --follow"}},
+        solo={"led": "homeassistant"},
+        rec={"led": {"watch": []}},
+    )
+    assert captions(scene("buttons", custom)) == [
+        "Nothing pressed: all dark",
+        "screen-muted prints on: Mute",
+        "Home Assistant turns an LED on: Solo",
+        "Mute pressed (runs mute-the-screen): all dark",
+    ]
 
 
 def test_the_fader_shows_the_volume_of_its_places():

@@ -234,7 +234,8 @@ class ChannelsPage(Page):
                 if option.name == "meter_point":
                     # one choice with `meter`, see `_meter_row`
                     continue
-                if option.name == "meter":
+                if option.name == "meter" and "meter_point" in by_name:
+                    # an audio meter: where it takes the level, or off, or bound
                     widgets.append(self._meter_row(path, strip, rows))
                     continue
                 if option.name == "choices" and "device" in by_name:
@@ -283,6 +284,7 @@ class ChannelsPage(Page):
             put,
             lambda: str(self.document.get(("behavior", "meter_point"), "pre_fader")),
             docs.option_link("strip", "meter_point", strip),
+            bindable=True,
         )
         option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, path("meter"))))
         rows.append(option_row)
@@ -320,6 +322,9 @@ class ChannelsPage(Page):
         """A button shows what the strip type does without its table, and offers the modes and states there are."""
 
         def defaults() -> ButtonSetup:
+            if strip == "custom":
+                # a button of a custom channel does nothing unless it is told to
+                return ButtonSetup()
             return default_setup(
                 name,  # pyright: ignore[reportArgumentType]: a button option is named like its button
                 strip,
@@ -352,13 +357,19 @@ class ChannelsPage(Page):
         }
         table_suggest: dict[str, TableSuggest] = {}
         placeholders: dict[str, Callable[[], str]] = {
-            # bindings: done by the GUI (the encoder of a custom channel sets the fader's value)
             "encoder": lambda: default_encoder(strip) if strip in ENCODERS else "the value of the fader",
+            "lcd": lambda: (
+                "the value of the fader, else of the encoder" if strip == "custom" else "what the type shows"
+            ),
             "min_volume": lambda: "0",
             "max_volume": lambda: f"{self.document.get(('behavior', 'max_volume'), 130)} (behavior)",
             # one entry per part: the program first, then each argument
             "launch": lambda: "none: Select starts nothing; the program, then each argument",
         }
+        if strip == "custom":
+            placeholders["fader"] = lambda: "none: the fader stays down"
+            placeholders["meter"] = lambda: "none: the meter stays dark"
+            placeholders["present"] = lambda: "none: always present"
         if strip in ("output", "input"):
             direction = Direction(strip)
             suggest["profiles"] = lambda: sources.profiles(self.audio(), direction)

@@ -52,6 +52,7 @@ STRIP_OPTIONS: dict[str, str] = {
     "rec": "configuration/strip/leds/#buttons",
     "solo": "configuration/strip/leds/#buttons",
     "select": "configuration/strip/leds/#buttons",
+    "mute": "configuration/strip/leds/#buttons",
     "min_volume": "configuration/channels/#volume-range",
     "max_volume": "configuration/channels/#volume-range",
     "encoder": "configuration/strip/encoders/",
@@ -65,11 +66,19 @@ STRIP_OPTIONS: dict[str, str] = {
     "launch_when_running": "configuration/channels/applications/#launching-the-application",
     "person": "configuration/channels/people/#strips-for-one-person",
     "meter_point": "configuration/channels/#meters",
+    "lcd": "configuration/strip/bindings/",
+    "color": "configuration/strip/bindings/",
 }
 """The options of the strips; `STRIP_TYPE_OPTIONS` overrides them for one type."""
 
 STRIP_TYPE_OPTIONS: dict[tuple[str, str], str] = {
     ("voip", "label"): "configuration/channels/people/#strips-for-one-person",
+    ("custom", "fader"): "configuration/channels/custom/",
+    ("custom", "encoder"): "configuration/channels/custom/",
+    ("custom", "meter"): "configuration/strip/bindings/",
+    ("custom", "present"): "configuration/channels/custom/",
+    ("custom", "targets"): "configuration/channels/custom/#several-screens",
+    ("custom", "together"): "configuration/channels/custom/#several-screens",
 }
 
 SECTION_OPTIONS: dict[str, dict[str, str]] = {
