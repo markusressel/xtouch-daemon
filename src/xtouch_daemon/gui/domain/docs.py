@@ -28,6 +28,7 @@ PAGES: dict[str, str] = {
 
 GUIDES: dict[str, str] = {
     "mumble": "guides/mumble/",
+    "teamspeak": "guides/teamspeak/",
     "slots": "configuration/slots/#slots",
     "conditions": "configuration/slots/#conditions",
     "controls": "configuration/slots/#controls-and-the-chord",

@@ -6,7 +6,7 @@ and saving.
 """
 
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from PyQt6.QtCore import QFileSystemWatcher, QProcess, QSize, Qt, QTimer, QUrl
@@ -78,9 +78,10 @@ from xtouch_daemon.gui.qt.pages.sections import (
     BrokerTest,
     BrokerTester,
     MqttPage,
-    MumbleInstaller,
+    PluginInstaller,
     SectionPage,
     VoipPage,
+    default_installers,
 )
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.pages.states import StatesPage
@@ -152,18 +153,19 @@ class MainWindow(QMainWindow):
         live_socket: Path | None = None,
         try_broker: BrokerTest = broker.try_broker,
         session: Session | None = None,
-        mumble_installer: MumbleInstaller | None = None,
+        plugin_installers: Sequence[PluginInstaller] | None = None,
         virtual_socket: Path | None = None,
     ):
         """
         `live_socket` is where the daemon serves its live view, by default `instance.socket_file()`. `try_broker` tries
-        the settings of the [mqtt] section, `mumble_installer` sets up the Mumble plugin (page of [voip]).
+        the settings of the [mqtt] section, `plugin_installers` set up the plugins of the voice chat
+        clients (page of [voip]), by default those of Mumble and TeamSpeak.
         `virtual_socket` is where the virtual device waits for the daemon when the GUI hosts it, by default
         `instance.virtual_device_socket_file()`.
         """
         super().__init__()
         self.try_broker = try_broker
-        self.mumble_installer = mumble_installer or MumbleInstaller()
+        self.plugin_installers = list(plugin_installers) if plugin_installers is not None else default_installers()
         self.zoom = load_zoom()
         self.rezoom: float | None = None
         """The zoom the next window gets: set when this one closes for a new zoom (see `Session`)."""
@@ -426,7 +428,7 @@ class MainWindow(QMainWindow):
                 self.mqtt_page = MqttPage(self.editor, audio, BrokerTester(self.try_broker))
                 self.pages[name] = self.mqtt_page
             elif name == "voip":
-                self.voip_page = VoipPage(self.editor, audio, self.mumble_installer)
+                self.voip_page = VoipPage(self.editor, audio, self.plugin_installers)
                 self.pages[name] = self.voip_page
             else:
                 self.pages[name] = SectionPage(name, self.editor, audio)

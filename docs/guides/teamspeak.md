@@ -14,25 +14,31 @@ not work with TeamSpeak 5 or 6. People sit on the slots of `auto` (and `people`)
 [`[voip]`](../configuration/channels/people.md#voice-chat) section can be left out: its `provider = "bridge"` is the
 default.
 
-## Setup
+## Setup in the GUI
 
-1. Install the plugin:
+The page Settings, Voice chat (the `[voip]` section) has a box "TeamSpeak":
 
-    ```shell
-    xtouch-daemon teamspeak-plugin --install
-    ```
-
-    It copies `xtouch-daemon_linux_amd64.so` into `~/.ts3client/plugins`, replacing an older one. Without a plugin
-    to install, e.g. in a checkout, it builds one first. That needs `cmake`, a C compiler and, the first time, the
-    internet: the build downloads the headers of TeamSpeak's plugin SDK. See
-    [`teamspeak-plugin`](../reference/commands.md#teamspeak-plugin).
+1. Click **Install TeamSpeak plugin**. It copies `xtouch-daemon_linux_amd64.so` into `~/.ts3client/plugins`,
+   replacing an older one. Without a plugin to install, e.g. in a checkout, it builds one first. That needs `cmake`,
+   a C compiler and, the first time, the internet: the build downloads the headers of TeamSpeak's plugin SDK.
 2. In TeamSpeak: **Tools**, **Options**, **Addons**. Click **Reload All** (or restart TeamSpeak), find
    "xtouch-daemon" under the plugins, and enable it.
 3. Keep `provider = "bridge"` (the default). People take free `auto` (and `people`) [slots](../configuration/slots.md) from the right; see the
    [example for Mumble](mumble.md#slots-for-mumble), which works the same with `match = ["teamspeak", "ts3client"]`
    for the strip of the application.
-4. Connect to a server and join a channel. On the GUI's page Voice chat, the pill says **TeamSpeak connected** and
-   how many people are in the channel.
+4. Connect to a server and join a channel. The pill of the box says **TeamSpeak connected** and how many people are
+   in the channel.
+
+The pill shows what the running daemon sees: "waiting for TeamSpeak" while no plugin is connected, "not connected"
+while the plugin of another client is. Without TeamSpeak on the machine the box has one line: "not installed".
+
+## Setup on the command line
+
+```shell
+xtouch-daemon teamspeak-plugin --install
+```
+
+does what the button does (see [`teamspeak-plugin`](../reference/commands.md#teamspeak-plugin)); then step 2 above.
 
 The daemon logs "Voice chat plugin connected (teamspeak)" when the plugin connects.
 
