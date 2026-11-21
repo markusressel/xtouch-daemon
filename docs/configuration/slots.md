@@ -247,7 +247,7 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 `homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, or `{ launch = [...] }` (see
 [Launching the application](channels/applications.md#launching-the-application)).
 A fader or an [encoder](strip/encoders.md) takes `homeassistant` (a number entity there), or the value of a
-[command channel](channels/commands.md): `7 = { encoder = { channel = "screen_left" } }`. The slot keeps showing what it
+[custom channel](channels/custom.md): `7 = { encoder = { channel = "screen_left" } }`. The slot keeps showing what it
 shows, and the [LED](strip/leds.md) ring shows the value.
 
 | Option of `[switching]` | Default | Meaning |

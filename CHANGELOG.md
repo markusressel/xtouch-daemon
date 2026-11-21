@@ -27,11 +27,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: when the device is plugged in while the daemon drives the virtual device, a bar above the drawing says so and
   switches to it: "Switch to it" turns `[device] virtual` off and saves, "End the trial" ends the daemon of "Try
   without a device". The daemon looks for the device every 2 seconds meanwhile and logs when it is there.
-- Command channels (`type = "command"`): a value that programs of your own set and watch, e.g. the brightness of a
-  screen. `set` runs with the new value (`{value}`), `watch` prints the value when something else changes it; the
-  fader, the encoder, the LED ring and the LCD show it, between `min` and `max`. `[controls]` can give the fader or the
-  encoder of any slot to such a channel (`{ channel = "screen" }`); the slot keeps showing what it shows. Simulate in
-  the GUI runs the `watch` programs, never `set`.
+- Custom channels (`type = "custom"`) and bindings: a fader or an encoder takes a value that programs of your own set
+  and watch (`fader = { set = "...{value}", watch = "...", min = 0.1, max = 1.0 }`), e.g. the brightness of a screen.
+  `set` runs with the new value (`{value}`), `watch` prints the value when something else changes it; the fader, the
+  encoder, the LED ring and the LCD show it. `[controls]` can give the fader or the encoder of any slot to such a
+  channel (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
+  (`{ run = "..." }`). Simulate in the GUI runs the `watch` programs, never `set` or `run`. The audio strips take
+  the new options `lcd`, and bindings of `fader`, `encoder`, `color`, `meter` and the LEDs of their buttons (being
+  built: see the design of bindings).
 
 ### Changed
 

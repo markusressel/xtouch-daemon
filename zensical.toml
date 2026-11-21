@@ -41,10 +41,11 @@ nav = [
       { "Devices" = "configuration/channels/devices.md" },
       { "Applications" = "configuration/channels/applications.md" },
       { "People and the voice chat" = "configuration/channels/people.md" },
-      { "Commands" = "configuration/channels/commands.md" },
+      { "Custom channels" = "configuration/channels/custom.md" },
     ] },
     { "Parts of a strip" = [
       { "Encoders" = "configuration/strip/encoders.md" },
+      { "Bindings" = "configuration/strip/bindings.md" },
       { "Buttons and LEDs" = "configuration/strip/leds.md" },
     ] },
     { "Presets" = "configuration/presets.md" },

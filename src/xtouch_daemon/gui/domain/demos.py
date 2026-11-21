@@ -10,6 +10,7 @@ from typing import Any, Literal, assert_never, cast
 
 from pydantic import ValidationError
 
+from xtouch_daemon.config.bindings import RunAction
 from xtouch_daemon.config.buttons import (
     BUTTON_NAMES,
     LEDS,
@@ -24,7 +25,7 @@ from xtouch_daemon.config.buttons import (
     table_of,
 )
 from xtouch_daemon.config.sections import BehaviorConfig
-from xtouch_daemon.config.values import default_encoder
+from xtouch_daemon.config.values import ENCODERS, default_encoder
 from xtouch_daemon.gui.domain.looks import DARK
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import StripState
@@ -84,7 +85,7 @@ class Strip:
     """What a scene needs to know about the strip: its type and its options, unset ones at their defaults."""
 
     strip_type: str
-    """The type of its strip: "output", "input", "apps", "auto", "voip", "homeassistant" or "command"."""
+    """The type of its strip: "output", "input", "apps", "auto", "voip", "homeassistant" or "custom"."""
     values: Mapping[str, Any]
     behavior: BehaviorConfig
 
@@ -173,7 +174,7 @@ def _action(value: object, default: Action) -> Action:
         return value
     if isinstance(value, Mapping):
         try:
-            return LaunchAction.model_validate(value)
+            return RunAction.model_validate(value) if "run" in value else LaunchAction.model_validate(value)
         except ValidationError:
             return default
     return default
@@ -195,8 +196,17 @@ def scene(part: Part, strip: Strip) -> tuple[Frame, ...]:
 
 
 def _encoder(strip: Strip) -> tuple[Frame, ...]:
-    mode = strip.value("encoder") or default_encoder(strip.strip_type, strip.value("fader") or "volume")
     base = strip.playing()
+    if strip.strip_type not in ENCODERS:
+        # bindings: done by the GUI (the encoder of a custom channel)
+        return tuple(
+            Frame(
+                f"Turned: the value is {value}",
+                replace(base, ring=ring_position(value / 100), text=(strip.label, str(value)), meter=0),
+            )
+            for value in (40, 45, 50)
+        )
+    mode = strip.value("encoder") or default_encoder(strip.strip_type, strip.value("fader") or "volume")
     match mode:
         case "volume":
             step = max(strip.behavior.encoder_step, 5)
@@ -262,7 +272,7 @@ def _display(strip: Strip) -> tuple[Frame, ...]:
             Frame("Muted by you", replace(base, text=(strip.label, "muted"), meter=0)),
             Frame("Away", replace(base, color="off", text=(strip.label, "away"), fader=0.0, meter=0)),
         )
-    if strip.strip_type == "command":
+    if strip.strip_type == "custom":
         return (
             Frame("Shows the value", replace(base, text=(strip.label, "50"), meter=0)),
             Frame("The fader moves: the new value", replace(base, text=(strip.label, "72"), fader=0.72, meter=0)),
@@ -320,8 +330,10 @@ def _buttons(strip: Strip) -> tuple[Frame, ...]:
 
 def _does(action: Action) -> str:
     """What an action does, in a few words."""
-    if not isinstance(action, str):
+    if isinstance(action, LaunchAction):
         return f"starts {action.launch[0]}"
+    if not isinstance(action, str):
+        return f"runs {action.run[0]}"
     if action.startswith("mode:"):
         return f"mode {action.removeprefix('mode:')}"
     if action.startswith("toggle:"):

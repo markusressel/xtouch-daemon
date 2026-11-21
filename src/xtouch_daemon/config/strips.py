@@ -1,16 +1,40 @@
 """
 Every strip type (`StripConfig`), and the strips that control nothing of the sound (`empty`, `homeassistant`,
-`command`).
+`custom`).
 """
 
 from typing import Annotated, Literal, get_args
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
 from xtouch_daemon.config.base import Model
+from xtouch_daemon.config.bindings import (
+    FADER_PUSH,
+    TARGET,
+    VALUE,
+    ColorPart,
+    CustomMeterPart,
+    CustomValuePart,
+    LcdPart,
+    Target,
+    ValueBinding,
+    WatchBinding,
+    placeholders_of,
+    programs_in,
+)
+from xtouch_daemon.config.buttons import (
+    ButtonConfig,
+    ButtonSetup,
+    LaunchAction,
+    MuteButton,
+    RecButton,
+    SelectButton,
+    SoloButton,
+    resolved,
+)
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
-from xtouch_daemon.config.values import COLORS, ColorName, Command, Label
+from xtouch_daemon.config.values import COLORS, ColorName, Label
 from xtouch_daemon.config.voip_strips import VoipStripConfig
 
 
@@ -30,54 +54,128 @@ class HomeAssistantStripConfig(Model):
     """The backlight of the LCD until Home Assistant sets one."""
 
 
-VALUE = "{value}"
-"""What `set` of a command channel replaces by the value."""
+CustomButtonName = Literal["select", "rec", "solo", "mute"]
+CUSTOM_BUTTONS: tuple[CustomButtonName, ...] = get_args(CustomButtonName)
+"""The buttons of a `custom` channel: Mute is a button like the others there."""
+CUSTOM_PARTS = ("fader", "encoder", "lcd", "color", "meter", "present")
+"""The parts of a `custom` channel that can be bound, but its buttons."""
+CUSTOM_ACTIONS = frozenset({"off", "next", "cycle_modes", "homeassistant"})
+"""The actions of the buttons of a `custom` channel that are a word; `mode:`, `toggle:` and `{ run = [...] }` too."""
+CUSTOM_LEDS = frozenset({"off", "press", "homeassistant"})
+"""What the LEDs of a `custom` channel show as a word; a `{ watch = [...] }` too."""
 
 
-class CommandStripConfig(Model):
-    """A strip whose fader and encoder set a value with programs of your own, e.g. the brightness of a screen."""
+class CustomStripConfig(Model):
+    """
+    A strip of your own: each part does what you bind it to, in Home Assistant or with programs of your own. An
+    unbound part is dark and does nothing.
+    """
 
-    type: Annotated[Literal["command"], STRIP_TYPE_MEANINGS]
+    type: Annotated[Literal["custom"], STRIP_TYPE_MEANINGS]
     label: Label | None = None
-    """The top line of the LCD. By default the name of the channel."""
-    color: Annotated[ColorName, COLORS] = "white"
-    """The backlight of the LCD."""
-    set: Command
+    """The top line of the LCD. By default the name of the channel, or of the target with `targets`."""
+    color: ColorPart = "white"
+    """The backlight of the LCD. A `watch` sets it with each line that is a color name."""
+    fader: CustomValuePart | None = None
+    """What the fader sets, e.g. the brightness of a screen. Without it, the fader stays down."""
+    encoder: CustomValuePart | None = None
+    """What the encoder sets. By default it sets the value of the fader in fine steps."""
+    lcd: LcdPart | None = None
     """
-    The program that sets the value, then each argument; `{value}` in an argument is the new value. E.g.
-    `["brightnessctl", "set", "{value}%"]`.
+    The second line of the LCD. A `watch` shows each line it prints. By default the value of the fader, else of the
+    encoder.
     """
-    watch: Command | None = None
+    meter: CustomMeterPart | None = None
+    """What the LED meter shows. A `watch` makes it show each number it prints, from `min` to `max`."""
+    select: SelectButton = ButtonConfig()
+    """What Select does (`press`, `hold`) and what its LED shows (`led`). By default nothing."""
+    rec: RecButton = ButtonConfig()
+    """What Rec does (`press`, `hold`) and what its LED shows (`led`). By default nothing."""
+    solo: SoloButton = ButtonConfig()
+    """What Solo does (`press`, `hold`) and what its LED shows (`led`). By default nothing."""
+    mute: MuteButton = ButtonConfig()
+    """What Mute does (`press`, `hold`) and what its LED shows (`led`). By default nothing."""
+    present: WatchBinding | None = None
     """
-    A program that runs all the time and prints the value, one line per change. The fader, the LED ring and the LCD
-    follow it.
+    A program that tells whether the channel is there: a line with text makes it present, an empty line absent.
+    Without it, the channel is always present.
     """
-    min: float = 0.0
-    """The value with the fader at the bottom and the LED ring empty."""
-    max: float = 100.0
-    """The value with the fader at the top and the LED ring full."""
-    step: float | None = None
-    """How much one step of the encoder changes the value. By default `behavior.encoder_step` percent of the range."""
-    push: float | None = None
-    """The value a push of the encoder sets, e.g. the full brightness. Without it, a push does nothing."""
-    format: str = "{value:g}"
-    """How the LCD shows the value, in the format of Python, e.g. `{value:.0%}` shows 0.55 as `55%`."""
+    targets: tuple[Target, ...] = ()
+    """
+    The things the strip controls one at a time, e.g. two screens. `{target}` in the programs is the `value` of the
+    target, the LCD shows its `name`. Select's `next` switches.
+    """
+    together: bool = False
+    """A move sets every target at once. The strip shows the first one."""
+
+    @property
+    def uses_home_assistant(self) -> bool:
+        """Whether a part belongs to Home Assistant: it needs `[mqtt]`."""
+        parts = (self.fader, self.encoder, self.lcd, self.color, self.meter)
+        buttons = (part for name in CUSTOM_BUTTONS for part in (self.button(name).press, self.button(name).led))
+        return "homeassistant" in (*parts, *buttons)
+
+    @property
+    def value_bound(self) -> bool:
+        """Whether the fader or the encoder is a value of your own: `{value}` of `run` is its value."""
+        return isinstance(self.fader, ValueBinding) or isinstance(self.encoder, ValueBinding)
+
+    def button(self, name: CustomButtonName) -> ButtonSetup:
+        """What a button does: its table, the rest nothing."""
+        return resolved(getattr(self, name), ButtonSetup())
+
+    def programs(self) -> dict[str, tuple[str, ...]]:
+        """The programs of its parts, by where they are, e.g. `fader.set`, `select.press.run`."""
+        return programs_in(self, CUSTOM_PARTS, CUSTOM_BUTTONS)
+
+    @field_validator("targets")
+    @classmethod
+    def _targets_by_name(cls, value: tuple[Target, ...]) -> tuple[Target, ...]:
+        names = [target.name for target in value]
+        if twice := sorted({name for name in names if names.count(name) > 1}):
+            raise ValueError(f"two targets named {twice[0]}: the LCD tells them apart by their names")
+        return value
 
     @model_validator(mode="after")
-    def _a_value(self) -> CommandStripConfig:
-        if self.min >= self.max:
-            raise ValueError(f"min: {self.min:g} is not below max ({self.max:g})")
-        if not any(VALUE in part for part in self.set[1:]):
-            raise ValueError(f"set: no argument has {VALUE}, so the value goes nowhere")
-        if self.step is not None and self.step <= 0:
-            raise ValueError("step: needs to be above 0")
-        if self.push is not None and not self.min <= self.push <= self.max:
-            raise ValueError(f"push: {self.push:g} is not between min ({self.min:g}) and max ({self.max:g})")
-        try:
-            self.format.format(value=self.min)
-        except (ValueError, KeyError, IndexError) as e:
-            raise ValueError(f"format: {self.format} can't show a value: {e}") from e
+    def _all_bound(self) -> CustomStripConfig:
+        if isinstance(self.fader, ValueBinding) and self.fader.push is not None:
+            raise ValueError(FADER_PUSH)
+        if self.together and not self.targets:
+            raise ValueError("together: needs targets")
+        for name in CUSTOM_BUTTONS:
+            self._check_button(name)
+        programs = self.programs()
+        for where, argv in programs.items():
+            used = placeholders_of(argv)
+            if "target" in used and not self.targets:
+                raise ValueError(f"{where}: {TARGET} needs targets")
+            if "value" in used and where.endswith(".run") and not self.value_bound:
+                raise ValueError(f"{where}: {VALUE} needs a fader or an encoder bound to a program")
+        if self.targets and not any("target" in placeholders_of(argv) for argv in programs.values()):
+            raise ValueError(f"targets: no program has {TARGET}, so the targets would all be the same")
         return self
+
+    def _check_button(self, name: CustomButtonName) -> None:
+        setup = self.button(name)
+        for part, action in (("press", setup.press), ("hold", setup.hold)):
+            if isinstance(action, LaunchAction):
+                raise ValueError(f"{name}.{part}: a custom channel runs programs ({{ run = [...] }}), it launches none")
+            if isinstance(action, str) and action not in CUSTOM_ACTIONS and not action.startswith(("mode:", "toggle:")):
+                words = ", ".join(sorted(CUSTOM_ACTIONS))
+                raise ValueError(
+                    f"{name}.{part}: {action} is not for custom channels ({words}, mode:<id>, toggle:<state>, "
+                    "or { run = [...] })"
+                )
+            if action == "next" and (len(self.targets) < 2 or self.together):
+                why = "switches nothing with together" if self.together else "needs at least two targets"
+                raise ValueError(f"{name}.{part}: next {why}")
+        if setup.hold == "homeassistant":
+            raise ValueError(f'{name}.hold: "homeassistant" takes the whole button: set it as press')
+        if setup.press == "homeassistant" and setup.hold != "off":
+            raise ValueError(f"{name}.hold: homeassistant lasts while the button is held, it takes no hold")
+        if isinstance(setup.led, str) and setup.led not in CUSTOM_LEDS:
+            words = ", ".join(sorted(CUSTOM_LEDS))
+            raise ValueError(f"{name}.led: {setup.led} is not for custom channels ({words}, or {{ watch = [...] }})")
 
 
 StripConfig = Annotated[
@@ -85,7 +183,7 @@ StripConfig = Annotated[
     | AppsStripConfig
     | AutoStripConfig
     | HomeAssistantStripConfig
-    | CommandStripConfig
+    | CustomStripConfig
     | EmptyStripConfig
     | VoipStripConfig,
     Field(discriminator="type"),
@@ -97,4 +195,4 @@ STRIP_MODELS: tuple[type[BaseModel], ...] = get_args(get_args(StripConfig)[0])
 STRIP_TYPES: tuple[str, ...] = tuple(
     name for model in STRIP_MODELS for name in get_args(model.model_fields["type"].annotation)
 )
-"""The values of `type` of a strip: output, input, apps, auto, homeassistant, command, empty, voip."""
+"""The values of `type` of a strip: output, input, apps, auto, homeassistant, custom, empty, voip."""

@@ -136,6 +136,16 @@ def test_each_led_lights_in_the_situations_of_its_indicator():
     assert all(frame.state.leds["rec"] == "off" for frame in apps)
 
 
+def test_a_button_runs_a_program_of_your_own():
+    frames = scene("buttons", strip("output", solo={"press": {"run": "reset now"}}, select={"press": {"run": []}}))
+    assert captions(frames)[-1] == "Solo pressed (runs reset): all dark"
+
+
+def test_the_encoder_of_a_custom_channel_sets_its_value():
+    frames = scene("encoder", strip("custom", label="Screen"))
+    assert [frame.state.text for frame in frames] == [("Screen", "40"), ("Screen", "45"), ("Screen", "50")]
+
+
 def test_the_fader_shows_the_volume_of_its_places():
     frames = scene("fader", strip("output", min_volume=20, max_volume=150))
     assert captions(frames) == [

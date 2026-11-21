@@ -4,8 +4,9 @@ The base of the models of the configuration, its error, and the metadata of choi
 
 import difflib
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from pydantic import (
     BaseModel,
@@ -31,6 +32,24 @@ class Meanings:
 
 class ConfigError(Exception):
     """A configuration that can't be used, with a message for the user."""
+
+
+def error_path(loc: Sequence[int | str]) -> tuple[int | str, ...]:
+    """
+    The place of a pydantic error as in the file: without the tags of the unions of words and tables (`~text`,
+    `~table`, see `bindings.text_or_table()`), which say what kind of value it is, not where.
+    """
+    return tuple(part for part in loc if not str(part).startswith("~"))
+
+
+def error_place(loc: Sequence[int | str]) -> str:
+    """The place of a pydantic error as in the file, e.g. `fader.set` (see `error_path()`)."""
+    return ".".join(str(part) for part in error_path(loc))
+
+
+def error_message(error: Any) -> str:
+    """The message of a pydantic error, without the "Value error, " pydantic puts before those of validators."""
+    return str(error["msg"]).removeprefix("Value error, ")
 
 
 def known_options() -> frozenset[str]:

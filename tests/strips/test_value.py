@@ -1,37 +1,40 @@
 """
-Command channels: the value that programs of your own set and watch, and the strip that shows it.
+The values, watches and programs of bindings: a value that programs of your own set and watch, the newest line of a
+watch, a program a button runs, and how lines become values, LEDs, colors and levels.
 """
 
 import asyncio
-import dataclasses
 import logging
 
 import pytest
-from pydantic import ValidationError
 
 from tests.support.commands import END, FakeCommands
-from tests.support.hardware import RecordingSurface
-from tests.support.strips import ID, build
 from tests.support.tasks import settle
-from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config.strips import CommandStripConfig
-from xtouch_daemon.hardware import protocol
-from xtouch_daemon.hardware.protocol import RingMode
-from xtouch_daemon.strips import command as command_module
-from xtouch_daemon.strips.base import StripEnv
-from xtouch_daemon.strips.command import CommandStrip, CommandValue, parse_value, value_text
+from xtouch_daemon.config.bindings import ValueBinding
+from xtouch_daemon.hardware.protocol import Led, RingMode
+from xtouch_daemon.strips import value as value_module
 from xtouch_daemon.strips.knobs import ring_position
+from xtouch_daemon.strips.value import (
+    CommandValue,
+    WatchedLine,
+    color_of_line,
+    led_of_line,
+    level_of_line,
+    parse_value,
+    run_program,
+    value_text,
+)
 
 SET = ("brightness", "-d", "DP-1", "-b", "{value}")
 WATCH = ("brightness", "-d", "DP-1", "--watch")
 
 
-def config(**options: object) -> CommandStripConfig:
-    return CommandStripConfig.model_validate({"type": "command", "set": SET, "min": 0.1, "max": 1.0} | options)
+def binding(**options: object) -> ValueBinding:
+    return ValueBinding.model_validate({"set": SET, "min": 0.1, "max": 1.0} | options)
 
 
 def value(commands: FakeCommands, changes: list[None] | None = None, **options: object) -> CommandValue:
-    result = CommandValue(config(**options), commands, 1, "screen")
+    result = CommandValue(binding(**options), commands, 1, "screen")
     if changes is not None:
         result.listeners.append(lambda: changes.append(None))
     return result
@@ -55,24 +58,6 @@ def test_a_value_is_given_without_an_exponent_and_trailing_zeros():
 
 def test_the_first_number_of_a_line_is_the_value():
     assert [parse_value(line) for line in ("0.60", "brightness: 42 %", "-3", "dark", "")] == [0.6, 42, -3, None, None]
-
-
-@pytest.mark.parametrize(
-    ("options", "problem"),
-    [
-        ({"set": ["brightness", "-b", "1"]}, "set: no argument has {value}"),
-        ({"set": ["{value}"]}, "set: no argument has {value}"),
-        ({"min": 1.0, "max": 0.1}, "min: 1 is not below max (0.1)"),
-        ({"step": 0}, "step: needs to be above 0"),
-        ({"push": 2.0}, "push: 2 is not between min (0.1) and max (1)"),
-        ({"format": "{value:d}"}, "format: {value:d} can't show a value"),
-        ({"format": "{level}"}, "format: {level} can't show a value"),
-    ],
-)
-def test_a_command_channel_needs_a_value_a_range_and_a_step(options: dict[str, object], problem: str) -> None:
-    with pytest.raises(ValidationError) as error:
-        config(**options)
-    assert problem in str(error.value)
 
 
 async def test_a_turn_sets_the_value_by_a_step_of_the_encoder_step_of_the_range() -> None:
@@ -203,12 +188,12 @@ async def test_a_watch_that_ends_or_cant_start_runs_again(caplog: pytest.LogCapt
         await settle()
         assert "screen: watch: can't start brightness: No such file or directory, again in 5 s" in caplog.text
         commands.unstartable = False
-        await asyncio.sleep(command_module.WATCH_RESTART)
+        await asyncio.sleep(value_module.WATCH_RESTART)
         assert len(commands.watches) == 2
         commands.print(END)
         await settle()
         assert "screen: brightness (watch) ended, again in 5 s" in caplog.text
-        await asyncio.sleep(command_module.WATCH_RESTART)
+        await asyncio.sleep(value_module.WATCH_RESTART)
         assert len(commands.watches) == 3
     knob.close()
     await commands.wait_closed()
@@ -222,46 +207,79 @@ async def test_a_simulated_value_starts_in_the_middle() -> None:
     knob.close()
 
 
-async def test_the_strip_shows_the_label_the_value_on_the_lcd_the_ring_and_the_fader(
-    surface: RecordingSurface, env: StripEnv
-) -> None:
+async def test_placeholders_fill_the_programs() -> None:
     commands = FakeCommands()
-    env = dataclasses.replace(env, commands=commands)
-    strip = build(config(label="Left", watch=WATCH, format="{value:.0%}", color="cyan"), surface.strips[0], env)
-    assert isinstance(strip, CommandStrip)
-    device = surface.strips[0]
-    strip.update(AudioState())
-    assert device.text == ["Left", ""]
-    # nothing known: the fader stays where it is
-    assert device.fader is None
-    commands.print("0.55")
+    knob = CommandValue(
+        ValueBinding.model_validate({"set": "b -d {target} {value}", "watch": "b -d {target} -w"}),
+        commands,
+        1,
+        "screen",
+        {"target": "DP-2"},
+    )
     await settle()
-    assert device.text[1] == "55%"
-    assert device.ring == (6, RingMode.WRAP)
-    assert device.fader == protocol.fader_value(0.5)
-    assert device.color == protocol.Color.CYAN
-    # a hand on the fader: the value follows, the motor stays off until it is let go
-    strip.on_touch(True)
-    strip.on_fader(1.0)
+    assert commands.watches == [["b", "-d", "DP-2", "-w"]]
+    knob.set(42)
     await settle()
-    assert ran(commands) == ["1"]
-    assert device.text[1] == "100%"
-    assert device.fader == protocol.fader_value(0.5)
-    strip.on_touch(False)
-    assert device.fader == protocol.fader_value(1.0)
-    strip.on_encoder(-10)
+    assert commands.runs == [["b", "-d", "DP-2", "42"]]
+    knob.close()
+
+
+def test_a_line_lights_an_led_flashes_it_or_turns_it_off():
+    lines = ("on", " ON ", "1", "true", "Yes", "flash", "off", "0", "", "lit")
+    assert [led_of_line(line) for line in lines] == [Led.ON] * 5 + [Led.FLASH] + [Led.OFF] * 4
+
+
+def test_a_line_names_a_color():
+    assert [color_of_line(line) for line in ("red", " Cyan\n", "off", "pink", "")] == ["red", "cyan", "off", None, None]
+
+
+def test_a_line_is_a_level_between_min_and_max():
+    lines = ("50", "load: 75 %", "-10", "250", "idle")
+    assert [level_of_line(line, 0, 100) for line in lines] == [0.5, 0.75, 0.0, 1.0, None]
+    assert level_of_line("0.55", 0.1, 1.0) == pytest.approx(0.5)
+
+
+async def test_a_watched_line_is_the_newest_and_tells_its_listeners() -> None:
+    commands = FakeCommands()
+    changes: list[str | None] = []
+    watched = WatchedLine(["playerctl", "status", "--follow"], commands, "music.lcd")
+    watched.listeners.append(lambda: changes.append(watched.line))
+    assert watched.line is None
     await settle()
-    assert ran(commands)[-1] == "0.91"
-    strip.on_encoder_press(True)
+    assert commands.watches == [["playerctl", "status", "--follow"]]
+    commands.print("Playing")
+    commands.print("Playing")
+    commands.print("Paused")
     await settle()
-    # no push: nothing
-    assert ran(commands)[-1] == "0.91"
-    strip.close()
+    assert changes == ["Playing", "Paused"]
+    watched.close()
     await commands.wait_closed()
 
 
-async def test_the_strip_is_named_by_its_channel_without_a_label(surface: RecordingSurface, env: StripEnv) -> None:
-    strip = build(config(), surface.strips[0], dataclasses.replace(env, commands=FakeCommands()))
-    strip.update(AudioState())
-    assert surface.strips[0].text[0] == ID.name
-    strip.close()
+async def test_a_watched_line_runs_again_after_its_program_ended(caplog: pytest.LogCaptureFixture) -> None:
+    commands = FakeCommands()
+    with caplog.at_level(logging.WARNING):
+        watched = WatchedLine(["status"], commands, "music.lcd")
+        await settle()
+        commands.print("Playing")
+        commands.print(END)
+        await settle()
+        assert "music.lcd: status (watch) ended, again in 5 s" in caplog.text
+        await asyncio.sleep(value_module.WATCH_RESTART)
+        assert len(commands.watches) == 2
+    # the line stays until the next one
+    assert watched.line == "Playing"
+    watched.close()
+    await commands.wait_closed()
+
+
+async def test_a_program_runs_to_its_end_and_its_problems_are_logged(caplog: pytest.LogCaptureFixture) -> None:
+    commands = FakeCommands()
+    run_program(commands, ["reset", "-d", "DP-1"], "screen.select")
+    await commands.wait_closed()
+    assert commands.runs == [["reset", "-d", "DP-1"]]
+    commands.failing = "reset failed (1): no display"
+    with caplog.at_level(logging.WARNING):
+        run_program(commands, ["reset"], "screen.select")
+        await commands.wait_closed()
+    assert "screen.select: reset failed (1): no display" in caplog.text

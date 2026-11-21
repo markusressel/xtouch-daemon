@@ -12,6 +12,7 @@ from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.meter import CaptureTarget, Reading
 from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.config.bindings import RunAction
 from xtouch_daemon.config.buttons import HOLD_TIME, WHILE_HELD, Action, ButtonSetup, LaunchAction, indicator
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import ColorName, EncoderMode, Indicator, MeterPoint, color_of
@@ -431,7 +432,7 @@ class VolumeStrip(StripController):
             case LaunchAction():
                 launch = self._launches[button]
                 return launch.led(launch.program_runs(self.env.processes()))
-            case "off" | "homeassistant":
+            case "off" | "homeassistant" | RunAction():
                 return Led.OFF
             case "talk" | "mute_others":
                 return Led.ON if button in self._acting else Led.OFF
@@ -639,6 +640,9 @@ class VolumeStrip(StripController):
             case LaunchAction():
                 launch = self._launches[button]
                 launch.press(launch.program_runs(self.env.processes()))
+            case RunAction():
+                # bindings: done by the audio strips (`{ run = [...] }`)
+                pass
             case "talk":
                 self.talk(down)
             case "mute_others":

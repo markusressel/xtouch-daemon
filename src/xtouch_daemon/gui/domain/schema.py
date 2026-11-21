@@ -17,6 +17,7 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from xtouch_daemon.config.base import Meanings
+from xtouch_daemon.config.bindings import ColorWord
 from xtouch_daemon.config.buttons import ActionValue, ButtonConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.names import Presets
@@ -99,13 +100,26 @@ def describe(value: object) -> str:
 def _unwrap(annotation: Any) -> tuple[Any, list[Any]]:
     """The type of an annotation without `None` and `Annotated`, and the constraints that came with them."""
     constraints: list[Any] = []
-    if get_origin(annotation) in (Union, types.UnionType):
-        (annotation,) = [arg for arg in get_args(annotation) if arg is not type(None)]
+    while annotation != ActionValue:
+        if get_origin(annotation) in (Union, types.UnionType):
+            choices = [arg for arg in get_args(annotation) if arg is not type(None)]
+            # bindings: done by the GUI (a part that is a word or a binding: the form has the word for now)
+            words = [arg for arg in choices if not _is_model(arg)]
+            annotation = words[0] if words else choices[0]
+        elif get_origin(annotation) is Annotated:
+            annotation, *metadata = get_args(annotation)
+            for item in metadata:
+                constraints.extend(item.metadata if isinstance(item, FieldInfo) else [item])
+        else:
+            break
+    # bindings: done by the GUI (a color or "homeassistant": the colors for now)
+    return (ColorName if annotation == ColorWord else annotation), constraints
+
+
+def _is_model(annotation: Any) -> bool:
     while get_origin(annotation) is Annotated:
-        annotation, *metadata = get_args(annotation)
-        for item in metadata:
-            constraints.extend(item.metadata if isinstance(item, FieldInfo) else [item])
-    return annotation, constraints
+        annotation = get_args(annotation)[0]
+    return isinstance(annotation, type) and issubclass(annotation, BaseModel)
 
 
 def _table_model(annotation: Any) -> type[BaseModel] | None:
@@ -185,7 +199,18 @@ def option(name: str, field: FieldInfo) -> Option:
 def options(model: type[BaseModel], skip: tuple[str, ...] = ()) -> tuple[Option, ...]:
     """The options of a model in the order it declares them."""
     # an option named like a word of Python has an alias (`from_` is `from`)
-    return tuple(option(field.alias or name, field) for name, field in model.model_fields.items() if name not in skip)
+    return tuple(
+        option(field.alias or name, field)
+        for name, field in model.model_fields.items()
+        if name not in skip and not _binding_only(field)
+    )
+
+
+def _binding_only(field: FieldInfo) -> bool:
+    """Whether an option is a binding only (`present`): the forms have no field for them yet."""
+    # bindings: done by the GUI
+    annotation, _ = _unwrap(field.annotation)
+    return _is_model(annotation) and annotation is not ButtonConfig
 
 
 @dataclass(frozen=True)
@@ -238,18 +263,15 @@ STRIP_OPTION_ORDER = (
     "match",
     "profiles",
     "person",
-    # a value that programs set
-    "set",
-    "watch",
-    "min",
-    "max",
-    "step",
-    "push",
-    "format",
+    # what a custom channel controls
+    "targets",
+    "together",
+    "present",
     # then the parts of the strip from the top of the device to the bottom: the encoder with its ring, the LCD, the
     # meter, the buttons, the fader
     "encoder",
     "label",
+    "lcd",
     "color",
     "talking_color",
     "lit_when_idle",
@@ -279,7 +301,11 @@ def strip_options(strip_type: str) -> tuple[Option, ...]:
     return tuple(
         sorted(
             (
-                dataclasses.replace(option, choices=ENCODERS[strip_type]) if option.name == "encoder" else option
+                (
+                    dataclasses.replace(option, choices=ENCODERS[strip_type])
+                    if option.name == "encoder" and strip_type in ENCODERS
+                    else option
+                )
                 for option in options(strip_models()[strip_type], skip=("type",))
             ),
             key=lambda option: STRIP_OPTION_ORDER.index(option.name),

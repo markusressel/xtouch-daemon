@@ -67,6 +67,7 @@ def test_the_options_of_a_strip_take_their_kinds_bounds_and_columns_from_the_mod
         profiles,
         encoder,
         label,
+        _,
         color,
         _,
         _,

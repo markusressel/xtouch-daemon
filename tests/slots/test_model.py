@@ -121,7 +121,7 @@ def test_stacks_in_all_forms():
         ("[pool.people]\nlabel = 'Friend'", "pool.people: label: only on a person channel"),
         (
             "[controls]\n1 = { select = { launch = [] } }",
-            "controls.1.select.Launch.launch: Tuple should have at least 1",
+            "controls.1.select.launch: Tuple should have at least 1",
         ),
         (
             "[controls]\n1 = { select = { launch = ['x'] }, id = 'knob' }",

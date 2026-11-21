@@ -21,7 +21,18 @@ from pydantic import (
     model_validator,
 )
 
-from xtouch_daemon.config.base import ConfigError, Meanings
+from xtouch_daemon.config.base import ConfigError, Meanings, error_message, error_path, error_place
+from xtouch_daemon.config.bindings import (
+    FADER_PUSH,
+    TABLE,
+    TARGET,
+    TEXT,
+    RunAction,
+    ValueBinding,
+    placeholders_of,
+    programs_of,
+    text_or_table,
+)
 from xtouch_daemon.config.names import Presets
 from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.hardware import protocol
@@ -98,7 +109,7 @@ Processes = Annotated[tuple[str, ...], Presets(Kind.PROCESSES), _presets_of(Kind
 
 
 class ChannelConfig(_Open):
-    type: Literal["output", "input", "apps", "homeassistant", "command", "person"]
+    type: Literal["output", "input", "apps", "homeassistant", "custom", "person"]
     tags: tuple[str, ...] = ()
     """Words that group channels, for the conditions of slots (`present`) and the pools that take them."""
     in_pool: bool = True
@@ -350,18 +361,39 @@ class Launch(_Section):
 
 class ChannelControl(_Section):
     channel: str
-    """The command channel whose value the fader or the encoder sets, e.g. `screen_left`."""
+    """
+    The `custom` channel whose value the fader or the encoder sets, e.g. `screen_left`: that of its fader, for the
+    encoder that of its encoder if it has one of its own.
+    """
 
 
-def _text_or_table(value: object) -> str:
-    return "~table" if isinstance(value, Mapping | BaseModel) else "~text"
+def _kind_of_knob(value: object) -> str:
+    if isinstance(value, ChannelControl) or (isinstance(value, Mapping) and "channel" in value):
+        return "~channel"
+    return text_or_table(value)
+
+
+def _kind_of_button(value: object) -> str:
+    if isinstance(value, Launch) or (isinstance(value, Mapping) and "launch" in value):
+        return "~launch"
+    return "~run" if isinstance(value, Mapping | BaseModel) else TEXT
 
 
 type KnobControl = Annotated[
-    Annotated[Literal["homeassistant"], Tag("~text")] | Annotated[ChannelControl, Tag("~table")],
-    Discriminator(_text_or_table),
+    Annotated[Literal["homeassistant"], Tag(TEXT)]
+    | Annotated[ChannelControl, Tag("~channel")]
+    | Annotated[ValueBinding, Tag(TABLE)],
+    Discriminator(_kind_of_knob),
 ]
-"""What `[controls]` can make of a fader or an encoder: a number in Home Assistant, or a command channel's value."""
+"""
+What `[controls]` can make of a fader or an encoder: a number in Home Assistant, the value of a `custom` channel, or a
+value of your own.
+"""
+type ButtonControl = Annotated[
+    Annotated[str, Tag(TEXT)] | Annotated[Launch, Tag("~launch")] | Annotated[RunAction, Tag("~run")],
+    Discriminator(_kind_of_button),
+]
+"""What `[controls]` can make of a button: an action of the slots, an application to start, or a program to run."""
 
 
 class ControlsConfig(_Section):
@@ -372,12 +404,22 @@ class ControlsConfig(_Section):
 
     fader: KnobControl | None = None
     encoder: KnobControl | None = None
-    select: str | Launch | None = None
-    rec: str | Launch | None = None
-    solo: str | Launch | None = None
+    select: ButtonControl | None = None
+    rec: ButtonControl | None = None
+    solo: ButtonControl | None = None
     when: str | None = None
     id: str | None = None
     """Names the Home Assistant entities of the slot's controls; by default `slot_<n>`."""
+
+    @model_validator(mode="after")
+    def _bound(self) -> ControlsConfig:
+        if isinstance(self.fader, ValueBinding) and self.fader.push is not None:
+            raise ValueError(FADER_PUSH)
+        for name in CONTROLS:
+            for option, argv in programs_of(getattr(self, name)).items():
+                if "target" in placeholders_of(argv):
+                    raise ValueError(f"{name}.{option}: {TARGET} is for custom channels with targets")
+        return self
 
     @property
     def claimed(self) -> tuple[str, ...]:
@@ -648,8 +690,8 @@ def _parse_pools(raw: Mapping[str, Mapping[str, Any]], problems: list[str]) -> d
             pools[name] = model.model_validate(raw.get(name, {}))
         except ValidationError as e:
             for error in e.errors():
-                where = ".".join(("pool", name, *(str(part) for part in error["loc"])))
-                problems.append(f"{where}: {error['msg'].removeprefix('Value error, ')}")
+                where = ".".join(("pool", name, *map(str, error_path(error["loc"]))))
+                problems.append(f"{where}: {error_message(error)}")
             # still a pool: the slots that show it have no problems of their own
             fallback: dict[str, Any] = {}
             if model is AppsPoolConfig:
@@ -849,7 +891,7 @@ def _check_action(where: str, action: str, file: _File, problems: list[str], cho
 def _check_channel_buttons(file: _File, problems: list[str]) -> None:
     """The actions of the buttons of channels that name modes and states (`mode:<id>`, `toggle:<state>`)."""
     for name, channel in file.channel.items():
-        for button in ("select", "rec", "solo"):
+        for button in ("select", "rec", "solo", "mute"):
             table = (channel.model_extra or {}).get(button)
             if not isinstance(table, Mapping):
                 continue
@@ -895,15 +937,7 @@ def _parse_controls(
             for name in ("fader", "encoder"):
                 knob = getattr(config, name)
                 if isinstance(knob, ChannelControl):
-                    channel = file.channel.get(knob.channel)
-                    if channel is None:
-                        why = _undefined(knob.channel, file.channel)
-                        problems.append(f"{where}.{name}.channel: {knob.channel} is no channel{why}")
-                    elif channel.type != "command":
-                        problems.append(
-                            f"{where}.{name}.channel: {knob.channel} is of type {channel.type}; "
-                            "only command channels have a value"
-                        )
+                    _check_channel_control(f"{where}.{name}.channel", name, knob.channel, file, problems)
             if config.when is not None:
                 condition = _condition(f"{where}.when", config.when, problems)
                 if condition is not None:
@@ -918,6 +952,24 @@ def _parse_controls(
                         )
         controls[slot] = tuple(entries)
     return controls, conditions
+
+
+def _check_channel_control(where: str, part: str, name: str, file: _File, problems: list[str]) -> None:
+    """A fader or an encoder of `[controls]` that sets the value of a channel: a `custom` channel with one."""
+    channel = file.channel.get(name)
+    if channel is None:
+        problems.append(f"{where}: {name} is no channel{_undefined(name, file.channel)}")
+        return
+    if channel.type != "custom":
+        problems.append(f"{where}: {name} is of type {channel.type}; only custom channels have a value")
+        return
+    options = channel.model_extra or {}
+    if part == "fader" and not isinstance(options.get("fader"), Mapping):
+        problems.append(f"{where}: {name} has no value for the fader: its fader is not bound to a program")
+    elif part == "encoder" and not any(isinstance(options.get(own), Mapping) for own in ("fader", "encoder")):
+        problems.append(
+            f"{where}: {name} has no value for the encoder: neither its fader nor its encoder is bound to a program"
+        )
 
 
 def _check_control_id(
@@ -984,7 +1036,4 @@ def _did_you_mean(name: str, known: Iterable[str]) -> str:
 
 
 def _message(error: Any) -> str:
-    # the tags of `KnobControl` say which kind of value it is, not where
-    where = ".".join(str(part) for part in error["loc"] if not str(part).startswith("~"))
-    # pydantic puts "Value error, " before the messages of the validators
-    return f"{where}: {error['msg'].removeprefix('Value error, ')}"
+    return f"{error_place(error['loc'])}: {error_message(error)}"

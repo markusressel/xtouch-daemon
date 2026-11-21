@@ -10,11 +10,11 @@ from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
 
-from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.base import ConfigError, error_message, error_place
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.config.strip import BaseStripConfig
-from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.strips import CustomStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.slots.model import APPS, AUTO, DEVICES, MEMBER_OPTIONS, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS
 
@@ -80,8 +80,9 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
             return _STRIP.validate_python(dict(options))
         except ValidationError as e:
             for error in e.errors():
-                path = ".".join(str(part) for part in error["loc"][1:])
-                problems.append(f"{where}: {path + ': ' if path else ''}{error['msg'].removeprefix('Value error, ')}")
+                # the first part is the type of the strip
+                path = error_place(error["loc"][1:])
+                problems.append(f"{where}: {path + ': ' if path else ''}{error_message(error)}")
             return None
 
     def add(key: tuple[int, int, str | None], where: str, options: Mapping[str, Any]) -> None:
@@ -162,7 +163,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
     if config.mqtt is None:
         for name, strip in own_strips.items():
             if isinstance(strip, HomeAssistantStripConfig) or (
-                isinstance(strip, BaseStripConfig) and strip.uses_home_assistant
+                isinstance(strip, BaseStripConfig | CustomStripConfig) and strip.uses_home_assistant
             ):
                 problems.append(f"channel.{name}: Home Assistant needs an [mqtt] section")
         for slot, entries in scene.controls.items():

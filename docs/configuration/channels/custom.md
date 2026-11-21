@@ -1,20 +1,19 @@
-# Commands
+# Custom channels
 
-A `command` channel is a value that programs of your own set and watch, e.g. the brightness of a screen. The fader
-and the [encoder](../strip/encoders.md) set it, the [LED](../strip/leds.md) ring and the second line of the LCD show it.
-It works like any other channel: a candidate in the [slots](../slots.md#slots), a member of pools.
+A `custom` channel is a strip whose parts you bind to programs of your own, e.g. a fader that sets the brightness of
+a screen. Its fader takes a value that programs set and watch; its [encoder](../strip/encoders.md) sets the same value
+in fine steps (or one of its own), the [LED](../strip/leds.md) ring and the second line of the LCD show it. It works
+like any other channel: a candidate in the [slots](../slots.md#slots), a member of pools.
 
 ```toml
 [channel.screen_left]
-type = "command"
+type = "custom"
 label = "Left"
-set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}"
-watch = "sysctrl display redshift brightness -d DisplayPort-1 --watch"
-min = 0.1
-max = 1.0
-push = 1.0
-format = "{value:.0%}"   # 0.55 is 55% on the LCD
+fader = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}", watch = "sysctrl display redshift brightness -d DisplayPort-1 --watch", min = 0.1, max = 1.0, format = "{value:.0%}" }
+encoder = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}", min = 0.1, max = 1.0, push = 1.0 }
 ```
+
+A value (`fader = { ... }`, `encoder = { ... }`) takes these options; only the encoder has a `push`:
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -24,10 +23,9 @@ format = "{value:.0%}"   # 0.55 is 55% on the LCD
 | `step` | `behavior.encoder_step` percent of the range | How much one step of the encoder changes the value. |
 | `push` | none | The value a push of the encoder sets. Without it, a push does nothing. |
 | `format` | `{value:g}` | How the LCD shows the value, in the [format of Python](https://docs.python.org/3/library/string.html#formatspec). |
-| `label` | the id | The top line of the LCD. |
-| `color` | `white` | The backlight of the LCD. |
 
-The buttons do nothing yet, the meter stays dark, and the channel is always present.
+The channel takes `label` (by default its id) and `color` (by default `white`). The buttons do nothing yet, the meter
+stays dark, and the channel is always present.
 
 ## How the value is set
 
@@ -45,7 +43,8 @@ shows the middle of the range.
 
 ## On another slot
 
-`[controls]` can give the fader or the encoder of any slot to the value of a command channel. The slot keeps showing
+`[controls]` can give the fader or the encoder of any slot to the value of a custom channel: the value of its fader,
+for an encoder that of its own encoder if it has one. The slot keeps showing
 what it shows, e.g. the encoder of the speaker sets the brightness:
 
 ```toml
@@ -61,14 +60,10 @@ Two values are two channels, each with its own programs:
 
 ```toml
 [channel.screen_left]
-type = "command"
-set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}"
-min = 0.1
-max = 1.0
+type = "custom"
+fader = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}", min = 0.1, max = 1.0 }
 
 [channel.screen_right]
-type = "command"
-set = "sysctrl display redshift brightness -d DisplayPort-2 -b {value}"
-min = 0.1
-max = 1.0
+type = "custom"
+fader = { set = "sysctrl display redshift brightness -d DisplayPort-2 -b {value}", min = 0.1, max = 1.0 }
 ```

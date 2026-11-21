@@ -13,14 +13,16 @@ from collections.abc import Callable, Mapping
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 
+from xtouch_daemon.config.bindings import RunAction, ValueBinding, fill
 from xtouch_daemon.hardware.protocol import Button, Led, RingMode
 from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.slots.model import DEFAULT, ChannelControl, ControlsConfig, Launch, Scene
 from xtouch_daemon.strips.base import Identity, SlotActions
-from xtouch_daemon.strips.command import CommandValue
 from xtouch_daemon.strips.homeassistant import LEDS, EncoderLink, FaderLink, StripEntities
+from xtouch_daemon.strips.value import CommandValue, ValueSource, run_program, value_text
+from xtouch_daemon.system.commands import Commands, SimulatedCommands
 from xtouch_daemon.system.launch import LaunchButton, Launcher
 
 _LOGGER = logging.getLogger(__name__)
@@ -108,7 +110,8 @@ class SlotClaim:
         launcher: Launcher,
         processes: Callable[[], frozenset[str]],
         encoder_step: int,
-        values: Mapping[str, CommandValue],
+        sources: Mapping[str, ValueSource],
+        commands: Commands,
         on_change: Callable[[], None],
     ):
         self.slot = slot
@@ -129,12 +132,21 @@ class SlotClaim:
             assert entities is not None
             assert entities.encoder is not None
             self.encoder = EncoderLink(strip, entities.encoder, encoder_step)
-        # the values of command channels: the channels own them, a claim only moves and shows them
-        self.command_fader = values[config.fader.channel] if isinstance(config.fader, ChannelControl) else None
-        self.command_encoder = values[config.encoder.channel] if isinstance(config.encoder, ChannelControl) else None
+        self.commands = commands
         self._on_change = on_change
-        for value in dict.fromkeys(link for link in (self.command_fader, self.command_encoder) if link is not None):
-            value.listeners.append(on_change)
+        # the values of custom channels: the channels own them, a claim only moves and shows them; a value of its own
+        # the claim owns
+        self._fader_source = sources[config.fader.channel] if isinstance(config.fader, ChannelControl) else None
+        self._encoder_source = sources[config.encoder.channel] if isinstance(config.encoder, ChannelControl) else None
+        self._own = {
+            part: CommandValue(binding, commands, encoder_step, f"{self.what}.{part}")
+            for part in ("fader", "encoder")
+            if isinstance(binding := getattr(config, part), ValueBinding)
+        }
+        for source in dict.fromkeys(s for s in (self._fader_source, self._encoder_source) if s is not None):
+            source.listeners.append(self._switched)
+        self._subscribed: list[CommandValue] = []
+        self._subscribe()
         self.launches = {
             button: LaunchButton(action.launch, launcher, self.what, action.launch_when_running)
             for name, button in BUTTONS.items()
@@ -142,7 +154,37 @@ class SlotClaim:
         }
         self._tasks: set[asyncio.Task[None]] = set()
 
-    def action(self, button: Button) -> str | Launch | None:
+    @property
+    def command_fader(self) -> CommandValue | None:
+        """The value the fader sets: of a custom channel, or of its own."""
+        if self._fader_source is not None:
+            return self._fader_source.fader_value()
+        return self._own.get("fader")
+
+    @property
+    def command_encoder(self) -> CommandValue | None:
+        """The value the encoder sets: of a custom channel (its encoder's, else its fader's), or of its own."""
+        if self._encoder_source is not None:
+            return self._encoder_source.encoder_value() or self._encoder_source.fader_value()
+        return self._own.get("encoder")
+
+    def _subscribe(self) -> None:
+        """Follows the values it sets now."""
+        values = list(dict.fromkeys(v for v in (self.command_fader, self.command_encoder) if v is not None))
+        for value in self._subscribed:
+            if value not in values and self._on_change in value.listeners:
+                value.listeners.remove(self._on_change)
+        for value in values:
+            if value not in self._subscribed:
+                value.listeners.append(self._on_change)
+        self._subscribed = values
+
+    def _switched(self) -> None:
+        # a custom channel switched to another target: other values
+        self._subscribe()
+        self._on_change()
+
+    def action(self, button: Button) -> str | Launch | RunAction | None:
         return getattr(self.config, CLAIMABLE_BUTTONS[button]) if button in CLAIMABLE_BUTTONS else None
 
     @property
@@ -174,7 +216,9 @@ class SlotClaim:
             if (action := getattr(self.config, name)) is not None:
                 self.strip.set_led(button, self._led(button, action))
 
-    def _led(self, button: Button, action: str | Launch) -> Led:
+    def _led(self, button: Button, action: str | Launch | RunAction) -> Led:
+        if isinstance(action, RunAction):
+            return Led.OFF
         if isinstance(action, Launch):
             launch = self.launches[button]
             return launch.led(launch.program_runs(self.processes()))
@@ -232,7 +276,11 @@ class SlotClaim:
             return
         if not pressed or action is None:
             return
-        if isinstance(action, Launch):
+        if isinstance(action, RunAction):
+            value = self.command_fader or self.command_encoder
+            placeholders = {"value": value_text(value.value)} if value is not None and value.value is not None else {}
+            run_program(self.commands, fill(action.run, **placeholders), f"{self.what}.{button.name.lower()}")
+        elif isinstance(action, Launch):
             launch = self.launches[button]
             launch.press(launch.program_runs(self.processes()))
             self.show()
@@ -254,9 +302,15 @@ class SlotClaim:
         for link in (self.fader, self.encoder):
             if link is not None:
                 link.close()
-        for value in (self.command_fader, self.command_encoder):
-            if value is not None and self._on_change in value.listeners:
+        for value in self._subscribed:
+            if self._on_change in value.listeners:
                 value.listeners.remove(self._on_change)
+        self._subscribed = []
+        for source in (self._fader_source, self._encoder_source):
+            if source is not None and self._switched in source.listeners:
+                source.listeners.remove(self._switched)
+        for value in self._own.values():
+            value.close()
         for task in self._tasks:
             task.cancel()
 
@@ -276,9 +330,13 @@ class Controls:
         launcher: Launcher,
         processes: Callable[[], frozenset[str]],
         encoder_step: int,
-        values: Mapping[str, CommandValue] | None = None,
+        sources: Mapping[str, ValueSource] | None = None,
+        commands: Commands | None = None,
     ):
-        """`values` are those of the command channels, by channel, for the faders and encoders that name one."""
+        """
+        `sources` have the values of the custom channels, by channel, for the faders and encoders that name one;
+        `commands` runs the programs of the controls (by default only their `watch`, as on a twin).
+        """
         self.scene = scene
         self.desk = desk
         self.on_change: Callable[[], None] = lambda: None
@@ -310,7 +368,8 @@ class Controls:
                     launcher,
                     processes,
                     encoder_step,
-                    values or {},
+                    sources or {},
+                    commands if commands is not None else SimulatedCommands(),
                     self._changed,
                 )
                 for index, entry in enumerate(entries)
@@ -370,5 +429,5 @@ class Controls:
             entities.close()
 
 
-def _buttons(entry: ControlsConfig) -> tuple[str | Launch | None, ...]:
+def _buttons(entry: ControlsConfig) -> tuple[str | Launch | RunAction | None, ...]:
     return entry.select, entry.rec, entry.solo

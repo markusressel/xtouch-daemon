@@ -80,9 +80,12 @@ ENCODERS: dict[str, tuple[EncoderMode, ...]] = {
 """The encoders of each strip type, its default first."""
 
 
-def default_encoder(strip_type: str, fader: str = "volume") -> EncoderMode:
-    """What the encoder of a strip of the type does without `encoder`: the volume if the fader does not set it."""
-    return "volume" if fader == "homeassistant" else ENCODERS[strip_type][0]
+def default_encoder(strip_type: str, fader: object = "volume") -> EncoderMode:
+    """
+    What the encoder of a strip of the type does without `encoder`: the volume if the fader does not set it (it is
+    bound to Home Assistant or to a program).
+    """
+    return "volume" if fader != "volume" else ENCODERS[strip_type][0]
 
 
 def color_of(name: ColorName) -> Color:

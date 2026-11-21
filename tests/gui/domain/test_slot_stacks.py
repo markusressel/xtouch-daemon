@@ -66,14 +66,14 @@ def test_controls_are_text():
         "controls": {
             "2": {"select": {"launch": ["mumble", "-m"]}, "when": "not call"},
             "5": [{"select": "toggle:call", "solo": "mode:gaming"}, "broken"],
-            "7": {"encoder": {"command": {"set": ["brightness", "-b", "{value}"]}}},
-            "8": {"fader": {"command": {"set": "brightness -b {value}"}}},
+            "7": {"encoder": {"set": ["brightness", "-b", "{value}"]}, "select": {"run": "reset"}},
+            "8": {"fader": {"channel": "screen"}},
         }
     }
     assert controls_text(values, 2) == ["select: launch mumble -m (when not call)"]
     assert controls_text(values, 5) == ["select: toggle:call, solo: mode:gaming"]
-    assert controls_text(values, 7) == ["encoder: command brightness -b {value}"]
-    assert controls_text(values, 8) == ["fader: command brightness -b {value}"]
+    assert controls_text(values, 7) == ["encoder: set brightness -b {value}, select: run reset"]
+    assert controls_text(values, 8) == ["fader: channel screen"]
     assert controls_text(values, 1) == []
 
 

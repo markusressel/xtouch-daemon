@@ -389,12 +389,17 @@ def controls_text(values: Mapping[str, Any], slot: int) -> list[str]:
 
 
 def _action(value: Any) -> str:
-    if isinstance(value, Mapping) and isinstance(command := value.get("command"), Mapping):  # pyright: ignore[reportUnknownMemberType]
-        argv = command.get("set", ())  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        return "command " + (argv if isinstance(argv, str) else " ".join(str(part) for part in argv))  # pyright: ignore[reportUnknownArgumentType, reportUnknownVariableType]
-    if isinstance(value, Mapping):
-        return "launch " + " ".join(str(part) for part in value.get("launch", ()))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportUnknownVariableType]
-    return str(value)
+    """A control for people: its word, the channel it sets, or the program it sets, runs or launches."""
+    if not isinstance(value, Mapping):
+        return str(value)
+    table: Mapping[str, Any] = value  # pyright: ignore[reportUnknownVariableType]
+    if "channel" in table:
+        return f"channel {table['channel']}"
+    for key in ("set", "run", "launch"):
+        if key in table:
+            argv = table[key]
+            return f"{key} " + (argv if isinstance(argv, str) else " ".join(str(part) for part in argv))
+    return str(dict(table))
 
 
 class StepKind(StrEnum):

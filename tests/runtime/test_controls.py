@@ -18,13 +18,16 @@ from tests.support.waiting import until
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.bindings import ValueBinding
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Led, RingMode
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.slots.states import Override
 from xtouch_daemon.strips import homeassistant as homeassistant_module
+from xtouch_daemon.strips.custom import CustomStrip
 from xtouch_daemon.strips.knobs import VolumeKnob
+from xtouch_daemon.strips.value import CommandValue
 
 BASE = """
 [voip]
@@ -254,13 +257,9 @@ def test_home_assistant_needs_mqtt(text: str, problem: str) -> None:
 
 COMMANDS = """
 [channel.screen]
-type = "command"
+type = "custom"
 label = "Screen"
-set = "brightness -d DP-1 -b {value}"
-watch = "brightness -d DP-1 --watch"
-min = 0.1
-max = 1.0
-push = 1.0
+fader = { set = "brightness -d DP-1 -b {value}", watch = "brightness -d DP-1 --watch", min = 0.1, max = 1.0 }
 
 [controls]
 1 = { encoder = { channel = "screen" } }
@@ -268,7 +267,7 @@ push = 1.0
 """
 
 
-async def test_a_fader_and_an_encoder_set_a_command_channel_whatever_the_slot_shows(surface: RecordingSurface) -> None:
+async def test_a_fader_and_an_encoder_set_a_custom_channel_whatever_the_slot_shows(surface: RecordingSurface) -> None:
     commands = FakeCommands()
     rig = Rig(surface, parse_config(BASE + COMMANDS), commands=commands)
     rig.step(STATE)
@@ -285,15 +284,10 @@ async def test_a_fader_and_an_encoder_set_a_command_channel_whatever_the_slot_sh
     assert surface.strips[0].ring == (6, RingMode.WRAP)
     # slot 3's fader follows the same value
     assert surface.strips[2].fader == protocol.fader_value(0.5)
+    # the channel has no encoder of its own: the claim's encoder sets the fader's value in fine steps
     surface.on_event(protocol.EncoderTurned(0, -5))
     await settle()
     assert commands.runs == [["brightness", "-d", "DP-1", "-b", "0.505"]]
-    surface.on_event(protocol.EncoderPressed(0, True))
-    surface.on_event(protocol.EncoderPressed(0, False))
-    await settle()
-    assert commands.runs[-1] == ["brightness", "-d", "DP-1", "-b", "1"]
-    assert surface.strips[0].ring == (11, RingMode.WRAP)
-    assert surface.strips[2].fader == protocol.fader_value(1.0)
     # under the finger, the motor waits; let go, it stays where the hand left it
     surface.on_event(protocol.FaderTouched(2, True))
     surface.on_event(protocol.FaderMoved(2, protocol.fader_value(0.25)))
@@ -301,6 +295,38 @@ async def test_a_fader_and_an_encoder_set_a_command_channel_whatever_the_slot_sh
     assert commands.runs[-1] == ["brightness", "-d", "DP-1", "-b", "0.325"]
     surface.on_event(protocol.FaderTouched(2, False))
     assert surface.strips[2].fader == protocol.fader_value(0.25)
+    assert surface.strips[0].ring == (3, RingMode.WRAP)
+    rig.mixer.close()
+    await commands.wait_closed()
+
+
+OWN = """
+[controls]
+1 = { encoder = { set = "brightness -b {value}", max = 1, step = 0.1, push = 1 }, select = { run = "lamp {value}" } }
+2 = { select = { run = "lamp off" } }
+"""
+
+
+async def test_controls_set_values_and_run_programs_of_their_own(surface: RecordingSurface) -> None:
+    commands = FakeCommands()
+    rig = Rig(surface, parse_config(BASE + OWN), commands=commands)
+    rig.step(STATE)
+    await settle()
+    # nothing known yet, so the ring is dark; a press runs without a value
+    assert surface.strips[0].ring == (0, RingMode.DOT)
+    surface.on_event(protocol.ButtonPressed(0, protocol.Button.SELECT, True))
+    await settle()
+    assert commands.runs == [["lamp", "{value}"]]
+    surface.on_event(protocol.EncoderPressed(0, True))
+    await settle()
+    surface.on_event(protocol.EncoderTurned(0, -2))
+    await settle()
+    assert commands.runs[1:] == [["brightness", "-b", "1"], ["brightness", "-b", "0.8"]]
+    surface.on_event(protocol.ButtonPressed(0, protocol.Button.SELECT, True))
+    surface.on_event(protocol.ButtonPressed(1, protocol.Button.SELECT, True))
+    await settle()
+    assert commands.runs[-2:] == [["lamp", "0.8"], ["lamp", "off"]]
+    assert surface.strips[0].leds[protocol.Button.SELECT] == protocol.Led.OFF
     rig.mixer.close()
     await commands.wait_closed()
 
@@ -314,17 +340,64 @@ async def test_a_fader_and_an_encoder_set_a_command_channel_whatever_the_slot_sh
         ),
         (
             '[controls]\n2 = { encoder = { channel = "out" } }\n',
-            "controls.2.encoder.channel: out is of type output; only command channels have a value",
+            "controls.2.encoder.channel: out is of type output; only custom channels have a value",
         ),
-        ('[controls]\n2 = { encoder = { program = "x" } }\n', "controls.2.encoder.channel: Field required"),
+        (
+            '[channel.screen]\ntype = "custom"\n[controls]\n2 = { fader = { channel = "screen" } }\n',
+            "controls.2.fader.channel: screen has no value for the fader: its fader is not bound to a program",
+        ),
+        (
+            '[channel.screen]\ntype = "custom"\nlcd = { watch = "x" }\n'
+            '[controls]\n2 = { encoder = { channel = "screen" } }\n',
+            "controls.2.encoder.channel: screen has no value for the encoder: neither its fader nor its encoder",
+        ),
+        ('[controls]\n2 = { encoder = { program = "x" } }\n', "controls.2.encoder.set: Field required"),
+        ('[controls]\n2 = { encoder = { program = "x" } }\n', "controls.2.encoder.program: Extra inputs"),
         ('[controls]\n2 = { encoder = "commands" }\n', "controls.2.encoder: Input should be 'homeassistant'"),
         (
-            '[channel.screen]\ntype = "command"\nset = "brightness"\n',
-            "channel.screen: set: no argument has {value}, so the value goes nowhere",
+            '[controls]\n2 = { fader = { set = "b {value}", push = 3 } }\n',
+            "controls.2: fader.push: a fader has no push, only the encoder",
+        ),
+        (
+            '[controls]\n2 = { select = { run = "b {target}" } }\n',
+            "controls.2: select.run: {target} is for custom channels with targets",
+        ),
+        ("[controls]\n2 = { select = { run = [] } }\n", "controls.2.select.run: an empty command"),
+        (
+            '[channel.screen]\ntype = "custom"\nfader = { set = "brightness" }\n',
+            "channel.screen: fader.set: no argument has {value}, so the value goes nowhere",
         ),
     ],
 )
-def test_a_command_channel_and_its_claims_are_checked(text: str, problem: str) -> None:
+def test_a_custom_channel_and_its_claims_are_checked(text: str, problem: str) -> None:
     with pytest.raises(ConfigError) as error:
         parse_config(BASE + text)
     assert problem in str(error.value)
+
+
+async def test_a_claim_follows_the_values_of_a_channel_that_switched(surface: RecordingSurface) -> None:
+    commands = FakeCommands()
+    rig = Rig(surface, parse_config(BASE + COMMANDS), commands=commands)
+    rig.step(STATE)
+    await settle()
+    screen = rig.mixer.channels["screen"]
+    assert isinstance(screen, CustomStrip)
+    before = screen.fader_value()
+    assert before is not None
+    # another target: other values, which the claims set and show from now on
+    other = CommandValue(ValueBinding.model_validate({"set": "other {value}", "max": 10}), commands, 1, "other")
+    screen._fader = other  # pyright: ignore[reportPrivateUsage]
+    for listener in list(screen.listeners):
+        listener()
+    other.set(5)
+    assert surface.strips[2].fader == protocol.fader_value(0.5)
+    surface.on_event(protocol.EncoderTurned(0, 1))
+    await settle()
+    assert commands.runs[-1] == ["other", "5.1"]
+    # the old value is not followed any more
+    before.set(1.0)
+    assert surface.strips[2].fader == protocol.fader_value(0.51)
+    rig.mixer.close()
+    # the strip closes the values it has; the old one is the test's now
+    before.close()
+    await commands.wait_closed()

@@ -31,7 +31,7 @@ from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.strips import build_strip, look_of
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
-from xtouch_daemon.strips.command import CommandStrip
+from xtouch_daemon.strips.custom import CustomStrip
 from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.system.processes import running_processes
@@ -70,7 +70,9 @@ def place_of(strip: StripConfig) -> Place | None:
     """None for a strip without a volume."""
     if not isinstance(strip, BaseStripConfig):
         return None
-    return strip.encoder or default_encoder(strip.type, strip.fader), strip.min_volume, strip.max_volume
+    # bindings: done by the audio strips (an encoder bound to a program)
+    encoder = strip.encoder if isinstance(strip.encoder, str) else default_encoder(strip.type, strip.fader)
+    return encoder, strip.min_volume, strip.max_volume
 
 
 class SlotMixer:
@@ -146,11 +148,8 @@ class SlotMixer:
             self.env.launcher,
             lambda: self.processes,
             config.behavior.encoder_step,
-            {
-                name: controller.value
-                for name, controller in self.channels.items()
-                if isinstance(controller, CommandStrip)
-            },
+            {name: controller for name, controller in self.channels.items() if isinstance(controller, CustomStrip)},
+            self.env.commands,
         )
         """The `[controls]` of the slots: claims on the strips of the desk."""
         self.controls.on_change = self.controls.show

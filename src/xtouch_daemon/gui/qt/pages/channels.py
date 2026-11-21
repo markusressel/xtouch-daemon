@@ -15,7 +15,7 @@ from xtouch_daemon.audio.model import Direction
 from xtouch_daemon.config.buttons import ButtonSetup, default_setup
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
-from xtouch_daemon.config.values import default_encoder
+from xtouch_daemon.config.values import ENCODERS, default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, channel_options, pool_options, uses
@@ -352,7 +352,8 @@ class ChannelsPage(Page):
         }
         table_suggest: dict[str, TableSuggest] = {}
         placeholders: dict[str, Callable[[], str]] = {
-            "encoder": lambda: default_encoder(strip),
+            # bindings: done by the GUI (the encoder of a custom channel sets the fader's value)
+            "encoder": lambda: default_encoder(strip) if strip in ENCODERS else "the value of the fader",
             "min_volume": lambda: "0",
             "max_volume": lambda: f"{self.document.get(('behavior', 'max_volume'), 130)} (behavior)",
             # one entry per part: the program first, then each argument

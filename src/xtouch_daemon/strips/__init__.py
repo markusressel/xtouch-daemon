@@ -4,15 +4,16 @@ from typing import assert_never
 
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
+from xtouch_daemon.config.bindings import color_name
 from xtouch_daemon.config.buttons import ButtonName
-from xtouch_daemon.config.strips import CommandStripConfig, EmptyStripConfig, HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.strips import CustomStripConfig, EmptyStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.config.values import MeterPoint, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
-from xtouch_daemon.strips.command import CommandStrip
+from xtouch_daemon.strips.custom import CustomStrip
 from xtouch_daemon.strips.device import ChoiceStrip, DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
 from xtouch_daemon.strips.voip import VoipStrip
@@ -35,15 +36,19 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
     match config:
         case EmptyStripConfig():
             return Look(meter=False)
-        case HomeAssistantStripConfig() | CommandStripConfig():
+        case HomeAssistantStripConfig():
             return Look(config.label, config.color, meter=False)
+        case CustomStripConfig():
+            # bindings: done by the custom strips (a bound color)
+            return Look(config.label, color_name(config.color), meter=False)
         case VoipStripConfig():
             return Look(config.label, config.color, config.meter, meter_point)
         case DeviceStripConfig() | AppsStripConfig() | AutoStripConfig():
+            # bindings: done by the audio strips (a bound color or meter: white, and no meter of the audio)
             return Look(
                 config.label if not isinstance(config, AutoStripConfig) else None,
-                config.color,
-                config.meter,
+                color_name(config.color),
+                config.meter is True,
                 meter_point,
                 {button: config.button(name) for button, name in BUTTONS.items()},
                 config.lit_when_idle,
@@ -80,9 +85,10 @@ def build_strip(
     if isinstance(config, HomeAssistantStripConfig):
         assert env.bridge is not None, "the configuration has no homeassistant strips without [mqtt]"
         return HomeAssistantStrip(strip, env, env.bridge, identity, look)
-    if isinstance(config, CommandStripConfig):
-        return CommandStrip(strip, env, identity, look, config, env.commands)
-    encoder = config.encoder or default_encoder(config.type, config.fader)
+    if isinstance(config, CustomStripConfig):
+        return CustomStrip(strip, env, identity, look, config, env.commands)
+    # bindings: done by the audio strips (a fader or an encoder bound to a program)
+    encoder = config.encoder if isinstance(config.encoder, str) else default_encoder(config.type, config.fader)
     controls = None
     if config.uses_home_assistant:
         assert env.bridge is not None, "the configuration has no strips in Home Assistant without [mqtt]"

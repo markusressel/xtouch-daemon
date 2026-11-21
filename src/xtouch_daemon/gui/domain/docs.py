@@ -42,7 +42,7 @@ STRIP_TYPES: dict[str, str] = {
     "apps": "configuration/channels/applications/#apps-channels",
     "auto": "configuration/channels/applications/#apps-and-auto",
     "homeassistant": "guides/home-assistant/#homeassistant-channels",
-    "command": "configuration/channels/commands/",
+    "custom": "configuration/channels/custom/",
     "empty": "configuration/channels/#empty-slots",
     "voip": "configuration/channels/people/",
 }
