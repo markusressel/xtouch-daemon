@@ -229,3 +229,26 @@ def test_a_text_can_be_picked_from_suggestions(qtbot: QtBot):
     type_into(qtbot, text.line, "bob")
     assert text.matches.text() == "Matches nothing known: it may come later"
     assert text.matches.property("role") == "warn"
+
+
+def test_in_a_wide_row_the_reset_button_stays_beside_the_field(qtbot: QtBot):
+    from xtouch_daemon.gui.domain.schema import strip_options
+    from xtouch_daemon.gui.qt.fields.option_row import WIDEST_FIELD
+
+    option = next(each for each in strip_options("output") if each.name == "label")
+    option_row = OptionRow(option, lambda: "Speakers", lambda _value: None)
+    qtbot.addWidget(option_row)
+    option_row.resize(2000, 200)
+    option_row.show()
+    qtbot.waitExposed(option_row)
+    qtbot.wait(1)  # the layout takes the new margins
+    assert option_row.narrow is False
+    beside = option_row.title_width + WIDEST_FIELD + 4 * 8
+    assert option_row.field.width() <= WIDEST_FIELD
+    assert option_row.reset.isVisible()
+    assert option_row.reset.geometry().right() < beside + option_row.reset.width()
+    assert option_row.help.geometry().right() <= option_row.reset.geometry().right()
+    option_row.resize(500, 200)
+    qtbot.wait(1)
+    assert option_row.reset.geometry().right() <= option_row.width()
+    assert option_row.width() < 2000
