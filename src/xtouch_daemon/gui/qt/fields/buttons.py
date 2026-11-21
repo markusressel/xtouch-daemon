@@ -1,8 +1,11 @@
 """
-The field of a button (`select`, `rec`, `solo`): what a press does, what a hold does and what its LED shows, each a
-list of its choices; unset, each shows what the strip type does by default.
+The field of a button (`select`, `rec`, `solo`, and `mute` of a `custom` channel): what a press does, what a hold does
+and what its LED shows, each a list of its choices; unset, each shows what the strip type does by default. A program
+is a table in the file and a text in the list: `launch: mumble`, `run: sysctrl display reset`, `watch: led-state
+--follow`.
 """
 
+import shlex
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -24,10 +27,33 @@ def parts_of(name: str, value: object) -> dict[str, Any]:
     return dict(table) if isinstance(table, Mapping) else {}
 
 
-def launch_text(table: Mapping[str, Any]) -> str:
-    """A launch of a button as the list shows it: the program and its arguments."""
-    command = table.get("launch", ())
-    return "launch: " + (command if isinstance(command, str) else " ".join(map(str, command)))
+PROGRAM_KEYS = ("launch", "run", "watch")
+"""The tables of a part of a button, by their key: what a press starts or runs, what its LED watches."""
+PROGRAM_MEANINGS = {
+    "launch": "Starts the program.",
+    "run": "Runs the program to its end. `{value}` is the value of the fader, else of the encoder.",
+    "watch": "Lit while the program's newest line is `on`, `1`, `true` or `yes`; it flashes on `flash`.",
+}
+
+
+def program_text(table: Mapping[str, Any]) -> str:
+    """A table of a button as the list shows it: `launch: mumble -m`, `run: ...`, `watch: ...`."""
+    key = next((key for key in PROGRAM_KEYS if key in table), "launch")
+    command = table.get(key, ())
+    return f"{key}: " + (command if isinstance(command, str) else shlex.join(map(str, command)))
+
+
+def program_table(text: str) -> dict[str, Any] | None:
+    """The table of a text typed as `run: prog arg` (or `launch:`, `watch:`), None for other text."""
+    key, colon, rest = text.partition(":")
+    if not colon or key.strip() not in PROGRAM_KEYS:
+        return None
+    try:
+        command = shlex.split(rest)
+    except ValueError:
+        # an open quote: the program as it is, its problem says what is wrong
+        command = rest.split()
+    return {key.strip(): command}
 
 
 class ButtonField(QWidget):
@@ -61,7 +87,8 @@ class ButtonField(QWidget):
             combo = QComboBox(self)
             combo.setMinimumWidth(180)
             combo.setToolTip(help_text(column.help))
-            if column.kind == Kind.ACTION:
+            if column.kind in (Kind.ACTION, Kind.BINDING):
+                # actions typed (`mode:gaming`), programs typed (`run: ...`, `watch: ...`)
                 combo.setEditable(True)
                 combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
                 combo.editTextChanged.connect(self._edited)
@@ -101,7 +128,7 @@ class ButtonField(QWidget):
                 placeholder = f"default: {self.inherited or shown}"
                 if isinstance(part, Mapping):
                     self._kept[column.name] = dict(part)
-                    part = launch_text(part)
+                    part = program_text(part)
                 text = "" if part is None else str(part)
                 if combo.isEditable():
                     combo.setCurrentIndex(-1)
@@ -109,6 +136,7 @@ class ButtonField(QWidget):
                     edit = combo.lineEdit()
                     if edit is not None:
                         edit.setPlaceholderText(placeholder)
+                    combo.setPlaceholderText(placeholder)
                 else:
                     combo.setCurrentIndex(combo.findText(text) if text else -1)
                     if text and combo.currentIndex() < 0:
@@ -124,8 +152,10 @@ class ButtonField(QWidget):
         for name, combo in self.combos.items():
             text = combo.currentText().strip() if combo.isEditable() or combo.currentIndex() >= 0 else ""
             kept = self._kept.get(name)
-            if kept is not None and text == launch_text(kept):
+            if kept is not None and text == program_text(kept):
                 table[name] = kept
+            elif (program := program_table(text)) is not None:
+                table[name] = program
             elif text:
                 table[name] = text
         # the shorthands where they say it all: `rec = "muted"`, `select = false`
@@ -151,8 +181,11 @@ class ButtonField(QWidget):
             if not text and (column.name in self._unknown or self.inherited is not None):
                 continue
             shown = text or (describe_action(getattr(defaults, column.name)))
+            program = program_table(shown)
             meaning = column.meaning(shown) or (
-                "Picks the mode."
+                PROGRAM_MEANINGS[next(iter(program))]
+                if program is not None
+                else "Picks the mode."
                 if shown.startswith("mode:")
                 else "Turns the state or mode on and back."
                 if shown.startswith("toggle:")

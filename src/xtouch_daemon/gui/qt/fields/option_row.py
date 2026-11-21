@@ -39,6 +39,7 @@ from xtouch_daemon.gui.qt.fields.basics import (
     label,
     set_help,
 )
+from xtouch_daemon.gui.qt.fields.binding import BindingField
 from xtouch_daemon.gui.qt.fields.buttons import ButtonField
 from xtouch_daemon.gui.qt.fields.chips import Chips
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Switch
@@ -110,6 +111,24 @@ def add_groups(layout: QBoxLayout, groups: Iterable[tuple[str, Sequence[QWidget]
             layout.addSpacing(Space.M)
         layout.addWidget(label(title.upper(), "group"))
         add_rows(layout, widgets)
+
+
+class NumberSpin(QDoubleSpinBox):
+    """
+    A spin box of a number that may be unset (`unset`, shown as text): a step up from it goes to `start()` where
+    there is one, e.g. a binding's `push` to its `min`, rather than a step away from far below.
+    """
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.unset: float | None = None
+        self.start: Callable[[], float] | None = None
+
+    def stepBy(self, steps: int) -> None:
+        if self.start is not None and self.unset is not None and self.value() == self.unset and steps > 0:
+            self.setValue(self.start())
+            return
+        super().stepBy(steps)
 
 
 class OptionRow(QWidget):
@@ -218,7 +237,8 @@ class OptionRow(QWidget):
             self.top.addWidget(self.reset, 1, 1)
         else:
             # a list of entries: its name and reset at the top, not beside its middle
-            top = Qt.AlignmentFlag.AlignTop if self.option.kind in (Kind.TABLES, Kind.BUTTON) else Qt.AlignmentFlag(0)
+            tall = (Kind.TABLES, Kind.BUTTON, Kind.BINDING)
+            top = Qt.AlignmentFlag.AlignTop if self.option.kind in tall else Qt.AlignmentFlag(0)
             self.title.setFixedWidth(self.title_width)
             self.top.addWidget(self.title, 0, 0, top)
             self.top.addWidget(self.field, 0, 1)
@@ -248,15 +268,22 @@ class OptionRow(QWidget):
                 self.spin.valueChanged.connect(self._edit_number)
                 return self._left(self.spin)
             case Kind.NUMBER:
-                self.spin = QDoubleSpinBox(self)
+                spin = NumberSpin(self)
+                self.spin = spin
                 indent_text(self.spin)
                 self.spin.setDecimals(1)
                 self.spin.setSingleStep(0.5)
                 low = option.minimum or 0
+                if option.signed:
+                    # a number of your own (e.g. `min` of a binding): any sign, finer, steps after its size
+                    low = -1_000_000 if option.minimum is None else option.minimum
+                    self.spin.setDecimals(3)
+                    self.spin.setStepType(QDoubleSpinBox.StepType.AdaptiveDecimalStepType)
                 if option.default is None:
                     # a step below the minimum is "not set", shown as text
                     self._unset = low - 0.5
                     low = self._unset
+                    spin.unset = self._unset
                 self.spin.setRange(low, option.maximum or 1_000_000)
                 self.spin.valueChanged.connect(self._edit_number)
                 return self._left(self.spin)
@@ -303,6 +330,21 @@ class OptionRow(QWidget):
                 self.buttons.changed.connect(self._edit)
                 self.input = self.buttons
                 return self.buttons
+            case Kind.BINDING:
+                self.binding = BindingField(option, self._placeholder)
+                self.binding.changed.connect(self._edit)
+                # the field of the words, by the name it has without bindings
+                match option.base:
+                    case Kind.CHOICE:
+                        self.combo = self.binding.combo
+                    case Kind.SWITCH:
+                        self.switch = self.binding.switch
+                    case Kind.COLOR:
+                        self.colors = self.binding.colors
+                    case _:
+                        pass
+                self.input = self.binding
+                return self.binding
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -423,6 +465,9 @@ class OptionRow(QWidget):
                     self.tables.show_values([dict(table) for table in tables if isinstance(table, dict)])
                 case Kind.BUTTON:
                     self.buttons.show_value(value)
+                case Kind.BINDING:
+                    self.binding.show_value(value)
+                    self._show_meaning()
                 case _ as unreachable:
                     assert_never(unreachable)
         finally:
@@ -437,15 +482,21 @@ class OptionRow(QWidget):
             value = None
         self._put(value)
         self.reset.setVisible(self.resettable and value is not None and not self.option.required)
-        if self.option.kind == Kind.CHOICE:
+        if self.option.kind in (Kind.CHOICE, Kind.BINDING):
             self._show_meaning()
         self.edited.emit()
 
     def _show_meaning(self) -> None:
         """What the chosen value means; while none is chosen, what the default (the placeholder) means."""
-        value = self.combo.currentText() if self.combo.currentIndex() >= 0 else None
-        if value is None and self._placeholder:
-            value = self._placeholder()
+        if self.option.kind == Kind.BINDING:
+            # a word of a list, or Home Assistant: switches and colors say it themselves
+            value = self.binding.word()
+            if self.option.base != Kind.CHOICE and value != "homeassistant":
+                value = None
+        else:
+            value = self.combo.currentText() if self.combo.currentIndex() >= 0 else None
+            if value is None and self._placeholder:
+                value = self._placeholder()
         meaning = self.option.meaning(value)
         set_help(self.meaning, f"`{value}`: {meaning}" if meaning else "")
         self.meaning.setVisible(bool(meaning))
@@ -459,14 +510,31 @@ class OptionRow(QWidget):
         self.edited.emit()
 
     def show_problems(self, problems: list[Problem]) -> None:
+        if self.option.kind == Kind.BINDING:
+            # a problem of an option of the program (`fader.max`) shows under its row
+            nested: dict[str, list[Problem]] = {name: [] for name in self.binding.rows}
+            rest: list[Problem] = []
+            for problem in problems:
+                column = self._rest_of(problem)[:1]
+                if column and column[0] in nested:
+                    nested[str(column[0])].append(problem)
+                else:
+                    rest.append(problem)
+            for name, row in self.binding.rows.items():
+                row.show_problems(nested[name])
+            problems = rest
         self.error.setText("\n".join(self._problem_text(problem) for problem in problems))
         self.error.setVisible(bool(problems))
         set_role(self.input, bool(problems), "problem")
 
+    def _rest_of(self, problem: Problem) -> tuple[int | str, ...]:
+        """Where in the option the problem is, e.g. `(2, "label")` of the third table, `()` for the option itself."""
+        name = next((name for name in self.names if name in problem.path), None)
+        return () if name is None else problem.path[problem.path.index(name) + 1 :]
+
     def _problem_text(self, problem: Problem) -> str:
         """The message, after the table and column for a problem in one of `TABLES` (e.g. "2. label: ...")."""
-        name = next((name for name in self.names if name in problem.path), None)
-        rest = () if name is None else problem.path[problem.path.index(name) + 1 :]
+        rest = self._rest_of(problem)
         if self.option.kind != Kind.TABLES or not rest or not isinstance(rest[0], int):
             return problem.message
         where = " ".join([f"{rest[0] + 1}.", *map(str, rest[1:])])
