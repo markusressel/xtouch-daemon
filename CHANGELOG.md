@@ -118,6 +118,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   before the zoom let go of it.
 - GUI: a menu or popover whose button goes away while it is open (e.g. the menu "Broken touch" of the bar of the
   virtual device when the device closes) closes with it. The next click crashed the GUI.
+- GUI: a form wider than its pane (e.g. a channel in a narrow window) is laid out once. The pane made its content as
+  wide as the rows with their names beside their fields wanted, and at that width they asked for it again: a new
+  theme took up to 15 s, or did not end.
 - GUI: the icons are drawn once per name and color. Every new page, window and theme drew all of them again and kept
   each copy, about 760 per window, for as long as the GUI ran.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its

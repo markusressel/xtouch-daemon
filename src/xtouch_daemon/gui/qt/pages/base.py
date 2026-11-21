@@ -70,6 +70,11 @@ def row(layout: QLayout) -> QWidget:
 
 def scrolled(widget: QWidget) -> QScrollArea:
     """`widget` in an area that scrolls up and down when it is taller than the room it has."""
+    # as wide as the area, never wider: a wider least width (e.g. of a row with its name beside its field) would make
+    # the area widen it, and at that width the rows would ask for it again, so the layout went back and forth
+    policy = widget.sizePolicy()
+    policy.setHorizontalPolicy(QSizePolicy.Policy.Ignored)
+    widget.setSizePolicy(policy)
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setFrameShape(QFrame.Shape.NoFrame)
