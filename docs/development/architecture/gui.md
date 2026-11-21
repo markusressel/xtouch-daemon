@@ -81,6 +81,10 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
 - **Built once, updated in place.** The pages build their widgets once, and showing the document loads the values
   into them (`OptionRow.load()`); no page is cleared and built again. A part that comes and goes (an absent section,
   the form of each channel type) is a page of a `Stack` sized to its current part, not a widget shown and hidden.
+- **Built when first shown.** The page Channels builds the form of a channel type (or a pool) the first time it
+  shows, and keeps it: most types never show in a session, and building all of them took most of the start of the
+  window. While the page is hidden, the form of the selection waits (`ChannelsPage.pending`) until the page shows or
+  someone asks for its rows; the list, with its marks for problems, is up to date all the time.
 - **No layout for what stays the same.** Showing the document again, or a live update with every change of the device, changes no
   geometry when nothing differs: `set_text` and the tab texts are set only when they differ, `theme.set_role` restyles
   only for another role, and the list chips stay while their values are the same. Icons are kept with their name and

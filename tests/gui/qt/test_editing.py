@@ -160,6 +160,39 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
     assert "mic" in window.document.get(("channel",))
 
 
+def test_a_form_is_built_the_first_time_it_shows(window: MainWindow):
+    page = window.channels_page
+    # on the page Slots: no form yet, not even the one of the channel selected
+    assert page.form_widgets == {}
+    assert page.pending
+
+    show_channel(window, "browser")
+    assert list(page.form_widgets) == ["apps"]
+    apps = page.form_widgets["apps"]
+    assert row(window, "match").chips.values == ["brave"]
+    show_channel(window, "out")
+    assert list(page.form_widgets) == ["apps", "output"]
+    assert row(window, "color").colors.swatches["cyan"].isChecked()
+    # kept: the same widgets again
+    show_channel(window, "browser")
+    assert page.form_widgets["apps"] is apps
+    assert page.forms.part is apps
+
+
+def test_problems_of_a_form_not_built_yet_show(window: MainWindow):
+    window.document.set(("channel", "browser", "color"), "pink")
+    window.editor.edited()
+    page = window.channels_page
+    page.select(("channel", "browser"))
+
+    # the list marks it while the page is hidden and the form waits for it
+    assert page.pending
+    assert items(window)[1].text().endswith("⚠")
+    # the rows, asked for before the page shows, have their values and problems
+    assert row(window, "color").error.text().startswith("Input should be")
+    assert not page.pending
+
+
 def test_problems_are_shown_inline_and_block_saving(qtbot: QtBot, window: MainWindow, isolated: Dialogs):
     show_channel(window, "browser")
     match = row(window, "match")
