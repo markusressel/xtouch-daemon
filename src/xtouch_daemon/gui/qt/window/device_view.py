@@ -23,7 +23,7 @@ from xtouch_daemon.gui.domain.status import (
     play_unavailable,
     test_unavailable,
 )
-from xtouch_daemon.gui.qt.fields.basics import label, show_status
+from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, label, show_status
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Hand, Preview
@@ -133,7 +133,8 @@ class DeviceView(QWidget):
         layout.addWidget(self.select_button)
         layout.addWidget(self.play_button)
         layout.addSpacing(Space.S)
-        self.mode_hint = label("", "hint")
+        # cut where the bar is short: it never makes the window wider than the screen gives it
+        self.mode_hint = ElidedLabel("", "hint")
         layout.addWidget(self.mode_hint)
         layout.addSpacing(Space.XS)
         self.hand_pill = label("", "pill")

@@ -103,3 +103,12 @@ def test_the_bars_stay_where_they_are(window: MainWindow):
         toggle = bar.toggleViewAction()
         assert toggle is not None
         assert not toggle.isVisible()
+
+
+def test_a_long_hint_over_the_drawing_never_makes_the_window_wider(window: MainWindow):
+    # a window manager that tiles gives the window its width: wider content would be cut off on the right
+    window.show()
+    before = window.minimumSizeHint().width()
+    window.device_view.mode_hint.setText("Drag a strip to move its slot · Play: opens the virtual device " * 4)
+    assert window.minimumSizeHint().width() == before
+    assert before < 600
