@@ -312,6 +312,8 @@ class CustomStrip(StripController):
                 for entity in self.ha.watched:
                     env.bridge.watch(entity, lambda _: self.show())
                 for part, number in self.ha.values.items():
+                    # once Home Assistant is there (and again after a reconnect), it learns the values
+                    env.bridge.watch(number.entity, lambda _: self._publish_values())
                     env.bridge.watch_commands(number.entity, lambda payload, part=part: self._commanded(part, payload))
             else:
                 _LOGGER.warning(f"{identity.name}: its parts in Home Assistant need [mqtt]")
@@ -322,6 +324,7 @@ class CustomStrip(StripController):
         """The buttons pressed whose hold comes once HOLD_TIME is over."""
         self._running: dict[Button, int] = {}
         """The buttons whose `run` still runs, with how many runs (their LED with `led = "press"`)."""
+        self._closed = False
 
     # -- what it controls -----------------------------------------------------------------------------------------
 
@@ -379,7 +382,11 @@ class CustomStrip(StripController):
     # -- Home Assistant ---------------------------------------------------------------------------------------------
 
     def _publish_values(self) -> None:
-        if self.ha is None:
+        """
+        Home Assistant learns the values of the target the strip controls. Not before it is there: what is published
+        before is lost, and the seed of the bridge (the watch of each number) publishes them then.
+        """
+        if self.ha is None or not self.ha.bridge.ready:
             return
         for part, number in self.ha.values.items():
             value: CommandValue | None = getattr(self.current, part)
@@ -389,8 +396,14 @@ class CustomStrip(StripController):
     def _commanded(self, part: str, payload: str) -> None:
         """Home Assistant sets the value of a part: as a hand does."""
         value: CommandValue | None = getattr(self.current, part)
-        if value is not None:
-            value.set(float(payload))
+        if value is None:
+            return
+        try:
+            number = float(payload)
+        except ValueError:
+            _LOGGER.warning(f"{self.current.title}.{part}: Home Assistant sent {payload!r}, not a number")
+            return
+        value.set(number)
 
     @property
     def entities(self) -> dict[MQTTEntity, str | None]:
@@ -605,6 +618,7 @@ class CustomStrip(StripController):
             timer.cancel()
             self.act(button, setup.press, True)
         if setup.press == HOME_ASSISTANT:
+            # (the configuration gives it no hold: it was pressed at once)
             self.act(button, setup.press, False)
 
     def _cancel_hold(self, button: Button) -> None:
@@ -668,15 +682,18 @@ class CustomStrip(StripController):
             except CommandError as e:
                 _LOGGER.warning(f"{what}: {e}")
             finally:
-                left = self._running.pop(button, 1) - 1
-                if left > 0:
-                    self._running[button] = left
-                self.show()
+                # a run outlives its strip (a reload, an edit of the twin): the old strip shows nothing any more
+                if not self._closed:
+                    left = self._running.pop(button, 1) - 1
+                    if left > 0:
+                        self._running[button] = left
+                    self.show()
 
         self.commands.start(run(), f"{what}: run")
 
     def close(self) -> None:
         super().close()
+        self._closed = True
         self._end_notice_timer()
         for timer in self._holds.values():
             timer.cancel()

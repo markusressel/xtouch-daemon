@@ -581,3 +581,43 @@ async def test_without_mqtt_parts_in_home_assistant_stay_dark(surface: Recording
     assert strip.held_meter("pre_fader") is None
     assert strip.entities == {}
     strip.close()
+
+
+async def test_a_value_known_before_home_assistant_is_there_is_published_once_it_is(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker, caplog: pytest.LogCaptureFixture
+) -> None:
+    commands = ProgramCommands()
+    env = StripEnv(FakeBackend(), BehaviorConfig(encoder_step=5), bridge, commands=commands)
+    fader = {"set": "light {value}", "watch": "light --watch", "min": 0.1, "max": 1.0}
+    strip = build(config(fader=fader), surface.strips[0], env, name="lights")
+    assert isinstance(strip, CustomStrip)
+    strip.update(AudioState())
+    # the program prints its value before the broker is there
+    commands.print_to("light --watch", "0.4")
+    await until(lambda: surface.strips[0].text[1] == "0.4")
+    await bridge.set_entities(strip.entities)
+    task = asyncio.create_task(bridge.run())
+    await until(lambda: published(broker, topic("number", "fader"))[-1:] == ["0.4"])
+    # a command that is not a number is a warning, nothing runs
+    broker.publish(topic("number", "fader", "set"), "bright")
+    await until(lambda: "Home Assistant sent 'bright', not a number" in caplog.text)
+    assert commands.runs == []
+    assert not task.done()
+    strip.close()
+    await finish_tasks()
+
+
+async def test_a_run_that_ends_after_the_strip_closed_shows_nothing(surface: RecordingSurface, env: StripEnv) -> None:
+    commands = ProgramCommands()
+    commands.run_time = 1.0
+    strip = custom(env, surface, commands, select={"press": {"run": "save"}, "led": "press"})
+    device = surface.strips[0]
+    press(strip, Button.SELECT)
+    await settle()
+    assert device.leds[Button.SELECT] == Led.ON
+    strip.close()
+    await asyncio.sleep(1)
+    assert commands.runs == [["save"]]
+    # the old strip wrote nothing: the strip is another one's now
+    assert device.leds[Button.SELECT] == Led.ON
+    await commands.wait_closed()

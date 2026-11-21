@@ -28,6 +28,7 @@ from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.world import Names, world, world_of_now
+from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.voip.demo import DemoProvider
 
@@ -171,10 +172,12 @@ class Twin(Rig):
         names: Names | None = None,
         clock: Callable[[], float] = time.monotonic,
         real: bool = False,
+        commands: Commands | None = None,
     ):
         """
         `real`: the world is the one of now (`world_of_now()`, a preview of edits without Simulate); `situation` gives
-        only the mode and the states then.
+        only the mode and the states then. `commands` runs the programs of custom channels (by default
+        `SimulatedCommands`: watches only).
         """
         self.situation = situation
         self.real = real
@@ -186,7 +189,14 @@ class Twin(Rig):
         self.people = DemoProvider(())
         """The twin's voice chat."""
         super().__init__(
-            config, Surface(port=NoPort()), self.sound, self.people, capturer=pulse, clock=clock, logger=_LOGGER
+            config,
+            Surface(port=NoPort()),
+            self.sound,
+            self.people,
+            capturer=pulse,
+            clock=clock,
+            logger=_LOGGER,
+            commands=commands,
         )
         self.slots.fixed = True
         self.surface.on_change = lambda: self.on_change()
@@ -240,8 +250,8 @@ class Twin(Rig):
         engine = self.slots.simulation.engine
         engine.overrides = overrides
         engine.mode_pick = mode
-        # custom channels are there as their `present` says, and absent as the situation says
-        self.slots.made_absent = frozenset() if self.real else situation.absent(scene)
+        # custom channels are there as their `present` says in reality, else as the situation says
+        self.slots.made_absent = None if self.real else situation.absent(scene)
         made = world_of_now(self.names) if self.real else world(scene, situation, self.names)
         self.sound.set_state(made.audio)
         self.people.set_people(made.people)
