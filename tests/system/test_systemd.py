@@ -339,3 +339,11 @@ def test_the_executable_is_the_installed_command_or_this_program(monkeypatch: py
     monkeypatch.setattr(systemd.shutil, "which", lambda name: None)
     monkeypatch.setattr(sys, "argv", ["/opt/venv/bin/xtouch-daemon", "gui"])
     assert systemd.executable() == "/opt/venv/bin/xtouch-daemon"
+
+
+def test_a_command_that_does_not_answer_in_time_is_given_up_on() -> None:
+    # e.g. a service manager that hangs: the window that waits for it would freeze
+    with pytest.raises(systemd.ServiceError, match=r"^sleep 5 did not answer in 0.05 s$"):
+        systemd.run_command(["sleep", "5"], timeout=0.05)
+    output = "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n"
+    assert systemd.Service(timeout=0.05)._run(["printf", output]) == output  # pyright: ignore[reportPrivateUsage]

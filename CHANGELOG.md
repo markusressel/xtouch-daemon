@@ -129,6 +129,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: the test of the broker always ends with a result. A host that is no name (e.g. `.bad..host`) left the button
   at "Connecting to …" for good; a test started again while one ran showed the older result last. The setup of the
   Mumble plugin and the read of the sound server end with an error too, whatever goes wrong.
+- GUI: a user service manager that hangs no longer freezes the window for good: a command of `systemctl` that takes
+  more than 2 s is given up on, and the pill of the service says "unavailable".
 - GUI: the icons are drawn once per name and color. Every new page, window and theme drew all of them again and kept
   each copy, about 760 per window, for as long as the GUI ran.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its

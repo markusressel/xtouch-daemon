@@ -6,6 +6,7 @@ The release package (see packaging/build-release.sh) installs the daemon to `PAC
 `PACKAGED_UNIT`. A unit in the user's configuration (`unit_path()`) overrides it: systemd prefers it by name.
 """
 
+import functools
 import logging
 import os
 import re
@@ -143,9 +144,12 @@ class ServiceError(Exception):
     """A systemctl command that failed, with a message for the user."""
 
 
-def run_command(command: list[str]) -> str:
+def run_command(command: list[str], timeout: float | None = None) -> str:
+    """The output of `command`; `timeout`: seconds it may take (None: as long as it takes)."""
     try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        result = subprocess.run(command, check=True, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        raise ServiceError(f"{' '.join(command)} did not answer in {timeout:g} s") from e
     except FileNotFoundError as e:
         raise ServiceError(f"{command[0]} is not installed: is this a systemd system?") from e
     except subprocess.CalledProcessError as e:
@@ -197,8 +201,9 @@ class ServiceState:
 class Service:
     """The systemd user service of the daemon: its state, installing, starting, stopping and reloading it."""
 
-    def __init__(self, run: Runner | None = None, wait: bool = True):
-        self._run = run or run_command
+    def __init__(self, run: Runner | None = None, wait: bool = True, timeout: float | None = None):
+        """`timeout`: seconds a command of `systemctl` may take, e.g. while the user's service manager hangs."""
+        self._run = run or functools.partial(run_command, timeout=timeout)
         self._wait = wait
         """
         Whether starting, restarting and stopping wait until the service did (`systemctl` waits for the end of the

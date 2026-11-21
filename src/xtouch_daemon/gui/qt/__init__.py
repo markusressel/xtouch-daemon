@@ -21,6 +21,12 @@ from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.system.systemd import Service
 
+SYSTEMCTL_TIMEOUT = 2.0
+"""
+Seconds a command of `systemctl` may take in the window, which waits for it: a user's service manager that hangs would
+freeze the window (the state of the service is read every 3 s). It answers in milliseconds otherwise; the jobs are
+queued (`--no-block`).
+"""
 SCALE_FACTOR = "QT_SCALE_FACTOR"
 """Qt scales a whole application by it, when the application starts."""
 
@@ -71,7 +77,8 @@ def run_gui(path: Path) -> int:
         os.environ[SCALE_FACTOR] = scale_for(load_zoom(), own)
         app = create_application()
         signals.watch(app)
-        window = MainWindow(document, Service(wait=False), lambda: read_state("xtouch-daemon-gui"), session=session)
+        service = Service(wait=False, timeout=SYSTEMCTL_TIMEOUT)
+        window = MainWindow(document, service, lambda: read_state("xtouch-daemon-gui"), session=session)
         window.show()
         code = app.exec()
         if window.rezoom is None:
