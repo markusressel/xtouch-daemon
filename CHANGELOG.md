@@ -69,7 +69,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     and `home`.
   - A fader or an encoder takes `{ entity = "light.desk" }` and sets it: the brightness of a light, the volume of a
     media player, the position of a cover, the percentage of a fan, a `number` or an `input_number`. Any other entity
-    or attribute takes `service` and `data` with `{value}`.
+    or attribute takes `service` and `data` with `{value}`. When Home Assistant refuses a value, the fader goes back
+    to where the entity is.
   - A press or a hold takes `{ service = "light.toggle", entity = "light.desk", data = { ... } }`.
   - They work on channels and in `[controls]`. Without `[homeassistant]` they are errors at their place; an entity
     Home Assistant does not have is a warning in the log. While the daemon is not connected, the parts show nothing.

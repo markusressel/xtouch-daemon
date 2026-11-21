@@ -96,6 +96,35 @@ async def test_a_fader_follows_and_sets_the_brightness_of_a_light(
     assert hass.watched == 0
 
 
+async def test_a_call_that_failed_moves_the_fader_back(
+    surface: RecordingSurface,
+    env: StripEnv,
+    home: FakeHomeAssistant,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    commands = Commands(hass)
+    strip = custom(surface, env, commands, fader={"entity": "light.desk"})
+    value = strip.fader_value()
+    assert value is not None
+    home.failing["light.turn_on"] = "Entity light.desk is unavailable"
+    strip.on_fader(1.0)
+    assert value.value == 255
+    await settle()
+    assert home.calls == [("light.turn_on", {"brightness": 255}, "light.desk")]
+    assert "Entity light.desk is unavailable" in caplog.text
+    # Home Assistant did not take it: the fader is where the light is
+    assert value.value == 51
+    assert surface.strips[0].fader == protocol.fader_value(51 / 255)
+    # a call that works leaves the fader where the hand put it, until the light tells its new brightness
+    del home.failing["light.turn_on"]
+    strip.on_fader(1.0)
+    await settle()
+    assert value.value == 255
+    strip.close()
+    await commands.wait_closed()
+
+
 async def test_a_service_of_your_own_gets_the_value_in_its_data(
     surface: RecordingSurface,
     env: StripEnv,

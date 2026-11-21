@@ -74,6 +74,8 @@ class EntityValue(BoundValue):
 
     def __init__(self, binding: EntityValueBinding, commands: Commands, encoder_step: int, what: str):
         self._hass = commands.hass
+        self._failed = False
+        """Whether the last call failed: the entity did not take the value."""
         state = self._hass.state(binding.entity) if self._hass is not None else None
         super().__init__(binding, commands, encoder_step, what, *range_of(state, binding))
         if self._hass is not None:
@@ -89,6 +91,13 @@ class EntityValue(BoundValue):
         if value is not None or not self.commands.simulated:
             self._follow(value)
 
+    def _settled(self) -> None:
+        # after a call that failed, the fader goes back to where the entity is (after one that worked it stays: many
+        # devices tell their new state a moment later, and the motor would jump back and forth)
+        if self._failed:
+            self._failed = False
+            self._entity_changed()
+
     async def _apply(self, value: float) -> None:
         binding = self.binding
         domain = domain_value(binding.entity, binding.attribute)
@@ -101,7 +110,9 @@ class EntityValue(BoundValue):
             data = {domain.key: round(value) if domain.whole else value}
         try:
             await self.commands.call_service(service, data if isinstance(data, Mapping) else {}, binding.entity)
+            self._failed = False
         except HomeAssistantError as e:
+            self._failed = True
             _LOGGER.warning(f"{self.what}: {service} on {binding.entity}: {e}")
 
     def close(self) -> None:
