@@ -942,7 +942,9 @@ def _look_problems(show: str, options: Mapping[str, Any], allowed: frozenset[str
     """
     problems: list[str] = []
     for option in sorted(set(options) - allowed):
-        if show == PEOPLE and option == "label":
+        if not allowed:
+            why = f" (its channels bring their own look: set it on them or in [pool.{show}])"
+        elif show == PEOPLE and option == "label":
             why = " (only on a person channel; the strips of people show their names)"
         elif show == DEVICES and option == "label":
             why = " (its strips show the names of their devices)"
@@ -982,6 +984,9 @@ def place_options(show: str, pools: Mapping[str, Pool] | None = None) -> frozens
     shows (the encoder, the volume range). `pools` tells what the pools of your own are.
     """
     pool = pools.get(show) if pools is not None else None
+    if isinstance(pool, PoolConfig):
+        # its channels bring their own look
+        return frozenset()
     if show == PEOPLE or isinstance(pool, PeoplePoolConfig):
         return PEOPLE_LOOK_OPTIONS
     if show == DEVICES:

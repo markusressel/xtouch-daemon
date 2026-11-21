@@ -80,6 +80,10 @@ def test_stacks_in_all_forms():
             "slots.1[0]: encoder is no option of a place for out (it belongs to the channel)",
         ),
         ("[slots]\n1 = [{ show = 'auto', colour = 'red' }]", "slots.1[0]: colour is no option of a place for auto"),
+        (
+            "[pool.media]\nchannels = ['#media']\n[slots]\n1 = [{ show = 'media', color = 'red' }]",
+            "slots.1[0]: color is no option of a place for media (its channels bring their own look: set it on them",
+        ),
         ("[channel.Big]\ntype = 'output'", "channel.Big: an id is lower case letters, digits and _"),
         ("[channel.state_x]\ntype = 'output'", "channel.state_x: state_x is reserved"),
         ("[state.default]\nmanual = 1", "state.default.manual: Extra inputs are not permitted"),

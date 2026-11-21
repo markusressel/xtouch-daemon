@@ -11,6 +11,7 @@ from typing import Any
 from pydantic import TypeAdapter, ValidationError
 
 from xtouch_daemon.config.base import ConfigError, error_message, error_place
+from xtouch_daemon.config.buttons import table_of
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.config.strip import BaseStripConfig
@@ -28,6 +29,8 @@ CHANNEL_ONLY = frozenset({"tags", "in_pool", "absent_after"})
 POOL_ONLY = MEMBER_OPTIONS
 """Options of a pool that are about its members and slots, not about its strips."""
 EMPTY = "-"
+BUTTONS = ("select", "rec", "solo", "mute")
+"""The buttons of a strip: a layer that sets one sets only the parts of its table it names."""
 
 _STRIP = TypeAdapter[StripConfig](StripConfig)
 
@@ -55,6 +58,23 @@ class SlotsSetup:
     def person(self, name: str) -> StripConfig:
         """The strip of a person without a channel (checked with a made-up name when the file is loaded)."""
         return _STRIP.validate_python({"type": "voip"} | dict(self.people) | {"person": name})
+
+
+def over(*layers: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    The options of a strip from layers, each over the ones before: the type, the look of a pool, the channel, the
+    place. A button takes the parts of its table each layer names, so an LED set at a place keeps the channel's press.
+    """
+    result: dict[str, Any] = {}
+    for layer in layers:
+        for key, value in layer.items():
+            below = table_of(key, result.get(key)) if key in BUTTONS else None
+            above = table_of(key, value) if key in BUTTONS else value
+            if isinstance(below, Mapping) and isinstance(above, Mapping):
+                result[key] = {**below, **above}
+            else:
+                result[key] = value
+    return result
 
 
 def split(data: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
@@ -117,20 +137,20 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
             if candidate.show is None:
                 add((slot, index, None), where, {"type": "empty"})
             elif candidate.show in scene.channels:
-                add((slot, index, candidate.show), where, channel_strip(candidate.show) | own)
+                add((slot, index, candidate.show), where, over(channel_strip(candidate.show), own))
             else:
                 look = {key: value for key, value in pools.get(candidate.show, {}).items() if key not in POOL_ONLY}
                 if candidate.show in (APPS, AUTO):
-                    add((slot, index, None), where, {"type": "auto"} | look | own)
+                    add((slot, index, None), where, over({"type": "auto"}, look, own))
                 elif candidate.show == DEVICES:
                     # the devices on its slots: an output strip until a device comes (see `SlotsSetup.device()`)
-                    add((slot, index, None), where, {"type": "output"} | look | own)
+                    add((slot, index, None), where, over({"type": "output"}, look, own))
                 elif candidate.show in scene.apps_pools:
                     # a pool of applications of your own: they act as `apps` channels do, with no pick
-                    add((slot, index, None), where, {"type": "auto", "encoder": "media"} | look | own)
+                    add((slot, index, None), where, over({"type": "auto", "encoder": "media"}, look, own))
                 elif candidate.show == PEOPLE or candidate.show in scene.people_pools:
                     # the people on its slots: the look of [pool.people] and of the place (their names are theirs)
-                    add((slot, index, None), where, {"type": "voip"} | look | own | {"person": "someone"})
+                    add((slot, index, None), where, over({"type": "voip"}, look, own, {"person": "someone"}))
                 else:
                     add((slot, index, None), where, {"type": "empty"})
                 # a pool hands out channels: `auto` the apps channels without a slot, the others their own; a channel
@@ -142,7 +162,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                     else scene.channels_of(candidate.show)
                 )
                 for member in members:
-                    add((slot, index, member), f"{where} ({member})", look | channel_strip(member))
+                    add((slot, index, member), f"{where} ({member})", over(look, channel_strip(member)))
                 if candidate.show in (PEOPLE, AUTO, *scene.people_pools):
                     # the person channels among the people, as themselves
                     for member in (name for name, channel in scene.channels.items() if channel.type == "person"):

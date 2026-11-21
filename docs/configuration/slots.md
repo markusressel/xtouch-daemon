@@ -59,6 +59,9 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   | `apps`, `auto` | the look (not `label`), and for the applications without a channel `encoder`, `min_volume`, `max_volume` |
   | `devices` | those of `apps`, and `select = false` |
   | `people` | `color`, `meter`, `meter_point` |
+  | a pool of channels | none: each channel brings its own look |
+
+  `rec` and `solo` at a place set what the LED shows; the press stays the channel's.
 
   These options take their words only (e.g. `color = "red"`, `meter = false`). A
   [binding](strip/bindings.md) (`{ watch = ... }`) belongs to the channel. A binding for the slot, whatever it shows,
