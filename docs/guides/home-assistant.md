@@ -11,13 +11,17 @@ but the API of Home Assistant: the [`[homeassistant]`](#homeassistant) section, 
 
 ## PipeWire or Home Assistant?
 
-Each control has one owner. The audio channels (`output`, `input`, `apps`) and the pools (`auto`, `apps`, ...)
-control audio on this computer and need nothing else. A `homeassistant` channel controls nothing by itself; it only
-reports what happens on it and shows what Home Assistant sets. In between, an audio channel can hand its fader or its
-encoder to Home Assistant and keep the other one for the volume, see
-[below](#audio-strips-with-home-assistant-controls), and [`[controls]`](#controls-of-a-slot) hands a control of a slot
-to Home Assistant whatever the slot shows. Never both on one control: a
-fader that both set a PipeWire volume and were moved by Home Assistant would fight over the motor.
+Each control has one owner:
+
+| Owner | Controls |
+|---|---|
+| PipeWire | The audio channels (`output`, `input`, `apps`) and the pools (`auto`, `apps`, ...) control audio on this computer and need nothing else. |
+| Home Assistant | A `homeassistant` channel controls nothing by itself; it only reports what happens on it and shows what Home Assistant sets. |
+| Both, a control each | An audio channel can hand its fader or its encoder to Home Assistant and keep the other one for the volume, see [below](#audio-strips-with-home-assistant-controls). [`[controls]`](#controls-of-a-slot) hands a control of a slot to Home Assistant whatever the slot shows. |
+
+!!! warning "Never both on one control"
+
+    A fader that both set a PipeWire volume and were moved by Home Assistant would fight over the motor.
 
 ## `[mqtt]`
 

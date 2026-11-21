@@ -112,7 +112,8 @@ jobs:
         run: |
           pacman -U --noconfirm /build/xtouch-daemon-bin/*.pkg.tar* /build/xtouch-daemon-gui-bin/*.pkg.tar*
           xtouch-daemon --version
-          xtouch-daemon check-config -c /usr/share/xtouch-daemon/config.example.toml
+          # as a user: the daemon and its checks refuse to run as root
+          su builder -c "xtouch-daemon check-config -c /usr/share/xtouch-daemon/config.example.toml"
           test -f /usr/lib/systemd/user/xtouch-daemon.service
           # the GUI's environment: the system's PyQt6 with the daemon's packages
           /usr/lib/xtouch-daemon-gui/bin/python3.14 -I -c 'import PyQt6.QtWidgets, qtawesome, tomlkit, xtouch_daemon.gui.qt'

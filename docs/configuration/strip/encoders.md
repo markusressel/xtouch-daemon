@@ -1,5 +1,7 @@
 # Encoders
 
+![The encoder: a knob in a ring of 13 LEDs, lit from the left](../../images/controls/encoder.png){ .xt-part width="110" }
+
 The fader of an audio strip sets the volume, unless it is in [Home Assistant](#fader-homeassistant) or
 [bound](bindings.md) to a value of your own. The encoder
 does what the strip's `encoder` option says, and its [LED](leds.md) ring shows it. After a turn or a push, the second line of
@@ -73,10 +75,14 @@ of the candidates the slot has, as a dot; while pinned, it is lit up to there. T
 
 The default for `apps` channels. The encoder controls the media player of the strip's applications: Spotify, a browser,
 mpv with mpv-mpris, anything that speaks [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/) on the
-session bus. Turning seeks 5 seconds per step, a push plays or pauses. The ring fills up from the left with how far the track
-is, also while the strip is idle (e.g. paused). It blinks (0.5 s on, 0.5 s off) while the track is paused and is
-dark while it is stopped, or for live streams without a length. The LCD shows where the track is
-after a seek (`1:05`), and what a push made of it (`playing`, `paused`).
+session bus.
+
+| | `media` |
+|---|---|
+| Turn | Seeks 5 seconds per step. |
+| Push | Plays or pauses. |
+| Ring | Fills up from the left with how far the track is, also while the strip is idle (e.g. paused). It blinks (0.5 s on, 0.5 s off) while the track is paused and is dark while it is stopped, or for live streams without a length. |
+| LCD | Where the track is after a seek (`1:05`), and what a push made of it (`playing`, `paused`). |
 
 The player is the one of the process that plays a stream of the strip or of one of its parents, since browsers play
 from a child process. Without such a player, one named like the application (`spotify` for Spotify). Playing streams
@@ -88,8 +94,10 @@ the ring blinks; a move of the fader sets the volume the stream gets when it pla
 the player is stopped or closed. On a slot of `apps` or `auto` this lasts as long as the slot keeps the application
 (`hold` of `[pool.apps]`).
 
-`xtouch-daemon` needs the D-Bus session bus for this, which a systemd user service has. Without it the daemon logs
-`No media players: the session bus is not reachable (...)` once and keeps trying.
+!!! note "Needs the session bus"
+
+    `xtouch-daemon` needs the D-Bus session bus for this, which a systemd user service has. Without it the daemon logs
+    `No media players: the session bus is not reachable (...)` once and keeps trying.
 
 ## `homeassistant`
 
