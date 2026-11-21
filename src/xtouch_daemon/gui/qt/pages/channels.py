@@ -114,6 +114,8 @@ class ChannelsPage(Page):
         # the lines fit the width (or are cut short): no scrolling sideways
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.list.setItemDelegate(EntityItemDelegate(self.list))
+        # the items wrap their lines: measured again at each width
+        self.list.setResizeMode(QListWidget.ResizeMode.Adjust)
         scroll_shadows(self.list)
         self.listed: list[tuple[OptionPath, str, str, str]] = []
         """The lines of the list: (path, text, icon, tip)."""

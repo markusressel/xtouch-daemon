@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, assert_never
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QResizeEvent
 from PyQt6.QtWidgets import (
     QBoxLayout,
@@ -17,6 +17,8 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QSizePolicy,
+    QSpacerItem,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -52,6 +54,13 @@ MATCHED = frozenset({"device", "card", "profile"})
 """The options whose value names something of the sound server, with what it matches under the field."""
 FIELD_WIDTH = 320
 """The least room for a field beside its name: below it, the name goes above the field."""
+QWIDGETSIZE_MAX = 16_777_215
+"""No maximum width (Qt's `QWIDGETSIZE_MAX`)."""
+WIDEST_FIELD = 640
+"""
+The widest a field gets beside its name: its reset button stays next to it in a wide window, at the same place in
+every row, and its help is as wide.
+"""
 NARROW_BELOW = LABEL_WIDTH + Space.S + FIELD_WIDTH
 """Below it, a row with the widest column of names puts its name above its field."""
 WIDEST_TITLE = LABEL_WIDTH + 2 * Space.L
@@ -173,13 +182,17 @@ class OptionRow(QWidget):
         self.top = QGridLayout()
         self.top.setHorizontalSpacing(Space.S)
         self.top.setVerticalSpacing(Space.XS)
+        # wide: the room the field doesn't take (see `_fit_field`)
+        self.top.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum), 0, 3)
         self.title = label(option.title + ("  *" if option.required else ""))
         self.title.setToolTip(option.name + (", required" if option.required else ""))
         self.field = self._field(option, suggest)
         self.reset = flat_button("restore", f"Back to the default ({describe(option.default)})", self)
         self.reset.clicked.connect(self._reset)
         outer.addLayout(self.top)
-        self.details = QVBoxLayout()
+        # the help and the rest under the field (see `_fit_field`)
+        self.details_box = _Capped(self)
+        self.details = QVBoxLayout(self.details_box.inner)
         details = self.details
         details.setSpacing(2)
         self.title_width = LABEL_WIDTH
@@ -205,7 +218,7 @@ class OptionRow(QWidget):
         self.error = label("", "error", wrap=True)
         self.error.hide()
         details.addWidget(self.error)
-        outer.addLayout(details)
+        outer.addWidget(self.details_box)
         self.load()
 
     # -- the layout -----------------------------------------------------------------------------------------------
@@ -219,13 +232,23 @@ class OptionRow(QWidget):
             self._arrange(narrow=True)
         elif self.narrow is not False and width > narrow_below + Space.M:
             self._arrange(narrow=False)
+        self._fit_field()
+
+    def _fit_field(self) -> None:
+        """The field as wide as the row allows, up to `WIDEST_FIELD`; the rest is empty, right of its reset."""
+        wide = self.narrow is False
+        self.details.setContentsMargins(self.title_width + Space.S if wide else 0, 0, 0, 0)
+        self.field.setMaximumWidth(WIDEST_FIELD if wide else QWIDGETSIZE_MAX)
+        # the help as wide as the field and its reset button: no longer lines to read in a wide window
+        reset = self.reset.sizeHint().width()
+        self.details_box.set_cap(self.title_width + 2 * Space.S + WIDEST_FIELD + reset if wide else QWIDGETSIZE_MAX)
 
     def set_title_width(self, width: int) -> None:
         """The width of the column of names, for the rows shown with it (see `align_titles`)."""
         self.title_width = width
         if self.narrow is False:
             self.title.setFixedWidth(width)
-            self.details.setContentsMargins(width + Space.S, 0, 0, 0)
+            self._fit_field()
 
     def _arrange(self, narrow: bool) -> None:
         """The name left of the field (in the column of the names), or above it in a narrow row."""
@@ -249,9 +272,11 @@ class OptionRow(QWidget):
             self.top.addWidget(self.field, 0, 1)
             self.top.addWidget(self.reset, 0, 2, top)
         self.top.setColumnStretch(0, 1 if narrow else 0)
-        self.top.setColumnStretch(1, 0 if narrow else 1)
+        # the field takes the room first, up to its widest; the rest is empty
+        self.top.setColumnStretch(1, 0 if narrow else 1000)
         self.top.setColumnStretch(2, 0)
-        self.details.setContentsMargins(0 if narrow else self.title_width + Space.S, 0, 0, 0)
+        self.top.setColumnStretch(3, 0 if narrow else 1)
+        self._fit_field()
 
     # -- the fields of the kinds ----------------------------------------------------------------------------------
 
@@ -558,3 +583,50 @@ class OptionRow(QWidget):
             return problem.message
         where = " ".join([f"{rest[0] + 1}.", *map(str, rest[1:])])
         return f"{where}: {problem.message}"
+
+
+class _Capped(QWidget):
+    """
+    A widget at most `cap` wide (on its left), as tall as its content is at that width. Its content is `inner`, with
+    the layout: a widget with a layout of its own would be as tall as its content at the whole width it is given.
+    """
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent)
+        self.inner = QWidget(self)
+        self.cap = QWIDGETSIZE_MAX
+        policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        policy.setHeightForWidth(True)
+        self.setSizePolicy(policy)
+
+    def set_cap(self, cap: int) -> None:
+        if cap != self.cap:
+            self.cap = cap
+            self._place()
+            self.updateGeometry()
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return self.inner.heightForWidth(min(width, self.cap))
+
+    def sizeHint(self) -> QSize:
+        return self.inner.sizeHint()
+
+    def minimumSizeHint(self) -> QSize:
+        return self.inner.minimumSizeHint()
+
+    def event(self, event: QEvent | None) -> bool:
+        if event is not None and event.type() == QEvent.Type.LayoutRequest:
+            # the content changed (a help shown, an error): this is as tall as it is now
+            self.updateGeometry()
+            self._place()
+        return super().event(event)
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        super().resizeEvent(event)
+        self._place()
+
+    def _place(self) -> None:
+        self.inner.setGeometry(0, 0, min(self.width(), self.cap), self.height())
