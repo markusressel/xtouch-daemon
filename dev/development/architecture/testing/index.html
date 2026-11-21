@@ -1654,6 +1654,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#keeping-them-fast" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keeping them fast
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2766,6 +2777,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#keeping-them-fast" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keeping them fast
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2974,6 +2996,19 @@ with the file.</p>
   behind, nothing of the machine touched, no programs started) and the common fakes; the packages have their own
   (e.g. the window in <code>tests/gui/qt/conftest.py</code>).</li>
 <li>What tests import, fakes and helpers, is in <code>tests/support/</code>, never in a <code>conftest.py</code> or another test module.</li>
+</ul>
+<h2 id="keeping-them-fast">Keeping them fast<a class="headerlink" href="#keeping-them-fast" title="Permanent link">&para;</a></h2>
+<p>Almost all the time of the tests goes into the widgets (<code>tests/gui/qt/</code>): a window is built for most of them.</p>
+<ul>
+<li>The window builds what does not show yet (the form of a channel type, see <a href="../gui/">the GUI</a>) the first time it
+  shows, so a test pays only for the pages it opens.</li>
+<li>A new theme restyles every widget of the application, several seconds with a window open. A test about colors sets
+  the mode (<code>style._current_mode</code>) and refreshes the window as <code>set_theme</code> does; one test switches the theme for real.
+  A test about a layout resizes the window instead.</li>
+<li><code>no_leaks</code> collects the garbage after every test. The objects of the imports are frozen after the collection
+  (<code>gc.freeze()</code> in <code>tests/conftest.py</code>), so it looks only at what the test made: about 1 ms instead of 25 ms.</li>
+<li><code>just test</code> and CI hand out the tests with <code>--dist worksteal</code>: a worker that is done takes tests from the others, so
+  a slow test at the end does not keep the rest waiting.</li>
 </ul>
 
 
