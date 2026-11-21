@@ -203,7 +203,7 @@ class Service:
 
     def __init__(self, run: Runner | None = None, wait: bool = True, timeout: float | None = None):
         """`timeout`: seconds a command of `systemctl` may take, e.g. while the user's service manager hangs."""
-        self._run = run or functools.partial(run_command, timeout=timeout)
+        self._run = run or (run_command if timeout is None else functools.partial(run_command, timeout=timeout))
         self._wait = wait
         """
         Whether starting, restarting and stopping wait until the service did (`systemctl` waits for the end of the
