@@ -240,3 +240,25 @@ def test_the_last_records_stay_when_the_daemon_goes_away_and_it_is_watched_again
     qtbot.waitUntil(lambda: "Started again" in text(window))
     assert "Last words" not in text(window)
     assert window.log_view.message.isHidden()
+
+
+def test_the_text_keeps_the_latest_records(monkeypatch: pytest.MonkeyPatch, window: MainWindow):
+    monkeypatch.setattr(log_view_module, "KEPT", 4)
+    monkeypatch.setattr(log_view_module, "TRIM_STEP", 2)
+    view = window.log_view
+    view.search.setText("record")
+    for seq in range(1, 11):
+        view._append(entry(seq))  # pyright: ignore[reportPrivateUsage]
+
+    # more than 6: back to the latest 4, at the 7th and the 10th
+    lines = view.text.toPlainText().split("\n")
+    assert [text.rsplit(": ", 1)[-1] for text in lines] == ["record 7", "record 8", "record 9", "record 10"]
+    document = view.text.document()
+    assert document is not None
+    assert document.blockCount() == 4
+    # where each record starts, for the search
+    text = view.text.toPlainText()
+    assert [text[start : start + len(record)] for start, record in view.placed] == [record for _, record in view.placed]
+    assert len(view.placed) == 4
+    assert view.match_count == 4
+    assert [mark.cursor.selectedText() for mark in view.marks] == ["record"] * 4

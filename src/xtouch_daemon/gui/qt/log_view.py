@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from xtouch_daemon.gui.domain.log import LEVELS, MAX_MATCHES, LogHistory, line, matches, shown
+from xtouch_daemon.gui.domain.log import LEVELS, MAX_ENTRIES, MAX_MATCHES, LogHistory, line, matches, shown
 from xtouch_daemon.gui.domain.status import log_unavailable
 from xtouch_daemon.gui.qt.fields.basics import label
 from xtouch_daemon.gui.qt.fields.choice import Choice
@@ -25,6 +25,10 @@ from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.live.messages import EndLog, LogEntry, LogLines, Snapshot, WatchLog
 
+KEPT = MAX_ENTRIES
+"""The records the text keeps, as many as the history: the oldest go."""
+TRIM_STEP = 500
+"""How many records over `KEPT` go at once: the marks of the search are placed again each time."""
 MARK_ALPHA = 110
 """How strongly a match of the search is marked, of 255."""
 
@@ -186,6 +190,21 @@ class LogView(QWidget):
         cursor.insertText(text[8:], body)
         self.placed.append((start, text))
         self._mark(text, start)
+        if len(self.placed) > KEPT + TRIM_STEP:
+            self._trim(len(self.placed) - KEPT)
+
+    def _trim(self, count: int) -> None:
+        """Takes the oldest `count` records out of the text: it would grow for as long as the window is open."""
+        document = self.text.document()
+        assert document is not None
+        end = self.placed[count][0]
+        cursor = QTextCursor(document)
+        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+        cursor.removeSelectedText()
+        self.placed = [(start - end, text) for start, text in self.placed[count:]]
+        self.marks, self.match_count = [], 0
+        for start, text in self.placed:
+            self._mark(text, start)
 
     def _scroll_to_end(self) -> None:
         scroll = self.text.verticalScrollBar()

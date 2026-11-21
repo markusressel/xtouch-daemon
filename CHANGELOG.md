@@ -131,6 +131,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   Mumble plugin and the read of the sound server end with an error too, whatever goes wrong.
 - GUI: a user service manager that hangs no longer freezes the window for good: a command of `systemctl` that takes
   more than 2 s is given up on, and the pill of the service says "unavailable".
+- GUI: the window Log keeps the latest 5000 records, as its history does: its text grew for as long as the window was
+  open.
 - GUI: the icons are drawn once per name and color. Every new page, window and theme drew all of them again and kept
   each copy, about 760 per window, for as long as the GUI ran.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its
