@@ -10,16 +10,18 @@ from haad_mqtt_autodiscovery.entity import MQTTEntity
 
 from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.media import MediaPlayers
-from xtouch_daemon.audio.meter import CaptureTarget, Reading
+from xtouch_daemon.audio.meter import CaptureTarget, Lit, Reading
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config.bindings import RunAction
+from xtouch_daemon.config.bindings import LevelBinding, RunAction, WatchBinding, fill, placeholders_of
 from xtouch_daemon.config.buttons import HOLD_TIME, WHILE_HELD, Action, ButtonSetup, LaunchAction, indicator
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import ColorName, EncoderMode, Indicator, MeterPoint, color_of
-from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.hardware.protocol import METER_MAX, Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.strips.knobs import BalanceKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
+from xtouch_daemon.strips.bound import BoundParts, Parts, led_key
+from xtouch_daemon.strips.knobs import BalanceKnob, CommandKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
+from xtouch_daemon.strips.value import led_of_line, level_of_line, run_program, value_text
 from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.launch import LaunchButton, Launcher
 from xtouch_daemon.voip.provider import VoipProvider
@@ -34,6 +36,8 @@ NOTICE_TIME = 2.0
 Seconds the second line of the LCD shows the exact value of what the encoder did (e.g. the balance or the position in
 the track, see `VolumeStrip.notify`) instead of the volume.
 """
+OFFLINE_TEXT = "offline"
+"""The second line of the LCD while Home Assistant, which sets it, is not there."""
 
 
 class SlotActions(Protocol):
@@ -96,6 +100,8 @@ class Look:
     """What Select, Rec and Solo do and what their LEDs show."""
     lit_when_idle: bool = False
     """Whether the LCD keeps its backlight while the strip is idle."""
+    parts: Parts = field(default_factory=Parts)
+    """The parts bound to programs of your own or to Home Assistant (`config.bindings`)."""
 
 
 class StripController:
@@ -274,9 +280,14 @@ class VolumeStrip(StripController):
         self.label = look.label or ""
         """The top line: the label of the look, or what the kind of strip shows."""
         self.controls = controls
-        """Its fader and/or encoder in Home Assistant (`fader`/`encoder = "homeassistant"`)."""
+        """
+        Its parts in Home Assistant (`"homeassistant"`), and the numbers there of its values of programs of your own.
+        """
         if controls is not None:
-            controls.on_change = self.show
+            controls.on_change = self._parts_changed
+        self.bound = BoundParts(env.commands, env.behavior.encoder_step, identity.name, self._parts_changed)
+        """The programs of its bound parts (`Look.parts`, the LEDs of `Look.buttons`), for as long as it lives."""
+        self._bind_parts()
         self.min_volume = min_volume
         self.max_volume = max_volume
         self.level: Level | None = None
@@ -290,7 +301,7 @@ class VolumeStrip(StripController):
         self._notice_timer: asyncio.TimerHandle | None = None
         self.encoder_mode: EncoderMode = encoder
         """What the encoder does by the configuration; while the fader is taken, it sets the volume (see `knob`)."""
-        self.knob = self.make_knob(encoder)
+        self.knob = self._new_knob()
         self._holds: dict[Button, asyncio.TimerHandle] = {}
         """The buttons pressed whose hold comes once HOLD_TIME is over."""
         self._acting: dict[Button, Action] = {}
@@ -304,6 +315,26 @@ class VolumeStrip(StripController):
         super().set_look(look)
         self.label = look.label or self.label
         self._make_launches()
+        self._rebind_parts()
+
+    def _bind_parts(self) -> None:
+        """Runs the programs of the bound parts of the look; Home Assistant gets their values."""
+        self.bound.bind(self.look.parts, self.look.buttons)
+        if self.controls is not None:
+            self.controls.attach(self.bound.fader, self.bound.encoder)
+
+    def _rebind_parts(self) -> None:
+        """The bound parts of another look: the encoder does what its binding says now."""
+        encoder = self.bound.encoder
+        self._bind_parts()
+        if self.bound.encoder is not encoder:
+            self._make_knob()
+
+    def _parts_changed(self) -> None:
+        """A bound part changed (a value, a line of a watch, an entity of Home Assistant): the strip shows it."""
+        self.show()
+        if self.state_known is not None:
+            self.show_buttons(self.state_known)
 
     @property
     def launches(self) -> bool:
@@ -341,14 +372,24 @@ class VolumeStrip(StripController):
         if self._knob_mode() != before:
             self._make_knob()
 
-    def _knob_mode(self) -> EncoderMode:
+    def _knob_mode(self) -> EncoderMode | None:
+        """What the encoder does now: a mode, or None for the value of its binding (`Look.parts`)."""
         if "fader" in self.taken and "encoder" not in self.taken:
             return "volume"
+        if self.bound.encoder is not None:
+            return None
         return self.encoder_mode
+
+    def _new_knob(self) -> Knob:
+        mode = self._knob_mode()
+        if mode is None:
+            assert self.bound.encoder is not None, "the encoder is bound to a program"
+            return CommandKnob(self, self.bound.encoder)
+        return self.make_knob(mode)
 
     def _make_knob(self) -> None:
         self.knob.close()
-        self.knob = self.make_knob(self._knob_mode())
+        self.knob = self._new_knob()
 
     # -- for the kinds of strips ----------------------------------------------------------------------------------
 
@@ -422,6 +463,11 @@ class VolumeStrip(StripController):
     def button_led(self, button: Button, setup: ButtonSetup, state: AudioState) -> Led:
         if (shown := indicator(setup.led)) is not None:
             return Led.ON if self.indicates(shown, state) else Led.OFF
+        if isinstance(setup.led, WatchBinding):
+            line = self.bound.line(led_key(button))
+            return led_of_line(line) if line is not None else Led.OFF
+        if setup.led == "homeassistant":
+            return self.controls.led(button.name.lower()) if self.controls is not None else Led.OFF
         if setup.led == "shown":
             return Led.ON if self.shows_other() else Led.OFF
         return self.action_led(button, setup.press, state)
@@ -474,23 +520,67 @@ class VolumeStrip(StripController):
     @property
     def ha_fader(self) -> FaderLink | None:
         """The fader, if it belongs to Home Assistant (then the encoder sets the volume)."""
+        if self.bound.fader is not None:
+            # the look binds it to a program
+            return None
         return self.controls.fader if self.controls is not None else None
+
+    @property
+    def fader_sets_volume(self) -> bool:
+        """Whether the fader sets the volume: it is not bound to Home Assistant or to a program."""
+        return self.ha_fader is None and self.bound.fader is None
+
+    @property
+    def color(self) -> Color:
+        return color_of(self.color_name)
+
+    @property
+    def color_name(self) -> ColorName:
+        """The color of the LCD: the look's, or what its binding says (the look's until that is known)."""
+        part = self.look.parts.color
+        if isinstance(part, WatchBinding):
+            return self.bound.color or self.look.color
+        if part == "homeassistant" and self.controls is not None:
+            return self.controls.color_name(self.look.color)
+        return self.look.color
+
+    def second_line(self, text: str) -> str:
+        """The second line of the LCD: `text`, what the strip type shows there, unless `lcd` binds it."""
+        part = self.look.parts.lcd
+        if isinstance(part, WatchBinding):
+            return self.bound.line("lcd") or ""
+        if part == "homeassistant":
+            return self.controls.bottom_text() if self.controls is not None else OFFLINE_TEXT
+        return text
+
+    def held_meter(self, point: MeterPoint) -> Reading | None:
+        """The level a binding of the meter sets (`Look.parts`): a watch's, or Home Assistant's; else none."""
+        part = self.look.parts.meter
+        if isinstance(part, LevelBinding):
+            line = self.bound.line("meter")
+            level = level_of_line(line, part.min, part.max) if line is not None else None
+            return Lit(round(level * METER_MAX)) if level is not None else None
+        if part == "homeassistant" and self.controls is not None:
+            return self.controls.meter_level()
+        return None
 
     def show(self) -> None:
         self.strip.set_color(self.color if self.active or self.look.lit_when_idle else Color.BLACK)
         self.strip.set_text(0, self.label)
-        if self.ha_fader is not None and self.controls is not None and self.controls.connected:
+        if self.bound.fader is not None:
+            self._show_value_fader()
+        elif self.ha_fader is not None and self.controls is not None and self.controls.connected:
             self.ha_fader.show()
         level = self.level
         if level is None or not self.active:
             # nothing to control (e.g. an application that ended): the fader goes away
-            if self.ha_fader is None:
+            if self.fader_sets_volume:
                 self.strip.park()
             self.strip.set_ring(*(self.knob.ring() if self.knob.idle_too else (0, RingMode.DOT)))
             self.strip.set_led(Button.MUTE, Led.OFF)
-            self.strip.set_text(1, self.notice or self.inactive_text())
+            self.strip.set_text(1, self.notice or self.second_line(self.inactive_text()))
             return
-        if self.ha_fader is None:
+        if self.fader_sets_volume:
             self.strip.set_fader(self._fraction(level.volume))
         self.strip.set_ring(*self.knob.ring())
         self.strip.set_led(Button.MUTE, Led.ON if level.muted else Led.OFF)
@@ -499,7 +589,19 @@ class VolumeStrip(StripController):
         elif self._wanted is not None:
             self.strip.set_text(1, f"{self._wanted}%")
         else:
-            self.strip.set_text(1, "muted" if level.muted else f"{level.volume}%")
+            self.strip.set_text(1, self.second_line("muted" if level.muted else f"{level.volume}%"))
+
+    def _show_value_fader(self) -> None:
+        """The fader bound to a program shows its value (down while it is not known), but not under a finger."""
+        value = self.bound.fader
+        assert value is not None, "the fader is bound to a program"
+        if value.touched:
+            return
+        fraction = value.fraction()
+        if fraction is None:
+            self.strip.park()
+        else:
+            self.strip.set_fader(fraction)
 
     def notify(self, text: str) -> None:
         """Shows `text` on the second line instead of the volume for NOTICE_TIME, e.g. `R 15%` for the balance."""
@@ -521,7 +623,11 @@ class VolumeStrip(StripController):
     # -- the device -----------------------------------------------------------------------------------------------
 
     def on_fader(self, fraction: float) -> None:
-        if self.ha_fader is not None and self.controls is not None:
+        if (value := self.bound.fader) is not None:
+            # also while the strip is idle: the value is not the audio's
+            value.moved(fraction)
+            self.notify(value.text())
+        elif self.ha_fader is not None and self.controls is not None:
             if self.controls.connected:
                 self.ha_fader.moved(fraction)
         elif self.accepts_input():
@@ -537,13 +643,18 @@ class VolumeStrip(StripController):
             self.knob.push(pressed)
 
     def on_touch(self, touched: bool) -> None:
-        if self.ha_fader is not None and self.controls is not None:
+        if (value := self.bound.fader) is not None:
+            value.touched = touched
+            if not touched:
+                # let go, it stays where the hand left it (or goes where `watch` said meanwhile)
+                self._show_value_fader()
+        elif self.ha_fader is not None and self.controls is not None:
             self.ha_fader.touch(touched)
             self.ha_event("fader_touched" if touched else "fader_released")
 
     def ha_event(self, event_type: str) -> None:
         """An event of the fader or the encoder for Home Assistant."""
-        if self.controls is not None and self.controls.connected:
+        if self.controls is not None and self.controls.events is not None and self.controls.connected:
             self.run_command(self.controls.events.trigger(event_type), event_type)
 
     def step_volume(self, steps: int) -> None:
@@ -558,7 +669,7 @@ class VolumeStrip(StripController):
         self._fader_follows()
 
     def _fader_follows(self) -> None:
-        if self.ha_fader is None:
+        if self.fader_sets_volume:
             self.strip.set_fader(self._shown_fraction())
 
     def volume_ring(self) -> tuple[int, RingMode]:
@@ -581,6 +692,7 @@ class VolumeStrip(StripController):
             self._end_action(button)
         if self.controls is not None:
             self.controls.close()
+        self.bound.close()
 
     def on_button(self, button: Button, pressed: bool) -> None:
         if button == Button.MUTE:
@@ -641,8 +753,7 @@ class VolumeStrip(StripController):
                 launch = self._launches[button]
                 launch.press(launch.program_runs(self.env.processes()))
             case RunAction():
-                # bindings: done by the audio strips (`{ run = [...] }`)
-                pass
+                self.run_action(button, action)
             case "talk":
                 self.talk(down)
             case "mute_others":
@@ -660,6 +771,31 @@ class VolumeStrip(StripController):
                     actions.toggle(action.removeprefix("toggle:"))
             case _:
                 self.do(action)
+
+    def run_action(self, button: Button, action: RunAction) -> None:
+        """Runs the program of a button; `{value}` in it is the value of the fader (see `value_for_run()`)."""
+        argv = action.run
+        what = f"{self.identity.name}.{button.name.lower()}"
+        if "value" in placeholders_of(argv):
+            value = self.value_for_run()
+            if value is None:
+                _LOGGER.warning(f"{what}: {argv[0]} needs the value, which is not known yet")
+                return
+            argv = tuple(fill(argv, value=value_text(value)))
+        run_program(self.env.commands, argv, what)
+
+    def value_for_run(self) -> float | None:
+        """
+        What `{value}` is in the program of a button: the value of the fader if it is bound to a program, else of the
+        encoder if it is, else the volume; None while it is not known.
+        """
+        if self.bound.fader is not None:
+            return self.bound.fader.value
+        if self.bound.encoder is not None:
+            return self.bound.encoder.value
+        if self._wanted is not None:
+            return self._wanted
+        return self.level.volume if self.level is not None else None
 
     def do(self, action: str) -> None:
         """An action of the kind of strip: `default`, `next`, `profile`, `launch`."""

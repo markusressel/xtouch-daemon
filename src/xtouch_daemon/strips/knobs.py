@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from xtouch_daemon.audio.media import MediaPlayers, Player
     from xtouch_daemon.strips.apps import AppStrip, AutoStrip
     from xtouch_daemon.strips.base import VolumeStrip
+    from xtouch_daemon.strips.value import CommandValue
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -329,3 +330,29 @@ class HomeAssistantKnob(Knob):
 
     def ring(self) -> tuple[int, RingMode]:
         return self.encoder.ring() if self.controls.connected else (0, RingMode.DOT)
+
+
+class CommandKnob(Knob):
+    """
+    The encoder bound to a program of your own (`encoder = { set = [...] }`): turning changes the value by its `step`,
+    a push sets `push`, the ring shows it and the LCD what it is now. Also while the strip is idle. The strip owns the
+    value (see `BoundParts`).
+    """
+
+    idle_too = True
+
+    def __init__(self, owner: VolumeStrip, value: CommandValue):
+        super().__init__(owner)
+        self.value = value
+
+    def turn(self, steps: int) -> None:
+        self.value.turn(steps)
+        self.owner.notify(self.value.text())
+
+    def push(self, pressed: bool) -> None:
+        if pressed and self.value.binding.push is not None:
+            self.value.push(pressed)
+            self.owner.notify(self.value.text())
+
+    def ring(self) -> tuple[int, RingMode]:
+        return self.value.ring()
