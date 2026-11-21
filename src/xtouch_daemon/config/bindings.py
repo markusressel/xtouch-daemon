@@ -377,6 +377,13 @@ class ServiceAction(_Hashed):
     data: ServiceData | None = None
     """More data for the service. E.g. `{ brightness_pct = 50 }`."""
 
+    @model_validator(mode="after")
+    def _as_it_is(self) -> ServiceAction:
+        # a press sends its data as it is: `{value}` would arrive as the text
+        if _has_value(self.data):
+            raise ValueError(f"data: {VALUE} is for a fader or an encoder; a press sends the data as it is")
+        return self
+
 
 def describe_part(part: object) -> str:
     """A part for people: its word, or what it is bound to (`a value from 0.1 to 1, set: ...`, `watch: ...`)."""
