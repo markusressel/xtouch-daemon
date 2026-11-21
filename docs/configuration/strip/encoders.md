@@ -108,8 +108,8 @@ encoder = "homeassistant"
 
 ## A value of your own
 
-The encoder sets a value that programs of your own set and watch, e.g. the brightness of a screen. The fader still
-sets the volume. The options are those of a value in [Bindings](bindings.md) (`set`, `watch`, `min`, `max`, `step`,
+The encoder sets a value that programs of your own set and watch, e.g. the brightness of a screen with
+[system-control](https://github.com/markusressel/system-control) (`sysctrl`). The fader still sets the volume. The options are those of a value in [Bindings](bindings.md) (`set`, `watch`, `min`, `max`, `step`,
 `push`, `format`), and they are explained in [Custom channels](../channels/custom.md#a-value).
 
 ```toml

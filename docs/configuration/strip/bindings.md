@@ -9,7 +9,7 @@ channels](../../development/design/bindings.md).
 ```toml
 [channel.out]
 type = "output"
-meter = { watch = "cpu-load --watch" }        # the meter shows the CPU, the fader stays the volume
+meter = { watch = ["sh", "-c", "vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'"] }   # the meter shows the CPU load, the fader stays the volume
 color = "homeassistant"                       # Home Assistant sets the color
 lcd = { entity = "sensor.outside_temperature" }   # the second line shows an entity of Home Assistant
 ```
@@ -67,8 +67,8 @@ between them, and `step` above 0. `format` must show a number, e.g. `{value:.0%}
 
 ## Example: the brightness of a screen
 
-The encoder of the speakers sets the brightness of a screen; the fader stays the volume. A push sets the full
-brightness. `watch` prints the brightness, e.g. `0.60`, at each change.
+The encoder of the speakers sets the brightness of a screen with [system-control](https://github.com/markusressel/system-control) (`sysctrl`); the fader stays the volume. A
+push sets the full brightness. `watch` prints the brightness, e.g. `0.60`, at each change.
 
 ```toml
 [channel.out]

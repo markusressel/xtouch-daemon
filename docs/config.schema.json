@@ -1972,7 +1972,7 @@
               "type": "array"
             }
           ],
-          "description": "A program that runs all the time and prints a number per change. The meter shows it. E.g. `[\"cpu-load\",\n\"--watch\"]`.",
+          "description": "A program that runs all the time and prints a number per change. The meter shows it. E.g. the CPU load:\n`[\"sh\", \"-c\", \"vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'\"]`.",
           "title": "Watch"
         },
         "min": {

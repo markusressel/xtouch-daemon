@@ -1,7 +1,7 @@
 # Custom channels
 
 A `custom` channel is a strip whose parts you bind to programs of your own, or to Home Assistant, e.g. a fader that
-sets the brightness of a screen. It has no defaults: every part it uses is [bound](../strip/bindings.md), the others
+sets the brightness of a screen (the examples use [system-control](https://github.com/markusressel/system-control), `sysctrl`). It has no defaults: every part it uses is [bound](../strip/bindings.md), the others
 are dark and do nothing. It works like any other channel: a candidate in the [slots](../slots.md#slots), a member of
 pools.
 
@@ -66,11 +66,12 @@ while the mode or the state of the press is on), `homeassistant`, or `{ watch }`
 `flash` flashes it, anything else turns it off).
 
 ```toml
-[channel.lamp]
+[channel.night]
 type = "custom"
-fader = { set = "lamp --brightness {value}", watch = "lamp --watch" }
-select = { press = { run = "lamp --toggle" }, led = { watch = "lamp --watch-on" } }
-mute = { press = { run = "lamp --save {value}" }, led = "press" }
+fader = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}", watch = "sysctrl display redshift brightness -d DisplayPort-1 --watch", min = 0.1, max = 1.0 }
+# Select sets the full brightness; its LED is lit while the screen is dimmed
+select = { press = { run = "sysctrl display redshift brightness reset -d DisplayPort-1" }, led = { watch = ["sh", "-c", "sysctrl display redshift brightness -d DisplayPort-1 --watch | awk '{ print ($1 < 1 ? \"on\" : \"off\"); fflush() }'"] } }
+mute = { press = { run = "notify-send 'Brightness {value}'" }, led = "press" }
 ```
 
 ## Present

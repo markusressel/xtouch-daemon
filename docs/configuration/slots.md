@@ -296,12 +296,12 @@ table: the LED shows what the press does. `led` takes `off`, `press` (what the p
 
 ```toml
 [controls]
-8 = { meter = { watch = "cpu-load --watch", max = 100 }, rec = { led = { watch = "lamp-state --follow" } } }
-3 = { color = "red", lcd = { watch = "clock --watch" }, when = "call" }
+8 = { meter = { watch = ["sh", "-c", "vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'"] }, rec = { led = { watch = ["sh", "-c", "while :; do systemctl --user is-active --quiet syncthing && echo on || echo off; sleep 5; done"] } } }
+3 = { color = "red", lcd = { watch = ["sh", "-c", "while :; do date +%H:%M; sleep 10; done"] }, when = "call" }
 4 = { encoder = { entity = "media_player.kitchen" }, solo = { service = "media_player.media_play_pause", entity = "media_player.kitchen" } }
 ```
 
-Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED shows the lamp. Slot 4's encoder sets the
+Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED is lit while Syncthing runs. Slot 4's encoder sets the
 volume of the kitchen speaker in Home Assistant, and Solo plays or pauses it. A press of Rec still goes
 to what the slot shows. While `when` holds, a claimed part shows the claim. After that, the slot shows its own part
 again. The watches run for as long as the configuration, so a claim that comes back shows their newest lines

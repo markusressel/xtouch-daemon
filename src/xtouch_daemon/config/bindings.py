@@ -123,8 +123,8 @@ class LevelBinding(WatchBinding):
 
     watch: Command
     """
-    A program that runs all the time and prints a number per change. The meter shows it. E.g. `["cpu-load",
-    "--watch"]`.
+    A program that runs all the time and prints a number per change. The meter shows it. E.g. the CPU load:
+    `["sh", "-c", "vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'"]`.
     """
     min: float = 0
     """The number with the meter dark."""

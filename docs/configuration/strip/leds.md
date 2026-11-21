@@ -62,7 +62,7 @@ that belongs to the channel. The buttons of a slot that act whatever the slot sh
 | `mode:<id>` | all | Picks the mode. |
 | `toggle:<id>` | all | Turns the state or mode on, and the next time gives it back to its sources. |
 | `{ launch = [...] }` | all | Starts the program, like a launch of [`[controls]`](../slots.md#controls-and-the-chord). `launch_when_running = true` starts it also while it runs. |
-| `{ run = [...] }` | all | Runs a program of your own to its end, e.g. `{ run = "sysctrl display redshift reset" }`. See [Run a program](#run-a-program). |
+| `{ run = [...] }` | all | Runs a program of your own to its end, e.g. `{ run = "sysctrl display redshift reset" }` ([system-control](https://github.com/markusressel/system-control)). See [Run a program](#run-a-program). |
 | `off` | all | Nothing. |
 
 `talk`, `mute_others` and `homeassistant` last while the button is held: they take no `hold`.
@@ -84,7 +84,7 @@ On `output`, `input`, `apps` and `auto` strips, `press` stays dark for a `{ run 
 ```toml
 [channel.main.solo]
 press = { run = "notify-send 'Volume {value}'" }
-led = { watch = "redshift-state --watch" }   # prints on or off per change
+led = { watch = ["sh", "-c", "while :; do systemctl --user is-active --quiet syncthing && echo on || echo off; sleep 5; done"] }   # lit while Syncthing runs
 ```
 
 ## Run a program
