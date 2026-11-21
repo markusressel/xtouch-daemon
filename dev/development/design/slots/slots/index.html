@@ -3112,7 +3112,7 @@ slots) and, for the members of <code>apps</code>, the previous result. Its trace
 <p>Conditions never look at the result, so the steps run once each, in this order: the same inputs give the same result.</p>
 <h2 id="stability">Stability<a class="headerlink" href="#stability" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Batching</strong>: changes are resolved together 0.1 s after the first one (<code>runtime/slots.BATCH</code>): a game starts
+<li><strong>Batching</strong>: changes are resolved together 0.1 s after the first one (<code>daemon/slots.BATCH</code>): a game starts
   several streams and a process at once, and the faders move once.</li>
 <li><strong>Dwell</strong>: a slot keeps what it shows for at least 1 s before it changes again (<code>slots/simulation.DWELL</code>).</li>
 <li><strong>Nothing changes under a finger</strong>: a held slot is fixed (step 1) until let go, with its claims. A fader in

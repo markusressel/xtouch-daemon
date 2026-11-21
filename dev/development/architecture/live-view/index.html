@@ -2998,7 +2998,7 @@ that on the Unix socket <code>$XDG_RUNTIME_DIR/xtouch-daemon.sock</code> (mode 0
     <code>on_device</code>, <code>test</code>, <code>log</code>).</li>
 <li><strong>The devices it saw.</strong> A line of its own, <code>{"known_devices": [...]}</code> (<code>KnownDevices</code>), when a client connects (if
   there are any) and whenever they change: every output and input the sound server had, with its card, the profile
-  the card was in and when it was there last (<code>runtime/device_memory.py</code>, kept in <code>devices.json</code> of the state
+  the card was in and when it was there last (<code>daemon/device_memory.py</code>, kept in <code>devices.json</code> of the state
   directory, forgotten after 90 days). The GUI suggests them while they are not there; the CLI skips the line.</li>
 <li><strong>Applied or not.</strong> The fingerprint is a hash of the whole configuration (secrets included). The GUI compares it
   with the one of the saved file, so it can say whether the daemon took the file instead of assuming a reload worked
@@ -3069,8 +3069,8 @@ daemon it shows what the file would show, and says so.</p>
   logs secrets (the MQTT password is a <code>SecretStr</code>).</li>
 </ul>
 <h2 id="virtual-twin">Virtual twin<a class="headerlink" href="#virtual-twin" title="Permanent link">&para;</a></h2>
-<p>The preview "In the GUI" runs on a twin per client (<code>runtime/twin.py</code>, <code>Daemon.preview_on_twin()</code>). <code>Twin</code> and
-<code>Daemon</code> are both a <code>Rig</code> (<code>runtime/rig.py</code>: the <code>Desk</code>, <code>SlotEngine</code> and <code>SlotMixer</code> of a configuration on one
+<p>The preview "In the GUI" runs on a twin per client (<code>daemon/twin.py</code>, <code>Daemon.preview_on_twin()</code>). <code>Twin</code> and
+<code>Daemon</code> are both a <code>Rig</code> (<code>daemon/rig.py</code>: the <code>Desk</code>, <code>SlotEngine</code> and <code>SlotMixer</code> of a configuration on one
 surface, and the loop that steps them). The twin's rig is on a <code>Surface(port=NoPort())</code>, an in-memory <code>TwinBackend</code> and
 a <code>DemoProvider</code> as voice chat. It is built from the <code>Config</code> and the real <code>Names</code> (applications, people, devices, used
 as stand-ins first) only, so it touches nothing real. Its mode and overrides come from the situation only: the chord,

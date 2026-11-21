@@ -3367,7 +3367,7 @@ state. Everything else in the world is made up.</p>
 <p>The price: the strips of the twin depend on what plays right now, so the same configuration and situation give other
 strips at another time. Tests give the names.</p>
 <h2 id="the-twin-in-the-daemon">The twin in the daemon<a class="headerlink" href="#the-twin-in-the-daemon" title="Permanent link">&para;</a></h2>
-<p><code>runtime/twin.py</code>. Each client's twin is made by the daemon with the current names, and gets new ones when they change
+<p><code>daemon/twin.py</code>. Each client's twin is made by the daemon with the current names, and gets new ones when they change
 (<code>Twin.set_names()</code>), so a stand-in follows what plays:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Twin</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="sd">"""The strips of a configuration in a situation, on a device of their own."""</span>
@@ -3385,7 +3385,7 @@ strips at another time. Tests give the names.</p>
 state_dir=None, logger=...)</code>, a <code>SlotMixer(surface, TwinBackend, config, engine, desk, DemoProvider, bridge=None, players=None,
 launcher=Launcher(spawn=...))</code>, and a task that steps the engine like the daemon does (wake on a change of the
 world, the deadline of a delay or a dwell, every <code>PROCESS_INTERVAL</code>). As built, these parts, the loop and the step are
-one class that both are (<code>Rig</code>, <code>runtime/rig.py</code>); the daemon adds the real processes and Home Assistant to the step
+one class that both are (<code>Rig</code>, <code>daemon/rig.py</code>); the daemon adds the real processes and Home Assistant to the step
 (<code>_processes()</code>, <code>_stepped()</code>), the twin its world.</p>
 <p>The twin's strips are lit by the first step: <code>Surface</code> writes every color and text into its mirror, connected or not.</p>
 <h3 id="seams-that-the-twin-needs-in-the-existing-code">Seams that the twin needs in the existing code<a class="headerlink" href="#seams-that-the-twin-needs-in-the-existing-code" title="Permanent link">&para;</a></h3>
@@ -3402,11 +3402,11 @@ one class that both are (<code>Rig</code>, <code>runtime/rig.py</code>); the dae
 <td><code>NoPort</code> (a <code>Port</code> that is never there), <code>hand(data)</code> (bytes as if the device sent them). Nothing else: <code>Surface</code> already mirrors without a transport.</td>
 </tr>
 <tr>
-<td><code>audio/meter.py</code>, <code>runtime/desk.py</code></td>
+<td><code>audio/meter.py</code>, <code>daemon/desk.py</code></td>
 <td><code>Meter(..., capturer=...)</code> and <code>Desk(..., capturer=...)</code>: the function that feeds peaks of a target (<code>Capturer</code>, with the gain it is told). The default is <code>capture()</code> (a process); the twin's feeds a fixed, slowly changing pattern while the target plays.</td>
 </tr>
 <tr>
-<td><code>runtime/slots.py</code></td>
+<td><code>daemon/slots.py</code></td>
 <td><code>SlotEngine(..., logger=...)</code>. The situation (<code>what_if</code>, <code>simulate()</code>, <code>active</code>) stays: it is the real device's.</td>
 </tr>
 <tr>
@@ -3418,7 +3418,7 @@ one class that both are (<code>Rig</code>, <code>runtime/rig.py</code>); the dae
 <td><code>DemoProvider.set_people(names)</code>: the people of the world, volume and mute of those who stay are kept.</td>
 </tr>
 <tr>
-<td><code>runtime/daemon.py</code></td>
+<td><code>daemon/lifecycle.py</code></td>
 <td>Twins by client, fed with the real names. <code>preview()</code> and <code>snapshot().simulated</code> stay.</td>
 </tr>
 <tr>
@@ -3505,7 +3505,7 @@ the GUI follows; dropped, two owners of the what-if.)</p>
 </ol>
 <h2 id="implementation-order">Implementation order<a class="headerlink" href="#implementation-order" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Seams: <code>NoPort</code>, <code>hand()</code>, <code>Meter</code>/<code>Desk</code> capture, <code>SlotEngine</code> logger, <code>Rig</code> (<code>runtime/rig.py</code>).</li>
+<li>Seams: <code>NoPort</code>, <code>hand()</code>, <code>Meter</code>/<code>Desk</code> capture, <code>SlotEngine</code> logger, <code>Rig</code> (<code>daemon/rig.py</code>).</li>
 <li><code>slots/world.py</code> and <code>TwinBackend</code>, <code>DemoProvider</code>; <code>Twin</code>, unit-tested without a daemon: a twin of the example
    configuration shows its slots; the real backend of the daemon is never called.</li>
 <li>Protocol: messages, codec, <code>LiveServer.tell_view</code>, the daemon's twins.</li>

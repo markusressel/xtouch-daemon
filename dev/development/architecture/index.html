@@ -2871,7 +2871,7 @@ section: <a href="audio/">Audio</a>, <a href="live-view/">Live view</a>, <a href
     Surface -- "what the strips show (live/)" --&gt; Live[LiveServer&lt;br/&gt;$XDG_RUNTIME_DIR/xtouch-daemon.sock]
     Live -- "a JSON line per change" --&gt; GUI[xtouch-daemon gui]
     GUI -- "mode, override, preview, play" --&gt; Live
-    Daemon -- "steps (runtime/slots.py)" --&gt; Engine
+    Daemon -- "steps (daemon/slots.py)" --&gt; Engine
     Voip[VoipProvider&lt;br/&gt;voip/] -- "participants" --&gt; Engine &amp; Mixer</code></pre>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <p>The packages of <code>src/xtouch_daemon/</code>, from the device up. Tests mirror them: <code>tests/&lt;package&gt;/test_&lt;module&gt;.py</code>.</p>
@@ -2924,31 +2924,31 @@ section: <a href="audio/">Audio</a>, <a href="live-view/">Live view</a>, <a href
 <td><a href="../design/slots/">Channels, states and slots</a> without the device: <code>model</code>, <code>expressions</code>, <code>inputs</code> (presence), <code>timing</code>, <code>states</code>, <code>resolver</code>, <code>simulation</code>, <code>outcomes</code>, <code>why</code>, <code>recording</code> and <code>replay</code>. Pure but for the recorder.</td>
 </tr>
 <tr>
-<td><code>runtime/rig.py</code></td>
-<td><code>Rig</code>: the strips of a configuration on one surface (<code>Desk</code>, <code>SlotEngine</code>, <code>SlotMixer</code>), the loop that steps the slots, the requests of modes and overrides and the chord. The <code>Daemon</code> is the rig of the device, a virtual twin (<code>runtime/twin.py</code>) one on a device that is never there.</td>
+<td><code>daemon/rig.py</code></td>
+<td><code>Rig</code>: the strips of a configuration on one surface (<code>Desk</code>, <code>SlotEngine</code>, <code>SlotMixer</code>), the loop that steps the slots, the requests of modes and overrides and the chord. The <code>Daemon</code> is the rig of the device, a virtual twin (<code>daemon/twin.py</code>) one on a device that is never there.</td>
 </tr>
 <tr>
-<td><code>runtime/daemon.py</code></td>
+<td><code>daemon/lifecycle.py</code></td>
 <td><code>Daemon</code>: the lifecycle (signals, reload, preview, shutdown, systemd notifications) and the requests of the live view.</td>
 </tr>
 <tr>
-<td><code>runtime/desk.py</code></td>
+<td><code>daemon/desk.py</code></td>
 <td><code>Desk</code>: the strips of the device for as long as the daemon runs. Hands each event to the controller (<code>Presenter</code>) bound to its strip and a release to whoever got the press; follows the hands and the chord; runs the meters of what is bound now. A claim (<code>[controls]</code>) takes the controls it names (<code>mask()</code>).</td>
 </tr>
 <tr>
-<td><code>runtime/slots.py</code>, <code>runtime/slot_files.py</code></td>
+<td><code>daemon/slots.py</code>, <code>daemon/slot_files.py</code></td>
 <td><code>SlotEngine</code>: steps a <code>Simulation</code> (0.1 s after a change, at the deadlines of its delays, every 2 s for the processes), takes the requests (mode, override, pick and pin), keeps overrides, the mode picked (<code>slots.json</code>) and the people (<code>people.json</code>) across restarts (<a href="../design/state-files/">what the daemon remembers</a>), and carries its state over a reload by id.</td>
 </tr>
 <tr>
-<td><code>runtime/binder.py</code></td>
+<td><code>daemon/binder.py</code></td>
 <td><code>SlotMixer</code>: a controller per channel for as long as the configuration, per application of <code>auto</code> and per person without a channel while they are members. After each step it binds only the slots whose result changed.</td>
 </tr>
 <tr>
-<td><code>runtime/controls.py</code></td>
+<td><code>daemon/controls.py</code></td>
 <td><code>Controls</code>: the <code>[controls]</code> of the slots and their entities; the first entry of a slot whose <code>when</code> holds claims its controls on the <code>Desk</code>.</td>
 </tr>
 <tr>
-<td><code>runtime/homeassistant.py</code></td>
+<td><code>daemon/homeassistant.py</code></td>
 <td><code>SlotEntities</code>: the entities of the mode, the states and their overrides, the channels shown and the slots, published after each step when they changed.</td>
 </tr>
 <tr>

@@ -3315,7 +3315,7 @@ hold, a range) only if it turns out to be missing.</p>
 <li>Built. The field for names, with what the sound server has now and the devices of the profiles (<code>fields/names.py</code>;
    the matching in <code>domain/sources.py</code>). The matches line is under <code>device</code>, <code>card</code> and <code>profile</code> of a choice; the
    lists of chips (<code>device</code> of a channel) have the list without it.</li>
-<li>Built. Remembered devices (<code>runtime/device_memory.py</code>, a line <code>known_devices</code> of the live view of its own rather
+<li>Built. Remembered devices (<code>daemon/device_memory.py</code>, a line <code>known_devices</code> of the live view of its own rather
    than a field of every snapshot, and <code>ForgetDevice</code>).</li>
 <li>Built. The buttons (<code>config/buttons.py</code>; <code>VolumeStrip.on_button</code>/<code>act()</code> in <code>strips/base.py</code>, the kinds of
    strips add <code>do()</code>; <code>mute_others</code> mutes through the binder, the mode actions go to the <code>SlotEngine</code> through

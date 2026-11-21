@@ -2928,7 +2928,7 @@ ranked by value against risk; each was one commit, checked with ruff, pyright an
 <li>26 000 lines in <code>src/</code>. The layers hold: no Qt in <code>gui/domain</code>, nothing outside <code>gui/</code> imports the GUI, <code>pyright</code>
   passes on <code>src/</code>.</li>
 <li>The large modules: <code>gui/qt/window/main_window.py</code> (1100 lines), <code>gui/qt/pages/slots.py</code> (935),
-  <code>slots/model.py</code> (785), <code>gui/qt/preview/strip_view.py</code> (700), <code>runtime/daemon.py</code> (640).</li>
+  <code>slots/model.py</code> (785), <code>gui/qt/preview/strip_view.py</code> (700), <code>daemon/lifecycle.py</code> (640).</li>
 <li><code>MainWindow</code> builds the rail, the settings navigation, the menus, the header and the footer, filters the keys and
   the wheel of the whole application, decides which page shows a problem, and runs the service, the file, the zoom
   and "Try without a device".</li>
@@ -2956,13 +2956,13 @@ ranked by value against risk; each was one commit, checked with ruff, pyright an
    <code>rail_buttons</code> and <code>nav_buttons</code> for the tests and <code>show_page()</code>.</li>
 <li><strong>The geometry of a <code>Session</code>.</strong> The conversion between the pixels of the screen and those of the window is one
    function, <code>scaled()</code>, instead of written out twice.</li>
-<li><strong>The files of the slots.</strong> <code>runtime/slots.py</code> keeps the <code>SlotEngine</code>; reading and writing <code>slots.json</code> and
-   <code>people.json</code> go to <code>runtime/slot_files.py</code>.</li>
+<li><strong>The files of the slots.</strong> <code>daemon/slots.py</code> keeps the <code>SlotEngine</code>; reading and writing <code>slots.json</code> and
+   <code>people.json</code> go to <code>daemon/slot_files.py</code>.</li>
 </ol>
 <p>After these, the <a href="../../architecture/">architecture</a> names the new modules.</p>
 <h2 id="left-as-they-are">Left as they are<a class="headerlink" href="#left-as-they-are" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><code>runtime/daemon.py</code>.</strong> One lifecycle: reload, preview and the run loop share the configuration that runs and the
+<li><strong><code>daemon/lifecycle.py</code>.</strong> One lifecycle: reload, preview and the run loop share the configuration that runs and the
   mixer. Splitting the preview off would hand the same state around, not make it simpler.</li>
 <li><strong><code>gui/qt/preview/strip_view.py</code>.</strong> Long, but one thing: painting a strip and the hand on it. Its paint methods
   share the state of the strip and the cached pictures.</li>

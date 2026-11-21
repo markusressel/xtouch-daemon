@@ -3045,27 +3045,27 @@ changed.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>Desk</code> (<code>runtime/desk.py</code>)</td>
+<td><code>Desk</code> (<code>daemon/desk.py</code>)</td>
 <td>the daemon</td>
 <td>The 8 strips of the device: touches, held buttons and touchless faders (<code>held_slots()</code>), the events to the presenter bound to each slot or to a claim, the meters of what is bound, banners and flashes.</td>
 </tr>
 <tr>
-<td><code>SlotEngine</code> (<code>runtime/slots.py</code>)</td>
+<td><code>SlotEngine</code> (<code>daemon/slots.py</code>)</td>
 <td>the daemon</td>
 <td>The <code>StateEngine</code>, presence, the members of the pools, the resolver with dwell, pins and the order of the people; keeps overrides, the mode picked and the people across restarts; wakes at the deadlines of the delays (no polling). A reload carries its state over by state, channel and member id.</td>
 </tr>
 <tr>
-<td><code>SlotMixer</code> (<code>runtime/binder.py</code>)</td>
+<td><code>SlotMixer</code> (<code>daemon/binder.py</code>)</td>
 <td>the configuration</td>
 <td>A controller with its own <code>VirtualStrip</code> per channel, per application of <code>auto</code> and per person without a channel while they are members (made when it becomes one, closed when its <code>hold</code> or <code>absent_after</code> ends; it moves between slots unchanged). Binds only the slots whose result changed; a controller gets its look and the options of its place when it is bound, its identity is its channel or member.</td>
 </tr>
 <tr>
-<td><code>Controls</code> (<code>runtime/controls.py</code>)</td>
+<td><code>Controls</code> (<code>daemon/controls.py</code>)</td>
 <td>the configuration</td>
 <td>The <code>[controls]</code> of each slot with their entities, bound to the <code>Desk</code>'s slot, not to what it shows.</td>
 </tr>
 <tr>
-<td><code>SlotEntities</code> (<code>runtime/homeassistant.py</code>)</td>
+<td><code>SlotEntities</code> (<code>daemon/homeassistant.py</code>)</td>
 <td>the configuration</td>
 <td>The entities of the states, overrides, the mode and the slots.</td>
 </tr>
