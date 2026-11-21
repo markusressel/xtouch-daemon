@@ -245,6 +245,7 @@ class Daemon(Rig):
             preview=self.previewing,
             processes=self._scan_processes,
             commands=self.commands,
+            on_presence=self.wake_slots,
         )
 
     def _configure_surface(self, config: Config) -> None:

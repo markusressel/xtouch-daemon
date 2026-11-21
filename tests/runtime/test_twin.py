@@ -7,6 +7,7 @@ import asyncio
 import pytest
 
 from tests.support.waiting import until
+from tests.support.watches import ProgramCommands
 from xtouch_daemon.audio.model import Direction
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
@@ -80,6 +81,46 @@ async def test_a_twin_follows_a_new_situation_configuration_and_names():
         # the chord changes nothing: the situation is the GUI's
         twin._on_chord()
         assert twin.slots.mode == "gaming"
+    finally:
+        task.cancel()
+        twin.close()
+        await twin.wait_closed()
+
+
+async def test_a_situation_makes_a_custom_channel_absent():
+    config = '[channel.out]\ntype = "output"\nlabel = "Out"\n\n[channel.lamp]\ntype = "custom"\nlabel = "Lamp"\n\n'
+    config += '[slots]\n1 = ["lamp if present", "out"]\n'
+    twin = Twin(parse_config(config), Situation(flipped=frozenset({"lamp"})))
+    task = asyncio.create_task(twin.run())
+    try:
+        await until(lambda: (view := twin.view()) is not None and view.strips[0].text[0] == "Out")
+        assert twin.slots.made_absent == {"lamp"}
+        twin.set_situation(Situation())
+        await until(lambda: (view := twin.view()) is not None and view.strips[0].text[0] == "Lamp")
+    finally:
+        task.cancel()
+        twin.close()
+        await twin.wait_closed()
+
+
+async def test_a_made_up_situation_alone_says_whether_a_custom_channel_is_there():
+    config = '[channel.out]\ntype = "output"\nlabel = "Out"\n\n[channel.lamp]\ntype = "custom"\nlabel = "Lamp"\n'
+    config += 'absent_after = 0\npresent = { watch = "lamp --watch" }\n\n[slots]\n1 = ["lamp if present", "out"]\n'
+    commands = ProgramCommands()
+    twin = Twin(parse_config(config), Situation(), clock=asyncio.get_running_loop().time, commands=commands)
+    task = asyncio.create_task(twin.run())
+    try:
+        await until(lambda: (view := twin.view()) is not None and view.strips[0].text[0] == "Lamp")
+        # the real watch says the lamp is gone: the situation says it is there, and it is
+        commands.print_to("lamp --watch", "")
+        await until(lambda: twin.slots.absent == {"lamp"})
+        await asyncio.sleep(2)
+        view = twin.view()
+        assert view is not None
+        assert view.strips[0].text[0] == "Lamp"
+        # the world of now (no Simulate): the watch counts
+        twin.set_situation(Situation(), real=True)
+        await until(lambda: (view := twin.view()) is not None and view.strips[0].text[0] == "Out")
     finally:
         task.cancel()
         twin.close()

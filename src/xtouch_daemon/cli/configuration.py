@@ -12,7 +12,7 @@ import click
 from xtouch_daemon.cli.options import CONFIG_OPTION, load_or_fail
 from xtouch_daemon.config import presets
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
-from xtouch_daemon.config.bindings import describe_part
+from xtouch_daemon.config.bindings import describe_part, fill, placeholders_of
 from xtouch_daemon.config.buttons import BUTTON_NAMES, describe_action
 from xtouch_daemon.config.files import default_config_path, example_config
 from xtouch_daemon.config.json_schema import schema_text
@@ -137,6 +137,21 @@ def _custom_text(config: CustomStripConfig) -> str:
     return f"{label}custom{targets}{together} ({', '.join(details)})"
 
 
+def describe_targets(config: StripConfig) -> list[str]:
+    """
+    The programs of each target of a custom channel, with `{target}` filled in (`{value}` stays: a hand gives it),
+    for `check-config`: one line per target, none without targets.
+    """
+    if not isinstance(config, CustomStripConfig):
+        return []
+    programs = {where: argv for where, argv in config.programs().items() if "target" in placeholders_of(argv)}
+    return [
+        f"{target.name}: "
+        + "; ".join(f"{where} {shlex.join(fill(argv, target=target.value))}" for where, argv in programs.items())
+        for target in config.targets
+    ]
+
+
 ROWS_SHOWN = 12
 """The most rows of the table of outcomes that `check-config` shows without `--all`."""
 
@@ -156,6 +171,8 @@ def check_config(config_path: Path | None, every_row: bool) -> None:
     for name, strip in setup.channels.items():
         meter_point = getattr(strip, "meter_point", None) or config.behavior.meter_point
         click.echo(f"  {name}: {describe_strip(strip, name, meter_point)}")
+        for line in describe_targets(strip):
+            click.echo(f"    {line}")
     click.echo("What the slots show:")
     rows = outcomes(setup.scene)
     # a long table is as hard to read as none: the situations that differ in one thing, the rest on request

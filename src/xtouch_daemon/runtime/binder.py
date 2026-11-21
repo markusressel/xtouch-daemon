@@ -31,7 +31,7 @@ from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.strips import build_strip, look_of
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
-from xtouch_daemon.strips.custom import CustomStrip
+from xtouch_daemon.strips.custom import custom_strips
 from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.system.processes import running_processes
@@ -96,7 +96,12 @@ class SlotMixer:
         launcher: Launcher | None = None,
         processes: Callable[[], frozenset[str]] = running_processes,
         commands: Commands | None = None,
+        on_presence: Callable[[], None] = lambda: None,
     ):
+        """
+        `on_presence` is called when a custom channel came or went (its `present`): the slots look again (the engine
+        knows it as `SlotEngine.absent`).
+        """
         self.setup = config.slots
         self.config = config
         self.engine = engine
@@ -132,6 +137,13 @@ class SlotMixer:
             for name, strip in self.setup.channels.items()
         }
         """A controller per channel, for as long as the configuration."""
+        self.on_presence = on_presence
+        self.customs = custom_strips(self.channels)
+        """The strips of the custom channels: what `[controls]` set of them, and whether they are there."""
+        # what the channels of the last configuration said stays until theirs say otherwise (a reload)
+        engine.absent &= {name for name, strip in self.customs.items() if strip.config.present is not None}
+        for name, strip in self.customs.items():
+            strip.on_presence = lambda name=name: self._presence(name)
         self.members: dict[Key, StripController] = {}
         """A controller per application of `auto` and per person without a channel, made when they first show."""
         self.empty = {
@@ -148,7 +160,7 @@ class SlotMixer:
             self.env.launcher,
             lambda: self.processes,
             config.behavior.encoder_step,
-            {name: controller for name, controller in self.channels.items() if isinstance(controller, CustomStrip)},
+            self.customs,
             self.env.commands,
         )
         """The `[controls]` of the slots: claims on the strips of the desk."""
@@ -168,6 +180,16 @@ class SlotMixer:
         if bridge is not None:
             bridge.bind(self.entities)
         voip.subscribe(self.refresh)
+
+    def _presence(self, name: str) -> None:
+        """A custom channel came or went: the engine learns it, the slots look again."""
+        presence = self.customs[name].presence
+        if presence is None:
+            return
+        absent = self.engine.absent - {name} if presence else self.engine.absent | {name}
+        if absent != self.engine.absent:
+            self.engine.absent = absent
+            self.on_presence()
 
     def _build(self, key: Key, strip: StripConfig | None, identity: Identity) -> StripController:
         view = VirtualStrip(self.surface, next(self._numbers))

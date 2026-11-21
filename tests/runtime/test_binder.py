@@ -10,15 +10,17 @@ import pytest
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 
-from tests.support.audio import output, source, stream
+from tests.support.audio import FakeBackend, output, source, stream
 from tests.support.hardware import RecordingSurface
 from tests.support.slots import Rig
 from tests.support.tasks import settle
+from tests.support.watches import ProgramCommands
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware.strip import Strip, VirtualStrip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime import binder as binder_module
+from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.voip import VoipStrip
 
@@ -188,3 +190,94 @@ async def test_a_slot_that_shows_another_candidate_flashes_what_and_why(surface:
     assert surface.strips[0].overlay == ("Mic".center(7), "not gam")
     assert rig.mixer._why(4, 0, 0) == ""
     rig.mixer.close()
+
+
+CUSTOM = """
+[voip]
+provider = "demo"
+
+[channel.out]
+type = "output"
+device = "speaker"
+label = "Speaker"
+
+[channel.screen]
+type = "custom"
+label = "Screen"
+present = { watch = "screen --watch" }
+fader = { set = "b {value}", watch = "b --watch", min = 0.1, max = 1.0 }
+
+[channel.lamp]
+type = "custom"
+label = "Lamp"
+absent_after = 0
+present = { watch = "lamp --watch" }
+
+[channel.clock]
+type = "custom"
+label = "Clock"
+lcd = { watch = "date --watch" }
+
+[pool.extras]
+channels = ["lamp", "clock"]
+
+[slots]
+1 = ["screen if present", "out"]
+2 = ["extras"]
+3 = ["extras"]
+"""
+
+
+async def test_a_custom_channel_takes_part_in_the_slots_as_its_present_says(surface: RecordingSurface) -> None:
+    commands = ProgramCommands()
+    woken: list[str] = []
+    rig = Rig(surface, parse_config(CUSTOM), commands=commands, on_presence=lambda: woken.append("woken"))
+    rig.step(STATE)
+    # nothing known yet: present, as a channel without `present` always is
+    assert rig.labels()[:3] == ["Screen", "Lamp", "Clock"]
+    commands.print_to("screen --watch", "")
+    commands.print_to("lamp --watch", "")
+    await settle()
+    assert woken == ["woken", "woken"]
+    assert rig.engine.absent == {"screen", "lamp"}
+    rig.step(STATE)
+    # the lamp goes at once (`absent_after = 0`): the pool hands out the clock; the screen stays 3 s
+    assert rig.labels()[:3] == ["Screen", "Clock", ""]
+    for _ in range(3):
+        rig.step(STATE)
+    assert rig.labels()[:3] == ["Speaker", "Clock", ""]
+    commands.print_to("screen --watch", "DisplayPort-1")
+    commands.print_to("lamp --watch", "on")
+    await settle()
+    assert rig.engine.absent == frozenset()
+    rig.step(STATE)
+    assert rig.labels()[:3] == ["Screen", "Lamp", "Clock"]
+    # the same again tells nobody
+    commands.print_to("lamp --watch", "on, still")
+    await settle()
+    assert len(woken) == 4
+    rig.mixer.close()
+    await commands.wait_closed()
+
+
+async def test_a_reload_keeps_the_absence_until_the_new_watch_tells(surface: RecordingSurface) -> None:
+    commands = ProgramCommands()
+    rig = Rig(surface, parse_config(CUSTOM), commands=commands)
+    commands.print_to("screen --watch", "")
+    await settle()
+    assert rig.engine.absent == {"screen"}
+    rig.mixer.close()
+    # the new configuration: the screen is still away until its watch says otherwise; the lamp has no `present` now
+    rig.engine.absent |= {"lamp"}
+    rig.mixer = SlotMixer(
+        surface,
+        FakeBackend(()),
+        parse_config(CUSTOM.replace('present = { watch = "lamp --watch" }', "")),
+        rig.engine,
+        rig.desk,
+        rig.voip,
+        commands=commands,
+    )
+    assert rig.engine.absent == {"screen"}
+    rig.mixer.close()
+    await commands.wait_closed()

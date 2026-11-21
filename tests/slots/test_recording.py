@@ -90,6 +90,10 @@ def test_lines_and_logs(tmp_path: Path):
     # a recording from before the ids: by name
     old = to_line(1.5, observation).replace('[["id-Bob", "Bob"]]', '["Bob"]')
     assert from_line(old)[1].people == (Attendee("Bob", "Bob"),)
+    # custom channels that are absent; a recording from before them has none
+    away = Observation(absent=frozenset({"screen"}))
+    assert from_line(to_line(2, away)) == (2.0, away)
+    assert from_line(to_line(2, away).replace(', "absent": ["screen"]', ""))[1].absent == frozenset()
     log = tmp_path / "log.jsonl"
     log.write_text(to_line(1, observation) + "\n\n" + to_line(2, Observation()) + "\n")
     assert read_log(log) == [(1.0, observation), (2.0, Observation())]
