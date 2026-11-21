@@ -3014,43 +3014,43 @@ channels</a>.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>fader</code></td>
+<td><img alt="" class="xt-icon" src="../../../images/controls/fader.png" /> <code>fader</code></td>
 <td>The volume (<code>"volume"</code>).</td>
 <td>A value: <code>{ set, watch, min, max, step, format }</code>, or <code>poll</code> and <code>every</code> instead of <code>watch</code>.</td>
 <td><code>{ entity, attribute, min, max, step, format, service, data }</code>: sets it.</td>
 </tr>
 <tr>
-<td><code>encoder</code></td>
+<td><img alt="" class="xt-icon" src="../../../images/controls/encoder.png" /> <code>encoder</code></td>
 <td>The type's modes (<a href="../encoders/">Encoders</a>).</td>
 <td>A value: <code>{ set, watch, min, max, step, push, format }</code>, or <code>poll</code> and <code>every</code> instead of <code>watch</code>.</td>
 <td>As the fader, with <code>push</code>.</td>
 </tr>
 <tr>
-<td><code>lcd</code></td>
+<td><img alt="" class="xt-icon" src="../../../images/controls/lcd.png" /> <code>lcd</code></td>
 <td>What the type shows on the second line.</td>
 <td><code>{ watch }</code> or <code>{ poll, every }</code>: each line is the text.</td>
 <td><code>{ entity, attribute }</code>: its state or attribute.</td>
 </tr>
 <tr>
-<td><code>color</code></td>
+<td><img alt="" class="xt-icon" src="../../../images/controls/color.png" /> <code>color</code></td>
 <td>A color name.</td>
 <td><code>{ watch }</code> or <code>{ poll, every }</code>: each line is a color name.</td>
 <td><code>{ entity, attribute }</code>: its color.</td>
 </tr>
 <tr>
-<td><code>meter</code></td>
+<td><img alt="" class="xt-icon" src="../../../images/controls/meter.png" /> <code>meter</code></td>
 <td>The level of the audio (<code>true</code>), or dark (<code>false</code>).</td>
 <td><code>{ watch, min, max }</code> or <code>{ poll, every, min, max }</code>: each line is a level.</td>
 <td><code>{ entity, attribute, min, max }</code>: its number.</td>
 </tr>
 <tr>
-<td>A button's <code>press</code>, <code>hold</code></td>
+<td><img alt="" class="xt-icon" src="../../../images/controls/select.png" /> A button's <code>press</code>, <code>hold</code></td>
 <td>The type's actions (<a href="../leds/">Buttons and LEDs</a>).</td>
 <td><code>{ run }</code>: runs to its end.</td>
 <td><code>{ service, entity, data }</code>: calls a service.</td>
 </tr>
 <tr>
-<td>A button's <code>led</code></td>
+<td><img alt="" class="xt-icon" src="../../../images/controls/rec.png" /> A button's <code>led</code></td>
 <td>The type's indicators.</td>
 <td><code>{ watch }</code> or <code>{ poll, every }</code>: <code>on</code>, <code>1</code>, <code>true</code>, <code>yes</code> light it, <code>flash</code> flashes it.</td>
 <td><code>{ entity, attribute }</code>: lit while <code>on</code>, <code>open</code>, <code>playing</code>, <code>home</code>.</td>
@@ -3410,7 +3410,7 @@ does. These domains need no <code>service</code>:</p>
 <code>number.&lt;ns&gt;_&lt;id&gt;_encoder</code>): from the binding's <code>min</code> to its <code>max</code>, in steps of its <code>step</code>, else in fine steps of the
 range. It has no state until the value is known; a change in Home Assistant runs <code>set</code>.</p>
 <p>Only the channel itself has these entities, not the applications and devices that a place of <code>apps</code>, <code>auto</code> or
-<code>devices</code> shows. A <a href="../../slots/#slots">place</a> that sets a part to <code>"homeassistant"</code> does nothing; the log says so.
+<code>devices</code> shows. A <a href="../../slots/#places">place</a> that sets a part to <code>"homeassistant"</code> does nothing; the log says so.
 Simulate has no Home Assistant: its parts look as while Home Assistant is not there. A fader or an encoder bound to an
 entity has no number of its own: the entity is already in Home Assistant.</p>
 <h2 id="simulate">Simulate<a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h2>

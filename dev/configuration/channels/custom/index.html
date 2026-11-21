@@ -3042,6 +3042,7 @@ pools.</p>
 </tbody>
 </table>
 <h2 id="a-value">A value<a class="headerlink" href="#a-value" title="Permanent link">&para;</a></h2>
+<p><img alt="A fader at the 0 dB mark of its scale" class="xt-part" src="../../../images/controls/fader.png" width="80" /></p>
 <p>A value (<code>fader = { ... }</code>, <code>encoder = { ... }</code>) takes these options; only the encoder has a <code>push</code>:</p>
 <table>
 <thead>
@@ -3094,17 +3095,26 @@ pools.</p>
 </tr>
 </tbody>
 </table>
-<p>The fader, the ring and the LCD show a change at once. The program runs with the newest value only: turns and moves
-that come while it runs wait for it, and only the last of them runs next. A program that fails or takes longer than 10
-seconds is logged as a warning.</p>
-<p>Without <code>watch</code> or <code>poll</code> the daemon knows only the values it set. Until the first one, the ring is dark, the fader
-stays where it is, and a turn starts from <code>push</code>, or else from <code>min</code>. While a value is set or a fader of it is under
-a finger, the lines of <code>watch</code> and <code>poll</code> don't move it. A <code>watch</code> that ends or can't start runs again after 5
-seconds.</p>
-<p>A <code>watch</code> or a <code>poll</code> runs for as long as the configuration, also while no slot shows the channel.</p>
+<dl>
+<dt>How <code>set</code> runs</dt>
+<dd>The fader, the ring and the LCD show a change at once. The program runs with the newest value only: turns and
+moves that come while it runs wait for it, and only the last of them runs next. A program that fails or takes
+longer than 10 seconds is logged as a warning.</dd>
+<dt>Without <code>watch</code> or <code>poll</code></dt>
+<dd>The daemon knows only the values it set. Until the first one, the ring is dark, the fader stays where it is, and a
+turn starts from <code>push</code>, or else from <code>min</code>.</dd>
+<dt>With <code>watch</code> or <code>poll</code></dt>
+<dd>While a value is set or a fader of it is under a finger, the lines of <code>watch</code> and <code>poll</code> don't move it. A <code>watch</code>
+that ends or can't start runs again after 5 seconds. A <code>watch</code> or a <code>poll</code> runs for as long as the configuration,
+also while no slot shows the channel.</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">No shell</p>
 <p>Every program here runs without a shell: pipes and redirects belong in a script of your own (see
 <a href="../../strip/bindings/#commands">Commands</a>).</p>
+</div>
 <h2 id="buttons">Buttons<a class="headerlink" href="#buttons" title="Permanent link">&para;</a></h2>
+<p><img alt="The buttons of a strip, lit: Rec and Mute red, Solo yellow, Select green" class="xt-part" src="../../../images/controls/buttons.png" width="64" /></p>
 <p>Select, Rec, Solo and Mute do nothing until you give them a <code>press</code> (and a <code>hold</code>, once the button is down for
 0.5 seconds):</p>
 <table>
@@ -3137,9 +3147,33 @@ seconds.</p>
 </tr>
 </tbody>
 </table>
-<p><code>led</code> is <code>off</code>, <code>press</code> (lit while the program of <code>run</code> runs, while another target than the first is on with <code>next</code>,
-while the mode or the state of the press is on), <code>homeassistant</code>, or <code>{ watch }</code> or <code>{ poll, every }</code> (<code>on</code>, <code>1</code>,
-<code>true</code>, <code>yes</code> light it, <code>flash</code> flashes it, anything else turns it off).</p>
+<p><code>led</code> takes:</p>
+<table>
+<thead>
+<tr>
+<th><code>led</code></th>
+<th>The LED</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>off</code></td>
+<td>Stays dark.</td>
+</tr>
+<tr>
+<td><code>press</code></td>
+<td>Lit while the program of <code>run</code> runs, while another target than the first is on with <code>next</code>, while the mode or the state of the press is on.</td>
+</tr>
+<tr>
+<td><code>homeassistant</code></td>
+<td>Home Assistant sets it.</td>
+</tr>
+<tr>
+<td><code>{ watch }</code> or <code>{ poll, every }</code></td>
+<td><code>on</code>, <code>1</code>, <code>true</code>, <code>yes</code> light it, <code>flash</code> flashes it, anything else turns it off.</td>
+</tr>
+</tbody>
+</table>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.night]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"custom"</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="p">}</span>

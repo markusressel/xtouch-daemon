@@ -2943,6 +2943,7 @@
 
 
 <h1 id="encoders">Encoders<a class="headerlink" href="#encoders" title="Permanent link">&para;</a></h1>
+<p><img alt="The encoder: a knob in a ring of 13 LEDs, lit from the left" class="xt-part" src="../../../images/controls/encoder.png" width="110" /></p>
 <p>The fader of an audio strip sets the volume, unless it is in <a href="#fader-homeassistant">Home Assistant</a> or
 <a href="../bindings/">bound</a> to a value of your own. The encoder
 does what the strip's <code>encoder</code> option says, and its <a href="../leds/">LED</a> ring shows it. After a turn or a push, the second line of
@@ -3066,10 +3067,33 @@ of the candidates the slot has, as a dot; while pinned, it is lit up to there. T
 <h2 id="media"><code>media</code><a class="headerlink" href="#media" title="Permanent link">&para;</a></h2>
 <p>The default for <code>apps</code> channels. The encoder controls the media player of the strip's applications: Spotify, a browser,
 mpv with mpv-mpris, anything that speaks <a href="https://specifications.freedesktop.org/mpris-spec/latest/">MPRIS</a> on the
-session bus. Turning seeks 5 seconds per step, a push plays or pauses. The ring fills up from the left with how far the track
-is, also while the strip is idle (e.g. paused). It blinks (0.5 s on, 0.5 s off) while the track is paused and is
-dark while it is stopped, or for live streams without a length. The LCD shows where the track is
-after a seek (<code>1:05</code>), and what a push made of it (<code>playing</code>, <code>paused</code>).</p>
+session bus.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>media</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Turn</td>
+<td>Seeks 5 seconds per step.</td>
+</tr>
+<tr>
+<td>Push</td>
+<td>Plays or pauses.</td>
+</tr>
+<tr>
+<td>Ring</td>
+<td>Fills up from the left with how far the track is, also while the strip is idle (e.g. paused). It blinks (0.5 s on, 0.5 s off) while the track is paused and is dark while it is stopped, or for live streams without a length.</td>
+</tr>
+<tr>
+<td>LCD</td>
+<td>Where the track is after a seek (<code>1:05</code>), and what a push made of it (<code>playing</code>, <code>paused</code>).</td>
+</tr>
+</tbody>
+</table>
 <p>The player is the one of the process that plays a stream of the strip or of one of its parents, since browsers play
 from a child process. Without such a player, one named like the application (<code>spotify</code> for Spotify). Playing streams
 come first. Applications without a player leave the encoder without a function.</p>
@@ -3078,8 +3102,11 @@ a few seconds after the pause, and the strip would go dark with it. It stays lit
 the ring blinks; a move of the fader sets the volume the stream gets when it plays again. The strip goes dark when
 the player is stopped or closed. On a slot of <code>apps</code> or <code>auto</code> this lasts as long as the slot keeps the application
 (<code>hold</code> of <code>[pool.apps]</code>).</p>
+<div class="admonition note">
+<p class="admonition-title">Needs the session bus</p>
 <p><code>xtouch-daemon</code> needs the D-Bus session bus for this, which a systemd user service has. Without it the daemon logs
 <code>No media players: the session bus is not reachable (...)</code> once and keeps trying.</p>
+</div>
 <h2 id="homeassistant"><code>homeassistant</code><a class="headerlink" href="#homeassistant" title="Permanent link">&para;</a></h2>
 <p>The encoder belongs to Home Assistant, the fader still sets the volume. For example, the encoder dims the light next
 to the speakers. Turning changes <code>number.&lt;ns&gt;_&lt;id&gt;_encoder</code> (0..100) by <code>behavior.encoder_step</code> per step, the ring

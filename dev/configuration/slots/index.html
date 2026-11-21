@@ -824,6 +824,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#places" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Places
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pools-of-channels" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2780,6 +2791,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#places" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Places
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pools-of-channels" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2986,9 +3008,50 @@ shows in which states, and <code>xtouch-daemon why 3</code> why slot 3 shows wha
   the right). <code>apps</code> and <code>people</code> are each of them alone. A slot without an entry is <code>auto</code>, and so is a stack whose
   candidates all don't hold.</li>
 <li><code>-</code> is nothing: the slot is dark.</li>
-<li>The table form <code>{ show = ..., when = ..., ... }</code> takes options of the look at this place. The built-in pools
-  (<code>[pool.apps]</code>, <code>[pool.auto]</code>, <code>[pool.devices]</code>, <code>[pool.people]</code>) take the same for all their places.</li>
+<li>The table form <code>{ show = ..., when = ..., ... }</code> takes options of the look at this place, see <a href="#places">Places</a>.</li>
+<li>The <a href="../../guides/gui/">GUI</a>'s page Slots simulates other modes and states (Simulate), in the drawing or on the device.</li>
+<li><code>xtouch-daemon why 2</code> says why slot 2 shows what it shows, <code>xtouch-daemon why voip</code> where the channel is and
+  why.</li>
+<li>When a slot shows something else, its LCD flashes the new label and why (<code>gaming</code>, <code>not call</code>) for
+  <code>switching.banner</code> seconds.</li>
 </ul>
+<p>Four pools are built in:</p>
+<table>
+<thead>
+<tr>
+<th>Pool</th>
+<th>Members</th>
+<th>Options</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apps</code></td>
+<td>Applications, see <a href="../channels/applications/#apps-and-auto">Applications</a>.</td>
+<td><code>[pool.apps]</code>: <code>from</code>, <code>hold</code> and <code>exclude</code>.</td>
+</tr>
+<tr>
+<td><code>people</code></td>
+<td>The people of the voice chat, see <a href="../channels/people/#where-people-sit">People</a>.</td>
+<td><code>[pool.people]</code>: <code>from</code>, <code>order</code> and the look of the strips of people.</td>
+</tr>
+<tr>
+<td><code>auto</code></td>
+<td>Both.</td>
+<td><code>[pool.auto]</code>: the look of the applications on its slots.</td>
+</tr>
+<tr>
+<td><code>devices</code></td>
+<td>The outputs and inputs no channel has, see <a href="../channels/devices/#devices-without-a-channel">Devices</a>.</td>
+<td><code>[pool.devices]</code>: <code>from</code>, <code>hold</code>, <code>exclude</code> and the look of the strips of devices.</td>
+</tr>
+</tbody>
+</table>
+<p>A pool that has no member for a slot hands it to the pool (or <code>-</code>) right below it: <code>["people", "apps"]</code> is a person,
+else an application. A slot that two pools could fill goes to the one higher in its stack.</p>
+<h3 id="places">Places<a class="headerlink" href="#places" title="Permanent link">&para;</a></h3>
+<p>A candidate in the table form (<code>{ show = "auto", color = "blue" }</code>) takes options of the look at this place. The
+built-in pools (<code>[pool.apps]</code>, <code>[pool.auto]</code>, <code>[pool.devices]</code>, <code>[pool.people]</code>) take the same for all their places.</p>
 <table>
 <thead>
 <tr>
@@ -3021,29 +3084,38 @@ shows in which states, and <code>xtouch-daemon why 3</code> why slot 3 shows wha
 </table>
 <p><code>rec</code> and <code>solo</code> at a place set what the LED shows; the press stays the channel's.</p>
 <p>Three levels decide what the parts of a strip do and show:</p>
-<ul>
-<li>The channel (<code>[channel.out]</code>, or the pool): what each part does and how it looks, in every slot. A
-    <a href="../strip/bindings/">binding</a> (<code>{ watch = ... }</code>) belongs here.</li>
-<li>The place: the look of what it shows, in this slot only. Its options take words only (e.g. <code>color = "red"</code>,
-    <code>meter = false</code>), no bindings.</li>
-<li><a href="#controls-and-the-chord"><code>[controls]</code></a>: parts of the slot, whatever it shows, while its <code>when</code> holds. A binding
-    for the slot belongs here.</li>
-</ul>
-<p>A control for Home Assistant, or one that starts an application (<code>{ launch = [...] }</code>), is a control of the slot, not
-  a place option: <a href="#controls-and-the-chord"><code>[controls]</code></a>. How to start an application with Select:
-  <a href="../channels/applications/#launching-the-application">Launching the application</a>.
-- The <a href="../../guides/gui/">GUI</a>'s page Slots simulates other modes and states (Simulate), in the drawing or on the device.
-- <code>xtouch-daemon why 2</code> says why slot 2 shows what it shows, <code>xtouch-daemon why voip</code> where the channel is and
-  why.
-- When a slot shows something else, its LCD flashes the new label and why (<code>gaming</code>, <code>not call</code>) for
-  <code>switching.banner</code> seconds.</p>
-<p>Four pools are built in: <code>apps</code> (applications, see <a href="../channels/applications/#apps-and-auto">Applications</a>), <code>people</code> (the
-people of the voice chat, see <a href="../channels/people/#where-people-sit">People</a>), <code>auto</code> (both) and <code>devices</code> (the outputs and
-inputs no channel has, see <a href="../channels/devices/#devices-without-a-channel">Devices</a>). <code>[pool.apps]</code> has <code>from</code>, <code>hold</code> and
-<code>exclude</code>, <code>[pool.people]</code> <code>from</code>, <code>order</code> and the look of the strips of people, <code>[pool.auto]</code> the look of the
-applications on its slots, <code>[pool.devices]</code> <code>from</code>, <code>hold</code>, <code>exclude</code> and the look of the strips of devices.</p>
-<p>A pool that has no member for a slot hands it to the pool (or <code>-</code>) right below it: <code>["people", "apps"]</code> is a person,
-else an application. A slot that two pools could fill goes to the one higher in its stack.</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Decides</th>
+<th>Takes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The channel (<code>[channel.out]</code>, or the pool)</td>
+<td>What each part does and how it looks, in every slot.</td>
+<td>Words and <a href="../strip/bindings/">bindings</a> (<code>{ watch = ... }</code>).</td>
+</tr>
+<tr>
+<td>The place</td>
+<td>The look of what it shows, in this slot only.</td>
+<td>Words only (e.g. <code>color = "red"</code>, <code>meter = false</code>), no bindings.</td>
+</tr>
+<tr>
+<td><a href="#controls-and-the-chord"><code>[controls]</code></a></td>
+<td>Parts of the slot, whatever it shows, while its <code>when</code> holds.</td>
+<td>Words and bindings for the slot.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">Home Assistant and launching</p>
+<p>A control for Home Assistant, or one that starts an application (<code>{ launch = [...] }</code>), is a control of the slot,
+not a place option: <a href="#controls-and-the-chord"><code>[controls]</code></a>. How to start an application with Select:
+<a href="../channels/applications/#launching-the-application">Launching the application</a>.</p>
+</div>
 <h3 id="pools-of-channels">Pools of channels<a class="headerlink" href="#pools-of-channels" title="Permanent link">&para;</a></h3>
 <p>A pool of your own hands out channels: the first of its list that is present gets the first of its slots, the next
 one the next, and so on. Use it for things of which only some are there at a time, e.g. several outputs:</p>
@@ -3162,19 +3234,28 @@ match, <code>kind = "people"</code> listed people of the voice chat, each on a s
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Gaming"</span><span class="w">            </span><span class="c1"># the banner across the LCDs</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">processes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@steam-games"</span><span class="p">]</span>
 </span></code></pre></div>
-<p>A state is on while any of its sources is: <code>apps</code> (playing), <code>recording</code>, <code>voice_chat</code>, <code>processes</code>, <code>devices</code>,
-<code>channels</code>, <code>homeassistant</code> (a switch in Home Assistant), or <code>when</code> (a <a href="#conditions">condition</a> of other states). <code>delay_on</code>
-(default 0) and <code>delay_off</code> (default 3 seconds, 10 for a mode) smooth it: the state goes on only after its sources
-were on that long, and off only after they were off that long. A state with <code>when</code> has no delays by default (both
-0): it follows the states it names, which have theirs already; delays you give it add to theirs. Modes are states with <code>mode = true</code>: the one with the highest <code>priority</code> whose sources are
-on is the mode, else <code>default</code>. When the mode changes, the LCDs show its <code>label</code> across the strips for
-<code>switching.banner</code> seconds.</p>
-<p><code>apps</code> and <code>processes</code> take parts of names, ignoring case, and <a href="../presets/">presets</a>. For games from Steam,
-<code>processes = ["@steam-games"]</code> is on while any game runs, native or with Proton: Steam starts every game through its
-<code>reaper</code> process, which is what the preset stands for. Proton games play as <code>&lt;Game&gt;.exe</code> (e.g. "Planet
-Crafter.exe"), which <code>apps = ["@games"]</code> catches once they make a sound. Don't use <code>steam</code> (the client runs all the
-time) or <code>.exe</code> in <code>processes</code> (Wine's helpers, like <code>explorer.exe</code>, run for other Windows programs too).
-<code>ps -eo comm,args</code> while a game runs shows the names to use for others. Kernel threads don't count.</p>
+<dl>
+<dt>Sources</dt>
+<dd>A state is on while any of its sources is: <code>apps</code> (playing), <code>recording</code>, <code>voice_chat</code>, <code>processes</code>, <code>devices</code>,
+<code>channels</code>, <code>homeassistant</code> (a switch in Home Assistant), or <code>when</code> (a <a href="#conditions">condition</a> of other states).</dd>
+<dt>Delays</dt>
+<dd><code>delay_on</code> (default 0) and <code>delay_off</code> (default 3 seconds, 10 for a mode) smooth it: the state goes on only after
+its sources were on that long, and off only after they were off that long. A state with <code>when</code> has no delays by
+default (both 0): it follows the states it names, which have theirs already; delays you give it add to theirs.</dd>
+<dt>Modes</dt>
+<dd>Modes are states with <code>mode = true</code>: the one with the highest <code>priority</code> whose sources are on is the mode, else
+<code>default</code>. When the mode changes, the LCDs show its <code>label</code> across the strips for <code>switching.banner</code> seconds.</dd>
+</dl>
+<p><code>apps</code> and <code>processes</code> take parts of names, ignoring case, and <a href="../presets/">presets</a>.</p>
+<details class="tip">
+<summary>Games from Steam and Proton</summary>
+<p><code>processes = ["@steam-games"]</code> is on while any game runs, native or with Proton: Steam starts every game through
+its <code>reaper</code> process, which is what the preset stands for. Proton games play as <code>&lt;Game&gt;.exe</code> (e.g. "Planet
+Crafter.exe"), which <code>apps = ["@games"]</code> catches once they make a sound.</p>
+<p>Don't use <code>steam</code> (the client runs all the time) or <code>.exe</code> in <code>processes</code> (Wine's helpers, like <code>explorer.exe</code>,
+run for other Windows programs too).</p>
+</details>
+<p><code>ps -eo comm,args</code> while a game runs shows the names to use for others. Kernel threads don't count.</p>
 <p>Every state can be overridden (<code>on</code>, <code>off</code>, <code>auto</code>) from Home Assistant, the GUI's live view or a button; the
 override lasts until its sources change (<code>persist = true</code>: until it is set back). A mode picked by hand
 (<code>xtouch-daemon mode gaming</code>, the <a href="#controls-and-the-chord">chord</a>, Home Assistant) lasts until the rules want
@@ -3293,19 +3374,19 @@ Select, Rec and Solo. They take the same <a href="../strip/bindings/">bindings</
 </thead>
 <tbody>
 <tr>
-<td><code>meter</code></td>
+<td><img alt="" class="xt-icon" src="../../images/controls/meter.png" /> <code>meter</code></td>
 <td><code>homeassistant</code> (<code>number.&lt;ns&gt;_&lt;id&gt;_meter</code>, 0..100), <code>{ watch, min, max }</code> or <code>{ poll, every, min, max }</code>: the number a program prints, or <code>{ entity, attribute, min, max }</code>: the number of an entity.</td>
 </tr>
 <tr>
-<td><code>color</code></td>
+<td><img alt="" class="xt-icon" src="../../images/controls/color.png" /> <code>color</code></td>
 <td>A color, <code>homeassistant</code> (<code>select.&lt;ns&gt;_&lt;id&gt;_color</code>), <code>{ watch }</code> or <code>{ poll, every }</code>: the color a program prints, or <code>{ entity, attribute }</code>: the color of an entity.</td>
 </tr>
 <tr>
-<td><code>lcd</code></td>
+<td><img alt="" class="xt-icon" src="../../images/controls/lcd.png" /> <code>lcd</code></td>
 <td><code>homeassistant</code> (<code>text.&lt;ns&gt;_&lt;id&gt;_bottom</code>), <code>{ watch }</code> or <code>{ poll, every }</code>: the newest line a program prints, or <code>{ entity, attribute }</code>: an entity.</td>
 </tr>
 <tr>
-<td><code>select</code>, <code>rec</code>, <code>solo</code></td>
+<td><img alt="" class="xt-icon" src="../../images/controls/select.png" /> <code>select</code>, <code>rec</code>, <code>solo</code></td>
 <td>An action as above, or a table <code>{ press = &lt;action&gt;, led = &lt;LED&gt; }</code>.</td>
 </tr>
 </tbody>

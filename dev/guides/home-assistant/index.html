@@ -2979,13 +2979,33 @@ another room, a button toggles a scene. The daemon reaches Home Assistant over M
 the meter shows a temperature, the fader dims a light, Select toggles it. That needs no automation and no <code>[mqtt]</code>,
 but the API of Home Assistant: the <a href="#homeassistant"><code>[homeassistant]</code></a> section, with a token.</p>
 <h2 id="pipewire-or-home-assistant">PipeWire or Home Assistant?<a class="headerlink" href="#pipewire-or-home-assistant" title="Permanent link">&para;</a></h2>
-<p>Each control has one owner. The audio channels (<code>output</code>, <code>input</code>, <code>apps</code>) and the pools (<code>auto</code>, <code>apps</code>, ...)
-control audio on this computer and need nothing else. A <code>homeassistant</code> channel controls nothing by itself; it only
-reports what happens on it and shows what Home Assistant sets. In between, an audio channel can hand its fader or its
-encoder to Home Assistant and keep the other one for the volume, see
-<a href="#audio-strips-with-home-assistant-controls">below</a>, and <a href="#controls-of-a-slot"><code>[controls]</code></a> hands a control of a slot
-to Home Assistant whatever the slot shows. Never both on one control: a
-fader that both set a PipeWire volume and were moved by Home Assistant would fight over the motor.</p>
+<p>Each control has one owner:</p>
+<table>
+<thead>
+<tr>
+<th>Owner</th>
+<th>Controls</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PipeWire</td>
+<td>The audio channels (<code>output</code>, <code>input</code>, <code>apps</code>) and the pools (<code>auto</code>, <code>apps</code>, ...) control audio on this computer and need nothing else.</td>
+</tr>
+<tr>
+<td>Home Assistant</td>
+<td>A <code>homeassistant</code> channel controls nothing by itself; it only reports what happens on it and shows what Home Assistant sets.</td>
+</tr>
+<tr>
+<td>Both, a control each</td>
+<td>An audio channel can hand its fader or its encoder to Home Assistant and keep the other one for the volume, see <a href="#audio-strips-with-home-assistant-controls">below</a>. <a href="#controls-of-a-slot"><code>[controls]</code></a> hands a control of a slot to Home Assistant whatever the slot shows.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Never both on one control</p>
+<p>A fader that both set a PipeWire volume and were moved by Home Assistant would fight over the motor.</p>
+</div>
 <h2 id="mqtt"><code>[mqtt]</code><a class="headerlink" href="#mqtt" title="Permanent link">&para;</a></h2>
 <p>The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. Anything that is an entity in Home Assistant needs it
 (<code>homeassistant</code> channels and controls, <code>homeassistant = true</code> on a state); without such, the section is optional,

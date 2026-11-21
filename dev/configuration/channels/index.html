@@ -2953,7 +2953,7 @@ into a place in a slot, for the strips they show; a place of <code>apps</code>, 
 </tbody>
 </table>
 <p>Device and application channels also have a <code>label</code>, see their pages. A candidate of a slot can change the look at
-that place: <code>{ show = "mic", color = "blue" }</code> (see <a href="../slots/#slots">Slots</a>).</p>
+that place: <code>{ show = "mic", color = "blue" }</code> (see <a href="../slots/#places">Places</a>).</p>
 <h2 id="labels">Labels<a class="headerlink" href="#labels" title="Permanent link">&para;</a></h2>
 <p>A label is the top line of the LCD: at most 7 characters of ASCII, which is what fits. The bottom line shows the
 volume, or the state of the strip (<code>muted</code>, <code>idle</code>, <code>off</code>).</p>
@@ -3059,31 +3059,27 @@ top. The GUI has the option under Settings, Behavior.</p>
 </thead>
 <tbody>
 <tr>
-<td>Fader</td>
+<td><img alt="" class="xt-icon" src="../../images/controls/fader.png" /> Fader</td>
 <td>Sets the volume. Follows changes made elsewhere. Only a touched fader changes the volume.</td>
 </tr>
 <tr>
-<td>Encoder</td>
+<td><img alt="" class="xt-icon" src="../../images/controls/encoder.png" /> Encoder</td>
 <td>What <code>encoder</code> says, see <a href="../strip/encoders/">Encoders</a>.</td>
 </tr>
 <tr>
-<td>Mute</td>
+<td><img alt="" class="xt-icon" src="../../images/controls/mute.png" /> Mute</td>
 <td>Toggles mute. Its LED is on while muted.</td>
 </tr>
 <tr>
-<td>Rec, Solo</td>
+<td><img alt="" class="xt-icon" src="../../images/controls/rec.png" /> Rec, Solo</td>
 <td>Their LEDs are <a href="../strip/leds/#indicators">indicators</a>. By default the buttons do nothing, except Rec with <a href="devices/#profiles">profiles</a>.</td>
 </tr>
 <tr>
-<td>Select</td>
+<td><img alt="" class="xt-icon" src="../../images/controls/select.png" /> Select</td>
 <td>On device strips: makes the device the default, or with <a href="devices/#choices"><code>choices</code></a> goes to the next one. On application strips with <a href="applications/#launching-the-application"><code>launch</code></a>: starts the application. Otherwise nothing on application strips.</td>
 </tr>
 <tr>
-<td></td>
-<td>Every channel can give Rec, Solo and Select other actions, for a press and a hold: see <a href="../strip/leds/#buttons">Buttons</a>. <a href="../slots/#controls-and-the-chord"><code>[controls]</code></a> gives the buttons of a slot an action whatever it shows.</td>
-</tr>
-<tr>
-<td>LCD</td>
+<td><img alt="" class="xt-icon" src="../../images/controls/lcd.png" /> LCD</td>
 <td>Top: the label. Bottom: the volume, or <code>muted</code>, <code>idle</code>, <code>off</code>. The backlight in <code>color</code>, dark while the strip has nothing to control.</td>
 </tr>
 <tr>
@@ -3091,14 +3087,21 @@ top. The GUI has the option under Settings, Behavior.</p>
 <td>What the encoder controls.</td>
 </tr>
 <tr>
-<td>Meter</td>
+<td><img alt="" class="xt-icon" src="../../images/controls/meter.png" /> Meter</td>
 <td>The level of what the strip controls, see <a href="#meters">Meters</a>.</td>
 </tr>
 </tbody>
 </table>
+<div class="admonition tip">
+<p class="admonition-title">Other actions</p>
+<p>Every channel can give Rec, Solo and Select other actions, for a press and a hold: see
+<a href="../strip/leds/#buttons">Buttons</a>. <a href="../slots/#controls-and-the-chord"><code>[controls]</code></a> gives the buttons of a slot
+an action whatever it shows.</p>
+</div>
 <p>A strip with nothing to control (a device that is gone, an application that ended) goes dark, and its fader glides
 slowly to the bottom. When it is back, the fader goes up to its volume again.</p>
 <h2 id="meters">Meters<a class="headerlink" href="#meters" title="Permanent link">&para;</a></h2>
+<p><img alt="The meter: green LEDs from SIG at the bottom, then orange, and the red clip LED at the top" class="xt-part" src="../../images/controls/meter.png" width="56" /></p>
 <p>The LED meter shows the peak level of what the strip controls, 10 times a second: from -60 dB (the lowest LED) up to
 just below full scale (the seventh LED), 5 dB per level of the device (about two levels per LED, see
 <a href="../../reference/hardware/">Hardware</a>). A peak at full scale lights the red LED at the top too, for half a second. The device

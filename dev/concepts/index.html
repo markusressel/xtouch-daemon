@@ -2938,9 +2938,38 @@
 <p>Strips 3 to 8 have no entry, so each shows <code>auto</code>. Everything else in this documentation refines one of these
 parts.</p>
 <h2 id="strips-and-slots">Strips and slots<a class="headerlink" href="#strips-and-slots" title="Permanent link">&para;</a></h2>
-<p>The device has 8 <strong>strips</strong>, each with a fader, an <a href="../configuration/strip/encoders/">encoder</a>, a display (LCD), a meter and four buttons (Rec, Solo,
-Mute, Select). A strip is hardware. A <strong>slot</strong> is the entry of the configuration for one strip, numbered 1 to 8 from
-the left. A slot decides what its strip shows.</p>
+<p><img alt="One strip of the device, from the top: the encoder with its ring, the LCD, the meter beside Rec, Solo, Mute and Select, and the fader" class="xt-part" src="../images/controls/strip.png" width="88" /></p>
+<p>The device has 8 <strong>strips</strong>. A strip is hardware. Each has, from the top:</p>
+<div class="grid cards">
+<ul>
+<li>
+<p><img alt="Encoder" class="xt-icon" src="../images/controls/encoder.png" />
+    <strong>Encoder</strong></p>
+<hr />
+<p>Turns and pushes, with a ring of LEDs. See <a href="../configuration/strip/encoders/">Encoders</a>.</p>
+</li>
+<li>
+<p><img alt="LCD" class="xt-icon" src="../images/controls/lcd.png" />
+    <strong>Display (LCD)</strong></p>
+<hr />
+<p>Two lines of 7 characters, with a backlight in the strip's color.</p>
+</li>
+<li>
+<p><img alt="Buttons" class="xt-icon" src="../images/controls/buttons.png" />
+    <strong>Meter and buttons</strong></p>
+<hr />
+<p>The meter, and Rec, Solo, Mute and Select with their LEDs. See <a href="../configuration/strip/leds/">Buttons and LEDs</a>.</p>
+</li>
+<li>
+<p><img alt="Fader" class="xt-icon" src="../images/controls/fader.png" />
+    <strong>Fader</strong></p>
+<hr />
+<p>A motor fader with a touch sensor, next to a dB scale.</p>
+</li>
+</ul>
+</div>
+<p>A <strong>slot</strong> is the entry of the configuration for one strip, numbered 1 to 8 from the left. A slot decides what its
+strip shows.</p>
 <h2 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h2>
 <p>A <strong>channel</strong> is a thing you define in the file and give one strip: a sound device, a group of applications, a person
 of the voice chat, or a strip for <a href="../guides/home-assistant/">Home Assistant</a>. Its <code>type</code> says which:</p>
