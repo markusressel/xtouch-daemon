@@ -19,12 +19,17 @@ def slug(heading: str) -> str:
 
 
 def anchors(page: Path) -> set[str]:
-    """The anchors of the headings of a page; a heading that is there already gets `_1`, `_2`, ..."""
+    """
+    The anchors of the headings of a page: its own (`## Title { #anchor }`), or else from the title; a heading that is
+    there already gets `_1`, `_2`, ...
+    """
     result: set[str] = set()
     fenced = False
     for line in page.read_text(encoding="utf-8").splitlines():
         if line.startswith("```"):
             fenced = not fenced
+        elif not fenced and (explicit := re.match(r"#{1,6} .+\{ *#([\w-]+) *\}\s*$", line)):
+            result.add(explicit[1])
         elif not fenced and (heading := re.match(r"#{1,6} (.+)", line)):
             anchor = base = slug(heading[1])
             number = 0

@@ -79,12 +79,31 @@ The pages of `docs/` are for someone who meets the project for the first time. T
   two other new terms.
 - Show before you tell: each concept gets a short example of the configuration, and the text says which parts of the
   example are which ("`buds` and `game` are channels, `auto` is a pool").
-- A page answers the questions of its own task. A link sends the reader on for details, not for what they need to
-  finish the task here.
+- A page answers the questions of its own task, at the level of its section (below). A link sends the reader on
+  for details, not for what they need to finish the task here.
+- Concrete beats general when it is as short: "your headphones", not "a device"; "while a game runs", not "in a
+  situation".
 - Examples and the text agree: a comment in an example says no less than the table it illustrates.
+- One word for one thing, and never one word for two things:
+    - The hardware is "the X-Touch" ("the X-Touch Extender" the first time on a page), never a bare "the device",
+      "the surface" or "the extender". A strip is one of its 8 columns.
+    - The GUI's names stay as the GUI shows them: the window "Device", the "virtual device" (the X-Touch drawn in
+      the window), explained the first time on a page.
+    - A sound device is "an output" (headphones, speakers) or "an input" (a microphone), or "a sound device" when
+      it can be either. Never a bare "device" for it. Names in the configuration stay as they are: the types
+      `output` and `input`, the pool `devices`, the option `device`.
+    - "Application" for a program that plays sound, "stream" only where one application has several.
+- Each detail has one home, by section, and the others link to it:
+    - The front page, Concepts and Getting started: what it is, why, and one example. No defaults, timings or edge
+      cases.
+    - Configuration: every option, what it does, its default, an example.
+    - Guides: one goal from start to end; options only as far as the goal needs them.
+    - Reference: everything else: edge cases, timings, the protocol, every command and its output.
 - Check a page with a cold read: `just cold-read docs/<page>.md` runs a reader that knows only the front page,
   Concepts and that page, and reports what it understood, what it had to guess, the sentences it stumbled over (with
   a severity) and contradictions. A page is done when the reader explains it back right and reports no severity 2 or 3.
+  A cold reader can't see a vague word or a detail on the wrong level (a newcomer guesses and reads on): that takes
+  a review by someone who knows the code.
 
 ## Writing help
 

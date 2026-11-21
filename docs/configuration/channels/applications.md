@@ -42,8 +42,8 @@ color = "white"
 A stream belongs to the channel when its application name (`application.name`) or binary
 (`application.process.binary`) contains one of the `match` entries. `"wine"` matches `wine64-preloader`, `".exe"`
 matches Windows games under Proton. `xtouch-daemon list-apps` shows the names and binaries of the applications that
-play, and which channel or slot takes each one. A stream can belong to several `apps` channels. The fader of each of them sets its volume, so the one you moved last
-wins.
+play, and which channel or slot takes each one. A stream can belong to several `apps` channels (one for `@browsers` and one for `"firefox"`, say). The fader of each of them
+sets its volume, so the one you moved last wins.
 
 For common groups there are [presets](../presets.md): `@browsers`, `@voip`, `@games`, `@steam-games`, `@music` and
 `@video` stand for the names of well-known applications of the group, e.g. `match = ["@browsers"]` for every browser,
@@ -129,8 +129,8 @@ application keeps its own volume when the slot takes it. Without an application 
 
 ## Launching the application
 
-With `launch`, the Select button of an `apps` channel starts an application while it does not run: the voice
-chat, the music player. Any slot can start one with [`[controls]`](../slots.md#controls-and-the-chord), whatever it
+With `launch`, the Select button of an `apps` channel starts an application while it does not run, such as Mumble
+or your music player. Any slot can start one with [`[controls]`](../slots.md#controls-and-the-chord), whatever it
 shows. In `[controls]` a condition is written as `when = "..."`; in a slot you write it after `if`. In this example, Select on strip 7 starts Mumble while the state `call` (a state you define, see [States](../slots.md#states-and-modes)) is off:
 
 ```toml
@@ -162,11 +162,9 @@ launch = ["mumble", "mumble://markus@voice.example.org/Gaming"]
 - While it runs, Select does nothing. With `launch_when_running = true` Select starts the command also then.
 - The Select LED flashes while the application starts (until it runs, at most 15 s), then it is on while it runs.
 - A second press within 5 s while the application is not up yet does nothing.
-- The application runs on its own: as a transient systemd user service (`systemd-run --user`, named
-  `xtouch-launch-<program>-<random>`), so a restart of the daemon does not end it, and its output is in
-  `journalctl --user -u 'xtouch-launch-*'`. Without a systemd user manager it starts as a separate process that the daemon does not wait for. A
-  program that is not in `PATH` is a warning in the daemon's log.
-- The process list is read every 2 s.
+- The application runs on its own, as a transient systemd user service (`systemd-run --user`), so a restart of the
+  daemon does not end it. Its output is in `journalctl --user -u 'xtouch-launch-*'`. Without a systemd user manager
+  it starts as a separate process. A program that is not in `PATH` is a warning in the log of the daemon.
 - Only the configuration can start programs: neither Home Assistant nor MQTT can, and `homeassistant`, `output`,
   `input` and `person` channels have no `launch`.
 

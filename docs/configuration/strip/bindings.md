@@ -10,7 +10,7 @@ A binding is one of three things. (The defaults, such as `"volume"` or `true`, a
   uses what it prints, or tells it what you did.
 - An **entity of Home Assistant** (`{ entity = "..." }`). The part shows the entity, or sets it. The daemon talks to
   Home Assistant itself, see [An entity of Home Assistant](#an-entity-of-home-assistant).
-- The word `"homeassistant"`. The part does not read from Home Assistant here. It becomes a new entity that the daemon creates in Home
+- The word `"homeassistant"`. The part reads nothing from Home Assistant. The daemon creates a new entity for it in Home
   Assistant, and an automation of yours decides what it does. See [Home Assistant](#home-assistant).
 
 A [custom channel](../channels/custom.md) has no defaults: every part it uses is bound. The design behind this:
@@ -64,10 +64,14 @@ What the options do:
 - `set` is a program that runs with the new value in place of `{value}`. `watch` is a program that prints the value,
   one line per change. `poll` is a program that prints it at each run. [A value](../channels/custom.md#a-value) explains
   `min`, `max`, `step`, `push` and `format`.
-- `{value}` in the `run` of a button is, in this order:
+- <a id="value-in-run"></a>`{value}` in the `run` of a button is, in this order:
     1. the value of the fader of the strip, if you bound it to a program of your own;
     2. else the value of the encoder, if you bound that;
     3. else the volume in percent. `{target}` is only for custom channels that have `targets`, see [Custom channels](../channels/custom.md).
+
+    A fader bound to a program of your own has no value until that program prints its first line (or, without
+    `watch` and `poll`, until you move the fader once). Until then a `run` that uses `{value}` does not start, and
+    the log says so.
 - When the fader is bound to something other than the volume, the encoder sets the volume instead of its own mode.
   In that case you can't bind the encoder of an `output`, `input` or `apps` channel to something else.
   A custom channel has no such rule: it binds the fader and the encoder separately.
@@ -100,8 +104,8 @@ once and ends. A part takes `watch` or `poll`, not both; `every` is for `poll` o
 ## The options of a binding
 
 A value (`fader`, `encoder`) has `set`, `watch`, `min`, `max`, `step`, `push` and `format`: see
-[A value](../channels/custom.md#a-value). `step` is how much one click of the encoder changes the value. Set it on the encoder. A fader takes it too, for Home Assistant: the number of the fader moves in this step, and on a custom channel without an `encoder` the
-encoder uses it too. The other bindings have fewer options:
+[A value](../channels/custom.md#a-value). `step` is how much one click of the encoder changes the value, so set it on the encoder. A fader takes it too, for Home
+Assistant: its number moves in this step. The other bindings have fewer options:
 
 | Binding | For | Option | Default | Meaning |
 |---|---|---|---|---|
@@ -127,7 +131,7 @@ program take no `{value}`. `min` must be below `max`, `push` between them, and `
   seconds. Only one run is on at a time. A run that takes longer than `every` is stopped, and the next one starts
   at once.
 - A run of `poll` that fails (an exit status other than 0), can't start or is stopped gives no line: the part keeps
-  the line before. The log has a warning, and has the same warning again only after a run that worked. A run that
+  the line before. The log has a warning. A run that
   ends well but prints no text at all gives an empty line.
 - While a value is set, or its fader is under a finger, the lines of `watch` and `poll` don't move it.
 
@@ -241,7 +245,7 @@ With `[mqtt]`, a fader or an encoder bound to a value is a number too (`number.<
 `number.<ns>_<id>_encoder`): from the binding's `min` to its `max`, in steps of its `step`, else in fine steps of the
 range. It has no state until the value is known; a change in Home Assistant runs `set`.
 
-Only the channel itself has these entities, not the applications and devices that a place of `apps`, `auto` or
+Only the channel itself has these entities, not the applications, outputs and inputs that a place of `apps`, `auto` or
 `devices` shows. A [place](../slots.md#places) that sets a part to `"homeassistant"` does nothing: the daemon loads
 the file, and the log says that the place can't do it. The entity belongs to the channel, so set the part in the
 channel.
@@ -251,7 +255,7 @@ because the entity is already in Home Assistant. Only a fader or an encoder boun
 
 ## Simulate
 
-Simulate is the preview of a situation in the GUI, also on the command line as `xtouch-daemon simulate`. It runs
+Simulate previews the strips in the GUI, also on the command line as `xtouch-daemon simulate`. It runs
 the `watch` and `poll` programs, but never `set` or `run`: a move changes only the simulation. It shows the entities
 of Home Assistant while the daemon is connected, but calls no services. Parts set to `"homeassistant"` look as they do
 while Home Assistant is not there.

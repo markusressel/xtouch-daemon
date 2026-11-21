@@ -53,5 +53,5 @@ EOF
 
 mkdir -p "$(dirname "$report")"
 (cd "$dir" && claude -p "$prompt" --model "$model" --tools Read --allowedTools Read --strict-mcp-config \
-    --no-session-persistence) >"$report"
+    --no-session-persistence </dev/null) >"$report"
 echo "$report"

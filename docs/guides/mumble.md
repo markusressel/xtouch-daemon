@@ -21,9 +21,7 @@ The plugin talks to the daemon through the bridge: a socket that the daemon open
 (see [the voice chat bridge](../reference/voice-chat-bridge.md)). The bridge is on by default (`[voip]` has
 `provider = "bridge"`). You change it only to try the strips without Mumble (`provider = "demo"`).
 
-The look of the people has these options. The lines below show the defaults. The default of `max_volume` is the
-option `max_volume` in the section [`[behavior]`](../configuration/behavior.md) of the configuration, which is 130:
-with it the fader goes from 0 to 130 %, and you set 200 to reach 200 %. Change the options in `[pool.people]` for
+The look of the people has these options. The lines below show the defaults. Unless you set it, `max_volume` is 130, the value of `max_volume` in [`[behavior]`](../configuration/behavior.md); set 200 to reach 200 %. Change the options in `[pool.people]` for
 all people, or in a `person` channel for one person (see [People](../configuration/channels/people.md)):
 
 ```toml
@@ -41,8 +39,7 @@ The page Settings, Voice chat (the `[voip]` section) has a box "Mumble":
    (`~/.local/share/Mumble/Mumble/Plugins`, or the directory of the Flatpak), replacing an older one. If you run
    xtouch-daemon from a git clone of the source, there is no built plugin to copy, and the button builds it first:
    that needs `cmake` and a C compiler. The button does not use Mumble's own installer: when Mumble runs, that
-   installer starts a second Mumble, which crashed (in version 1.5.939). Other versions may work, but the button does
-   not take the risk.
+   installer starts a second Mumble, which crashed. The button does not take the risk.
 2. In Mumble: **Settings**, **Plugins**, click **Reload plugins** (or restart Mumble), tick **Enable** of
    "xtouch-daemon", and **Apply**.
 3. Nothing to do in the configuration: the people take the free strips from the right. The example below pins
@@ -84,7 +81,7 @@ match = ["mumble"]
 label = "Mumble"
 
 [channel.mic]
-type = "input"        # no device: your default microphone
+type = "input"        # no `device` option: your default microphone
 
 [state.call]
 voice_chat = true     # on while you are in a channel of Mumble
@@ -102,7 +99,7 @@ skip those strips and take 8, 5, 4 and so on.
 
 See [People and the voice chat](../configuration/channels/people.md) and [States and modes](../configuration/slots.md#states-and-modes).
 
-To start Mumble from the device, give a slot a `launch` (the command that its Select button runs) in `[controls]`
+To start Mumble from the X-Touch, give a slot a `launch` (the command that its Select button runs) in `[controls]`
 with a `mumble://` URL (the `[controls]` section sets what the buttons of a slot do, whatever the slot shows):
 
 ```toml
@@ -118,7 +115,7 @@ which connects to the server and joins the channel. See
 
 - **Mute is Mumble's "Local Mute"** (in the menu of a user): Mute on the strip sets it, Mumble shows it in its
   window, and setting it in Mumble lights the button. Mumble does not tell plugins when the local mute changes, so
-  the plugin asks every half second: a mute set in Mumble reaches the button within about 0.5 s (a press of Mute on
+  the plugin asks every half second: a mute set in Mumble reaches the button a moment later (a press of Mute on
   the strip shows at once). If Mumble refuses a mute, the button goes back, and Mumble's log says why
   ("xtouch-daemon: can't mute ..."). A mute set from the strip works while the person is in the channel. Mumble forgets it when the
   person leaves (Mumble keeps a local mute only if you set it in its own menu, and only for a user who is registered

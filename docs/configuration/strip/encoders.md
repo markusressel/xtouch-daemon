@@ -15,7 +15,7 @@ The `encoder` option takes a mode, which is a word, or a table for a value of yo
 | `encoder` | Turn | Push | Ring | LCD |
 |---|---|---|---|---|
 | `volume` | Changes the volume by [`behavior.encoder_step`](../behavior.md) per step; the fader follows. | Sets `behavior.reset_volume`. | The volume, lit from the left. | The volume. |
-| `balance` | Moves the balance between left and right, 5 % per step. Nothing for mono devices and streams. | Centers it. | From the center to the side. | `L 15%`, `center`, `R 5%`. |
+| `balance` | Moves the balance between left and right, 5 % per step. Does nothing on a mono output or stream. | Centers it. | From the center to the side. | `L 15%`, `center`, `R 5%`. |
 | `pick` | Picks the application of the slot among the ones without a channel of their own, paused or not. | Pins it. | Which of them, as a dot; pinned, lit up to there. | Which of how many (`2/5`); `pinned` or `auto`. |
 | `media` | Seeks in the track of the applications' media player, 5 s per step. | Plays or pauses. | How far the track is, lit from the left; blinking while paused, dark while stopped. | Where the track is (`1:05`); `playing` or `paused`. |
 | `homeassistant` | Changes a number entity in Home Assistant that the daemon creates. | Sends an event to Home Assistant. | The number. | The number (`42%`). |
@@ -28,12 +28,12 @@ Which modes a strip takes depends on what it shows. In each row of this table, t
 | A channel of type `output` or `input` | `balance`, `volume`, `homeassistant` |
 | A channel of type `apps` | `media`, `volume`, `balance`, `homeassistant` |
 | An application that a slot takes from the pool `apps` or `auto`, without a channel of its own | `pick`, `media`, `volume`, `balance` |
-| A device that a slot takes from the pool `devices` | `balance`, `volume` |
+| An output or input that a slot takes from the pool `devices` | `balance`, `volume` |
 
 The strips of people have no encoder at all: the encoder has nothing to do there.
 
 The modes above belong to the strip's channel or place. On top of that, the `[controls]` section can take over the
-encoder of a slot while a condition holds (its `when`), whatever the slot shows, and give it to Home Assistant or to a
+encoder of a slot while a condition holds, whatever the slot shows, and give it to Home Assistant or to a
 value (see [Controls](../slots.md#controls-and-the-chord)). Slot 5 gives its encoder to Home Assistant, slot 6 uses it for the
 brightness of a [custom channel](../channels/custom.md) named `screen`:
 
@@ -70,9 +70,8 @@ channel.
 ## `balance`
 
 The balance between the left and the right channel. One step moves it 5 %, so 20 steps go from the center to one side.
-A push centers it. The ring lights from its center towards the side the balance leans to. If the balance is exactly in the
-center, only the center LED is lit. If it is a hair off, the next LED is lit too. The LCD shows the exact balance,
-e.g. `L 15%` (15 % of the way from the center to the full left), `R <1%` (right, but by less than 1 %) or `center`. On mono devices and streams the encoder
+A push centers it. The ring lights from its center towards the side the balance leans to. The LCD shows the exact balance,
+e.g. `L 15%` (15 % of the way from the center to the full left) or `center`. On a mono output or stream the encoder
 does nothing.
 
 ## `pick`
@@ -96,22 +95,17 @@ session bus.
 |---|---|
 | Turn | Seeks 5 seconds per step. |
 | Push | Plays or pauses. |
-| Ring | Fills up from the left with how far the track is, also while the strip is idle (e.g. paused). It blinks (0.5 s on, 0.5 s off) while the track is paused and is dark while it is stopped. It is also dark for live streams without a length; they never blink. |
+| Ring | Fills up from the left with how far the track is. It blinks while the track is paused and is dark while it is stopped, or for a live stream (it has no length). |
 | LCD | Where the track is after a seek (`1:05`), and what a push made of it (`playing`, `paused`). |
 
-The daemon looks for the player like this:
+The daemon finds the player of the application by its process (for a browser: the process that plays the sound)
+or, if that fails, by its name (`spotify` for Spotify). An application without a player leaves the encoder without a
+function.
 
-1. The player of the process that plays a stream of the strip, or of a parent of that process (browsers play from
-   a child process).
-2. Else a player named like the application (`spotify` for Spotify).
-
-Playing streams come first. An application without a player leaves the encoder without a function.
-
-When you pause a video in a browser, the browser ends its audio stream a few seconds later. Without the stream, the
-strip would go dark. So a paused player keeps the strip lit: the fader stays at the volume and the ring blinks. If
-you move the fader while it is paused, the stream gets that volume when it plays again. The strip goes dark when the
-player is stopped or closed. On a slot of `apps` or `auto`, the slot keeps the application for the time of `hold` of
-[`[pool.apps]`](../slots.md#pools-of-applications-and-of-people).
+A browser ends its audio stream a few seconds after you pause a video. So a paused player keeps the strip lit: the
+fader stays at the volume and the ring blinks. The strip goes dark when the player is stopped or closed. On a slot of
+`apps` or `auto`, the slot keeps the stopped application for the seconds of `hold` in
+[`[pool.apps]`](../slots.md#pools-of-applications-and-of-people), then it frees the slot.
 
 !!! note "Needs the session bus"
 
@@ -154,8 +148,8 @@ encoder = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {valu
 
 The other way round: the fader belongs to Home Assistant (`number.<ns>_<id>_fader`, with `fader_touched` and
 `fader_released` events), and the encoder sets the volume in fine steps. The LCD still shows the volume. A fader
-bound to a [value of your own](bindings.md) does the same: the encoder sets the volume. Both need the
-[`[mqtt]`](../../guides/home-assistant.md#mqtt) section.
+bound to a [value of your own](bindings.md) does the same: the encoder sets the volume. Only
+`fader = "homeassistant"` needs the [`[mqtt]`](../../guides/home-assistant.md#mqtt) section.
 
 ```toml
 [channel.music]

@@ -107,6 +107,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Documentation: one word for one thing. "The device" meant the X-Touch on one line and a sound device on the next;
+  now the hardware is the X-Touch, and a sound device is an output or an input (the names of the configuration and
+  the labels of the GUI stay). Each detail has one home: the front page, Concepts and Getting started explain the
+  idea with one example, the configuration pages have the options and their defaults, the reference the rest. A
+  test fails a page that says a bare "device". AGENTS.md has the word list and the levels.
 - Documentation: the pages for users are rewritten for someone who reads them for the first time: full sentences,
   each term explained with an example the first time it appears, examples that say which part is which. Each page
   was checked with a cold read: `just cold-read docs/<page>.md` (`scripts/cold-read.sh`) has a reader that knows only
@@ -148,6 +153,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Documentation: a changed `[device] name` or `virtual` is reloaded (the daemon switches to the other X-Touch), the
+  pages said it needs a restart; only `fader = "homeassistant"` needs `[mqtt]`, not every binding; the pages quoted a
+  message the GUI doesn't show ("The device does not run the saved file yet"; its pill says "Not on the device
+  yet").
 - Documentation: facts that did not match the program. The example on the front page lacked the `label` that an
   `apps` channel needs. A channel that no slot names still goes into the pools `apps`, `people` and `auto` unless it
   has `in_pool = false`; the pages said it never does. `xtouch-daemon test` runs through the running daemon, the

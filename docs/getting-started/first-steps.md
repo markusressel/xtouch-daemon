@@ -1,11 +1,11 @@
 # First steps
 
-Set up the device, test it, write a configuration and run the daemon as a service. No device at hand? See
+Set up the X-Touch Extender, test it, write a configuration and run the daemon as a service. No X-Touch at hand? See
 [Without a device](without-a-device.md).
 
-## Set up the device
+## Set up the X-Touch { #set-up-the-device }
 
-The extender has to be in **MC** (Mackie Control) mode on **USB**. Out of the box it may be set to the network
+The X-Touch has to be in **MC** (Mackie Control) mode on **USB**. Out of the box it may be set to the network
 interface: then it shows `IP: 192.168.001.100 wait...` and ignores USB.
 
 1. Switch it off.
@@ -13,11 +13,10 @@ interface: then it shows `IP: 192.168.001.100 wait...` and ignores USB.
 3. Set **Mode** to `MC` and **Interface** to `USB` with the encoders.
 4. Leave the menu (Select of strip 1 again, or switch it off and on).
 
-Connect it over USB. It needs no driver. Your user needs access to its MIDI device in `/dev/snd`: desktop sessions
-grant it to the logged-in user. Without a desktop session (e.g. over SSH), add the user to the `audio` group. See
-[Hardware](../reference/hardware.md#linux-access) for details.
+Connect it over USB. It needs no driver. Your user needs access to it: a desktop session grants that to the logged-in
+user. See [Hardware](../reference/hardware.md#linux-access) for other cases.
 
-## Test the device
+## Test the X-Touch { #test-the-device }
 
 ```shell
 xtouch-daemon test
@@ -27,9 +26,9 @@ Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its f
 its own controls: the meter follows the fader, a button steps its LED, the encoder changes the ring, the LCD color and
 the motor fader ([`test`](../reference/commands.md#test) has the details). Ctrl+C stops it.
 
-If the daemon already runs as a service, you don't stop it: `xtouch-daemon test` asks the daemon to run the test on
-the device it has, and the slots show again afterwards. Close DAWs that use the device. Without a device, start the virtual one in another terminal (`xtouch-daemon virtual-device`) and run
-`xtouch-daemon test --virtual-device`; see [Without a device](without-a-device.md).
+If the daemon already runs as a service, you don't stop it: `xtouch-daemon test` asks the daemon to run the test, and
+the slots show again afterwards. Close DAWs that use the X-Touch. Without an X-Touch, see
+[Without a device](without-a-device.md).
 
 ## Write a configuration
 
@@ -37,7 +36,7 @@ A configuration defines **channels** (what a strip can control), **states** (in 
 slots, what its strip shows when. The file further down shows each. [Concepts](../concepts.md) explains these words. Without a file the daemon uses the
 [example configuration](../configuration/index.md): the default input on slot 7, the default output on slot 8, and
 `auto` (the next application that plays, or a person of the voice chat) on the others. To make it yours, the easiest
-way is the [GUI](../guides/gui.md). Start it with `xtouch-daemon-gui` or `xtouch-daemon gui`. It shows the device live and
+way is the [GUI](../guides/gui.md). Start it with `xtouch-daemon-gui` or `xtouch-daemon gui`. It shows the X-Touch live and
 every option with its help. **Simulate** shows what the slots would show in another situation. "Save and apply" writes
 the file and loads it into the running daemon.
 
@@ -47,7 +46,7 @@ To work by hand, let `init-config` write that same example file, then edit it:
 
 ```shell
 xtouch-daemon init-config                 # writes ~/.config/xtouch-daemon/config.toml
-xtouch-daemon list-devices [--snippet]    # the names to use for device channels (--snippet: channels to paste)
+xtouch-daemon list-devices [--snippet]    # the names of outputs and inputs (--snippet: channels to paste)
 xtouch-daemon list-apps                   # the applications that play now, and which channel or slot takes them
 xtouch-daemon check-config                # validates the file (with the line of each error) and shows what each slot shows when
 ```
@@ -60,7 +59,7 @@ For example, Bluetooth headphones on slot 1 while they are connected, and VoIP o
 ```toml
 [channel.buds]
 type = "output"
-device = "bluez_output.*"   # any Bluetooth headphones (their name holds an address; list-devices shows it)
+device = "bluez_output.*"   # any Bluetooth headphones (the name holds an address; list-devices shows it)
 label = "Buds"
 color = "green"
 
@@ -78,8 +77,8 @@ voice_chat = true   # on while you are in a voice chat channel (Mumble or TeamSp
 # slots 3 to 8 have no entry: "auto", the next application that plays or a person of the voice chat
 ```
 
-`check-config` shows what this file does, as a table. (This is a different file from the example that `init-config` writes: here slots 7 and 8 are `auto`
-too.)
+`check-config` shows what this file does, as a table. (It is not the file that `init-config` writes: here slots 7 and
+8 are `auto` too.)
 
 ```
 when               1     2     3-8
@@ -89,8 +88,9 @@ buds absent        auto  auto  auto
 call, buds absent  auto  voip  auto
 ```
 
-Each row is a situation. In the row `default`, `call` is off and `buds` is there; the other rows change one of the two. The table lists only the situations that change
-what a slot shows. In the row `call`, slot 2 shows `voip` instead of the next application, and slot 1 still shows `buds`. In the row `buds absent`, `voip` stays out of slot 2 because `call` is off.
+Each row is a situation. In the row `default`, `call` is off and `buds` is there; the other rows change one of the
+two. In the row `call`, slot 2 shows `voip` instead of the next application, and slot 1 still shows `buds`. In the
+row `buds absent`, `voip` stays out of slot 2 because `call` is off.
 
 [Channels, states and slots](../configuration/slots.md) explains the format, [Configuration](../configuration/index.md)
 every option.
@@ -101,30 +101,23 @@ every option.
 xtouch-daemon install-service --now
 ```
 
-This writes the systemd user unit `~/.config/systemd/user/xtouch-daemon.service`. With `--now` it also enables the unit
-and starts it, and from then on it starts with your session. Without `--now` it only writes the unit: enable and start
-it later with `systemctl --user enable --now xtouch-daemon`.
-
-The Arch Linux package has its own unit, so with it the command writes nothing: it enables and starts the unit of the
-package. The same without the command:
+This writes the systemd user unit and starts it, and from then on it starts with your session. The Arch Linux package
+has its own unit, so with it the command only enables and starts that one, like this:
 
 ```shell
 systemctl --user enable --now xtouch-daemon
 ```
 
-A unit in `~/.config/systemd/user` overrides the one of the package; see
-[`install-service`](../reference/commands.md#install-service).
-
-The daemon runs as your user, not as root: it controls your PipeWire and runs the commands that your configuration names (e.g. `launch` of a strip).
-Don't start it with `sudo`. The daemon refuses to run as root, and it refuses a configuration that other users can
-change (a file that others may write to; `chmod go-w` on it fixes that), see [Troubleshooting](../guides/troubleshooting.md#starting).
+[`install-service`](../reference/commands.md#install-service) has the details. The daemon runs as your user, not as
+root, so don't start it with `sudo`. If it refuses to start, see
+[Troubleshooting](../guides/troubleshooting.md#starting).
 
 | Task | Command |
 |---|---|
 | Apply a changed configuration | Nothing: the daemon takes the saved file. By hand: `systemctl --user reload xtouch-daemon` |
-| Restart (after changing `[mqtt]`, the connection to your MQTT broker, which only Home Assistant needs) | `systemctl --user restart xtouch-daemon` |
-| Stop (the device then goes dark, and another program can use it) | `systemctl --user stop xtouch-daemon` |
-| See whether the device, the sound server and, with Home Assistant, the MQTT broker are connected | `systemctl --user status xtouch-daemon` |
+| Restart (after changing `[mqtt]`, the settings of your MQTT broker, which only Home Assistant needs) | `systemctl --user restart xtouch-daemon` |
+| Stop (the X-Touch then goes dark, and another program can use it) | `systemctl --user stop xtouch-daemon` |
+| See whether the X-Touch, the sound server and, with Home Assistant, the MQTT broker are connected | `systemctl --user status xtouch-daemon` |
 | Follow the log | `journalctl --user -u xtouch-daemon -f`, or View → Log in the GUI |
 
 To run it in the foreground instead, e.g. to watch the log while you try something:

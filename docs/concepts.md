@@ -20,7 +20,7 @@ label = "Game"
 mode = true                       # a mode: one of these at a time
 processes = ["@steam-games"]
 
-[slots]                           # a slot: what one strip of the device shows, top candidate first
+[slots]                           # a slot: what one strip of the X-Touch shows, top candidate first
 1 = ["buds if present", "auto"]   # the buds while they are connected, else the next application or person
 2 = ["game if gaming", "auto"]    # the game while the mode gaming is on, else the next application or person
 ```
@@ -32,9 +32,9 @@ parts.
 
 ## Strips and slots
 
-![One strip of the device, from the top: the encoder with its ring, the LCD, the meter beside Rec, Solo, Mute and Select, and the fader](images/controls/strip.png){ .xt-part width="88" }
+![One strip of the X-Touch, from the top: the encoder with its ring, the LCD, the meter beside Rec, Solo, Mute and Select, and the fader](images/controls/strip.png){ .xt-part width="88" }
 
-The device has 8 **strips**. A strip is hardware. Each has, from the top:
+The X-Touch Extender has 8 **strips**. A strip is hardware. Each has, from the top:
 
 <div class="grid cards" markdown>
 
@@ -73,13 +73,13 @@ strip shows.
 
 ## Channels
 
-A **channel** is a thing you define in the file and give one strip: a sound device, a group of applications, a person
+A **channel** is a thing you define in the file and give one strip: an output (your headphones) or an input (your microphone), a group of applications, a person
 of the voice chat, a strip for [Home Assistant](guides/home-assistant.md), or a value that your own programs read and
 set. Its `type` says which:
 
 | `type` | The strip controls |
 |---|---|
-| `output`, `input` | One sound device, one of several (`choices`), or the default one. |
+| `output`, `input` | One output or input: one you name, one of several (`choices`), or the default one. |
 | `apps` | All playback streams of a group of applications at once: one fader sets all of them. |
 | `person` | One person of the voice chat. |
 | `homeassistant` | Nothing by itself: its fader, encoder, display and buttons are entities in Home Assistant. |
@@ -89,9 +89,8 @@ These are all the types. `auto` and `-` are not channel types: `auto` is a pool 
 strip. A channel has an id (`buds`, `game`) that names it in slots, conditions and Home Assistant. It takes a strip only
 when a slot names it.
 
-Applications are controlled on the playback side only. An `apps` channel sets the volume of what an application
-plays. What an application records is only observed: it lights the Rec LED and can turn on a state (see [States and modes](#states-and-modes)), but
-no fader or Mute acts on it.
+An `apps` channel sets the volume of what an application plays, not of what it records. A recording application only
+lights the Rec LED and can turn on a state (see [States and modes](#states-and-modes)).
 
 ## Slots
 
@@ -112,15 +111,14 @@ are, and a strip you are touching keeps what it shows until you let go.
 
 A **state** is on or off. You define it in a `[state.<name>]` section and list its sources, such as `apps`,
 `recording`, `voice_chat`, `processes`, `devices` or `homeassistant`. It is on while any of its sources is: an application
-plays or records, you are in the voice chat, a process runs, a device is there, or Home Assistant says so. Slots ask about states in their conditions
+plays or records, you are in the voice chat, a process runs, an output or input is there, or Home Assistant says so. Slots ask about states in their conditions
 (`game if gaming`).
 
 A **mode** is a state with `mode = true`. States are independent: `gaming` and `call` can be on together. Modes are
 not: only one mode is on at a time, so a mode names the situation you are in now. In the example above, `gaming` is
 a mode.
 
-- When the sources of several modes are on, the one with the highest `priority` wins. `priority` is a number; it is 0
-  if you give none.
+- When the sources of several modes are on, the one with the highest `priority` wins.
 - When no mode has a source on, the mode is `default`. You don't define it.
 - A new mode shows its name across all displays for a moment (the banner).
 - You can also pick a mode by hand: with the chord (see [More words](#more-words)), `xtouch-daemon mode`, a button or
@@ -132,22 +130,21 @@ A condition such as `game if gaming` reads the same for a state and for a mode.
 
 A condition is the text after `if`: names of states and modes joined with `and`, `or`, `not` and parentheses, plus
 `present`. A channel is **present** while it has something to control: an application of an `apps` channel plays, its
-device is there, the person is in the voice chat. `"buds if present"` shows the buds only while they are connected.
+output or input is there, the person is in the voice chat. `"buds if present"` shows the buds only while they are connected.
 
 ## Pools
 
 A **pool** supplies members that you don't list one by one. Each slot that names the pool gets one member, in the order of
-the slots, so one pool can fill several strips (`apps` and `devices` start at the left, at slot 1; `people` at the right, at slot 8. The option `from` of a pool
-changes that): the next application that plays, the next person in the voice chat. A channel is the
+the slots, so one pool can fill several strips: the next application that plays, the next person in the voice chat. A channel is the
 opposite: you define it, and it takes exactly one strip, even when its `match` finds several streams.
 
 | Pool | Members |
 |---|---|
-| `apps` | The applications that play, one per slot. An application whose channel has a slot of its own appears there instead; a channel that no slot names is one member, with all its streams, unless it has `in_pool = false`. |
+| `apps` | The applications that play, one per slot. An application whose channel is named in a slot stays on that slot, and `apps` skips it. |
 | `people` | The people of the voice chat. For a `person` channel, the same rule as for `apps`. |
 | `auto` | The people and the applications together. The people fill the slots from the right (slot 8 first), the applications from the left (slot 1 first). |
 | `devices` | The outputs and inputs that no channel has (a USB headset). |
-| your own, `[pool.<id>]` | A list of channels you name: the first one that is present goes to the first slot that names the pool, the next one to the next slot. With `kind = "apps"`, the applications that match a `match` list. With `kind = "people"`, the people on a `people` list. See [Channels, states and slots](configuration/slots.md#pools-of-channels). |
+| your own, `[pool.<id>]` | A list of channels, applications or people that you name, handed out in order. See [Channels, states and slots](configuration/slots.md#pools-of-channels). |
 
 When a pool has no member for a slot, the slot goes on to the candidate below it: `["people", "apps"]` is a person
 for as long as there is one, else an application.
@@ -160,8 +157,8 @@ A few words appear in several places with different meanings. The configuration 
 |---|---|
 | `apps` | A channel type (a group of applications on one strip), the pool of applications on free slots, `[pool.apps]` (its settings), and the source `apps` of a state (an application plays). |
 | `auto` | The pool of people and applications; what a slot without an entry shows; the value `auto` of an override or of the mode pick in Home Assistant (nothing set by hand: the sources decide). |
-| `device` | The X-Touch itself (`[device]`, the extender), and a sound device of an `output` or `input` channel (`device = "..."`). |
-| `select` | The Select button, the option `select` of a device channel (`select = true`: pressing the button makes that device the system default), and the Home Assistant entity type `select`. |
+| `device` | The section `[device]` (the X-Touch), and the option `device = "..."` of an `output` or `input` channel (an output or input). The pool `devices` hands out outputs and inputs. |
+| `select` | The Select button, the option `select` of an `output` or `input` channel (`select = true`: pressing the button makes that output or input the system default), and the Home Assistant entity type `select`. |
 | `controls` | The section `[controls]` (actions of a slot's buttons, fader or encoder), and in general what a strip controls. |
 | voice chat | The people of the voice chat (`[voip]`, the pool `people`, `person` channels), the state source `voice_chat`, and the preset `@voip` (the applications of voice chats). |
 
@@ -171,22 +168,22 @@ A few words appear in several places with different meanings. The configuration 
   `4 = [{ show = "auto", color = "blue" }]` shows `auto` on slot 4 with a blue backlight.
 - **Preset:** a name for a group of well-known applications, written with an `@` (`@browsers`, `@voip`). They come
   with the daemon, you can't define your own. See [Presets](configuration/presets.md).
-- **Choices:** the devices Select switches between on one `output` or `input` channel. A **profile** is a setting of
-  a sound card (analog or digital output) that a choice may need: a choice can say "this device, with the card in
+- **Choices:** the outputs or inputs Select switches between on one `output` or `input` channel. A **profile** is a setting of
+  a sound card (analog or digital output) that a choice may need: a choice can say "this output, with the card in
   the digital profile". See [Devices](configuration/channels/devices.md#choices).
 - **Override:** you set a state `on` or `off` by hand (in Home Assistant, in the GUI or with a button), whatever its
-  sources say. It lasts until the sources change (with `persist = true`, until you set it back). The third value,
+  sources say. It lasts until the sources change, then they decide again. The third value,
   `auto`, means no override: the sources decide.
-- **Chord:** two Solo buttons held together (slots 1 and 8 by default): it cycles the modes. The settings are in
+- **Chord:** two Solo buttons that you pick, held together: it cycles the modes. The settings are in
   `[switching]`, which the GUI calls "Modes and chord".
-- **Banner:** the label of a new mode (and why a slot changed) shown on the displays for `switching.banner` seconds.
+- **Banner:** the label of a new mode (and why a slot changed) shown on the displays for a moment.
 - **Hold, `delay_off` and `absent_after`:** three waiting times in seconds, each for a different thing.
-    - `hold` (`[pool.apps]` and `[pool.devices]`, 5 by default): how long an application or device that stopped keeps
-      its slot, so a pause between two songs does not hand the strip to another application.
-    - `delay_off` (a state, 3 by default, 10 for a mode): how long the state stays on after its sources went off.
-      `delay_on` (0 by default) is the wait before it turns on.
-    - `absent_after` (a channel, 3 by default): a channel that has nothing to control any more still counts as `present` for this long, so a short gap
-      does not make its slot move.
+    - `hold` (`[pool.apps]` and `[pool.devices]`): how long an application, output or input that stopped keeps its
+      slot, so a pause between two songs does not hand the strip to another application.
+    - `delay_off` (a state): how long the state stays on after its sources went off. `delay_on` is the wait before
+      it turns on.
+    - `absent_after` (a channel): a channel that has nothing to control any more still counts as `present` for this
+      long, so a short gap does not make its slot move.
 
 ## Where to go next
 

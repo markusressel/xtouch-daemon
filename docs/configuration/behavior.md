@@ -1,6 +1,6 @@
 # Behavior, device and aliases
 
-Three sections that you only need when the defaults do not fit: `[device]` is about the extender itself,
+Three sections that you only need when the defaults do not fit: `[device]` is about the X-Touch itself,
 `[behavior]` about the faders, encoders and meters of all strips, and `[aliases]` about the names that application
 strips show. Put them in the [configuration file](index.md) like any other section; the daemon applies a saved file
 by itself. The [GUI](../guides/gui.md) has them on the page Settings.
@@ -25,15 +25,14 @@ encoder_step = 2
 
 | Option | Default | Meaning |
 |---|---|---|
-| `name` | `"X-Touch-Ext"` | Part of the name of the extender's sound card, as `/proc/asound/cards` lists it. The daemon takes the first card whose id or description contains this text, with the same upper and lower case. In the card line `0 [XTouchExt      ]: USB-Audio - X-Touch-Ext`, the id is `XTouchExt` and the description is `USB-Audio - X-Touch-Ext`. The default fits a real X-Touch Extender, so you rarely change it. |
-| `virtual` | `false` | Drive the [virtual device](../getting-started/without-a-device.md) instead of the real one (`xtouch-daemon run --virtual-device` does the same for one run). |
-| `touch_required` | `true` | Whether a fader changes a value only while the device reports a touch. `false` makes every move count, see [below](#faders-without-a-touch-sensor). |
+| `name` | `"X-Touch-Ext"` | Part of the name of the sound card of the X-Touch, as `/proc/asound/cards` lists it. The daemon takes the first card whose id or description contains this text, with the same upper and lower case. In the card line `0 [XTouchExt      ]: USB-Audio - X-Touch-Ext`, the id is `XTouchExt` and the description is `USB-Audio - X-Touch-Ext`. The default fits the X-Touch Extender, so you rarely change it. |
+| `virtual` | `false` | Drive the [virtual device](../getting-started/without-a-device.md) (the X-Touch drawn in the GUI) instead of the real X-Touch (`xtouch-daemon run --virtual-device` does the same for one run). |
+| `touch_required` | `true` | Whether a fader changes a value only while the X-Touch reports a touch. `false` makes every move count, see [below](#faders-without-a-touch-sensor). |
 | `touchless_faders` | `[]` | Faders whose touch sensor does not work, numbered from 1 on the left, see [below](#faders-without-a-touch-sensor). |
 | `startup` | `"sweep"` | How the strips light up after a connect, see [below](#startup-and-shutdown-sequences). |
 | `shutdown` | `"sweep"` | How the strips go dark when the daemon stops, see [below](#startup-and-shutdown-sequences). |
 
-When the daemon applies a saved file (a reload), it takes every option of `[device]`. With another `name` or `virtual` the daemon lets go of the device and connects to the
-other one. The new device shows what the old one showed.
+When the daemon applies a saved file (a reload), it takes every option of `[device]`. With another `name` or `virtual`, the daemon connects to the other X-Touch (or the virtual device) without a restart. The strips show the same on the new one as before.
 
 ### Startup and shutdown sequences
 
@@ -45,7 +44,7 @@ dark and their faders go down. `startup` and `shutdown` choose how:
 | `instant` | All strips at once. | All strips at once. |
 | `sweep` | One after the other from the left, 80 ms apart. | One after the other from the right. |
 | `curtain` | From the middle outwards, pair by pair (4 and 5 first, 1 and 8 last). | From the outside in. |
-| `show` | One wave of light runs across the strips from the left. Each strip does three things as the wave passes it. First, it turns white, its ring fills up from the left, its meter goes up, its buttons light up from the top (Rec first) and its fader rises. Then this light goes off in the same order and the fader falls to its value. Last, the strip shows its own content. The wave takes about 1.1 s after the connect. | The same wave, from the right. Behind it, the strips are dark and their faders at the bottom. |
+| `show` | One wave of light runs across the strips from the left, in about 1 second. As it passes a strip, the strip lights up fully and its fader rises. Then the light goes off, the fader falls to its value and the strip shows its content. | The same wave, from the right. Behind it, the strips are dark and their faders at the bottom. |
 
 ```toml
 [device]
@@ -66,8 +65,8 @@ and half a second without a move counts as letting go. Count the faders from 1 o
 touchless_faders = [1]   # the touch sensor of fader 1 is broken
 ```
 
-`touch_required = false` does the same for all faders, and it has the limits listed below. Use it also if a working sensor does not notice some hands, e.g.
-a fingertip that pushes the fader from below: with `touch_required = false`, such a push counts too.
+`touch_required = false` does the same for all faders, and it has the limits listed below. Use it also if a working sensor does not notice your finger, e.g.
+when you push the fader from below.
 
 ```toml
 [device]
@@ -80,17 +79,15 @@ What it can't do:
   second. The motor then moves the fader to its value, which is where your finger left it, so you notice nothing. If
   the value changed somewhere else in the meantime (e.g. in the volume control of the desktop), the fader moves out
   from under your finger.
-- **The first 3 seconds after a connect:** when the device connects, it moves all its faders down by itself, and the
-  daemon must not take that for your hand. So for a fader with `touchless_faders` (or with `touch_required = false`),
-  a move in the first 3 seconds counts only with a real touch, like on the other faders. After that, a move counts
-  as a touch again.
+- **The first 3 seconds after a connect:** the X-Touch moves all its faders down by itself, and the daemon must not
+  take that for your hand. So in these 3 seconds a fader counts a move only with a real touch.
 
 ## `[behavior]`
 
 | Option | Default | Meaning |
 |---|---|---|
 | `max_volume` | `130` | The volume of a fader at the top, 100..200 percent. Above 100 % the audio is amplified in software. See [the volume scale](#the-volume-scale). Channels may have their own [range](channels/index.md#volume-range). |
-| `unity_at` | `77` | Where on the fader 100 % is, 10..95 percent of the travel from the bottom. The device marks 0 dB at about 77. See [the volume scale](#the-volume-scale). |
+| `unity_at` | `77` | Where on the fader 100 % is, 10..95 percent of the travel from the bottom. The scale printed next to the faders of the X-Touch marks 0 dB at about 77. See [the volume scale](#the-volume-scale). |
 | `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` [encoder](strip/encoders.md) and by the encoders of `homeassistant` channels. |
 | `reset_volume` | `100` | The volume a push on a `volume` encoder sets, 0..200. A value above `max_volume` is an error that `xtouch-daemon check-config` reports. If a channel has its own range, the push sets the nearest volume inside that range. |
 | `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a channel turns off a single one. |

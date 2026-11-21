@@ -4,13 +4,13 @@
 
 Every strip has four buttons with LEDs: Rec, Solo, Mute and Select. Mute mutes the strip, and its LED is on while
 the strip is muted. You can change what the other three do, and what their LEDs show. Each has a default, listed below.
-Mute always mutes the strip, and its LED always shows that: on these strips you cannot change it (only a
+Mute always mutes the strip, and its LED always shows that: on `output`, `input` and `apps` strips you cannot change it (only a
 [custom channel](../channels/custom.md#buttons) can configure it).
 
 | Button | By default |
 |---|---|
-| ![Select](../../images/controls/select.png){ .xt-icon }<br>Select | On device strips with `device` or `choices`: makes the device the default; its LED is on while it is. On application strips with `launch`: starts the application; its LED flashes while it starts and is on while it runs. Otherwise nothing. |
-| ![Rec](../../images/controls/rec.png){ .xt-icon }<br>Rec | On device strips with [profiles](../channels/devices.md#profiles): switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise the button does nothing. Its LED is lit on every strip while an application records (`recording`). |
+| ![Select](../../images/controls/select.png){ .xt-icon }<br>Select | On `output` and `input` strips with `device` or `choices`: makes the output or input the default; its LED is on while it is. On application strips with `launch`: starts the application; its LED flashes while it starts and is on while it runs. Otherwise nothing. |
+| ![Rec](../../images/controls/rec.png){ .xt-icon }<br>Rec | On strips with [profiles](../channels/devices.md#profiles): switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise the button does nothing. Its LED is lit on every strip while an application records (`recording`). |
 | ![Solo](../../images/controls/solo.png){ .xt-icon }<br>Solo | Nothing; its LED stays dark. |
 
 A button can also run a program of your own, and an LED can show what Home Assistant or a program says: see
@@ -30,9 +30,9 @@ type = "output"
 device = ["alsa_output.*", "bluez_output.*"]
 
 [channel.main.select]
-press = "default"   # makes the device shown the default; on the default one, the next one
-hold = "next"       # holding the button shows (and controls) the next device; the default stays
-led = "shown"       # lit while the strip shows another device than the default
+press = "default"   # makes the output shown the default; on the default one, the next one
+hold = "next"       # holding the button shows (and controls) the next output; the default stays
+led = "shown"       # lit while the strip shows another output than the default
 
 [channel.main.solo]
 press = "mute_others"   # while held, the other strips are muted
@@ -59,8 +59,8 @@ chord are down together, the mode changes as well. Give those Solo buttons no `p
 
 | Action | For | Does |
 |---|---|---|
-| `default` | output, input with `device` or `choices` | Makes the device shown the default. On the default one, the next one of `device` or `choices`. |
-| `next` | output, input with `device` or `choices` | The strip shows (and controls) the next device that is there. The default stays as it is. The strip keeps showing that device until the default changes. |
+| `default` | output, input with `device` or `choices` | Makes the output or input shown the default. On the default one, the next one of `device` or `choices`. |
+| `next` | output, input with `device` or `choices` | The strip shows (and controls) the next output or input that is there. The default stays as it is. The strip keeps showing it until the default changes. |
 | `profile` | output, input with `profiles` | Switches the sound card to the next of `profiles`. |
 | `launch` | apps, auto with `launch` | Starts `launch`. |
 | `talk` | input | Push to talk. The strip is unmuted while the button is held, and muted again when you let go. |
@@ -82,8 +82,8 @@ chord are down together, the mode changes as well. Give those Solo buttons no `p
 
 | Value | Lit while |
 |---|---|
-| `press` | Lit while the result of the button's `press` action is true. For `default`: the device is the default. For `profile`: the card is in another profile than the first. For `launch`: the application runs. For `mode:` and `toggle:`: the mode or state is on. For `talk` and `mute_others`: the button is held. |
-| `shown` | The strip shows another device than the default one (after `next`). |
+| `press` | Lit while the result of the button's `press` action is true. For `default`: the output or input is the default. For `profile`: the card is in another profile than the first. For `launch`: the application runs. For `mode:` and `toggle:`: the mode or state is on. For `talk` and `mute_others`: the button is held. |
+| `shown` | The strip shows another output or input than the default one (after `next`). |
 | `homeassistant` | Home Assistant says so: the LED is a select entity (`off`, `on`, `flash`) of its own. Needs [`[mqtt]`](../../guides/home-assistant.md#entities). |
 | `{ watch = [...] }` | A program that runs all the time and prints lines: the newest line is `on`, `1`, `true` or `yes`; `flash` flashes the LED, any other line turns it off. Until the first line, the LED is off. |
 | `{ poll = [...], every = 10 }` | A program that runs to its end every `every` seconds (10 by default). The words that count are the same as for `watch`, and the last line of each run is the one that counts ([Watch or poll](bindings.md#watch-or-poll)). |
@@ -108,22 +108,18 @@ systemctl --user is-active --quiet syncthing && echo on || echo off
 
 ## Run a program
 
-`{ run = [...] }` runs a program of your own once, to its end. ([Bindings](bindings.md) explains how programs work in other parts of a strip.) It runs without
-a shell: a string is split at spaces, a list is the program and its arguments (see
-[Commands](bindings.md#commands)). `{value}` in an argument
-is the number that the strip's fader has, if you [bound](bindings.md) the fader to a program of your own; else the
-number of the encoder, if you bound that; else the volume in percent. The fader may not have a value yet: a fader bound to a program of your
-own has none until that program printed its first line (or, without `watch` and `poll`, until you moved the
-fader once). Until it has one, a `run` that uses `{value}` does not start, and the log says so. A program that fails or takes longer than 10
-seconds is logged as a warning. [Simulate](bindings.md#simulate) (the preview of the GUI) never runs it.
+`{ run = [...] }` runs a program of your own once, to its end, without a shell: see
+[Commands](bindings.md#commands). `{value}` in an argument is the value of the fader or the encoder, else the volume
+in percent: see [`{value}`](bindings.md#value-in-run). A program that fails or takes longer than 10 seconds is logged
+as a warning. [Simulate](bindings.md#simulate) (the preview of the GUI) never runs it.
 
 ## Indicators
 
 | Indicator | Lit while |
 |---|---|
-| `recording` | An application records: from the input, from the monitor of the output (e.g. a screen recorder), or for `apps`/`auto` strips, the application records anything (e.g. Discord using a microphone). Level meters don't count: the daemon's own, pavucontrol's. |
-| `playing` | Audio flows: the device is active, or a stream of the applications plays. |
-| `default` | The device is the default output/input. Never for applications. |
+| `recording` | An application records: from the input, from the monitor of the output (e.g. a screen recorder), or, on `apps` and `auto` strips, from anything (e.g. Discord using a microphone). |
+| `playing` | Audio flows: the output or input is active, or a stream of the applications plays. |
+| `default` | The output or input is the default one. Never for applications. |
 | `muted` | The strip is muted (like the Mute LED). |
 | `off` | Never: the LED stays dark. |
 
