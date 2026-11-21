@@ -17,7 +17,6 @@ from xtouch_daemon.gui.qt.fields.menu import open_menu
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import Flip
 from xtouch_daemon.gui.qt.theme.settings import load_window_state
-from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
 
@@ -133,8 +132,8 @@ def test_a_form_wider_than_its_pane_is_laid_out_once(window: MainWindow, monkeyp
         monkeypatch.setattr(kind, "resizeEvent", counted)
     show_channel(window, "browser")
     show_channel(window, "out")
-    # a new theme lays out everything again
-    window.set_theme(ThemeMode.LIGHT)
+    # narrower: the form is laid out again (as with a new theme)
+    window.resize(780, 600)
     QApplication.processEvents()
 
     # the area widened its content to the least width of the rows beside their names, at which they asked for it

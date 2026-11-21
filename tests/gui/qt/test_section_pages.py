@@ -34,17 +34,20 @@ from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import CLIENTS, MUMBLE, NO_PLUGIN, TEAMSPEAK, ClientSetup, PluginSetup
 from xtouch_daemon.gui.qt.fields.basics import _HELP_PROPERTY as HELP_PROPERTY  # pyright: ignore[reportPrivateUsage]
-from xtouch_daemon.gui.qt.fields.basics import help_html
+from xtouch_daemon.gui.qt.fields.basics import help_html, refresh_help
 from xtouch_daemon.gui.qt.fields.names import completer_of
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
 from xtouch_daemon.gui.qt.pages.sections import BrokerTester, PluginInstaller, SectionPage
+from xtouch_daemon.gui.qt.theme import style
 from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipClient, VoipState
 from xtouch_daemon.voip import mumble, teamspeak
 
 
-def test_the_parts_that_do_not_show_are_in_the_window_and_follow_the_theme(window: MainWindow):
+def test_the_parts_that_do_not_show_are_in_the_window_and_follow_the_theme(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+):
     # [mqtt] is not in the file: its options don't show
     page = window.pages["mqtt"]
     assert isinstance(page, SectionPage)
@@ -54,8 +57,6 @@ def test_the_parts_that_do_not_show_are_in_the_window_and_follow_the_theme(windo
     hidden = [page.present, window.channels_page.form_widgets["apps"]]
     assert all(QWidget.isAncestorOf(window, part) for part in hidden)
 
-    window.set_theme(ThemeMode.LIGHT)
-
     helps = [
         (label, source)
         for part in hidden
@@ -63,7 +64,15 @@ def test_the_parts_that_do_not_show_are_in_the_window_and_follow_the_theme(windo
         if (source := label.property(HELP_PROPERTY)) is not None
     ]
     assert helps
+    dark = [label.text() for label, _ in helps]
+
+    # the colors of a new theme, without restyling the whole application (`set_theme` helps everything it finds in
+    # the window again, as this does)
+    monkeypatch.setattr(style, "_current_mode", ThemeMode.LIGHT)
+    refresh_help(window)
+
     assert all(label.text() == help_html(*source) for label, source in helps)
+    assert [label.text() for label, _ in helps] != dark
 
 
 def test_an_optional_section_is_added_and_removed(qtbot: QtBot, window: MainWindow):
