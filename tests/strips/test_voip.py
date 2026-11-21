@@ -129,6 +129,31 @@ async def test_the_meter_takes_the_voice_before_or_after_the_fader(
     assert bob.held_meter("pre_fader") is None
 
 
+class TwoClients(FakeProvider):
+    """Ann in a client that sets volumes and mutes, Bob in one that does neither."""
+
+    def capabilities_of(self, participant_id: str) -> frozenset[Capability]:
+        return frozenset(Capability) if participant_id.startswith("mumble:") else frozenset()
+
+
+async def test_a_strip_can_what_the_client_of_its_person_can(surface: RecordingSurface, env: StripEnv):
+    provider = TwoClients(frozenset(Capability))
+    provider.update((Participant("mumble:1", "Ann", volume=50), Participant("other:1", "Bob", volume=50)))
+    ann, bob = make(surface, env, provider, fixed("Ann"), fixed("Bob"))
+    ann.update(DISCONNECTED)
+    bob.update(DISCONNECTED)
+    assert surface.strips[0].text == ["Ann", "50%"]
+    assert surface.strips[1].text == ["Bob", ""]
+    for strip in (ann, bob):
+        strip.on_fader(0.9)
+        strip.on_button(Button.MUTE, True)
+    await settle()
+    assert [command[1] for command in provider.commands] == ["mumble:1", "mumble:1"]
+    # nobody there: what the provider can
+    carol = make(surface, env, provider, fixed("Carol"))[0]
+    assert carol.can(Capability.VOLUME)
+
+
 async def test_without_volumes_and_levels(surface: RecordingSurface, env: StripEnv):
     provider = FakeProvider(frozenset())
     provider.update((Participant("1", "Ann", talking=True), Participant("2", "Bob")))

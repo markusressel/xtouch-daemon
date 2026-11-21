@@ -30,12 +30,12 @@ from tests.support.gui import (
 )
 from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.gui.domain.voip import CLIENTS, MUMBLE, NO_PLUGIN, TEAMSPEAK, PluginSetup, VoipClient
+from xtouch_daemon.gui.domain.voip import CLIENTS, MUMBLE, NO_PLUGIN, TEAMSPEAK, ClientSetup, PluginSetup
 from xtouch_daemon.gui.qt.fields.names import completer_of
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
 from xtouch_daemon.gui.qt.pages.sections import PluginInstaller, SectionPage
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
-from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipState
+from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipClient, VoipState
 from xtouch_daemon.voip import mumble, teamspeak
 
 
@@ -231,12 +231,19 @@ def test_the_voice_chat_page_tells_whether_each_plugin_is_connected(
         (VoipState("bridge", True, "teamspeak", "Lobby", 2), "not connected", "TeamSpeak connected", "2 people"),
         # several plugins, as a daemon with one plugin per client tells them
         (
-            VoipState("bridge", True, "mumble, teamspeak", None, 3),
+            VoipState(
+                "bridge",
+                True,
+                "mumble, teamspeak",
+                "Lobby",
+                3,
+                clients=(VoipClient("mumble", "Lobby"), VoipClient("teamspeak")),
+            ),
             "Mumble connected",
             "TeamSpeak connected",
-            "3 people.",
+            "3 people: Mumble in Lobby, TeamSpeak.",
         ),
-        (VoipState("bridge", True, None, None, 3), "not connected", "not connected", "another client"),
+        (VoipState("bridge", True, None, None, 3), "not connected", "not connected", "A client connected: 3 people."),
     ]:
         live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), voip=voip))
         qtbot.waitUntil(
@@ -299,7 +306,7 @@ def test_the_voice_chat_page_shows_the_plugin_without_the_section(make_window: M
     ],
 )
 def test_the_plugin_is_installed_with_a_click(
-    client: VoipClient,
+    client: ClientSetup,
     error: type[Exception],
     target: str,
     reload: str,

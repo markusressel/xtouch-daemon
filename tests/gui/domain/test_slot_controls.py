@@ -113,7 +113,7 @@ def test_the_options_of_an_entry():
     assert (press.kind, press.choices) == (Kind.ACTION, ("homeassistant", "cycle_modes"))
     assert press.meaning("cycle_modes")
     assert (led.kind, led.base, led.choices) == (Kind.BINDING, Kind.CHOICE, ("off", "press", "homeassistant"))
-    assert [column.name for column in led.columns] == ["watch"]
+    assert [column.name for column in led.columns] == ["watch", "poll", "every"]
     assert (options["meter"].kind, options["meter"].base) == (Kind.BINDING, None)
     assert options["color"].base == Kind.COLOR
     assert not options["meter"].channel

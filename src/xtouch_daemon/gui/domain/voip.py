@@ -9,7 +9,7 @@ from pathlib import Path
 
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.live.messages import Snapshot, VoipState
+from xtouch_daemon.live.messages import Snapshot, VoipClient, VoipState
 from xtouch_daemon.voip import mumble, teamspeak
 
 
@@ -46,7 +46,7 @@ def teamspeak_setup() -> PluginSetup:
 
 
 @dataclass(frozen=True)
-class VoipClient:
+class ClientSetup:
     """A voice chat client with a plugin of xtouch-daemon, as the page of `[voip]` sets it up."""
 
     key: str
@@ -66,7 +66,7 @@ class VoipClient:
     install: Callable[[], str]
 
 
-MUMBLE = VoipClient(
+MUMBLE = ClientSetup(
     key="mumble",
     name="Mumble",
     package="mumble",
@@ -77,7 +77,7 @@ MUMBLE = VoipClient(
     setup=mumble_setup,
     install=mumble.install,
 )
-TEAMSPEAK = VoipClient(
+TEAMSPEAK = ClientSetup(
     key="teamspeak",
     name="TeamSpeak",
     package="teamspeak3",
@@ -91,33 +91,28 @@ TEAMSPEAK = VoipClient(
 CLIENTS = (MUMBLE, TEAMSPEAK)
 """The clients with a plugin, in the order of their boxes."""
 CLIENT_NAMES = {client.key: client.name for client in CLIENTS}
-"""How the clients of the plugins write their names (the plugins send them in lowercase)."""
+"""How the clients the GUI knows write their names; any other is capitalized."""
 
 
-def client_names(voip: VoipState) -> list[str]:
-    """The clients whose plugins are connected: `client` names one, or several joined with commas."""
+def _client_name(client: VoipClient) -> str:
+    name = client.client or "a client"
+    return CLIENT_NAMES.get(name, name.capitalize())
+
+
+def connected_clients(voip: VoipState) -> tuple[VoipClient, ...]:
+    """The clients whose plugins are connected (a daemon before `clients` tells one, in `client`)."""
     if not voip.connected:
-        return []
-    return [name.strip().lower() for name in (voip.client or "").split(",") if name.strip()]
+        return ()
+    return voip.clients or (VoipClient(voip.client or "a client", voip.channel),)
 
 
-def display_name(key: str) -> str:
-    return CLIENT_NAMES.get(key) or key.capitalize()
-
-
-def _people(voip: VoipState) -> str:
-    people = f"{voip.participants} {'person' if voip.participants == 1 else 'people'}"
-    return f"{people} in {voip.channel}." if voip.channel else f"{people}."
-
-
-def voip_status(snapshot: Snapshot | None, client: VoipClient) -> Status:
-    """Where the participants of the running daemon come from, and whether the plugin of `client` is connected."""
+def voip_status(snapshot: Snapshot | None) -> Status:
+    """Where the participants of the running daemon come from, and which plugins are connected."""
     if snapshot is None:
         return Status(
             "unknown",
             Tone.NEUTRAL,
-            f"The daemon does not run, or gives no live view: once it runs, this tells whether {client.name} is "
-            "connected.",
+            "The daemon does not run, or gives no live view: once it runs, this tells which plugins are connected.",
         )
     voip = snapshot.voip
     if voip is None:
@@ -127,30 +122,47 @@ def voip_status(snapshot: Snapshot | None, client: VoipClient) -> Status:
             "The daemon runs without a [voip] section: add one and save, the daemon reloads.",
         )
     if voip.provider == "demo":
+        return Status("demo", Tone.NEUTRAL, 'The participants are made up (provider = "demo"), no client is asked.')
+    if not voip.connected:
         return Status(
-            "demo", Tone.NEUTRAL, f'The participants are made up (provider = "demo"), {client.name} is not asked.'
+            "waiting for a plugin",
+            Tone.WARN,
+            "The daemon waits for a plugin: start Mumble or TeamSpeak, and enable the plugin xtouch-daemon in it.",
         )
-    connected = client_names(voip)
-    if client.key in connected:
-        return Status(f"{client.name} connected", Tone.GOOD, _people(voip))
-    if voip.connected:
-        other = ", ".join(display_name(key) for key in connected) or "another client"
-        return Status(
-            "not connected",
-            Tone.NEUTRAL,
-            f"The plugin of {other} is connected: {_people(voip)} The daemon takes one plugin per client.",
-        )
-    return Status(
-        f"waiting for {client.name}",
-        Tone.WARN,
-        f"The daemon waits for the plugin: start {client.name}, and enable the plugin xtouch-daemon in its settings.",
+    people = f"{voip.participants} {'person' if voip.participants == 1 else 'people'}"
+    clients = connected_clients(voip)
+    names = " and ".join(_client_name(client) for client in clients)
+    if len(clients) == 1:
+        channel = f" in {clients[0].channel}" if clients[0].channel else ""
+        return Status(f"{names} connected", Tone.GOOD, f"{people}{channel}.")
+    channels = ", ".join(
+        f"{_client_name(client)} in {client.channel}" if client.channel else _client_name(client) for client in clients
     )
+    return Status(f"{names} connected", Tone.GOOD, f"{people}: {channels}.")
 
 
-def connected_here(snapshot: Snapshot | None, client: VoipClient) -> bool:
+def client_status(snapshot: Snapshot | None, client: ClientSetup) -> Status:
+    """The pill of the box of `client`: whether its plugin is connected, with what the daemon has (`voip_status`)."""
+    overall = voip_status(snapshot)
+    voip = snapshot.voip if snapshot is not None else None
+    if voip is None or voip.provider == "demo":
+        return overall
+    if not voip.connected:
+        return Status(
+            f"waiting for {client.name}",
+            Tone.WARN,
+            f"The daemon waits for the plugin: start {client.name}, and enable the plugin xtouch-daemon in its "
+            "settings.",
+        )
+    if connected_here(snapshot, client):
+        return Status(f"{client.name} connected", Tone.GOOD, overall.tip)
+    return Status("not connected", Tone.NEUTRAL, f"{overall.text}: {overall.tip}")
+
+
+def connected_here(snapshot: Snapshot | None, client: ClientSetup) -> bool:
     """Whether the plugin of `client` is connected to the running daemon."""
     voip = snapshot.voip if snapshot is not None else None
-    return voip is not None and client.key in client_names(voip)
+    return voip is not None and any(each.client == client.key for each in connected_clients(voip))
 
 
 def participants(snapshot: Snapshot | None) -> tuple[Suggestion, ...]:
@@ -160,7 +172,7 @@ def participants(snapshot: Snapshot | None) -> tuple[Suggestion, ...]:
     return tuple(Suggestion(name, "in the voice chat now") for name in snapshot.voip.names)
 
 
-def install_hint(client: VoipClient, setup: PluginSetup) -> str:
+def install_hint(client: ClientSetup, setup: PluginSetup) -> str:
     """What "Install ... plugin" does, or why it can't."""
     if not setup.client:
         return f"{client.name} is not installed: install it first (e.g. the package {client.package})."
@@ -170,7 +182,7 @@ def install_hint(client: VoipClient, setup: PluginSetup) -> str:
     return f"{action} it into {client.target}; then {client.name} needs {client.reload}."
 
 
-def install_steps(client: VoipClient, setup: PluginSetup) -> list[str]:
+def install_steps(client: ClientSetup, setup: PluginSetup) -> list[str]:
     """The steps of the setup, as the window lists them."""
     installed = (
         f"{client.name} has the plugin ({setup.installed})."

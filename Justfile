@@ -40,9 +40,11 @@ docs: docs-icon
 docs-icon:
     cp src/xtouch_daemon/gui/qt/theme/images/icon.svg docs/images/icon.svg
 
-# write the JSON Schema of the configuration that the documentation publishes (a test checks that it is current)
+# write the JSON Schemas of the configuration and the voice chat bridge that the documentation publishes (a test
+# checks that they are current)
 schema:
     uv run xtouch-daemon schema > docs/config.schema.json
+    uv run xtouch-daemon schema --bridge > docs/voice-chat-bridge.schema.json
 
 # serve the documentation on http://localhost:<port>, rebuilt on changes (8000 is often taken)
 docs-serve port="8001": docs-icon

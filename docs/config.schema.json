@@ -1164,7 +1164,7 @@
             }
           ],
           "default": null,
-          "description": "What the LED shows, whatever the slot shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and\nflashes it on `flash`. Unset: what the press does."
+          "description": "What the LED shows, whatever the slot shows. A `watch` or a `poll` lights it with each line `on`, `1`, `true` or\n`yes`, and flashes it on `flash`. Unset: what the press does."
         }
       },
       "title": "ButtonClaim",
@@ -1256,7 +1256,7 @@
             }
           ],
           "default": null,
-          "description": "What its LED shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on `flash`. An\nentity lights it while it is `on`, `open`, `playing` or `home`.",
+          "description": "What its LED shows. A `watch` or a `poll` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on\n`flash`. An entity lights it while it is `on`, `open`, `playing` or `home`.",
           "title": "Led"
         }
       },
@@ -1970,10 +1970,40 @@
                 "type": "string"
               },
               "type": "array"
+            },
+            {
+              "type": "null"
             }
           ],
-          "description": "A program that runs all the time and prints a number per change. The meter shows it. E.g. the CPU load:\n`[\"sh\", \"-c\", \"vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'\"]`.",
+          "default": null,
+          "description": "A program that runs all the time and prints a number per change. The meter shows it. E.g. a script of your own\nthat prints the CPU load: `\"/home/me/bin/cpu-load\"`.",
           "title": "Watch"
+        },
+        "poll": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A program that runs to its end every `every` seconds and prints a number. The meter shows the last one. E.g.\n`[\"cat\", \"/sys/class/power_supply/BAT0/capacity\"]`.",
+          "title": "Poll"
+        },
+        "every": {
+          "default": 10.0,
+          "description": "Seconds from one run of `poll` to the next. A run that takes longer is stopped.",
+          "exclusiveMinimum": 0,
+          "title": "Every",
+          "type": "number"
         },
         "min": {
           "default": 0,
@@ -1988,9 +2018,6 @@
           "type": "number"
         }
       },
-      "required": [
-        "watch"
-      ],
       "title": "LevelBinding",
       "type": "object"
     },
@@ -2467,6 +2494,32 @@
           "description": "A program that runs all the time and prints the value, one line per change. The fader, the LED ring and the LCD\nfollow it.",
           "title": "Watch"
         },
+        "poll": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A program that runs to its end every `every` seconds and prints the value. The fader, the LED ring and the LCD\nfollow it.",
+          "title": "Poll"
+        },
+        "every": {
+          "default": 10.0,
+          "description": "Seconds from one run of `poll` to the next. A run that takes longer is stopped.",
+          "exclusiveMinimum": 0,
+          "title": "Every",
+          "type": "number"
+        },
         "min": {
           "default": 0,
           "description": "The value with the fader at the bottom and the LED ring empty.",
@@ -2553,7 +2606,7 @@
     },
     "WatchBinding": {
       "additionalProperties": false,
-      "description": "A part that shows what a program of your own prints: a line per change.",
+      "description": "A part that shows what a program of your own prints: a line per change, or the last line of each run.",
       "properties": {
         "watch": {
           "anyOf": [
@@ -2565,15 +2618,42 @@
                 "type": "string"
               },
               "type": "array"
+            },
+            {
+              "type": "null"
             }
           ],
+          "default": null,
           "description": "A program that runs all the time and prints a line per change. The part shows the newest line. E.g.\n`[\"playerctl\", \"status\", \"--follow\"]`.",
           "title": "Watch"
+        },
+        "poll": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A program that runs to its end every `every` seconds. The part shows the last line it prints. E.g.\n`\"date +%H:%M\"`.",
+          "title": "Poll"
+        },
+        "every": {
+          "default": 10.0,
+          "description": "Seconds from one run of `poll` to the next. A run that takes longer is stopped.",
+          "exclusiveMinimum": 0,
+          "title": "Every",
+          "type": "number"
         }
       },
-      "required": [
-        "watch"
-      ],
       "title": "WatchBinding",
       "type": "object"
     },
@@ -2804,7 +2884,7 @@
         }
       ],
       "default": null,
-      "description": "The second line of the LCD, instead of the volume. A `watch` shows each line it prints, an entity its state. By\ndefault what the strip type shows."
+      "description": "The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints, an entity its\nstate. By default what the strip type shows."
     },
     "strip.lit_when_idle": {
       "default": false,
@@ -2892,7 +2972,7 @@
           "type": "boolean"
         }
       ],
-      "description": "The LED meter shows the level. Needs `behavior.meters`. A `watch` or an entity makes it show a number, from `min`\nto `max`."
+      "description": "The LED meter shows the level. Needs `behavior.meters`. A `watch`, a `poll` or an entity makes it show a number,\nfrom `min` to `max`."
     },
     "strip.meter_point": {
       "anyOf": [
@@ -2982,7 +3062,7 @@
         }
       ],
       "default": null,
-      "description": "Whether the channel is there. A `watch`: a line with text makes it present, an empty line absent. An entity: it is\npresent unless it is `unavailable` or `unknown`. Without it, the channel is always present."
+      "description": "Whether the channel is there. A `watch` or a `poll`: a line with text makes it present, an empty line absent. An\nentity: it is present unless it is `unavailable` or `unknown`. Without it, the channel is always present."
     },
     "strip.profiles": {
       "default": [],

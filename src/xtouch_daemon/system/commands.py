@@ -1,6 +1,7 @@
 """
-The programs of bindings and custom channels (`set`, `watch`, `run`): one that sets a value (or runs for a button) and
-ends, and one that watches it and prints a line per change. They run without a shell. The services of Home Assistant
+The programs of bindings and custom channels (`set`, `watch`, `poll`, `run`): one that sets a value (or runs for a
+button) and ends, one that watches it and prints a line per change, and one that prints it and ends (`output()`). They
+run without a shell. The services of Home Assistant
 that bindings of entities call go through here too (`call_service()`, with the connection `hass`). The tests use a
 `Commands` of their own (`tests/support/commands.py`), the twin one that only watches (`SimulatedCommands`), and reads
 entities but calls no services.
@@ -47,24 +48,14 @@ class Commands:
 
     async def run(self, argv: Sequence[str]) -> None:
         """Runs a program to its end; CommandError if it can't start, fails, or takes longer than RUN_TIMEOUT."""
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *argv,
-                stdin=asyncio.subprocess.DEVNULL,
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.PIPE,
-            )
-        except OSError as e:
-            raise CommandError(f"can't start {argv[0]}: {e.strerror or e}") from e
-        try:
-            _, stderr = await asyncio.wait_for(process.communicate(), RUN_TIMEOUT)
-        except TimeoutError:
-            raise CommandError(f"{argv[0]} took longer than {RUN_TIMEOUT:g} s") from None
-        finally:
-            await end(process)
-        if process.returncode != 0:
-            lines = stderr.decode(errors="replace").strip().splitlines()
-            raise CommandError(f"{argv[0]} failed ({process.returncode})" + (f": {lines[-1]}" if lines else ""))
+        await _run(argv, RUN_TIMEOUT, output=False)
+
+    async def output(self, argv: Sequence[str], limit: float) -> str:
+        """
+        Runs a program to its end and returns what it printed (a `poll`, also in Simulate: it only reads);
+        CommandError if it can't start, fails, or takes longer than `limit` seconds.
+        """
+        return (await _run(argv, limit, output=True)).decode(errors="replace")
 
     async def lines(self, argv: Sequence[str]) -> AsyncIterator[str]:
         """The lines a program prints, until it ends; CommandError if it can't start."""
@@ -93,8 +84,8 @@ class Commands:
 
 class SimulatedCommands(Commands):
     """
-    Runs the `watch` programs only, never `set`, and calls no services: for the twin, whose controls must not change
-    the machine or the home. It reads the entities of `hass`, if it has one.
+    Runs the `watch` and `poll` programs only, never `set` and `run`, and calls no services: for the twin, whose
+    controls must not change the machine or the home. It reads the entities of `hass`, if it has one.
     """
 
     simulated = True
@@ -104,6 +95,29 @@ class SimulatedCommands(Commands):
 
     async def call_service(self, service: str, data: Mapping[str, Any] | None, entity_id: str | None) -> None:
         pass
+
+
+async def _run(argv: Sequence[str], limit: float, output: bool) -> bytes:
+    """Runs a program to its end, and returns what it printed if `output`; see `Commands.run()`."""
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *argv,
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE if output else asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except OSError as e:
+        raise CommandError(f"can't start {argv[0]}: {e.strerror or e}") from e
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), limit)
+    except TimeoutError:
+        raise CommandError(f"{argv[0]} took longer than {limit:g} s") from None
+    finally:
+        await end(process)
+    if process.returncode != 0:
+        lines = stderr.decode(errors="replace").strip().splitlines()
+        raise CommandError(f"{argv[0]} failed ({process.returncode})" + (f": {lines[-1]}" if lines else ""))
+    return stdout or b""
 
 
 async def end(process: asyncio.subprocess.Process) -> None:

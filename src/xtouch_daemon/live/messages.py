@@ -127,6 +127,15 @@ class MqttState:
 
 
 @dataclass(frozen=True)
+class VoipClient:
+    """A voice chat client the provider follows, e.g. Mumble through its plugin."""
+
+    client: str
+    channel: str | None = None
+    """The channel of the user in it, if it tells one."""
+
+
+@dataclass(frozen=True)
 class HomeAssistantState:
     """The connection to the API of Home Assistant (`[homeassistant]`), for the parts bound to its entities."""
 
@@ -155,14 +164,19 @@ class VoipState:
     connected: bool
     """Whether the provider knows the voice chat now; for `bridge`: a plugin is connected."""
     client: str | None
-    """What the plugin calls its voice chat client, e.g. "mumble"."""
+    """
+    What the plugin calls its voice chat client, e.g. "mumble"; with several clients their names, e.g.
+    "mumble, teamspeak".
+    """
     channel: str | None
-    """The channel of the user, if the plugin tells it."""
+    """The channel of the user, if the plugin tells it; with several clients the first one."""
     participants: int
     names: tuple[str, ...] = ()
     """The names of the participants, in the order of the provider."""
     ids: tuple[str, ...] = ()
     """The ids of the participants (what the provider knows them by), as `names`; empty from an older daemon."""
+    clients: tuple[VoipClient, ...] = ()
+    """Each client with its channel, in the order they came; empty from an older daemon."""
 
 
 @dataclass(frozen=True)

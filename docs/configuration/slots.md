@@ -283,28 +283,31 @@ Select, Rec and Solo. They take the same [bindings](strip/bindings.md) as on a c
 
 | Part | Takes |
 |---|---|
-| `meter` | `homeassistant` (`number.<ns>_<id>_meter`, 0..100), `{ watch, min, max }`: the number a program prints, or `{ entity, attribute, min, max }`: the number of an entity. |
-| `color` | A color, `homeassistant` (`select.<ns>_<id>_color`), `{ watch }`: the color a program prints, or `{ entity, attribute }`: the color of an entity. |
-| `lcd` | `homeassistant` (`text.<ns>_<id>_bottom`), `{ watch }`: the newest line a program prints, or `{ entity, attribute }`: an entity. |
+| `meter` | `homeassistant` (`number.<ns>_<id>_meter`, 0..100), `{ watch, min, max }` or `{ poll, every, min, max }`: the number a program prints, or `{ entity, attribute, min, max }`: the number of an entity. |
+| `color` | A color, `homeassistant` (`select.<ns>_<id>_color`), `{ watch }` or `{ poll, every }`: the color a program prints, or `{ entity, attribute }`: the color of an entity. |
+| `lcd` | `homeassistant` (`text.<ns>_<id>_bottom`), `{ watch }` or `{ poll, every }`: the newest line a program prints, or `{ entity, attribute }`: an entity. |
 | `select`, `rec`, `solo` | An action as above, or a table `{ press = <action>, led = <LED> }`. |
 
 `<id>` is the `id` of the controls, else `slot_<n>`. In the table of a button, either key can be left out. `led` alone
 claims the LED only: a press still goes to what the slot shows. `press` alone is the same as the action without a
 table: the LED shows what the press does. `led` takes `off`, `press` (what the press does), `homeassistant`
-(`select.<ns>_<id>_<button>_led`), `{ watch }`: a line `on`, `1`, `true` or `yes` lights it, `flash` flashes it, or
+(`select.<ns>_<id>_<button>_led`), `{ watch }` or `{ poll, every }`: a line `on`, `1`, `true` or `yes` lights it,
+`flash` flashes it, or
 `{ entity, attribute }`: lit while the entity is `on`, `open`, `playing` or `home`.
 
 ```toml
 [controls]
-8 = { meter = { watch = ["sh", "-c", "vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'"] }, rec = { led = { watch = ["sh", "-c", "while :; do systemctl --user is-active --quiet syncthing && echo on || echo off; sleep 5; done"] } } }
-3 = { color = "red", lcd = { watch = ["sh", "-c", "while :; do date +%H:%M; sleep 10; done"] }, when = "call" }
+8 = { meter = { watch = "/home/me/bin/cpu-load" }, rec = { led = { poll = "/home/me/bin/syncthing-running", every = 5 } } }
+3 = { color = "red", lcd = { poll = "date +%H:%M", every = 10 }, when = "call" }
 4 = { encoder = { entity = "media_player.kitchen" }, solo = { service = "media_player.media_play_pause", entity = "media_player.kitchen" } }
 ```
 
-Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED is lit while Syncthing runs. Slot 4's encoder sets the
+Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED is lit while Syncthing runs. Both are
+scripts of your own: [`cpu-load`](strip/bindings.md) and [`syncthing-running`](strip/leds.md#what-the-led-shows).
+During a call, slot 3 is red and its LCD shows the time. Slot 4's encoder sets the
 volume of the kitchen speaker in Home Assistant, and Solo plays or pauses it. A press of Rec still goes
 to what the slot shows. While `when` holds, a claimed part shows the claim. After that, the slot shows its own part
-again. The watches run for as long as the configuration, so a claim that comes back shows their newest lines
+again. The watches and polls run for as long as the configuration, so a claim that comes back shows their newest lines
 at once. Until the first line, a color is white, a line is empty, an LED is dark and the meter rests. Places take no
 bindings: a binding for the slot, whatever it shows, belongs here. On the slots of the chord, `[controls]` can claim
 the LED of Solo, not its press.

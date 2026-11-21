@@ -102,10 +102,12 @@ Writes the example configuration with [channels, states and slots](../configurat
 
 ```shell
 xtouch-daemon schema > ~/.config/xtouch-daemon/config.schema.json
+xtouch-daemon schema --bridge
 ```
 
 Prints the [JSON Schema](../configuration/index.md#editors-and-ai-assistants) of the configuration of the installed
-version. Editors with a TOML language server complete the options from it and show their help.
+version. Editors with a TOML language server complete the options from it and show their help. `--bridge` prints the
+schema of the [voice chat bridge](voice-chat-bridge.md) instead, for plugins of other voice chat clients.
 
 ## `list-devices`
 

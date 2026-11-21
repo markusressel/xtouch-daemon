@@ -152,4 +152,5 @@ def test_values_for_people():
     assert value_text(True) == "on"
     assert value_text({"watch": ["cpu", "--load"]}) == "watch: cpu --load"
     assert program_text({"run": "notify-send hi"}) == "run: notify-send hi"
+    assert program_text({"poll": ["date", "+%H:%M"], "every": 10}) == "poll: date +%H:%M"
     assert program_text({}) == "launch: "

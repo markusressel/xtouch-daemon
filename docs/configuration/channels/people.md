@@ -90,7 +90,8 @@ plugin APIs that can, and the bridge is what such a plugin talks to. There is a 
 Other clients, e.g. Discord, are not supported yet; open an issue if you need one.
 
 The state `voice_chat = true` (see [States and modes](../slots.md#states-and-modes)) is on while you are in a channel of
-the voice chat.
+the voice chat. With plugins of several clients connected, the strips show the people of all of them, and the state
+is on while you are in a channel of any of them.
 
 A plugin for another client speaks the [bridge protocol](../../reference/voice-chat-bridge.md).
 

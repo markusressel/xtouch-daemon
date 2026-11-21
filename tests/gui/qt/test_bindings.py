@@ -67,7 +67,7 @@ def test_a_fader_bound_to_a_program_writes_its_table(qtbot: QtBot, window: MainW
     assert field.actions_[WORDS].isVisible()
     assert "A value that programs of your own set and watch" in plain(field.program.findChildren(QWidget)[0].text())  # pyright: ignore[reportAttributeAccessIssue]
     # the options of the program, each a row
-    assert list(field.rows) == ["set", "watch", "min", "max", "step", "format"]
+    assert list(field.rows) == ["set", "watch", "poll", "every", "min", "max", "step", "format"]
     for part in SET:
         field.rows["set"].chips.add(part)
     number(field.rows["min"]).setValue(0.1)
@@ -213,6 +213,7 @@ def test_a_custom_meter_lcd_and_presence_are_bound_or_not_set(qtbot: QtBot, wind
     # a program only: no Home Assistant
     assert HOME_ASSISTANT not in present.actions_
     present.actions_[PROGRAM].trigger()
+    assert {"watch", "poll", "every"} <= set(present.rows)
     present.rows["watch"].chips.add("screen-connected")
     present.rows["watch"].chips.add("--watch")
     assert written(window, "channel", "custom", "present") == {"watch": ["screen-connected", "--watch"]}
@@ -267,6 +268,10 @@ def test_buttons_run_programs_and_leds_watch_them(qtbot: QtBot, window: MainWind
     # an open quote: split at the spaces, the problem says what is wrong
     combos["press"].setEditText("run: say 'hi")
     assert window.document.get(("channel", "custom", "select"))["press"] == {"run": ["say", "'hi"]}
+    # a poll instead of the watch
+    combos["led"].setEditText("poll: screen-state")
+    assert window.document.get(("channel", "custom", "select"))["led"] == {"poll": ["screen-state"]}
+    assert "Lit while the last line of the program's last run" in plain(select.buttons.meaning.text())
 
 
 def test_a_place_takes_only_the_words_of_a_part(qtbot: QtBot, window: MainWindow):

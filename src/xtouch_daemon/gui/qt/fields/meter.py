@@ -1,7 +1,7 @@
 """
 `meter` and `meter_point` of a strip as one choice: where the meter takes the level, or off. Unset, both take their
 defaults (the meter on, at `behavior.meter_point`). On a channel, the meter can be bound too: to Home Assistant or to a
-program of your own (`meter = { watch = [...] }`).
+program of your own (`meter = { watch = [...] }`, `{ poll = [...] }`).
 """
 
 import dataclasses
@@ -28,7 +28,7 @@ METER = Option(
 BOUND_METER = dataclasses.replace(
     METER,
     kind=Kind.BINDING,
-    help=METER.help + " A `watch` makes it show each number it prints, from `min` to `max`.",
+    help=METER.help + " A `watch` or a `poll` makes it show each number it prints, from `min` to `max`.",
     base=Kind.CHOICE,
     meanings=(*METER.meanings, *METER_PARTS.meanings.items()),
     # a level may be below 0, e.g. in dB, and fine

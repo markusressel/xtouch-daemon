@@ -452,6 +452,21 @@ async def test_a_channel_with_targets_is_present_while_one_of_them_is(surface: R
     await commands.wait_closed()
 
 
+async def test_a_poll_runs_for_each_target_and_tells_its_presence(surface: RecordingSurface, env: StripEnv) -> None:
+    commands = ProgramCommands()
+    commands.polled = {"connected DP-1": "\n", "connected DP-2": "no\nyes\n"}
+    strip = custom(env, surface, commands, **SCREENS, present={"poll": "connected {target}", "every": 5})
+    await settle()
+    assert (commands.polling("connected DP-1"), commands.polling("connected DP-2")) == (1, 1)
+    assert strip.presence is True
+    commands.polled["connected DP-2"] = ""
+    await asyncio.sleep(6)
+    assert (commands.polling("connected DP-1"), commands.polling("connected DP-2")) == (2, 2)
+    assert strip.presence is False
+    strip.close()
+    await commands.wait_closed()
+
+
 # -- Home Assistant --------------------------------------------------------------------------------------------------
 
 TOPIC = "homeassistant/{component}/xtouch/lights_{part}/{kind}"

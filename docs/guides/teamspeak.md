@@ -60,9 +60,9 @@ The daemon logs "Voice chat plugin connected (teamspeak)" when the plugin connec
 - **Not their own mute.** Whether other people muted their microphone or speakers is not shown: they just don't
   talk.
 - **Your channel only**, without you and without ServerQuery clients: no whispers from other channels.
-- **Mumble and TeamSpeak together.** The daemon takes one plugin per client: see
-  [the voice chat bridge](../reference/voice-chat-bridge.md). Two TeamSpeak clients with the plugin enabled are
-  one too many: the daemon keeps the one that connected first.
+- **Mumble and TeamSpeak together.** Both plugins can be connected at once: the strips show the people of both
+  channels. See [the voice chat bridge](../reference/voice-chat-bridge.md). The daemon takes one plugin per client:
+  with the plugin enabled in two TeamSpeak clients, it keeps the one that connected first.
 
 How the plugin works and how to build it: [TeamSpeak plugin](../development/teamspeak-plugin.md).
 

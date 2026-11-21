@@ -29,12 +29,12 @@ from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import (
     CLIENTS,
+    ClientSetup,
     PluginSetup,
-    VoipClient,
+    client_status,
     connected_here,
     install_hint,
     install_steps,
-    voip_status,
 )
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, help_label, help_tail, label, set_help, show_status
@@ -273,7 +273,7 @@ class HomeAssistantPage(SectionPage):
 
 class PluginInstaller(QObject):
     """
-    Builds the plugin of a voice chat client if needed and copies it into the client (`VoipClient.install`) in a
+    Builds the plugin of a voice chat client if needed and copies it into the client (`ClientSetup.install`) in a
     thread: a build takes a few seconds. `finished` tells what happens next, or what went wrong.
     """
 
@@ -281,7 +281,7 @@ class PluginInstaller(QObject):
 
     def __init__(
         self,
-        client: VoipClient,
+        client: ClientSetup,
         install: Callable[[], str] | None = None,
         setup: Callable[[], PluginSetup] | None = None,
     ):
@@ -408,7 +408,7 @@ class PluginBox(QFrame):
         hint = install_hint(self.client, self.setup)
         link = f"&emsp;{help_tail(link=docs.guide_link(self.client.guide))}"
         compact = self.compact and not connected_here(snapshot, self.client)
-        live = Status("not installed", Tone.NEUTRAL, hint) if compact else voip_status(snapshot, self.client)
+        live = Status("not installed", Tone.NEUTRAL, hint) if compact else client_status(snapshot, self.client)
         show_status(self.live_pill, live)
         set_help(self.live_detail, "" if compact else live.tip)
         self.live_detail.setVisible(not compact)
