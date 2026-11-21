@@ -732,7 +732,8 @@ class SlotsPanel(Page):
                 override = " (picked)"
             # the dot (on or off) once the daemon tells the state
             state_button.setProperty("on", None if state is None else state.value)
-            state_button.setIcon(QIcon() if state is None else dot_icon(state.value, hue))
+            ratio = state_button.devicePixelRatioF()
+            state_button.setIcon(QIcon() if state is None else dot_icon(state.value, hue, ratio))
             state_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
             state_button.setIconSize(DOT_ICON)
             state_button.setText(f"{self.document.get(('state', name, 'label')) or name}{override}  ▾")

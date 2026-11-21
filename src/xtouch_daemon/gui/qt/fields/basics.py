@@ -4,6 +4,7 @@ buttons.
 """
 
 import html
+import math
 import re
 from collections.abc import Callable, Mapping
 
@@ -278,9 +279,12 @@ DOT_ICON = QSize(DOT + Space.XS, DOT)
 """The size of `dot_icon`: the dot, and room before the text after it."""
 
 
-def dot_icon(on: bool, color: str, ratio: float = 2.0) -> QIcon:
-    """The dot of a state as an icon of `DOT_ICON`, e.g. before the text of a button."""
-    pixmap = QPixmap(int(DOT_ICON.width() * ratio), int(DOT_ICON.height() * ratio))
+def dot_icon(on: bool, color: str, ratio: float) -> QIcon:
+    """
+    The dot of a state as an icon of `DOT_ICON`, e.g. before the text of a button; `ratio` is the device pixel ratio of
+    the widget it is for (`devicePixelRatioF()`), so it is sharp at any scale.
+    """
+    pixmap = QPixmap(math.ceil(DOT_ICON.width() * ratio), math.ceil(DOT_ICON.height() * ratio))
     pixmap.setDevicePixelRatio(ratio)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)

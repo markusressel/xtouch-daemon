@@ -14,6 +14,7 @@ from tests.support.gui import FakeLiveDaemon, MakeWindow, click, pill, plain, st
 from tests.support.gui import snapshot as device_snapshot
 from xtouch_daemon.gui.domain.live_preview import Place
 from xtouch_daemon.gui.domain.simulate import WhatIf
+from xtouch_daemon.gui.qt.fields.basics import DOT_ICON
 from xtouch_daemon.gui.qt.pages.slot_cards import CandidateRow, StackList
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -123,6 +124,9 @@ def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
     page.show_live(live)
     assert texts(page.lists[1]) == ["1 when call → browser", "▶ 2 when app or person without a slot → auto"]
     assert pill(page.state_buttons["call"]) == "● call"
+    # the dot at the scale of the screen (1 offscreen): sharp, not drawn at 2 and scaled down
+    (size,) = page.state_buttons["call"].icon().availableSizes()
+    assert size == DOT_ICON * page.state_buttons["call"].devicePixelRatioF()
     page.show_live(live)
     window.device_view.select(1)
     assert page.candidate == 1
