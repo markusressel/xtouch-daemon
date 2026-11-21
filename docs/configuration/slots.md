@@ -268,6 +268,34 @@ Until the value is known, the program does not run; the log says so.
 7 = { encoder = { set = "brightnessctl set {value}%", min = 1, max = 100 }, solo = { run = "notify-send {value}" } }
 ```
 
+`[controls]` can also claim what a slot shows: the meter, the color, the second line of the LCD and the LEDs of
+Select, Rec and Solo. They take the same [bindings](strip/bindings.md) as on a channel:
+
+| Part | Takes |
+|---|---|
+| `meter` | `homeassistant` (`number.<ns>_<id>_meter`, 0..100), or `{ watch, min, max }`: the number a program prints. |
+| `color` | A color, `homeassistant` (`select.<ns>_<id>_color`), or `{ watch }`: the color a program prints. |
+| `lcd` | `homeassistant` (`text.<ns>_<id>_bottom`), or `{ watch }`: the newest line a program prints. |
+| `select`, `rec`, `solo` | An action as above, or a table `{ press = <action>, led = <LED> }`. |
+
+`<id>` is the `id` of the controls, else `slot_<n>`. In the table of a button, either key can be left out. `led` alone
+claims the LED only: a press still goes to what the slot shows. `press` alone is the same as the action without a
+table: the LED shows what the press does. `led` takes `off`, `press` (what the press does), `homeassistant`
+(`select.<ns>_<id>_<button>_led`), or `{ watch }`: a line `on`, `1`, `true` or `yes` lights it, `flash` flashes it.
+
+```toml
+[controls]
+8 = { meter = { watch = "cpu-load --watch", max = 100 }, rec = { led = { watch = "lamp-state --follow" } } }
+3 = { color = "red", lcd = { watch = "clock --watch" }, when = "call" }
+```
+
+Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED the lamp. A press of Rec still goes to
+what the slot shows. While `when` holds, a claimed part shows the claim. When `when` stops holding, the slot shows its
+own part again. The watches run for as long as the configuration, so a claim that comes back shows their newest lines
+at once. Until the first line, a color is white, a line is empty, an LED is dark and the meter rests. Places take no
+bindings: a part that a slot shows whatever is on it belongs here. On the slots of the chord, `[controls]` can claim
+the LED of Solo, not its press.
+
 | Option of `[switching]` | Default | Meaning |
 |---|---|---|
 | `chord` | `[1, 8]` | The slots (from 1 on the left) whose Solo buttons, held together, cycle the modes; `[]` for no chord. `chord = { strips = [1, 8], action = "toggle:call" }` does another action. |

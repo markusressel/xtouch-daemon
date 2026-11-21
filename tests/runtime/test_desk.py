@@ -16,7 +16,7 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.values import MeterPoint
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import METER_MAX, Button
-from xtouch_daemon.hardware.strip import Claimable
+from xtouch_daemon.hardware.strip import Claimable, Maskable
 from xtouch_daemon.runtime import desk as desk_module
 from xtouch_daemon.runtime.desk import Desk
 
@@ -68,6 +68,10 @@ class Claimer(Recorder):
     def __init__(self, *taken: Claimable) -> None:
         super().__init__()
         self.taken = frozenset(taken)
+        self.shown: frozenset[Maskable] = frozenset(taken)
+
+    def meter_level(self) -> Reading | None:
+        return None
 
 
 def test_a_claim_gets_the_controls_it_takes(surface: RecordingSurface) -> None:
@@ -270,3 +274,39 @@ async def test_the_meters_show_the_level_or_what_the_presenter_holds(
     assert surface.meters(1)[-1] == 5
     assert held.points[-1] == "post_fader"
     assert surface.meters(2)[0] == METER_MAX
+
+
+class MeterClaimer(Claimer):
+    """A claim that shows the meter: `level`."""
+
+    def __init__(self, level: Reading | None) -> None:
+        super().__init__()
+        self.shown = frozenset({"meter"})
+        self.level = level
+
+    def meter_level(self) -> Reading | None:
+        return self.level
+
+
+async def test_a_claim_on_the_meter_shows_its_level_and_stops_the_capture(surface: RecordingSurface) -> None:
+    desk = Desk(surface, capture_command=QUIET)
+    presenter = Recorder({SPEAKER}, held=Lit(5))
+    desk.bind(0, presenter)
+    desk.watch(STATE)
+    assert desk.meters[0].targets == {SPEAKER}
+    desk.claim(0, claim := MeterClaimer(Lit(9)))
+    desk.watch(STATE)
+    assert desk.meters[0].targets == set()
+    desk.meters[0].feed(1.0)
+    desk.show_meters()
+    assert surface.meters(0) == [9]
+    # a level that is not known yet: nothing, so the device lets the meter fall
+    claim.level = None
+    desk.show_meters()
+    assert surface.meters(0) == [9]
+    # the claim goes: the presenter's meter again
+    desk.claim(0, None)
+    desk.watch(STATE)
+    assert desk.meters[0].targets == {SPEAKER}
+    desk.close()
+    await desk.wait_closed()

@@ -1110,6 +1110,51 @@
       "title": "BehaviorConfig",
       "type": "object"
     },
+    "ButtonAction": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/Launch"
+        },
+        {
+          "$ref": "#/$defs/RunAction"
+        }
+      ]
+    },
+    "ButtonClaim": {
+      "additionalProperties": false,
+      "description": "A button of `[controls]` as a table: what a press does, what its LED shows, or both.",
+      "properties": {
+        "press": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ButtonAction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a press does, whatever the slot shows: an action, an application to start, or a program to run. Unset: the\npress stays with what the slot shows."
+        },
+        "led": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClaimLed"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the LED shows, whatever the slot shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and\nflashes it on `flash`. Unset: what the press does."
+        }
+      },
+      "title": "ButtonClaim",
+      "type": "object"
+    },
     "ButtonConfig": {
       "additionalProperties": false,
       "description": "What a button does: a press, a hold, and what its LED shows. Unset, each takes what the strip type does.",
@@ -1204,6 +1249,9 @@
         },
         {
           "$ref": "#/$defs/RunAction"
+        },
+        {
+          "$ref": "#/$defs/ButtonClaim"
         }
       ]
     },
@@ -1309,6 +1357,21 @@
       "title": "ChoiceConfig",
       "type": "object"
     },
+    "ClaimLed": {
+      "oneOf": [
+        {
+          "enum": [
+            "off",
+            "press",
+            "homeassistant"
+          ],
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/WatchBinding"
+        }
+      ]
+    },
     "ControlsConfig": {
       "additionalProperties": false,
       "description": "Controls of a slot that act whatever it shows (`[controls]`), while `when` holds; of a list of them per slot the\nfirst whose `when` holds.",
@@ -1322,7 +1385,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "What the fader of the slot sets, whatever the slot shows: a number in Home Assistant, the value of a `custom`\nchannel, or a value of your own."
         },
         "encoder": {
           "anyOf": [
@@ -1333,7 +1397,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "What the encoder of the slot sets, whatever the slot shows. The LED ring shows the value. E.g. `{ channel =\n\"screen\" }`."
         },
         "select": {
           "anyOf": [
@@ -1344,7 +1409,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "What Select does, whatever the slot shows: an action, an application to start, or a program to run. A table sets\nits `press` and its `led` apart."
         },
         "rec": {
           "anyOf": [
@@ -1355,7 +1421,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "What Rec does, whatever the slot shows: an action, an application to start, or a program to run. A table sets its\n`press` and its `led` apart."
         },
         "solo": {
           "anyOf": [
@@ -1366,7 +1433,81 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "What Solo does, whatever the slot shows: an action, an application to start, or a program to run. A table sets its\n`press` and its `led` apart."
+        },
+        "meter": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "const": "homeassistant",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/LevelBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the meter of the slot shows, whatever the slot shows: Home Assistant's level, or a number a program prints.",
+          "title": "Meter"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "enum": [
+                    "off",
+                    "red",
+                    "green",
+                    "yellow",
+                    "blue",
+                    "magenta",
+                    "cyan",
+                    "white",
+                    "homeassistant"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/WatchBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The backlight of the LCD of the slot, whatever the slot shows: a color, Home Assistant's, or the color a program\nprints.",
+          "title": "Color"
+        },
+        "lcd": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "const": "homeassistant",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/WatchBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The second line of the LCD of the slot, whatever the slot shows: Home Assistant's text, or the newest line a\nprogram prints.",
+          "title": "Lcd"
         },
         "when": {
           "anyOf": [
@@ -1378,6 +1519,7 @@
             }
           ],
           "default": null,
+          "description": "The controls apply while this condition of states and modes holds, e.g. `not call`.",
           "title": "When"
         },
         "id": {

@@ -20,7 +20,7 @@ from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import EmptyStripConfig, StripConfig
 from xtouch_daemon.config.values import EncoderMode, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
-from xtouch_daemon.hardware.strip import Claimable, VirtualStrip
+from xtouch_daemon.hardware.strip import Claimable, Maskable, VirtualStrip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.controls import Controls
@@ -243,7 +243,7 @@ class SlotMixer:
                     old_view.bind(None)
             if view.target is not device:
                 # what the controls of the slot claim stays theirs
-                self._give(controller, self.controls.taken(slot))
+                self._give(controller, self.controls.taken(slot), self.controls.shown(slot))
                 view.bind(device)
             self.desk.bind(slot - 1, controller, controller.look.meter_point)
             if flash > 0 and before is not None and before[1] != shown.candidate:
@@ -257,17 +257,21 @@ class SlotMixer:
         slots = {id(controller): slot for slot in SLOTS if (controller := self._at(slot)) is not None}
         for controller in self.all_controllers:
             slot = slots.get(id(controller))
-            self._give(controller, self.controls.taken(slot) if slot is not None else frozenset())
+            if slot is None:
+                self._give(controller, frozenset(), frozenset())
+            else:
+                self._give(controller, self.controls.taken(slot), self.controls.shown(slot))
         self.controls.show()
 
     @staticmethod
-    def _give(controller: StripController, taken: frozenset[Claimable]) -> None:
-        if controller.taken == taken:
-            return
-        controller.set_taken(taken)
+    def _give(controller: StripController, taken: frozenset[Claimable], shown: frozenset[Maskable]) -> None:
+        """The controller learns the controls the claim of its slot takes; its strip leaves what the claim shows."""
+        if controller.taken != taken:
+            controller.set_taken(taken)
         view = controller.strip
         assert isinstance(view, VirtualStrip)
-        view.mask(taken)
+        if view.masked != shown:
+            view.mask(shown)
 
     def _why(self, slot: int, before: int | None, now: int | None) -> str:
         """Why a slot shows another candidate, in a word: the `when` of the new one, or the one that ended."""

@@ -370,7 +370,7 @@ class HomeAssistantControls:
 
     def meter_level(self) -> Lit | None:
         """The level of the meter, 0..100 % over its LEDs; None while Home Assistant is not there."""
-        return _lit(self.meter.target_state) if self.meter is not None and self.connected else None
+        return lit_of(self.meter.target_state) if self.meter is not None and self.connected else None
 
     def led(self, name: str) -> Led:
         """The LED of a button as Home Assistant sets it; off while it is not there."""
@@ -402,7 +402,7 @@ def value_step(name: str, binding: ValueBinding, env: StripEnv) -> float:
     return 10.0 ** round(math.log10(span / 1000))
 
 
-def _lit(text: str | None) -> Lit | None:
+def lit_of(text: str | None) -> Lit | None:
     """A level of 0..100 % over the LEDs of the meter: 100 % lights all of them, the red one too."""
     percent = _value(text)
     return None if percent is None else Lit(round(max(0.0, min(100.0, percent)) / 100 * METER_MAX))
@@ -515,7 +515,7 @@ class HomeAssistantStrip(StripController):
         The level of the meter entity: 0..100 % over the levels of the meter, 100 % lights all LEDs (the red one too),
         nothing while not connected. Home Assistant sets the level, so the meter point means nothing here.
         """
-        return _lit(self.meter_level.target_state) if self.connected else None
+        return lit_of(self.meter_level.target_state) if self.connected else None
 
     # -- the device -----------------------------------------------------------------------------------------------
 

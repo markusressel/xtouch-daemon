@@ -1,9 +1,11 @@
 """
 The controls of the slots (`[controls]`, see docs/development/design/slots/slots.md): what a
-fader, encoder or button of a slot does whatever the slot shows. Each entry is a claim on the `Desk`'s strip of the slot
-while its `when` holds (the first of a slot whose `when` holds); a slot under a finger keeps its claim until it is let
-go. A claim shows what it takes (the fader, the ring, the LEDs of its buttons); the controller of what the slot shows
-shows the rest. Their entities in Home Assistant are there for as long as the configuration, whatever the slots show.
+fader, encoder or button of a slot does, and what its meter, color, second line of the LCD and LEDs show, whatever the
+slot shows. Each entry is a claim on the `Desk`'s strip of the slot while its `when` holds (the first of a slot whose
+`when` holds); a slot under a finger keeps its claim until it is let go. A claim shows what it claims (the fader, the
+ring, the LEDs of its buttons, the meter, the color, the second line); the controller of what the slot shows shows the
+rest. Their entities in Home Assistant and their watches are there for as long as the configuration, whatever the
+slots show.
 """
 
 import asyncio
@@ -11,17 +13,30 @@ import logging
 from collections.abc import Callable, Mapping
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
+from haad_mqtt_autodiscovery.entity.number import MQTTNumber
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
+from haad_mqtt_autodiscovery.entity.text import MQTTText
 
-from xtouch_daemon.config.bindings import RunAction, ValueBinding, fill, placeholders_of
-from xtouch_daemon.hardware.protocol import Button, Led, RingMode
-from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable, Strip
+from xtouch_daemon.audio.meter import Lit
+from xtouch_daemon.config.bindings import LevelBinding, RunAction, ValueBinding, WatchBinding, fill, placeholders_of
+from xtouch_daemon.config.values import ColorName, color_of
+from xtouch_daemon.hardware.protocol import METER_MAX, Button, Led, RingMode
+from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable, Maskable, Strip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.slots.model import DEFAULT, ChannelControl, ControlsConfig, Launch, Scene
-from xtouch_daemon.strips.base import Identity, SlotActions
-from xtouch_daemon.strips.homeassistant import LEDS, EncoderLink, FaderLink, StripEntities
-from xtouch_daemon.strips.value import CommandValue, ValueSource, run_program, value_text
+from xtouch_daemon.strips.base import OFFLINE_TEXT, Identity, SlotActions
+from xtouch_daemon.strips.homeassistant import COLORS, LEDS, EncoderLink, FaderLink, StripEntities, lit_of
+from xtouch_daemon.strips.value import (
+    CommandValue,
+    ValueSource,
+    WatchedLine,
+    color_of_line,
+    led_of_line,
+    level_of_line,
+    run_program,
+    value_text,
+)
 from xtouch_daemon.system.commands import Commands, SimulatedCommands
 from xtouch_daemon.system.launch import LaunchButton, Launcher
 
@@ -30,6 +45,10 @@ _LOGGER = logging.getLogger(__name__)
 HOME_ASSISTANT = "homeassistant"
 BUTTONS: dict[Claimable, Button] = {name: button for button, name in CLAIMABLE_BUTTONS.items()}
 PARTS: tuple[Claimable, ...] = ("fader", "encoder", *BUTTONS)
+DISPLAYS: tuple[Maskable, ...] = ("meter", "color", "lcd")
+"""What a claim can show besides the fader, the ring and the LEDs (`slots.model.CONTROL_DISPLAYS`)."""
+WATCHED_COLOR: ColorName = "white"
+"""The color of a claimed color in Home Assistant or of a watch until it is known."""
 
 
 Actions = SlotActions
@@ -44,45 +63,42 @@ def key_of(slot: int, config: ControlsConfig) -> str:
 class ControlEntities:
     """
     The entities of the controls of a slot that share a key (`key_of()`), for every entry of the slot with it: a number
-    for a fader and an encoder in Home Assistant, events for their touches and pushes and the presses of buttons, and
-    a select for the LED of each button.
+    for a fader, an encoder and a meter in Home Assistant, events for the touches and pushes of the fader and the
+    encoder and the presses of buttons, a select for the color and for the LED of each button, and a text for the
+    second line of the LCD.
     """
 
     def __init__(self, bridge: MqttBridge, identity: Identity, entries: list[ControlsConfig]):
         self.bridge = bridge
         entities = StripEntities(bridge, identity)
-        fader = any(entry.fader == HOME_ASSISTANT for entry in entries)
-        encoder = any(entry.encoder == HOME_ASSISTANT for entry in entries)
-        buttons = [
-            button
-            for name, button in BUTTONS.items()
-            if any(getattr(entry, name) == HOME_ASSISTANT for entry in entries)
-        ]
+
+        def any_of(part: str) -> bool:
+            return any(getattr(entry, part) == HOME_ASSISTANT for entry in entries)
+
+        fader, encoder = any_of("fader"), any_of("encoder")
+        pressed = [button for name, button in BUTTONS.items() if any(e.press(name) == HOME_ASSISTANT for e in entries)]
+        lit = [button for name, button in BUTTONS.items() if any(_led_in_home_assistant(e, name) for e in entries)]
         self.fader = entities.number("fader") if fader else None
         self.encoder = entities.number("encoder") if encoder else None
+        self.meter: MQTTNumber | None = entities.number("meter") if any_of("meter") else None
+        self.color: MQTTSelect | None = entities.color() if any_of("color") else None
+        self.bottom: MQTTText | None = entities.line("bottom") if any_of("lcd") else None
         event_types = [
             *(["fader_touched", "fader_released"] if fader else []),
             *(["encoder_pressed", "encoder_released"] if encoder else []),
-            *(f"{button.name.lower()}_{action}" for button in buttons for action in ("pressed", "released")),
+            *(f"{button.name.lower()}_{action}" for button in pressed for action in ("pressed", "released")),
         ]
         self.events = entities.events(event_types) if event_types else None
-        self.leds = {
-            button: MQTTSelect(
-                entities.namespace,
-                f"{identity.id}_{button.name.lower()}_led",
-                f"{identity.name} {button.name.lower()} LED",
-                options=list(LEDS),
-                device=entities.device,
-            )
-            for button in buttons
-        }
-        numbers: list[MQTTEntity] = [entity for entity in (self.fader, self.encoder) if entity is not None]
+        self.leds = {button: entities.led(button.name.lower()) for button in lit}
+        numbers: list[MQTTEntity] = [entity for entity in (self.fader, self.encoder, self.meter) if entity is not None]
         self.entities: dict[MQTTEntity, str | None] = {
             **dict.fromkeys(numbers, "0"),
+            **({self.color: WATCHED_COLOR} if self.color is not None else {}),
+            **({self.bottom: ""} if self.bottom is not None else {}),
             **dict.fromkeys(self.leds.values(), "off"),
             **({self.events: None} if self.events is not None else {}),
         }
-        self.watched = [*numbers, *self.leds.values()]
+        self.watched: list[MQTTEntity] = [entity for entity in self.entities if entity is not self.events]
 
     def watch(self, on_change: Callable[[], None]) -> None:
         for entity in self.watched:
@@ -93,10 +109,17 @@ class ControlEntities:
             self.bridge.unwatch(entity)
 
 
+def _led_in_home_assistant(entry: ControlsConfig, button: str) -> bool:
+    """Whether Home Assistant sets the LED of a button: by its `led`, or by a press there that the LED shows."""
+    led = entry.led(button)
+    return led == HOME_ASSISTANT or (led == "press" and entry.press(button) == HOME_ASSISTANT)
+
+
 class SlotClaim:
     """
-    One entry of the controls of a slot: the controls it claims, what they do, and what they show on the strip of the
-    device (`show()`).
+    One entry of the controls of a slot: the controls it takes (`taken`, their events come to it), what they do, and
+    what it shows on the strip of the device (`shown`, `show()`): what it takes, the LEDs it claims, the meter, the
+    color, the second line of the LCD. Its watches run for as long as the configuration.
     """
 
     def __init__(
@@ -121,7 +144,15 @@ class SlotClaim:
         self.actions = actions
         self.processes = processes
         self.what = f"controls.{slot}" + (f"[{index}]" if index else "")
-        self.taken: frozenset[Claimable] = frozenset(part for part in PARTS if part in config.claimed)
+        self.taken: frozenset[Claimable] = frozenset(part for part in PARTS if part in config.taken)
+        """The controls whose events come to it."""
+        self.shown: frozenset[Maskable] = frozenset(
+            {
+                *(part for part in ("fader", "encoder", *DISPLAYS) if getattr(config, part) is not None),
+                *(name for name in BUTTONS if config.led(name) is not None),
+            }
+        )
+        """The parts it shows on the strip of the device instead of what the slot shows."""
         self.fader: FaderLink | None = None
         self.encoder: EncoderLink | None = None
         if config.fader == HOME_ASSISTANT:
@@ -154,8 +185,18 @@ class SlotClaim:
         self.launches = {
             button: LaunchButton(action.launch, launcher, self.what, action.launch_when_running)
             for name, button in BUTTONS.items()
-            if isinstance(action := getattr(config, name), Launch)
+            if isinstance(action := config.press(name), Launch)
         }
+        self.lines: dict[str, WatchedLine] = {}
+        """The watches of what it shows, by part: `meter`, `color`, `lcd`, `select.led`, ..."""
+        watches: dict[str, object] = {part: getattr(config, part) for part in DISPLAYS}
+        watches |= {f"{name}.led": config.led(name) for name in BUTTONS}
+        for part, binding in watches.items():
+            if isinstance(binding, WatchBinding):
+                line = self.lines[part] = WatchedLine(binding.watch, commands, f"{self.what}.{part}")
+                line.listeners.append(self._watched)
+        self._color: ColorName = WATCHED_COLOR
+        """The last color the watch of `color` printed: a line that is no color keeps it."""
         self._tasks: set[asyncio.Task[None]] = set()
 
     @property
@@ -187,6 +228,12 @@ class SlotClaim:
         # its own listener on each value, so that it removes only its own
         self._on_change()
 
+    def _watched(self) -> None:
+        color = self.lines.get("color")
+        if color is not None and (name := color_of_line(color.line or "")) is not None:
+            self._color = name
+        self._on_change()
+
     def _switched(self) -> None:
         # a custom channel switched to another target: other values; the finger on the fader goes over to the new one
         if self._touched:
@@ -195,7 +242,8 @@ class SlotClaim:
         self._on_change()
 
     def action(self, button: Button) -> str | Launch | RunAction | None:
-        return getattr(self.config, CLAIMABLE_BUTTONS[button]) if button in CLAIMABLE_BUTTONS else None
+        """What a press of the button does; None for one it leaves to what the slot shows."""
+        return self.config.press(CLAIMABLE_BUTTONS[button]) if button in CLAIMABLE_BUTTONS else None
 
     @property
     def connected(self) -> bool:
@@ -210,7 +258,10 @@ class SlotClaim:
     # -- showing --------------------------------------------------------------------------------------------------
 
     def show(self) -> None:
-        """Shows what it takes on the strip of the device: the fader, the ring, the LEDs of its buttons."""
+        """
+        Shows what it claims on the strip of the device: the fader, the ring, the LEDs of its buttons, the color, the
+        second line of the LCD. The meter shows at the desk's pace (`meter_level()`).
+        """
         connected = self.connected
         if self.fader is not None and connected:
             self.fader.show()
@@ -223,24 +274,81 @@ class SlotClaim:
         if self.command_encoder is not None:
             self.strip.set_ring(*self.command_encoder.ring())
         for name, button in BUTTONS.items():
-            if (action := getattr(self.config, name)) is not None:
-                self.strip.set_led(button, self._led(button, action))
+            if (led := self.config.led(name)) is not None:
+                self.strip.set_led(button, self._led(button, name, led))
+        if self.config.color is not None:
+            self.strip.set_color(color_of(self._color_name()))
+        if self.config.lcd is not None:
+            self.strip.set_text(1, self._second_line())
 
-    def _led(self, button: Button, action: str | Launch | RunAction) -> Led:
+    def _led(self, button: Button, name: str, led: str | WatchBinding) -> Led:
+        if isinstance(led, WatchBinding):
+            line = self.lines[f"{name}.led"].line
+            return led_of_line(line) if line is not None else Led.OFF
+        if led == HOME_ASSISTANT:
+            return self._home_assistant_led(button)
+        if led == "off":
+            return Led.OFF
+        action = self.config.press(name)
+        assert action is not None, 'led = "press" needs a press (checked when the file is loaded)'
+        return self._press_led(button, action)
+
+    def _home_assistant_led(self, button: Button) -> Led:
+        assert self.entities is not None
+        state = self.entities.leds[button].target_state
+        return LEDS.get(state or "", Led.OFF) if self.entities.bridge.ready else Led.OFF
+
+    def _press_led(self, button: Button, action: str | Launch | RunAction) -> Led:
+        """What the LED shows for what the press does."""
         if isinstance(action, RunAction):
             return Led.OFF
         if isinstance(action, Launch):
             launch = self.launches[button]
             return launch.led(launch.program_runs(self.processes()))
         if action == HOME_ASSISTANT:
-            assert self.entities is not None
-            led = self.entities.leds[button].target_state
-            return LEDS.get(led or "", Led.OFF) if self.entities.bridge.ready else Led.OFF
+            return self._home_assistant_led(button)
         if action == "cycle_modes":
             return Led.ON if self.actions.mode != DEFAULT else Led.OFF
         if action.startswith("mode:"):
             return Led.ON if self.actions.mode == action.removeprefix("mode:") else Led.OFF
         return Led.ON if self.actions.value(action.removeprefix("toggle:")) else Led.OFF
+
+    def _color_name(self) -> ColorName:
+        """The claimed color: its name, Home Assistant's, or the last a watch printed (white until either is known)."""
+        color = self.config.color
+        if isinstance(color, WatchBinding):
+            return self._color
+        if color == HOME_ASSISTANT:
+            assert self.entities is not None
+            entity = self.entities.color
+            assert entity is not None
+            ready = self.entities.bridge.ready
+            return COLORS.get(entity.target_state or "", WATCHED_COLOR) if ready else WATCHED_COLOR
+        assert color is not None
+        return color
+
+    def _second_line(self) -> str:
+        """The claimed second line of the LCD: the newest line of its watch, or Home Assistant's text (else offline)."""
+        if isinstance(self.config.lcd, WatchBinding):
+            return self.lines["lcd"].line or ""
+        assert self.entities is not None
+        entity = self.entities.bottom
+        assert entity is not None
+        return (entity.target_state or "") if self.entities.bridge.ready else OFFLINE_TEXT
+
+    def meter_level(self) -> Lit | None:
+        """The level of the claimed meter, over its LEDs: a watch's or Home Assistant's; None while it is not known."""
+        meter = self.config.meter
+        if isinstance(meter, LevelBinding):
+            line = self.lines["meter"].line
+            level = level_of_line(line, meter.min, meter.max) if line is not None else None
+            return Lit(round(level * METER_MAX)) if level is not None else None
+        if meter == HOME_ASSISTANT:
+            assert self.entities is not None
+            entity = self.entities.meter
+            assert entity is not None
+            return lit_of(entity.target_state) if self.entities.bridge.ready else None
+        return None
 
     # -- the device -----------------------------------------------------------------------------------------------
 
@@ -346,6 +454,8 @@ class SlotClaim:
             source.listeners.remove(self._switched)
         for value in self._own.values():
             value.close()
+        for line in self.lines.values():
+            line.close()
         for task in self._tasks:
             task.cancel()
 
@@ -387,7 +497,7 @@ class Controls:
             by_key: dict[str, ControlEntities] = {}
             for key in dict.fromkeys(key_of(slot, entry) for entry in entries):
                 with_key = [entry for entry in entries if key_of(slot, entry) == key]
-                if not any(HOME_ASSISTANT in (entry.fader, entry.encoder, *_buttons(entry)) for entry in with_key):
+                if not any(entry.uses_home_assistant for entry in with_key):
                     continue
                 assert bridge is not None, "controls in Home Assistant need [mqtt] (checked when the file is loaded)"
                 name = key if key != f"slot_{slot}" else f"Slot {slot}"
@@ -451,6 +561,11 @@ class Controls:
         claim = self.active.get(slot)
         return claim.taken if claim is not None else frozenset()
 
+    def shown(self, slot: int) -> frozenset[Maskable]:
+        """The parts of a slot (from 1) that its controls show now."""
+        claim = self.active.get(slot)
+        return claim.shown if claim is not None else frozenset()
+
     def show(self) -> None:
         for claim in self.active.values():
             if claim is not None:
@@ -469,7 +584,3 @@ class Controls:
                 claim.close()
         for entities in self._links:
             entities.close()
-
-
-def _buttons(entry: ControlsConfig) -> tuple[str | Launch | RunAction | None, ...]:
-    return entry.select, entry.rec, entry.solo

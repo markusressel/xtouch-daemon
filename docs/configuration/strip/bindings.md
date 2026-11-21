@@ -26,6 +26,10 @@ The parts of the `output`, `input`, `apps` and `auto` channels:
 
 Each part also takes `"homeassistant"`: Home Assistant sets it, with an entity of its own (see below).
 
+A place of a slot takes the words of a part only, no binding. A part that a slot shows or does whatever it shows
+takes the same bindings in [`[controls]`](../slots.md#controls-and-the-chord): the fader, the encoder, the meter, the
+color, the second line of the LCD, and the press and the LED of Select, Rec and Solo.
+
 - `set` runs with the new value in `{value}`; `watch` prints the value, one line per change. See
   [A value](../channels/custom.md#a-value) for `min`, `max`, `step`, `push` and `format`.
 - `{value}` in `run` is the value of the fader, else of the encoder, else the volume in percent. `{target}` is for custom

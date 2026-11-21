@@ -168,7 +168,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                 problems.append(f"channel.{name}: Home Assistant needs an [mqtt] section")
         for slot, entries in scene.controls.items():
             for index, entry in enumerate(entries):
-                if "homeassistant" in (entry.fader, entry.encoder, entry.select, entry.rec, entry.solo):
+                if entry.uses_home_assistant:
                     where = f"controls.{slot}" + (f"[{index}]" if len(entries) > 1 else "")
                     problems.append(f"{where}: Home Assistant needs an [mqtt] section")
     if problems:
