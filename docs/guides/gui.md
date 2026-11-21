@@ -286,14 +286,16 @@ On the page Slots:
   highlighted, ● the one the slot shows, ○ the one it came to that has none left; a click picks one) and a box of
   what goes on: why the slot shows what it shows, a step a line (✗ a candidate passed over and why, → what it shows,
   the same as `xtouch-daemon why 3`), which channel the candidate shows, where else that is used and where it is
-  now, or what a pool hands out and from which side, with "Edit the channel" to its page, and what `[controls]`
-  claims of the slot. Below it, it edits the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or
-  `auto`, `-`), when (the
+  now, or what a pool hands out and from which side, and what `[controls]` claims of the slot. Below it, it edits
+  the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or `auto`, `-`), when (the
   [condition](../configuration/slots.md#conditions):
   states violet, channels in `present(...)` teal, a mistake underlined in red with what is wrong in its tooltip;
   typing offers the states, keywords and channels that fit, Ctrl+Space all of them),
-  and the options of its place (look, on `apps` and `auto` the encoder and the volume range, on `people` the look of
-  a person's strip).
+  and, under "Look in slot 3", the options of its place (look, on `apps` and `auto` the encoder and the volume range,
+  on `people` the look of a person's strip). What the parts do is set on the channel or the pool: "Edit the channel"
+  (or "Edit the pool") at the top opens it on the page Channels. An option left unset is as on the channel, or as in
+  the pool: the field shows that value ("As on the channel: red"), and the button next to a set option unsets it
+  again. A pool of channels has no options here: its channels bring their own look.
 
 Clicking a strip in the window Device (or Left, Right, Home, End) picks its card, with the candidate it shows.
 

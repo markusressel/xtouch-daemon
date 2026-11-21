@@ -158,6 +158,11 @@ class OptionRow(QWidget):
         self._put = put
         self._placeholder = placeholder
         self._loading = False
+        self.inherited: str | None = None
+        """
+        Where an unset value comes from when it is no default, e.g. "As on the channel" at a place: the placeholder
+        says it with the value of `placeholder` ("As on the channel: red"), and a switch or a color shows that value.
+        """
         self.resettable = True
         """Shows the button back to the default while a value is set; off where the page removes it another way."""
         self.names: tuple[str, ...] = (option.name,)
@@ -432,26 +437,31 @@ class OptionRow(QWidget):
                     self.line.setText(value if isinstance(value, str) else "")
                     self._show_matches()
                     default = self._placeholder() if self._placeholder else self.option.default
-                    self.line.setPlaceholderText("" if default is None else str(default))
+                    self.line.setPlaceholderText(self._unset_text(default, ""))
                 case Kind.INTEGER | Kind.NUMBER:
                     # a value of another type shows the default; its problem says what is wrong
                     number = shown if isinstance(shown, int | float) else self.option.default
                     if self.option.default is None:
                         default = self._placeholder() if self._placeholder else "not set"
-                        self.spin.setSpecialValueText(f"default: {default}")
+                        self.spin.setSpecialValueText(self._unset_text(default))
                     if isinstance(self.spin, QSpinBox):
                         self.spin.setValue(int(self._unset) if number is None else int(number))
                     else:
                         self.spin.setValue(self._unset if number is None else float(number))
                 case Kind.SWITCH:
+                    if value is None and self.inherited is not None and self._placeholder:
+                        # unset: as where it comes from
+                        shown = self._placeholder() == "on"
                     self.switch.setChecked(bool(shown))
                 case Kind.CHOICE:
                     self.combo.setCurrentIndex(self.option.choices.index(shown) if shown in self.option.choices else -1)
                     if self._placeholder:
                         # shown while none is chosen
-                        self.combo.setPlaceholderText(f"default: {self._placeholder()}")
+                        self.combo.setPlaceholderText(self._unset_text(self._placeholder()))
                     self._show_meaning()
                 case Kind.COLOR:
+                    if value is None and self.inherited is not None and self._placeholder:
+                        shown = self._placeholder()
                     self.colors.show_value(str(shown))
                 case Kind.LIST:
                     # a single value may stand alone, e.g. `device = "speaker"`
@@ -473,6 +483,15 @@ class OptionRow(QWidget):
         finally:
             self._loading = False
         self.reset.setVisible(self.resettable and value is not None and not self.option.required)
+
+    def _unset_text(self, value: object, before: str = "default: ") -> str:
+        """
+        What a field shows while unset: `default: <value>`, or where it comes from with its value ("As on the
+        channel: red"); `before` the value in a field without `inherited`.
+        """
+        if self.inherited is None:
+            return "" if value is None else f"{before}{value}"
+        return f"{self.inherited}: {value}" if value else self.inherited
 
     def _edit(self, value: Any) -> None:
         if self._loading:

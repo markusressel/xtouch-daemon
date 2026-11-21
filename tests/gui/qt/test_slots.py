@@ -107,7 +107,11 @@ def test_the_cards_show_the_stacks(window: MainWindow):
     assert page.candidate == 1
     assert plain(page.channel.text()).startswith("Pool auto: the people (from the right) and the applications")
     assert "encoder" in [option_row.option.name for option_row in page.place_rows]
-    assert page.channel_button.isHidden()
+    assert page.channel_button.text() == "Edit the pool"
+    window.show_page("slots")
+    page.channel_button.click()
+    assert window.current_page == "channels"
+    assert window.channels_page.selection == ("pool", "auto")
 
 
 def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
@@ -226,6 +230,84 @@ def test_candidates_are_added_moved_changed_and_removed(qtbot: QtBot, window: Ma
     page.add(3)
     window.undo()
     assert page.candidate == 0
+
+
+def test_a_place_shows_what_it_takes_from_its_channel_or_pool(window: MainWindow):
+    page = panel(window)
+    window.document.set(("channel", "out", "rec"), "muted")
+    window.document.set(("channel", "out", "lit_when_idle"), True)
+    window.document.set(("pool", "auto", "color"), "green")
+    window.document.set(("pool", "auto", "max_volume"), 110)
+    window.document.set(("pool", "outs"), {"channels": ["out"]})
+    window.document.set(("slots", "3"), ["outs", "devices", "-"])
+    window.editor.edited()
+
+    page.select_slot(1)
+    assert page.place_title.text() == "Look in slot 1"
+    assert plain(page.place_parts.text()) == "What the parts of out do is set on the channel."
+    assert page.channel_button.text() == "Edit the channel"
+    rows = {option_row.option.name: option_row for option_row in page.place_rows}
+    assert rows["label"].line.placeholderText() == "As on the channel: Speaker"
+    assert rows["color"].colors.swatches["cyan"].isChecked()
+    assert rows["lit_when_idle"].switch.isChecked()
+    assert rows["rec"].buttons.combos["led"].placeholderText() == "As on the channel: muted"
+    assert rows["solo"].buttons.combos["led"].placeholderText() == "As on the channel: off"
+    assert rows["meter"].combo.placeholderText() == "As on the channel: pre_fader"
+    assert plain(rows["rec"].help.text()).startswith(
+        "What the LED of Rec shows while slot 1 shows out. Unset: as on the channel."
+    )
+    assert plain(rows["color"].help.text()).startswith(
+        "The backlight of the LCD while slot 1 shows out. Unset: as on the channel: cyan."
+    )
+    assert rows["color"].reset.isHidden()
+    assert rows["color"].reset.toolTip() == "Unset: as on the channel"
+    # set at the place, and back to the channel's
+    rows["color"].colors.swatches["red"].click()
+    assert window.document.get(("slots", "1", 0)) == {"show": "out", "color": "red"}
+    assert rows["color"].colors.swatches["red"].isChecked()
+    rows["color"].reset.click()
+    assert window.document.get(("slots", "1")) == "out"
+    assert rows["color"].colors.swatches["cyan"].isChecked()
+
+    # a pool: its own options, else those of the strip type
+    page.select_slot(2)
+    page.lists[1].setCurrentRow(1)
+    assert plain(page.place_parts.text()) == "What the parts of auto do is set in the pool."
+    rows = {option_row.option.name: option_row for option_row in page.place_rows}
+    assert rows["encoder"].combo.placeholderText() == "As in the pool: pick"
+    assert rows["color"].colors.swatches["green"].isChecked()
+    assert not rows["lit_when_idle"].switch.isChecked()
+    assert rows["rec"].buttons.combos["led"].placeholderText() == "As in the pool: recording"
+    assert rows["min_volume"].spin.specialValueText() == "As in the pool: 0 %"
+    assert rows["max_volume"].spin.specialValueText() == "As in the pool: 110 %"
+    assert plain(rows["encoder"].help.text()).startswith(
+        "What the encoder does while slot 2 shows an application of auto without a channel. Unset: as in [pool.auto]."
+    )
+    assert rows["color"].reset.toolTip() == "Unset: as in pool auto"
+
+    # a pool of channels: its channels bring their look, the place has none
+    page.select_slot(3)
+    page.lists[2].setCurrentRow(0)
+    assert not page.place_header.isHidden()
+    assert page.place.isHidden()
+    assert page.place_rows == []
+    assert plain(page.place_parts.text()).startswith("Each channel of outs brings its own look")
+    assert page.channel_button.text() == "Edit the pool"
+    page.channel_button.click()
+    assert window.channels_page.selection == ("pool", "outs")
+    window.show_page("slots")
+
+    page.lists[2].setCurrentRow(1)
+    rows = {option_row.option.name: option_row for option_row in page.place_rows}
+    assert rows["select"].buttons.combos["press"].placeholderText() == "As in the pool: default"
+    assert rows["encoder"].combo.placeholderText() == "As in the pool: balance"
+    assert plain(rows["encoder"].help.text()).startswith(
+        "What the encoder does while slot 3 shows a device of devices. Unset: as in [pool.devices]."
+    )
+
+    # nothing: no look
+    page.lists[2].setCurrentRow(2)
+    assert page.place_header.isHidden()
 
 
 def test_problems_show_on_the_card_and_in_the_inspector(window: MainWindow):
