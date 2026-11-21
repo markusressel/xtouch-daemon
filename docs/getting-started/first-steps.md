@@ -1,7 +1,7 @@
 # First steps
 
 Set up the X-Touch Extender, test it, write a configuration and run the daemon as a service. No X-Touch at hand? See
-[Without a device](without-a-device.md).
+[Without an X-Touch](without-a-device.md).
 
 ## Set up the X-Touch { #set-up-the-device }
 
@@ -22,27 +22,23 @@ user. See [Hardware](../reference/hardware.md#linux-access) for other cases.
 xtouch-daemon test
 ```
 
-Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader. Afterwards every strip answers
-its own controls: the meter follows the fader, a button steps its LED, the encoder changes the ring, the LCD color and
-the motor fader ([`test`](../reference/commands.md#test) has the details). Ctrl+C stops it.
+Every strip lights its LCD, LEDs, ring and meter, and moves its fader. Afterwards every strip answers its own
+controls ([`test`](../reference/commands.md#test) has the details). Ctrl+C stops it.
 
-If the daemon already runs as a service, you don't stop it: `xtouch-daemon test` asks the daemon to run the test, and
-the slots show again afterwards. Close DAWs that use the X-Touch. Without an X-Touch, see
-[Without a device](without-a-device.md).
+A running service does not need to stop: `xtouch-daemon test` asks the daemon to run the test. Close DAWs that use
+the X-Touch.
 
 ## Write a configuration
 
 A configuration defines **channels** (what a strip can control), **states** (in a call, gaming) and, for each of the 8
-slots, what its strip shows when. The file further down shows each. [Concepts](../concepts.md) explains these words. Without a file the daemon uses the
-[example configuration](../configuration/index.md): the default input on slot 7, the default output on slot 8, and
-`auto` (the next application that plays, or a person of the voice chat) on the others. To make it yours, the easiest
-way is the [GUI](../guides/gui.md). Start it with `xtouch-daemon-gui` or `xtouch-daemon gui`. It shows the X-Touch live and
-every option with its help. **Simulate** shows what the slots would show in another situation. "Save and apply" writes
-the file and loads it into the running daemon.
+slots, what its strip shows when. [Concepts](../concepts.md) explains these words. Without a file the daemon uses the
+[example configuration](../configuration/index.md).
 
-[Setup tour](tour.md) builds a whole configuration that way, step by step, with the file it writes.
+The easiest way to make it yours is the [GUI](../guides/gui.md): it shows the X-Touch live and every option with its
+help, and "Save and apply" writes the file and loads it into the running daemon. [How to start it](install.md#the-gui).
+The [Setup tour](tour.md) builds a whole configuration that way, step by step.
 
-To work by hand, let `init-config` write that same example file, then edit it:
+To work by hand, let `init-config` write the example file, then edit it:
 
 ```shell
 xtouch-daemon init-config                 # writes ~/.config/xtouch-daemon/config.toml
@@ -51,8 +47,7 @@ xtouch-daemon list-apps                   # the applications that play now, and 
 xtouch-daemon check-config                # validates the file (with the line of each error) and shows what each slot shows when
 ```
 
-An editor with a TOML language server completes the options of the file and shows their help: see
-[Editors and AI assistants](../configuration/index.md#editors-and-ai-assistants).
+For editor completion, see [Editors and AI assistants](../configuration/index.md#editors-and-ai-assistants).
 
 For example, Bluetooth headphones on slot 1 while they are connected, and VoIP on slot 2 during a call:
 
@@ -77,8 +72,7 @@ voice_chat = true   # on while you are in a voice chat channel (Mumble or TeamSp
 # slots 3 to 8 have no entry: "auto", the next application that plays or a person of the voice chat
 ```
 
-`check-config` shows what this file does, as a table. (It is not the file that `init-config` writes: here slots 7 and
-8 are `auto` too.)
+`check-config` shows what this file does, as a table:
 
 ```
 when               1     2     3-8
@@ -88,12 +82,8 @@ buds absent        auto  auto  auto
 call, buds absent  auto  voip  auto
 ```
 
-Each row is a situation. In the row `default`, `call` is off and `buds` is there; the other rows change one of the
-two. In the row `call`, slot 2 shows `voip` instead of the next application, and slot 1 still shows `buds`. In the
-row `buds absent`, `voip` stays out of slot 2 because `call` is off.
-
-[Channels, states and slots](../configuration/slots.md) explains the format, [Configuration](../configuration/index.md)
-every option.
+Each row is a situation. In `default`, `call` is off and `buds` is there; the other rows change one of the two.
+[Channels, states and slots](../configuration/slots.md) explains the format.
 
 ## Run it as a service
 
@@ -101,15 +91,15 @@ every option.
 xtouch-daemon install-service --now
 ```
 
-This writes the systemd user unit and starts it, and from then on it starts with your session. The Arch Linux package
-has its own unit, so with it the command only enables and starts that one, like this:
+This writes the systemd user unit and starts it with your session. The Arch Linux package has its own unit; enable
+that one instead:
 
 ```shell
 systemctl --user enable --now xtouch-daemon
 ```
 
-[`install-service`](../reference/commands.md#install-service) has the details. The daemon runs as your user, not as
-root, so don't start it with `sudo`. If it refuses to start, see
+The daemon runs as your user: don't start it with `sudo`. See
+[`install-service`](../reference/commands.md#install-service). If it refuses to start, see
 [Troubleshooting](../guides/troubleshooting.md#starting).
 
 | Task | Command |
@@ -120,7 +110,7 @@ root, so don't start it with `sudo`. If it refuses to start, see
 | See whether the X-Touch, the sound server and, with Home Assistant, the MQTT broker are connected | `systemctl --user status xtouch-daemon` |
 | Follow the log | `journalctl --user -u xtouch-daemon -f`, or View → Log in the GUI |
 
-To run it in the foreground instead, e.g. to watch the log while you try something:
+To run it in the foreground, e.g. to watch the log:
 
 ```shell
 xtouch-daemon run -l debug

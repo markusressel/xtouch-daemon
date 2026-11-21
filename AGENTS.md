@@ -104,6 +104,12 @@ The pages of `docs/` are for someone who meets the project for the first time. T
   a severity) and contradictions. A page is done when the reader explains it back right and reports no severity 2 or 3.
   A cold reader can't see a vague word or a detail on the wrong level (a newcomer guesses and reads on): that takes
   a review by someone who knows the code.
+- Check the docs as a whole with blind research: `scripts/doc-research.py scripts/doc-questions.json <out>/` gives
+  each of the user questions in `scripts/doc-questions.json` (with their answers, checked in the code) to a reader
+  that only has the user pages, their navigation and their links, as a user. Its report has the answer, the pages it
+  read and their words, and what contradicts or repeats between pages. Grade the answers against the file (an agent
+  that checks the code where they differ). Longer is not better: a change keeps every answer right and doesn't make
+  a reader read more words for it. A new feature gets a question.
 
 ## Writing help
 
