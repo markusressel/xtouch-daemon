@@ -301,7 +301,8 @@ On the page Slots:
   Select, Rec, Solo, the meter, the color or the line of the LCD); only the parts an entry sets show. Each has the
   field it has on the page Channels: the bind button gives the fader, the encoder, the meter, the color and the line
   to Home Assistant or to a program (the fader and the encoder also to a custom channel), and a button takes its
-  press and its LED, each left empty to stay with what the slot shows. When takes a condition of states and modes,
+  press, its LED or both: without a press, a press goes to what the slot shows; without an LED, the LED shows what
+  the press does. When takes a condition of states and modes,
   Id names the entities in Home Assistant (shown once a part is there). "Add controls" adds another entry, e.g. for
   another `when`: the first whose `when` holds acts, and the arrows move an entry up or down. A problem shows at its
   field.

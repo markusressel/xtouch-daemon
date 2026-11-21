@@ -206,3 +206,21 @@ def test_an_unbound_part_says_what_it_can_be_bound_to(window: MainWindow):
     rows = box(window).rows
     assert rows["color"].binding.bind.toolTip() == "Bind it to Home Assistant or a program of your own"
     assert rows["fader"].binding.bind.toolTip() == "Bound to Home Assistant: click to change"
+
+
+def test_the_last_part_of_an_entry_of_a_list_goes_with_it_and_one_left_is_a_table(window: MainWindow):
+    setup(window, "8", [{"color": "red"}, {"lcd": {"watch": ["clock"]}}])
+    page = controls(window, 8)
+    page.boxes[1].rows["lcd"].reset.click()
+    assert window.document.get(("controls", "8")) == {"color": "red"}
+    assert [entry.title.text() for entry in page.boxes] == ["Color"]
+
+
+def test_the_led_of_a_launch_or_a_run_shows_what_the_press_does(window: MainWindow):
+    setup(
+        window, "1", {"select": {"launch": ["mumble"]}, "rec": {"run": ["notify-send", "hi"]}, "solo": {"led": "off"}}
+    )
+    rows = box(window).rows
+    assert rows["select"].buttons.combos["led"].placeholderText() == "What the press does"
+    assert rows["rec"].buttons.combos["led"].placeholderText() == "What the press does"
+    assert rows["solo"].buttons.combos["press"].placeholderText() == "As what the slot shows"

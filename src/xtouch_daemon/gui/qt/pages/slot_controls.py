@@ -58,8 +58,8 @@ PRESS_UNSET = "As what the slot shows"
 def section_help(slot: int) -> str:
     """The help under the title of the controls."""
     return (
-        f"Parts of slot {slot} that act the same whatever the slot shows. A claimed part overrides the channel "
-        "while its `when` holds."
+        f"Parts of slot {slot} that act the same whatever the slot shows. While its `when` holds, an entry overrides "
+        "what the slot shows."
     )
 
 
@@ -172,7 +172,9 @@ class EntryBox(QFrame):
     def _button_placeholder(self, name: str, part: str) -> str:
         """What a press or an LED the entry leaves unset does: as the slot shows it, or what the press does."""
         value = self.entry().get(name)
-        if part == "led" and (isinstance(value, str) or (isinstance(value, dict) and "press" in value)):
+        # a press: an action, `{ launch }` or `{ run }`, or the `press` of a table
+        pressed = isinstance(value, str) or (isinstance(value, dict) and bool({"press", "launch", "run"} & set(value)))  # pyright: ignore[reportUnknownArgumentType]
+        if part == "led" and pressed:
             return "What the press does"
         return PRESS_UNSET
 
@@ -305,6 +307,10 @@ class SlotControls(QWidget):
         """Sets a value of an entry (None: removes it; an entry left empty goes too)."""
         if value is None:
             self.editor.document.unset(path)
+            found = entries(self.document_values(), self.slot)
+            if len(found) == 1 and listed(self.document_values(), self.slot):
+                # the one entry left of a list: a table again, as "Remove the entry" leaves it
+                self.editor.document.set(("controls", str(self.slot)), found[0])
         else:
             self.editor.document.set(path, value)
 
