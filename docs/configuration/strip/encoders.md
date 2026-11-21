@@ -1,6 +1,7 @@
 # Encoders
 
-The fader of an audio strip sets the volume, unless it is in [Home Assistant](#fader-homeassistant). The encoder
+The fader of an audio strip sets the volume, unless it is in [Home Assistant](#fader-homeassistant) or
+[bound](bindings.md) to a value of your own. The encoder
 does what the strip's `encoder` option says, and its [LED](leds.md) ring shows it. After a turn or a push, the second line of
 the LCD shows the exact value for 2 seconds instead of the volume; moving the fader ends that.
 
@@ -11,6 +12,7 @@ the LCD shows the exact value for 2 seconds instead of the volume; moving the fa
 | `pick` | Picks the application among those without a strip of their own. | Pins it. | Which of them, as a dot; pinned, lit up to there. | Which of how many (`2/5`); `pinned` or `auto`. |
 | `media` | Seeks in the track of the applications' media player, 5 s per step. | Plays or pauses. | How far the track is, lit from the left; blinking while paused, dark while stopped. | Where the track is (`1:05`); `playing` or `paused`. |
 | `homeassistant` | Changes a number entity in Home Assistant. | An event in Home Assistant. | The number. | The number (`42%`). |
+| `{ set, watch, ... }` | Changes a [value of your own](#a-value-of-your-own) by its `step`. | Sets its `push`. | The value, lit from the left. | The value, in its `format`. |
 
 Which channel types have which modes, the default first:
 
@@ -27,7 +29,8 @@ a [custom channel](../channels/custom.md), e.g. the brightness of a screen: `5 =
 
 A mode that the type does not have is an error, e.g.
 `channel.web: encoder: pick is not for apps strips (media, volume, balance, homeassistant)`. With
-[`fader = "homeassistant"`](#fader-homeassistant) the default is `volume`, and it is the only mode.
+[`fader = "homeassistant"`](#fader-homeassistant), or a fader bound to a value, the default is `volume`, and it is
+the only mode.
 `xtouch-daemon check-config` shows the encoder of every channel.
 
 `homeassistant` channels have no `encoder` option: their encoder is a Home Assistant entity, see
@@ -103,10 +106,24 @@ device = "alsa_output.usb-*"  # number.xtouch_desk_encoder
 encoder = "homeassistant"
 ```
 
+## A value of your own
+
+The encoder sets a value that programs of your own set and watch, e.g. the brightness of a screen. The fader still
+sets the volume. The options are those of a value in [Bindings](bindings.md) (`set`, `watch`, `min`, `max`, `step`,
+`push`, `format`), and they are explained in [Custom channels](../channels/custom.md#a-value).
+
+```toml
+[channel.out]
+type = "output"
+label = "Speaker"
+encoder = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}", watch = "sysctrl display redshift brightness -d DisplayPort-1 --watch", min = 0.1, max = 1.0, push = 1.0, format = "{value:.0%}" }
+```
+
 ## `fader = "homeassistant"`
 
 The other way round: the fader belongs to Home Assistant (`number.<ns>_<id>_fader`, with `fader_touched` and
-`fader_released` events), and the encoder sets the volume in fine steps. The LCD still shows the volume. Both need the
+`fader_released` events), and the encoder sets the volume in fine steps. The LCD still shows the volume. A fader
+bound to a [value of your own](bindings.md) does the same: the encoder sets the volume. Both need the
 [`[mqtt]`](../../guides/home-assistant.md#mqtt) section.
 
 ```toml

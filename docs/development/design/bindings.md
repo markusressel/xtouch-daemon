@@ -1,6 +1,6 @@
 # Design: bindings and custom channels
 
-Status: being built. How to use it: [Bindings](../../configuration/strip/bindings.md) and
+Status: built (2026-11-21), not released. How to use it: [Bindings](../../configuration/strip/bindings.md) and
 [Custom channels](../../configuration/channels/custom.md).
 
 The idea: every part of a strip (the fader, the encoder, the second line of the LCD, the color, the meter, each
@@ -124,3 +124,17 @@ range.
 - The LEDs take `on`, `1`, `true`, `yes` and `flash`; anything else is off.
 - Simulate runs the watches, never `set` or `run`.
 - With `[mqtt]`, the value of a program is a number in Home Assistant too.
+- A fader bound away from the volume gives the volume to the encoder, whatever it is bound to. A fader has no
+  `push`: that is an error, on a channel and in `[controls]`.
+- `{value}` in `run` is the value of the fader, else of the encoder, else the volume in percent. While it is not
+  known, the program does not run and the log says so. In `[controls]`, `{value}` needs a fader or an encoder there
+  that is a value or a `{ channel }`.
+- Two faders on one value (a custom channel and a `[controls]` claim of it) each hold their own touch: one that lets
+  go does not release the other. A custom strip moves its touch to the new target when it switches.
+- On an audio strip, `led = "press"` stays dark for a `{ run }`; on a custom strip it is lit while the program runs.
+- A bound meter shows its level whatever `behavior.meters` says.
+- Each part in Home Assistant has an entity of its own, named by the id of the channel. A place of a slot that sets a
+  part to `"homeassistant"` does nothing and logs it: only channels have entities. The entities of pool members
+  with parts in Home Assistant are not announced yet: that needs entities that change at runtime.
+- Simulate has no Home Assistant: a `homeassistant` channel shows its label, its color and `offline`, and its
+  controls do nothing. Whether a custom channel with `present` is there comes from the simulated situation.

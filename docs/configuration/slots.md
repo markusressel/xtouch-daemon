@@ -244,11 +244,25 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 ```
 
 `when` takes a [condition](#conditions) of states and modes: the controls apply while it holds. Actions:
-`homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, or `{ launch = [...] }` (see
-[Launching the application](channels/applications.md#launching-the-application)).
-A fader or an [encoder](strip/encoders.md) takes `homeassistant` (a number entity there), or the value of a
-[custom channel](channels/custom.md): `7 = { encoder = { channel = "screen_left" } }`. The slot keeps showing what it
-shows, and the [LED](strip/leds.md) ring shows the value.
+`homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, `{ launch = [...] }` (see
+[Launching the application](channels/applications.md#launching-the-application)), or `{ run = [...] }`, a program
+that runs to its end. A fader or an [encoder](strip/encoders.md) takes one of these:
+
+- `homeassistant`: a number entity in Home Assistant.
+- The value of a [custom channel](channels/custom.md): `7 = { encoder = { channel = "screen_left" } }`. A fader
+  claim needs a `fader` of the channel that is a value. An encoder claim takes the channel's own `encoder`, else the
+  value of its `fader`. With `targets`, the claim follows the target the channel controls.
+- A value of its own, as in [Bindings](strip/bindings.md): `{ set, watch, min, max, step, push, format }`. A fader
+  has no `push`.
+
+The slot keeps showing what it shows, and the [LED](strip/leds.md) ring shows the value. `{value}` in a `run` is the
+value of the fader of the controls, else of their encoder. It needs one of them to be a value or a `{ channel }`.
+Until the value is known, the program does not run; the log says so.
+
+```toml
+[controls]
+7 = { encoder = { set = "brightnessctl set {value}%", min = 1, max = 100 }, solo = { run = "notify-send {value}" } }
+```
 
 | Option of `[switching]` | Default | Meaning |
 |---|---|---|

@@ -94,8 +94,8 @@ keeps the volume on the other control. Each part gets its entity of the [list be
 | `select = { press = "homeassistant" }` (also `rec`, `solo`) | `event.<ns>_<id>_buttons` with `select_pressed`, `select_released`. |
 | `select = { led = "homeassistant" }` (also `rec`, `solo`) | `select.<ns>_<id>_select_led`. |
 
-A fader or an encoder bound to a program of your own is a number too: from the binding's `min` to its `max`, and a
-change there runs `set`. The parts that are not bound stay with PipeWire (see
+With `[mqtt]`, a fader or an encoder bound to a program of your own is a number too: from the binding's `min` to
+its `max`, and a change there runs `set`. The parts that are not bound stay with PipeWire (see
 [Buttons](../configuration/strip/leds.md#buttons)). A [`custom` channel](../configuration/channels/custom.md) takes
 the same parts, and Mute is a button like the others there. The channel's id names the entities, its `label` starts their
 names. See [Encoders](../configuration/strip/encoders.md#homeassistant) for the details.

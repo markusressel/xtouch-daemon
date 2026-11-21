@@ -100,6 +100,43 @@ at once). `{target}` without `targets` is an error, and so are targets that no p
 With `together = true`, a move sets every target at once, and the strip shows the first one, e.g. both screens at
 the same brightness.
 
+## Two screens
+
+Three ways to set the brightness of two screens. `sysctrl ... --watch` prints the brightness, e.g. `0.60`, at each
+change; the range is 0.1 to 1.0.
+
+As two channels, each a strip of its own, e.g. on slots 7 and 8:
+
+```toml
+[channel.screen_left]
+type = "custom"
+label = "Left"
+fader = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}", watch = "sysctrl display redshift brightness -d DisplayPort-1 --watch", min = 0.1, max = 1.0, format = "{value:.0%}" }
+
+[channel.screen_right]
+type = "custom"
+label = "Right"
+fader = { set = "sysctrl display redshift brightness -d DisplayPort-2 -b {value}", watch = "sysctrl display redshift brightness -d DisplayPort-2 --watch", min = 0.1, max = 1.0, format = "{value:.0%}" }
+
+[slots]
+7 = "screen_left"
+8 = "screen_right"
+```
+
+As one strip with two targets: Select switches between the screens, its LED is lit on the second one. This is the
+example of [Targets](#targets).
+
+As one strip for both screens at once: with `together`, a move sets both, and the strip shows the left screen.
+
+```toml
+[channel.screens]
+type = "custom"
+label = "Screens"
+targets = [{ name = "Left", value = "DisplayPort-1" }, { name = "Right", value = "DisplayPort-2" }]
+together = true
+fader = { set = "sysctrl display redshift brightness -d {target} -b {value}", watch = "sysctrl display redshift brightness -d {target} --watch", min = 0.1, max = 1.0, format = "{value:.0%}" }
+```
+
 ## Home Assistant
 
 A part set to `"homeassistant"` is the entity of that part in Home Assistant, as on a

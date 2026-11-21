@@ -9,6 +9,9 @@ the strip is muted. What the other three do, and what their LEDs show, is up to 
 | Rec | On device strips with [profiles](../channels/devices.md#profiles): switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise nothing, and its LED is lit while an application records (`recording`). |
 | Solo | Nothing; its LED stays dark. |
 
+A button can also run a program of your own, and an LED can show what Home Assistant or a program says: see
+[What the LED shows](#what-the-led-shows) and [Bindings](bindings.md).
+
 On `homeassistant` strips every LED is an entity that Home Assistant sets, see
 [Home Assistant](../../guides/home-assistant.md#entities).
 
@@ -59,6 +62,7 @@ that belongs to the channel. The buttons of a slot that act whatever the slot sh
 | `mode:<id>` | all | Picks the mode. |
 | `toggle:<id>` | all | Turns the state or mode on, and the next time gives it back to its sources. |
 | `{ launch = [...] }` | all | Starts the program, like a launch of [`[controls]`](../slots.md#controls-and-the-chord). `launch_when_running = true` starts it also while it runs. |
+| `{ run = [...] }` | all | Runs a program of your own to its end, e.g. `{ run = "sysctrl display redshift reset" }`. See [Run a program](#run-a-program). |
 | `off` | all | Nothing. |
 
 `talk`, `mute_others` and `homeassistant` last while the button is held: they take no `hold`.
@@ -71,6 +75,25 @@ that belongs to the channel. The buttons of a slot that act whatever the slot sh
 |---|---|
 | `press` | What a press does is so: the device is the default (`default`), the card is in another profile than the first (`profile`), the application runs (`launch`), the mode or state is on, the button is held (`talk`, `mute_others`). |
 | `shown` | The strip shows another device than the default one (after `next`). |
+| `homeassistant` | Home Assistant says so: the LED is a select entity (`off`, `on`, `flash`) of its own. Needs [`[mqtt]`](../../guides/home-assistant.md#entities). |
+| `{ watch = [...] }` | The newest line of the program is `on`, `1`, `true` or `yes`; `flash` flashes the LED, any other line turns it off. Until the first line, the LED is off. |
+
+On `output`, `input`, `apps` and `auto` strips, `press` stays dark for a `{ run }`. On a
+[custom channel](../channels/custom.md#buttons), `press` is lit while the program runs.
+
+```toml
+[channel.main.solo]
+press = { run = "notify-send 'Volume {value}'" }
+led = { watch = "redshift-state --watch" }   # prints on or off per change
+```
+
+## Run a program
+
+`{ run = [...] }` runs a program of your own, to its end, as `set` of a [binding](bindings.md) does. A string is
+split like a shell does, but nothing is expanded; a list is the program and its arguments. `{value}` in an argument
+is the value of the fader if it is [bound](bindings.md), else of the encoder, else the volume in percent. While the
+value is not known yet, the program does not run and the log says so. A program that fails or takes longer than 10
+seconds is logged as a warning. [Simulate](bindings.md#simulate) never runs it.
 
 ## Indicators
 

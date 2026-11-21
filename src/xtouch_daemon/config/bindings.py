@@ -139,7 +139,7 @@ class ValueBinding(Model):
     step: float | None = None
     """How much one step of the encoder changes the value. By default `behavior.encoder_step` percent of the range."""
     push: float | None = None
-    """The value a push of the encoder sets, e.g. the full brightness. Without it, a push does nothing."""
+    """The value a push of the encoder sets. Without it, a push does nothing. E.g. the full brightness."""
     format: str = "{value:g}"
     """How the LCD shows the value, in the format of Python. E.g. `{value:.0%}` shows 0.55 as `55%`."""
 

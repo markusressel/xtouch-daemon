@@ -77,7 +77,7 @@ class CustomStripConfig(Model):
     color: ColorPart = "white"
     """The backlight of the LCD. A `watch` sets it with each line that is a color name."""
     fader: CustomValuePart | None = None
-    """What the fader sets, e.g. the brightness of a screen. Without it, the fader stays down."""
+    """What the fader sets. Without it, the fader stays down. E.g. the brightness of a screen."""
     encoder: CustomValuePart | None = None
     """What the encoder sets. By default it sets the value of the fader in fine steps."""
     lcd: LcdPart | None = None
@@ -102,8 +102,8 @@ class CustomStripConfig(Model):
     """
     targets: tuple[Target, ...] = ()
     """
-    The things the strip controls one at a time, e.g. two screens. `{target}` in the programs is the `value` of the
-    target, the LCD shows its `name`. Select's `next` switches.
+    The things the strip controls one at a time. `{target}` in the programs is the `value` of the target, the LCD
+    shows its `name`. Select's `next` switches. E.g. two screens.
     """
     together: bool = False
     """A move sets every target at once. The strip shows the first one."""

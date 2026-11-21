@@ -27,25 +27,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: when the device is plugged in while the daemon drives the virtual device, a bar above the drawing says so and
   switches to it: "Switch to it" turns `[device] virtual` off and saves, "End the trial" ends the daemon of "Try
   without a device". The daemon looks for the device every 2 seconds meanwhile and logs when it is there.
-- Bindings: every part of a strip (fader, encoder and its ring, the second line of the LCD, the color, the meter,
-  each button's press, hold and LED) does what its channel type says, unless the channel binds it to Home Assistant
-  (`"homeassistant"`) or to programs of your own. A fader or an encoder takes a value that programs set and watch
-  (`fader = { set = "...{value}", watch = "...", min = 0.1, max = 1.0 }`), e.g. the brightness of a screen; `lcd`,
-  `color`, `meter` and an LED take a `{ watch = "..." }` whose lines they show; a press or a hold takes
-  `{ run = "..." }`. A fader bound away from the volume gives the volume to the encoder. With `[mqtt]`, each part in
-  Home Assistant has an entity of its own, and a bound value is a number there too. The new option `lcd` is the second
-  line of the LCD.
-- Custom channels (`type = "custom"`): a strip with no defaults, every part it uses bound. `targets` switch what it
-  controls (Select's `next`, `{target}` in the programs), `together` sets every target at once, and `present`
-  watches whether the channel is there. `check-config` lists the programs per target.
-- `[controls]` can give the fader or the encoder of any slot to the value of a custom channel
-  (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
-  (`{ run = "..." }`).
-- Simulate in the GUI and `xtouch-daemon simulate` run the `watch` programs, never `set` or `run`; parts in Home
-  Assistant look as while it is not there, and the situation alone says whether a custom channel is there.
-- GUI: a bind button next to the fader, the encoder, the LCD, the color and the meter binds them to Home Assistant or
-  to a program, with the options of the program under the part. The lists of a button on a channel take
-  `run: ...` and `watch: ...`.
+- Bindings and custom channels:
+  - Every part of a strip (fader, encoder and its ring, the second line of the LCD, the color, the meter, each
+    button's press, hold and LED) does what its channel type says, unless the channel binds it to Home Assistant
+    (`"homeassistant"`) or to programs of your own. A channel without bindings works as before.
+  - A fader or an encoder takes a value that programs set and watch
+    (`fader = { set = "...{value}", watch = "...", min = 0.1, max = 1.0 }`), e.g. the brightness of a screen. `lcd`,
+    `color`, `meter` and an LED take a `{ watch = "..." }` whose lines they show. A press or a hold takes
+    `{ run = "..." }`. A fader bound away from the volume gives the volume to the encoder. The new option `lcd` is the
+    second line of the LCD.
+  - With `[mqtt]`, each part in Home Assistant has an entity of its own, and a bound value is a number there too.
+  - Custom channels (`type = "custom"`) replace the `command` channels of the development branch: a strip with no
+    defaults, every part it uses bound. `targets` switch what it controls (Select's `next`, `{target}` in the
+    programs), `together` sets every target at once, and `present` watches whether the channel is there.
+    `check-config` lists the programs per target.
+  - `[controls]` can give the fader or the encoder of any slot to the value of a custom channel
+    (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
+    (`{ run = "..." }`).
+  - Simulate in the GUI and `xtouch-daemon simulate` run the `watch` programs, never `set` or `run`. Parts in Home
+    Assistant look as while it is not there, and the situation alone says whether a custom channel is there.
+  - GUI: a bind button next to the fader, the encoder, the LCD, the color and the meter binds them to Home Assistant
+    or to a program, with the options of the program under the part. The lists of a button on a channel take
+    `run: ...` and `watch: ...`.
 
 ### Changed
 

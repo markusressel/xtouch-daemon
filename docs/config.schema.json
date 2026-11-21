@@ -2028,7 +2028,7 @@
             }
           ],
           "default": null,
-          "description": "The value a push of the encoder sets, e.g. the full brightness. Without it, a push does nothing.",
+          "description": "The value a push of the encoder sets. Without it, a push does nothing. E.g. the full brightness.",
           "title": "Push"
         },
         "format": {
@@ -2585,7 +2585,7 @@
     },
     "strip.targets": {
       "default": [],
-      "description": "The things the strip controls one at a time, e.g. two screens. `{target}` in the programs is the `value` of the\ntarget, the LCD shows its `name`. Select's `next` switches.",
+      "description": "The things the strip controls one at a time. `{target}` in the programs is the `value` of the target, the LCD\nshows its `name`. Select's `next` switches. E.g. two screens.",
       "items": {
         "$ref": "#/$defs/Target"
       },
