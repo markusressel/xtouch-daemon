@@ -199,6 +199,21 @@ async def test_a_token_that_cant_be_read_says_so():
     assert tried.status.text == "Can't connect: homeassistant.token_file: /nowhere does not exist."
 
 
+async def test_an_unexpected_problem_is_a_result_too():
+    async def broken(config: HomeAssistantConfig) -> Fetched:
+        raise RuntimeError("something broke")
+
+    tried = await try_home_assistant(hass_config(), broken)
+    assert tried.status == Status("Can't connect to http://ha.test:8123: RuntimeError: something broke.", Tone.BAD)
+    assert tried.entities is None
+    assert tried.error == "RuntimeError: something broke"
+    # the cache is done with the read: the next field asks again
+    cache = EntityCache()
+    cache.start(hass_config())
+    cache.done(hass_config(), tried, 0.0)
+    assert cache.reading is None
+
+
 async def test_a_version_unknown_is_left_out():
     async def nameless(config: HomeAssistantConfig) -> Fetched:
         return Fetched("", ())
