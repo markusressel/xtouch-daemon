@@ -112,7 +112,7 @@ def test_the_options_of_a_strip_take_their_kinds_bounds_and_columns_from_the_mod
         ("balance", "volume", "homeassistant"),
     )
     assert (fader.kind, fader.base, fader.default, fader.home_assistant) == (Kind.BINDING, Kind.CHOICE, "volume", True)
-    assert [column.name for column in fader.columns] == ["set", "watch", "min", "max", "step", "format"]
+    assert [column.name for column in fader.columns] == ["set", "watch", "poll", "every", "min", "max", "step", "format"]
     assert (min_volume.kind, min_volume.default, min_volume.minimum, min_volume.maximum) == (Kind.INTEGER, None, 0, 200)
     assert (rec.kind, rec.default) == (Kind.BUTTON, None)
     assert [(column.name, column.kind) for column in rec.columns] == [
@@ -287,7 +287,7 @@ def test_a_part_that_can_be_bound_has_its_words_and_the_options_of_its_program()
     # a switch, or a level of Home Assistant or of a program
     meter = strip_option("output", "meter")
     assert (meter.base, meter.choices, meter.default, meter.home_assistant) == (Kind.SWITCH, (), True, True)
-    assert [column.name for column in meter.columns] == ["watch", "min", "max"]
+    assert [column.name for column in meter.columns] == ["watch", "poll", "every", "min", "max"]
     # colors keep their swatches; homeassistant is a binding of them
     color = strip_option("custom", "color")
     assert (color.base, color.default, color.home_assistant) == (Kind.COLOR, "white", True)
@@ -296,7 +296,7 @@ def test_a_part_that_can_be_bound_has_its_words_and_the_options_of_its_program()
     # a program only
     present = strip_option("custom", "present")
     assert (present.kind, present.base, present.home_assistant) == (Kind.BINDING, None, False)
-    assert [column.name for column in present.columns] == ["watch"]
+    assert [column.name for column in present.columns] == ["watch", "poll", "every"]
     lcd = strip_option("input", "lcd")
     assert (lcd.base, lcd.home_assistant, lcd.default) == (None, True, None)
 

@@ -40,6 +40,16 @@ async def test_a_program_that_takes_too_long_is_killed(monkeypatch: pytest.Monke
         await Commands().run([SH, "-c", "sleep 30"])
 
 
+async def test_a_poll_runs_to_its_end_and_gives_what_it_printed() -> None:
+    assert await Commands().output([SH, "-c", "echo 12:00; echo 12:01"], 5) == "12:00\n12:01\n"
+    with pytest.raises(CommandError, match=r"^/bin/sh failed \(2\): no sensor$"):
+        await Commands().output([SH, "-c", "echo 40; echo 'no sensor' >&2; exit 2"], 5)
+    with pytest.raises(CommandError, match="can't start /nonexistent/load"):
+        await Commands().output(["/nonexistent/load"], 5)
+    with pytest.raises(CommandError, match=r"took longer than 0\.2 s"):
+        await Commands().output([SH, "-c", "sleep 30"], 0.2)
+
+
 async def test_a_watch_gives_its_lines_until_it_ends() -> None:
     lines = [line async for line in Commands().lines([SH, "-c", "echo 0.60; echo ' 0.70 '"])]
     assert lines == ["0.60", "0.70"]
@@ -67,3 +77,4 @@ async def test_the_twin_watches_but_sets_nothing() -> None:
     # a program that would fail if it ran
     await commands.run([sys.executable, "-c", "raise SystemExit(1)"])
     assert [line async for line in commands.lines([SH, "-c", "echo 0.5"])] == ["0.5"]
+    assert await commands.output([SH, "-c", "echo 0.5"], 5) == "0.5\n"

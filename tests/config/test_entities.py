@@ -135,7 +135,7 @@ def custom(part: str) -> str:
         ('select = { press = { service = "toggle" } }', "select.press.service: toggle is no service"),
         ('select = { press = { service = "light.toggle", entity = "desk" } }', "select.press.entity: desk is no"),
         ('present = "on"', "present: Input should be a valid dictionary or instance of WatchBinding"),
-        ('select = { led = "playing" }', "{ watch = [...] }, or { entity = ... })"),
+        ('select = { led = "playing" }', "{ watch = [...] }, { poll = [...] }, or { entity = ... })"),
         ('select = { press = "default" }', "or { service = ... })"),
     ],
 )

@@ -14,12 +14,14 @@ of the places of errors.
 import re
 import shlex
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Literal
+from dataclasses import dataclass, replace
+from typing import Annotated, Literal, Self
 
 from pydantic import (
     AfterValidator,
     BaseModel,
     Discriminator,
+    Field,
     JsonValue,
     Tag,
     ValidationInfo,
@@ -97,34 +99,116 @@ def placeholders_of(argv: Sequence[str]) -> set[str]:
     return {match.group(1) for part in argv for match in _PLACEHOLDER.finditer(part)}
 
 
-def _no_value(argv: tuple[str, ...]) -> tuple[str, ...]:
-    if "value" in placeholders_of(argv):
-        raise ValueError(f"{VALUE} is for set and run: a watch has no value to give")
+def _no_value(argv: tuple[str, ...] | None, info: ValidationInfo) -> tuple[str, ...] | None:
+    if argv is not None and "value" in placeholders_of(argv):
+        raise ValueError(f"{VALUE} is for set and run: a {info.field_name} has no value to give")
     return argv
 
 
-class WatchBinding(Model):
-    """A part that shows what a program of your own prints: a line per change."""
+POLL_EVERY = 10.0
+"""Seconds between the runs of a `poll` program without `every`."""
 
-    watch: Command
+
+@dataclass(frozen=True)
+class Feed:
+    """
+    A program whose lines a part takes: one that runs all the time and prints a line per change (`watch`), or one
+    that runs to its end every `every` seconds and gives the last line it printed (`poll`).
+    """
+
+    argv: tuple[str, ...]
+    every: float | None = None
+    """Seconds from one run of a `poll` to the next; None for a `watch`."""
+
+    @property
+    def option(self) -> str:
+        """The option it comes from: `watch` or `poll`."""
+        return "watch" if self.every is None else "poll"
+
+    def filled(self, **placeholders: str) -> Feed:
+        """The same with the placeholders of its program filled in (`{target}`)."""
+        return replace(self, argv=tuple(fill(self.argv, **placeholders)))
+
+    def __str__(self) -> str:
+        every = f" (every {self.every:g} s)" if self.every is not None else ""
+        return f"{self.option}: {shlex.join(self.argv)}{every}"
+
+
+def _feed_of(binding: WatchBinding | ValueBinding) -> Feed | None:
+    """The feed of a binding with `watch` or `poll`; None for one with neither (a `ValueBinding` without a watch)."""
+    if binding.poll is not None:
+        return Feed(binding.poll, binding.every)
+    return Feed(binding.watch) if binding.watch is not None else None
+
+
+def _one_feed(binding: WatchBinding | ValueBinding, needed: bool) -> None:
+    """`watch` and `poll` are one or the other, `every` is for `poll`; `needed`: one of them is a must."""
+    if binding.watch is not None and binding.poll is not None:
+        raise ValueError(
+            "watch and poll: give one of them, watch for a program that runs all the time, poll for one that ends"
+        )
+    if needed and binding.watch is None and binding.poll is None:
+        raise ValueError("watch or poll: give the program that prints the lines")
+    if "every" in binding.model_fields_set and binding.poll is None:
+        raise ValueError("every: is for poll, which has none here")
+
+
+class WatchBinding(Model):
+    """A part that shows what a program of your own prints: a line per change, or the last line of each run."""
+
+    watch: Command | None = None
     """
     A program that runs all the time and prints a line per change. The part shows the newest line. E.g.
     `["playerctl", "status", "--follow"]`.
     """
+    poll: Command | None = None
+    """
+    A program that runs to its end every `every` seconds. The part shows the last line it prints. E.g.
+    `"date +%H:%M"`.
+    """
+    every: float = Field(POLL_EVERY, gt=0)
+    """Seconds from one run of `poll` to the next. A run that takes longer is stopped."""
 
-    @field_validator("watch")
+    @field_validator("watch", "poll")
     @classmethod
-    def _watch_has_no_value(cls, value: tuple[str, ...]) -> tuple[str, ...]:
-        return _no_value(value)
+    def _programs_have_no_value(cls, value: tuple[str, ...] | None, info: ValidationInfo) -> tuple[str, ...] | None:
+        return _no_value(value, info)
+
+    @model_validator(mode="after")
+    def _a_feed(self) -> Self:
+        _one_feed(self, needed=True)
+        return self
+
+    @property
+    def feed(self) -> Feed:
+        """The program it takes the lines of."""
+        feed = _feed_of(self)
+        assert feed is not None, "watch or poll (checked when the file is loaded)"
+        return feed
+
+    def filled(self, **placeholders: str) -> Self:
+        """The same with the placeholders of its programs filled in (`{target}`)."""
+        return self.model_copy(
+            update={
+                option: tuple(fill(argv, **placeholders))
+                for option in ("watch", "poll")
+                if (argv := getattr(self, option)) is not None
+            }
+        )
 
 
 class LevelBinding(WatchBinding):
     """A meter that shows a number that a program of your own prints, between `min` and `max`."""
 
-    watch: Command
+    watch: Command | None = None
     """
-    A program that runs all the time and prints a number per change. The meter shows it. E.g. the CPU load:
-    `["sh", "-c", "vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'"]`.
+    A program that runs all the time and prints a number per change. The meter shows it. E.g. a script of your own
+    that prints the CPU load: `"/home/me/bin/cpu-load"`.
+    """
+    poll: Command | None = None
+    """
+    A program that runs to its end every `every` seconds and prints a number. The meter shows the last one. E.g.
+    `["cat", "/sys/class/power_supply/BAT0/capacity"]`.
     """
     min: float = 0
     """The number with the meter dark."""
@@ -153,6 +237,13 @@ class ValueBinding(Model):
     A program that runs all the time and prints the value, one line per change. The fader, the LED ring and the LCD
     follow it.
     """
+    poll: Command | None = None
+    """
+    A program that runs to its end every `every` seconds and prints the value. The fader, the LED ring and the LCD
+    follow it.
+    """
+    every: float = Field(POLL_EVERY, gt=0)
+    """Seconds from one run of `poll` to the next. A run that takes longer is stopped."""
     min: float = 0
     """The value with the fader at the bottom and the LED ring empty."""
     max: float = 100
@@ -171,10 +262,10 @@ class ValueBinding(Model):
             raise ValueError(f"no argument has {VALUE}, so the value goes nowhere")
         return value
 
-    @field_validator("watch")
+    @field_validator("watch", "poll")
     @classmethod
-    def _watch_has_no_value(cls, value: tuple[str, ...] | None) -> tuple[str, ...] | None:
-        return value if value is None else _no_value(value)
+    def _programs_have_no_value(cls, value: tuple[str, ...] | None, info: ValidationInfo) -> tuple[str, ...] | None:
+        return _no_value(value, info)
 
     @field_validator("max")
     @classmethod
@@ -208,10 +299,21 @@ class ValueBinding(Model):
             raise ValueError(f"{value} can't show a value: {e}") from e
         return value
 
+    @model_validator(mode="after")
+    def _a_feed(self) -> Self:
+        _one_feed(self, needed=False)
+        return self
+
+    @property
+    def feed(self) -> Feed | None:
+        """The program it follows the value of; None without `watch` and `poll`."""
+        return _feed_of(self)
+
     @property
     def programs(self) -> dict[str, tuple[str, ...]]:
         """Its programs, by option."""
-        return {"set": self.set} | ({"watch": self.watch} if self.watch is not None else {})
+        feed = self.feed
+        return {"set": self.set} | ({feed.option: feed.argv} if feed is not None else {})
 
 
 class RunAction(Model):
@@ -382,12 +484,12 @@ def describe_part(part: object) -> str:
     """A part for people: its word, or what it is bound to (`a value from 0.1 to 1, set: ...`, `watch: ...`)."""
     match part:
         case ValueBinding():
-            watch = f", watch: {shlex.join(part.watch)}" if part.watch is not None else ""
-            return f"a value from {part.min:g} to {part.max:g}, set: {shlex.join(part.set)}{watch}"
+            feed = f", {part.feed}" if part.feed is not None else ""
+            return f"a value from {part.min:g} to {part.max:g}, set: {shlex.join(part.set)}{feed}"
         case LevelBinding():
-            return f"from {part.min:g} to {part.max:g}, watch: {shlex.join(part.watch)}"
+            return f"from {part.min:g} to {part.max:g}, {part.feed}"
         case WatchBinding():
-            return f"watch: {shlex.join(part.watch)}"
+            return str(part.feed)
         case RunAction():
             return f"run {shlex.join(part.run)}"
         case EntityValueBinding():
@@ -416,12 +518,12 @@ def programs_in(config: BaseModel, parts: Sequence[str], buttons: Sequence[str])
 
 
 def programs_of(part: object) -> dict[str, tuple[str, ...]]:
-    """The programs of a part, by option (`set`, `watch`, `run`): none for a word."""
+    """The programs of a part, by option (`set`, `watch`, `poll`, `run`): none for a word."""
     match part:
         case ValueBinding():
             return part.programs
         case WatchBinding():
-            return {"watch": part.watch}
+            return {part.feed.option: part.feed.argv}
         case RunAction():
             return {"run": part.run}
         case _:

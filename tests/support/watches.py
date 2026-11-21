@@ -1,6 +1,7 @@
 """
-Programs of your own run by nobody, with a `watch` each: `ProgramCommands` prints a line to the watches of one program,
-so a test can feed a strip with several watches (its color, its LEDs, its presence, a target each).
+Programs of your own run by nobody, with a `watch` or a `poll` each: `ProgramCommands` prints a line to the watches of
+one program, and a text for the polls of one, so a test can feed a strip with several (its color, its LEDs, its
+presence, a target each).
 """
 
 import asyncio
@@ -14,12 +15,14 @@ from xtouch_daemon.system.commands import CommandError
 class ProgramCommands(FakeCommands):
     """
     `FakeCommands` whose watches print what `print_to()` feeds their program (by its command line). A line fed before
-    the watch starts waits for it.
+    the watch starts waits for it. A poll prints what `polled` has for its program, else nothing.
     """
 
     def __init__(self) -> None:
         super().__init__()
         self._queues: dict[str, asyncio.Queue[str | None]] = {}
+        self.polled: dict[str, str] = {}
+        """What each poll program (by its command line) prints."""
 
     def _queue(self, program: str) -> asyncio.Queue[str | None]:
         return self._queues.setdefault(program, asyncio.Queue())
@@ -39,3 +42,11 @@ class ProgramCommands(FakeCommands):
         queue = self._queue(shlex.join(argv))
         while (line := await queue.get()) is not None:
             yield line
+
+    def polling(self, program: str) -> int:
+        """How often the program ran as a poll."""
+        return sum(1 for argv, _ in self.polls if shlex.join(argv) == program)
+
+    async def output(self, argv: Sequence[str], limit: float) -> str:
+        await super().output(argv, limit)
+        return self.polled.get(shlex.join(argv), "")

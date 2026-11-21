@@ -62,8 +62,8 @@ class BaseStripConfig(Model):
     """
     meter: MeterPart = True
     """
-    The LED meter shows the level. Needs `behavior.meters`. A `watch` makes it show each number it prints, from
-    `min` to `max`.
+    The LED meter shows the level. Needs `behavior.meters`. A `watch` or a `poll` makes it show each number it
+    prints, from `min` to `max`.
     """
     meter_point: Annotated[MeterPoint, METER_POINTS] | None = None
     """
@@ -98,8 +98,8 @@ class BaseStripConfig(Model):
     """What the fader sets. Bound to something else, it gives the volume to the encoder."""
     lcd: LcdPart | None = None
     """
-    The second line of the LCD, instead of the volume. A `watch` shows each line it prints. By default what the
-    strip type shows.
+    The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints. By default
+    what the strip type shows.
     """
 
     @property

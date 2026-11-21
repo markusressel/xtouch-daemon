@@ -15,7 +15,6 @@ from xtouch_daemon.config.bindings import (
     ServiceAction,
     ValueBinding,
     WatchBinding,
-    fill,
     fill_data,
 )
 from xtouch_daemon.homeassistant.client import HomeAssistantError
@@ -111,7 +110,7 @@ class EntityValue(BoundValue):
 
 
 type Line = WatchedLine | EntityLine
-"""The lines a part shows: of a `watch`, or of an entity."""
+"""The lines a part shows: of a `watch` or a `poll`, or of an entity."""
 
 
 def open_line(
@@ -121,17 +120,17 @@ def open_line(
     kind: LineKind,
     placeholders: Mapping[str, str] | None = None,
 ) -> Line:
-    """The lines of a part bound to a `watch` (with `placeholders` filled in), or to an entity."""
+    """The lines of a part bound to a `watch` or a `poll` (with `placeholders` filled in), or to an entity."""
     if isinstance(part, EntityBinding):
         return EntityLine(part, commands, kind)
-    return WatchedLine(fill(part.watch, **(placeholders or {})), commands, what)
+    return WatchedLine(part.feed.filled(**(placeholders or {})), commands, what)
 
 
 def line_source(part: WatchBinding | EntityBinding, kind: LineKind) -> tuple[object, ...]:
     """What the lines of a part come from (see `WatchedLine.source`, `EntityLine.source`)."""
     if isinstance(part, EntityBinding):
         return ("entity", part.entity, part.attribute, kind)
-    return ("watch", tuple(part.watch))
+    return ("program", part.feed)
 
 
 def open_value(

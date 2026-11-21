@@ -38,9 +38,9 @@ into a place in a slot, for the strips they show; a place of `apps`, `auto` or `
 
 | Option | Default | Meaning |
 |---|---|---|
-| `color` | `"white"` | The LCD backlight: `off` (no backlight), `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `"homeassistant"` or `{ watch }` ([Bindings](../strip/bindings.md)). Dark while the strip has nothing to control, unless `lit_when_idle` is on. |
+| `color` | `"white"` | The LCD backlight: `off` (no backlight), `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `"homeassistant"`, `{ watch }` or `{ poll }` ([Bindings](../strip/bindings.md)). Dark while the strip has nothing to control, unless `lit_when_idle` is on. |
 | `lit_when_idle` | `false` | Whether the LCD keeps its backlight while the strip has nothing to control: no application of an `apps` group plays, the device is not there, an `auto` strip has no application. The fader stays down all the same. |
-| `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). `"homeassistant"` or `{ watch, min, max }` show another level, see [Bindings](../strip/bindings.md). |
+| `meter` | `true` | Whether this strip's LED meter shows the level (if `behavior.meters` is on). `"homeassistant"`, `{ watch, min, max }` or `{ poll, min, max }` show another level, see [Bindings](../strip/bindings.md). |
 | `meter_point` | `behavior.meter_point` | Where the meter takes the level: `"pre_fader"` before the volume and Mute of the strip, `"post_fader"` after them, see [Meters](#meters). |
 | `rec` | `"recording"` | What the Rec button does and what its LED shows; an indicator alone (`recording`, `playing`, `default`, `muted` or `off`) sets the LED, see [Buttons and LEDs](../strip/leds.md). |
 | `solo` | `"off"` | The same for Solo, see [Buttons and LEDs](../strip/leds.md). |
@@ -49,7 +49,7 @@ into a place in a slot, for the strips they show; a place of `apps`, `auto` or `
 | `max_volume` | `behavior.max_volume` | The volume of the fader at the top, 0..200 percent. |
 | `encoder` | depends on the type | What the encoder does: a mode, or a value of your own, see [Encoders](../strip/encoders.md). |
 | `fader` | `"volume"` | `"homeassistant"` hands the fader to Home Assistant, see [Encoders](../strip/encoders.md#fader-homeassistant); a value of your own (`{ set, watch, ... }`) binds it to programs, see [Bindings](../strip/bindings.md). Either gives the volume to the encoder. |
-| `lcd` | what the type shows | The second line of the LCD: `"homeassistant"` or `{ watch }`, see [Bindings](../strip/bindings.md). |
+| `lcd` | what the type shows | The second line of the LCD: `"homeassistant"`, `{ watch }` or `{ poll }`, see [Bindings](../strip/bindings.md). |
 
 Device and application channels also have a `label`, see their pages. A candidate of a slot can change the look at
 that place: `{ show = "mic", color = "blue" }` (see [Slots](../slots.md#slots)).

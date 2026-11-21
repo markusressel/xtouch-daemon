@@ -10,7 +10,7 @@ import pytest
 
 from tests.support.commands import END, FakeCommands
 from tests.support.tasks import settle
-from xtouch_daemon.config.bindings import ValueBinding
+from xtouch_daemon.config.bindings import Feed, ValueBinding
 from xtouch_daemon.hardware.protocol import Led, RingMode
 from xtouch_daemon.strips import value as value_module
 from xtouch_daemon.strips.knobs import ring_position
@@ -18,6 +18,7 @@ from xtouch_daemon.strips.value import (
     CommandValue,
     WatchedLine,
     color_of_line,
+    last_line,
     led_of_line,
     level_of_line,
     parse_value,
@@ -259,7 +260,7 @@ def test_a_line_is_a_level_between_min_and_max():
 async def test_a_watched_line_is_the_newest_and_tells_its_listeners() -> None:
     commands = FakeCommands()
     changes: list[str | None] = []
-    watched = WatchedLine(["playerctl", "status", "--follow"], commands, "music.lcd")
+    watched = WatchedLine(Feed(("playerctl", "status", "--follow")), commands, "music.lcd")
     watched.listeners.append(lambda: changes.append(watched.line))
     assert watched.line is None
     await settle()
@@ -276,7 +277,7 @@ async def test_a_watched_line_is_the_newest_and_tells_its_listeners() -> None:
 async def test_a_watched_line_runs_again_after_its_program_ended(caplog: pytest.LogCaptureFixture) -> None:
     commands = FakeCommands()
     with caplog.at_level(logging.WARNING):
-        watched = WatchedLine(["status"], commands, "music.lcd")
+        watched = WatchedLine(Feed(("status",)), commands, "music.lcd")
         await settle()
         commands.print("Playing")
         commands.print(END)
@@ -300,3 +301,100 @@ async def test_a_program_runs_to_its_end_and_its_problems_are_logged(caplog: pyt
         run_program(commands, ["reset"], "screen.select")
         await commands.wait_closed()
     assert "screen.select: reset failed (1): no display" in caplog.text
+
+
+def test_a_poll_gives_the_last_line_with_text():
+    assert last_line("12:00\n12:01\n") == "12:01"
+    assert last_line(" 42 \n\n  \n") == "42"
+    assert last_line("") == ""
+    assert last_line("\n \n") == ""
+
+
+async def test_a_poll_runs_every_so_many_seconds_and_gives_its_last_line() -> None:
+    commands = FakeCommands()
+    loop = asyncio.get_running_loop()
+    start = loop.time()
+    changes: list[str | None] = []
+    commands.printed = "12:00\n"
+    polled = WatchedLine(Feed(("date", "+%H:%M"), 10), commands, "clock.lcd")
+    polled.listeners.append(lambda: changes.append(polled.line))
+    await settle()
+    assert polled.line == "12:00"
+    # between two runs
+    await asyncio.sleep(5)
+    commands.printed = "12:00\n12:01\n"
+    await asyncio.sleep(10)
+    # the same line again changes nothing
+    await asyncio.sleep(10)
+    # a run without text gives an empty line
+    commands.printed = "\n"
+    await asyncio.sleep(10)
+    assert changes == ["12:00", "12:01", ""]
+    assert [(argv, at - start) for argv, at in commands.polls] == [(["date", "+%H:%M"], 10.0 * n) for n in range(4)]
+    polled.close()
+    await commands.wait_closed()
+    assert polled.source == ("program", Feed(("date", "+%H:%M"), 10))
+
+
+async def test_a_slow_poll_is_stopped_after_every_so_runs_never_overlap(caplog: pytest.LogCaptureFixture) -> None:
+    commands = FakeCommands()
+    loop = asyncio.get_running_loop()
+    start = loop.time()
+    # a run that takes 3 of the 5 seconds: the next starts 5 seconds after the one before started
+    commands.poll_time = 3
+    commands.printed = "40"
+    polled = WatchedLine(Feed(("load",), 5), commands, "cpu.meter")
+    await asyncio.sleep(6)
+    assert [at - start for _, at in commands.polls] == [0.0, 5.0]
+    assert polled.line == "40"
+    # a run that takes longer than 5 seconds is stopped after 5: the next starts at once
+    commands.poll_time = 60
+    with caplog.at_level(logging.WARNING):
+        await asyncio.sleep(12)
+    assert [at - start for _, at in commands.polls] == [0.0, 5.0, 10.0, 15.0]
+    assert "cpu.meter: poll: load took longer than 5 s" in caplog.text
+    assert polled.line == "40"
+    polled.close()
+    await commands.wait_closed()
+
+
+async def test_a_failing_poll_is_logged_once_until_a_run_works(caplog: pytest.LogCaptureFixture) -> None:
+    commands = FakeCommands()
+    commands.failing = "load failed (1): no sensor"
+    with caplog.at_level(logging.WARNING):
+        polled = WatchedLine(Feed(("load",), 1), commands, "cpu.meter")
+        await asyncio.sleep(2.5)
+        assert len(commands.polls) == 3
+        assert caplog.text.count("cpu.meter: poll: load failed (1): no sensor") == 1
+        # a failed run gives no line
+        assert polled.line is None
+        commands.failing = "load failed (2): busy"
+        await asyncio.sleep(1)
+        assert caplog.text.count("cpu.meter: poll: load failed (2): busy") == 1
+        commands.failing = None
+        commands.printed = "7"
+        await asyncio.sleep(1)
+        assert polled.line == "7"
+        commands.failing = "load failed (2): busy"
+        await asyncio.sleep(1)
+        assert caplog.text.count("cpu.meter: poll: load failed (2): busy") == 2
+    polled.close()
+    await commands.wait_closed()
+
+
+async def test_a_poll_tells_the_value_with_its_targets_filled_in() -> None:
+    commands = FakeCommands()
+    commands.printed = "brightness: 0.40\n"
+    knob = CommandValue(
+        ValueBinding.model_validate({"set": "b -d {target} {value}", "poll": "b -d {target} -g", "every": 2}),
+        commands,
+        1,
+        "screen",
+        {"target": "DP-2"},
+    )
+    await settle()
+    assert [argv for argv, _ in commands.polls] == [["b", "-d", "DP-2", "-g"]]
+    assert knob.value == 0.4
+    assert commands.watches == []
+    knob.close()
+    await commands.wait_closed()
