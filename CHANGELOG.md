@@ -142,6 +142,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   lines that are not the protocol. Before, it ended the connection of the plugin.
 - Docs: the page of the voice chat bridge said that a new plugin replaces the connected one; the daemon refuses it.
   The page now also explains `pre_fader_level`.
+- GUI: when the daemon ends the preview on the device (e.g. another window previews there), the window says why for
+  as long as the preview stays in the GUI. The answer of the daemon to the preview in the GUI cleared the message at
+  once.
 - GUI: an error in the window no longer ends the program with a core dump (e.g. one while it was built): it is
   logged, the status line says it, and the window goes on.
 - GUI: Ctrl+C or SIGTERM no longer crash the GUI while the window is built or draws: they close the window from its
