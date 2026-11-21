@@ -1,7 +1,7 @@
 """
 A strip of the device: what it shows (LCD, LEDs, ring, meter) and where its fader is, which glides to its target
 like a damped spring. `VirtualStrip` is the strip of a channel, on a slot of the device or off it (see
-`runtime/binder.py`).
+`daemon/binder.py`).
 """
 
 import asyncio

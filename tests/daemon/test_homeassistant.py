@@ -17,9 +17,9 @@ from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.sections import MqttConfig
+from xtouch_daemon.daemon.homeassistant import SlotEntities
+from xtouch_daemon.daemon.slots import SlotEngine
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime.homeassistant import SlotEntities
-from xtouch_daemon.runtime.slots import SlotEngine
 from xtouch_daemon.slots.states import Override
 
 CONFIG = """
@@ -169,7 +169,7 @@ async def test_a_person_without_a_channel_is_published_as_a_person(setup: tuple[
     config = parse_config(CONFIG.replace('provider = "demo"', 'provider = "demo"\nparticipants = ["Ann"]'))
     assert config.slots is not None
     assert config.voip is not None
-    from xtouch_daemon.runtime.daemon import voip_state
+    from xtouch_daemon.daemon.lifecycle import voip_state
     from xtouch_daemon.voip.demo import DemoProvider
 
     engine = SlotEngine(config)

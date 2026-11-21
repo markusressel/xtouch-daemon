@@ -18,6 +18,11 @@ from tests.support.waiting import until
 from tests.support.watches import ProgramCommands
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon import lifecycle as daemon_module
+from xtouch_daemon.daemon import rig as rig_module
+from xtouch_daemon.daemon.binder import SlotMixer
+from xtouch_daemon.daemon.lifecycle import Daemon
+from xtouch_daemon.daemon.slots import SlotEngine
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.live.messages import (
@@ -28,11 +33,6 @@ from xtouch_daemon.live.messages import (
     StateView,
     VoipState,
 )
-from xtouch_daemon.runtime import daemon as daemon_module
-from xtouch_daemon.runtime import rig as rig_module
-from xtouch_daemon.runtime.binder import SlotMixer
-from xtouch_daemon.runtime.daemon import Daemon
-from xtouch_daemon.runtime.slots import SlotEngine
 from xtouch_daemon.slots.inputs import App
 from xtouch_daemon.slots.states import Override
 from xtouch_daemon.strips.apps import AutoStrip
@@ -570,7 +570,7 @@ async def test_the_live_view_shows_the_slots_and_sets_modes_and_overrides(
 
 
 def test_how_the_live_view_names_members() -> None:
-    from xtouch_daemon.runtime.slots import _member_text
+    from xtouch_daemon.daemon.slots import _member_text
     from xtouch_daemon.slots.inputs import Channel, Person
 
     assert _member_text(App("Spotify")) == "app:Spotify"

@@ -15,14 +15,14 @@ from tests.support.daemon import QUIET, SPEAKER, STATE
 from tests.support.simulator import MemoryPort
 from tests.support.waiting import until
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon import lifecycle as daemon_module
+from xtouch_daemon.daemon.lifecycle import Daemon
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.live.device_test import TestRefused, run_test_in_daemon
 from xtouch_daemon.live.messages import EndTest, KeepTest, Play, Reply, StartPreview, StartTest
-from xtouch_daemon.runtime import daemon as daemon_module
-from xtouch_daemon.runtime.daemon import Daemon
 
 BOXES = SPEAKER.replace('"Speaker"', '"Boxes"')
 

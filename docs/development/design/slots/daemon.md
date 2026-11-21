@@ -10,11 +10,11 @@ changed.
 
 | Part | Lives as long as | What |
 |---|---|---|
-| `Desk` (`runtime/desk.py`) | the daemon | The 8 strips of the device: touches, held buttons and touchless faders (`held_slots()`), the events to the presenter bound to each slot or to a claim, the meters of what is bound, banners and flashes. |
-| `SlotEngine` (`runtime/slots.py`) | the daemon | The `StateEngine`, presence, the members of the pools, the resolver with dwell, pins and the order of the people; keeps overrides, the mode picked and the people across restarts; wakes at the deadlines of the delays (no polling). A reload carries its state over by state, channel and member id. |
-| `SlotMixer` (`runtime/binder.py`) | the configuration | A controller with its own `VirtualStrip` per channel, per application of `auto` and per person without a channel while they are members (made when it becomes one, closed when its `hold` or `absent_after` ends; it moves between slots unchanged). Binds only the slots whose result changed; a controller gets its look and the options of its place when it is bound, its identity is its channel or member. |
-| `Controls` (`runtime/controls.py`) | the configuration | The `[controls]` of each slot with their entities, bound to the `Desk`'s slot, not to what it shows. |
-| `SlotEntities` (`runtime/homeassistant.py`) | the configuration | The entities of the states, overrides, the mode and the slots. |
+| `Desk` (`daemon/desk.py`) | the daemon | The 8 strips of the device: touches, held buttons and touchless faders (`held_slots()`), the events to the presenter bound to each slot or to a claim, the meters of what is bound, banners and flashes. |
+| `SlotEngine` (`daemon/slots.py`) | the daemon | The `StateEngine`, presence, the members of the pools, the resolver with dwell, pins and the order of the people; keeps overrides, the mode picked and the people across restarts; wakes at the deadlines of the delays (no polling). A reload carries its state over by state, channel and member id. |
+| `SlotMixer` (`daemon/binder.py`) | the configuration | A controller with its own `VirtualStrip` per channel, per application of `auto` and per person without a channel while they are members (made when it becomes one, closed when its `hold` or `absent_after` ends; it moves between slots unchanged). Binds only the slots whose result changed; a controller gets its look and the options of its place when it is bound, its identity is its channel or member. |
+| `Controls` (`daemon/controls.py`) | the configuration | The `[controls]` of each slot with their entities, bound to the `Desk`'s slot, not to what it shows. |
+| `SlotEntities` (`daemon/homeassistant.py`) | the configuration | The entities of the states, overrides, the mode and the slots. |
 
 - Times come from the loop's clock (`loop.time()`).
 - **The `Desk`** routes by slot and control (fader, encoder, each button) to an owner: the bound presenter or a claim.

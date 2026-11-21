@@ -29,6 +29,12 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path, load_config, parse_config
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.daemon.binder import SlotMixer
+from xtouch_daemon.daemon.device_memory import DEVICES_FILE_NAME, DeviceMemory
+from xtouch_daemon.daemon.homeassistant import SlotEntities
+from xtouch_daemon.daemon.rig import Rig
+from xtouch_daemon.daemon.slots import PROCESS_INTERVAL
+from xtouch_daemon.daemon.twin import Twin
 from xtouch_daemon.hardware.protocol import StripEvent
 from xtouch_daemon.hardware.selftest import TestBench, sweep
 from xtouch_daemon.hardware.strip import Strip
@@ -59,12 +65,6 @@ from xtouch_daemon.live.messages import (
 )
 from xtouch_daemon.live.server import LiveServer, strip_states, voip_state
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime.binder import SlotMixer
-from xtouch_daemon.runtime.device_memory import DEVICES_FILE_NAME, DeviceMemory
-from xtouch_daemon.runtime.homeassistant import SlotEntities
-from xtouch_daemon.runtime.rig import Rig
-from xtouch_daemon.runtime.slots import PROCESS_INTERVAL
-from xtouch_daemon.runtime.twin import Twin
 from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.recording import Observer
@@ -147,7 +147,7 @@ class TwinSession:
 
 class Daemon(Rig):
     """
-    The rig of the device (see `runtime.rig`), with the configuration file, Home Assistant, the live view of the GUI,
+    The rig of the device (see `daemon.rig`), with the configuration file, Home Assistant, the live view of the GUI,
     its previews and its virtual twins.
     """
 
@@ -200,7 +200,7 @@ class Daemon(Rig):
         self._bench: TestBench | None = None
         """The strips answering their controls, after the sweep."""
         self._twins: dict[object, TwinSession] = {}
-        """The virtual twins (see `runtime.twin`), by the client of the live view that asked for them."""
+        """The virtual twins (see `daemon.twin`), by the client of the live view that asked for them."""
         self._closing: set[asyncio.Task[None]] = set()
         """The twins that ended and are stopping (see `_close_twin()`): the shutdown waits for them."""
         self._file_stamp = self._stamp()
@@ -227,7 +227,7 @@ class Daemon(Rig):
         commands = commands if commands is not None else Commands()
         commands.hass = self.hass
         self.devices_seen = DeviceMemory(state_dir / DEVICES_FILE_NAME if state_dir is not None else None)
-        """The devices the sound server had, for the suggestions of the GUI (see `runtime.device_memory`)."""
+        """The devices the sound server had, for the suggestions of the GUI (see `daemon.device_memory`)."""
         super().__init__(
             config,
             surface or device_surface(config.device.name, config.device.virtual),

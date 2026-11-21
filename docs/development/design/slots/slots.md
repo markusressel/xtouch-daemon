@@ -65,7 +65,7 @@ Conditions never look at the result, so the steps run once each, in this order: 
 
 ## Stability
 
-- **Batching**: changes are resolved together 0.1 s after the first one (`runtime/slots.BATCH`): a game starts
+- **Batching**: changes are resolved together 0.1 s after the first one (`daemon/slots.BATCH`): a game starts
   several streams and a process at once, and the faders move once.
 - **Dwell**: a slot keeps what it shows for at least 1 s before it changes again (`slots/simulation.DWELL`).
 - **Nothing changes under a finger**: a held slot is fixed (step 1) until let go, with its claims. A fader in

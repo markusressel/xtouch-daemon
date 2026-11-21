@@ -9,8 +9,8 @@ from tests.support.hardware import RecordingSurface
 from tests.support.mqtt import FakeBroker
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon.lifecycle import Daemon
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime.daemon import Daemon
 
 SPEAKER = """[channel.speaker]
 type = "output"

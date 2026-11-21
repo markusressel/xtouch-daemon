@@ -32,10 +32,10 @@ from xtouch_daemon.config.bindings import (
     placeholders_of,
 )
 from xtouch_daemon.config.values import ColorName, color_of
+from xtouch_daemon.daemon.desk import Desk
 from xtouch_daemon.hardware.protocol import METER_MAX, Button, Led, RingMode
 from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable, Maskable, Strip
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.slots.model import DEFAULT, ChannelControl, ControlsConfig, Launch, Scene
 from xtouch_daemon.strips.base import OFFLINE_TEXT, Identity, SlotActions
 from xtouch_daemon.strips.bound import kind_of

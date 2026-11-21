@@ -11,7 +11,7 @@ from tests.support.daemon import SPEAKER, Notifications
 from tests.support.mqtt import FakeBroker
 from tests.support.tasks import finish_tasks
 from xtouch_daemon import mqtt as mqtt_module
-from xtouch_daemon.runtime import daemon as daemon_module
+from xtouch_daemon.daemon import lifecycle as daemon_module
 
 
 @pytest.fixture

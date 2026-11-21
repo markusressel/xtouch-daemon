@@ -21,7 +21,7 @@ graph LR
     Surface -- "what the strips show (live/)" --> Live[LiveServer<br/>$XDG_RUNTIME_DIR/xtouch-daemon.sock]
     Live -- "a JSON line per change" --> GUI[xtouch-daemon gui]
     GUI -- "mode, override, preview, play" --> Live
-    Daemon -- "steps (runtime/slots.py)" --> Engine
+    Daemon -- "steps (daemon/slots.py)" --> Engine
     Voip[VoipProvider<br/>voip/] -- "participants" --> Engine & Mixer
 ```
 
@@ -41,13 +41,13 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `config/` | The TOML configuration, validated with pydantic: `files`, `model` (`Config`), `sections`, `slots` (the strip of every candidate), the strip types (`strip`, `strips`, `audio_strips`, `voip_strips`), `values`, `names` and `presets` ([Design: presets](../design/presets.md)). |
 | `strips/` | The controllers of a strip: `DeviceStrip` (`ChoiceStrip` for `choices`), `AppGroupStrip`, `AutoStrip`, `VoipStrip` (a person), `HomeAssistantStrip`, `EmptyStrip`, on the base `VolumeStrip`. A controller gets its `Identity` (entity ids and names) and its `Look` (label, color, meter, LEDs) from the binder (`look_of()`). |
 | `slots/` | [Channels, states and slots](../design/slots/index.md) without the device: `model`, `expressions`, `inputs` (presence), `timing`, `states`, `resolver`, `simulation`, `outcomes`, `why`, `recording` and `replay`. Pure but for the recorder. |
-| `runtime/rig.py` | `Rig`: the strips of a configuration on one surface (`Desk`, `SlotEngine`, `SlotMixer`), the loop that steps the slots, the requests of modes and overrides and the chord. The `Daemon` is the rig of the device, a virtual twin (`runtime/twin.py`) one on a device that is never there. |
-| `runtime/daemon.py` | `Daemon`: the lifecycle (signals, reload, preview, shutdown, systemd notifications) and the requests of the live view. |
-| `runtime/desk.py` | `Desk`: the strips of the device for as long as the daemon runs. Hands each event to the controller (`Presenter`) bound to its strip and a release to whoever got the press; follows the hands and the chord; runs the meters of what is bound now. A claim (`[controls]`) takes the controls it names (`mask()`). |
-| `runtime/slots.py`, `runtime/slot_files.py` | `SlotEngine`: steps a `Simulation` (0.1 s after a change, at the deadlines of its delays, every 2 s for the processes), takes the requests (mode, override, pick and pin), keeps overrides, the mode picked (`slots.json`) and the people (`people.json`) across restarts ([what the daemon remembers](../design/state-files.md)), and carries its state over a reload by id. |
-| `runtime/binder.py` | `SlotMixer`: a controller per channel for as long as the configuration, per application of `auto` and per person without a channel while they are members. After each step it binds only the slots whose result changed. |
-| `runtime/controls.py` | `Controls`: the `[controls]` of the slots and their entities; the first entry of a slot whose `when` holds claims its controls on the `Desk`. |
-| `runtime/homeassistant.py` | `SlotEntities`: the entities of the mode, the states and their overrides, the channels shown and the slots, published after each step when they changed. |
+| `daemon/rig.py` | `Rig`: the strips of a configuration on one surface (`Desk`, `SlotEngine`, `SlotMixer`), the loop that steps the slots, the requests of modes and overrides and the chord. The `Daemon` is the rig of the device, a virtual twin (`daemon/twin.py`) one on a device that is never there. |
+| `daemon/lifecycle.py` | `Daemon`: the lifecycle (signals, reload, preview, shutdown, systemd notifications) and the requests of the live view. |
+| `daemon/desk.py` | `Desk`: the strips of the device for as long as the daemon runs. Hands each event to the controller (`Presenter`) bound to its strip and a release to whoever got the press; follows the hands and the chord; runs the meters of what is bound now. A claim (`[controls]`) takes the controls it names (`mask()`). |
+| `daemon/slots.py`, `daemon/slot_files.py` | `SlotEngine`: steps a `Simulation` (0.1 s after a change, at the deadlines of its delays, every 2 s for the processes), takes the requests (mode, override, pick and pin), keeps overrides, the mode picked (`slots.json`) and the people (`people.json`) across restarts ([what the daemon remembers](../design/state-files.md)), and carries its state over a reload by id. |
+| `daemon/binder.py` | `SlotMixer`: a controller per channel for as long as the configuration, per application of `auto` and per person without a channel while they are members. After each step it binds only the slots whose result changed. |
+| `daemon/controls.py` | `Controls`: the `[controls]` of the slots and their entities; the first entry of a slot whose `when` holds claims its controls on the `Desk`. |
+| `daemon/homeassistant.py` | `SlotEntities`: the entities of the mode, the states and their overrides, the channels shown and the slots, published after each step when they changed. |
 | `homeassistant/` | The API of Home Assistant: `client` (`HomeAssistant`, one WebSocket connection for the daemon: it follows all entities and calls services; `fetch_entities()` once), `states` (`EntityState`), `parts` (what a part shows of an entity), `domains` (the value and service of each domain). `strips/entity.py` makes lines and values of them, next to the programs of `strips/value.py`. |
 | `mqtt.py` | `MqttBridge`: announces the entities (haad-mqtt-autodiscovery), restores the retained states, passes commands on, publishes availability. |
 | `simulator/` | The virtual device: `device` (`SimulatedDevice`, without IO) and `server` (on a Unix socket). See [Design: a simulated device](../design/device-simulator.md). |

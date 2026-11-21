@@ -8,7 +8,7 @@ ranked by value against risk; each was one commit, checked with ruff, pyright an
 - 26 000 lines in `src/`. The layers hold: no Qt in `gui/domain`, nothing outside `gui/` imports the GUI, `pyright`
   passes on `src/`.
 - The large modules: `gui/qt/window/main_window.py` (1100 lines), `gui/qt/pages/slots.py` (935),
-  `slots/model.py` (785), `gui/qt/preview/strip_view.py` (700), `runtime/daemon.py` (640).
+  `slots/model.py` (785), `gui/qt/preview/strip_view.py` (700), `daemon/lifecycle.py` (640).
 - `MainWindow` builds the rail, the settings navigation, the menus, the header and the footer, filters the keys and
   the wheel of the whole application, decides which page shows a problem, and runs the service, the file, the zoom
   and "Try without a device".
@@ -36,14 +36,14 @@ ranked by value against risk; each was one commit, checked with ruff, pyright an
    `rail_buttons` and `nav_buttons` for the tests and `show_page()`.
 7. **The geometry of a `Session`.** The conversion between the pixels of the screen and those of the window is one
    function, `scaled()`, instead of written out twice.
-8. **The files of the slots.** `runtime/slots.py` keeps the `SlotEngine`; reading and writing `slots.json` and
-   `people.json` go to `runtime/slot_files.py`.
+8. **The files of the slots.** `daemon/slots.py` keeps the `SlotEngine`; reading and writing `slots.json` and
+   `people.json` go to `daemon/slot_files.py`.
 
 After these, the [architecture](../architecture/index.md) names the new modules.
 
 ## Left as they are
 
-- **`runtime/daemon.py`.** One lifecycle: reload, preview and the run loop share the configuration that runs and the
+- **`daemon/lifecycle.py`.** One lifecycle: reload, preview and the run loop share the configuration that runs and the
   mixer. Splitting the preview off would hand the same state around, not make it simpler.
 - **`gui/qt/preview/strip_view.py`.** Long, but one thing: painting a strip and the hand on it. Its paint methods
   share the state of the strip and the cached pictures.

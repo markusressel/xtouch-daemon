@@ -11,8 +11,8 @@ import pytest
 
 from tests.support.audio import output, source
 from xtouch_daemon.audio.model import AudioState, Card
+from xtouch_daemon.daemon.device_memory import FORGET_AFTER, TOUCH_INTERVAL, DeviceMemory
 from xtouch_daemon.live.messages import KnownDevice
-from xtouch_daemon.runtime.device_memory import FORGET_AFTER, TOUCH_INTERVAL, DeviceMemory
 
 DAY = 24 * 3600.0
 

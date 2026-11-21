@@ -17,13 +17,13 @@ from collections.abc import Callable
 from xtouch_daemon.audio.meter import CaptureTarget
 from xtouch_daemon.audio.model import AudioState, Device, Direction, Stream
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.daemon.binder import SlotMixer
+from xtouch_daemon.daemon.rig import Rig
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.hardware.transport import NoPort
 from xtouch_daemon.live.messages import TwinView, fingerprint
 from xtouch_daemon.live.server import strip_states
-from xtouch_daemon.runtime.binder import SlotMixer
-from xtouch_daemon.runtime.rig import Rig
 from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.resolver import Result
@@ -159,7 +159,7 @@ def _no_launch(command: list[str]) -> None:
 
 class Twin(Rig):
     """
-    The strips of `config` in `situation`, with the real `names` as stand-ins first: a rig (see `runtime.rig`) on a
+    The strips of `config` in `situation`, with the real `names` as stand-ins first: a rig (see `daemon.rig`) on a
     device that is never there, a sound server in memory and a made-up voice chat. `run()` steps the slots and plays
     the voice chat; `view()` is what the GUI draws; `play()` puts a hand on it. The situation is the GUI's alone: the
     chord, the controls and the requests of modes and overrides change nothing (see `SlotEngine.fixed`).

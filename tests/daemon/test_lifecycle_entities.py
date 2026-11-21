@@ -14,11 +14,11 @@ from tests.support.hardware import RecordingSurface
 from tests.support.homeassistant import FakeHomeAssistant
 from tests.support.waiting import until
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon.lifecycle import Daemon
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.homeassistant.client import HomeAssistant
 from xtouch_daemon.live.codec import decode, encode
 from xtouch_daemon.live.messages import HomeAssistantState, Reply, StartPreview
-from xtouch_daemon.runtime.daemon import Daemon
 from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.system.commands import SimulatedCommands
 

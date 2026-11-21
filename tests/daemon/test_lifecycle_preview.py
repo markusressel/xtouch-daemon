@@ -16,6 +16,8 @@ from tests.support.mqtt import FakeBroker
 from tests.support.tasks import settle
 from tests.support.waiting import until
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon import lifecycle as daemon_module
+from xtouch_daemon.daemon.lifecycle import Daemon
 from xtouch_daemon.hardware.protocol import Color
 from xtouch_daemon.live.codec import decode, decode_message, encode_request
 from xtouch_daemon.live.messages import (
@@ -27,8 +29,6 @@ from xtouch_daemon.live.messages import (
     fingerprint,
 )
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime import daemon as daemon_module
-from xtouch_daemon.runtime.daemon import Daemon
 from xtouch_daemon.slots.outcomes import Situation
 
 BOXES = SPEAKER.replace('"Speaker"', '"Boxes"')

@@ -108,7 +108,7 @@ strips at another time. Tests give the names.
 
 ## The twin in the daemon
 
-`runtime/twin.py`. Each client's twin is made by the daemon with the current names, and gets new ones when they change
+`daemon/twin.py`. Each client's twin is made by the daemon with the current names, and gets new ones when they change
 (`Twin.set_names()`), so a stand-in follows what plays:
 
 ```python
@@ -129,7 +129,7 @@ It owns a `Surface(port=NoPort())`, a `Desk(surface, chord, on_chord, capturer=p
 state_dir=None, logger=...)`, a `SlotMixer(surface, TwinBackend, config, engine, desk, DemoProvider, bridge=None, players=None,
 launcher=Launcher(spawn=...))`, and a task that steps the engine like the daemon does (wake on a change of the
 world, the deadline of a delay or a dwell, every `PROCESS_INTERVAL`). As built, these parts, the loop and the step are
-one class that both are (`Rig`, `runtime/rig.py`); the daemon adds the real processes and Home Assistant to the step
+one class that both are (`Rig`, `daemon/rig.py`); the daemon adds the real processes and Home Assistant to the step
 (`_processes()`, `_stepped()`), the twin its world.
 
 The twin's strips are lit by the first step: `Surface` writes every color and text into its mirror, connected or not.
@@ -139,11 +139,11 @@ The twin's strips are lit by the first step: `Surface` writes every color and te
 | Where | Change |
 |---|---|
 | `hardware/surface.py` | `NoPort` (a `Port` that is never there), `hand(data)` (bytes as if the device sent them). Nothing else: `Surface` already mirrors without a transport. |
-| `audio/meter.py`, `runtime/desk.py` | `Meter(..., capturer=...)` and `Desk(..., capturer=...)`: the function that feeds peaks of a target (`Capturer`, with the gain it is told). The default is `capture()` (a process); the twin's feeds a fixed, slowly changing pattern while the target plays. |
-| `runtime/slots.py` | `SlotEngine(..., logger=...)`. The situation (`what_if`, `simulate()`, `active`) stays: it is the real device's. |
+| `audio/meter.py`, `daemon/desk.py` | `Meter(..., capturer=...)` and `Desk(..., capturer=...)`: the function that feeds peaks of a target (`Capturer`, with the gain it is told). The default is `capture()` (a process); the twin's feeds a fixed, slowly changing pattern while the target plays. |
+| `daemon/slots.py` | `SlotEngine(..., logger=...)`. The situation (`what_if`, `simulate()`, `active`) stays: it is the real device's. |
 | `slots/outcomes.py`, `slots/world.py` | `Situation.observation()` stays for the real device; `slots/world.py` is new (the twin's world). `simulate()` and `outcomes()` stay: `check-config` and the table of Simulate's inputs use them. |
 | `voip/` | `DemoProvider.set_people(names)`: the people of the world, volume and mute of those who stay are kept. |
-| `runtime/daemon.py` | Twins by client, fed with the real names. `preview()` and `snapshot().simulated` stay. |
+| `daemon/lifecycle.py` | Twins by client, fed with the real names. `preview()` and `snapshot().simulated` stay. |
 | `live/messages.py`, `codec.py`, `server.py` | See [The protocol](#the-protocol). |
 
 ## The protocol
@@ -229,7 +229,7 @@ the GUI follows; dropped, two owners of the what-if.)
 
 ## Implementation order
 
-1. Seams: `NoPort`, `hand()`, `Meter`/`Desk` capture, `SlotEngine` logger, `Rig` (`runtime/rig.py`).
+1. Seams: `NoPort`, `hand()`, `Meter`/`Desk` capture, `SlotEngine` logger, `Rig` (`daemon/rig.py`).
 2. `slots/world.py` and `TwinBackend`, `DemoProvider`; `Twin`, unit-tested without a daemon: a twin of the example
    configuration shows its slots; the real backend of the daemon is never called.
 3. Protocol: messages, codec, `LiveServer.tell_view`, the daemon's twins.

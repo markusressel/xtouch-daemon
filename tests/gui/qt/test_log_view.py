@@ -48,7 +48,7 @@ def live_window(qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaem
 
 def entry(seq: int, level: str = "INFO", message: str = "") -> LogEntry:
     when = datetime(2026, 11, 19, 12, 30, 0).timestamp() + seq
-    return LogEntry(seq, when, level, "xtouch_daemon.runtime.daemon", message or f"record {seq}")
+    return LogEntry(seq, when, level, "xtouch_daemon.daemon.lifecycle", message or f"record {seq}")
 
 
 def open_log(qtbot: QtBot, window: MainWindow, live_daemon: FakeLiveDaemon, *entries: LogEntry) -> None:
@@ -77,8 +77,8 @@ def test_the_log_is_asked_for_while_the_window_shows(
 
     first, second = (f"{datetime.fromtimestamp(entry(seq).time):%H:%M:%S}" for seq in (1, 2))
     assert text(window) == (
-        f"{first} INFO    xtouch_daemon.runtime.daemon: Running with 2 channels\n"
-        f"{second} WARNING xtouch_daemon.runtime.daemon: Lost it"
+        f"{first} INFO    xtouch_daemon.daemon.lifecycle: Running with 2 channels\n"
+        f"{second} WARNING xtouch_daemon.daemon.lifecycle: Lost it"
     )
     # colored by its level
     cursor = window.log_view.text.textCursor()

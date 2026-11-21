@@ -13,11 +13,11 @@ from tests.support.hardware import RecordingSurface
 from tests.support.waiting import until
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon import lifecycle as daemon_module
+from xtouch_daemon.daemon.lifecycle import Daemon
+from xtouch_daemon.daemon.twin import Twin
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import EndPreview, ForgetDevice, KeepPreview, Play, Reply, StartPreview, TwinView
-from xtouch_daemon.runtime import daemon as daemon_module
-from xtouch_daemon.runtime.daemon import Daemon
-from xtouch_daemon.runtime.twin import Twin
 from xtouch_daemon.slots.outcomes import Situation
 
 GAME = """

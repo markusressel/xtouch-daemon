@@ -19,6 +19,8 @@ from tests.support.tasks import settle
 from tests.support.waiting import until
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon import lifecycle as daemon_module
+from xtouch_daemon.daemon.lifecycle import Daemon, device_surface
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware import surface as surface_module
@@ -39,8 +41,6 @@ from xtouch_daemon.live.messages import (
     StartTest,
     WatchLog,
 )
-from xtouch_daemon.runtime import daemon as daemon_module
-from xtouch_daemon.runtime.daemon import Daemon, device_surface
 
 
 async def test_the_daemon_runs_until_it_is_stopped_and_leaves_the_surface_dark(

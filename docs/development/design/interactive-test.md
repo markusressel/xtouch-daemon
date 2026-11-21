@@ -96,7 +96,7 @@ drawing of the GUI can be compared for each.
   and mode, color, fader). A temporary text ends with a timer per strip, which the next input on that strip replaces;
   the old handle is cleared before anything awaits, so two quick inputs can't leave a timer running. A task sends the
   meters of raised faders again.
-- `runtime/daemon.py`: the mode (start, keep, end, timeout), the Desk handing over to the bench and back, drawing the
+- `daemon/lifecycle.py`: the mode (start, keep, end, timeout), the Desk handing over to the bench and back, drawing the
   slots again at the end.
 - `live/`: the requests and `Snapshot.test`; `gui/qt/window/device_view.py`: the button and the bar.
 - `cli/daemon.py`: `test` asks a running daemon (`system.instance`) first.
