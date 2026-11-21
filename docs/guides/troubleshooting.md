@@ -11,6 +11,22 @@ The GUI shows the same log in View → [Log](gui.md#log), also for a daemon star
 
 For more detail, stop the service and run the daemon in the foreground with `xtouch-daemon run -l debug`.
 
+## Starting
+
+**xtouch-daemon refuses to run as root.** It says `xtouch-daemon runs as your user, not as root: ...`. The commands
+of the configuration would run as root. Run it as your user, without `sudo`, e.g. as the systemd user service. Only
+`schema`, `simulate`, `--help` and `--version` work as root. Each user who wants the device runs their own daemon,
+see [Several users on one machine](../development/design/multiple-users.md).
+
+**`other users can change ..., so the daemon does not use it`.** The group or others can change the configuration
+file or its directory. Someone else could put a command into it, and the daemon would run it as you. Run
+the command of the message, e.g. `chmod go-w ~/.config/xtouch-daemon/config.toml`. A file that belongs to another
+user is refused too (`... belongs to ..., not to you`). On a reload, the daemon logs the error and keeps the
+configuration it runs.
+
+**`other users can read ...`.** A warning: the file with a secret, e.g. `[mqtt] password_file`, can be read by other
+users. The daemon still uses it. Keep it to yourself with `chmod go-rw` and the file of the message.
+
 ## The device
 
 **The device shows `IP: 192.168.001.100 wait...`.** It is set to its network interface and ignores USB. Switch it to
