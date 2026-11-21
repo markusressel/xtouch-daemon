@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1259,7 +1259,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -2945,16 +2945,14 @@
 how loud you hear them. The people come from a plugin in the voice chat client, see <a href="#voice-chat">Voice chat</a>.</p>
 <p>There are two ways to put people on strips:</p>
 <ul>
-<li>The pool <code>people</code> hands out the people in the voice chat that no <code>person</code> channel with a slot shows, one person per slot. The pool <code>auto</code> hands out the
-  same people and the applications that play (see <a href="../applications/#apps-and-auto">Applications</a>). The people fill
-  the free slots of <code>auto</code> from the right, in their order. The applications fill them from the left, so the two
-  meet in the middle. See
-  <a href="#where-people-sit">Where people sit</a>.</li>
+<li>The <a href="../../slots/#pools-of-applications-and-of-people">pool</a> <code>people</code> hands out the people in the voice chat that
+  no <code>person</code> channel with a slot shows, one per slot. The pool <code>auto</code> hands out the same people and the
+  <a href="../applications/#apps-and-auto">applications</a>: the people fill its free slots from the right, the applications
+  from the left, so the two meet in the middle. See <a href="#where-people-sit">Where people sit</a>.</li>
 <li>A <a href="#strips-for-one-person"><code>person</code> channel</a> is for someone who should always have a strip of their own.</li>
 </ul>
-<p>In this example, <code>[pool.people]</code> sets how everyone without a channel looks and in which order they sit (Alice first,
-then the others as they came). Slots 5 and 6 show a person, else an
-application. <code>mum</code> is a <code>person</code> channel, and slot 4 shows it:</p>
+<p>Here <code>[pool.people]</code> sets how everyone without a channel looks and in which order they sit. Slots 5 and 6 show a
+person, else an application. <code>mum</code> is a <code>person</code> channel, and slot 4 shows it:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[pool.people]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"right"</span><span class="w">              </span><span class="c1"># the side they fill their slots from</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"white"</span>
@@ -2972,8 +2970,7 @@ application. <code>mum</code> is a <code>person</code> channel, and slot 4 shows
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mum"</span>
 </span></code></pre></div>
 <h2 id="the-strips-of-people">The strips of people<a class="headerlink" href="#the-strips-of-people" title="Permanent link">&para;</a></h2>
-<p>The look of the strips of people is set in <code>[pool.people]</code> (for everyone without a channel of their own) or in a
-<code>person</code> channel (for that person). Both take these options:</p>
+<p><code>[pool.people]</code> (everyone without a channel) and a <code>person</code> channel (that person) take these options:</p>
 <table>
 <thead>
 <tr>
@@ -3001,7 +2998,7 @@ application. <code>mum</code> is a <code>person</code> channel, and slot 4 shows
 <tr>
 <td><code>meter</code></td>
 <td><code>true</code></td>
-<td><code>false</code> turns the LED meter off. The meter shows the voice of the person. If the plugin sends no levels, it lights while they talk.</td>
+<td><code>false</code> turns the LED meter off. It shows the voice of the person, or lights while they talk if the plugin sends no levels.</td>
 </tr>
 <tr>
 <td><code>meter_point</code></td>
@@ -3015,10 +3012,9 @@ application. <code>mum</code> is a <code>person</code> channel, and slot 4 shows
 </tr>
 </tbody>
 </table>
-<p>The strips of people have no <code>launch</code> option. To start the voice chat client, give a slot a control instead, for example
-<code>7 = { select = { launch = ["mumble"] }, when = "not call" }</code> in <a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a>
-(<code>call</code> is a <a href="../../slots/#states-and-modes">state</a> you define, for example <code>[state.call]</code> with <code>voice_chat = true</code>).
-A place of <code>people</code> in a slot takes <code>color</code>, <code>meter</code> and <code>meter_point</code>: <code>{ show = "people", color = "orange" }</code>.</p>
+<p>The strips of people have no <code>launch</code>. To start the voice chat client, use a control, see
+<a href="../applications/#launching-the-application">Launching the application</a>. A place of <code>people</code> in a slot takes
+<code>color</code>, <code>meter</code> and <code>meter_point</code>: <code>{ show = "people", color = "orange" }</code>.</p>
 <h2 id="where-people-sit">Where people sit<a class="headerlink" href="#where-people-sit" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3032,7 +3028,7 @@ A place of <code>people</code> in a slot takes <code>color</code>, <code>meter</
 <tr>
 <td><code>from</code></td>
 <td><code>"right"</code></td>
-<td>The side the people fill their slots from: <code>"right"</code> slot 8 first, <code>"left"</code> slot 1 first. This holds for the slots of <code>people</code> and for the people on the slots of <code>auto</code>. The side of the applications is <code>from</code> in <code>[pool.apps]</code>.</td>
+<td>The side the people fill their slots from: <code>"right"</code> slot 8 first, <code>"left"</code> slot 1 first. Holds for <code>people</code> and for the people on <code>auto</code>. The applications have <code>from</code> in <code>[pool.apps]</code>.</td>
 </tr>
 <tr>
 <td><code>order</code></td>
@@ -3042,36 +3038,30 @@ A place of <code>people</code> in a slot takes <code>color</code>, <code>meter</
 </tbody>
 </table>
 <ul>
-<li>People sit on the slots that show <code>people</code> or <code>auto</code>, one person per slot, in their order. A person has no fixed
-  slot. Every time the voice chat changes, the daemon sits everyone again. Say <code>from = "right"</code>, Alice is first in
+<li>People need free slots: slots that show <code>people</code> or <code>auto</code>. A slot without an entry counts as <code>auto</code>, so it takes
+  people too. They sit one per slot, in their order. A person has no fixed
+  slot: every time the voice chat changes, the daemon sits everyone again. Say <code>from = "right"</code>, Alice is first in
   <code>order</code>, and Bob is on slot 8. When Alice joins, she takes slot 8 and Bob moves to slot 7.</li>
-<li>Some slots hold a condition above <code>people</code>, for example <code>["voip if call", "people", "apps"]</code>. While <code>call</code> is on,
-  <code>voip</code> is shown there and no person sits there. People sit first on the slots where <code>people</code> or <code>auto</code> is the first
-  candidate. They use a slot with a condition above them, like <code>["voip if call", "people", "apps"]</code>, only when the
-  others are full. This keeps
-  the people from jumping to another slot each time <code>call</code> turns on or off.</li>
-<li>When <code>people</code> has no one for a slot, the slot shows the next candidate: <code>["people", "apps"]</code> shows the next
-  application. A slot of <code>auto</code> takes a person before an application. In <code>["apps", "people"]</code> the application comes
-  first.</li>
+<li>People sit first on the slots where <code>people</code> or <code>auto</code> is the first candidate. A slot with a condition above
+  them, like <code>["voip if call", "people", "apps"]</code>, gets people only when the others are full. So people don't
+  jump to another slot each time <code>call</code> turns on or off.</li>
+<li>When <code>people</code> has no one for a slot, the slot shows its next candidate. A slot of <code>auto</code> takes a person before an
+  application; in <code>["apps", "people"]</code> the application comes first.</li>
 <li>With more people than slots, the others wait. <code>xtouch-daemon why people</code> says who.</li>
-<li>Conditions can ask about people. <code>"people if call"</code> shows people only while the state <code>call</code> is on. <code>present(people)</code>
-  holds while anyone is in the voice chat (<code>present(&lt;channel or pool&gt;)</code> is a part of conditions, see
-  <a href="../../slots/#conditions">Conditions</a>). To keep people off a slot,
-  write <code>apps</code> there instead of <code>auto</code>.</li>
+<li><code>present(people)</code> holds while anyone is in the voice chat, see <a href="../../slots/#conditions">Conditions</a>. To keep
+  people off a slot, write <code>apps</code> there instead of <code>auto</code>.</li>
 </ul>
 <p>The top line shows the name, the bottom line <code>muted</code>, the volume while the fader moves, or <code>talks</code>. The fader sets
-the person's volume and Mute mutes them for you, if the provider can. The daemon remembers the volume and the mute it
-set for each name while it runs, and sets them again when that person comes back (it forgets them when the
-daemon stops). Without this, the voice chat starts
-everyone at 100 %. If you change a mute in the voice chat itself (Mumble's local mute), that mute replaces the one
-the daemon set.</p>
+the person's volume and Mute mutes them for you, if the provider can. The daemon remembers both for each name until
+it stops and sets them again when that person comes back (the voice chat starts everyone at 100 %). A mute you
+change in the voice chat itself replaces the one the daemon set.</p>
 <h2 id="strips-for-one-person">Strips for one person<a class="headerlink" href="#strips-for-one-person" title="Permanent link">&para;</a></h2>
-<p>A <code>person</code> channel always shows that person, on the slots that name it. The names are the names in the voice chat,
-ignoring case, but otherwise exactly (no wildcards, no parts of a name). With several names (the same person from the desk and from the phone), the strip shows the first of them that is in the voice chat,
-in the order the voice chat client lists its people.</p>
-<p>While the person is not in the channel, the strip shows the name with a dark backlight, <code>away</code> on the second line and its fader at
-the bottom; <code>"mum if present"</code> in a slot shows the channel only while they are there. The volume and mute the strip
-set stay with the name while they are away and come back with them. A <code>person</code> channel that no slot names is still handed out by the pools <code>people</code> and <code>auto</code>, as one of the people, with
+<p>A <code>person</code> channel always shows that person, on the slots that name it. The names are those in the voice chat,
+ignoring case, but otherwise exact (no wildcards). With several names, the strip shows the first that is in the
+voice chat, in the order the client lists its people.</p>
+<p>While the person is not there, the strip shows the name with a dark backlight, <code>away</code> on the second line and its
+fader at the bottom; <code>"mum if present"</code> in a slot shows the channel only while they are there. Their volume and mute
+stay with the name. A <code>person</code> channel that no slot names is still handed out by the pools <code>people</code> and <code>auto</code>, with
 its own look; <code>in_pool = false</code> keeps it out.</p>
 <h2 id="voice-chat">Voice chat<a class="headerlink" href="#voice-chat" title="Permanent link">&para;</a></h2>
 <p><code>[voip]</code> says where the people come from:</p>
@@ -3096,15 +3086,13 @@ its own look; <code>in_pool = false</code> keeps it out.</p>
 </tr>
 </tbody>
 </table>
-<p>Without the section, its defaults apply. The daemon can't read the voice of each person from PipeWire, because voice chat clients mix everyone into one
-stream. So a plugin in the client must tell the daemon each person's level and set each person's volume. Mumble and TeamSpeak 3 have
-plugin APIs that allow this, and the bridge is what such a plugin talks to. There is a plugin for each: see
-<a href="../../../guides/mumble/">Mumble</a>, which the GUI installs with a click, and <a href="../../../guides/teamspeak/">TeamSpeak</a>.
-Other clients, e.g. Discord, are not supported yet; open an issue if you need one.</p>
-<p>The state <code>voice_chat = true</code> (see <a href="../../slots/#states-and-modes">States and modes</a>) is on while you are in a channel of
-the voice chat. With plugins of several clients connected, the strips show the people of all of them, and the state
-is on while you are in a channel of any of them.</p>
-<p>A plugin for another client speaks the <a href="../../../reference/voice-chat-bridge/">bridge protocol</a>.</p>
+<p>Voice chat clients mix everyone into one stream, so the daemon can't read each person's voice from PipeWire. A
+plugin in the client tells the daemon each person's level and sets each person's volume. There is a plugin for
+<a href="../../../guides/mumble/">Mumble</a> (the GUI installs it with a click) and for <a href="../../../guides/teamspeak/">TeamSpeak</a>.
+Other clients, e.g. Discord, are not supported yet.</p>
+<p>The state <code>voice_chat = true</code> (see <a href="../../slots/#states-and-modes">States and modes</a>) is on while you are in a voice
+chat channel. With plugins of several clients connected, the strips show the people of all of them. A plugin for
+another client speaks the <a href="../../../reference/voice-chat-bridge/">bridge protocol</a>.</p>
 <p>Next: <a href="../../../guides/mumble/">Mumble</a> or <a href="../../../guides/teamspeak/">TeamSpeak</a> for the plugin, <a href="../../slots/#pools-of-applications-and-of-people">slots</a> for pools of people of your own.</p>
 
 

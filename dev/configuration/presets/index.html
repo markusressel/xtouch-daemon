@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1235,7 +1235,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -2892,20 +2892,14 @@ see <a href="../slots/#slots">Slots</a>:</p>
 (names that contain <code>.exe</code>) in <code>match</code>, and Steam's <code>reaper</code> process in <code>processes</code>. The table below has both columns.</p>
 <p>The names of a preset match like the names you write: as a part of the name, ignoring upper and lower case. So the
 name <code>signal</code> would also match <code>signal-desktop</code>.</p>
-<p>An <code>apps</code> channel can have a <code>launch</code> command, which Select runs to start the application
-(<a href="../channels/applications/#launching-the-application">Launching the application</a>). The channel then also counts as
-running when a process of its presets runs, not only when a stream plays. While it counts as running, pressing Select does not
-start the command again. Without this, a voice chat that is open but silent would have no stream, and Select would
-start a second one.</p>
+<p>An <code>apps</code> channel with a <code>launch</code> command
+(<a href="../channels/applications/#launching-the-application">Launching the application</a>) also counts as running while a
+process of its presets runs, so Select does not start a second voice chat that is open but silent.</p>
 <p>An unknown preset is an error, and the message lists the known ones. A preset in a list where it makes no sense is
 an error too, and the message says which lists accept it.</p>
-<p>Three ways to see what presets do (all the commands are in <a href="../../reference/commands/">Commands</a>):</p>
-<ul>
-<li><code>xtouch-daemon check-config</code> shows what each preset in your file stands for.</li>
-<li><code>xtouch-daemon list-apps</code> lists the applications that play right now. Next to each it names the presets that match
-  it, and where it goes (a channel, <code>apps</code> or <code>auto</code>).</li>
-<li>The <a href="../../guides/gui/">GUI</a> suggests the presets that fit each list.</li>
-</ul>
+<p>To see what presets do (see <a href="../../reference/commands/">Commands</a>): <code>xtouch-daemon check-config</code> shows what each preset
+in your file stands for, <code>xtouch-daemon list-apps</code> names the presets that match each application that plays, and the
+<a href="../../guides/gui/">GUI</a> suggests the presets that fit each list.</p>
 <h2 id="surprises-to-know-about">Surprises to know about<a class="headerlink" href="#surprises-to-know-about" title="Permanent link">&para;</a></h2>
 <p>The notes under the table say why. In short, for what you will see:</p>
 <ul>
@@ -3036,13 +3030,13 @@ game instead of every Wine program, put the name of its process in <code>process
         
         
           
-          <a href="../behavior/" class="md-footer__link md-footer__link--next" aria-label="Next: Behavior, device and aliases">
+          <a href="../behavior/" class="md-footer__link md-footer__link--next" aria-label="Next: Behavior, X-Touch and aliases">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Behavior, device and aliases
+                Behavior, X-Touch and aliases
               </div>
             </div>
             <div class="md-footer__button md-icon">

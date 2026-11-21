@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1279,7 +1279,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -2948,134 +2948,99 @@
 (you are not one of them):</p>
 <ul>
 <li>the name on the LCD, the backlight in the color <code>talking_color</code> while they talk, and their voice on the meter;</li>
-<li>the fader sets their volume for you (0 to <code>max_volume</code> percent, at most 200 %; <code>max_volume</code> is the volume with the fader at the top);</li>
+<li>the fader sets their volume for you (see <code>max_volume</code> in <a href="../../configuration/channels/people/#the-strips-of-people">People</a>);</li>
 <li>Mute mutes them for you: it is Mumble's own local mute, so Mumble shows it, and a local mute you set in Mumble lights
-  the button;</li>
-<li>people who join or leave the channel, and you moving to another channel, show at once.</li>
+  the button.</li>
 </ul>
-<p>It needs Mumble 1.4 or later on Linux (x86_64), and xtouch-daemon installed (see <a href="../../getting-started/install/">Install</a>).</p>
-<p>You need no changes to the configuration file for this. A strip that has no entry in <code>[slots]</code> shows <code>auto</code>, and
-<code>auto</code> is a pool: a supplier that hands out strips to what it holds, the people of the voice chat and the applications
-that play. The people fill the free strips from the right (8, 7, 6 and so on), the applications from the left
-(1, 2, 3 and so on); a strip goes to one or the other, never both.</p>
-<p>The plugin talks to the daemon through the bridge: a socket that the daemon opens for plugins of voice chat programs
-(see <a href="../../reference/voice-chat-bridge/">the voice chat bridge</a>). The bridge is on by default (<code>[voip]</code> has
-<code>provider = "bridge"</code>). You change it only to try the strips without Mumble (<code>provider = "demo"</code>).</p>
-<p>The look of the people has these options. The lines below show the defaults. Unless you set it, <code>max_volume</code> is 130, the value of <code>max_volume</code> in <a href="../../configuration/behavior/"><code>[behavior]</code></a>; set 200 to reach 200 %. Change the options in <code>[pool.people]</code> for
-all people, or in a <code>person</code> channel for one person (see <a href="../../configuration/channels/people/">People</a>):</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[pool.people]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">talking_color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"green"</span><span class="w">   </span><span class="c1"># the backlight while they talk</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">130</span><span class="w">          </span><span class="c1"># percent, 200 at most: the volume with the fader at the top</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">meter_point</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"pre_fader"</span><span class="w"> </span><span class="c1"># the meter shows the voice before the fader ("post_fader": after it)</span>
-</span></code></pre></div>
+<p>It needs Mumble 1.4 or later on Linux (x86_64), and xtouch-daemon installed (see <a href="../../getting-started/install/">Install</a>).
+The configuration needs no change: a strip without an entry in <code>[slots]</code> shows the pool <code>auto</code>, and the people fill
+the free strips from the right (see <a href="../../configuration/slots/#pools-of-applications-and-of-people">Slots</a>). Their
+look is set in <code>[pool.people]</code>, see <a href="../../configuration/channels/people/#the-strips-of-people">People</a>.</p>
+<p>The plugin talks to the daemon through <a href="../../reference/voice-chat-bridge/">the voice chat bridge</a>, which is on by
+default (<code>[voip]</code> has <code>provider = "bridge"</code>). Set <code>provider = "demo"</code> only to try the strips without Mumble.</p>
 <h2 id="setup-in-the-gui">Setup in the GUI<a class="headerlink" href="#setup-in-the-gui" title="Permanent link">&para;</a></h2>
 <p>The page Settings, Voice chat (the <code>[voip]</code> section) has a box "Mumble":</p>
 <ol>
-<li>Click <strong>Install Mumble plugin</strong>. (For Mumble as a Flatpak, read <a href="#flatpak">Flatpak</a> below as well.) It copies the plugin into Mumble's plugin directory
-   (<code>~/.local/share/Mumble/Mumble/Plugins</code>, or the directory of the Flatpak), replacing an older one. If you run
-   xtouch-daemon from a git clone of the source, there is no built plugin to copy, and the button builds it first:
-   that needs <code>cmake</code> and a C compiler. The button does not use Mumble's own installer: when Mumble runs, that
-   installer starts a second Mumble, which crashed. The button does not take the risk.</li>
+<li>Click <strong>Install Mumble plugin</strong>. (For Mumble as a Flatpak, read <a href="#flatpak">Flatpak</a> as well.) It copies the plugin
+   into Mumble's plugin directory (<code>~/.local/share/Mumble/Mumble/Plugins</code>, or the directory of the Flatpak),
+   replacing an older one. From a git clone of the source, the button builds the plugin first: that needs <code>cmake</code> and
+   a C compiler. The button does not use Mumble's own installer: while Mumble runs, that installer starts a second
+   Mumble, which crashed.</li>
 <li>In Mumble: <strong>Settings</strong>, <strong>Plugins</strong>, click <strong>Reload plugins</strong> (or restart Mumble), tick <strong>Enable</strong> of
    "xtouch-daemon", and <strong>Apply</strong>.</li>
-<li>Nothing to do in the configuration: the people take the free strips from the right. The example below pins
-   some of them to a strip.</li>
 <li>Join a channel. The status label (the "pill") in the box says <strong>Mumble connected</strong> and how many people are in
    the channel.</li>
 </ol>
-<p>The pill shows what the running daemon sees. "waiting for Mumble" means that the plugin is not connected: Mumble is
-not running, or the plugin is not enabled. "not in use" means that the daemon is an old version that does not show
-people yet; update it. A fresh install of a current version never shows it.</p>
+<p>"waiting for Mumble" means that the plugin is not connected: Mumble is not running, or the plugin is not enabled.
+"not in use" means that the daemon is an old version: update it.</p>
 <h2 id="setup-on-the-command-line">Setup on the command line<a class="headerlink" href="#setup-on-the-command-line" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>xtouch-daemon<span class="w"> </span>mumble-plugin<span class="w"> </span>--install
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>mumble-plugin<span class="w"> </span>--install
 </span></code></pre></div>
 <p>does what the button does (see <a href="../../reference/commands/#mumble-plugin"><code>mumble-plugin</code></a>); then do step 2 above.
-Without xtouch-daemon's help, you can use Mumble's own installer instead (only while Mumble does not run, because of
-the crash above): in Mumble, <strong>Settings</strong>, <strong>Plugins</strong>, <strong>Install plugin...</strong>, and pick
-<code>/usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin</code> (a release) or
-<code>integrations/mumble/build/xtouch-daemon.mumble_plugin</code> (a checkout, after <code>xtouch-daemon mumble-plugin --build</code>).</p>
+Or use Mumble's own installer, only while Mumble does not run: <strong>Settings</strong>, <strong>Plugins</strong>, <strong>Install plugin...</strong>, and
+pick <code>/usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin</code>.</p>
 <h2 id="slots-for-mumble">Slots for Mumble<a class="headerlink" href="#slots-for-mumble" title="Permanent link">&para;</a></h2>
-<p>This example pins three things. A person called Alice gets slot 1 while she is in your channel. Mumble itself and
-your microphone get slots 6 and 7 while you are in a channel. All other people sit on the free strips from the
-right (the slots that show <code>auto</code>: here 2 to 5 and 8, which have no entry, and also 1, 6 and 7 whenever their first
-candidate does not apply):</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.alice]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"person"</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">person</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Alice"</span><span class="w">      </span><span class="c1"># her name in Mumble</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">[channel.voip]</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span><span class="w">         </span><span class="c1"># the sound of the Mumble program itself, as one strip</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">]</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mumble"</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="k">[channel.mic]</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span><span class="w">        </span><span class="c1"># no `device` option: your default microphone</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="k">[state.call]</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">voice_chat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">     </span><span class="c1"># on while you are in a channel of Mumble</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">delay_off</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">         </span><span class="c1"># seconds: stays on 5 s after you leave</span>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="k">[slots]</span>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"alice if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">   </span><span class="c1"># Alice while she is there, else the next on auto</span>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">       </span><span class="c1"># Mumble while the state call is on</span>
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
+<p>Alice gets slot 1 while she is in your channel. Mumble itself and your microphone get slots 6 and 7 while you are in
+a channel (<code>[state.call]</code>). Everyone else takes the free strips from the right. (The <code>voip</code> channel can also match
+with the preset <code>@voip</code>, see <a href="../../configuration/presets/">Presets</a>.)</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.alice]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"person"</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">person</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Alice"</span><span class="w">      </span><span class="c1"># her name in Mumble</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">[channel.voip]</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span><span class="w">         </span><span class="c1"># the sound of the Mumble program itself, as one strip</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">]</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mumble"</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">[channel.mic]</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span><span class="w">        </span><span class="c1"># no `device` option: your default microphone</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="k">[state.call]</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">voice_chat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">delay_off</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">         </span><span class="c1"># seconds: stays on 5 s after you leave</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="k">[slots]</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"alice if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">   </span><span class="c1"># Alice while she is there, else the next on auto</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">       </span><span class="c1"># Mumble while the state call is on</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
 </span></code></pre></div>
-<p><code>alice</code>, <code>voip</code> and <code>mic</code> are channels, <code>call</code> is a state, <code>auto</code> is the pool. The strips 1, 6 and 7 show other people
-while their first candidate does not apply (Alice is not there, <code>call</code> is off). While it applies, the other people
-skip those strips and take 8, 5, 4 and so on.</p>
-<p>See <a href="../../configuration/channels/people/">People and the voice chat</a> and <a href="../../configuration/slots/#states-and-modes">States and modes</a>.</p>
-<p>To start Mumble from the X-Touch, give a slot a <code>launch</code> (the command that its Select button runs) in <code>[controls]</code>
-with a <code>mumble://</code> URL (the <code>[controls]</code> section sets what the buttons of a slot do, whatever the slot shows):</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[controls]</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mumble://me@voice.example.org/Gaming"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span>
+<p>To start Mumble from the X-Touch, give a slot a <code>launch</code> in <code>[controls]</code> with a <code>mumble://</code> URL:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[controls]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mumble://me@voice.example.org/Gaming"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
-<p><code>when = "not call"</code> means that the entry acts only while you are in no voice chat channel. Select then starts Mumble,
-which connects to the server and joins the channel. See
+<p>Select starts Mumble only while you are in no channel. See
 <a href="../../configuration/channels/applications/#launching-the-application">Launching the application</a>.</p>
 <h2 id="behavior-and-limits">Behavior and limits<a class="headerlink" href="#behavior-and-limits" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Mute is Mumble's "Local Mute"</strong> (in the menu of a user): Mute on the strip sets it, Mumble shows it in its
-  window, and setting it in Mumble lights the button. Mumble does not tell plugins when the local mute changes, so
-  the plugin asks every half second: a mute set in Mumble reaches the button a moment later (a press of Mute on
-  the strip shows at once). If Mumble refuses a mute, the button goes back, and Mumble's log says why
-  ("xtouch-daemon: can't mute ..."). A mute set from the strip works while the person is in the channel. Mumble forgets it when the
-  person leaves (Mumble keeps a local mute only if you set it in its own menu, and only for a user who is registered
-  on the server). The next item says what the daemon does about it.</li>
-<li><strong>The volume is the plugin's own.</strong> The plugin scales the voice of each person before Mumble mixes it. Mumble's own
-  "Local Volume Adjustment" is separate, and the faders don't show or change it: Mumble's plugin interface has no call
-  for it. The two multiply: a person at 50 % in Mumble and 50 % on the fader is at 25 %.</li>
-<li><strong>The daemon remembers volume and mute by name.</strong> This makes the volume and the mute of the strips last longer than
-  Mumble keeps them. The plugin forgets the volume of someone who leaves. The daemon
-  remembers the volume and the mute that the strips set for each name, as long as it runs, and sends them again when
-  the person comes back; Mumble forgets, the daemon does not. (If you change the mute in Mumble yourself, that mute replaces the one of the strip.) When the daemon
-  restarts, everyone starts at 100 % again.</li>
-<li><strong>No display of their own mute.</strong> The strips do not show whether other people muted or deafened themselves.
-  Mumble's plugin interface does not report it. Someone who muted themselves sends no voice, so the strip shows them
-  as not talking.</li>
-<li><strong>Your channel only.</strong> The strips show the people of your channel, without you. They show nobody from other
-  channels, and no whispers to other channels.</li>
-<li><strong>The level</strong> on the meter is the voice as it arrives from Mumble, before Mumble's own volume and positional audio (3D sound).
-  <code>meter_point</code> (see the options above) sets whether it is measured before the fader (<code>"pre_fader"</code>) or after it (<code>"post_fader"</code>,
-  the voice times the volume of the fader). Mumble does not fetch the voice of someone you muted. A meter before the fader
-  still lights while that person talks, because Mumble reports the talking, but it shows no level. A meter after the
-  fader stays dark, because the voice times the volume is silent.</li>
+<li><strong>Mute is Mumble's "Local Mute"</strong> (in the menu of a user). Mumble does not tell plugins when it changes, so the
+  plugin asks every half second: a mute set in Mumble reaches the button a moment later. If Mumble refuses a mute,
+  the button goes back, and Mumble's log says why. Mumble forgets a mute set from
+  the strip when the person leaves; the daemon sends it again when they come back (it remembers volume and mute by
+  name while it runs, see <a href="../../reference/voice-chat-bridge/">the bridge</a>). A mute you set in Mumble itself replaces
+  the one of the strip.</li>
+<li><strong>The volume is the plugin's own.</strong> Mumble's "Local Volume Adjustment" is separate, and the faders don't show or
+  change it: Mumble's plugin interface has no call for it. The two multiply: 50 % in Mumble and 50 % on the fader is
+  25 %. When the daemon restarts, everyone starts at 100 % again.</li>
+<li><strong>Not shown:</strong> whether other people muted themselves (they send no voice, so the strip shows them as not talking),
+  people of other channels, and whispers.</li>
+<li><strong>The meter</strong> shows the voice as it arrives from Mumble, before Mumble's own volume and positional audio.
+  <code>meter_point</code> sets whether it is measured before the fader (<code>"pre_fader"</code>) or after it (<code>"post_fader"</code>). Mumble
+  does not fetch the voice of someone you muted: a meter before the fader lights while they talk but shows no level,
+  and a meter after the fader stays dark.</li>
 </ul>
 <h2 id="flatpak">Flatpak<a class="headerlink" href="#flatpak" title="Permanent link">&para;</a></h2>
 <p>A Mumble in a Flatpak can't see the socket of the daemon (the file <code>xtouch-daemon-voip.sock</code> in your runtime
 directory) by default. Allow it:</p>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>flatpak<span class="w"> </span>override<span class="w"> </span>--user<span class="w"> </span>--filesystem<span class="o">=</span>xdg-run/xtouch-daemon-voip.sock<span class="w"> </span>info.mumble.Mumble
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>flatpak<span class="w"> </span>override<span class="w"> </span>--user<span class="w"> </span>--filesystem<span class="o">=</span>xdg-run/xtouch-daemon-voip.sock<span class="w"> </span>info.mumble.Mumble
 </span></code></pre></div>
 <p>How the plugin works and how to build it: <a href="../../development/mumble-plugin/">Mumble plugin</a>.</p>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
-<p><strong>"waiting for Mumble"</strong> although Mumble runs: check that the plugin is enabled in Mumble's settings (Plugins), and
-that <code>xtouch-daemon mumble-plugin</code> (without options) prints a line "In Mumble: ..." with the path of the plugin. The daemon logs "Voice chat plugin connected
-(mumble)" when it connects.</p>
-<p><strong>Nobody on the strips:</strong> the strips show your channel without you; join a channel with other people. People need
-free strips that show <code>auto</code>, or <code>person</code> channels on slots (<code>xtouch-daemon check-config</code> shows which slots are <code>auto</code>).</p>
-<p><strong>Two Mumble clients at once</strong> (a second Mumble program, e.g. one with <code>mumble -m -c &lt;other settings file&gt;</code> to test with another
-user): enable the plugin in one of them only. The daemon keeps the plugin that connected first and refuses the other
-one; it logs "Refusing another voice chat plugin of mumble while one is connected" once. A plugin of another client,
-e.g. TeamSpeak, can be connected besides it.</p>
+<p><strong>"waiting for Mumble"</strong> although Mumble runs: enable the plugin in Mumble's settings (Plugins), and check that
+<code>xtouch-daemon mumble-plugin</code> (without options) prints a line "In Mumble: ..." with the path of the plugin.</p>
+<p><strong>Nobody on the strips:</strong> join a channel with other people, and keep free strips that show <code>auto</code>
+(<code>xtouch-daemon check-config</code> shows which).</p>
+<p><strong>Two Mumble clients at once:</strong> enable the plugin in one of them only. The daemon keeps the plugin that connected
+first and logs "Refusing another voice chat plugin of mumble while one is connected".</p>
 <p>Next: <a href="../../configuration/channels/applications/#launching-the-application">Applications</a> (start Mumble with Select), <a href="../../configuration/channels/people/">People</a> (where people sit).</p>
 
 

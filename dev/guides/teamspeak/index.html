@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1257,7 +1257,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -2904,88 +2904,64 @@
 strip (you are not one of them):</p>
 <ul>
 <li>the name on the LCD, the backlight in the color <code>talking_color</code> while they talk, and their voice on the meter;</li>
-<li>the fader sets their volume (0 to <code>max_volume</code> percent, at most 200 %; <code>max_volume</code> is the volume with the fader at the top): it is TeamSpeak's own "Change Volume", so
-  TeamSpeak keeps it, and a volume you change in TeamSpeak moves the fader;</li>
-<li>Mute is TeamSpeak's "Mute Client": TeamSpeak shows it, and a mute you set in TeamSpeak lights the button;</li>
-<li>people who join or leave the channel, and you moving to another channel, show at once.</li>
+<li>the fader sets their volume (see <code>max_volume</code> in <a href="../../configuration/channels/people/#the-strips-of-people">People</a>):
+  it is TeamSpeak's own "Change Volume", so TeamSpeak keeps it, and a volume you change in TeamSpeak moves the fader;</li>
+<li>Mute is TeamSpeak's "Mute Client": TeamSpeak shows it, and a mute you set in TeamSpeak lights the button.</li>
 </ul>
 <p>It needs the TeamSpeak 3 client 3.6 or later on Linux (x86_64), e.g. the Arch package <code>teamspeak3</code>, and
 xtouch-daemon installed (see <a href="../../getting-started/install/">Install</a>). The plugin does not work with TeamSpeak 5 or 6.</p>
-<p>You need no changes to the configuration file for this. A strip that has no entry in <code>[slots]</code> shows <code>auto</code>, and
-<code>auto</code> is a pool: a supplier that hands out strips to what it holds: the people of the voice chat and the applications that play. The people fill the free strips from the right (8, 7, 6 and so on), the applications from the left
-(1, 2, 3 and so on); a strip goes to one or the other, never both.</p>
-<p>The plugin talks to the daemon through the bridge: a socket that the daemon opens for plugins of voice chat programs
-(see <a href="../../reference/voice-chat-bridge/">the voice chat bridge</a>). The bridge is on by default (<code>[voip]</code> has
-<code>provider = "bridge"</code>). You change it only to try the strips without TeamSpeak (<code>provider = "demo"</code>).</p>
-<p>The look of the people has these options. The lines below show the defaults. Unless you set it, <code>max_volume</code> is 130, the value of <code>max_volume</code> in <a href="../../configuration/behavior/"><code>[behavior]</code></a>; set 200 to reach 200 %. Change the options in <code>[pool.people]</code> for
-all people, or in a <code>person</code> channel for one person (see <a href="../../configuration/channels/people/">People</a>):</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[pool.people]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">talking_color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"green"</span><span class="w">   </span><span class="c1"># the backlight while they talk</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">130</span><span class="w">          </span><span class="c1"># percent, 200 at most: the volume with the fader at the top</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">meter_point</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"pre_fader"</span><span class="w"> </span><span class="c1"># the meter shows the voice before the fader ("post_fader": after it)</span>
-</span></code></pre></div>
+<p>The configuration needs no change: a strip without an entry in <code>[slots]</code> shows the pool <code>auto</code>, and the people fill
+the free strips from the right (see <a href="../../configuration/slots/#pools-of-applications-and-of-people">Slots</a>). Their
+look is set in <code>[pool.people]</code>, see <a href="../../configuration/channels/people/#the-strips-of-people">People</a>.</p>
+<p>The plugin talks to the daemon through <a href="../../reference/voice-chat-bridge/">the voice chat bridge</a>, which is on by
+default (<code>[voip]</code> has <code>provider = "bridge"</code>). Set <code>provider = "demo"</code> only to try the strips without TeamSpeak.</p>
 <h2 id="setup-in-the-gui">Setup in the GUI<a class="headerlink" href="#setup-in-the-gui" title="Permanent link">&para;</a></h2>
 <p>The page Settings, Voice chat (the <code>[voip]</code> section) has a box "TeamSpeak":</p>
 <ol>
 <li>Click <strong>Install TeamSpeak plugin</strong>. It copies <code>xtouch-daemon_linux_amd64.so</code> into <code>~/.ts3client/plugins</code>,
-   replacing an older one. If you run xtouch-daemon from a git clone of the source, there is no built plugin to
-   copy, and the button builds it first. That needs <code>cmake</code>, a C compiler and, the first time, the internet: the
-   build downloads the headers of TeamSpeak's plugin SDK.</li>
+   replacing an older one. From a git clone of the source, the button builds the plugin first. That needs <code>cmake</code>, a
+   C compiler and, the first time, the internet: the build downloads the headers of TeamSpeak's plugin SDK.</li>
 <li>In TeamSpeak: <strong>Tools</strong>, <strong>Options</strong>, <strong>Addons</strong>. Click <strong>Reload All</strong> (or restart TeamSpeak), find
    "xtouch-daemon" under the plugins, and enable it.</li>
-<li>Nothing to do in the configuration: the people take the free <a href="../../configuration/slots/">slots</a> that show <code>auto</code>,
-   from the right. To pin a person to a strip, see the <a href="../mumble/#slots-for-mumble">example for Mumble</a>; it works
-   the same for TeamSpeak. That example also has an optional strip for the program itself (<code>[channel.voip]</code>): for
-   TeamSpeak, write <code>match = ["teamspeak", "ts3client"]</code> in it (the names of the TeamSpeak program).</li>
 <li>Connect to a server and join a channel. The status label (the "pill") in the box says <strong>TeamSpeak connected</strong> and
    how many people are in the channel.</li>
 </ol>
-<p>The pill shows what the running daemon sees: "waiting for TeamSpeak" while no plugin is connected, and "not
-connected" while only the plugin of another voice chat program (e.g. Mumble) is. Neither is an error; join a channel
-in TeamSpeak with the plugin enabled. Without TeamSpeak on the machine, the box has
-one line: "not installed".</p>
+<p>To pin a person or the program itself to a strip, use the <a href="../mumble/#slots-for-mumble">example for Mumble</a>. In its
+<code>[channel.voip]</code>, write <code>match = ["teamspeak", "ts3client"]</code>.</p>
+<p>The pill says "waiting for TeamSpeak" while no plugin is connected, and "not connected" while only the plugin of
+another voice chat program is. Neither is an error. Without TeamSpeak on the machine, the box says "not installed".</p>
 <h2 id="setup-on-the-command-line">Setup on the command line<a class="headerlink" href="#setup-on-the-command-line" title="Permanent link">&para;</a></h2>
-<div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>xtouch-daemon<span class="w"> </span>teamspeak-plugin<span class="w"> </span>--install
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>teamspeak-plugin<span class="w"> </span>--install
 </span></code></pre></div>
 <p>does what the button does (see <a href="../../reference/commands/#teamspeak-plugin"><code>teamspeak-plugin</code></a>); then do step 2
-above. You do not restart the daemon. When the plugin connects, the daemon logs "Voice chat plugin connected
-(teamspeak)" (see <a href="../troubleshooting/">Troubleshooting</a> for how to read the log).</p>
+above. You do not restart the daemon.</p>
 <h2 id="behavior-and-limits">Behavior and limits<a class="headerlink" href="#behavior-and-limits" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>One server.</strong> With several server tabs, the strips show the tab you look at, if it is connected; else the first
   connected tab. Switching tabs switches the people.</li>
-<li><strong>The volume is TeamSpeak's.</strong> The fader sets the volume TeamSpeak shows under "Change Volume" in the menu of a
-  person. The plugin turns the percent into decibels: 100 % is 0 dB, 50 % is −6 dB, 200 % is +6 dB. At 0 % the
-  plugin silences the person itself (TeamSpeak's volume then shows −60 dB). You do not need to do anything about that. A volume set in TeamSpeak reaches the fader
-  within about 0.5 s. TeamSpeak reports the volume in whole decibels only. One decibel is a change of about 12 % of the volume,
-  so rounding to a whole decibel can put the fader off by up to about 6 % from the true value.</li>
-<li><strong>Mute is TeamSpeak's "Mute Client".</strong> Mute on the strip sets it, and TeamSpeak shows it. TeamSpeak does not tell
-  plugins when a mute changes, so the plugin asks every half second: a mute set in TeamSpeak reaches the button within about
-  0.5 s. Should TeamSpeak refuse a mute or a volume, the button or fader goes back, and TeamSpeak's log (<strong>Tools</strong>,
-  <strong>Client Log</strong>) says why ("xtouch-daemon: can't mute ...").</li>
-<li><strong>The level</strong> on the meter is the voice as it arrives (before the fader: <code>meter_point = "pre_fader"</code>), or that
-  voice times the volume of the fader (after the fader: <code>"post_fader"</code>). The option <code>meter_point</code> is in
-  <code>[pool.people]</code> or a <code>person</code> channel. The level leaves out TeamSpeak's own playback volume and 3D sound. TeamSpeak's
-  server sends no voice of a person that you muted, so their meter stays dark.</li>
-<li><strong>No display of their own mute.</strong> The strips do not show whether other people muted their microphone or speakers:
-  they just do not talk.</li>
-<li><strong>Your channel only.</strong> The strips show the people of your channel, without you and without ServerQuery clients
-  (the invisible helper connections of server tools, such as bots). They show nobody from other channels, and no
-  whispers.</li>
+<li><strong>The volume is TeamSpeak's.</strong> The fader sets the "Change Volume" of the person: 100 % is 0 dB, 50 % is −6 dB,
+  200 % is +6 dB, and at 0 % the person is silent. TeamSpeak reports whole decibels only, so the fader can be off by
+  up to about 6 % from the true value. A volume set in TeamSpeak reaches the fader within about 0.5 s.</li>
+<li><strong>Mute</strong> works the same way: TeamSpeak does not tell plugins when it changes, so a mute set in TeamSpeak reaches
+  the button within about 0.5 s. If TeamSpeak refuses a mute or a volume, the button or fader goes back, and
+  TeamSpeak's log (<strong>Tools</strong>, <strong>Client Log</strong>) says why.</li>
+<li><strong>The meter</strong> shows the voice as it arrives, before the fader (<code>meter_point = "pre_fader"</code>) or after it
+  (<code>"post_fader"</code>), without TeamSpeak's own playback volume and 3D sound. TeamSpeak sends no voice of a person you
+  muted, so their meter stays dark.</li>
+<li><strong>Not shown:</strong> whether other people muted themselves (they just do not talk), people of other channels, whispers,
+  and ServerQuery clients (the invisible connections of server tools, such as bots).</li>
 <li><strong>Mumble and TeamSpeak together.</strong> Both plugins can be connected at once: the strips show the people of both
-  channels. See <a href="../../reference/voice-chat-bridge/">the voice chat bridge</a>. The daemon accepts one plugin for each
-  voice chat program (one Mumble, one TeamSpeak): if you run two TeamSpeak clients with the plugin enabled, it keeps
-  the plugin that connected first and refuses the other.</li>
+  channels. The daemon accepts one plugin for each voice chat program: with two TeamSpeak clients, it keeps the
+  plugin that connected first and refuses the other.</li>
 </ul>
 <p>How the plugin works and how to build it: <a href="../../development/teamspeak-plugin/">TeamSpeak plugin</a>.</p>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
-<p><strong>No people on the strips</strong> although TeamSpeak runs: check that the plugin is enabled in TeamSpeak (<strong>Tools</strong>,
-<strong>Options</strong>, <strong>Addons</strong>), and that <code>xtouch-daemon teamspeak-plugin</code> (without options) prints a line "In TeamSpeak: ..." with the path of the
-plugin. TeamSpeak
-loads only plugins of its plugin API (26 for TeamSpeak 3.6); an older TeamSpeak says the plugin failed to load. The
-strips show your channel without you: join a channel with other people. People need free slots that show <code>auto</code>, or <code>person</code>
-<a href="../../configuration/channels/people/#strips-for-one-person">channels</a> on slots (<code>xtouch-daemon check-config</code> shows
-which slots show <code>auto</code>). If all 8 slots show something else, no person has a strip.</p>
+<p><strong>No people on the strips</strong> although TeamSpeak runs: enable the plugin in TeamSpeak (<strong>Tools</strong>, <strong>Options</strong>,
+<strong>Addons</strong>), and check that <code>xtouch-daemon teamspeak-plugin</code> (without options) prints a line "In TeamSpeak: ..." with
+the path of the plugin. TeamSpeak loads only plugins of its plugin API (26 for TeamSpeak 3.6): an older TeamSpeak
+says the plugin failed to load. Join a channel with other people, and keep free slots that show <code>auto</code>
+(<code>xtouch-daemon check-config</code> shows which). The daemon logs "Voice chat plugin connected (teamspeak)" when it
+connects.</p>
 <p><strong>The build fails with "Can't download TeamSpeak's plugin SDK":</strong> connect to the internet for the first build, or
 give a copy of the SDK with <code>cmake -DTS3_SDK_DIR=&lt;directory&gt;</code> (see <a href="../../development/teamspeak-plugin/#building-it">TeamSpeak plugin</a>).</p>
 <p>Next: <a href="../../configuration/channels/people/">People</a> (where people sit), <a href="../../configuration/channels/applications/#launching-the-application">Applications</a> (start TeamSpeak with Select).</p>

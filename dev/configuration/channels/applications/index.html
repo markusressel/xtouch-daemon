@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1265,7 +1265,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -2954,12 +2954,11 @@
 
 <h1 id="applications-apps-channels-and-auto">Applications: <code>apps</code> channels and <code>auto</code><a class="headerlink" href="#applications-apps-channels-and-auto" title="Permanent link">&para;</a></h1>
 <p>A strip can control the volume of the applications that play sound, like the per-application sliders in pavucontrol.
-There are two ways to set that up, and they need no setup in PipeWire:</p>
+There are two ways:</p>
 <ul>
-<li>An <code>apps</code> channel is a group of applications that you name, for example every browser. A slot that
-  names the channel decides which strip it is on. See <a href="#apps-channels"><code>apps</code> channels</a>.</li>
-<li>The pools <code>apps</code> and <code>auto</code> put each application that plays on a strip, one application per strip. Applications that an <code>apps</code> channel with a slot
-  already shows are left out. See
+<li>An <code>apps</code> channel is a group of applications that you name, for example every browser. See
+  <a href="#apps-channels"><code>apps</code> channels</a>.</li>
+<li>The pools <code>apps</code> and <code>auto</code> put each application that plays on a strip of its own. See
   <a href="#apps-and-auto"><code>apps</code> and <code>auto</code></a>.</li>
 </ul>
 <h2 id="apps-channels"><code>apps</code> channels<a class="headerlink" href="#apps-channels" title="Permanent link">&para;</a></h2>
@@ -3005,10 +3004,8 @@ There are two ways to set that up, and they need no setup in PipeWire:</p>
 </tr>
 </tbody>
 </table>
-<p>They also have the <a href="../#options-of-every-audio-channel">options of every audio channel</a>: <code>color</code>, <code>meter</code>,
-<code>lit_when_idle</code>, <code>meter_point</code>, <code>rec</code>, <code>solo</code>, <code>min_volume</code>, <code>max_volume</code>, <code>fader</code>. The option <code>in_pool</code> is described in
-<a href="../#options-for-slots">Options for slots</a>.</p>
-<p>A channel appears on a strip when a slot names it. This example puts the channel <code>voip</code> on strip 2:</p>
+<p>They also have the <a href="../#options-of-every-audio-channel">options of every audio channel</a> and
+<a href="../#options-for-slots"><code>in_pool</code></a>. This example puts the channel <code>voip</code> on strip 2:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.voip]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@voip"</span><span class="p">]</span>
@@ -3021,11 +3018,10 @@ There are two ways to set that up, and they need no setup in PipeWire:</p>
 <p>A stream belongs to the channel when its application name (<code>application.name</code>) or binary
 (<code>application.process.binary</code>) contains one of the <code>match</code> entries. <code>"wine"</code> matches <code>wine64-preloader</code>, <code>".exe"</code>
 matches Windows games under Proton. <code>xtouch-daemon list-apps</code> shows the names and binaries of the applications that
-play, and which channel or slot takes each one. A stream can belong to several <code>apps</code> channels (one for <code>@browsers</code> and one for <code>"firefox"</code>, say). The fader of each of them
-sets its volume, so the one you moved last wins.</p>
-<p>For common groups there are <a href="../../presets/">presets</a>: <code>@browsers</code>, <code>@voip</code>, <code>@games</code>, <code>@steam-games</code>, <code>@music</code> and
-<code>@video</code> stand for the names of well-known applications of the group, e.g. <code>match = ["@browsers"]</code> for every browser,
-and mix with names of your own (<code>match = ["@voip", "my-voice-app"]</code>).</p>
+play, and which channel or slot takes each one. A stream can belong to several <code>apps</code> channels; the one whose fader
+you moved last wins.</p>
+<p><a href="../../presets/">Presets</a> such as <code>@browsers</code> stand for the names of well-known applications of a group. Mix them
+with names of your own: <code>match = ["@voip", "my-voice-app"]</code>.</p>
 <table>
 <thead>
 <tr>
@@ -3036,11 +3032,11 @@ and mix with names of your own (<code>match = ["@voip", "my-voice-app"]</code>).
 <tbody>
 <tr>
 <td>Fader</td>
-<td>Sets every stream of the group to the same volume. A stream that starts later gets that volume too. Shows the loudest stream.</td>
+<td>Sets every stream of the group to the same volume, also a stream that starts later. Shows the loudest stream.</td>
 </tr>
 <tr>
 <td>Encoder</td>
-<td>See <a href="../../strip/encoders/">Encoders</a>, for all streams.</td>
+<td><a href="../../strip/encoders/">Encoders</a>, for all streams.</td>
 </tr>
 <tr>
 <td>Mute</td>
@@ -3048,38 +3044,26 @@ and mix with names of your own (<code>match = ["@voip", "my-voice-app"]</code>).
 </tr>
 <tr>
 <td>Select</td>
-<td>Nothing, or with <code>launch</code> it starts the application. The LED flashes while it starts and is on while it runs, see <a href="#launching-the-application">Launching the application</a>.</td>
-</tr>
-<tr>
-<td>LCD</td>
-<td>Top: the label. Bottom: the volume, <code>muted</code>, or <code>idle</code> while no stream of the group is there.</td>
-</tr>
-<tr>
-<td>Ring</td>
-<td>The LEDs around the encoder show the value the encoder sets.</td>
+<td>With <code>launch</code>, starts the application: see <a href="#launching-the-application">Launching the application</a>. Else nothing.</td>
 </tr>
 <tr>
 <td>Meter</td>
-<td>The level of all streams of the group together.</td>
+<td>The level of all streams together.</td>
 </tr>
 </tbody>
 </table>
-<p>While no stream of the group is there (for example the application was closed), the backlight is dark and the bottom line of the LCD says <code>idle</code>.
-The fader glides slowly to the bottom and does nothing. The channel remembers its volume while the daemon runs. When
-a stream of the group comes back, the fader goes up to that volume again, and the new stream plays at that volume.</p>
+<p>While no stream of the group is there, the backlight is dark, the LCD says <code>idle</code> and the fader glides to the bottom.
+The channel remembers its volume while the daemon runs: when a stream comes back, the fader goes up to it and the
+stream plays at that volume.</p>
 <h2 id="apps-and-auto"><code>apps</code> and <code>auto</code><a class="headerlink" href="#apps-and-auto" title="Permanent link">&para;</a></h2>
-<p>A <strong>pool</strong> hands out applications that you don't list one by one. Each slot that names the pool gets the next
-application.</p>
-<ul>
-<li>The pool <code>apps</code> hands out the applications that play and that no <code>apps</code> channel with a slot shows, one per slot.</li>
-<li>The pool <code>auto</code> hands out the same applications, and the people of the voice chat share its slots. The people fill
-  the slots from the right, the applications from the left (see <a href="../people/#where-people-sit">People</a>).</li>
-</ul>
-<p>A slot without an entry shows <code>auto</code>.</p>
+<p>A <a href="../../slots/#pools-of-applications-and-of-people">pool</a> hands out applications that you don't list one by one:
+<code>apps</code> hands out the applications that play, one per slot. <code>auto</code> hands out the same applications and the people of
+the voice chat share its slots (the people from the right, the applications from the left, see
+<a href="../people/#where-people-sit">People</a>). A slot without an entry shows <code>auto</code>.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[pool.apps]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span><span class="w">                 </span><span class="c1"># the side the applications fill their slots from (also in auto)</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">hold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">                      </span><span class="c1"># seconds an application keeps its slot after it stopped playing</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">exclude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"notification"</span><span class="p">]</span><span class="w">    </span><span class="c1"># never these (replaces the default, speech-dispatcher)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">exclude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"notification"</span><span class="p">]</span><span class="w">    </span><span class="c1"># never these, in apps and auto (replaces the default, speech-dispatcher)</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cyan"</span><span class="w">                </span><span class="c1"># the look of every apps slot</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">[pool.auto]</span>
@@ -3091,15 +3075,13 @@ application.</p>
 </span></code></pre></div>
 <p>What a pool can set:</p>
 <ul>
-<li>The look options of an audio channel (<code>color</code>, <code>lit_when_idle</code>, <code>meter</code>, <code>meter_point</code>, <code>rec</code>, <code>solo</code>, see
-  <a href="../#options-of-every-audio-channel">Options of every audio channel</a>) go into <code>[pool.apps]</code>, <code>[pool.auto]</code> or
-  a place of a slot, as the example shows.</li>
-<li>A place is one candidate of a slot written as a table (<code>{ show = "auto", ... }</code>). A place of <code>apps</code> or <code>auto</code> also takes <code>encoder</code>, <code>min_volume</code> and <code>max_volume</code>. For a pool, <code>encoder</code> is <code>pick</code>
-  by default (an <code>apps</code> channel has <code>media</code>): <code>pick</code>, <code>media</code>, <code>volume</code> or <code>balance</code>, see
-  <a href="../../strip/encoders/">Encoders</a>.</li>
-<li>A pool has no <code>label</code>. The label of a strip is the application's alias from <a href="../../behavior/#aliases"><code>[aliases]</code></a>,
-  or its name.</li>
-<li>To give the encoder or fader of such a slot to <a href="../../../guides/home-assistant/">Home Assistant</a>, use the section
+<li>The look options of an audio channel (<a href="../#where-else-the-options-work">list</a>) go into <code>[pool.apps]</code>,
+  <code>[pool.auto]</code> or a place of a slot, as the example shows. A place of <code>apps</code> or <code>auto</code> also takes <code>encoder</code>,
+  <code>min_volume</code> and <code>max_volume</code>. For a pool, <code>encoder</code> is <code>pick</code> by default (an <code>apps</code> channel has <code>media</code>): <code>pick</code>,
+  <code>media</code>, <code>volume</code> or <code>balance</code>, see <a href="../../strip/encoders/">Encoders</a>.</li>
+<li>A pool has no <code>label</code>: a strip shows the application's alias from <a href="../../behavior/#aliases"><code>[aliases]</code></a>, or its
+  name.</li>
+<li>To give the encoder or fader of such a slot to <a href="../../../guides/home-assistant/">Home Assistant</a>, use
   <a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a>, not the place:</li>
 </ul>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[controls]</span>
@@ -3109,24 +3091,22 @@ application.</p>
 <ul>
 <li>An application qualifies while at least one of its streams plays (is not paused).</li>
 <li>Applications of an <code>apps</code> channel that has a slot never go to <code>apps</code> or <code>auto</code>. Neither do those of <code>exclude</code>.</li>
-<li>An <code>apps</code> channel without a slot goes in as a whole: all its streams on one strip. <code>in_pool = false</code> on the channel
-  keeps it out.</li>
-<li>Free slots take new applications from the side of <code>from</code> (the left by default), in the order the applications
-  started.</li>
-<li>When the pool has no application for a slot, the slot shows the next candidate in its list. In
-  <code>["apps", "people"]</code> that is a person.</li>
-<li>An application keeps its slot while it plays, and for <code>hold</code> seconds after it stopped. Then the slot is free
-  again. This way a music player does not jump to another strip between two tracks.</li>
+<li>An <code>apps</code> channel without a slot goes in as a whole, on one strip. <code>in_pool = false</code> keeps it out.</li>
+<li>Free slots take new applications from the side of <code>from</code>, in the order the applications started.</li>
+<li>When the pool has no application for a slot, the slot shows its next candidate.</li>
+<li>An application keeps its slot while it plays and for <code>hold</code> seconds after it stopped, so a music player does not
+  jump to another strip between two tracks.</li>
 <li>A newly assigned application keeps its own volume.</li>
 </ul>
 <p>With the default <code>encoder = "pick"</code>, the encoder chooses the application and a push pins it, so it stays after it
 stopped playing. See <a href="../../strip/encoders/#pick">Encoders</a>.</p>
-<p>A slot of <code>apps</code> or <code>auto</code> controls its application like an <code>apps</code> channel does (fader, Mute, meter), except that the
-application keeps its own volume when the slot takes it. Without an application the strip is dark and does nothing.</p>
+<p>A slot of <code>apps</code> or <code>auto</code> controls its application like an <code>apps</code> channel does. Without an application the strip
+is dark and does nothing.</p>
 <h2 id="launching-the-application">Launching the application<a class="headerlink" href="#launching-the-application" title="Permanent link">&para;</a></h2>
 <p>With <code>launch</code>, the Select button of an <code>apps</code> channel starts an application while it does not run, such as Mumble
-or your music player. Any slot can start one with <a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a>, whatever it
-shows. In <code>[controls]</code> a condition is written as <code>when = "..."</code>; in a slot you write it after <code>if</code>. In this example, Select on strip 7 starts Mumble while the state <code>call</code> (a state you define, see <a href="../../slots/#states-and-modes">States</a>) is off:</p>
+or your music player. Any slot can do it with <a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a>, whatever it
+shows. Here Select on strip 7 starts Mumble while the <a href="../../slots/#states-and-modes">state</a> <code>call</code> is off (in
+<code>[controls]</code> a condition is <code>when = "..."</code>):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[controls]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
@@ -3139,27 +3119,25 @@ shows. In <code>[controls]</code> a condition is written as <code>when = "..."</
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">launch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mumble://markus@voice.example.org/Gaming"</span><span class="p">]</span>
 </span></code></pre></div>
 <ul>
-<li><code>launch</code> is the program and its arguments, as a list. It never runs through a shell: no <code>~</code>, <code>$VARIABLES</code>, pipes or
-  <code>&amp;&amp;</code>. A single string works too (<code>launch = "mumble mumble://markus@voice.example.org/Gaming"</code>) and is split like a
-  shell splits it, with quotes, but nothing is expanded.</li>
-<li>Select starts the command only while the application does not run. The daemon calls it running when one of these
-  holds:<ul>
+<li><code>launch</code> is the program and its arguments, as a list. A single string works too and is split like a shell
+  splits it, with quotes. Nothing runs through a shell: no <code>~</code>, <code>$VARIABLES</code>, pipes or <code>&amp;&amp;</code>.</li>
+<li>Select starts the command only while the application does not run. It counts as running when:<ul>
 <li>A stream matches <code>match</code>.</li>
 <li>A process runs whose name contains one of the <code>match</code> entries (like <code>processes</code> of
-  <a href="../../slots/#states-and-modes">states</a>). So a voice chat that makes no sound counts as running. For a
-  <a href="../../presets/">preset</a> the processes of the preset count, for example Steam's helper process <code>reaper</code> for <code>@steam-games</code>.</li>
+  <a href="../../slots/#states-and-modes">states</a>). So a voice chat that makes no sound counts as running. A
+  <a href="../../presets/">preset</a> brings its processes, such as <code>reaper</code> for <code>@steam-games</code>.</li>
 <li>A process runs whose name is the program of <code>launch</code> (the file name of its first part, for example <code>mumble</code>).
   A <code>launch</code> in <code>[controls]</code> has no <code>match</code>, so this is the only check there.</li>
 </ul>
 </li>
 <li>While it runs, Select does nothing. With <code>launch_when_running = true</code> Select starts the command also then.</li>
-<li>The Select LED flashes while the application starts (until it runs, at most 15 s), then it is on while it runs.</li>
-<li>A second press within 5 s while the application is not up yet does nothing.</li>
-<li>The application runs on its own, as a transient systemd user service (<code>systemd-run --user</code>), so a restart of the
-  daemon does not end it. Its output is in <code>journalctl --user -u 'xtouch-launch-*'</code>. Without a systemd user manager
-  it starts as a separate process. A program that is not in <code>PATH</code> is a warning in the log of the daemon.</li>
-<li>Only the configuration can start programs: neither Home Assistant nor MQTT can, and <code>homeassistant</code>, <code>output</code>,
-  <code>input</code> and <code>person</code> channels have no <code>launch</code>.</li>
+<li>The Select LED flashes while the application starts (at most 15 s), then is on while it runs. A second press
+  within 5 s does nothing.</li>
+<li>The application runs as a transient systemd user service (<code>systemd-run --user</code>), so a restart of the daemon does
+  not end it. Its output is in <code>journalctl --user -u 'xtouch-launch-*'</code>. Without a systemd user manager it starts
+  as a separate process. A program that is not in <code>PATH</code> is a warning in the log.</li>
+<li>Only the configuration can start programs, not Home Assistant or MQTT. Only <code>apps</code> channels and <code>[controls]</code>
+  have <code>launch</code>.</li>
 </ul>
 <h3 id="mumble">Mumble<a class="headerlink" href="#mumble" title="Permanent link">&para;</a></h3>
 <p><a href="../../../guides/mumble/">Mumble</a> connects to a server and joins a channel when it gets a <code>mumble://</code> URL
@@ -3167,13 +3145,11 @@ shows. In <code>[controls]</code> a condition is written as <code>when = "..."</
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>mumble://[username[:password]@]&lt;address&gt;[:port]/[channel[/subchannel...]]
 </span></code></pre></div>
 <ul>
-<li>The port is 64738 by default. Encode spaces and other special characters of channel names (<code>Gaming%20Night</code>). If
-  the channel can't be joined, Mumble stays in the server's default channel.</li>
-<li>A running Mumble takes the URL too: a second <code>mumble</code> that you start hands the URL to the running one and ends. So
-  <code>launch_when_running = true</code> makes Select connect a running Mumble to the server, and <code>launch = ["mumble"]</code>
-  without a URL brings its window to the front.</li>
-<li>Leave the password out: the configuration file and the process list would show it. Mumble remembers
-  servers, and certificates need no password.</li>
+<li>The port is 64738 by default. Encode special characters of channel names (<code>Gaming%20Night</code>). If the channel can't
+  be joined, Mumble stays in the default channel.</li>
+<li>A running Mumble takes the URL too, so <code>launch_when_running = true</code> makes Select connect it to the server, and
+  <code>launch = ["mumble"]</code> without a URL brings its window to the front.</li>
+<li>Leave the password out: the configuration file and the process list would show it.</li>
 <li>For Mumble as a Flatpak (<code>launch = ["flatpak", "run", "info.mumble.Mumble", "mumble://..."]</code>), keep <code>mumble</code> in
   <code>match</code>: the program of <code>launch</code> is <code>flatpak</code> then.</li>
 </ul>

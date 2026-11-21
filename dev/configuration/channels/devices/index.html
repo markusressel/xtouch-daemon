@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1292,7 +1292,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -3007,10 +3007,9 @@
 
 
 <h1 id="devices-output-and-input-channels">Devices: <code>output</code> and <code>input</code> channels<a class="headerlink" href="#devices-output-and-input-channels" title="Permanent link">&para;</a></h1>
-<p>An <code>output</code> or <code>input</code> channel controls one sound device: an output such as your speakers (a sink) or an input such
-as your microphone (a source). It can follow a fixed one, pick one of several, or follow whichever is the default. With
-<a href="#choices"><code>choices</code></a>, Select switches between several outputs (or inputs), each optionally in a profile of its sound
-card.</p>
+<p>An <code>output</code> or <code>input</code> channel controls one sound device: an output such as your speakers or an input such as your
+microphone. It can follow a fixed one, pick one of several, or follow whichever is the default. With
+<a href="#choices"><code>choices</code></a>, Select switches between several, each optionally in a profile of its sound card.</p>
 <table>
 <thead>
 <tr>
@@ -3028,27 +3027,27 @@ card.</p>
 <tr>
 <td><code>device</code></td>
 <td>the default output or input</td>
-<td>The node name or the description of the sound device (both are in the output of <a href="../../../reference/commands/"><code>xtouch-daemon list-devices</code></a>), or a list of them. <code>*</code> and <code>?</code> are wildcards (<code>*</code> matches any text, <code>?</code> one character). Without <code>device</code>, the strip follows the default output (or input).</td>
+<td>The node name or the description of the sound device (see <a href="../../../reference/commands/"><code>xtouch-daemon list-devices</code></a>), or a list of them. <code>*</code> and <code>?</code> are wildcards (any text, one character).</td>
 </tr>
 <tr>
 <td><code>label</code></td>
 <td>see <a href="../#labels">Labels</a></td>
-<td>The top line of the LCD. With <code>profiles</code> or <code>choices</code>, the label of the active profile or choice wins over this <code>label</code>.</td>
+<td>The top line of the LCD. The label of the active profile or choice wins.</td>
 </tr>
 <tr>
 <td><code>select</code>, <code>rec</code>, <code>solo</code></td>
 <td>see <a href="../../strip/leds/#buttons">Buttons</a></td>
-<td>What the buttons do and what their LEDs show. By default Select makes the output (or input) of the strip the default (with <code>device</code> or <code>choices</code>) and Rec switches <code>profiles</code>.</td>
+<td>What the buttons do and what their LEDs show. By default Select makes the sound device the default (with <code>device</code> or <code>choices</code>) and Rec switches <code>profiles</code>.</td>
 </tr>
 <tr>
 <td><code>choices</code></td>
 <td>none</td>
-<td>The outputs (or inputs) Select switches between, each optionally in a profile of its card, see <a href="#choices">below</a>. Instead of <code>device</code> and <code>profiles</code>.</td>
+<td>The sound devices Select switches between, see <a href="#choices">below</a>. Instead of <code>device</code> and <code>profiles</code>.</td>
 </tr>
 <tr>
 <td><code>profiles</code></td>
 <td>none</td>
-<td>Profiles of the sound card of the output that Rec switches between, see <a href="#profiles">below</a>.</td>
+<td>Profiles of the sound card that Rec switches between, see <a href="#profiles">below</a>.</td>
 </tr>
 <tr>
 <td><code>encoder</code></td>
@@ -3057,8 +3056,7 @@ card.</p>
 </tr>
 </tbody>
 </table>
-<p>They also have the <a href="../#options-of-every-audio-channel">options of every audio channel</a>: <code>color</code>,
-<code>lit_when_idle</code>, <code>meter</code>, <code>meter_point</code>, <code>min_volume</code>, <code>max_volume</code>, <code>fader</code> and <code>lcd</code>.</p>
+<p>They also have the <a href="../#options-of-every-audio-channel">options of every audio channel</a>.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.pci-0000_11_00.4.analog-stereo"</span>
@@ -3071,70 +3069,27 @@ card.</p>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"red"</span>
 </span></code></pre></div>
 <h2 id="elements">Elements<a class="headerlink" href="#elements" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Element</th>
-<th>Function</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Fader</td>
-<td>Sets the volume, <code>min_volume</code> at the bottom to <code>max_volume</code> at the top. Follows changes made elsewhere.</td>
-</tr>
-<tr>
-<td>Encoder</td>
-<td>See <a href="../../strip/encoders/">Encoders</a>: by default the balance.</td>
-</tr>
-<tr>
-<td>Mute</td>
-<td>Toggles mute. The LED is on while the output (or input) is muted.</td>
-</tr>
-<tr>
-<td>Rec</td>
-<td>With <code>profiles</code>: switches the sound card to the next profile. The LED is on for every profile but the first. Without <code>profiles</code> (also with <code>choices</code>) the LED is an <a href="../../strip/leds/#indicators">indicator</a>.</td>
-</tr>
-<tr>
-<td>Solo</td>
-<td>Its LED is an <a href="../../strip/leds/#indicators">indicator</a>.</td>
-</tr>
-<tr>
-<td>Select</td>
-<td>With <code>device</code>: makes the output (or input) the default, or switches to the next of several. With <code>choices</code>: the next choice. The LED is on while it is the default.</td>
-</tr>
-<tr>
-<td>LCD</td>
-<td>Top: the label. Bottom: the volume, or <code>muted</code>.</td>
-</tr>
-<tr>
-<td>Ring</td>
-<td>The LEDs around the encoder show the value the encoder sets.</td>
-</tr>
-<tr>
-<td>Meter</td>
-<td>The level: what plays on an output, what an input records.</td>
-</tr>
-</tbody>
-</table>
-<p>That is what the buttons do by default. <a href="../../strip/leds/#buttons">Buttons</a> gives them other actions, and a second
-action for a hold (pressing and holding the button). For example <code>next</code> shows the next choice without making it the
-default, and <code>talk</code> unmutes an input while you hold the button.</p>
-<p>If the output is not there (for example your Bluetooth headphones are switched off), the strip shows <code>off</code> on a dark
-LCD. Its fader goes down, and the fader and buttons do nothing until the output is back.</p>
+<p>The elements work as on <a href="../#elements-of-a-strip">every audio strip</a>. Here is what differs:</p>
+<ul>
+<li><strong>Encoder:</strong> the balance by default (<a href="../../strip/encoders/">Encoders</a>).</li>
+<li><strong>Select:</strong> with <code>device</code>, makes the sound device the default, or switches to the next of several. With
+  <code>choices</code>, goes to the next choice. The LED is on while it is the default.</li>
+<li><strong>Rec:</strong> with <code>profiles</code>, switches the sound card to the next profile; the LED is on for every profile but the
+  first. Else its LED is an <a href="../../strip/leds/#indicators">indicator</a>. Solo too.</li>
+</ul>
+<p><a href="../../strip/leds/#buttons">Buttons</a> gives the buttons other actions, e.g. <code>next</code> or <code>talk</code>.</p>
+<p>If the output is not there (your Bluetooth headphones are switched off), the strip shows <code>off</code> on a dark LCD, its
+fader goes down, and the fader and buttons do nothing until it is back.</p>
 <h2 id="the-default-device">The default sound device<a class="headerlink" href="#the-default-device" title="Permanent link">&para;</a></h2>
-<p>A strip without <code>device</code> always controls the default output (or input) of the sound server. When the default changes
-(for example you plug in a headset), the strip follows it, including its meter. Select does nothing on such a strip,
-because it has no output of its own to make the default.</p>
+<p>A strip without <code>device</code> follows the default output (or input) of the sound server when it changes (you plug in a
+headset). Select does nothing on it: there is no sound device of its own to make the default.</p>
 <h2 id="naming-a-device">Naming a sound device<a class="headerlink" href="#naming-a-device" title="Permanent link">&para;</a></h2>
-<p><code>xtouch-daemon list-devices</code> lists the node names and descriptions of the outputs and inputs; <code>*</code> marks the defaults.</p>
-<p>An <code>output</code> channel matches only outputs, an <code>input</code> channel only inputs. So a description that an output and an
-input share (Bluetooth headphones with a microphone have one description for both) still finds the right one. A node
-name names one sound device and stays the same across restarts. A description can be the same for several. Use the
-node name when you want one sound device for sure.</p>
+<p><code>xtouch-daemon list-devices</code> lists the node names and descriptions; <code>*</code> marks the defaults.</p>
+<p>An <code>output</code> channel matches only outputs, an <code>input</code> channel only inputs, so a description that both share
+(Bluetooth headphones with a microphone) still finds the right one. A node name stays the same across restarts; a
+description can be the same for several sound devices. Use the node name to be sure.</p>
 <h2 id="several-devices">Several sound devices<a class="headerlink" href="#several-devices" title="Permanent link">&para;</a></h2>
-<p><code>device</code> takes a list, and <code>*</code> wildcards match several sound devices. Wildcards work on node names and descriptions,
-and are case-sensitive.</p>
+<p><code>device</code> takes a list, and wildcards (case-sensitive) match several sound devices.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.phones]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"bluez_output.*"</span><span class="p">]</span><span class="w">   </span><span class="c1"># whichever Bluetooth headphones are connected</span>
@@ -3146,38 +3101,34 @@ and are case-sensitive.</p>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Main"</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cyan"</span>
 </span></code></pre></div>
-<p>With several matches, the strip shows one of those that are there: the default one, or else the one it showed last.
-Select makes it the default. Pressed on the default one, it switches to the next one and makes that the default.
-Without <code>label</code>, the LCD shows which one it is.</p>
+<p>With several matches, the strip shows the default one that is there, else the one it showed last. Select makes it
+the default; pressed on the default one, it switches to the next and makes that the default. Without <code>label</code>, the
+LCD shows which one it is.</p>
 <h2 id="devices-without-a-channel">Devices without a channel<a class="headerlink" href="#devices-without-a-channel" title="Permanent link">&para;</a></h2>
-<p>The built-in pool <code>devices</code> holds the outputs and inputs that no <code>output</code> or <code>input</code> channel owns, for example a USB
-headset or Bluetooth speakers. A channel owns an output (or input) in two cases:</p>
-<ul>
-<li>The <code>device</code> of the channel matches it.</li>
-<li>The channel has no <code>device</code> and it is the default output (or input). So with a bare <code>[channel.out]</code> of type
-  <code>output</code>, the current default output is never in the pool.</li>
-</ul>
-<p>A slot that names <code>devices</code> shows the next output or input of the pool as a strip of that one sound device: its
-volume on the fader, Mute, and Select makes it the default. <code>auto</code> doesn't take outputs or inputs.</p>
+<p>The built-in <a href="../../slots/#pools-of-channels">pool</a> <code>devices</code> holds the outputs and inputs that no channel owns, for
+example a USB headset or Bluetooth speakers. A channel owns a sound device when its <code>device</code> matches it, or when it
+has no <code>device</code> and the sound device is the default. So with a bare <code>[channel.out]</code>, the default output is never in
+the pool.</p>
+<p>A slot that names <code>devices</code> shows the next output or input of the pool as a strip of that sound device: its volume
+on the fader, Mute, and Select makes it the default. <code>auto</code> doesn't take sound devices.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[slots]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"devices"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span><span class="w">   </span><span class="c1"># a headset that was plugged in, else an application</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">[pool.devices]</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span><span class="w">                 </span><span class="c1"># the side the outputs and inputs fill from (default)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span><span class="w">                 </span><span class="c1"># the side the sound devices fill from (default)</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">exclude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"*HDMI*"</span><span class="p">,</span><span class="w"> </span><span class="s2">"alsa_output.pci-*"</span><span class="p">]</span><span class="w">   </span><span class="c1"># never a member: node names or descriptions, `*` wildcards</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">hold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">                      </span><span class="c1"># seconds an output keeps its slot after it went away (default 5)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">hold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">                      </span><span class="c1"># seconds a sound device keeps its slot after it went away (default 5)</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cyan"</span><span class="w">                </span><span class="c1"># the look of these strips, as on an `output` channel</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"volume"</span><span class="w">            </span><span class="c1"># balance (default) or volume</span>
 </span></code></pre></div>
-<p><code>[pool.devices]</code> and a place of <code>devices</code> (<code>{ show = "devices", select = false }</code>) take the look options of every
-audio channel, <code>encoder</code> (<code>balance</code> or <code>volume</code>), <code>min_volume</code>, <code>max_volume</code>, and <code>select = false</code> (Select does not
-make the output the default).</p>
-<p>An output that goes away stays on its slot for <code>hold</code> seconds (its strip shows <code>off</code>), so a short drop of a Bluetooth
-link doesn't move the strips. In a condition, <code>devices if present</code> and <code>present(devices)</code> hold while the pool has an
-output or input (see <a href="../../slots/#conditions">Conditions</a>).</p>
+<p><code>[pool.devices]</code> and a place of <code>devices</code> (<code>{ show = "devices", select = false }</code>) take the look options, <code>encoder</code>,
+<code>min_volume</code>, <code>max_volume</code>, and <code>select = false</code> (Select does not make the sound device the default).</p>
+<p>A sound device that goes away stays on its slot for <code>hold</code> seconds (its strip shows <code>off</code>), so a short drop of a
+Bluetooth link doesn't move the strips. <code>devices if present</code> holds while the pool has a sound device, see
+<a href="../../slots/#conditions">Conditions</a>.</p>
 <h2 id="choices">Choices<a class="headerlink" href="#choices" title="Permanent link">&para;</a></h2>
 <p><code>choices</code> is one strip for several outputs that you use one at a time, e.g. headphones on the analog output of a
-sound card, speakers on its digital output, and Bluetooth headphones. Select goes to the next one, and switches the
+sound card, speakers on its digital output, and Bluetooth headphones. Select goes to the next one, switching the
 card to the profile it needs first:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
@@ -3200,8 +3151,7 @@ card to the profile it needs first:</p>
 </span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Buds"</span>
 </span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span>
 </span></code></pre></div>
-<p>You can also write a choice on one line, as a TOML inline table: <code>{ label = "Buds", device = "bluez_output.*" }</code> in
-<code>choices = [...]</code>. For long choices the <code>[[channel.out.choices]]</code> tables above are easier to read.</p>
+<p>A choice also works as an inline table in <code>choices = [...]</code>: <code>{ label = "Buds", device = "bluez_output.*" }</code>.</p>
 <table>
 <thead>
 <tr>
@@ -3214,12 +3164,12 @@ card to the profile it needs first:</p>
 <tr>
 <td><code>device</code></td>
 <td>required</td>
-<td>The node name or description of the output or input; <code>*</code> and <code>?</code> are wildcards, as above (the first that matches).</td>
+<td>The node name or description, wildcards as above (the first match).</td>
 </tr>
 <tr>
 <td><code>label</code></td>
 <td>the start of the description</td>
-<td>The top line of the LCD while this choice is active (7 characters).</td>
+<td>The top line while this choice is active (7 characters).</td>
 </tr>
 <tr>
 <td><code>card</code></td>
@@ -3243,48 +3193,42 @@ card to the profile it needs first:</p>
 </tr>
 </tbody>
 </table>
-<p><code>xtouch-daemon list-devices</code> lists the outputs and inputs, then each sound card (its name, its description and its
-outputs and inputs) with its profiles (name and description; <code>*</code> marks the active one): that is where <code>card</code> and
-<code>profile</code> come from. An output of another profile appears only once the card is in that profile, so write its name
-as the sound server will call it, or use a wildcard. The name is <code>alsa_output.</code> plus the card name without
-<code>alsa_card.</code>, a dot, and the output part of the profile. Example: for the card <code>alsa_card.pci-0000_11_00.4</code> and the
-profile <code>output:iec958-stereo+input:analog-stereo</code>, the output is <code>alsa_output.pci-0000_11_00.4.iec958-stereo</code>.</p>
+<p><code>xtouch-daemon list-devices</code> lists each sound card with its profiles (name and description; <code>*</code> marks the active
+one): that is where <code>card</code> and <code>profile</code> come from. An output of another profile appears only once the card is in
+that profile, so write its name as the sound server will call it, or use a wildcard. The name is <code>alsa_output.</code> plus
+the card name without <code>alsa_card.</code>, a dot, and the output part of the profile: for <code>alsa_card.pci-0000_11_00.4</code> and
+<code>output:iec958-stereo+input:analog-stereo</code> it is <code>alsa_output.pci-0000_11_00.4.iec958-stereo</code>.</p>
 <ul>
-<li><strong>Which one shows:</strong> the choice whose output is the default. If none of them is, the one shown last (if it is still
-  there), or else the first one there is. A choice is there when its output is, or when its card is there and has
-  its profile.</li>
-<li><strong>Select</strong> goes to the next choice that is there, after the one shown, and around. A choice in another profile
-  switches the card first, then its output becomes the default. The label shows the choice at once; if a switch
-  fails, the strip goes back. A switch of the card takes a moment, and quick presses step through the choices.
-  Pressed on a choice that is shown but isn't the default, it makes that one the default first.</li>
+<li><strong>Which one shows:</strong> the choice whose output is the default; else the one shown last, if it is still there; else
+  the first one there. A choice is there when its output is, or when its card is there and has its profile.</li>
+<li><strong>Select</strong> goes to the next choice that is there, and around. A choice in another profile switches the card
+  first, then its output becomes the default. The label shows the choice at once; if a switch fails, the strip goes
+  back. Quick presses step through the choices. Pressed on a choice that is shown but isn't the default, it makes
+  that one the default first.</li>
 <li><strong>The LED</strong> of Select is on while the output of the choice is the default. Rec keeps its
-  <a href="../../strip/leds/#indicators">indicator</a> (<code>rec</code>).</li>
-<li><strong>Without making it the default:</strong> give Select the action <code>next</code>. It shows the next choice that is there, and
-  the default stays as it is. Example: <code>select = { hold = "next" }</code> does this while you hold the button for half a
-  second (<code>press = "next"</code> does it at a press). See <a href="../../strip/leds/#buttons">Buttons</a>.</li>
-<li><strong>Elsewhere:</strong> a default chosen elsewhere (pavucontrol, headphones that connect and become the default) shows on
-  the strip if it is one of the choices.</li>
-<li>Two choices on the same card in the same profile only switch the default.</li>
-<li>Fader, Mute and the encoder act on the output of the choice shown; its range is the choice's <code>min_volume</code> and
-  <code>max_volume</code>, else the strip's.</li>
-<li>While none of the choices is there, the strip is dark and shows <code>off</code>; <code>"out if present"</code> in a slot shows
-  something else then.</li>
+  <a href="../../strip/leds/#indicators">indicator</a>.</li>
+<li><strong>Without making it the default:</strong> give Select the action <code>next</code>, e.g. <code>select = { hold = "next" }</code> (<code>press</code> does
+  it at a press). See <a href="../../strip/leds/#buttons">Buttons</a>.</li>
+<li>A default chosen elsewhere (pavucontrol, headphones that connect) shows on the strip if it is one of the choices.</li>
+<li>Two choices on the same card and profile only switch the default.</li>
+<li>Fader, Mute and the encoder act on the output of the choice shown, in the choice's range, else the strip's.</li>
+<li>While no choice is there, the strip is dark and shows <code>off</code>; <code>"out if present"</code> in a slot shows something else.</li>
 <li>With <a href="../../../guides/home-assistant/#choices"><code>[mqtt]</code></a>, Home Assistant has a select for the choice.</li>
 </ul>
 <p>Rules for <code>choices</code>:</p>
 <ul>
 <li>Write at least two choices.</li>
 <li>Do not combine <code>choices</code> with <code>device</code> or <code>profiles</code>.</li>
-<li>One button must switch between the choices (<code>default</code> makes the shown output the default, <code>next</code> only shows the next one; see <a href="../../strip/leds/#buttons">Buttons</a>). If you
-  turn Select off with <code>select = false</code>, another button must do it.</li>
+<li>One button must switch between the choices (<code>default</code> makes the shown output the default, <code>next</code> only shows the
+  next one). If you turn Select off with <code>select = false</code>, another button must do it.</li>
 </ul>
 <p><code>profiles</code> (below) still works, but <code>choices</code> does the same with one button. In the GUI, <code>device</code> and <code>choices</code> are
-one list, "Device" (the sound device, not the X-Touch): it writes <code>device</code> while its entries are plain names, and <code>choices</code> once one has a label, a
-profile or a volume range. The GUI shows <code>profiles</code> only for a channel that has it.</p>
+one list, "Device" (the sound device, not the X-Touch): it writes <code>choices</code> once an entry has a label, a profile or
+a volume range. The GUI shows <code>profiles</code> only for a channel that has it.</p>
 <h2 id="profiles">Profiles<a class="headerlink" href="#profiles" title="Permanent link">&para;</a></h2>
 <p>A sound card has profiles that decide which outputs and inputs it has, e.g. analog or digital (S/PDIF, IEC958)
-output. Each profile has an output of its own, so name <code>device</code> with a wildcard that matches all of them. With <code>profiles</code>, Rec
-switches the card to the next one (see <a href="#choices">Choices</a> for the same with Select):</p>
+output. Each profile has an output of its own, so name <code>device</code> with a wildcard that matches all of them. Rec
+switches the card to the next profile:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.pci-0000_11_00.4.*"</span><span class="w">   </span><span class="c1"># the analog and the digital output of the card</span>
@@ -3305,12 +3249,12 @@ switches the card to the next one (see <a href="#choices">Choices</a> for the sa
 <tr>
 <td><code>label</code></td>
 <td>required</td>
-<td>The name of the strip on the LCD while the card is in this profile, e.g. what is connected to that output (7 characters).</td>
+<td>The top line while the card is in this profile (7 characters).</td>
 </tr>
 <tr>
 <td><code>profile</code></td>
 <td>required</td>
-<td>The name or the description of the profile. <code>xtouch-daemon list-devices</code> lists the profiles of each card; <code>*</code> marks the active one.</td>
+<td>The name or description of the profile, from <code>xtouch-daemon list-devices</code>.</td>
 </tr>
 <tr>
 <td><code>min_volume</code></td>
@@ -3325,13 +3269,12 @@ switches the card to the next one (see <a href="#choices">Choices</a> for the sa
 </tbody>
 </table>
 <ul>
-<li>At least two profiles: one alone has nothing to switch to.</li>
-<li>The label changes when you press Rec. While the card is in a profile that isn't in the list, the strip's <code>label</code> shows.</li>
-<li>Rec is taken by the profiles (its LED is on for every profile but the first), so you can't set <code>rec</code> on a strip with
-  profiles.</li>
+<li>Write at least two profiles.</li>
+<li>While the card is in a profile that isn't in the list, the strip's <code>label</code> shows, and Rec switches to the first
+  profile of the list.</li>
+<li>Profiles take Rec, so you can't set <code>rec</code> on such a strip.</li>
 <li>If the old output was the default, the new one becomes the default.</li>
 <li>Each output has its own volume: the fader moves to the volume of the new one.</li>
-<li>When you press Rec while the card is in a profile that isn't in the list, it switches to the first profile of the list.</li>
 </ul>
 <p>Next: <a href="../applications/">Applications</a>, <a href="../people/">People</a>, or the <a href="../../slots/">slots</a> that show them.</p>
 

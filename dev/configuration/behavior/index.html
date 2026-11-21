@@ -33,7 +33,7 @@
     
     
       
-        <title>Behavior, device and aliases - xtouch-daemon</title>
+        <title>Behavior, X-Touch and aliases - xtouch-daemon</title>
       
     
     
@@ -129,7 +129,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Behavior, device and aliases
+              Behavior, X-Touch and aliases
             
           </span>
         </div>
@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1175,7 +1175,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -1192,7 +1192,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -2970,24 +2970,10 @@
   
 
 
-<h1 id="behavior-device-and-aliases">Behavior, device and aliases<a class="headerlink" href="#behavior-device-and-aliases" title="Permanent link">&para;</a></h1>
+<h1 id="behavior-x-touch-and-aliases">Behavior, X-Touch and aliases<a class="headerlink" href="#behavior-x-touch-and-aliases" title="Permanent link">&para;</a></h1>
 <p>Three sections that you only need when the defaults do not fit: <code>[device]</code> is about the X-Touch itself,
 <code>[behavior]</code> about the faders, encoders and meters of all strips, and <code>[aliases]</code> about the names that application
-strips show. Put them in the <a href="../">configuration file</a> like any other section; the daemon applies a saved file
-by itself. The <a href="../../guides/gui/">GUI</a> has them on the page Settings.</p>
-<p>A complete example that uses all three:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[device]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">startup</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"show"</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">shutdown</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"curtain"</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">touchless_faders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="w">      </span><span class="c1"># the touch sensor of fader 3 is broken</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">[behavior]</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">150</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">encoder_step</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">[aliases]</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="s2">"WEBRTC VoiceEngine"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Discord"</span>
-</span></code></pre></div>
+strips show. The <a href="../../guides/gui/">GUI</a> has them on the page Settings.</p>
 <h2 id="device"><code>[device]</code><a class="headerlink" href="#device" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3030,7 +3016,7 @@ by itself. The <a href="../../guides/gui/">GUI</a> has them on the page Settings
 </tr>
 </tbody>
 </table>
-<p>When the daemon applies a saved file (a reload), it takes every option of <code>[device]</code>. With another <code>name</code> or <code>virtual</code>, the daemon connects to the other X-Touch (or the virtual device) without a restart. The strips show the same on the new one as before.</p>
+<p>A reload takes every option of <code>[device]</code>: with another <code>name</code> or <code>virtual</code>, the daemon connects to the other X-Touch without a restart, and the strips show the same on it.</p>
 <h3 id="startup-and-shutdown-sequences">Startup and shutdown sequences<a class="headerlink" href="#startup-and-shutdown-sequences" title="Permanent link">&para;</a></h3>
 <p>After a connect the strips light up and their faders come up to their values; when the daemon stops, the strips go
 dark and their faders go down. <code>startup</code> and <code>shutdown</code> choose how:</p>
@@ -3065,32 +3051,31 @@ dark and their faders go down. <code>startup</code> and <code>shutdown</code> ch
 </tr>
 </tbody>
 </table>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[device]</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">startup</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"show"</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">shutdown</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"curtain"</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[device]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">startup</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"show"</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">shutdown</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"curtain"</span>
 </span></code></pre></div>
 <h3 id="faders-without-a-touch-sensor">Faders without a touch sensor<a class="headerlink" href="#faders-without-a-touch-sensor" title="Permanent link">&para;</a></h3>
 <p>The daemon changes a value only while you touch the fader (see <a href="../../reference/hardware/#motor-faders">Hardware</a>),
-because the motor also moves the faders. The symptom of a broken touch sensor: the daemon never sees a touch, so the
-motor moves the fader back to its value shortly after every move you make. Until you repair the sensor, <code>touchless_faders</code> lets that fader work without it: a move counts as a touch,
-and half a second without a move counts as letting go. Count the faders from 1 on the left. In the GUI these are the toggles of
-<code>touchless_faders</code> under Settings, Extender.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[device]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">touchless_faders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w">   </span><span class="c1"># the touch sensor of fader 1 is broken</span>
+because the motor also moves the faders. With a broken touch sensor the daemon never sees a touch, so the motor moves
+the fader back to its value shortly after every move you make. <code>touchless_faders</code> lets that fader work without the
+sensor: a move counts as a touch, and half a second without a move counts as letting go. Count the faders from 1 on
+the left. The GUI has toggles for it under Settings, Extender.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[device]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">touchless_faders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w">   </span><span class="c1"># the touch sensor of fader 1 is broken</span>
 </span></code></pre></div>
-<p><code>touch_required = false</code> does the same for all faders, and it has the limits listed below. Use it also if a working sensor does not notice your finger, e.g.
-when you push the fader from below.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[device]</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">touch_required</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">   </span><span class="c1"># every move of a fader counts</span>
+<p><code>touch_required = false</code> does the same for all faders, with the limits below. Use it also if a working sensor does
+not notice your finger, e.g. when you push the fader from below.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[device]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">touch_required</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">   </span><span class="c1"># every move of a fader counts</span>
 </span></code></pre></div>
 <p>What it can't do:</p>
 <ul>
-<li><strong>Resting fingers:</strong> the daemon treats a finger that rests on the fader without moving it as gone after half a
-  second. The motor then moves the fader to its value, which is where your finger left it, so you notice nothing. If
-  the value changed somewhere else in the meantime (e.g. in the volume control of the desktop), the fader moves out
+<li><strong>Resting fingers:</strong> a finger that rests on the fader without moving it counts as gone after half a second. If the
+  value changed somewhere else in the meantime (e.g. in the volume control of the desktop), the fader moves out
   from under your finger.</li>
-<li><strong>The first 3 seconds after a connect:</strong> the X-Touch moves all its faders down by itself, and the daemon must not
-  take that for your hand. So in these 3 seconds a fader counts a move only with a real touch.</li>
+<li><strong>The first 3 seconds after a connect:</strong> the X-Touch moves all its faders down by itself, so in these 3 seconds a
+  fader counts a move only with a real touch.</li>
 </ul>
 <h2 id="behavior"><code>[behavior]</code><a class="headerlink" href="#behavior" title="Permanent link">&para;</a></h2>
 <table>
@@ -3134,37 +3119,33 @@ when you push the fader from below.</p>
 </tr>
 </tbody>
 </table>
-<p>Two more settings of the strips of applications are not here: <code>hold</code> (how long <code>apps</code> and <code>auto</code> keep an application)
-and <code>exclude</code> (which ones they never take). They are in
-<a href="../channels/applications/#apps-and-auto"><code>[pool.apps]</code></a>.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[behavior]</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">150</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">encoder_step</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">reset_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100</span>
+<p><code>hold</code> and <code>exclude</code> of the strips of applications are in <a href="../channels/applications/#apps-and-auto"><code>[pool.apps]</code></a>.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[behavior]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">150</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">encoder_step</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span>
 </span></code></pre></div>
 <h3 id="the-volume-scale">The volume scale<a class="headerlink" href="#the-volume-scale" title="Permanent link">&para;</a></h3>
 <p><code>max_volume</code> and <code>unity_at</code> together say what volume each point of the fader has. The scale printed next to the faders
-marks 0 dB at about 77 % of the travel from the bottom, which is the default of <code>unity_at</code>. 0 dB means the volume
-stays as the application sends it, which is 100 %, so the daemon puts 100 % there. From the bottom to that mark the fader goes from 0 to 100 %. From the mark to the top it goes from 100 % to
-<code>max_volume</code>. Both parts are linear.</p>
+marks 0 dB (the volume the application sends, 100 %) at about 77 % of the travel, the default of <code>unity_at</code>. From the
+bottom to that mark the fader goes linearly from 0 to 100 %, from the mark to the top from 100 % to <code>max_volume</code>.</p>
 <ul>
-<li>With the default <code>max_volume = 130</code> the two parts have the same slope, because 100 / 130 is about 0.77: 100 % sits at 77 % of the
-  travel. The fader is linear from 0 to 130 %.</li>
-<li>With a larger <code>max_volume</code> (up to 200) the part above the mark is steeper: the same distance covers more volume.</li>
+<li>With the default <code>max_volume = 130</code> both parts have the same slope (100 / 130 is about 0.77): the fader is linear
+  from 0 to 130 %.</li>
+<li>With a larger <code>max_volume</code> (up to 200) the part above the mark is steeper.</li>
 <li>With <code>max_volume = 100</code>, 100 % is at the top and <code>unity_at</code> is ignored.</li>
 </ul>
 <p>Examples and a table are at <a href="../channels/#100-at-the-0-db-mark">100 % at the 0 dB mark</a>.</p>
 <h2 id="aliases"><code>[aliases]</code><a class="headerlink" href="#aliases" title="Permanent link">&para;</a></h2>
-<p>The name that a strip shows for an application, in place of the name the sound server reports. It applies to every
-strip that takes its application from the pools <code>apps</code> and <code>auto</code>, and to the pools of your own with <code>kind = "apps"</code>
-(<a href="../channels/applications/#apps-and-auto">Applications</a>). An <code>apps</code> channel shows its <code>label</code> instead. An alias is
-at most 7 characters of ASCII, because it must fit the LCD; a longer one is an error that <code>check-config</code> reports.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[aliases]</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="s2">"WEBRTC VoiceEngine"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Discord"</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="s2">"Chromium"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Browser"</span>
+<p>The name that a strip shows for an application, in place of the name the sound server reports. It applies to strips
+that take their application from the pools <code>apps</code> and <code>auto</code>, and to pools of your own with <code>kind = "apps"</code>
+(<a href="../channels/applications/#apps-and-auto">Applications</a>). An <code>apps</code> channel shows its <code>label</code> instead. An alias has
+at most 7 ASCII characters, to fit the LCD; <code>check-config</code> reports a longer one.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[aliases]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="s2">"WEBRTC VoiceEngine"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Discord"</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="s2">"Chromium"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Browser"</span>
 </span></code></pre></div>
 <p>The key is the application name the sound server reports, with the same upper and lower case. <code>xtouch-daemon list-apps</code>
-shows it (and the alias it uses), and so do the suggestions of the GUI.</p>
+and the GUI's suggestions show it.</p>
 <p>Next: <a href="../../reference/commands/">Commands</a>, <a href="../../guides/troubleshooting/">Troubleshooting</a>.</p>
 
 

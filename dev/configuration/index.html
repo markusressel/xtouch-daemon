@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1166,7 +1166,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -2814,56 +2814,46 @@
 <h1 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h1>
 <p>xtouch-daemon reads a TOML file, by default <code>~/.config/xtouch-daemon/config.toml</code> (<code>$XDG_CONFIG_HOME</code> is respected).
 Every command takes <code>-c FILE</code> after its name (e.g. <code>xtouch-daemon check-config -c my.toml</code>) to use another file.</p>
-<p>Start with the file that ships with the daemon (<code>init-config</code> writes it for you), the
-<a href="https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/config.example.toml">example configuration</a>.
-It puts the default input on slot 7, the default output on slot 8 and <code>auto</code> (the next application that plays) on the
-other six. A slot without an entry is always <code>auto</code>. This example is not the longer
-<a href="#complete-example">complete example</a> at the end of this page.</p>
-<p>What happens when there is no file at the default path:</p>
-<ul>
-<li>The daemon runs with the example file.</li>
-<li>The <a href="../guides/gui/">GUI</a> starts with an empty file and writes it at the first save.</li>
-</ul>
+<p>Start with the
+<a href="https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/config.example.toml">example configuration</a>
+that ships with the daemon. It puts the default input on slot 7, the default output on slot 8 and <code>auto</code> (the next
+application that plays) on the other six. A slot without an entry is always <code>auto</code>. The
+<a href="#complete-example">complete example</a> at the end of this page is longer.</p>
+<p>Without a file at the default path, the daemon runs with the example file, and the <a href="../guides/gui/">GUI</a> starts
+with an empty file and writes it at the first save.</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>init-config<span class="w">      </span><span class="c1"># writes the example file to the default path (-f overwrites)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w">     </span><span class="c1"># validates the file and shows what each slot shows when</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w">     </span><span class="c1"># the names of your outputs and inputs, for `device` of a channel</span>
 </span></code></pre></div>
-<p><code>check-config</code> prints <code>valid</code> and the channels. Then it prints a table of what each slot shows in each situation (in a
-call, gaming). It needs no X-Touch. To run the daemon as a service and read its log, see
-<a href="../getting-started/first-steps/">First steps</a>.</p>
-<p>Only you may change the file. A configuration can start programs (the <code>launch</code> of a channel, <code>run</code> in
+<p><code>check-config</code> needs no X-Touch; its output is described in <a href="../reference/commands/#check-config">Commands</a>. To run
+the daemon as a service and read its log, see <a href="../getting-started/first-steps/">First steps</a>.</p>
+<p>A configuration can start programs (the <code>launch</code> of a channel, <code>run</code> in
 <a href="slots/#controls-and-the-chord"><code>[controls]</code></a>), and the daemon runs them as you. So it refuses a file in which
-another user could put a command. It refuses the file in each of these cases:</p>
-<ul>
-<li>It belongs to another user (root is fine).</li>
-<li>The group or others can write it.</li>
-<li>The group or others can write the directory it is in.</li>
-</ul>
-<p>If the file is a symbolic link (for example from a dotfile manager), the daemon checks the file the link points to,
-the directory of that file and the directory of the link, in the same way.</p>
-<p>The error names the file and the fix, e.g. <code>chmod go-w ~/.config/xtouch-daemon/config.toml</code>. The file of a secret
-(the file that <code>[mqtt] password_file</code> names, not the configuration itself) should be readable only by you. If others
-can read it, the daemon still starts but writes a warning to the log.</p>
+another user could put a command: one that belongs to another user (root is fine), or that the group or others can
+write, or that sits in a directory they can write. For a symbolic link (for example from a dotfile manager), it
+checks the file the link points to, the directories of both, in the same way.</p>
+<p>The error names the file and the fix, e.g. <code>chmod go-w ~/.config/xtouch-daemon/config.toml</code>. The file that
+<code>[mqtt] password_file</code> names should be readable only by you; if others can read it, the daemon still starts but
+writes a warning to the log.</p>
 <p>Unknown options are errors, so a typo does not go unnoticed. <code>check-config</code> names the place of every error, e.g.
-<code>channel.mic.label: String should have at most 7 characters</code>.</p>
-<p>The <a href="../guides/gui/">GUI</a> edits the same options in a window and shows the same errors next to them.</p>
+<code>channel.mic.label: String should have at most 7 characters</code>. The <a href="../guides/gui/">GUI</a> shows the same errors next
+to the options.</p>
 <h2 id="editors-and-ai-assistants">Editors and AI assistants<a class="headerlink" href="#editors-and-ai-assistants" title="Permanent link">&para;</a></h2>
 <p>Every option is also published as a <a href="https://json-schema.org/">JSON Schema</a>, <a href="../config.schema.json">config.schema.json</a>.
 A TOML language server, e.g. <a href="https://taplo.tamasfe.dev/">Taplo</a> (Even Better TOML in VS Code) or
 <a href="https://tombi-toml.github.io/tombi/">Tombi</a>, reads it: it completes the options, shows their help on hover and marks a
-wrong option while you type. The first line of the example configuration points to the schema of the latest release;
-add it as the first line of a file that has none (it is a TOML comment, so the daemon ignores it):</p>
+wrong option while you type. The example configuration starts with this line; add it to a file that has none (the
+daemon ignores it, it is a comment):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">#:schema https://markusressel.github.io/xtouch-daemon/latest/config.schema.json</span>
 </span></code></pre></div>
-<p>The line above follows the latest release. If you run another version, write the schema of the installed version next
-to the file and point to that instead:</p>
+<p>The line follows the latest release. For another version, write the schema of the installed one next to the file and
+point to that:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>xtouch-daemon<span class="w"> </span>schema<span class="w"> </span>&gt;<span class="w"> </span>~/.config/xtouch-daemon/config.schema.json
 </span></code></pre></div>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">#:schema ./config.schema.json</span>
 </span></code></pre></div>
 <p>An AI assistant that edits the file finds the options and their help there too. The schema checks each option on its
-own; <code>check-config</code> checks the rest, e.g. that a slot names a channel that exists, or that an option fits the type of
-the channel.</p>
+own; <code>check-config</code> checks the rest, e.g. that a slot names a channel that exists.</p>
 <h2 id="sections">Sections<a class="headerlink" href="#sections" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2881,42 +2871,42 @@ the channel.</p>
 </tr>
 <tr>
 <td><code>[slots]</code></td>
-<td>The list of candidates for each of the 8 strips, and the condition when each shows.</td>
+<td>The candidates for each of the 8 strips, and when each shows.</td>
 <td><a href="slots/#slots">Channels, states and slots</a></td>
 </tr>
 <tr>
 <td><code>[state.&lt;id&gt;]</code></td>
 <td>States and modes (in a call, gaming) that the slots ask about.</td>
-<td><a href="slots/#states-and-modes">Channels, states and slots</a></td>
+<td><a href="slots/#states-and-modes">States and modes</a></td>
 </tr>
 <tr>
 <td><code>[controls]</code></td>
-<td>Actions of the buttons, fader or encoder of a slot, whatever it shows.</td>
-<td><a href="slots/#controls-and-the-chord">Channels, states and slots</a></td>
+<td>Actions of the buttons, fader or encoder of a slot.</td>
+<td><a href="slots/#controls-and-the-chord">Controls</a></td>
 </tr>
 <tr>
 <td><code>[pool.apps]</code>, <code>[pool.auto]</code></td>
-<td>The settings of the pools <code>apps</code> and <code>auto</code>, which hand the applications that play to free slots: which applications they skip (<code>exclude</code>), how long a slot keeps one (<code>hold</code>), and the color of their strips.</td>
+<td>Which applications the pools <code>apps</code> and <code>auto</code> skip, how long a slot keeps one, and the color of their strips.</td>
 <td><a href="channels/applications/#apps-and-auto">Applications</a></td>
 </tr>
 <tr>
 <td><code>[pool.people]</code>, <code>[voip]</code></td>
-<td>The people of the voice chat, and which strips they take (from the right by default).</td>
+<td>The people of the voice chat, and which strips they take.</td>
 <td><a href="channels/people/">People</a></td>
 </tr>
 <tr>
 <td><code>[pool.devices]</code></td>
-<td>Outputs and inputs without a channel (a USB headset) on the slots that name <code>devices</code>.</td>
+<td>Outputs and inputs without a channel (a USB headset).</td>
 <td><a href="channels/devices/#devices-without-a-channel">Devices</a></td>
 </tr>
 <tr>
 <td><code>[pool.&lt;id&gt;]</code></td>
-<td>A pool of your own. It holds a list of channels, e.g. all your headphones, and gives the first one that is there to the first slot that names the pool, the next one to the next slot.</td>
+<td>A pool of your own, e.g. of all your headphones.</td>
 <td><a href="slots/#pools-of-channels">Pools of channels</a></td>
 </tr>
 <tr>
 <td><code>[device]</code></td>
-<td>Which sound card is the X-Touch, and how it starts up and shuts down.</td>
+<td>Which sound card is the X-Touch, and its startup and shutdown.</td>
 <td><a href="behavior/#device">Behavior</a></td>
 </tr>
 <tr>
@@ -2932,7 +2922,7 @@ the channel.</p>
 <tr>
 <td><code>[switching]</code></td>
 <td>The chord (Solo buttons held together switch the modes) and the banner of a new mode.</td>
-<td><a href="slots/#controls-and-the-chord">Channels, states and slots</a></td>
+<td><a href="slots/#controls-and-the-chord">Controls</a></td>
 </tr>
 <tr>
 <td><code>[mqtt]</code></td>
@@ -2953,7 +2943,7 @@ the channel.</p>
 <tbody>
 <tr>
 <td><code>output</code>, <code>input</code></td>
-<td>An output (your headphones) or an input (your microphone): one, several of them, <a href="channels/devices/#choices">choices</a> to switch between, or the default one.</td>
+<td>An output (your headphones) or an input (your microphone), or the default one.</td>
 <td><a href="channels/devices/">Devices</a></td>
 </tr>
 <tr>
@@ -2974,34 +2964,25 @@ the channel.</p>
 </tbody>
 </table>
 <p>In a slot, <code>apps</code> is not the channel type <code>apps</code>: it is a built-in pool, as are <code>people</code>, <code>auto</code> and <code>devices</code> (see
-<a href="../concepts/#the-same-word-different-things">the same word, different things</a>). A slot can name them:</p>
-<ul>
-<li><code>apps</code> is the next application that plays and has no channel of its own
-  (<a href="channels/applications/#apps-and-auto">Applications</a>).</li>
-<li><code>people</code> is the next person of the voice chat (<a href="channels/people/#where-people-sit">People</a>).</li>
-<li><code>auto</code> is both: people first (from the right), then applications.</li>
-<li><code>devices</code> is the next output or input that no channel has (<a href="channels/devices/#devices-without-a-channel">Devices</a>).</li>
-<li><code>-</code> is a dark strip (<a href="channels/#empty-slots">Channels</a>).</li>
-</ul>
-<p>Presets (the <code>@browsers</code> in <code>match</code>) are on <a href="presets/">Presets</a>.</p>
+<a href="../concepts/#the-same-word-different-things">the same word, different things</a> and
+<a href="slots/#slots">Pools</a>). <code>-</code> is a dark strip (<a href="channels/#empty-slots">Channels</a>). Presets (the <code>@browsers</code>
+in <code>match</code>) are on <a href="presets/">Presets</a>.</p>
 <h2 id="applying-changes">Applying changes<a class="headerlink" href="#applying-changes" title="Permanent link">&para;</a></h2>
 <p>The daemon takes a saved file by itself, a moment after the file stopped changing. It needs no restart, and a strip
 whose slot still shows the same thing stays as it is. A file with errors is reported in the log, and the daemon keeps
-the configuration it has. To check a file first, or to load it again by hand:</p>
+the configuration it has. To check a file first and load it by hand (a reload, SIGHUP, does the same as a change of
+the file):</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>systemctl<span class="w"> </span>--user<span class="w"> </span>reload<span class="w"> </span>xtouch-daemon
 </span></code></pre></div>
-<p>A reload (SIGHUP) does the same as a change of the file.</p>
 <p>One section needs a restart (<code>systemctl --user restart xtouch-daemon</code>): a changed <code>[mqtt]</code>. It blocks the whole
 reload: until the restart, the daemon ignores every change in the file, not only the ones in <code>[mqtt]</code>. The log says
 so. A changed <code>[device] name</code> or <code>virtual</code> needs no restart: the daemon connects to the other X-Touch.</p>
-<p>The GUI applies a file when you save it. It reloads the running daemon, whether that is the service or one you started
-from a terminal or an IDE, or it offers a restart when one is needed. It then tells you whether the daemon took the
-file.</p>
+<p>The GUI applies a file when you save it: it reloads the running daemon, or offers a restart when one is needed, and
+tells you whether the daemon took the file.</p>
 <h2 id="complete-example">Complete example<a class="headerlink" href="#complete-example" title="Permanent link">&para;</a></h2>
-<p>A file that uses most parts of the page. The <code>device</code> values are the names of one computer: replace them with the
-ones <code>xtouch-daemon list-devices</code> prints. <code>mic</code> has no <code>device</code>, so it controls the default input. <code>@browsers</code>,
-<code>@games</code> and <code>@steam-games</code> are <a href="presets/">presets</a>. In <code>"buds if present"</code>, the buds show while they are
-connected, else the slot shows <code>-</code>.</p>
+<p>The <code>device</code> values are the names of one computer: replace them with the ones <code>xtouch-daemon list-devices</code> prints.
+<code>mic</code> has no <code>device</code>, so it controls the default input. <code>@browsers</code>, <code>@games</code> and <code>@steam-games</code> are
+<a href="presets/">presets</a>. In <code>"buds if present"</code>, the buds show while they are connected, else the slot is dark.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[behavior]</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">130</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">encoder_step</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span>

@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1168,7 +1168,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -2917,10 +2917,10 @@
 
 
 <h1 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h1>
-<p>A channel is one thing a strip can control, such as your speakers or a group of applications. You define it in the
-<a href="../">configuration file</a> and give it a name. A strip of the X-Touch controls it when a
-<a href="../slots/#slots">slot</a> names it. You write one <code>[channel.&lt;id&gt;]</code> section per channel. The id is lower case
-letters, digits and <code>_</code>. Slots, conditions and the entities in Home Assistant use it to name the channel.</p>
+<p>A channel is one thing a strip can control, such as your speakers or a group of applications. You write one
+<code>[channel.&lt;id&gt;]</code> section per channel in the <a href="../">configuration file</a>. The id (lower case letters, digits and
+<code>_</code>) is how slots, conditions and Home Assistant name it. A strip controls the channel when a
+<a href="../slots/#slots">slot</a> names it.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.mic]</span><span class="w">          </span><span class="c1"># the id is "mic"</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span><span class="w">         </span><span class="c1"># it controls a microphone</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mic"</span><span class="w">          </span><span class="c1"># the top line of the LCD</span>
@@ -2966,25 +2966,20 @@ letters, digits and <code>_</code>. Slots, conditions and the entities in Home A
 </tr>
 </tbody>
 </table>
-<p>The <code>auto</code> strips (they show the next application that plays) and the empty slots (<code>-</code>) are not channels. You write
-them in the <a href="../slots/#slots">slots</a>.</p>
+<p>The <code>auto</code> strips and the empty slots (<code>-</code>) are not channels: see <a href="../slots/#slots">slots</a>.</p>
 <h2 id="options-for-slots">Options for slots<a class="headerlink" href="#options-for-slots" title="Permanent link">&para;</a></h2>
 <p>Three options of a channel are not about its strip but about how slots use it:</p>
 <ul>
-<li><code>tags</code> is a list of words that group channels, for example <code>tags = ["outs"]</code>. A <a href="../slots/#pools-of-channels">pool of your own</a>
-  lists them all with <code>"#outs"</code> (the <code>#</code> marks a tag; it is not a comment).</li>
-<li><code>in_pool</code> is <code>true</code> by default. It matters only for an <code>apps</code> or <code>person</code> channel that no slot names. Say you have
-  <code>[channel.game]</code> with <code>match = ["steam"]</code>, and no slot names <code>game</code>. When Steam plays, a slot that shows <code>auto</code> or
-  <code>apps</code> still takes it, with all its streams on one strip. The same goes for a <code>person</code>
-  channel and the pools <code>people</code> and <code>auto</code>. <code>in_pool = false</code> stops this: the channel shows up only on a slot that
-  names it.</li>
-<li><code>absent_after</code> is a number of seconds (3 by default). When the channel has nothing to control any more, it still
-  counts as present for that long. This stops <code>if present</code> from flickering when your Bluetooth headphones or an application go
-  away for a moment.</li>
+<li><code>tags</code> is a list of words that group channels, for example <code>tags = ["outs"]</code>. A
+  <a href="../slots/#pools-of-channels">pool of your own</a> lists them with <code>"#outs"</code>.</li>
+<li><code>in_pool</code> is <code>true</code> by default. It matters only for an <code>apps</code> or <code>person</code> channel that no slot names: the pools
+  <code>apps</code>, <code>people</code> and <code>auto</code> still hand it out, with all its streams on one strip. <code>in_pool = false</code> keeps it
+  out, so it shows up only on a slot that names it.</li>
+<li><code>absent_after</code> is a number of seconds (3 by default). A channel with nothing to control any more still counts as
+  present for that long, so <code>if present</code> doesn't flicker when your Bluetooth headphones go away for a moment.</li>
 </ul>
 <h2 id="options-of-every-audio-channel">Options of every audio channel<a class="headerlink" href="#options-of-every-audio-channel" title="Permanent link">&para;</a></h2>
-<p>The options in this table apply to <code>output</code>, <code>input</code> and <code>apps</code> channels. A value in quotes is a TOML string and must
-be written with the quotes: <code>color = "red"</code>.</p>
+<p>These options apply to <code>output</code>, <code>input</code> and <code>apps</code> channels. Strings need their quotes: <code>color = "red"</code>.</p>
 <table>
 <thead>
 <tr>
@@ -3002,17 +2997,17 @@ be written with the quotes: <code>color = "red"</code>.</p>
 <tr>
 <td><code>color</code></td>
 <td><code>"white"</code></td>
-<td>The LCD backlight: <code>"off"</code> (no backlight), <code>"red"</code>, <code>"green"</code>, <code>"yellow"</code>, <code>"blue"</code>, <code>"magenta"</code>, <code>"cyan"</code> or <code>"white"</code>. Also <code>"homeassistant"</code>, <code>{ watch = "command" }</code> or <code>{ poll = "command" }</code>. These take the color from Home Assistant or from a program of your own that prints it: <code>watch</code> keeps the program running, <code>poll</code> runs it every few seconds (<a href="../strip/bindings/">Bindings</a>). The backlight is dark while the strip has nothing to control, unless <code>lit_when_idle</code> is on.</td>
+<td>The LCD backlight: <code>"off"</code>, <code>"red"</code>, <code>"green"</code>, <code>"yellow"</code>, <code>"blue"</code>, <code>"magenta"</code>, <code>"cyan"</code> or <code>"white"</code>. Also <code>"homeassistant"</code>, <code>{ watch = "command" }</code> or <code>{ poll = "command" }</code>: the color comes from Home Assistant or from a program of your own (<a href="../strip/bindings/">Bindings</a>). The backlight is dark while the strip has nothing to control, unless <code>lit_when_idle</code> is on.</td>
 </tr>
 <tr>
 <td><code>lit_when_idle</code></td>
 <td><code>false</code></td>
-<td><code>true</code> keeps the backlight on while the strip has nothing to control. That is the case when no application of an <code>apps</code> channel plays, when the output is not there, and when an <code>auto</code> strip has no application. The fader still goes to the bottom.</td>
+<td><code>true</code> keeps the backlight on while the strip has nothing to control (no application plays, the output is not there). The fader still goes to the bottom.</td>
 </tr>
 <tr>
 <td><code>meter</code></td>
 <td><code>true</code></td>
-<td><code>false</code> turns the LED meter of this strip off. The meter works only if <code>behavior.meters</code> is on. Instead of a boolean you can write <code>"homeassistant"</code>, <code>{ watch, min, max }</code> or <code>{ poll, min, max }</code>: the meter then shows a level from Home Assistant or a program, see <a href="../strip/bindings/">Bindings</a>.</td>
+<td><code>false</code> turns the LED meter of this strip off. It works only if <code>behavior.meters</code> is on. <code>"homeassistant"</code>, <code>{ watch, min, max }</code> or <code>{ poll, min, max }</code> show a level from Home Assistant or a program, see <a href="../strip/bindings/">Bindings</a>.</td>
 </tr>
 <tr>
 <td><code>meter_point</code></td>
@@ -3022,7 +3017,7 @@ be written with the quotes: <code>color = "red"</code>.</p>
 <tr>
 <td><code>rec</code></td>
 <td><code>"recording"</code></td>
-<td>What the Rec button does and what its LED shows. A single word (<code>"recording"</code>, <code>"playing"</code>, <code>"default"</code>, <code>"muted"</code> or <code>"off"</code>) sets only the LED. To set what a press does, write a table such as <code>rec = { press = "default" }</code>. See <a href="../strip/leds/">Buttons and LEDs</a>.</td>
+<td>What the Rec button does and what its LED shows. A word (<code>"recording"</code>, <code>"playing"</code>, <code>"default"</code>, <code>"muted"</code> or <code>"off"</code>) sets only the LED; a table such as <code>rec = { press = "default" }</code> sets what a press does. See <a href="../strip/leds/">Buttons and LEDs</a>.</td>
 </tr>
 <tr>
 <td><code>solo</code></td>
@@ -3031,7 +3026,7 @@ be written with the quotes: <code>color = "red"</code>.</p>
 </tr>
 <tr>
 <td><code>select</code></td>
-<td>What the type does (on an <code>output</code> or <code>input</code> strip: makes it the default)</td>
+<td>What the type does</td>
 <td>The same for the Select button, see <a href="#elements-of-a-strip">Elements of a strip</a> and <a href="../strip/leds/#buttons">Buttons</a>.</td>
 </tr>
 <tr>
@@ -3052,7 +3047,7 @@ be written with the quotes: <code>color = "red"</code>.</p>
 <tr>
 <td><code>fader</code></td>
 <td><code>"volume"</code></td>
-<td><code>"homeassistant"</code> gives the fader to Home Assistant, see <a href="../strip/encoders/#fader-homeassistant">Encoders</a>. A value of your own (<code>{ set, watch, ... }</code>) binds it to programs, see <a href="../strip/bindings/">Bindings</a>. With either, the encoder sets the volume instead.</td>
+<td><code>"homeassistant"</code> gives the fader to Home Assistant (<a href="../strip/encoders/#fader-homeassistant">Encoders</a>); <code>{ set, watch, ... }</code> binds it to programs (<a href="../strip/bindings/">Bindings</a>). With either, the encoder sets the volume.</td>
 </tr>
 <tr>
 <td><code>lcd</code></td>
@@ -3061,24 +3056,21 @@ be written with the quotes: <code>color = "red"</code>.</p>
 </tr>
 </tbody>
 </table>
-<p>The defaults named <code>behavior.*</code> come from the <a href="../behavior/#behavior"><code>[behavior]</code> section</a>. <code>behavior.meters</code> (on by
-default) turns all meters on or off. <code>behavior.max_volume</code> is 130 by default.</p>
+<p>The <code>behavior.*</code> defaults come from the <a href="../behavior/#behavior"><code>[behavior]</code> section</a>.</p>
 <h3 id="where-else-the-options-work">Where else the options work<a class="headerlink" href="#where-else-the-options-work" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Pools and candidates.</strong> The look options (<code>color</code>, <code>lit_when_idle</code>, <code>meter</code>, <code>meter_point</code>, <code>rec</code>, <code>solo</code>) also
-  work in the built-in pools (<code>[pool.apps]</code>, <code>[pool.auto]</code>, <code>[pool.devices]</code>), where they apply to every strip the
-  pool fills. They also work in a candidate of a slot, where they apply to that slot only:
-  <code>{ show = "mic", color = "blue" }</code> (see <a href="../slots/#places">Places</a>). A candidate that shows the pool <code>apps</code>,
-  <code>auto</code> or <code>devices</code> also takes <code>encoder</code>, <code>min_volume</code> and <code>max_volume</code>. The other options (<code>label</code>, <code>select</code>, <code>fader</code>, <code>lcd</code>) can only
-  be set on the channel itself.</li>
-<li><strong><code>homeassistant</code> channels</strong> take only <code>label</code> and <code>color</code>. Everything else on such a strip is an entity in Home
-  Assistant, see the <a href="../../guides/home-assistant/">Home Assistant guide</a>.</li>
-<li><strong><code>person</code> channels</strong> have options of their own, see <a href="people/#the-strips-of-people">People</a>.</li>
+<li><strong>Pools and places.</strong> The look options (<code>color</code>, <code>lit_when_idle</code>, <code>meter</code>, <code>meter_point</code>, <code>rec</code>, <code>solo</code>) also
+  work in the built-in pools (<code>[pool.apps]</code>, <code>[pool.auto]</code>, <code>[pool.devices]</code>) for every strip they fill, and in a
+  place of a slot for that slot only: <code>{ show = "mic", color = "blue" }</code> (see <a href="../slots/#places">Places</a>). A place
+  of <code>apps</code>, <code>auto</code> or <code>devices</code> also takes <code>encoder</code>, <code>min_volume</code> and <code>max_volume</code>. <code>label</code>, <code>select</code>, <code>fader</code> and
+  <code>lcd</code> only work on the channel itself.</li>
+<li><strong><code>homeassistant</code> channels</strong> take only <code>label</code> and <code>color</code>; the rest is an entity in Home Assistant, see the
+  <a href="../../guides/home-assistant/">Home Assistant guide</a>. <strong><code>person</code> channels</strong> have
+  <a href="people/#the-strips-of-people">options of their own</a>.</li>
 </ul>
 <h2 id="labels">Labels<a class="headerlink" href="#labels" title="Permanent link">&para;</a></h2>
-<p>A label is the top line of the LCD: at most 7 characters of ASCII, which is what fits. The bottom line shows the
-volume, or the state of the strip (<code>muted</code>, <code>idle</code>, <code>off</code>).</p>
-<p>What the label shows depends on the strip. Where a row lists several sources, the first one that exists wins, in the order of the row. On <code>output</code> and <code>input</code> strips your own <code>label</code> comes last, because a choice or a profile is more exact:</p>
+<p>A label is the top line of the LCD: at most 7 ASCII characters. The bottom line shows the volume, or the state of
+the strip (<code>muted</code>, <code>idle</code>, <code>off</code>). Where a row lists several sources, the first one that exists wins:</p>
 <table>
 <thead>
 <tr>
@@ -3089,15 +3081,15 @@ volume, or the state of the strip (<code>muted</code>, <code>idle</code>, <code>
 <tbody>
 <tr>
 <td><code>output</code>, <code>input</code></td>
-<td>The label of the <a href="devices/#choices">choice</a> shown, or of the active <a href="devices/#profiles">profile</a>, else <code>label</code>. Without any of these: the start of the description of the sound device if the channel has <code>device</code>, else <code>"Output"</code> or <code>"Input"</code>.</td>
+<td>The label of the <a href="devices/#choices">choice</a> shown, or of the active <a href="devices/#profiles">profile</a>, else <code>label</code>, else the start of the description of the sound device (<code>"Output"</code> or <code>"Input"</code> without <code>device</code>).</td>
 </tr>
 <tr>
 <td><code>apps</code></td>
-<td><code>label</code> (required).</td>
+<td><code>label</code>.</td>
 </tr>
 <tr>
 <td>Pools <code>apps</code> and <code>auto</code> in a slot</td>
-<td>The alias of the application from <a href="../behavior/#aliases"><code>[aliases]</code></a>, or its name. If the application belongs to an <code>apps</code> channel, the strip keeps the <code>label</code> of that channel.</td>
+<td>The alias of the application from <a href="../behavior/#aliases"><code>[aliases]</code></a>, or its name. An application of an <code>apps</code> channel keeps the <code>label</code> of that channel.</td>
 </tr>
 <tr>
 <td>Pool <code>devices</code> in a slot</td>
@@ -3105,7 +3097,7 @@ volume, or the state of the strip (<code>muted</code>, <code>idle</code>, <code>
 </tr>
 <tr>
 <td><code>person</code></td>
-<td><code>label</code>, else the first name of <code>person</code>. People that the pools <code>people</code> and <code>auto</code> hand out show their name.</td>
+<td><code>label</code>, else the first name of <code>person</code>. People from a pool show their name.</td>
 </tr>
 <tr>
 <td><code>homeassistant</code></td>
@@ -3114,8 +3106,9 @@ volume, or the state of the strip (<code>muted</code>, <code>idle</code>, <code>
 </tbody>
 </table>
 <h2 id="volume-range">Volume range<a class="headerlink" href="#volume-range" title="Permanent link">&para;</a></h2>
-<p>The fader covers <code>min_volume</code> at the bottom to <code>max_volume</code> at the top (see <a href="#100-at-the-0-db-mark">below</a> for how the travel maps to the volume in between). The encoder stays in that range too. Without
-them, the range is 0 % to <code>behavior.max_volume</code> (130 % by default). For example, speakers that need amplification:</p>
+<p>The fader and the encoder cover <code>min_volume</code> at the bottom to <code>max_volume</code> at the top (the travel in between is
+mapped <a href="#100-at-the-0-db-mark">below</a>). Without them the range is 0 % to <code>behavior.max_volume</code> (130 % by default).
+For example, speakers that need amplification:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.desk]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.usb-Generic_USB_Audio-00.analog-stereo"</span>
@@ -3125,19 +3118,14 @@ them, the range is 0 % to <code>behavior.max_volume</code> (130 % by default). F
 </span></code></pre></div>
 <ul>
 <li>Above 100 % the sound server amplifies the audio in software.</li>
-<li><code>min_volume</code> must be below <code>max_volume</code>. The daemon rejects a file where it is not.</li>
-<li><a href="devices/#profiles">Profiles</a> and <a href="devices/#choices">choices</a> of an output can have a range of their own.</li>
+<li><code>min_volume</code> must be below <code>max_volume</code>.</li>
+<li><a href="devices/#profiles">Profiles</a> and <a href="devices/#choices">choices</a> can have a range of their own.</li>
 <li><code>homeassistant</code> channels have no range: Home Assistant decides what their fader means.</li>
 </ul>
 <h3 id="100-at-the-0-db-mark">100 % at the 0 dB mark<a class="headerlink" href="#100-at-the-0-db-mark" title="Permanent link">&para;</a></h3>
-<p>The scale next to the faders of the X-Touch marks 0 dB at about 77 % of the travel. The daemon does this by itself for a strip whose range goes
-above 100 %: it puts 100 % volume at that mark. Below the mark the fader covers <code>min_volume</code> to 100 %, above the mark
-100 % to <code>max_volume</code>. Each part is linear. <code>behavior.unity_at</code> (default <code>77</code>) moves the mark.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[behavior]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">200</span><span class="w">   </span><span class="c1"># the top 23 % of the travel amplify by up to 100 %</span>
-</span></code></pre></div>
-<p>The table compares the two ways to map the travel of the fader to a volume, for <code>min_volume = 0</code> and
-<code>max_volume = 200</code>.</p>
+<p>On a strip whose range goes above 100 %, the daemon puts 100 % volume at the 0 dB mark of the scale next to the
+faders (77 % of the travel by default), see <a href="../behavior/#the-volume-scale">the volume scale</a>.</p>
+<p>With <code>max_volume = 200</code> (the top 23 % of the travel amplify) and <code>min_volume = 0</code>:</p>
 <table>
 <thead>
 <tr>
@@ -3169,9 +3157,6 @@ above 100 %: it puts 100 % volume at that mark. Below the mark the fader covers 
 </tr>
 </tbody>
 </table>
-<p>With the default <code>max_volume = 130</code> the two parts have about the same slope, so the fader is linear from 0 % to 130 %
-with 100 % at the mark. A strip whose range ends at 100 % (<code>max_volume = 100</code>) is not affected: its 100 % is at the
-top. The GUI shows <code>unity_at</code> under Settings, Behavior.</p>
 <h2 id="elements-of-a-strip">Elements of a strip<a class="headerlink" href="#elements-of-a-strip" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3183,7 +3168,7 @@ top. The GUI shows <code>unity_at</code> under Settings, Behavior.</p>
 <tbody>
 <tr>
 <td><img alt="" class="xt-icon" src="../../images/controls/fader.png" /> Fader</td>
-<td>Sets the volume. Follows changes made elsewhere. Only a touched fader changes the volume.</td>
+<td>Sets the volume while you touch it, and follows changes made elsewhere. The LCD, ring and <a href="#meters">meter</a> show the volume, the encoder's value and the level.</td>
 </tr>
 <tr>
 <td><img alt="" class="xt-icon" src="../../images/controls/encoder.png" /> Encoder</td>
@@ -3195,60 +3180,31 @@ top. The GUI shows <code>unity_at</code> under Settings, Behavior.</p>
 </tr>
 <tr>
 <td><img alt="" class="xt-icon" src="../../images/controls/rec.png" /> Rec, Solo</td>
-<td>Their LEDs show things such as "an application records" (<a href="../strip/leds/#indicators">indicators</a>). By default a press does nothing, except Rec on an output with <a href="devices/#profiles">profiles</a>. <code>rec</code> and <code>solo</code> can change that.</td>
+<td>Their LEDs are <a href="../strip/leds/#indicators">indicators</a>, such as "an application records". A press does nothing, except Rec on an output with <a href="devices/#profiles">profiles</a>.</td>
 </tr>
 <tr>
 <td><img alt="" class="xt-icon" src="../../images/controls/select.png" /> Select</td>
-<td>On <code>output</code> and <code>input</code> strips: makes the output (or input) the default, or with <a href="devices/#choices"><code>choices</code></a> goes to the next one. On application strips with <a href="applications/#launching-the-application"><code>launch</code></a>: starts the application. Without <code>launch</code>, it does nothing on application strips.</td>
-</tr>
-<tr>
-<td><img alt="" class="xt-icon" src="../../images/controls/lcd.png" /> LCD</td>
-<td>Top: the label. Bottom: the volume, or <code>muted</code>, <code>idle</code>, <code>off</code>. The backlight in <code>color</code>, dark while the strip has nothing to control.</td>
-</tr>
-<tr>
-<td>Ring</td>
-<td>The LEDs around the encoder show the position of the value the encoder sets.</td>
-</tr>
-<tr>
-<td><img alt="" class="xt-icon" src="../../images/controls/meter.png" /> Meter</td>
-<td>The level of what the strip controls, see <a href="#meters">Meters</a>.</td>
+<td>On <code>output</code> and <code>input</code> strips: makes the sound device the default, or with <a href="devices/#choices"><code>choices</code></a> goes to the next one. On application strips: starts the application if there is a <a href="applications/#launching-the-application"><code>launch</code></a>, else nothing.</td>
 </tr>
 </tbody>
 </table>
 <div class="admonition tip">
 <p class="admonition-title">Other actions</p>
-<p>Every channel can give Rec, Solo and Select other actions, for a press and a hold: see
-<a href="../strip/leds/#buttons">Buttons</a>. <a href="../slots/#controls-and-the-chord"><code>[controls]</code></a> gives the buttons of a slot
-an action whatever it shows.</p>
+<p>Every channel can give Rec, Solo and Select other actions for a press and a hold: see
+<a href="../strip/leds/#buttons">Buttons</a>. <a href="../slots/#controls-and-the-chord"><code>[controls]</code></a> does it for a slot,
+whatever it shows.</p>
 </div>
-<p>A strip with nothing to control (Bluetooth headphones that are gone, an application that ended) goes dark, and its fader glides
-slowly to the very bottom. When it is back, the fader goes up to its volume again.</p>
+<p>A strip with nothing to control goes dark and its fader glides to the bottom. When the output or application is
+back, the fader goes up to its volume again.</p>
 <h2 id="meters">Meters<a class="headerlink" href="#meters" title="Permanent link">&para;</a></h2>
 <p><img alt="The meter: green LEDs from SIG at the bottom, then orange, and the red clip LED at the top" class="xt-part" src="../../images/controls/meter.png" width="56" /></p>
-<p>The LED meter has seven LEDs for the level (green, then orange) and a red LED at the top. It shows the peak level of
-what the strip controls, 10 times a second. The lowest LED lights at -60 dB. The seventh LED lights just below full
-scale. A peak at full scale also lights the red LED, for half a second. The X-Touch lets the meter fall by itself, so the daemon sends the level again and again (see
-<a href="../../reference/hardware/">Hardware</a>).</p>
-<p><code>meter_point</code> says where the level is taken, like the pre-fader and post-fader meters of a hardware mixer:</p>
-<table>
-<thead>
-<tr>
-<th><code>meter_point</code></th>
-<th>What the meter shows</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>"pre_fader"</code> (default)</td>
-<td>The level before the strip's volume and Mute. The meter keeps showing the audio while the fader is down. Mute is an exception for applications and inputs, see the table below. The Mute LED tells you whether the sound is cut.</td>
-</tr>
-<tr>
-<td><code>"post_fader"</code></td>
-<td>The level after the volume and Mute: what you hear of an application, what goes out of the output, what applications get from the input. Dark while muted.</td>
-</tr>
-</tbody>
-</table>
-<p>What each strip type shows at each point:</p>
+<p>The LED meter has seven LEDs for the level (green, then orange) and a red one at the top. It shows the peak level of
+what the strip controls, 10 times a second: the lowest LED lights at -60 dB, the seventh just below full scale, and
+a peak at full scale also lights the red LED for half a second.</p>
+<p><code>meter_point</code> says where the level is taken, like the pre-fader and post-fader meters of a hardware mixer.
+<code>"pre_fader"</code> (the default) takes it before the strip's volume and Mute, so the meter keeps showing the audio while
+the fader is down. <code>"post_fader"</code> takes it after them: what you hear, dark while muted.</p>
+<p>What each strip type shows:</p>
 <table>
 <thead>
 <tr>
@@ -3260,22 +3216,22 @@ scale. A peak at full scale also lights the red LED, for half a second. The X-To
 <tbody>
 <tr>
 <td><code>output</code></td>
-<td>Before its volume and Mute, as PipeWire's monitor of the output has it.</td>
-<td>Its monitor level multiplied by its volume, nothing while muted.</td>
+<td>PipeWire's monitor of the output, before its volume and Mute.</td>
+<td>The monitor level times its volume, nothing while muted.</td>
 </tr>
 <tr>
 <td><code>apps</code>, <code>auto</code></td>
-<td>The audio of the streams with their volume taken out again, so the fader doesn't move the meter. <strong>While muted the meter stays dark:</strong> PipeWire applies the volume and Mute inside the stream, before anything else can listen, so the audio of a muted stream is gone.</td>
+<td>The audio of the streams with their volume taken out again, so the fader doesn't move the meter. <strong>While muted the meter stays dark:</strong> PipeWire applies Mute inside the stream, so the audio is gone.</td>
 <td>The streams as they play.</td>
 </tr>
 <tr>
 <td><code>input</code></td>
-<td>The input with its volume taken out again. Dark while muted, as above.</td>
+<td>The input with its volume taken out again. Dark while muted.</td>
 <td>The input as applications get it.</td>
 </tr>
 <tr>
 <td><code>person</code>, people</td>
-<td>The voice before the participant's volume (the plugin's fader). Muted, Mumble doesn't fetch their voice: the meter lights while they talk, without a level. If the voice chat plugin sends no level from before the volume, the meter shows the one from after it.</td>
+<td>The voice before the person's volume (see the <a href="../../reference/voice-chat-bridge/">bridge</a>).</td>
 <td>The voice after their volume, dark while muted.</td>
 </tr>
 <tr>
@@ -3285,24 +3241,17 @@ scale. A peak at full scale also lights the red LED, for half a second. The X-To
 </tr>
 </tbody>
 </table>
-<p>Three places can set <code>meter_point</code>. The first one that sets it wins: the candidate in the slot, then the channel (or
-the pool, for a strip that a pool fills), then <code>behavior.meter_point</code>.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[behavior]</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">meter_point</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"pre_fader"</span><span class="w">     </span><span class="c1"># every strip ...</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">[channel.out]</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">meter_point</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"post_fader"</span><span class="w">    </span><span class="c1"># ... but this one: what goes out of the speakers</span>
-</span></code></pre></div>
-<p>Taking the volume out again (the "volume taken out again" of the table above) is exact while the volume stays the same. While you move the fader, the audio follows
-the new volume a few hundredths of a second late. Without a fix, pulling the fader down would show a loud peak and
-light the red LED. So for 0.3 s after a change, the meter takes out the highest volume the strip had in that time. The meter then shows
-too low for a moment instead.</p>
+<p>The first that sets <code>meter_point</code> wins: the place in the slot, the channel (or the pool that fills the strip),
+<code>behavior.meter_point</code>. For example, <code>meter_point = "post_fader"</code> on <code>[channel.out]</code> shows what goes out of the
+speakers.</p>
+<p>Taking the volume out is exact while the volume stays the same. The audio follows a moved fader a few hundredths of
+a second late, which would show a loud peak and the red LED. So for 0.3 s after a change the meter takes out the
+highest volume of that time and shows too low for a moment instead.</p>
 <h2 id="empty-slots">Empty slots<a class="headerlink" href="#empty-slots" title="Permanent link">&para;</a></h2>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[slots]</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"-"</span><span class="p">]</span><span class="w">   </span><span class="c1"># dark while not gaming</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[slots]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"-"</span><span class="p">]</span><span class="w">   </span><span class="c1"># dark while not gaming</span>
 </span></code></pre></div>
-<p><code>-</code> in a slot is a dark strip that does nothing. Its fader stays at the bottom.</p>
+<p><code>-</code> is a dark strip that does nothing. Its fader stays at the bottom.</p>
 
 
 

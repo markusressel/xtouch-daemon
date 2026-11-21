@@ -547,17 +547,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#whole-file" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Whole file
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -581,7 +570,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1312,7 +1301,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -2907,17 +2896,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#whole-file" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Whole file
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -3008,7 +2986,7 @@
 
 <h1 id="setup-tour">Setup tour<a class="headerlink" href="#setup-tour" title="Permanent link">&para;</a></h1>
 <p>One configuration, built step by step: the one the author runs. Every step says what to click in the
-<a href="../../guides/gui/">GUI</a> and what it writes to the file; use either, they edit the same file.</p>
+<a href="../../guides/gui/">GUI</a> and what it writes to the file. Use either; they edit the same file.</p>
 <p>The goal, for the 8 strips (slots) of the X-Touch:</p>
 <table>
 <thead>
@@ -3036,25 +3014,22 @@
 </tr>
 </tbody>
 </table>
-<p>You need the daemon installed and the X-Touch <a href="../first-steps/">set up and tested</a>. The GUI starts with
-<code>xtouch-daemon gui</code>; without a configuration file it edits a new one and writes it with the first "Save and apply".
-That new file is empty: every slot shows <code>auto</code>, the next application that plays (or a person of the voice chat). The
-drawing of the X-Touch at the top shows what the file shows, as you edit. No X-Touch? <a href="../without-a-device/">Run the virtual
-one</a> and use it in this tour.</p>
+<p>You need the daemon installed and the X-Touch <a href="../first-steps/">set up and tested</a>, or the
+<a href="../without-a-device/">virtual one</a>. Without a configuration file, the GUI (<code>xtouch-daemon gui</code>) edits a new, empty
+one and writes it with the first "Save and apply". In an empty file every slot shows <code>auto</code>.</p>
 <h2 id="1-see-what-you-have">1. See what you have<a class="headerlink" href="#1-see-what-you-have" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w">    </span><span class="c1"># outputs and inputs: the names to use as `device`</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>xtouch-daemon<span class="w"> </span>list-apps<span class="w">       </span><span class="c1"># what plays now, and which preset (a ready-made group of applications, e.g. `@browsers` or `@games`) it belongs to</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>xtouch-daemon<span class="w"> </span>list-apps<span class="w">       </span><span class="c1"># what plays now, and which preset it belongs to</span>
 </span></code></pre></div>
-<p>The GUI offers the same lists wherever a field asks for an output, an input or an application (a click into the field opens them). Play
-something in the browser first, so that <code>list-apps</code> has an application to show.</p>
+<p>Play something in the browser first. The GUI offers the same lists in every field that asks for an output, an input
+or an application.</p>
 <h2 id="2-the-main-output">2. The main output<a class="headerlink" href="#2-the-main-output" title="Permanent link">&para;</a></h2>
 <p><strong>GUI:</strong> page <strong>Channels</strong>, <strong>Add</strong>, <strong>Outputs</strong> (under "From the sound server"), pick your speakers. Rename the id to
 <code>main_output</code> (field next to the title; the slots that name it follow), set the label to <code>Main</code> (up to 7 characters:
 that is all the LCD has) and the color to cyan.</p>
-<p>Select should switch between several outputs, so add <strong>Choices</strong>: one per output, each with a label. An output that
-exists only in another profile of the sound card (a profile is a setting of the card, such as analog or digital
-output) also needs the <code>card</code> and <code>profile</code>: <code>list-devices</code> prints both. Bluetooth headphones are best matched by a
-wildcard, because their name holds their address (<code>bluez_output.*</code>; <code>list-devices --snippet</code> writes it for you):</p>
+<p>Select should switch between several outputs, so add <strong>Choices</strong>, one per output. An output that exists only in
+another profile of the sound card also needs the <code>card</code> and <code>profile</code>: <code>list-devices</code> prints both. Match Bluetooth
+headphones with a wildcard, because their name holds their address:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.main_output]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cyan"</span>
@@ -3079,9 +3054,8 @@ wildcard, because their name holds their address (<code>bluez_output.*</code>; <
 </span></code></pre></div>
 <p>See <a href="../../configuration/channels/devices/#choices">Devices</a> for every option of choices.</p>
 <h2 id="3-applications">3. Applications<a class="headerlink" href="#3-applications" title="Permanent link">&para;</a></h2>
-<p><strong>GUI:</strong> <strong>Add</strong>, <strong>Applications</strong>. An <code>apps</code> channel is a group of applications that gets one strip: <code>match</code> names
-them (by a part of their name or program) or uses a preset such as <code>@browsers</code>, <code>@voip</code> or <code>@games</code>, which come with
-the daemon (<a href="../../configuration/presets/">Presets</a>).</p>
+<p><strong>GUI:</strong> <strong>Add</strong>, <strong>Applications</strong>. <code>match</code> names the applications or uses a
+<a href="../../configuration/presets/">preset</a> such as <code>@browsers</code>.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.browser]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@browsers"</span><span class="p">]</span>
@@ -3101,8 +3075,7 @@ the daemon (<a href="../../configuration/presets/">Presets</a>).</p>
 </span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">lit_when_idle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">        </span><span class="c1"># the LCD stays lit while no VoIP application plays, e.g. in a call that is quiet</span>
 </span></code></pre></div>
 <h2 id="4-the-microphone">4. The microphone<a class="headerlink" href="#4-the-microphone" title="Permanent link">&para;</a></h2>
-<p><strong>GUI:</strong> page <strong>Channels</strong>, <strong>Add</strong>, <strong>Inputs</strong> (under "From the sound server"), pick the microphone, then give it the label and the
-color.</p>
+<p><strong>GUI:</strong> <strong>Add</strong>, <strong>Inputs</strong>, pick the microphone, then set the label and color.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[channel.mic]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_input.pci-0000_11_00.4.analog-stereo"</span>
@@ -3111,20 +3084,19 @@ color.</p>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"balance"</span>
 </span></code></pre></div>
 <h2 id="5-a-state-in-a-call">5. A state: in a call<a class="headerlink" href="#5-a-state-in-a-call" title="Permanent link">&para;</a></h2>
-<p>A <em>state</em> is a fact about your situation that is either on or off, such as "I am in a call". VoIP and the microphone should only take a strip while you are in a call, so
-make that a state. <strong>GUI:</strong> page <strong>States</strong>, <strong>Add</strong>, <strong>In a call</strong> (under "Starting points"); its sources are "You are in the voice chat"
-(Mumble or TeamSpeak, with their plugins: <a href="../../guides/mumble/">Mumble</a>, <a href="../../guides/teamspeak/">TeamSpeak</a>) and "An application records" (<code>recording</code>: Discord and the like have the
-microphone open while you talk, so a recording application counts as a call):</p>
+<p>VoIP and the microphone should only take a strip while you are in a call, so make that a state. <strong>GUI:</strong> page
+<strong>States</strong>, <strong>Add</strong>, <strong>In a call</strong>. Its sources are you in the voice chat (<a href="../../guides/mumble/">Mumble</a>,
+<a href="../../guides/teamspeak/">TeamSpeak</a>) and a recording application (Discord and the like have the microphone open
+during a call):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[state.call]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">voice_chat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">recording</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@voip"</span><span class="p">]</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">delay_off</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">               </span><span class="c1"># stays on 5 s after the last source went off: a reconnect is not the end of the call</span>
 </span></code></pre></div>
 <h2 id="6-the-slots">6. The slots<a class="headerlink" href="#6-the-slots" title="Permanent link">&para;</a></h2>
-<p><strong>GUI:</strong> page <strong>Slots</strong>. Each slot is a card with its candidates, the first whose condition holds is shown. <strong>+</strong> adds a
-candidate at the end; pick one and the inspector sets what it shows ("Shows") and when ("When": empty is always, or a
-condition such as <code>call</code>, <code>present</code>, <code>call and not gaming</code>). A slot you have not edited shows <code>auto</code>: change that
-candidate to what you want first, then press <strong>+</strong> for the next one.</p>
+<p><strong>GUI:</strong> page <strong>Slots</strong>. Each slot is a card with its candidates. <strong>+</strong> adds one at the end; the inspector sets what
+it shows ("Shows") and when ("When": empty is always). A new slot shows <code>auto</code>: change that candidate first, then
+press <strong>+</strong> for the next.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[slots]</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"main_output"</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># the browser and the game while they play, else the next application, else a person</span>
@@ -3139,27 +3111,23 @@ candidate to what you want first, then press <strong>+</strong> for the next one
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
 </span></code></pre></div>
 <ul>
-<li><code>apps</code> is the next application that plays and has no channel. <code>people</code> is the next person of the voice chat. <code>auto</code>
-  is both together. A candidate that has nothing to show hands the slot to the one below it.</li>
-<li><code>present</code> is a ready-made condition, not a state. It means that the channel of this candidate has something to
-  control: for <code>browser</code>, a browser is playing. <code>call</code> is the state you defined in step 5.</li>
-<li>A single name without a list, such as <code>1 = "main_output"</code>, is a slot with one candidate that always shows.</li>
-<li>A slot you leave out is <code>auto</code>.</li>
+<li><code>apps</code>, <code>people</code> and <code>auto</code> are <a href="../../concepts/#pools">pools</a>. A candidate with nothing to show hands the slot to
+  the one below it.</li>
+<li><code>present</code> is a ready-made condition: the channel of the candidate has something to control (for <code>browser</code>, a
+  browser plays). <code>call</code> is the state of step 5.</li>
 </ul>
 <h2 id="7-settings-of-the-whole-daemon">7. Settings of the whole daemon<a class="headerlink" href="#7-settings-of-the-whole-daemon" title="Permanent link">&para;</a></h2>
-<p><strong>GUI:</strong> page <strong>Settings</strong>. The author sets the volume (in percent) that a push on a <code>volume</code> encoder resets to, and
-renames an application that calls itself something unreadable:</p>
+<p><strong>GUI:</strong> page <strong>Settings</strong>. The volume (in percent) a push on a <code>volume</code> encoder resets to, and a readable name for an
+application:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">[behavior]</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">reset_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">35</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">[aliases]</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="s2">"WEBRTC VoiceEngine"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Discord"</span>
 </span></code></pre></div>
-<p>Three more settings finish the file. On <strong>Settings</strong>, <strong>Extender</strong>, the author picks the startup sequence <code>show</code> and
-switches fader 1 to <code>touchless_faders</code>, because its touch sensor is broken and the fader jumps back after every move
-(<a href="../../configuration/behavior/#faders-without-a-touch-sensor">Behavior</a>). On <strong>Channels</strong>, in the pool
-<strong>People</strong> (a built-in pool: it is there without you adding it), the strips of people light up yellow, as the settings
-<code>[pool.people]</code> say:</p>
+<p>On <strong>Settings</strong>, <strong>Extender</strong>, the author picks the startup sequence <code>show</code> and sets <code>touchless_faders</code> for fader 1,
+whose touch sensor is broken (<a href="../../configuration/behavior/#faders-without-a-touch-sensor">Behavior</a>). On
+<strong>Channels</strong>, the pool <strong>People</strong> lights the strips of people yellow:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[device]</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">touchless_faders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">startup</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"show"</span>
@@ -3170,91 +3138,11 @@ switches fader 1 to <code>touchless_faders</code>, because its touch sensor is b
 <h2 id="8-check-it-then-apply-it">8. Check it, then apply it<a class="headerlink" href="#8-check-it-then-apply-it" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w">     </span><span class="c1"># errors with the line they are in, then what every slot shows when</span>
 </span></code></pre></div>
-<p>The table lists the situations in which something changes, for example "in a call".</p>
-<p>The GUI shows the same on the page <strong>Slots</strong>: <strong>Simulate</strong> pretends another situation (in a call, nothing
-playing, a game running), and the drawing shows what the strips would show. The preview "On the device" shows it on the
-X-Touch itself.</p>
-<p><strong>Save and apply</strong> writes the file. A running daemon takes it at once. If no daemon runs, the button "Install and
-start" next to the service at the top right installs and starts the systemd user service now, and it starts again at
-every login.</p>
-<h2 id="whole-file">Whole file<a class="headerlink" href="#whole-file" title="Permanent link">&para;</a></h2>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">[device]</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">touchless_faders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">startup</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"show"</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="k">[behavior]</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">reset_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">35</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="k">[aliases]</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="s2">"WEBRTC VoiceEngine"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Discord"</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="k">[channel.main_output]</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cyan"</span>
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Main"</span>
-</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>
-</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="k">[[channel.main_output.choices]]</span>
-</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Phones"</span>
-</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.pci-0000_11_00.4.analog-stereo"</span>
-</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="n">card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_card.pci-0000_11_00.4"</span>
-</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="n">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output:analog-stereo+input:analog-stereo"</span>
-</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>
-</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a><span class="k">[[channel.main_output.choices]]</span>
-</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
-</span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.pci-0000_11_00.4.iec958-stereo"</span>
-</span><span id="__span-9-25"><a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a><span class="n">card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_card.pci-0000_11_00.4"</span>
-</span><span id="__span-9-26"><a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a><span class="n">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output:iec958-stereo+input:analog-stereo"</span>
-</span><span id="__span-9-27"><a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a><span class="n">max_volume</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">200</span>
-</span><span id="__span-9-28"><a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>
-</span><span id="__span-9-29"><a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a><span class="k">[[channel.main_output.choices]]</span>
-</span><span id="__span-9-30"><a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Buds"</span>
-</span><span id="__span-9-31"><a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span>
-</span><span id="__span-9-32"><a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a>
-</span><span id="__span-9-33"><a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a><span class="k">[channel.browser]</span>
-</span><span id="__span-9-34"><a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
-</span><span id="__span-9-35"><a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@browsers"</span><span class="p">]</span>
-</span><span id="__span-9-36"><a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Browser"</span>
-</span><span id="__span-9-37"><a id="__codelineno-9-37" name="__codelineno-9-37" href="#__codelineno-9-37"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"blue"</span>
-</span><span id="__span-9-38"><a id="__codelineno-9-38" name="__codelineno-9-38" href="#__codelineno-9-38"></a>
-</span><span id="__span-9-39"><a id="__codelineno-9-39" name="__codelineno-9-39" href="#__codelineno-9-39"></a><span class="k">[channel.voip]</span>
-</span><span id="__span-9-40"><a id="__codelineno-9-40" name="__codelineno-9-40" href="#__codelineno-9-40"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
-</span><span id="__span-9-41"><a id="__codelineno-9-41" name="__codelineno-9-41" href="#__codelineno-9-41"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@voip"</span><span class="p">]</span>
-</span><span id="__span-9-42"><a id="__codelineno-9-42" name="__codelineno-9-42" href="#__codelineno-9-42"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"VoIP"</span>
-</span><span id="__span-9-43"><a id="__codelineno-9-43" name="__codelineno-9-43" href="#__codelineno-9-43"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"yellow"</span>
-</span><span id="__span-9-44"><a id="__codelineno-9-44" name="__codelineno-9-44" href="#__codelineno-9-44"></a><span class="n">lit_when_idle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-9-45"><a id="__codelineno-9-45" name="__codelineno-9-45" href="#__codelineno-9-45"></a>
-</span><span id="__span-9-46"><a id="__codelineno-9-46" name="__codelineno-9-46" href="#__codelineno-9-46"></a><span class="k">[channel.mic]</span>
-</span><span id="__span-9-47"><a id="__codelineno-9-47" name="__codelineno-9-47" href="#__codelineno-9-47"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span>
-</span><span id="__span-9-48"><a id="__codelineno-9-48" name="__codelineno-9-48" href="#__codelineno-9-48"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_input.pci-0000_11_00.4.analog-stereo"</span>
-</span><span id="__span-9-49"><a id="__codelineno-9-49" name="__codelineno-9-49" href="#__codelineno-9-49"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mic"</span>
-</span><span id="__span-9-50"><a id="__codelineno-9-50" name="__codelineno-9-50" href="#__codelineno-9-50"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"red"</span>
-</span><span id="__span-9-51"><a id="__codelineno-9-51" name="__codelineno-9-51" href="#__codelineno-9-51"></a><span class="n">encoder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"balance"</span>
-</span><span id="__span-9-52"><a id="__codelineno-9-52" name="__codelineno-9-52" href="#__codelineno-9-52"></a>
-</span><span id="__span-9-53"><a id="__codelineno-9-53" name="__codelineno-9-53" href="#__codelineno-9-53"></a><span class="k">[channel.game]</span>
-</span><span id="__span-9-54"><a id="__codelineno-9-54" name="__codelineno-9-54" href="#__codelineno-9-54"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
-</span><span id="__span-9-55"><a id="__codelineno-9-55" name="__codelineno-9-55" href="#__codelineno-9-55"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@games"</span><span class="p">]</span>
-</span><span id="__span-9-56"><a id="__codelineno-9-56" name="__codelineno-9-56" href="#__codelineno-9-56"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Game"</span>
-</span><span id="__span-9-57"><a id="__codelineno-9-57" name="__codelineno-9-57" href="#__codelineno-9-57"></a>
-</span><span id="__span-9-58"><a id="__codelineno-9-58" name="__codelineno-9-58" href="#__codelineno-9-58"></a><span class="k">[pool.people]</span>
-</span><span id="__span-9-59"><a id="__codelineno-9-59" name="__codelineno-9-59" href="#__codelineno-9-59"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"yellow"</span>
-</span><span id="__span-9-60"><a id="__codelineno-9-60" name="__codelineno-9-60" href="#__codelineno-9-60"></a>
-</span><span id="__span-9-61"><a id="__codelineno-9-61" name="__codelineno-9-61" href="#__codelineno-9-61"></a><span class="k">[state.call]</span>
-</span><span id="__span-9-62"><a id="__codelineno-9-62" name="__codelineno-9-62" href="#__codelineno-9-62"></a><span class="n">voice_chat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-9-63"><a id="__codelineno-9-63" name="__codelineno-9-63" href="#__codelineno-9-63"></a><span class="n">recording</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@voip"</span><span class="p">]</span>
-</span><span id="__span-9-64"><a id="__codelineno-9-64" name="__codelineno-9-64" href="#__codelineno-9-64"></a><span class="n">delay_off</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
-</span><span id="__span-9-65"><a id="__codelineno-9-65" name="__codelineno-9-65" href="#__codelineno-9-65"></a>
-</span><span id="__span-9-66"><a id="__codelineno-9-66" name="__codelineno-9-66" href="#__codelineno-9-66"></a><span class="k">[slots]</span>
-</span><span id="__span-9-67"><a id="__codelineno-9-67" name="__codelineno-9-67" href="#__codelineno-9-67"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"main_output"</span>
-</span><span id="__span-9-68"><a id="__codelineno-9-68" name="__codelineno-9-68" href="#__codelineno-9-68"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"browser if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="s2">"people"</span><span class="p">]</span>
-</span><span id="__span-9-69"><a id="__codelineno-9-69" name="__codelineno-9-69" href="#__codelineno-9-69"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">,</span><span class="w"> </span><span class="s2">"people"</span><span class="p">]</span>
-</span><span id="__span-9-70"><a id="__codelineno-9-70" name="__codelineno-9-70" href="#__codelineno-9-70"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
-</span><span id="__span-9-71"><a id="__codelineno-9-71" name="__codelineno-9-71" href="#__codelineno-9-71"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
-</span><span id="__span-9-72"><a id="__codelineno-9-72" name="__codelineno-9-72" href="#__codelineno-9-72"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
-</span><span id="__span-9-73"><a id="__codelineno-9-73" name="__codelineno-9-73" href="#__codelineno-9-73"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
-</span><span id="__span-9-74"><a id="__codelineno-9-74" name="__codelineno-9-74" href="#__codelineno-9-74"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span>
-</span></code></pre></div>
-<p>Where to go from here: <a href="../../configuration/slots/">Channels, states and slots</a> for what else a slot can do (pools, modes,
-controls), <a href="../../guides/home-assistant/">Home Assistant</a>, <a href="../../guides/troubleshooting/">Troubleshooting</a>.</p>
+<p>The GUI shows the same on the page <strong>Slots</strong>: <strong>Simulate</strong> pretends another situation. <strong>Save and apply</strong> writes the
+file, and a running daemon takes it at once. With no daemon running, "Install and start" at the top right starts the
+systemd user service. See <a href="../../guides/gui/">GUI</a>.</p>
+<p>The steps together are the whole file. Next: <a href="../../configuration/slots/">Channels, states and slots</a> for what else a slot
+can do, <a href="../../guides/home-assistant/">Home Assistant</a>, <a href="../../guides/troubleshooting/">Troubleshooting</a>.</p>
 
 
 
@@ -3309,13 +3197,13 @@ controls), <a href="../../guides/home-assistant/">Home Assistant</a>, <a href=".
         
         
           
-          <a href="../without-a-device/" class="md-footer__link md-footer__link--next" aria-label="Next: Without a device">
+          <a href="../without-a-device/" class="md-footer__link md-footer__link--next" aria-label="Next: Without an X-Touch">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Without a device
+                Without an X-Touch
               </div>
             </div>
             <div class="md-footer__button md-icon">

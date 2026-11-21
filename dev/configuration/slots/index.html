@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1318,7 +1318,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -3028,16 +3028,13 @@
 <p>This page decides what each of the 8 strips shows. Its four main parts build on each other:</p>
 <ol>
 <li><strong>Channels</strong> are what a strip can control (an output, a group of applications, a person). You define them.</li>
-<li>Each strip of the X-Touch has a <strong>slot</strong> in the file, numbered 1 to 8 from the left, with a list of candidates: the channels it can show, best first.</li>
+<li>Each strip has a <strong>slot</strong>, numbered 1 to 8 from the left, with a list of candidates: the channels it can show, best first.</li>
 <li><strong>States</strong> (in a call, gaming) are on or off. A condition in the list asks about them.</li>
-<li><strong>Controls</strong> add buttons, fader or encoder actions to a slot.</li>
+<li><strong>Controls</strong> add button, fader or encoder actions to a slot.</li>
 </ol>
-<p>All of it goes into the <a href="../">configuration file</a>. A slot changes only when what it shows changes; the others
-stay as they are, and a strip you are touching keeps what it shows until you let go. The
-<a href="../../development/design/slots/">design</a> has every detail.</p>
-<p><a href="../../reference/commands/"><code>xtouch-daemon init-config</code></a> writes a small example file. <code>xtouch-daemon check-config</code> shows
-a table of what each slot shows in which states, and <code>xtouch-daemon why 3</code> why slot 3 shows what it shows now.
-<code>xtouch-daemon list-devices</code> prints the names for <code>device</code> of an <code>output</code> or <code>input</code> channel.</p>
+<p>All of it goes into the <a href="../">configuration file</a>. A strip you are touching keeps what it shows until you let
+go. The <a href="../../development/design/slots/">design</a> has every detail;
+<a href="../../reference/commands/"><code>check-config</code>, <code>why</code> and <code>simulate</code></a> show what each slot shows and why.</p>
 <h2 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h2>
 <p>A channel is something a strip controls, with the options of its type (see <a href="../channels/">Channels</a>):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.out]</span>
@@ -3050,11 +3047,8 @@ a table of what each slot shows in which states, and <code>xtouch-daemon why 3</
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"VoIP"</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">[channel.ann]</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"person"</span><span class="w">             </span><span class="c1"># someone of the voice chat, see People</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"person"</span><span class="w">             </span><span class="c1"># someone of the voice chat</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">person</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"Ann"</span><span class="p">,</span><span class="w"> </span><span class="s2">"ann-phone"</span><span class="p">]</span><span class="w">   </span><span class="c1"># names of the same person in the voice chat</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">[channel.lamp]</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="w">      </span><span class="c1"># a strip of Home Assistant automations (needs [mqtt])</span>
 </span></code></pre></div>
 <p>The id (<code>out</code>, <code>voip</code>) names the channel in slots, conditions and the entities in Home Assistant.</p>
 <h2 id="slots">Slots<a class="headerlink" href="#slots" title="Permanent link">&para;</a></h2>
@@ -3069,18 +3063,17 @@ a table of what each slot shows in which states, and <code>xtouch-daemon why 3</
 <li>A slot shows the first candidate whose condition (after <code>if</code>) holds. Conditions name states and modes, with
   <code>and</code>, <code>or</code>, <code>not</code>, parentheses and <code>present</code> (the channel has something to control); see
   <a href="#conditions">Conditions</a>.</li>
-<li><code>apps</code>, <code>people</code>, <code>auto</code> and <code>devices</code> are pools: not channels that you define, but suppliers of members (an
-  application, a person, an output or input). See the table below.</li>
-<li>A slot without an entry is <code>auto</code>. So is a slot whose candidates all don't hold.</li>
-<li><code>-</code> is nothing: the slot is dark.</li>
+<li><code>apps</code>, <code>people</code>, <code>auto</code> and <code>devices</code> are pools: not channels that you define, but suppliers of members. See the
+  table below.</li>
+<li>A slot without an entry is <code>auto</code>, and so is a slot whose candidates all don't hold. <code>-</code> is nothing: the slot is
+  dark.</li>
 <li>The table form <code>{ show = ..., when = ..., ... }</code> takes options of the look at this place, see <a href="#places">Places</a>.</li>
-<li>The <a href="../../guides/gui/">GUI</a>'s page Slots simulates other modes and states (Simulate), in the drawing or on the X-Touch.</li>
-<li><code>xtouch-daemon why 2</code> says why slot 2 shows what it shows, <code>xtouch-daemon why voip</code> where the channel is and
-  why.</li>
 <li>When a slot shows something else, its LCD flashes the new label and why (<code>gaming</code>, <code>not call</code>) for
   <code>switching.banner</code> seconds.</li>
+<li>To see why a slot shows what it shows, use <a href="../../reference/commands/#why"><code>why</code></a>; the
+  <a href="../../guides/gui/">GUI</a>'s page Slots simulates other modes and states.</li>
 </ul>
-<p>Four pools are built in. Each strip that names a pool shows one member of it, so one pool can fill several strips:</p>
+<p>Four pools are built in:</p>
 <table>
 <thead>
 <tr>
@@ -3112,14 +3105,13 @@ a table of what each slot shows in which states, and <code>xtouch-daemon why 3</
 </tr>
 </tbody>
 </table>
-<p>Which one to use: <code>auto</code> when you do not care, <code>apps</code> when only applications should appear (people would waste a
-strip), <code>people</code> for the voice chat alone, <code>devices</code> for outputs and inputs without a channel.</p>
+<p>Use <code>auto</code> when you do not care, <code>apps</code> when only applications should appear, <code>people</code> for the voice chat alone.</p>
 <p>A pool that has no member for a slot hands it to the candidate right below it, a pool or <code>-</code>: <code>["people", "apps"]</code> is
-a person for as long as there is one, else an application. When two pools could fill the same slot, the one listed
-higher in the slot wins it.</p>
+a person for as long as there is one, else an application. When two pools could fill a slot, the one listed higher
+wins it, so a pool of channels goes above the built-in pools: <code>["outs", "auto"]</code>.</p>
 <h3 id="places">Places<a class="headerlink" href="#places" title="Permanent link">&para;</a></h3>
-<p>A candidate in the table form (<code>{ show = "auto", color = "blue" }</code>) takes options of the look at this place. The
-built-in pools (<code>[pool.apps]</code>, <code>[pool.auto]</code>, <code>[pool.devices]</code>, <code>[pool.people]</code>) take the same for all their places.</p>
+<p>A candidate in the table form takes options of the look at this place. The built-in pools (<code>[pool.apps]</code>,
+<code>[pool.auto]</code>, <code>[pool.devices]</code>, <code>[pool.people]</code>) take the same for all their places.</p>
 <table>
 <thead>
 <tr>
@@ -3151,45 +3143,21 @@ built-in pools (<code>[pool.apps]</code>, <code>[pool.auto]</code>, <code>[pool.
 </tbody>
 </table>
 <p><code>rec</code> and <code>solo</code> at a place set what the LED shows; what a press does stays the channel's. <code>encoder</code> of <code>apps</code> and <code>auto</code> is <code>pick</code> by default: the encoder picks which application the strip shows (see <a href="../strip/encoders/#pick">Encoders</a>).</p>
-<p>Three levels decide what the parts of a strip do and show. The more specific one wins: a value at a place beats the
-same option on the channel, for that slot. A plain value is a word or number like <code>color = "red"</code>. A
-<a href="../strip/bindings/">binding</a> takes the value from a program or from Home Assistant, e.g. <code>{ watch = "my-script" }</code>:</p>
-<table>
-<thead>
-<tr>
-<th>Level</th>
-<th>Decides</th>
-<th>Takes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>The channel (<code>[channel.out]</code>, or the pool)</td>
-<td>What each part does and how it looks, in every slot.</td>
-<td>Plain values and <a href="../strip/bindings/">bindings</a>.</td>
-</tr>
-<tr>
-<td>The place</td>
-<td>The look of what it shows, in this slot only.</td>
-<td>Plain values only (e.g. <code>color = "red"</code>, <code>meter = false</code>), no bindings.</td>
-</tr>
-<tr>
-<td><a href="#controls-and-the-chord"><code>[controls]</code></a></td>
-<td>Parts of the slot, whatever it shows, while its <code>when</code> holds.</td>
-<td>Plain values and bindings for the slot.</td>
-</tr>
-</tbody>
-</table>
-<div class="admonition tip">
-<p class="admonition-title">Home Assistant and launching</p>
+<p>Three levels decide what the parts of a strip do and show. The more specific one wins. A plain value is a word or
+number like <code>color = "red"</code>; a <a href="../strip/bindings/">binding</a> takes the value from a program or from Home Assistant:</p>
+<ul>
+<li>The channel (<code>[channel.out]</code>, or the pool) decides what each part does and how it looks, in every slot. It takes
+  plain values and bindings.</li>
+<li>The place decides the look in this slot only. It takes plain values, no bindings.</li>
+<li><a href="#controls-and-the-chord"><code>[controls]</code></a> decide parts of the slot, whatever it shows, while their <code>when</code> holds. They
+  take plain values and bindings.</li>
+</ul>
 <p>A control for Home Assistant, or one that starts an application (<code>{ launch = [...] }</code>), is a control of the slot,
-not a place option: <a href="#controls-and-the-chord"><code>[controls]</code></a>. How to start an application with Select:
-<a href="../channels/applications/#launching-the-application">Launching the application</a>.</p>
-</div>
+not a place option: see <a href="#controls-and-the-chord"><code>[controls]</code></a>.</p>
 <h3 id="pools-of-channels">Pools of channels<a class="headerlink" href="#pools-of-channels" title="Permanent link">&para;</a></h3>
-<p>A pool of your own hands out channels. Its list holds channels. The first channel of the list that is present (it has
-something to control) goes to the first slot that names the pool, the next present channel to the next such slot, and
-so on. Use it for things of which only some are there at a time, e.g. several outputs:</p>
+<p>A pool of your own hands out channels. The first channel of its list that is present goes to the first slot that
+names the pool, the next present channel to the next such slot, and so on. Use it for things of which only some are
+there at a time, e.g. several outputs:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.speaker]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"alsa_output.pci-0000_11_00.4.analog-stereo"</span>
@@ -3206,24 +3174,21 @@ so on. Use it for things of which only some are there at a time, e.g. several ou
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="k">[pool.outs]</span>
 </span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"speaker"</span><span class="p">,</span><span class="w"> </span><span class="s2">"#outs"</span><span class="p">]</span><span class="w">   </span><span class="c1"># channel ids, or "#tag" for every channel with that tag</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span><span class="w">                     </span><span class="c1"># the side it fills its slots from (default)</span>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="k">[slots]</span>
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"outs"</span>
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"outs"</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="k">[slots]</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"outs"</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"outs"</span>
 </span></code></pre></div>
 <ul>
-<li>A channel of the list that a slot of its own shows (<code>3 = "buds"</code>) is not handed out by the pool.</li>
-<li>Unlike <code>apps</code>, a pool of channels fills by its order every time: when an earlier channel of the list comes back, the
-  channels after it move one slot on. For channels that should keep their strip, give each a slot of its own
-  (<code>["buds if present", "auto"]</code>).</li>
-<li>A pool of channels goes above the built-in pools in a stack: <code>["outs", "auto"]</code>, not <code>["auto", "outs"]</code>.</li>
+<li>A channel that a slot of its own shows (<code>3 = "buds"</code>) is not handed out by the pool.</li>
+<li>Unlike <code>apps</code>, a pool of channels fills by its order every time: when an earlier channel comes back, the ones after
+  it move one slot on. To keep a strip, give the channel a slot of its own (<code>["buds if present", "auto"]</code>).</li>
 <li>It has no look of its own: its channels bring theirs.</li>
 </ul>
 <h3 id="pools-of-applications-and-of-people">Pools of applications and of people<a class="headerlink" href="#pools-of-applications-and-of-people" title="Permanent link">&para;</a></h3>
-<p><code>kind</code> makes a pool of your own hand out members instead of channels: <code>kind = "apps"</code> the applications that play and
-match, <code>kind = "people"</code> listed people of the voice chat, each on a strip of its own. Use them to split what <code>apps</code> and
-<code>people</code> hand out in one piece:</p>
+<p><code>kind = "apps"</code> makes a pool of your own hand out the applications that play and match, <code>kind = "people"</code> listed
+people of the voice chat, each on a strip of its own. Use them to split what <code>apps</code> and <code>people</code> hand out in one
+piece:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[pool.music]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">kind</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@music"</span><span class="p">]</span><span class="w">            </span><span class="c1"># parts of names or program files, and presets, as in an `apps` channel</span>
@@ -3276,31 +3241,29 @@ match, <code>kind = "people"</code> listed people of the voice chat, each on a s
 <tr>
 <td><code>hold</code></td>
 <td>Seconds, default 5.</td>
-<td>Not allowed: as with channels, a person stays <code>absent_after</code> seconds (default 3) after they left.</td>
+<td>Not allowed: a person stays <code>absent_after</code> seconds after they left.</td>
 </tr>
 <tr>
 <td>Look</td>
-<td><code>color</code>, <code>meter</code>, <code>meter_point</code>, <code>rec</code>, <code>solo</code>, <code>lit_when_idle</code>, <code>min_volume</code>, <code>max_volume</code>. The <code>encoder</code> can be <code>media</code>, <code>volume</code> or <code>balance</code>, but not <a href="../strip/encoders/#pick"><code>pick</code></a> (that picks among the applications of <code>apps</code> and <code>auto</code>).</td>
-<td><code>color</code>, <code>meter</code>, <code>meter_point</code>, <code>rec</code>, <code>solo</code>, <code>lit_when_idle</code>, <code>talking_color</code>.</td>
+<td>As the <code>apps</code> places above, but the <code>encoder</code> is not <a href="../strip/encoders/#pick"><code>pick</code></a>.</td>
+<td>As the <code>people</code> places above, plus <code>talking_color</code>, <code>rec</code>, <code>solo</code> and <code>lit_when_idle</code>.</td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li>A pool of your own takes its members first: a music player goes to <code>music</code>, not to <code>apps</code> or <code>auto</code>. An <code>apps</code>
   channel or a <code>person</code> channel that has a slot keeps its application or person.</li>
-<li>It takes them <strong>only while a slot names it</strong>, in any stack. A pool that no slot names takes nothing, so a forgotten
+<li>It takes them <strong>only while a slot names it</strong>. A pool that no slot names takes nothing, so a forgotten
   <code>[pool.music]</code> can't make the players disappear from the strips; <code>check-config</code> says "pool music is on no slot".</li>
-<li>A member that finds no slot waits in its pool. In this example there are two slots for <code>friends</code>. With a third
-  friend, that friend has no strip until a slot of <code>friends</code> is free, and does not move on to <code>people</code>.</li>
+<li>A member that finds no slot waits in its pool. With a third friend in the example, that friend has no strip until
+  a slot of <code>friends</code> is free, and does not move on to <code>people</code>.</li>
 <li>Like <code>apps</code>, an application keeps its slot while it plays; a pool of people fills by the order of its list.</li>
-<li>Several pools share a slot as candidates: <code>["friends", "music", "auto"]</code>. A pool above <code>auto</code> or another pool wins
-  a slot that both could fill; a slot a pool has no member for goes to the candidate below it.</li>
 </ul>
 <h2 id="states-and-modes">States and modes<a class="headerlink" href="#states-and-modes" title="Permanent link">&para;</a></h2>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[state.call]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">voice_chat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">           </span><span class="c1"># in a channel of the voice chat (needs a voice chat provider, see People)</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">recording</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"discord"</span><span class="p">]</span><span class="w">     </span><span class="c1"># or: Discord records</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">delay_off</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">delay_off</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">               </span><span class="c1"># seconds</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">[state.gaming]</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                 </span><span class="c1"># one mode at a time; without one, "default"</span>
@@ -3310,11 +3273,11 @@ match, <code>kind = "people"</code> listed people of the voice chat, each on a s
 <dl>
 <dt>Sources</dt>
 <dd>A state is on while any of its sources is: <code>apps</code> (playing), <code>recording</code>, <code>voice_chat</code>, <code>processes</code>, <code>devices</code>,
-<code>channels</code>, <code>homeassistant</code> (a switch in Home Assistant), or <code>when</code> (a <a href="#conditions">condition</a> of other states).</dd>
+<code>channels</code>, <code>homeassistant</code> (a switch in Home Assistant) or <code>when</code> (a <a href="#conditions">condition</a>).</dd>
 <dt>Delays</dt>
-<dd><code>delay_on</code> (default 0) and <code>delay_off</code> (default 3 seconds, 10 for a mode) smooth it: the state goes on only after
-its sources were on that long, and off only after they were off that long. A state with <code>when</code> has no delays by
-default (both 0): it follows the states it names, which have theirs already; a delay you give it comes on top of the delays of the states it names.</dd>
+<dd><code>delay_on</code> (default 0) and <code>delay_off</code> (default 3 seconds, 10 for a mode) smooth it: the state changes only after
+its sources held the new value that long. A state with <code>when</code> has no delays by
+default: it follows the states it names, which have theirs already. A delay you give it comes on top.</dd>
 <dt>Modes</dt>
 <dd>Modes are states with <code>mode = true</code>: the one with the highest <code>priority</code> whose sources are on is the mode, else
 <code>default</code>. When the mode changes, the LCDs show its <code>label</code> across the strips for <code>switching.banner</code> seconds.</dd>
@@ -3324,20 +3287,20 @@ default (both 0): it follows the states it names, which have theirs already; a d
 <summary>Games from Steam and Proton</summary>
 <p><code>processes = ["@steam-games"]</code> is on while any game runs, native or with Proton: Steam starts every game through
 its <code>reaper</code> process, which is what the preset stands for. Proton games play as <code>&lt;Game&gt;.exe</code> (e.g. "Planet
-Crafter.exe"), which <code>apps = ["@games"]</code> catches once they make a sound.</p>
-<p>Don't use <code>steam</code> (the client runs all the time) or <code>.exe</code> in <code>processes</code> (Wine's helpers, like <code>explorer.exe</code>,
-run for other Windows programs too).</p>
-<p><code>ps -eo comm,args</code> while a game runs shows the names to use for others. Kernel threads don't count.</p>
+Crafter.exe"), which <code>apps = ["@games"]</code> catches once they make a sound. Don't use <code>steam</code> (the client runs all
+the time) or <code>.exe</code> (Wine's helpers run for other Windows programs too) in <code>processes</code>.</p>
+<p><code>ps -eo comm,args</code> while a game runs shows the names to use for others.</p>
 </details>
 <p>Every state can be overridden (<code>on</code>, <code>off</code>, <code>auto</code>) from Home Assistant, the GUI's live view or a button; <code>auto</code>
 means the sources decide again. An override lasts until the sources of the state turn it on or off by themselves
-(<code>persist = true</code>: until you set it back). A mode picked by hand
-(<code>xtouch-daemon mode gaming</code>, the <a href="#controls-and-the-chord">chord</a>, Home Assistant) lasts until the sources of the modes would pick
-another one.</p>
+(<code>persist = true</code>: until you set it back). A mode picked by hand (the <a href="#controls-and-the-chord">chord</a>, Home
+Assistant, <a href="../../reference/commands/#mode"><code>xtouch-daemon mode gaming</code></a>) lasts until the sources of the modes would
+pick another one.</p>
 <h2 id="conditions">Conditions<a class="headerlink" href="#conditions" title="Permanent link">&para;</a></h2>
 <p>A condition says when something applies: a candidate of a slot (after <code>if</code>, or <code>when</code> in the table form), a state
 (<code>when</code>) or controls (<code>when</code>). It holds or not at any moment, and the slot follows at once. All the parts in the
-table work in all three places, except <code>present</code> and <code>present(...)</code>, which only candidates of slots may use.</p>
+table work in all three places, except <code>present</code> and <code>present(...)</code>: only candidates of slots may use them. A state
+asks about channels with its <code>channels</code> source instead.</p>
 <table>
 <thead>
 <tr>
@@ -3392,62 +3355,55 @@ table work in all three places, except <code>present</code> and <code>present(..
 <ul>
 <li><code>not</code> binds closest, then <code>and</code>, then <code>or</code>: <code>not call and gaming or present</code> is <code>((not call) and gaming) or
   present</code>. Parentheses say otherwise.</li>
-<li>The words are lowercase, names are those of the file (<code>[state.&lt;name&gt;]</code>, <code>[channel.&lt;name&gt;]</code>, <code>[pool.&lt;name&gt;]</code>), and
-  the built-in pools <code>apps</code>, <code>people</code>, <code>auto</code> and <code>devices</code>.</li>
-<li>A candidate without a condition always holds, so the candidates below it never show. The exception is a pool: when
-  a pool has no member for a slot, the slot goes on to the candidate below it, which can be another pool or <code>-</code>.</li>
+<li>The words are lowercase. Names are those of the file (<code>[state.&lt;name&gt;]</code>, <code>[channel.&lt;name&gt;]</code>, <code>[pool.&lt;name&gt;]</code>) and
+  the built-in pools.</li>
+<li>A candidate without a condition always holds, so the candidates below it never show. The exception is a pool without
+  a member for the slot: the slot goes on to the candidate below it.</li>
 <li>Present means it has something to control: an <code>apps</code> channel while its application plays, an <code>output</code> or <code>input</code>
   channel while one of its <code>devices</code> is there (always without <code>devices</code>), a <code>person</code> channel while the person is in
   the voice chat, a <code>homeassistant</code> channel always. A channel stays present <code>absent_after</code> seconds (3 by default)
-  after that ended. <code>apps</code> is present while an application it may take plays, <code>people</code> while someone is in the
-  voice chat, <code>auto</code> while either is, <code>devices</code> while an output or input no channel has is there, another pool while one of its channels is present.</li>
-<li><code>present</code> is only for candidates of slots. A state asks about channels with its <code>channels</code> source, and controls
-  apply whatever the slot shows, so <code>present</code> would have no meaning there.</li>
-<li><code>check-config</code> and the GUI name the mistakes: an unknown state, mode, channel or pool, a word where none fits, a
-  condition that ends too early. The GUI underlines them in the field When.</li>
+  after that ended. A pool is present while it has a member: <code>auto</code> while an application or a person is there, a
+  pool of channels while one of its channels is present.</li>
+<li><code>check-config</code> and the GUI (which underlines them in the field When) name the mistakes: an unknown name, a word
+  where none fits, a condition that ends too early.</li>
 </ul>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[slots]</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"browser if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">                   </span><span class="c1"># the browser while it plays, else the next application</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call and not gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">          </span><span class="c1"># the voice chat in a call, but not while gaming</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming or present(game)"</span><span class="p">,</span><span class="w"> </span><span class="s2">"-"</span><span class="p">]</span><span class="w">         </span><span class="c1"># the game in the mode gaming or while it plays</span>
-</span></code></pre></div>
 <h2 id="controls-and-the-chord">Controls and the chord<a class="headerlink" href="#controls-and-the-chord" title="Permanent link">&para;</a></h2>
-<p><code>[controls]</code> claims parts of a slot, whatever the slot shows. To claim a part means to take it over: while <code>when</code>
-holds, the part does what the claim says instead of what the shown channel does.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">[controls]</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span><span class="w">    </span><span class="c1"># Select starts Mumble while not in a call</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"toggle:call"</span><span class="p">,</span><span class="w"> </span><span class="n">solo</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"mode:gaming"</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fader</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"desk"</span><span class="w"> </span><span class="p">}</span><span class="w">                    </span><span class="c1"># the fader is number.xtouch_desk_fader</span>
+<p><code>[controls]</code> claims parts of a slot, whatever the slot shows: while <code>when</code> holds, the part does what the claim says
+instead of what the shown channel does.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[controls]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span><span class="w">    </span><span class="c1"># Select starts Mumble while not in a call</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"toggle:call"</span><span class="p">,</span><span class="w"> </span><span class="n">solo</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"mode:gaming"</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fader</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"homeassistant"</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"desk"</span><span class="w"> </span><span class="p">}</span><span class="w">                    </span><span class="c1"># the fader is number.xtouch_desk_fader</span>
 </span></code></pre></div>
-<p><code>when</code> takes a <a href="#conditions">condition</a> of states and modes: the controls apply while it holds. Actions:
-<code>homeassistant</code>, <code>cycle_modes</code>, <code>mode:&lt;id&gt;</code>, <code>toggle:&lt;state or mode&gt;</code>, and these tables:</p>
+<p><code>when</code> takes a <a href="#conditions">condition</a> of states and modes. Actions: <code>homeassistant</code>, <code>cycle_modes</code>, <code>mode:&lt;id&gt;</code>, <code>toggle:&lt;state or mode&gt;</code>, and these tables:</p>
 <ul>
 <li><code>{ launch = [...] }</code> starts an application (see
   <a href="../channels/applications/#launching-the-application">Launching the application</a>).</li>
-<li><code>{ run = [...] }</code> starts a program of your own and waits for it to end. Write the program and its arguments as a
-  list, or as one string that is split at the spaces: <code>run = ["notify-send", "hi"]</code> or <code>run = "notify-send hi"</code>. No shell runs it.</li>
+<li><code>{ run = [...] }</code> starts a program of your own and waits for it to end. Write it as a list or as one string split
+  at the spaces: <code>run = ["notify-send", "hi"]</code> or <code>run = "notify-send hi"</code>. No shell runs it.</li>
 <li><code>{ service = "...", entity = "..." }</code> calls a service of Home Assistant (needs <code>[homeassistant]</code>).</li>
 </ul>
 <p>A fader or an <a href="../strip/encoders/">encoder</a> takes one of these:</p>
 <ul>
 <li><code>homeassistant</code>: a number entity in Home Assistant.</li>
 <li>The value of a <a href="../channels/custom/">custom channel</a>: <code>7 = { encoder = { channel = "screen_left" } }</code> makes the
-  encoder of slot 7 set the value that <code>screen_left</code> controls. For a fader, the channel must have a <code>fader</code> that is a
-  value. For an encoder, the claim uses the <code>encoder</code> of the channel, else the value of its <code>fader</code>. A channel with
-  <code>targets</code> makes the claim follow the target the channel controls.</li>
+  encoder of slot 7 set the value that <code>screen_left</code> controls. For a fader, the channel needs a <code>fader</code> that is a
+  value; an encoder uses the <code>encoder</code> of the channel, else its <code>fader</code>. With <code>targets</code>, the claim follows the
+  target the channel controls.</li>
 <li>A value of its own, as in <a href="../strip/bindings/">Bindings</a>: <code>{ set, watch, min, max, step, push, format }</code>. A fader
   has no <code>push</code>.</li>
 <li>A value of an entity of Home Assistant: <code>{ entity, attribute, min, max, step, push, format, service, data }</code>, see
   <a href="../strip/bindings/#an-entity-of-home-assistant">An entity of Home Assistant</a>. Needs <code>[homeassistant]</code>.</li>
 </ul>
 <p>The slot keeps showing what it shows, and the <a href="../strip/leds/">LED</a> ring shows the value. <code>{value}</code> in a <code>run</code> is the
-value of the fader of the controls, else of their encoder. It needs one of them to be a value or a <code>{ channel }</code>.
-Until the value is known, the program does not run; the log says so.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[controls]</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"brightnessctl set {value}%"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">100</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">solo</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">run</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"notify-send {value}"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+value of the fader of the controls, else of their encoder, which must be a value or a <code>{ channel }</code>. Until the value
+is known, the program does not run; the log says so.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">[controls]</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"brightnessctl set {value}%"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">100</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">solo</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">run</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"notify-send {value}"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p><code>[controls]</code> can also claim what a slot shows: the meter, the color, the second line of the LCD and the LEDs of
-Select, Rec and Solo. They take the same <a href="../strip/bindings/">bindings</a> as on a channel:</p>
+Select, Rec and Solo. They take the same <a href="../strip/bindings/">bindings</a> as on a channel (a program prints the number,
+color or line; an entity gives its value):</p>
 <table>
 <thead>
 <tr>
@@ -3458,15 +3414,15 @@ Select, Rec and Solo. They take the same <a href="../strip/bindings/">bindings</
 <tbody>
 <tr>
 <td><img alt="" class="xt-icon" src="../../images/controls/meter.png" /> <code>meter</code></td>
-<td><code>homeassistant</code> (<code>number.&lt;ns&gt;_&lt;id&gt;_meter</code>, 0..100), <code>{ watch, min, max }</code> or <code>{ poll, every, min, max }</code>: the number a program prints, or <code>{ entity, attribute, min, max }</code>: the number of an entity.</td>
+<td><code>homeassistant</code> (<code>number.&lt;ns&gt;_&lt;id&gt;_meter</code>, 0..100), <code>{ watch, min, max }</code>, <code>{ poll, every, min, max }</code> or <code>{ entity, attribute, min, max }</code>.</td>
 </tr>
 <tr>
 <td><img alt="" class="xt-icon" src="../../images/controls/color.png" /> <code>color</code></td>
-<td>A color, <code>homeassistant</code> (<code>select.&lt;ns&gt;_&lt;id&gt;_color</code>), <code>{ watch }</code> or <code>{ poll, every }</code>: the color a program prints, or <code>{ entity, attribute }</code>: the color of an entity.</td>
+<td>A color, <code>homeassistant</code> (<code>select.&lt;ns&gt;_&lt;id&gt;_color</code>), <code>{ watch }</code>, <code>{ poll, every }</code> or <code>{ entity, attribute }</code>.</td>
 </tr>
 <tr>
 <td><img alt="" class="xt-icon" src="../../images/controls/lcd.png" /> <code>lcd</code></td>
-<td><code>homeassistant</code> (<code>text.&lt;ns&gt;_&lt;id&gt;_bottom</code>), <code>{ watch }</code> or <code>{ poll, every }</code>: the newest line a program prints, or <code>{ entity, attribute }</code>: an entity.</td>
+<td><code>homeassistant</code> (<code>text.&lt;ns&gt;_&lt;id&gt;_bottom</code>), <code>{ watch }</code>, <code>{ poll, every }</code> or <code>{ entity, attribute }</code>.</td>
 </tr>
 <tr>
 <td><img alt="" class="xt-icon" src="../../images/controls/select.png" /> <code>select</code>, <code>rec</code>, <code>solo</code></td>
@@ -3475,45 +3431,38 @@ Select, Rec and Solo. They take the same <a href="../strip/bindings/">bindings</
 </tbody>
 </table>
 <p><code>&lt;id&gt;</code> is the <code>id</code> of the controls, else <code>slot_&lt;n&gt;</code>. <code>&lt;ns&gt;</code> is <code>namespace</code> of <code>[mqtt]</code> (<code>xtouch</code> by default).</p>
-<p>A button (<code>select</code>, <code>rec</code>, <code>solo</code>) takes an action, or a table with two keys, <code>press</code> (what a press does) and <code>led</code>
-(what the LED shows). Either key can be left out:</p>
-<ul>
-<li><code>led</code> alone claims the LED only. A press still does what the slot would do without the claim.</li>
-<li><code>press</code> alone is the same as writing the action without a table. The LED shows what the press does.</li>
-</ul>
-<p><code>led</code> takes one of these:</p>
+<p>A button takes an action, or a table with <code>press</code> (what a press does) and <code>led</code> (what the LED shows). <code>led</code> alone
+claims the LED only, and a press does what the slot would do. <code>press</code> alone is the action without a table. <code>led</code> takes
+one of these:</p>
 <ul>
 <li><code>off</code>.</li>
 <li><code>press</code>: lit as the press says.</li>
 <li><code>homeassistant</code>: the entity <code>select.&lt;ns&gt;_&lt;id&gt;_&lt;button&gt;_led</code>.</li>
-<li><code>{ watch }</code> or <code>{ poll, every }</code>: a program prints a line. <code>on</code>, <code>1</code>, <code>true</code> or <code>yes</code> lights the LED, <code>flash</code> flashes
-  it.</li>
+<li><code>{ watch }</code> or <code>{ poll, every }</code>: a program prints a line: <code>on</code>, <code>1</code>, <code>true</code> or <code>yes</code> lights the LED, <code>flash</code>
+  flashes it.</li>
 <li><code>{ entity, attribute }</code>: lit while the entity is <code>on</code>, <code>open</code>, <code>playing</code> or <code>home</code>.</li>
 </ul>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">[controls]</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">meter</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"/home/me/bin/cpu-load"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">rec</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">poll</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"/home/me/bin/syncthing-running"</span><span class="p">,</span><span class="w"> </span><span class="n">every</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">color</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"red"</span><span class="p">,</span><span class="w"> </span><span class="n">lcd</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">poll</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"date +%H:%M"</span><span class="p">,</span><span class="w"> </span><span class="n">every</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"call"</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"media_player.kitchen"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">solo</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">service</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"media_player.media_play_pause"</span><span class="p">,</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"media_player.kitchen"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[controls]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">meter</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"/home/me/bin/cpu-load"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">rec</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">poll</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"/home/me/bin/syncthing-running"</span><span class="p">,</span><span class="w"> </span><span class="n">every</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">color</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"red"</span><span class="p">,</span><span class="w"> </span><span class="n">lcd</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">poll</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"date +%H:%M"</span><span class="p">,</span><span class="w"> </span><span class="n">every</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"call"</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"media_player.kitchen"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">solo</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">service</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"media_player.media_play_pause"</span><span class="p">,</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"media_player.kitchen"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
-<p>What the three lines do:</p>
 <ul>
 <li>Slot 8: the meter shows the CPU load, and the Rec LED is lit while Syncthing runs, whatever the slot shows. Both are
-  scripts of your own: <code>cpu-load</code> prints a number, <code>syncthing-running</code> prints <code>on</code> while Syncthing runs (see
+  scripts of your own: <code>cpu-load</code> prints a number, <code>syncthing-running</code> prints <code>on</code> (see
   <a href="../strip/bindings/">Bindings</a> and <a href="../strip/leds/#what-the-led-shows">what the LED shows</a>).</li>
 <li>Slot 3: during a call, the strip is red and its LCD shows the time.</li>
-<li>Slot 4: the encoder sets the volume of the kitchen speaker in Home Assistant, and Solo plays or pauses it. A press of
-  Rec still does what the slot does.</li>
+<li>Slot 4: the encoder sets the volume of the kitchen speaker in Home Assistant, and Solo plays or pauses it.</li>
 </ul>
 <p>How a claim behaves:</p>
 <ul>
-<li>While <code>when</code> holds, a claimed part shows the claim. After that, the slot shows its own part again.</li>
-<li>The watches and polls run for as long as the configuration, so a claim that comes back shows their newest lines at
-  once. Until the first line, a color is white, a line is empty, an LED is dark and the meter rests.</li>
-<li>Places take no bindings: a binding for the slot, whatever it shows, belongs here.</li>
+<li>After <code>when</code> stops holding, the slot shows its own part again.</li>
+<li>Watches and polls run as long as the configuration, so a claim that comes back shows their newest lines at once.
+  Until the first line, a color is white, a line is empty, an LED is dark and the meter rests.</li>
 <li>On the slots of the chord, <code>[controls]</code> can claim the LED of Solo, but not its press.</li>
 </ul>
-<p>The section <code>[switching]</code> has two options. The chord is a way to change the mode from the X-Touch. The banner is the
-text on the LCDs when a mode changes:</p>
+<p><code>[switching]</code> has two options: the chord changes the mode from the X-Touch, the banner is the text on the LCDs when
+a mode changes:</p>
 <table>
 <thead>
 <tr>
@@ -3536,11 +3485,9 @@ text on the LCDs when a mode changes:</p>
 </tbody>
 </table>
 <h2 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h2>
-<p>With <code>[mqtt]</code>: <code>select.xtouch_mode</code>, a binary sensor per state (with <code>since</code>,
-<code>source</code> and <code>override</code>), an override select per state that is no mode, an input switch per state with <code>homeassistant = true</code>,
-<code>binary_sensor.xtouch_&lt;channel&gt;_shown</code>, and <code>sensor.xtouch_slot_&lt;n&gt;</code> (what the slot shows, with <code>label</code>, <code>kind</code>, <code>via</code>
-and <code>reason</code>). See <a href="../../guides/home-assistant/">Home Assistant</a>.</p>
-<p>Next: <a href="../channels/devices/">Devices</a>, <a href="../channels/applications/">Applications</a> and <a href="../channels/people/">People</a> say what each channel type takes; <a href="../presets/">Presets</a> the <code>@</code> names.</p>
+<p>With <code>[mqtt]</code>, modes, states, channels and slots show up as entities in Home Assistant, and you can override states
+and pick the mode there. The entities are listed in <a href="../../guides/home-assistant/">Home Assistant</a>.</p>
+<p>Next: <a href="../channels/">Channels</a> say what each type takes; <a href="../presets/">Presets</a> the <code>@</code> names.</p>
 
 
 

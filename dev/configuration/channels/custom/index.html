@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without a device
+  Without an X-Touch
 
     
   </span>
@@ -1303,7 +1303,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, device and aliases
+  Behavior, X-Touch and aliases
 
     
   </span>
@@ -3031,16 +3031,14 @@
 <h1 id="custom-channels">Custom channels<a class="headerlink" href="#custom-channels" title="Permanent link">&para;</a></h1>
 <p>A <code>custom</code> channel is a strip that controls something other than audio. You connect each part of the strip (fader,
 encoder, LCD, meter, buttons) to a program of your own, or to Home Assistant. For example, a fader can set the
-brightness of a screen. The examples on this page use <a href="https://github.com/markusressel/system-control">system-control</a>
-(<code>sysctrl</code>), a command line tool for screen brightness. You can replace it with any command that sets and prints a
-number.</p>
-<p>Other channel types have built-in behavior: the fader of an <code>output</code> channel sets the volume. A <code>custom</code> channel
-has none. A part that you <a href="../../strip/bindings/">bind</a> works. Binding means connecting it to a program or to Home
-Assistant. A part that you leave out is dark and does nothing. The only exceptions are the encoder and the LCD, which follow the fader (see the table).
-A slot names the channel, as for every other type.</p>
-<p>This channel puts the brightness of the left screen on a fader. <code>set</code> is the command that changes the brightness,
-and <code>{value}</code> in it is the new value. <code>watch</code> is a command that prints the brightness each time it changes, so the
-fader follows changes made elsewhere:</p>
+brightness of a screen. The examples use <a href="https://github.com/markusressel/system-control">system-control</a>
+(<code>sysctrl</code>); any command that sets and prints a number works.</p>
+<p>A <code>custom</code> channel has no built-in behavior, unlike the fader of an <code>output</code> channel, which sets the volume. A part
+that you <a href="../../strip/bindings/">bind</a> (connect to a program or to Home Assistant) works. A part that you leave out
+is dark and does nothing, except the encoder and the LCD, which follow the fader (see the table). A slot names the
+channel, as for every other type.</p>
+<p>This channel puts the brightness of the left screen on a fader. <code>set</code> changes the brightness (<code>{value}</code> is the new
+value). <code>watch</code> prints it on each change, so the fader follows changes made elsewhere:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.screen_left]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"custom"</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Left"</span>
@@ -3049,7 +3047,7 @@ fader follows changes made elsewhere:</p>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">[slots]</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"screen_left"</span><span class="w">    </span><span class="c1"># strip 7 controls it</span>
 </span></code></pre></div>
-<p><code>min</code> and <code>max</code> are the values with the fader at the bottom and at the top. <code>format</code> says how the LCD shows the value
+<p><code>min</code> and <code>max</code> are the values at the bottom and at the top of the fader. <code>format</code> is how the LCD shows the value
 (<code>60%</code>).</p>
 <p>The options of a <code>custom</code> channel:</p>
 <table>
@@ -3069,7 +3067,7 @@ fader follows changes made elsewhere:</p>
 <tr>
 <td><code>color</code></td>
 <td><code>"white"</code></td>
-<td>The backlight of the LCD: a color name (<code>"red"</code>, <code>"green"</code>, ..., the names are the same as on every channel), <code>"homeassistant"</code>, or <code>{ watch = "command" }</code> or <code>{ poll = "command", every = 5 }</code> (the newest line the program prints is the color name).</td>
+<td>The backlight: a <a href="../#options-of-every-audio-channel">color name</a>, <code>"homeassistant"</code>, or <code>{ watch = "command" }</code> or <code>{ poll = "command", every = 5 }</code> (the newest line is the color name).</td>
 </tr>
 <tr>
 <td><code>fader</code></td>
@@ -3078,18 +3076,18 @@ fader follows changes made elsewhere:</p>
 </tr>
 <tr>
 <td><code>encoder</code></td>
-<td>Without one, a turn changes the value of the fader by <code>step</code></td>
+<td>a turn changes the fader's value by <code>step</code></td>
 <td>A value of its own (below), or <code>"homeassistant"</code>; see <a href="../../strip/encoders/">Encoders</a>. Without a fader and an encoder, the ring is dark.</td>
 </tr>
 <tr>
 <td><code>lcd</code></td>
-<td>The value of the fader, else of the encoder, shown as the <code>format</code> of that value says</td>
-<td>The second line of the LCD: <code>"homeassistant"</code>, or <code>{ watch }</code> or <code>{ poll, every }</code> (the newest line the program prints is the text).</td>
+<td>The value of the fader, else of the encoder, as its <code>format</code> says</td>
+<td>The second line: <code>"homeassistant"</code>, or <code>{ watch }</code> or <code>{ poll, every }</code> (the newest line is the text).</td>
 </tr>
 <tr>
 <td><code>meter</code></td>
-<td>none: the meter is dark</td>
-<td><code>"homeassistant"</code>, or <code>{ watch, min, max }</code> or <code>{ poll, every, min, max }</code> (the program prints a number on each line, from <code>min</code> to <code>max</code>).</td>
+<td>none: dark</td>
+<td><code>"homeassistant"</code>, or <code>{ watch, min, max }</code> or <code>{ poll, every, min, max }</code> (each line is a number from <code>min</code> to <code>max</code>).</td>
 </tr>
 <tr>
 <td><code>select</code>, <code>rec</code>, <code>solo</code>, <code>mute</code></td>
@@ -3099,7 +3097,7 @@ fader follows changes made elsewhere:</p>
 <tr>
 <td><code>present</code></td>
 <td>always present</td>
-<td><code>{ watch }</code> or <code>{ poll, every }</code>: a line with text makes the channel present, an empty line absent (see <a href="#present">Present</a>). <code>{ entity }</code>: present unless the entity is <code>unavailable</code> or <code>unknown</code>.</td>
+<td><code>{ watch }</code>, <code>{ poll, every }</code> or <code>{ entity }</code>, see <a href="#present">Present</a>.</td>
 </tr>
 <tr>
 <td><code>targets</code></td>
@@ -3115,7 +3113,7 @@ fader follows changes made elsewhere:</p>
 </table>
 <h2 id="a-value">A value<a class="headerlink" href="#a-value" title="Permanent link">&para;</a></h2>
 <p><img alt="The fader of a strip" class="xt-part" src="../../../images/controls/fader.png" width="80" /></p>
-<p>A value (<code>fader = { ... }</code>, <code>encoder = { ... }</code>) takes these options; only the encoder has a <code>push</code>:</p>
+<p>A value (<code>fader = { ... }</code>, <code>encoder = { ... }</code>) takes these options; only an encoder has <code>push</code>:</p>
 <table>
 <thead>
 <tr>
@@ -3128,7 +3126,7 @@ fader follows changes made elsewhere:</p>
 <tr>
 <td><code>set</code></td>
 <td></td>
-<td>A program and its arguments, in one string (<code>"sysctrl ... -b {value}"</code>) or as a list; <code>{value}</code> in an argument is the new value, e.g. <code>0.55</code>. It runs without a shell (<a href="../../strip/bindings/#commands">Commands</a>).</td>
+<td>A <a href="../../strip/bindings/#commands">command</a>; <code>{value}</code> in an argument is the new value, e.g. <code>0.55</code>.</td>
 </tr>
 <tr>
 <td><code>watch</code></td>
@@ -3138,12 +3136,12 @@ fader follows changes made elsewhere:</p>
 <tr>
 <td><code>poll</code></td>
 <td>none</td>
-<td>Instead of <code>watch</code>: a program that runs to its end every <code>every</code> seconds and prints the value. The first number of its last line counts.</td>
+<td>Instead of <code>watch</code>: a program that runs to its end every <code>every</code> seconds and prints the value (the first number of its last line counts).</td>
 </tr>
 <tr>
 <td><code>every</code></td>
 <td><code>10</code></td>
-<td>Seconds from one run of <code>poll</code> to the next (<a href="../../strip/bindings/#watch-or-poll">Watch or poll</a>).</td>
+<td>Seconds between runs of <code>poll</code> (<a href="../../strip/bindings/#watch-or-poll">Watch or poll</a>).</td>
 </tr>
 <tr>
 <td><code>min</code>, <code>max</code></td>
@@ -3153,7 +3151,7 @@ fader follows changes made elsewhere:</p>
 <tr>
 <td><code>step</code></td>
 <td><code>behavior.encoder_step</code> percent of <code>max - min</code></td>
-<td>How much one click of the encoder changes the value, in the unit of the value. <code>behavior.encoder_step</code> is 1 by default (<a href="../../behavior/#behavior"><code>[behavior]</code></a>), so with <code>min = 0</code> and <code>max = 100</code> one click is 1. Put <code>step</code> in the <code>encoder</code> table, for example <code>encoder = { set = "...", step = 5 }</code>.</td>
+<td>How much one click of the encoder changes the value, in its unit. Put it in the <code>encoder</code> table: <code>encoder = { set = "...", step = 5 }</code>. With the default <code>behavior.encoder_step</code> of 1 (<a href="../../behavior/#behavior"><code>[behavior]</code></a>), <code>min = 0</code> and <code>max = 100</code>, one click is 1.</td>
 </tr>
 <tr>
 <td><code>push</code></td>
@@ -3167,29 +3165,19 @@ fader follows changes made elsewhere:</p>
 </tr>
 </tbody>
 </table>
+<p>How <code>set</code> and <code>watch</code> run is in <a href="../../strip/bindings/#values-and-watches">Values and watches</a>. Two things are
+specific to <code>custom</code> channels:</p>
 <dl>
-<dt>How <code>set</code> runs</dt>
-<dd>The fader, the ring and the LCD show a change at once. The program runs with the newest value only: turns and
-moves that come while it runs wait for it, and only the last of them runs next. A program that fails or takes
-longer than 10 seconds is logged as a warning.</dd>
 <dt>Without <code>watch</code> or <code>poll</code></dt>
 <dd>The daemon knows only the values it set itself. Until the first one, the ring is dark and the fader stays where it
-is. Until a value is known, a turn of the encoder starts at <code>push</code> if the encoder has one, else at <code>min</code>.</dd>
+is. A turn of the encoder then starts at <code>push</code> if the encoder has one, else at <code>min</code>.</dd>
 <dt>With <code>watch</code> or <code>poll</code></dt>
-<dd>While you touch the fader or while <code>set</code> runs, new lines of <code>watch</code> and <code>poll</code> don't move the value. A <code>watch</code>
-that ends or can't start runs again after 5 seconds. A <code>watch</code> or a <code>poll</code> starts when the daemon loads the
-configuration and keeps running, also while no slot shows the channel.</dd>
+<dd>While you touch the fader or while <code>set</code> runs, new lines don't move the value.</dd>
 </dl>
-<div class="admonition note">
-<p class="admonition-title">No shell</p>
-<p>Every program here runs without a shell: pipes and redirects belong in a script of your own (see
-<a href="../../strip/bindings/#commands">Commands</a>).</p>
-</div>
 <h2 id="buttons">Buttons<a class="headerlink" href="#buttons" title="Permanent link">&para;</a></h2>
 <p><img alt="The buttons of a strip, lit: Rec and Mute red, Solo yellow, Select green" class="xt-part" src="../../../images/controls/buttons.png" width="64" /></p>
-<p>Select, Rec, Solo and Mute do nothing until you give them a <code>press</code>, and if you want one, a <code>hold</code>, which fires
-when the button has been down for 0.5 seconds. Each button takes a table, as the example below shows. These are
-the actions:</p>
+<p>Select, Rec, Solo and Mute do nothing until you give them a <code>press</code> and, if you want one, a <code>hold</code> (it fires after
+0.5 seconds). Each button takes a table, as the example below shows. The actions:</p>
 <table>
 <thead>
 <tr>
@@ -3212,11 +3200,11 @@ the actions:</p>
 </tr>
 <tr>
 <td><code>cycle_modes</code>, <code>mode:&lt;id&gt;</code>, <code>toggle:&lt;id&gt;</code></td>
-<td>As on the other channels (<a href="../../strip/leds/#buttons">Buttons</a>).</td>
+<td>As on other channels (<a href="../../strip/leds/#buttons">Buttons</a>).</td>
 </tr>
 <tr>
 <td><code>homeassistant</code></td>
-<td>Sends an event to Home Assistant for each press and each release. Use it as <code>press</code> only; there is no <code>hold</code> then.</td>
+<td>Sends an event to Home Assistant for each press and release. Only as <code>press</code>; no <code>hold</code> then.</td>
 </tr>
 </tbody>
 </table>
@@ -3235,7 +3223,7 @@ the actions:</p>
 </tr>
 <tr>
 <td><code>press</code></td>
-<td>Lit while the action of <code>press</code> is going on: <br>- while the program of <code>run</code> runs, <br>- while <code>next</code> has switched to another target than the first, <br>- while the mode or state of <code>mode:&lt;id&gt;</code> or <code>toggle:&lt;id&gt;</code> is on.</td>
+<td>Lit while the action of <code>press</code> is going on: the program of <code>run</code> runs, <code>next</code> has switched to another target than the first, or the mode or state of <code>mode:&lt;id&gt;</code> or <code>toggle:&lt;id&gt;</code> is on.</td>
 </tr>
 <tr>
 <td><code>homeassistant</code></td>
@@ -3250,83 +3238,67 @@ the actions:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.night]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"custom"</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Select sets the full brightness; its LED is lit while the screen is dimmed</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Select sets full brightness; its LED is lit while the screen is dimmed</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">press</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">run</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness reset -d DisplayPort-1"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"/home/me/bin/screen-dimmed"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">mute</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">press</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">run</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"notify-send 'Brightness {value}'"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"press"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
-<p><code>/home/me/bin/screen-dimmed</code> is a script of your own. It prints <code>on</code> while the screen is dimmed, <code>off</code> at full
-brightness:</p>
+<p><code>/home/me/bin/screen-dimmed</code> is your own script. It prints <code>on</code> while the screen is dimmed, else <code>off</code>:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="ch">#!/bin/sh</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>sysctrl<span class="w"> </span>display<span class="w"> </span>redshift<span class="w"> </span>brightness<span class="w"> </span>-d<span class="w"> </span>DisplayPort-1<span class="w"> </span>--watch<span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">'{ print ($1 &lt; 1 ? "on" : "off"); fflush() }'</span>
 </span></code></pre></div>
 <h2 id="present">Present<a class="headerlink" href="#present" title="Permanent link">&para;</a></h2>
-<p>With <code>present</code>, the channel is a candidate of the slots only while it is there, e.g. a screen that is plugged in:
-a line with text makes it present, an empty line absent. Until the first line, it counts as present. A <code>poll</code> that
-prints no text makes it absent; a run that fails changes nothing. With <code>{target}</code> in it (see <a href="#targets">Targets</a>), one watch or poll runs per target, and the channel is present while any of its targets is. With <code>{ entity = "..." }</code>
-(see <a href="../../strip/bindings/#an-entity-of-home-assistant">An entity of Home Assistant</a>), it is present unless the entity
-is <code>unavailable</code> or <code>unknown</code>, or Home Assistant does not have it; while the daemon is not connected to Home Assistant
-it is absent. Before the daemon has tried to connect for the first time, it counts as present.</p>
+<p>With <code>present</code>, the channel is a candidate of the slots only while it is there, e.g. a screen that is plugged in.
+<code>present = { watch }</code> or <code>{ poll, every }</code>: a line with text makes it present, an empty line absent. Until the first
+line it counts as present. A <code>poll</code> that prints no text makes it absent; a run that fails changes nothing. With
+<code>{target}</code> in the program (see <a href="#targets">Targets</a>), one watch or poll runs per target, and the channel is present
+while any target is.</p>
+<p><code>present = { entity = "..." }</code> (see <a href="../../strip/bindings/#an-entity-of-home-assistant">An entity of Home Assistant</a>)
+makes it present unless the entity is <code>unavailable</code>, <code>unknown</code> or missing in Home Assistant, or the daemon is not
+connected to it. Before its first try to connect, it counts as present.</p>
 <h2 id="targets">Targets<a class="headerlink" href="#targets" title="Permanent link">&para;</a></h2>
 <p><code>targets</code> are the things the strip controls one at a time, e.g. two screens. Each has a <code>name</code> (7 characters at most,
-for the LCD) and a <code>value</code>; <code>{target}</code> in a program is replaced by the <code>value</code> of the target that the strip controls now (not the value of the fader). Every target has its own values, watches and polls. A program without <code>{target}</code> is the same for every target and runs once.</p>
+for the LCD) and a <code>value</code>. <code>{target}</code> in a program is replaced by the <code>value</code> of the target the strip controls now
+(not the value of the fader). Every target has its own values, watches and polls. A program without <code>{target}</code> is
+the same for every target and runs once.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[channel.screens]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"custom"</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">targets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"Left"</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"DisplayPort-1"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"Right"</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"DisplayPort-2"</span><span class="w"> </span><span class="p">}]</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d {target} -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d {target} --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"{value:.0%}"</span><span class="w"> </span><span class="p">}</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">press</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"next"</span><span class="p">,</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"press"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
-<p>Select switches between the screens. Without a <code>label</code>, the top line of the LCD names the target. With a <code>label</code>, the top line stays the label, so
-the second line shows the name of the new target for 2 seconds after a switch, then its value again (touching the strip shows the value
-at once). <code>{target}</code> without <code>targets</code> is an error, and so are targets that no program uses.</p>
-<p>With <code>together = true</code>, a move sets every target at once, and the strip shows the first one, e.g. both screens at
-the same brightness.</p>
+<p>Select switches between the screens. Without a <code>label</code>, the top line names the target. With a <code>label</code>, the second
+line shows the new target's name for 2 seconds after a switch. <code>{target}</code> without <code>targets</code> is an error, and so are
+targets that no program uses.</p>
+<p>With <code>together = true</code>, a move sets every target at once, and the strip shows the first one.</p>
 <h2 id="two-screens">Two screens<a class="headerlink" href="#two-screens" title="Permanent link">&para;</a></h2>
-<p>Three ways to set the brightness of two screens. <code>sysctrl ... --watch</code> prints the brightness, e.g. <code>0.60</code>, at each
-change; the range is 0.1 to 1.0.</p>
-<p>As two channels, each a strip of its own, e.g. on slots 7 and 8:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[channel.screen_left]</span>
+<p>Two screens can be two channels (<code>screen_left</code> as above and <code>screen_right</code> with <code>DisplayPort-2</code>, on slots 7 and 8),
+one strip with two <a href="#targets">targets</a>, or one strip for both at once:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[channel.screens]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"custom"</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Left"</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-1 --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"{value:.0%}"</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">[channel.screen_right]</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"custom"</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Right"</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-2 -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d DisplayPort-2 --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"{value:.0%}"</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="k">[slots]</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"screen_left"</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"screen_right"</span>
-</span></code></pre></div>
-<p>As one strip with two targets: Select switches between the screens, its LED is lit on the second one. This is the
-example of <a href="#targets">Targets</a>.</p>
-<p>As one strip for both screens at once: with <code>together</code>, a move sets both, and the strip shows the left screen.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[channel.screens]</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"custom"</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Screens"</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">targets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"Left"</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"DisplayPort-1"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"Right"</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"DisplayPort-2"</span><span class="w"> </span><span class="p">}]</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">together</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d {target} -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d {target} --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"{value:.0%}"</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Screens"</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">targets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"Left"</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"DisplayPort-1"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"Right"</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"DisplayPort-2"</span><span class="w"> </span><span class="p">}]</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">together</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">     </span><span class="c1"># a move sets both; the strip shows the left screen</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">fader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d {target} -b {value}"</span><span class="p">,</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"sysctrl display redshift brightness -d {target} --watch"</span><span class="p">,</span><span class="w"> </span><span class="n">min</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"{value:.0%}"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h2>
 <p>A part set to <code>"homeassistant"</code> is the entity of that part in Home Assistant, as on a
 <a href="../../../guides/home-assistant/#homeassistant-channels"><code>homeassistant</code> channel</a>; it needs <code>[mqtt]</code>. With <code>[mqtt]</code>,
 a fader or an encoder bound to a value is also a number in Home Assistant (<code>number.&lt;ns&gt;_&lt;id&gt;_fader</code>,
-<code>number.&lt;ns&gt;_&lt;id&gt;_encoder</code>, where <code>&lt;ns&gt;</code> is the <code>namespace</code> of <code>[mqtt]</code>, "xtouch" by default, and <code>&lt;id&gt;</code> the id of the channel), from <code>min</code> to <code>max</code>: it shows the value, and a change there runs <code>set</code>. See
-<a href="../../../guides/home-assistant/#entities">Entities</a>.</p>
+<code>number.&lt;ns&gt;_&lt;id&gt;_encoder</code>; <code>&lt;ns&gt;</code> is the <code>namespace</code> of <code>[mqtt]</code>, "xtouch" by default) from <code>min</code> to <code>max</code>: it shows
+the value, and a change there runs <code>set</code>. See <a href="../../../guides/home-assistant/#entities">Entities</a>.</p>
 <h2 id="on-another-slot">On another slot<a class="headerlink" href="#on-another-slot" title="Permanent link">&para;</a></h2>
-<p>Without a slot of its own, you can still use the value of a custom channel on a strip that shows something else.
-<code>[controls]</code> gives the fader or the encoder of any slot to the value of a custom channel. A fader sets the value
-of the channel's fader. An encoder sets the value of the channel's own encoder, else that of its fader. The slot keeps showing what it shows, for example the encoder of a strip that shows
-the speaker sets the brightness of the screen, so you keep the speaker's volume on that strip's fader. With targets, the slot controls the target that the channel controls now.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">[controls]</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"screen_left"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># the encoder of strip 1 sets the value of the channel screen_left</span>
+<p><a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a> gives the fader or the encoder of any slot to the value of a
+custom channel, without a slot for the channel. A fader sets the channel's fader value; an encoder sets the
+channel's own encoder value, else its fader value. The slot keeps showing what it shows: the encoder of the speaker
+strip can set the screen brightness while its fader keeps the speaker's volume. With targets, it controls the target
+the channel controls now.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[controls]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">encoder</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"screen_left"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># the encoder of strip 1 sets the value of the channel screen_left</span>
 </span></code></pre></div>
-<p>See <a href="../../slots/#controls-and-the-chord">Controls and the chord</a>.</p>
 <h2 id="simulate">Simulate<a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h2>
-<p>Simulate in the GUI and <code>xtouch-daemon simulate</code> run the <code>watch</code> and <code>poll</code> programs too, but never <code>set</code> or <code>run</code>:
-a move there changes only the simulation. Until the first line of <code>watch</code> or <code>poll</code>, a value is in the middle of its range. Whether a
-channel with <code>present</code> is there comes from the situation you simulate, not from its watch.</p>
+<p>Simulate in the GUI and <code>xtouch-daemon simulate</code> run <code>watch</code> and <code>poll</code> programs, but never <code>set</code> or <code>run</code>: a move
+there changes only the simulation. Until the first line, a value is in the middle of its range. <code>present</code> comes from
+the situation you simulate, not from its watch.</p>
 
 
 
