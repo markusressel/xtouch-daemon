@@ -2,12 +2,12 @@
 
 ## Arch Linux
 
-The AUR has two packages. They repackage the binaries of the [releases](https://github.com/markusressel/xtouch-daemon/releases) on GitHub; you don't need to visit that page:
+The AUR has two packages. They repackage the releases on GitHub:
 
 | Package | Contents |
 |---|---|
-| `xtouch-daemon-bin` | The daemon with its own Python 3.14 in `/usr/lib/xtouch-daemon`, the command `xtouch-daemon`, the systemd user unit `/usr/lib/systemd/user/xtouch-daemon.service` and the example configuration `/usr/share/xtouch-daemon/config.example.toml`. |
-| `xtouch-daemon-gui-bin` | The [GUI](../guides/gui.md), `xtouch-daemon-gui`, with a menu entry. It runs on the Python and PyQt6 of the system (these come as dependencies of the package), and needs `xtouch-daemon-bin` of the same version. |
+| `xtouch-daemon-bin` | The daemon with its own Python 3.14, the command `xtouch-daemon`, the systemd user unit and an example configuration. |
+| `xtouch-daemon-gui-bin` | The [GUI](../guides/gui.md), `xtouch-daemon-gui`, with a menu entry. It needs `xtouch-daemon-bin` of the same version. |
 
 Install them with an AUR helper, e.g.:
 
@@ -15,15 +15,13 @@ Install them with an AUR helper, e.g.:
 paru -S xtouch-daemon-bin xtouch-daemon-gui-bin
 ```
 
-Then enable the service as [First steps](first-steps.md#run-it-as-a-service) shows: `systemctl --user enable --now
-xtouch-daemon`. After an upgrade, restart the service (`systemctl --user restart xtouch-daemon`): the service runs the
+Then enable the service as [First steps](first-steps.md#run-it-as-a-service) shows. After an upgrade, restart the service (`systemctl --user restart xtouch-daemon`): the service runs the
 old version until then.
 
 ## From the source
 
 xtouch-daemon needs the library [haad-mqtt-autodiscovery](https://github.com/haad-org/haad-mqtt-autodiscovery) (it
-speaks MQTT for Home Assistant). The project expects its source in a folder next to its own, even if you never use
-Home Assistant. Clone both side by side and install with [uv](https://docs.astral.sh/uv/):
+speaks MQTT for Home Assistant). The project expects its source in a folder next to its own, even if you never use Home Assistant. Clone both side by side and install with [uv](https://docs.astral.sh/uv/):
 
 ```shell
 git clone https://github.com/markusressel/xtouch-daemon
@@ -36,8 +34,7 @@ your shell does not find it, run `uv tool update-shell` and open a new terminal.
 run the `uv tool install` command again with `--force`.
 
 The [GUI](../guides/gui.md) is an optional part, the `gui` extra. Instead of the command above, install it with the
-extra (`--force` replaces the install you already have). The extra brings Qt along, so it needs no system packages
-for the GUI itself:
+extra (`--force` replaces the install you already have). The extra brings Qt along:
 
 ```shell
 uv tool install --force './xtouch-daemon[gui]'

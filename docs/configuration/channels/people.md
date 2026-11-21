@@ -48,7 +48,7 @@ The look of the strips of people is set in `[pool.people]` (for everyone without
 | `meter_point` | `behavior.meter_point` | `"pre_fader"`: their voice before the volume of their fader; `"post_fader"`: after it, see [Meters](index.md#meters). |
 | `max_volume` | `behavior.max_volume` | The volume of a person with the fader at the top, 1..200 percent; 100 % is at the 0 dB mark as on the other strips. Above 100 % the voice is louder than the voice chat client plays it, and may clip. |
 
-The strips of people have no `launch` option. To start the voice chat client, give a slot a control instead: starting the voice chat is a control of a slot, for example
+The strips of people have no `launch` option. To start the voice chat client, give a slot a control instead, for example
 `7 = { select = { launch = ["mumble"] }, when = "not call" }` in [`[controls]`](../slots.md#controls-and-the-chord)
 (`call` is a [state](../slots.md#states-and-modes) you define, for example `[state.call]` with `voice_chat = true`).
 A place of `people` in a slot takes `color`, `meter` and `meter_point`: `{ show = "people", color = "orange" }`.
@@ -64,9 +64,9 @@ A place of `people` in a slot takes `color`, `meter` and `meter_point`: `{ show 
   slot. Every time the voice chat changes, the daemon sits everyone again. Say `from = "right"`, Alice is first in
   `order`, and Bob is on slot 8. When Alice joins, she takes slot 8 and Bob moves to slot 7.
 - Some slots hold a condition above `people`, for example `["voip if call", "people", "apps"]`. While `call` is on,
-  `voip` is shown there and no person sits there. People take the slots without such a condition first (the ones
-  where `people` or `auto` comes first in the list of candidates). They use a slot with a condition above them,
-  like `["voip if call", "people", "apps"]`, only when the others are full. This keeps
+  `voip` is shown there and no person sits there. People sit first on the slots where `people` or `auto` is the first
+  candidate. They use a slot with a condition above them, like `["voip if call", "people", "apps"]`, only when the
+  others are full. This keeps
   the people from jumping to another slot each time `call` turns on or off.
 - When `people` has no one for a slot, the slot shows the next candidate: `["people", "apps"]` shows the next
   application. A slot of `auto` takes a person before an application. In `["apps", "people"]` the application comes
@@ -87,7 +87,7 @@ the daemon set.
 ## Strips for one person
 
 A `person` channel always shows that person, on the slots that name it. The names are the names in the voice chat,
-ignoring case, but otherwise exactly (no wildcards, no parts of a name). With several names (the same person from two devices), the strip shows the first of them that is in the voice chat,
+ignoring case, but otherwise exactly (no wildcards, no parts of a name). With several names (the same person from the desk and from the phone), the strip shows the first of them that is in the voice chat,
 in the order the voice chat client lists its people.
 
 While the person is not in the channel, the strip shows the name with a dark backlight, `away` on the second line and its fader at

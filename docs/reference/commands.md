@@ -8,8 +8,8 @@
 | [`xtouch-daemon schema`](#schema) | Prints the JSON Schema of the configuration, for editors. |
 | [`xtouch-daemon list-devices`](#list-devices) | Lists outputs, inputs, and the sound cards with their profiles. |
 | [`xtouch-daemon list-apps`](#list-apps) | Lists the applications that play, and which channel or slot takes each one. |
-| [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the device. |
-| [`xtouch-daemon virtual-device`](#virtual-device) | Runs a virtual X-Touch Extender, for trying the daemon without the device. |
+| [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the X-Touch. |
+| [`xtouch-daemon virtual-device`](#virtual-device) | Runs a virtual X-Touch Extender, for trying the daemon without an X-Touch. |
 | [`xtouch-daemon mode`](#mode) | Shows the running daemon's mode, or picks another one. |
 | [`xtouch-daemon why`](#why) | Says why a slot shows what it shows, or where a channel is and why. |
 | [`xtouch-daemon mumble-plugin`](#mumble-plugin) | Shows, builds or installs the Mumble plugin for the strips of people. |
@@ -42,11 +42,11 @@ Runs the daemon in the foreground. `install-service` sets it up as a systemd use
 | Option | Meaning |
 |---|---|
 | `-c`, `--config FILE` | The configuration file. |
-| `-l`, `--log-level LEVEL` | `debug`, `info` (default), `warning` or `error`. `debug` also logs the MIDI messages of the device that the daemon has no use for. |
-| `--virtual-device` | Drives the [virtual device](#virtual-device) instead of the real one, as `[device] virtual = true`. |
+| `-l`, `--log-level LEVEL` | `debug`, `info` (default), `warning` or `error`. `debug` also logs the MIDI messages of the X-Touch that the daemon has no use for. |
+| `--virtual-device` | Drives the [virtual device](#virtual-device) instead of the real X-Touch, as `[device] virtual = true`. |
 
 The daemon notes its process and configuration file in `$XDG_RUNTIME_DIR/xtouch-daemon.json` while it runs, and
-serves what the device shows on `$XDG_RUNTIME_DIR/xtouch-daemon.sock` for the [GUI](../guides/gui.md). A second daemon does not
+serves what the X-Touch shows on `$XDG_RUNTIME_DIR/xtouch-daemon.sock` for the [GUI](../guides/gui.md). A second daemon does not
 start: it prints the process of the daemon that already runs, and exits.
 
 Signals:
@@ -79,7 +79,7 @@ call     out  browser  mic   auto
 ```
 
 The line of a channel says what it is: its label (`'Speaker'`), its kind (`output`, or `Home Assistant` for a
-`homeassistant` channel, whose entities are `*.*_lamp_*`) and its sound device or applications. The brackets after it
+`homeassistant` channel, whose entities are `*.*_lamp_*`) and its output, input or applications. The brackets after it
 say how it looks and what its controls do: the color of the LCD (`cyan`), what the LED
 of Rec and Solo shows (`rec: recording` lights while an application records, `solo: off` never lights) and what the
 encoder edits (`encoder: balance`, or `media` for the media player of an application). The table at the end has a row for each situation:
@@ -134,11 +134,11 @@ xtouch-daemon list-devices [--snippet]
 ```
 
 Lists the outputs and inputs with the node names to use as `device`, their descriptions, volumes and states; `*`
-marks the defaults (the devices that the sound server uses when nothing else is set). Then it lists each sound card by its name and description, with its devices and its profiles
+marks the defaults (the output and input that the sound server uses when nothing else is set). Then it lists each sound card by its name and description, with its outputs, inputs and profiles
 (name and description), for `card` and `profile` of [`choices`](../configuration/channels/devices.md#choices) and for
 [`profiles`](../configuration/channels/devices.md#profiles); `*` marks the active ones. `--snippet` prints a
-`[channel.<id>]` for each device instead, ready to paste into the file (Bluetooth devices by a wildcard like
-`bluez_output.*`, since their names hold the address of the device):
+`[channel.<id>]` for each output and input instead, ready to paste into the file (Bluetooth headphones by a wildcard like
+`bluez_output.*`, since their names hold the Bluetooth address):
 
 ```
 Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa_output.pci-0000_11_00.4.analog-stereo):
@@ -165,7 +165,7 @@ presets, for `match`, `exclude` and `[aliases]`.
 xtouch-daemon test [-c FILE] [--no-events] [--virtual-device]
 ```
 
-Lights up everything on the device and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
+Lights up everything on the X-Touch and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
 meter, and moves its fader up and down. Then every strip answers its own controls, until Ctrl+C, so you can check each
 LED, the ring, the colors, the motor and the touch of every fader:
 
@@ -178,18 +178,18 @@ LED, the ring, the colors, the motor and the touch of every fader:
 | Encoder pushed | The next thing the encoder edits: the position of the ring (`ring 7`), its mode with and without the two LEDs at the ends of the ring (`dot`, `boost`, `wrap`, `spread`, `dot+c` ...), the color of the LCD, the motor fader in steps of 10 % (`fad 60%`). |
 
 The top line of the LCD names the strip, the bottom line shows the last input for 2 seconds, then what the encoder
-edits. The command prints every input with the answer, and the messages from the device the daemon doesn't use.
+edits. The command prints every input with the answer, and the messages from the X-Touch that the daemon doesn't use.
 `--no-events` ends after the sweep.
 
-While the daemon runs, it has the device, so `test` cannot open it. Instead `test` asks the daemon to run the test
-(the GUI's "Test the device" does the same). The slots go on, but show on the device again only when the test ends;
+While the daemon runs, it has the X-Touch, so `test` cannot open it. Instead `test` asks the daemon to run the test
+(the GUI's "Test the device" does the same). The slots go on, but show on the X-Touch again only when the test ends;
 the log of the daemon shows the inputs (`journalctl --user -u xtouch-daemon -f`). In this case the test runs until
 Ctrl+C and the sweep alone is not possible: `--no-events` fails while the daemon runs. Stop the daemon first
 for `--no-events`.
 
-Without a daemon, `test` opens the device itself. It finds the sound card by the `name` in `[device]` of the
+Without a daemon, `test` opens the X-Touch itself. It finds the sound card by the `name` in `[device]` of the
 configuration. `--virtual-device` (or `[device] virtual = true`) tests the [virtual device](#virtual-device) instead;
-that device has to run already, in another terminal.
+the virtual device has to run already, in another terminal.
 
 ## `virtual-device`
 
@@ -197,7 +197,7 @@ that device has to run already, in another terminal.
 xtouch-daemon virtual-device [--broken-touch 1,4] [--log-level debug]
 ```
 
-A virtual X-Touch Extender, for trying the daemon without the device: `xtouch-daemon run --virtual-device` (or
+A virtual X-Touch Extender, for trying the daemon without an X-Touch: `xtouch-daemon run --virtual-device` (or
 `[device] virtual = true`) drives it instead of the real one, and the GUI shows what it shows. It runs headless until
 interrupted (Ctrl+C); the GUI can host one itself, with the mouse on its strips. One daemon at a time can use it.
 
@@ -344,7 +344,7 @@ Shows what the 8 slots of FILE show in the situation you give, and why not the c
 xtouch-daemon observe LOG [--interval 2.0] [--process NAME]...
 ```
 
-Records, every `--interval` seconds, what plays and records on the sound server, the devices, the running processes
+Records, every `--interval` seconds, what plays and records on the sound server, the outputs and inputs, the running processes
 (those of the presets, and `--process`) and the voice chat of the running daemon, and appends a line of JSON to LOG
 when that changed. The field `absent` of a line lists the channels that are not there now: a channel can say when it is present
 (for a [`custom` channel](../configuration/channels/custom.md), its option `present`). It runs until you interrupt it (Ctrl+C); a line is written only when something changed, so a quiet machine

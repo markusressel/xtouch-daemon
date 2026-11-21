@@ -1,12 +1,12 @@
 # GUI
 
 The GUI is a window that edits the configuration file (`~/.config/xtouch-daemon/config.toml`) and applies it to the
-running daemon. You need no running daemon to edit; the daemon is only needed to see the live device, to test it and
+running daemon. You need no running daemon to edit; the daemon is only needed to see the live X-Touch, to test it and
 to preview changes. Start it with `xtouch-daemon gui` (`-c FILE` opens another file), or with `xtouch-daemon-gui` if
 you installed the Arch Linux package; see [Install](../getting-started/install.md#the-gui). If the file does not
 exist yet, the window starts with the example configuration and writes the file when you save.
 
-It edits [channels, states and slots](../configuration/slots.md): what the strips of the device control, and when.
+It edits [channels, states and slots](../configuration/slots.md): what the strips of the X-Touch control, and when.
 
 !!! tip "New here?"
 
@@ -18,7 +18,8 @@ It edits [channels, states and slots](../configuration/slots.md): what the strip
 ## The window
 
 The GUI shows two panels, which it calls windows: **Configuration**, where you edit, and **Device**, which draws the
-device (see [The window Device](#the-window-device)). The window Configuration has a rail of four pages on its
+X-Touch (see [The window Device](#the-window-device)); without hardware it draws the *virtual device*, an
+X-Touch made of software. The window Configuration has a rail of four pages on its
 left, icons only. » at its foot shows their names, « hides them again; the GUI remembers it.
 
 === "Slots"
@@ -63,29 +64,29 @@ left, icons only. » at its foot shows their names, « hides them again; the GUI
       [TeamSpeak](teamspeak.md). The box tells whether the plugin is connected, lists the steps of its setup, and
       installs the plugin with "Install Mumble plugin" or "Install TeamSpeak plugin". A client that is not installed
       gets one line.
-    - `[device]`, as "Extender": the sound card of the extender, touch sensors, start-up.
+    - `[device]`, as "Extender": the sound card of the X-Touch, touch sensors, start-up.
 
 Slots, Channels and States have a list (or the slots) on the left and what is picked on the right. The handle between
 them (the short upright bar) gives either side more room; each page keeps its share for the next start.
 
 ### The window Device
 
-The window **Device** shows the device on every page, above the window Configuration at first.
+The window **Device** shows the X-Touch on every page, above the window Configuration at first.
 
 - The title bar of either window moves it to another side of the window, next to the other one, or out of it as a
   window of its own (e.g. on another screen). The GUI keeps where they are for the next start.
-- View → Device closes and opens the device. Configuration always stays open.
+- View → Device closes and opens the X-Touch. Configuration always stays open.
 - Clicking a strip (or ++left++, ++right++, ++home++, ++end++) shows its slot on the page Slots of the window
   Configuration.
 
 ![One strip as the window Device draws it](../images/controls/strip.png){ .xt-part width="80" }
 
-The drawing of the device shows each strip as on the device:
+The drawing of the X-Touch shows each strip as on the X-Touch:
 
 - the [encoder](../configuration/strip/encoders.md) with its ring of 13 [LEDs](../configuration/strip/leds.md)
   (Mackie Control lights the middle 11);
 - the LCD: the backlight in the strip's color shines around a dark panel and through its characters, as on the
-  device;
+  X-Touch;
 - the meter next to Rec, Solo, Mute and Select;
 - the fader with its dB scale: the middle of the cap marks the value, -∞ at the bottom, 0 dB at 77 % of the travel
   (the option `unity_at` of `[behavior]`).
@@ -96,7 +97,7 @@ What each slot shows is printed under its LCD.
 
 - **Header:** the state of the service, with buttons to install, start, restart or stop it (see
   [The service](#the-service)), and what the sound server has.
-- **Footer:** the problems, whether the device runs the file, the control [Preview](#preview) (while there are
+- **Footer:** the problems, whether the X-Touch runs the file, the control [Preview](#preview) (while there are
   unsaved changes or Simulate is open), and the buttons Undo, Redo, Revert and "Save and apply".
 - **Title:** the file, with • while there are unsaved changes.
 
@@ -121,7 +122,7 @@ the slots, the state bar, and the words and sections in the help (`[state.gaming
 | Teal | Channels, and what else a slot can show: pools, people |
 | Orange | Slots |
 | Yellow | A condition of presence (`present`: a channel is there, e.g. the headphones are connected) |
-| The color of the text | The controls of the device (Select, Mute, the fader, the encoder, ...), which stand out from the help |
+| The color of the text | The controls of the X-Touch (Select, Mute, the fader, the encoder, ...), which stand out from the help |
 
 Lists and pages that scroll cast a soft shadow at an edge where more of them is hidden, and popovers a shadow on the
 window under them.
@@ -197,20 +198,20 @@ on top of a `QT_SCALE_FACTOR` of the environment.
 
 ## Live view
 
-While the daemon runs, the drawing shows what the device shows right now, read from the daemon's live view. A pill on
+While the daemon runs, the drawing shows what the X-Touch shows right now, read from the daemon's live view. A pill on
 the right of the bar of the window Device says what the drawing shows:
 
 | Pill | The drawing |
 |---|---|
-| Live | What the device shows right now. |
-| No daemon | Dark strips: the drawing is the device, and only the daemon drives it. Start it (`xtouch-daemon install-service --now`), or use "Try without a device", which starts a daemon with the virtual device. |
-| Live · not connected | Dark strips: the daemon runs, but the device is not connected. They light up with the startup sequence once it is there. |
+| Live | What the X-Touch shows right now. |
+| No daemon | Dark strips: the drawing is the X-Touch, and only the daemon drives it. Start it (`xtouch-daemon install-service --now`), or use "Try without a device", which starts a daemon with the virtual device. |
+| Live · not connected | Dark strips: the daemon runs, but the X-Touch is not connected. They light up with the startup sequence once it is there. |
 | Live · virtual device | The daemon drives the [virtual device](../getting-started/without-a-device.md) (`run --virtual-device`). |
 | virtual device not running · Open it | The daemon waits for the virtual device: a click opens it in the window (see [below](#the-virtual-device)). |
 
 When the daemon stops, the drawing shows its shutdown sequence too, until the strips are dark.
 
-Next to it, a pill shows the [mode](../configuration/slots.md#states-and-modes) the device shows: "Mode: gaming", "No
+Next to it, a pill shows the [mode](../configuration/slots.md#states-and-modes) the X-Touch shows: "Mode: gaming", "No
 mode" while no mode is on (the mode is then `default`), "· by hand" when it was picked by hand. A mode is a state with `mode = true`: one at a time
 is on. A click lists the states, with what turned each on, and picks a mode by hand ("Pick gaming", "Pick no mode",
 "Back to the rules").
@@ -219,14 +220,14 @@ The pill of the service at the top tells what the daemon is connected to: "runni
 problem, e.g. "running · Home Assistant not authorized" or "running · device not connected". A click lists each
 connection, how it is doing and why, with a button to its settings:
 
-- the device and the sound server;
+- the X-Touch and the sound server;
 - Home Assistant with an `[mqtt]` section: the broker's own words and what to check;
 - the Home Assistant API while a part shows or sets an entity: e.g. "bad token" or "unreachable";
 - the voice chat with `[voip]`.
 
 ## Select and Play
 
-A bar above the drawing of the device switches what the mouse does on it:
+A bar above the drawing of the X-Touch switches what the mouse does on it:
 
 === "Select"
 
@@ -241,38 +242,38 @@ A bar above the drawing of the device switches what the mouse does on it:
 
 === "Play"
 
-    The mouse is a hand on the device, and the drawing looks like the device: no strip is selected, and there are no
+    The mouse is a hand on the X-Touch, and the drawing looks like the X-Touch: no strip is selected, and there are no
     outlines of the selection, the focus or the mouse. The selection comes back with Select.
 
     | Part | The mouse |
     |---|---|
-    | ![Fader](../images/controls/fader.png){ .xt-icon } Fader | Press to touch it, drag to move it, release to let go. Alt-drag moves it without a touch, as the motor of the device moves it. This lets you try what the daemon does when a fader moves without a finger on it: it puts the fader back to the value it holds. |
+    | ![Fader](../images/controls/fader.png){ .xt-icon } Fader | Press to touch it, drag to move it, release to let go. Alt-drag moves it without a touch, as the motor of the X-Touch moves it. This lets you try what the daemon does when a fader moves without a finger on it: it puts the fader back to the value it holds. |
     | ![Select](../images/controls/select.png){ .xt-icon } Button | Held while the mouse button is down. |
     | ![Encoder](../images/controls/encoder.png){ .xt-icon } Encoder | The wheel turns it (a touchpad too), and so does a drag on the knob (up or right turns it clockwise). A click pushes it, and holding the knob still holds it down. Holding on an LED of the ring turns it until the ring lights that LED. |
 
-Play works on the [virtual device](#the-virtual-device) the window hosts, and on the device of a running daemon. Then
-the daemon takes what the mouse does as if the device sent it: the mixer acts, and a motorized fader follows once it is
+Play works on the [virtual device](#the-virtual-device) the window hosts, and on the X-Touch of a running daemon. Then
+the daemon takes what the mouse does as if the X-Touch sent it: the mixer acts, and a motorized fader follows once it is
 let go. The fader under the mouse is drawn there at once. If the drawing shows a preview in the GUI (see
-[Preview](#preview)), the mouse acts on the *virtual twin*, a copy of the device that the daemon runs for the preview,
-not on the real device.
+[Preview](#preview)), the mouse acts on the *virtual twin*, a copy of the X-Touch that the daemon runs for the preview,
+not on the real X-Touch.
 
 !!! info "When Play is off"
 
-    Play is off in these cases: no daemon runs (or the daemon belongs to another user, or is too old), or the device is
+    Play is off in these cases: no daemon runs (or the daemon belongs to another user, or is too old), or the X-Touch is
     not connected. The bar says why next to it ("Play: device not connected"). One case is the exception: the
-    daemon is set to drive the virtual device (`[device] virtual = true`), but that device is not running yet. Then
+    daemon is set to drive the virtual device (`[device] virtual = true`), but the virtual device is not running yet. Then
     Play is on, and a click on it opens the virtual device in the window and plays on it.
 
 !!! tip "Try without a device"
 
     While no daemon runs, "Try without a device" starts one with the virtual device on this file (saved first if it is
-    new) and opens the device in the window, in Play: to set everything up and try it before there is a device. That
+    new) and opens the X-Touch in the window, in Play: to set everything up and try it before you have an X-Touch. That
     daemon ends with the window.
 
 ## Test the device
 
-"Test the device", above the drawing, asks the daemon to test the device: the strips light up one after the other
-(the sweep), then every strip answers its own controls, on the device and in the drawing, so the two can be compared.
+"Test the device", above the drawing, asks the daemon to test the X-Touch: the strips light up one after the other
+(the sweep), then every strip answers its own controls, on the X-Touch and in the drawing, so the two can be compared.
 A bar says what each control does:
 
 | Input on a strip | What the strip shows |
@@ -283,10 +284,10 @@ A bar says what each control does:
 | Encoder turned | Changes what the encoder edits, wrapping around, and shows its value. |
 | Encoder pushed | The next thing the encoder edits: the position of the ring (`ring 7`), its mode with and without the two LEDs at the ends of the ring (`dot`, `boost`, `wrap`, `spread`, `dot+c` ...), the color of the LCD, the motor fader in steps of 10 % (`fad 60%`). |
 
-During the test, Play works on the drawing: you can touch and press it with the mouse (this includes the virtual
-device that the window hosts). The slots go on meanwhile (Home
-Assistant still sees them), but show on the device only again when the test ends: a click on the button, closing the
-window, a preview "On the device", or the device going away. The footer says why it ended.
+During the test, Play works on the drawing: you can touch and press it with the mouse (this includes the virtual device
+that the window hosts). The slots go on meanwhile (Home
+Assistant still sees them), but show on the X-Touch only again when the test ends: a click on the button, closing the
+window, a preview "On the device", or the X-Touch going away. The footer says why it ended.
 
 ## Log
 
@@ -313,35 +314,35 @@ While the window hosts the virtual device, Play is on (see [Select and Play](#se
 drawing:
 
 - unplugs it and plugs it in again;
-- switches it off and on (the faders go down by themselves, as on the device);
+- switches it off and on (the faders go down by themselves, as on the X-Touch);
 - breaks the touch sensor of faders ("Broken touch"), to try `touchless_faders`;
 - "Close" closes it, and so does closing the window: for the daemon it is unplugged.
 
-What the drawing shows still comes from the daemon, which is what reached the device.
+What the drawing shows still comes from the daemon, which is what reached the X-Touch.
 
-When the device (`[device] name`) is plugged in while the daemon drives the virtual one, a bar above the drawing says
-so. Its button switches to the device:
+When the X-Touch (`[device] name`) is plugged in while the daemon drives the virtual one, a bar above the drawing says
+so. Its button switches to the X-Touch:
 
 | Daemon | Button |
 |---|---|
-| `[device] virtual = true` in the file | **Switch to it**: turns `virtual` off, saves the file (after asking, when it has other changes) and closes the virtual device. The daemon reloads and takes the device, without a restart. |
-| The daemon of "Try without a device" | **End the trial**: ends that daemon. Start the service to use the device. |
-| Started elsewhere with `--virtual-device` | No button: it only uses the device after a restart without it, and the bar says so. |
+| `[device] virtual = true` in the file | **Switch to it**: turns `virtual` off, saves the file (after asking, when it has other changes) and closes the virtual device. The daemon reloads and takes the X-Touch, without a restart. |
+| The daemon of "Try without a device" | **End the trial**: ends that daemon. Start the service to use the X-Touch. |
+| Started elsewhere with `--virtual-device` | No button: it only uses the X-Touch after a restart without it, and the bar says so. |
 
 ## Preview
 
-### What the device runs
+### What the X-Touch runs
 
-Next to Save and apply, a pill says what the device runs. A click tells it in full, with the path of the file ("Copy
+Next to Save and apply, a pill says what the X-Touch runs. A click tells it in full, with the path of the file ("Copy
 the path", "Open the folder") and the file the daemon reads when that is another one.
 
 | Pill | Means |
 |---|---|
-| Saved, on the device | Nothing is unsaved, and the device runs the saved file. |
-| Unsaved changes | You changed something; the device still runs the saved file. |
+| Saved, on the device | Nothing is unsaved, and the X-Touch runs the saved file. |
+| Unsaved changes | You changed something; the X-Touch still runs the saved file. |
 | In the GUI, not saved | The changes show on the virtual twin. |
-| On the device, not saved | The device runs the changes ("Sending to the device…" for a moment after a change). |
-| On the device · simulated | The device shows the what-if of Simulate. |
+| On the device, not saved | The X-Touch runs the changes ("Sending to the device…" for a moment after a change). |
+| On the device · simulated | The X-Touch shows the what-if of Simulate. |
 | Paused: problems | The configuration has problems and is not sent. |
 | e.g. Not running, Not on the device yet | What is wrong. |
 
@@ -353,22 +354,22 @@ and redo too). The file is not written.
 
 === "In the GUI (default)"
 
-    The window shows the preview on a **virtual twin** of the device in the daemon. The twin is a second, complete set
-    of strips that drives no real sound, voice chat, [Home Assistant](home-assistant.md) or device.
+    The window shows the preview on a **virtual twin** of the X-Touch in the daemon. The twin is a second, complete set
+    of strips that drives no real sound, voice chat, [Home Assistant](home-assistant.md) or X-Touch.
 
     - The drawing, the cards of the page Slots and Play show the twin, with a frame around the drawing.
-    - Without Simulate, the twin runs the changes in the situation of now: the mode and the states the device has, and
-      the applications, people and devices there are.
-    - The device keeps running the saved file. The pill says "In the GUI, not saved".
+    - Without Simulate, the twin runs the changes in the situation of now: the mode and the states the X-Touch has, and
+      the applications, people and sound devices there are.
+    - The X-Touch keeps running the saved file. The pill says "In the GUI, not saved".
 
 === "On the device"
 
-    The device runs the preview, before it is saved: pick it to try the changes for real. The drawing shows the
-    device, and the pill says "On the device, not saved" ("Sending to the device…" for a moment after a change).
+    The X-Touch runs the preview, before it is saved: pick it to try the changes for real. The drawing shows the
+    X-Touch, and the pill says "On the device, not saved" ("Sending to the device…" for a moment after a change).
 
 === "Off"
 
-    The drawing shows the device as it is, running the saved file, for when you can't see the device. The changes show
+    The drawing shows the X-Touch as it is, running the saved file, for when you can't see the X-Touch. The changes show
     nowhere until you save them or pick another place. Opening Simulate moves the preview to In the GUI, and ending it
     back to Off.
 
@@ -380,7 +381,7 @@ version).
 ### Back to the file
 
 - **Save and apply** makes it the configuration: the daemon loads the saved file, which is what the preview showed.
-- **Another place**, closing the window (it asks about unsaved changes as usual, and says when the device runs them)
+- **Another place**, closing the window (it asks about unsaved changes as usual, and says when the X-Touch runs them)
   or "Revert" brings back the saved file.
 - **A window that crashed** does too: the daemon goes back to the file when the connection of the window ends, or
   when the window does not answer for 10 seconds.
@@ -392,20 +393,20 @@ version).
 !!! warning "What the daemon does not take"
 
     It shows in red under the status bar at the top, and the preview keeps the version before. On the device the
-    preview can't change `[mqtt]` (that takes a save and a restart), nor `[device] name` and `virtual` (they take a
-    save). A configuration with problems is not sent at all: the pill says "Paused: problems" until they are fixed.
+    preview can't change `[mqtt]` (that takes a save and a restart), nor `[device] name` and `virtual` (they take effect when
+    you save: the daemon then reloads and switches the X-Touch, with no restart). A configuration with problems is not sent at all: the pill says "Paused: problems" until they are fixed.
 
 Channels, states and slots
 :   All are part of the preview: a slot you changed in the editor shows in the preview as you edited it.
 
 Simulate
-:   Its situation shows where the preview shows. On the device, the device shows the what-if of Simulate instead of
+:   Its situation shows where the preview shows. On the device, the X-Touch shows the what-if of Simulate instead of
     what really happens: the states and the mode it sets, its channels present or absent, and its people, applications
-    and devices. Real ones come first, so their faders move real audio; made-up ones fill the rest (`App 1`,
+    and sound devices. Real ones come first, so their faders move real audio; made-up ones fill the rest (`App 1`,
     `Device 1`). Delays and dwells apply as they really do. The pill says "On the device · simulated". Home Assistant
     never sees it: its slot and state sensors stay as they really are, and nothing of it is kept.
 
-One window on the device at a time
+One window on the X-Touch at a time
 :   A second window that picks On the device takes over, and the first one's preview goes back to In the GUI.
 
 Home Assistant
@@ -427,7 +428,7 @@ The state bar lists the states and modes: ● on, ○ off, with the override in 
   that Home Assistant or `xtouch-daemon mode` set, with the values `auto` (the sources decide), `on` and `off`; for a
   mode, "pick it" and "back to the rules";
 - a button to Simulate the state the other way round: it shows what the slots would show, and changes nothing on the
-  device.
+  X-Touch.
 
 ### Cards
 
@@ -442,7 +443,7 @@ condition holds wins.
 | `when app without a slot → apps` | A pool as a candidate with no `if` after it, here `apps`. A pool has an implicit condition: it shows only while it has a member, here an application that no other slot shows. If there is none, the slot goes on to the next candidate. |
 
 **The rail** on the left joins the candidates from the top, with "else" between two and a node on each. The node is
-green on the candidate that the device shows (or that Simulate would show). In a slot `["apps", "people"]` where a
+green on the candidate that the X-Touch shows (or that Simulate would show). In a slot `["apps", "people"]` where a
 person sits on the slot, the green node is on `people`, even though `apps` is above it: `apps` had nothing left to hand
 out.
 
@@ -542,7 +543,7 @@ A problem shows at its field.
 - with so many people in the call and applications that play (the two counts; the strips show their names).
 
 Simulate includes the unsaved changes and shows where the [preview](#preview) shows: in the GUI, on the virtual twin of
-the device in the daemon, or on the device. A frame goes around the drawing in the window Device, and a bar of
+the X-Touch in the daemon, or on the X-Touch. A frame goes around the drawing in the window Device, and a bar of
 what-ifs replaces the state bar. The drawing, the cards and the box of the inspector show it, and Play can operate it.
 ++esc++, or Simulate again, ends it.
 
@@ -553,7 +554,7 @@ what-ifs replaces the state bar. The drawing, the cards and the box of the inspe
 ## Editing options
 
 The forms come from the options of the configuration, so every option has a field. The options of a
-[channel](../configuration/channels/index.md) are in cards in the order of the device, from top to bottom: what it
+[channel](../configuration/channels/index.md) are in cards in the order of the X-Touch, from top to bottom: what it
 controls, the [encoder](../configuration/strip/encoders.md), the display, the buttons, the fader and the meter, then
 those about slots (`tags`, `in_pool`, ...). Rec, Solo and Select each have what a press does, what a hold does and
 what the LED shows; unset, each shows the default of the type.
@@ -561,7 +562,7 @@ what the LED shows; unset, each shows the default of the type.
 ### Drawings of the parts
 
 The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip. It shows
-what the options do on the device in a few steps (‹ and › go through them), each with a caption. It follows the values
+what the options do on the X-Touch in a few steps (‹ and › go through them), each with a caption. It follows the values
 in the form at once, saved or not, at the step shown.
 
 <div class="grid cards" markdown>
@@ -624,8 +625,8 @@ Each field has:
 The mouse wheel scrolls the page, also over a number or a choice: it never changes a value.
 
 `choices` and `profiles`
-:   A list of entries, each with its label, its device and what it needs. The pencil or a double click opens an entry
-    with its fields, with the devices, the sound cards and the profiles of its card to pick from; the card and the
+:   A list of entries, each with its label, its output or input and what it needs. The pencil or a double click opens an entry
+    with its fields, with the outputs or inputs, the sound cards and the profiles of its card to pick from; the card and the
     profile are under "Switch the sound card first". Drag ⠿ (or ++ctrl+up++ / ++ctrl+down++) to change the order,
     which is the order Select goes through them. While a channel has `choices`, `device` and `profiles` are hidden,
     and the other way around: a channel has one or the other.
@@ -700,13 +701,13 @@ The GUI reads the sound server and suggests what it has. A click into a field op
 down (by any part of a name or a description, or a pattern with `*` and `?`), with the parts that match highlighted.
 Each line says what it is, where it is known from (the default, the active profile, a preset) and below it the name
 that goes into the option. Under `device`, `card` and `profile` of a choice, a line says what the value matches, e.g.
-"Matches 2: ..." for `bluez_output.*`, or "Matches nothing known" (a device can come later).
+"Matches 2: ..." for `bluez_output.*`, or "Matches nothing known" (a sound device can come later).
 
 | Option | Suggestions |
 |---|---|
-| `device` | The outputs or inputs by node name, with their descriptions; the default is marked. Then the devices that another profile of their sound card would make (e.g. the digital output while the card is in its analog profile): picked for a choice, they fill in its card and profile. Then the devices the daemon saw that are not there now, e.g. Bluetooth headphones that are off ("seen 3 days ago"); ++del++ in the list forgets one. |
-| `card`, `profile` of a choice | The sound cards (by description, or the devices they have), and the profiles of the card of the choice. |
-| `profiles` | The profiles of the sound cards of those devices; the active one is marked. |
+| `device` | The outputs and inputs by node name, with their descriptions; the default is marked. Then the sound devices that another profile of their sound card would make (e.g. the digital output while the card is in its analog profile): picked for a choice, they fill in its card and profile. Then the sound devices the daemon saw that are not there now, e.g. Bluetooth headphones that are off ("seen 3 days ago"); ++del++ in the list forgets one. |
+| `card`, `profile` of a choice | The sound cards (by description, or the outputs and inputs they have), and the profiles of the card of the choice. |
+| `profiles` | The profiles of the sound cards of those sound cards; the active one is marked. |
 | `match`, `exclude` of `[pool.apps]`, `apps` and `recording` of a state | The [presets](../configuration/presets.md) (`@browsers`, ...) first, then the names and binaries of the applications that play. A preset's tooltip tells what it stands for; its chip is outlined. |
 | `processes` of a state | The presets for processes. |
 | `[aliases]` | The names of the applications that play. |
@@ -768,9 +769,9 @@ on Channels and States. In a field they edit its text.
   (e.g. you edited the file outside the GUI). It then only reloads the daemon.
 - A changed `[mqtt]` section is not reloaded at all: the window offers "Restart the service" for the service;
   restart a daemon that runs elsewhere where it runs. A changed `[device] name` or `virtual` is reloaded: the daemon switches
-  to that device.
-- It then tells whether the device runs the saved file: "The device runs the saved file", or "The device does not run
-  the saved file yet". If that stays, the daemon did not take the file, and its log says why (View →
+  to that X-Touch.
+- Its pill then tells whether the X-Touch runs the saved file: "Saved, on the device", or "Not on the device yet".
+  If that stays, the daemon did not take the file, and its log says why (View →
   [Log](#log), or `journalctl --user -u xtouch-daemon`).
 
 "Revert" drops the changes and reads the file again (Undo brings them back).

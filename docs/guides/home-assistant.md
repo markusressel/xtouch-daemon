@@ -1,7 +1,7 @@
 # Home Assistant
 
 [Home Assistant](https://www.home-assistant.io/) is a home automation program. An *entity* is one thing in it, such
-as the light `light.desk`. This page shows three ways to connect the device to it, and a related case for programs. Choose by what you want:
+as the light `light.desk`. This page shows three ways to connect the X-Touch to it, and a related case for programs. Choose by what you want:
 
 | You want | Use | Needs |
 |---|---|---|
@@ -35,7 +35,7 @@ Each control has one owner, PipeWire or Home Assistant:
 The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. You must add the section for everything that makes the
 daemon create entities in Home Assistant: `homeassistant` channels, `"homeassistant"` as the value of a part or
 control, and `homeassistant = true` on a state. Without those, the section is optional. With it, the daemon also
-shows the device, its modes, states and slots in Home Assistant.
+shows the X-Touch, its modes, states and slots in Home Assistant.
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -47,7 +47,7 @@ shows the device, its modes, states and slots in Home Assistant.
 | `password_env` | none | An environment variable that holds the password instead, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`). |
 | `discovery_prefix` | `"homeassistant"` | Home Assistant's MQTT discovery prefix. |
 | `namespace` | `"xtouch"` | Starts every entity ID (`number.xtouch_living_room_fader`) and is part of the MQTT topics. Lower case letters, digits, `_`. |
-| `device_name` | `"X-Touch Extender"` | The name of the device in Home Assistant. |
+| `device_name` | `"X-Touch Extender"` | The name of the X-Touch in Home Assistant, where it is one Home Assistant device with all the entities. |
 
 Set at most one of `password`, `password_file` and `password_env`. A password file that can't be read, or a
 variable that is not set, stops the daemon at the start with a message.
@@ -63,14 +63,14 @@ A changed `[mqtt]` section needs a restart of the daemon (`systemctl --user rest
 reloads a saved file by itself, but it ignores a file whose `[mqtt]` section changed: it keeps the whole
 configuration it runs, also the changes in other sections, until you restart.
 
-The entities are available in Home Assistant while the daemon runs and the device is connected; otherwise Home
+The entities are available in Home Assistant while the daemon runs and the X-Touch is connected; otherwise Home
 Assistant greys them out. This also holds after a crash: the broker tells Home Assistant that the daemon is gone
 (an MQTT "last will", a message that the daemon leaves with the broker for this case). The daemon connects to the
 broker again by itself when the broker was gone.
 
 The [GUI](gui.md#live-view) shows whether the daemon is connected, and why not (e.g. a wrong password),
 and its "Test connection" button tries settings before they are saved. To check that it works, open Settings →
-Devices & services → MQTT in Home Assistant: the device "X-Touch Extender" (`device_name`) is listed there with its
+Devices & services → MQTT in Home Assistant: the Home Assistant device "X-Touch Extender" (`device_name`) is listed there with its
 entities.
 
 ## `[homeassistant]`
@@ -82,7 +82,7 @@ only while the configuration has such parts (in a channel or in `[controls]`). T
 
 | Option | Default | Meaning |
 |---|---|---|
-| `url` | required | The address of Home Assistant, as in the browser, e.g. `"http://homeassistant.local:8123"` (or `https://...`). The daemon uses its WebSocket API (`/api/websocket`). |
+| `url` | required | The address of Home Assistant, as in the browser, e.g. `"http://homeassistant.local:8123"` (or `https://...`). |
 | `token` | none | A long-lived access token, in the file. |
 | `token_file` | none | A file that holds the token instead, e.g. one only you can read. `~` is the home directory. Surrounding whitespace is ignored. |
 | `token_env` | none | An environment variable that holds the token instead, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`). |
@@ -126,8 +126,8 @@ Home Assistant (Settings → People → Users) limits that to what that user may
 | When | The daemon |
 |---|---|
 | You change the section and save the file | The daemon reloads and connects again with the new section. No restart is needed. |
-| The connection breaks | Tries again after 1, 2, 5, 10 and 30 seconds, then every 60 seconds. The waits get longer with each failed try; they start at 1 second again only after a connection that received the states of the entities. Meanwhile the parts show nothing. |
-| Home Assistant refuses the token | Logs an error and stops trying. The daemon never sends a refused token to that address again, even if you move the same token to another option (e.g. from `token` to `token_file`), because Home Assistant can ban an address after failed logins. Make a new token, put it where the section reads it, and save the file. |
+| The connection breaks | Tries again by itself, with longer waits after each failed try (at most 60 seconds). Meanwhile the parts show nothing. |
+| Home Assistant refuses the token | Logs an error and stops trying. The daemon never sends the refused token again, because Home Assistant can ban an address after failed logins. Make a new token, put it where the section reads it, and save the file. |
 | It can't read `token_file`, or `token_env` is not set | Logs an error and runs without the connection. Save the file again once there is a token. |
 
 - A new token in the variable of `token_env` takes a restart of the service: a reload keeps its environment.
@@ -226,9 +226,9 @@ keeps it.
 
 | Entity | What it is |
 |---|---|
-| `number.<ns>_<id>_fader` | The fader, 0..100 in steps of 0.1. Setting it moves the motor fader; moving the fader by hand sets it (at most every 100 ms while it moves, and where it was let go). |
+| `number.<ns>_<id>_fader` | The fader, 0..100 in steps of 0.1. Setting it moves the motor fader; moving the fader by hand sets it (while it moves, and where it was let go). |
 | `number.<ns>_<id>_encoder` | The encoder, 0..100. The ring shows it; turning the encoder changes it by `behavior.encoder_step` per step. |
-| `number.<ns>_<id>_meter` | The LED meter, 0..100 %: 0 is dark, 100 lights it fully; the daemon holds the level (the device would let it fall). Its 14 levels are about 7 % each, 100 % lights the red LED at the top too, so e.g. a CPU load or a power ratio goes in as it is. |
+| `number.<ns>_<id>_meter` | The LED meter, 0..100 %: 0 is dark, 100 lights it fully; the daemon keeps the level lit until you set another. A CPU load in percent, say, goes in as it is. |
 | `text.<ns>_<id>_top`, `text.<ns>_<id>_bottom` | The two lines of the LCD, 7 characters each. |
 | `select.<ns>_<id>_color` | The LCD color: `off`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`. |
 | `select.<ns>_<id>_rec_led`, `_solo_led`, `_mute_led`, `_select_led` | The LEDs of the buttons: `off`, `on` or `flash`. |
@@ -238,7 +238,7 @@ A button does not switch its own LED on a Home Assistant strip: if a button shou
 the LED to show the result. The broker keeps the last value that Home Assistant set (MQTT calls this a retained
 message), so after a restart of the daemon the strips show it again. New entities start with the configured label and color, the fader and encoder at 0
 and the LEDs off. While the broker can't be reached, a strip shows its label, `offline` and its color, and the
-device does nothing on it.
+X-Touch does nothing on it.
 
 Entities of a channel that was removed from the configuration are removed from Home Assistant on the next reload.
 
@@ -247,7 +247,7 @@ Entities of a channel that was removed from the configuration are removed from H
 With `[mqtt]`, an `output` or `input` channel with [`choices`](../configuration/channels/devices.md#choices) has
 `select.<ns>_<id>_output` (`select.<ns>_<id>_input`): the choice the strip shows, one option per choice, named by its
 `label` (or its `device`; a second choice of the same name gets a number, e.g. `Out 2`). Choosing one switches to it
-like Select on the device (the sound card goes to the profile of the choice first, see [`choices`](../configuration/channels/devices.md#choices)); one that isn't there is refused and the select goes back. The select
+like Select on the X-Touch (the sound card goes to the profile of the choice first, see [`choices`](../configuration/channels/devices.md#choices)); one that isn't there is refused and the select goes back. The select
 follows the strip, also when the default changes elsewhere.
 
 ```yaml

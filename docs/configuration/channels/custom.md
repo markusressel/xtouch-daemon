@@ -7,8 +7,8 @@ brightness of a screen. The examples on this page use [system-control](https://g
 number.
 
 Other channel types have built-in behavior: the fader of an `output` channel sets the volume. A `custom` channel
-has no built-in behavior. A part that you [bind](../strip/bindings.md) works. Binding means connecting it to a program or to Home Assistant. A part that you leave
-out is dark and does nothing. The only exceptions are the encoder and the LCD, which follow the fader (see the table).
+has none. A part that you [bind](../strip/bindings.md) works. Binding means connecting it to a program or to Home
+Assistant. A part that you leave out is dark and does nothing. The only exceptions are the encoder and the LCD, which follow the fader (see the table).
 A slot names the channel, as for every other type.
 
 This channel puts the brightness of the left screen on a fader. `set` is the command that changes the brightness,

@@ -21,7 +21,7 @@ xtouch-daemon list-devices     # the names of your outputs and inputs, for `devi
 ```
 
 `check-config` prints `valid` and the channels. Then it prints a table of what each slot shows in each situation (in a
-call, gaming). It needs no device. To run the daemon as a service and read its log, see
+call, gaming). It needs no X-Touch. To run the daemon as a service and read its log, see
 [First steps](../getting-started/first-steps.md).
 
 Only you may change the file. A configuration can start programs (the `launch` of a channel, `run` in
@@ -75,7 +75,7 @@ the channel.
 
 | Section | What it configures | Page |
 |---|---|---|
-| `[channel.<id>]` | What a strip can control: a device, a group of applications, a person, Home Assistant. | [Channels](channels/index.md) |
+| `[channel.<id>]` | What a strip can control: your headphones, a group of applications, a person, Home Assistant. | [Channels](channels/index.md) |
 | `[slots]` | The list of candidates for each of the 8 strips, and the condition when each shows. | [Channels, states and slots](slots.md#slots) |
 | `[state.<id>]` | States and modes (in a call, gaming) that the slots ask about. | [Channels, states and slots](slots.md#states-and-modes) |
 | `[controls]` | Actions of the buttons, fader or encoder of a slot, whatever it shows. | [Channels, states and slots](slots.md#controls-and-the-chord) |
@@ -83,7 +83,7 @@ the channel.
 | `[pool.people]`, `[voip]` | The people of the voice chat, and which strips they take (from the right by default). | [People](channels/people.md) |
 | `[pool.devices]` | Outputs and inputs without a channel (a USB headset) on the slots that name `devices`. | [Devices](channels/devices.md#devices-without-a-channel) |
 | `[pool.<id>]` | A pool of your own. It holds a list of channels, e.g. all your headphones, and gives the first one that is there to the first slot that names the pool, the next one to the next slot. | [Pools of channels](slots.md#pools-of-channels) |
-| `[device]` | Which sound card is the extender. | [Behavior](behavior.md#device) |
+| `[device]` | Which sound card is the X-Touch, and how it starts up and shuts down. | [Behavior](behavior.md#device) |
 | `[behavior]` | Volume limit, encoder step, reset volume, meters. | [Behavior](behavior.md#behavior) |
 | `[aliases]` | Names to show for applications on `auto` slots. | [Behavior](behavior.md#aliases) |
 | `[switching]` | The chord (Solo buttons held together switch the modes) and the banner of a new mode. | [Channels, states and slots](slots.md#controls-and-the-chord) |
@@ -93,7 +93,7 @@ The channel types:
 
 | `type` | What the channel controls | Page |
 |---|---|---|
-| `output`, `input` | An output or an input device, several of them, [choices](channels/devices.md#choices) to switch between, or the default one. | [Devices](channels/devices.md) |
+| `output`, `input` | An output (your headphones) or an input (your microphone): one, several of them, [choices](channels/devices.md#choices) to switch between, or the default one. | [Devices](channels/devices.md) |
 | `apps` | All streams of a group of applications. | [Applications](channels/applications.md#apps-channels) |
 | `person` | Someone of the voice chat. | [People](channels/people.md#strips-for-one-person) |
 | `homeassistant` | Nothing by itself: its parts are entities in Home Assistant. | [Home Assistant](../guides/home-assistant.md) |
@@ -105,7 +105,7 @@ In a slot, `apps` is not the channel type `apps`: it is a built-in pool, as are 
   ([Applications](channels/applications.md#apps-and-auto)).
 - `people` is the next person of the voice chat ([People](channels/people.md#where-people-sit)).
 - `auto` is both: people first (from the right), then applications.
-- `devices` is the next device that no channel has ([Devices](channels/devices.md#devices-without-a-channel)).
+- `devices` is the next output or input that no channel has ([Devices](channels/devices.md#devices-without-a-channel)).
 - `-` is a dark strip ([Channels](channels/index.md#empty-slots)).
 
 Presets (the `@browsers` in `match`) are on [Presets](presets.md).
@@ -122,12 +122,9 @@ xtouch-daemon check-config && systemctl --user reload xtouch-daemon
 
 A reload (SIGHUP) does the same as a change of the file.
 
-Two sections need a restart (`systemctl --user restart xtouch-daemon`):
-
-- A changed `[device] name` or `virtual`. A reload takes the rest of the file, but the daemon keeps using the old
-  device. (This is about the rest of the sections, but not about `[mqtt]`: see the next bullet.)
-- A changed `[mqtt]` section. This one blocks the whole reload: until the restart, the daemon ignores every change in
-  the file, not only the ones in `[mqtt]`. The log says so.
+One section needs a restart (`systemctl --user restart xtouch-daemon`): a changed `[mqtt]`. It blocks the whole
+reload: until the restart, the daemon ignores every change in the file, not only the ones in `[mqtt]`. The log says
+so. A changed `[device] name` or `virtual` needs no restart: the daemon connects to the other X-Touch.
 
 The GUI applies a file when you save it. It reloads the running daemon, whether that is the service or one you started
 from a terminal or an IDE, or it offers a restart when one is needed. It then tells you whether the daemon took the

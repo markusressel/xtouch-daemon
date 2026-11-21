@@ -3,7 +3,7 @@
 This page decides what each of the 8 strips shows. Its four main parts build on each other:
 
 1. **Channels** are what a strip can control (an output, a group of applications, a person). You define them.
-2. Each strip of the device has a **slot** in the file, numbered 1 to 8 from the left, with a list of candidates: the channels it can show, best first.
+2. Each strip of the X-Touch has a **slot** in the file, numbered 1 to 8 from the left, with a list of candidates: the channels it can show, best first.
 3. **States** (in a call, gaming) are on or off. A condition in the list asks about them.
 4. **Controls** add buttons, fader or encoder actions to a slot.
 
@@ -21,7 +21,7 @@ A channel is something a strip controls, with the options of its type (see [Chan
 
 ```toml
 [channel.out]
-type = "output"             # or "input": a device, one of several (choices), or the default one
+type = "output"             # or "input": an output (your headphones); see Channels for choices and the default
 label = "Speaker"
 
 [channel.voip]
@@ -54,11 +54,11 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   `and`, `or`, `not`, parentheses and `present` (the channel has something to control); see
   [Conditions](#conditions).
 - `apps`, `people`, `auto` and `devices` are pools: not channels that you define, but suppliers of members (an
-  application, a person, a device). See the table below.
+  application, a person, an output or input). See the table below.
 - A slot without an entry is `auto`. So is a slot whose candidates all don't hold.
 - `-` is nothing: the slot is dark.
 - The table form `{ show = ..., when = ..., ... }` takes options of the look at this place, see [Places](#places).
-- The [GUI](../guides/gui.md)'s page Slots simulates other modes and states (Simulate), in the drawing or on the device.
+- The [GUI](../guides/gui.md)'s page Slots simulates other modes and states (Simulate), in the drawing or on the X-Touch.
 - `xtouch-daemon why 2` says why slot 2 shows what it shows, `xtouch-daemon why voip` where the channel is and
   why.
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
@@ -71,7 +71,7 @@ Four pools are built in. Each strip that names a pool shows one member of it, so
 | `apps` | Applications, see [Applications](channels/applications.md#apps-and-auto). | `[pool.apps]`: `from`, `hold` and `exclude`. |
 | `people` | The people of the voice chat, see [People](channels/people.md#where-people-sit). | `[pool.people]`: `from`, `order` and the look of the strips of people. |
 | `auto` | Both: the people first, from the right, and the applications from the left. | `[pool.auto]`: the look (color, meters, LEDs) of the applications on `auto` slots. |
-| `devices` | The outputs and inputs no channel has, see [Devices](channels/devices.md#devices-without-a-channel). | `[pool.devices]`: `from`, `hold`, `exclude` and the look of the strips of devices. |
+| `devices` | The outputs and inputs no channel has, see [Devices](channels/devices.md#devices-without-a-channel). | `[pool.devices]`: `from`, `hold`, `exclude` and the look of the strips of outputs and inputs. |
 
 Which one to use: `auto` when you do not care, `apps` when only applications should appear (people would waste a
 strip), `people` for the voice chat alone, `devices` for outputs and inputs without a channel.
@@ -89,7 +89,7 @@ built-in pools (`[pool.apps]`, `[pool.auto]`, `[pool.devices]`, `[pool.people]`)
 |---|---|
 | a channel | `color`, `lit_when_idle` (keep the LCD lit while the strip has nothing to control), `rec`, `solo` (what the LEDs of these buttons show), `meter`, `meter_point`, `label` |
 | `apps`, `auto` | `color`, `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point` (no `label`: the strip shows the application's name), and `encoder`, `min_volume`, `max_volume` |
-| `devices` | those of `apps`, and `select = false` |
+| `devices` | those of `apps`, and `select = false` (Select does not make the output the default) |
 | `people` | `color`, `meter`, `meter_point` |
 | a pool of channels | none: each channel brings its own look |
 
@@ -157,7 +157,7 @@ match, `kind = "people"` listed people of the voice chat, each on a strip of its
 ```toml
 [pool.music]
 kind = "apps"
-match = ["@music"]            # parts of names or binaries, and presets, as in an `apps` channel
+match = ["@music"]            # parts of names or program files, and presets, as in an `apps` channel
 exclude = ["spotify-ads"]     # optional: never these, though they match
 from = "left"                 # the side it fills its slots from (default)
 hold = 5                      # seconds a slot keeps an application after it stopped (default)
@@ -188,7 +188,7 @@ talking_color = "green"
 - A pool of your own takes its members first: a music player goes to `music`, not to `apps` or `auto`. An `apps`
   channel or a `person` channel that has a slot keeps its application or person.
 - It takes them **only while a slot names it**, in any stack. A pool that no slot names takes nothing, so a forgotten
-  `[pool.music]` can't make the players disappear from the device; `check-config` says "pool music is on no slot".
+  `[pool.music]` can't make the players disappear from the strips; `check-config` says "pool music is on no slot".
 - A member that finds no slot waits in its pool. In this example there are two slots for `friends`. With a third
   friend, that friend has no strip until a slot of `friends` is free, and does not move on to `people`.
 - Like `apps`, an application keeps its slot while it plays; a pool of people fills by the order of its list.
@@ -268,7 +268,7 @@ table work in all three places, except `present` and `present(...)`, which only 
   channel while one of its `devices` is there (always without `devices`), a `person` channel while the person is in
   the voice chat, a `homeassistant` channel always. A channel stays present `absent_after` seconds (3 by default)
   after that ended. `apps` is present while an application it may take plays, `people` while someone is in the
-  voice chat, `auto` while either is, `devices` while a device no channel has is there, another pool while one of its channels is present.
+  voice chat, `auto` while either is, `devices` while an output or input no channel has is there, another pool while one of its channels is present.
 - `present` is only for candidates of slots. A state asks about channels with its `channels` source, and controls
   apply whatever the slot shows, so `present` would have no meaning there.
 - `check-config` and the GUI name the mistakes: an unknown state, mode, channel or pool, a word where none fits, a
@@ -374,7 +374,7 @@ How a claim behaves:
 - Places take no bindings: a binding for the slot, whatever it shows, belongs here.
 - On the slots of the chord, `[controls]` can claim the LED of Solo, but not its press.
 
-The section `[switching]` has two options. The chord is a way to change the mode from the device. The banner is the
+The section `[switching]` has two options. The chord is a way to change the mode from the X-Touch. The banner is the
 text on the LCDs when a mode changes:
 
 | Option of `[switching]` | Default | Meaning |

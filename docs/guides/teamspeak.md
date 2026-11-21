@@ -21,9 +21,7 @@ The plugin talks to the daemon through the bridge: a socket that the daemon open
 (see [the voice chat bridge](../reference/voice-chat-bridge.md)). The bridge is on by default (`[voip]` has
 `provider = "bridge"`). You change it only to try the strips without TeamSpeak (`provider = "demo"`).
 
-The look of the people has these options. The lines below show the defaults. The default of `max_volume` is the
-option `max_volume` in the section [`[behavior]`](../configuration/behavior.md) of the configuration, which is 130:
-with it the fader goes from 0 to 130 %, and you set 200 to reach 200 %. Change the options in `[pool.people]` for
+The look of the people has these options. The lines below show the defaults. Unless you set it, `max_volume` is 130, the value of `max_volume` in [`[behavior]`](../configuration/behavior.md); set 200 to reach 200 %. Change the options in `[pool.people]` for
 all people, or in a `person` channel for one person (see [People](../configuration/channels/people.md)):
 
 ```toml

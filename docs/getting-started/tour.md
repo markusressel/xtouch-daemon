@@ -3,7 +3,7 @@
 One configuration, built step by step: the one the author runs. Every step says what to click in the
 [GUI](../guides/gui.md) and what it writes to the file; use either, they edit the same file.
 
-The goal, for the 8 strips (slots) of the device:
+The goal, for the 8 strips (slots) of the X-Touch:
 
 | Slot | Shows |
 |---|---|
@@ -12,11 +12,11 @@ The goal, for the 8 strips (slots) of the device:
 | 4 to 6 | A person of the voice chat each. People start at the right: the first person gets slot 6, the next slot 5, then slot 4. A slot without a person shows an application. |
 | 7, 8 | VoIP on slot 7 and the microphone on slot 8 while you are in a call. Otherwise they show applications. |
 
-You need the daemon installed and the device [set up and tested](first-steps.md). The GUI starts with
+You need the daemon installed and the X-Touch [set up and tested](first-steps.md). The GUI starts with
 `xtouch-daemon gui`; without a configuration file it edits a new one and writes it with the first "Save and apply".
-That new file is empty: every slot shows `auto`, the next application that plays (or a person of the voice chat). The drawing of the device at the top
-shows what the file shows, as you edit.
-No device? [Run the virtual one](without-a-device.md) and use that one as the device in this tour.
+That new file is empty: every slot shows `auto`, the next application that plays (or a person of the voice chat). The
+drawing of the X-Touch at the top shows what the file shows, as you edit. No X-Touch? [Run the virtual
+one](without-a-device.md) and use it in this tour.
 
 ## 1. See what you have
 
@@ -25,7 +25,7 @@ xtouch-daemon list-devices    # outputs and inputs: the names to use as `device`
 xtouch-daemon list-apps       # what plays now, and which preset (a ready-made group of applications, e.g. `@browsers` or `@games`) it belongs to
 ```
 
-The GUI offers the same lists wherever a field asks for a device or an application (a click into the field opens them). Play
+The GUI offers the same lists wherever a field asks for an output, an input or an application (a click into the field opens them). Play
 something in the browser first, so that `list-apps` has an application to show.
 
 ## 2. The main output
@@ -34,10 +34,10 @@ something in the browser first, so that `list-apps` has an application to show.
 `main_output` (field next to the title; the slots that name it follow), set the label to `Main` (up to 7 characters:
 that is all the LCD has) and the color to cyan.
 
-Select should switch between several devices, so add **Choices**: one per device, each with a label. A device that
-only exists in another profile of the sound card (a profile is a setting of the card, such as analog or digital
-output) also needs the `card` and `profile`: `list-devices` prints both. Bluetooth headphones are best matched by a wildcard, because their name holds their address
-(`bluez_output.*`; `list-devices --snippet` writes it for you):
+Select should switch between several outputs, so add **Choices**: one per output, each with a label. An output that
+exists only in another profile of the sound card (a profile is a setting of the card, such as analog or digital
+output) also needs the `card` and `profile`: `list-devices` prints both. Bluetooth headphones are best matched by a
+wildcard, because their name holds their address (`bluez_output.*`; `list-devices --snippet` writes it for you):
 
 ```toml
 [channel.main_output]
@@ -55,8 +55,8 @@ profile = "output:analog-stereo+input:analog-stereo"
 label = "Speaker"
 device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
 card = "alsa_card.pci-0000_11_00.4"
-profile = "output:iec958-stereo+input:analog-stereo"   # the card switches to this profile when you pick Speaker; it keeps the microphone (analog input) alive
-max_volume = 200            # the fader reaches 200 % at the top for this device
+profile = "output:iec958-stereo+input:analog-stereo"   # the card switches to this profile when you pick Speaker
+max_volume = 200            # the fader reaches 200 % at the top for this output
 
 [[channel.main_output.choices]]
 label = "Buds"
@@ -77,7 +77,6 @@ type = "apps"
 match = ["@browsers"]
 label = "Browser"
 color = "blue"
-meter = true                # the level meter of the strip (on by default; written out here)
 
 [channel.game]
 type = "apps"
@@ -183,13 +182,11 @@ color = "yellow"
 xtouch-daemon check-config     # errors with the line they are in, then what every slot shows when
 ```
 
-The table lists only the situations in which something changes (for example "in a call"). `check-config --all` lists
-every combination of states.
+The table lists the situations in which something changes, for example "in a call".
 
-The GUI shows the same on the page **Slots**: **Simulate** puts the device in another situation (in a call, nothing
-playing, a game running) and the drawing shows what the strips would show, on a virtual twin of the device inside the
-daemon (a copy that the daemon keeps for this, so Simulate needs the running daemon), or on the device itself with the
-preview "On the device".
+The GUI shows the same on the page **Slots**: **Simulate** pretends another situation (in a call, nothing
+playing, a game running), and the drawing shows what the strips would show. The preview "On the device" shows it on the
+X-Touch itself.
 
 **Save and apply** writes the file. A running daemon takes it at once. If no daemon runs, the button "Install and
 start" next to the service at the top right installs and starts the systemd user service now, and it starts again at
@@ -235,7 +232,6 @@ type = "apps"
 match = ["@browsers"]
 label = "Browser"
 color = "blue"
-meter = true
 
 [channel.voip]
 type = "apps"
