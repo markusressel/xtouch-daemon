@@ -221,7 +221,9 @@ class Daemon(Rig):
         """The states, the mode, the channels and the slots in Home Assistant (with slots and [mqtt])."""
         self.hass = hass if hass is not None else HomeAssistant()
         """The connection to the API of Home Assistant, shared by the strips, the controls and the twins."""
-        self.hass.on_change = self._changed
+        self.hass.on_change = self._hass_changed
+        self._hass_connected = False
+        """Whether the status line said Home Assistant was connected."""
         commands = commands if commands is not None else Commands()
         commands.hass = self.hass
         self.devices_seen = DeviceMemory(state_dir / DEVICES_FILE_NAME if state_dir is not None else None)
@@ -890,6 +892,13 @@ class Daemon(Rig):
         if not connected and self.slot_entities is not None:
             self.slot_entities.forget()
         systemd.notify(self._status())
+
+    def _hass_changed(self) -> None:
+        """The connection to Home Assistant changed: the status line says it when it came or went."""
+        if self.hass.connected != self._hass_connected:
+            self._hass_connected = self.hass.connected
+            systemd.notify(self._status())
+        self._changed()
 
     def _changed(self) -> None:
         """Something the snapshot tells may have changed: the live view sends it (see `LiveServer.changed()`)."""

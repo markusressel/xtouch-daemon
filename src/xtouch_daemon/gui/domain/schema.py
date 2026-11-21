@@ -17,7 +17,14 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from xtouch_daemon.config.base import Meanings
-from xtouch_daemon.config.bindings import HOME_ASSISTANT, VALUE_PARTS, EntityBinding, ValueBinding, WatchBinding
+from xtouch_daemon.config.bindings import (
+    HOME_ASSISTANT,
+    VALUE_PARTS,
+    EntityBinding,
+    ServiceData,
+    ValueBinding,
+    WatchBinding,
+)
 from xtouch_daemon.config.buttons import ACTIONS, ActionValue, ButtonConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.names import Presets
@@ -40,6 +47,8 @@ class Kind(StrEnum):
     """A text that is not shown, e.g. a password."""
     PATH = "path"
     """The path of a file."""
+    DATA = "data"
+    """A table of data for a service of Home Assistant, typed as an inline table: `{ brightness_pct = 50 }`."""
     NUMBERS = "numbers"
     """Some of the whole numbers from `minimum` to `maximum`, e.g. faders."""
     TABLES = "tables"
@@ -209,6 +218,8 @@ def _kind(annotation: Any) -> Kind:
         return Kind.CHOICE
     if annotation == tuple[str, ...]:
         return Kind.LIST
+    if annotation == ServiceData:
+        return Kind.DATA
     if get_origin(annotation) is tuple and _unwrap(get_args(annotation)[0])[0] is int:
         return Kind.NUMBERS
     kinds = {

@@ -17,6 +17,7 @@ import itertools
 import json
 import logging
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
 from websockets.asyncio.client import connect as websocket_client
@@ -123,21 +124,35 @@ async def authenticate(transport: Transport, token: str) -> str:
     return str(answer.get("ha_version", ""))
 
 
+@dataclass(frozen=True)
+class Fetched:
+    """What `fetch()` found: the version of Home Assistant, and its entities by id."""
+
+    version: str
+    entities: tuple[EntityState, ...]
+
+
 async def fetch_entities(config: HomeAssistantConfig, connect: Connect = websocket_connect) -> list[EntityState]:
     """
     The entities Home Assistant has now, by id: connects, logs in, asks, and closes again. HomeAssistantError (with
     why) if it can't; ConfigError for a token it can't read.
     """
+    return list((await fetch(config, connect)).entities)
+
+
+async def fetch(config: HomeAssistantConfig, connect: Connect = websocket_connect) -> Fetched:
+    """`fetch_entities()` with the version of Home Assistant: the test of the settings in the GUI."""
     token = config.resolve_token()
     transport = await connect(config.websocket_url)
     try:
         async with asyncio.timeout(REQUEST_TIMEOUT):
-            await authenticate(transport, token)
+            version = await authenticate(transport, token)
             await transport.send(json.dumps({"id": 1, "type": "get_states"}))
             while True:
                 message = await _receive(transport)
                 if message.get("id") == 1 and message.get("type") == "result":
-                    return sorted(_states_of(message), key=lambda entity: entity.entity_id)
+                    entities = sorted(_states_of(message), key=lambda entity: entity.entity_id)
+                    return Fetched(version, tuple(entities))
     except TimeoutError:
         raise HomeAssistantError(f"Home Assistant did not answer within {REQUEST_TIMEOUT:g} s") from None
     finally:

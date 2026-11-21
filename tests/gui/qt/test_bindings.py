@@ -57,6 +57,7 @@ def test_a_fader_bound_to_a_program_writes_its_table(qtbot: QtBot, window: MainW
     assert field.bind.text() == ""
     assert [action.text() for action in field.menu.actions() if action.isVisible()] == [
         "Home Assistant",
+        "An entity",
         "A program",
     ]
     field.actions_[PROGRAM].trigger()

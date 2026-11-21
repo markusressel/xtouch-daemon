@@ -145,8 +145,14 @@ a refused token stops it until the next configuration. A reload takes a changed 
 
 ## The GUI
 
-A part that can be bound has one field: the default of the type, Home Assistant, or a program. Its options show only
-when a program is chosen. A channel without bindings looks as it does today.
+A part that can be bound has one field: the default of the type, Home Assistant, an entity, or a program. Its options
+show only when an entity or a program is chosen. A channel without bindings looks as it does today. A button's lists
+take `service: ...` (a press, a hold) and `entity: ...` (an LED), with their options below the list.
+
+The fields of an entity suggest the entities of Home Assistant. The window reads them itself (`client.fetch()` in a
+thread, `fields/entities.EntitySource`), with the settings in the editor, saved or not: the daemon's live view tells
+only how many there are, and the window works without a daemon. Reading them is the test of `[homeassistant]` on its
+page too. The list is drawn inside the window (`SuggestionList`), not a popup.
 
 ## Simulate
 

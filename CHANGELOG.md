@@ -75,6 +75,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     Home Assistant does not have is a warning in the log. While the daemon is not connected, the parts show nothing.
   - The daemon connects only while the configuration uses entities, and again after the connection broke; a refused
     token is logged and not tried again. Simulate reads the entities and calls no services.
+    The status line of the service says when the connection comes and goes.
+  - GUI: "An entity" in the bind button of a part shows its options under it: the entity with suggestions of what
+    Home Assistant has (its domain's icon, its name and its state now; filtered as you type, picked with the keyboard),
+    its attributes, and what unset options do by its domain (e.g. "default: 255, of a light"). A press or a hold takes
+    `service: ...`, an LED `entity: ...`, with their options below the list. A line says why a field has no
+    suggestions, with a button to the settings. The page "Home Assistant API" tests the settings (the version and
+    the entities of Home Assistant, or a refused token, an address where nothing answers) and shows the daemon's
+    connection, which the connections of the service list too. The previews of the controls show entities.
 
 ### Changed
 

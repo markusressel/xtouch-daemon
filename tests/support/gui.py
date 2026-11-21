@@ -22,10 +22,11 @@ from pytestqt.qtbot import QtBot
 
 from tests.support.audio import output, source, stream
 from xtouch_daemon.audio.model import AudioState, Card, Profile
-from xtouch_daemon.config.sections import MqttConfig
+from xtouch_daemon.config.sections import HomeAssistantConfig, MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
+from xtouch_daemon.homeassistant.client import Fetched, HomeAssistantError
 from xtouch_daemon.live.codec import decode_request, encode, encode_log, encode_twin
 from xtouch_daemon.live.messages import LogLines, Request, Snapshot, StripState, TwinView, fingerprint
 from xtouch_daemon.voip import mumble
@@ -141,6 +142,11 @@ def no_install() -> str:
 async def unreachable_broker(config: MqttConfig) -> Status:
     """No test of the MQTT settings reaches out to a real broker."""
     return Status(f"Can't connect to {config.host}:{config.port}: Connection refused.", Tone.BAD, "Is it running?")
+
+
+async def unreachable_home_assistant(config: HomeAssistantConfig) -> Fetched:
+    """No window reaches out to a real Home Assistant."""
+    raise HomeAssistantError(f"can't connect to {config.websocket_url}: Connection refused")
 
 
 def row(window: MainWindow, name: str, page: str = "channels") -> OptionRow:

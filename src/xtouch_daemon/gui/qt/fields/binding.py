@@ -1,9 +1,10 @@
 """
 The field of a part of a strip that can be bound (`Kind.BINDING`, see docs/development/design/bindings.md): the field
-of its words as without bindings (a list, a switch or colors), and a button that binds the part to Home Assistant or
-to a program of your own. Bound to a program, the options of the program show below the field (`set`, `watch`,
-`min`, ...), each a row of its own. A fader or an encoder of `[controls]` can set the value of a `custom` channel too
-(`Option.channel`): a list of those channels.
+of its words as without bindings (a list, a switch or colors), and a button that binds the part to Home Assistant, to
+an entity of Home Assistant (`Option.entity`) or to a program of your own. Bound to a program or an entity, its
+options show below the field (`set`, `watch`, `min`, ... or `entity`, `attribute`, ...), each a row of its own; the
+entity and its attribute with suggestions of what Home Assistant has. A fader or an encoder of `[controls]` can set
+the value of a `custom` channel too (`Option.channel`): a list of those channels.
 """
 
 from collections.abc import Callable, Mapping
@@ -19,6 +20,7 @@ from xtouch_daemon.gui.domain.schema import Kind, Option, describe
 from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label
 from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, Switch
+from xtouch_daemon.gui.qt.fields.entity_table import EntityTable
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -32,8 +34,16 @@ WORDS = "words"
 """The mode of a part that is not bound: its words, or its default."""
 CHANNEL = "channel"
 """The mode of a fader or an encoder of `[controls]` that sets the value of a `custom` channel (`{ channel = ... }`)."""
+ENTITY = "entity"
+"""The mode of a part bound to an entity of Home Assistant (`{ entity = ... }`)."""
 
-MODE_TITLES = {HOME_ASSISTANT: "Home Assistant", PROGRAM: "A program", CHANNEL: "A channel", WORDS: "Not bound"}
+MODE_TITLES = {
+    HOME_ASSISTANT: "Home Assistant",
+    ENTITY: "An entity",
+    PROGRAM: "A program",
+    CHANNEL: "A channel",
+    WORDS: "Not bound",
+}
 """The modes of a part for people, as the menu of the button and the button show them."""
 
 COLUMN_PLACEHOLDERS: dict[str, Callable[[], str]] = {
@@ -48,11 +58,11 @@ DEFAULT_ENCODER_STEP = BehaviorConfig.model_fields["encoder_step"].default
 
 def mode_of(value: object) -> str:
     """
-    How a part is bound: `CHANNEL` for a table with `channel`, `PROGRAM` for another table, `HOME_ASSISTANT`, or
-    `WORDS` for a word, a switch or nothing.
+    How a part is bound: `CHANNEL` for a table with `channel`, `ENTITY` for one with `entity`, `PROGRAM` for another
+    table, `HOME_ASSISTANT`, or `WORDS` for a word, a switch or nothing.
     """
     if isinstance(value, Mapping):
-        return CHANNEL if "channel" in value else PROGRAM
+        return CHANNEL if "channel" in value else ENTITY if "entity" in value else PROGRAM
     return HOME_ASSISTANT if value == HOME_ASSISTANT else WORDS
 
 
@@ -72,6 +82,8 @@ class BindingField(QWidget):
         self._value: Any = None
         self._table: dict[str, Any] = {}
         """The options of the program: those in the file, or the last ones while the part is bound otherwise."""
+        self._entity: dict[str, Any] = {"entity": ""}
+        """The options of the entity, as `_table` those of the program."""
         self._loading = False
         self.channels: Callable[[], list[str]] = list
         outer = QVBoxLayout(self)
@@ -103,6 +115,7 @@ class BindingField(QWidget):
         self.actions_: dict[str, QAction] = {}
         modes = [
             *([HOME_ASSISTANT] if option.home_assistant else []),
+            *([ENTITY] if option.entity is not None else []),
             PROGRAM,
             *([CHANNEL] if option.channel else []),
             WORDS,
@@ -127,6 +140,15 @@ class BindingField(QWidget):
         self._add_rows(program)
         self.program.hide()
         outer.addWidget(self.program)
+        # the options of the entity, likewise
+        self.entity: EntityTable | None = None
+        if option.entity is not None:
+            skip = ("push",) if option.name == "fader" else ()
+            self.entity = EntityTable(option.entity, "entity", skip)
+            self.entity.setContentsMargins(Space.M, 0, 0, 0)
+            self.entity.changed.connect(self._entity_changed)
+            self.entity.hide()
+            outer.addWidget(self.entity)
 
     def _words_field(self, option: Option) -> QWidget:
         """The field of the words of the part, as an option of them has it without bindings."""
@@ -196,6 +218,8 @@ class BindingField(QWidget):
         mode = self.mode
         if mode == PROGRAM:
             self._table = dict(cast(Mapping[str, Any], value))
+        if mode == ENTITY:
+            self._entity = dict(cast(Mapping[str, Any], value))
         self._loading = True
         try:
             self._show_words(value)
@@ -203,16 +227,27 @@ class BindingField(QWidget):
                 self._show_channel(cast(Mapping[str, Any], value).get("channel"))
             for row in self.rows.values():
                 row.load()
+            if self.entity is not None:
+                self.entity.show_table(self._entity)
         finally:
             self._loading = False
         in_words = mode == WORDS or (mode == HOME_ASSISTANT and HOME_ASSISTANT in self.option.choices)
         self.words.setVisible(in_words)
         self.channel.setVisible(mode == CHANNEL)
         self.program.setVisible(mode == PROGRAM)
+        if self.entity is not None:
+            self.entity.setVisible(mode == ENTITY)
+            if mode == ENTITY:
+                self.entity.want()
         bound = not in_words
         self.bind.setText(MODE_TITLES[mode] if bound else "")
         targets = [
             *(["Home Assistant"] if self.option.home_assistant else []),
+            *(
+                ["one of its entities" if self.option.home_assistant else "an entity of Home Assistant"]
+                if self.option.entity is not None
+                else []
+            ),
             "a program of your own",
             *(["a custom channel"] if self.option.channel else []),
         ]
@@ -251,7 +286,7 @@ class BindingField(QWidget):
 
     def word(self) -> object:
         """The word shown (or what it is by default), None while the part is bound to a program or a channel."""
-        if self.mode in (PROGRAM, CHANNEL):
+        if self.mode in (PROGRAM, CHANNEL, ENTITY):
             return None
         if self._value is None and self.option.default is None and self._placeholder is not None:
             return self._placeholder()
@@ -268,7 +303,12 @@ class BindingField(QWidget):
             channels = self.channels()
             self._emit({"channel": channels[0] if channels else ""})
             return
-        value: object = {HOME_ASSISTANT: HOME_ASSISTANT, PROGRAM: dict(self._table), WORDS: None}[mode]
+        value: object = {
+            HOME_ASSISTANT: HOME_ASSISTANT,
+            PROGRAM: dict(self._table),
+            ENTITY: dict(self._entity),
+            WORDS: None,
+        }[mode]
         self._emit(value)
 
     def _channel(self) -> None:
@@ -295,6 +335,23 @@ class BindingField(QWidget):
         # the rows stay as they are: one of them is being edited
         self._value = dict(self._table)
         self.changed.emit(self._value)
+
+    def _entity_changed(self, table: dict[str, Any]) -> None:
+        """An option of the entity changed: the table goes to the file."""
+        self._entity = table
+        self._value = dict(table)
+        self.changed.emit(self._value)
+
+    def shown_rows(self) -> dict[str, OptionRow]:
+        """The rows of the options shown below the field: of the program, of the entity, or none."""
+        if self.mode == ENTITY and self.entity is not None:
+            return self.entity.rows
+        return self.rows if self.mode == PROGRAM else {}
+
+    @property
+    def entity_rows(self) -> dict[str, OptionRow]:
+        """The rows of the options of the entity, none for a part that takes none."""
+        return self.entity.rows if self.entity is not None else {}
 
     def _emit(self, value: object) -> None:
         self.show_value(value)

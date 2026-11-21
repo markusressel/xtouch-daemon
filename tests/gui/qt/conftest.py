@@ -22,10 +22,12 @@ from tests.support.gui import (
     MakeWindow,
     no_install,
     unreachable_broker,
+    unreachable_home_assistant,
 )
 from tests.support.instance import RecordingInstance
 from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.gui.domain.entities import Fetch
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.pages.sections import BrokerTest, MumbleInstaller
 from xtouch_daemon.gui.qt.theme.style import apply_theme
@@ -88,6 +90,7 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         session: Session | None = None,
         mumble_installer: MumbleInstaller | None = None,
         virtual_socket: Path | None = None,
+        read_entities: Fetch = unreachable_home_assistant,
     ) -> MainWindow:
         # the window after a new zoom goes on with the document of the one before
         document = session.history.document if session is not None else SlotsDocument.open(file)
@@ -103,6 +106,7 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
             # nothing of this machine: no plugin, no Mumble
             mumble_installer or MumbleInstaller(no_install, lambda: NO_MUMBLE),
             virtual_socket,
+            read_entities,
         )
         qtbot.addWidget(window)
         window.show()

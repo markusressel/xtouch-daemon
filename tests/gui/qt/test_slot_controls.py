@@ -204,7 +204,10 @@ def test_without_a_custom_channel_a_channel_starts_empty(window: MainWindow):
 def test_an_unbound_part_says_what_it_can_be_bound_to(window: MainWindow):
     setup(window, "1", {"color": "red", "fader": "homeassistant"})
     rows = box(window).rows
-    assert rows["color"].binding.bind.toolTip() == "Bind it to Home Assistant or a program of your own"
+    assert (
+        rows["color"].binding.bind.toolTip()
+        == "Bind it to Home Assistant, one of its entities or a program of your own"
+    )
     assert rows["fader"].binding.bind.toolTip() == "Bound to Home Assistant: click to change"
 
 

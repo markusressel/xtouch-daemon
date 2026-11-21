@@ -98,7 +98,10 @@ async def test_the_daemon_connects_while_parts_show_entities(
     config_path.write_text(SECTION.replace("the-token", "another") + CHANNEL)
     assert daemon.reload()
     await until(lambda: daemon.hass.synced)
-    assert notifications[-1][-1].endswith(", waiting for Home Assistant")
+    # the status line follows the connection, not only the reloads
+    assert notifications[-1][-1].endswith(", Home Assistant connected")
+    home.disconnect()
+    await until(lambda: notifications[-1][-1].endswith(", waiting for Home Assistant"))
     assert len(home.connections) == 2
     daemon.stop()
     await task

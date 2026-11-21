@@ -103,6 +103,9 @@ Home Assistant (Settings → People → Users) limits that to what that user may
 - A token file that can't be read, or a variable that is not set, is an error in the log; the daemon runs without
   the connection.
 - The log says when the daemon connected to Home Assistant, and why it can't (View → Log in the [GUI](gui.md)).
+- In the GUI, the page "Home Assistant API" tests the settings before you save them, and shows how the daemon's
+  connection is doing. With the section, the fields of entities suggest the entities of Home Assistant (see
+  [the GUI](gui.md#suggestions-from-home-assistant)).
 
 ## `homeassistant` channels
 

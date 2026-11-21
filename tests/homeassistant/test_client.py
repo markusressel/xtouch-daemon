@@ -25,6 +25,7 @@ from xtouch_daemon.homeassistant.client import (
     HomeAssistantError,
     TokenRefused,
     describe_entity,
+    fetch,
     fetch_entities,
     websocket_connect,
 )
@@ -232,6 +233,10 @@ async def test_fetching_the_entities_once(home: FakeHomeAssistant) -> None:
         ("sensor.cpu", "sensor.cpu"),
     ]
     assert not home.connected
+    # with the version, for the test of the settings in the GUI
+    fetched = await fetch(hass_config(), home.connect)
+    assert fetched.version == "2026.11.0"
+    assert [entity.entity_id for entity in fetched.entities] == ["light.desk", "sensor.cpu"]
     with pytest.raises(TokenRefused, match="refused the token"):
         await fetch_entities(hass_config(token="wrong"), home.connect)
     home.refuse = 1
