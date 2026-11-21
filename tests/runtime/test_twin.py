@@ -114,3 +114,24 @@ async def test_the_backend_is_in_memory_and_keeps_what_the_strips_set():
     with pytest.raises(NotImplementedError):
         await backend.run(lambda state: None)
     twin.close()
+
+
+async def test_a_twin_shows_parts_in_home_assistant_as_offline():
+    """The twin has no MQTT: an audio channel with parts in Home Assistant runs, as while it is not there."""
+    config = parse_config(
+        CONFIG.replace('color = "cyan"', 'color = "homeassistant"\nlcd = "homeassistant"\nencoder = "homeassistant"')
+        + '\n[mqtt]\nhost = "broker"\n'
+    )
+    twin = Twin(config, HOME)
+    task = asyncio.create_task(twin.run())
+    try:
+        await until(lambda: (view := twin.view()) is not None and tuple(view.strips[0].text) == ("Out", "offline"))
+        twin.play(protocol.EncoderTurned(0, 1))
+        await asyncio.sleep(0.05)
+        view = twin.view()
+        assert view is not None
+        assert tuple(view.strips[0].text) == ("Out", "offline")
+    finally:
+        task.cancel()
+        twin.close()
+        await twin.wait_closed()

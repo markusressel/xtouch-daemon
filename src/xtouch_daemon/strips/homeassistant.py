@@ -20,6 +20,7 @@ push, the touches of the fader and the presses of buttons. A fader or an encoder
 
 import asyncio
 import dataclasses
+import math
 from collections.abc import Callable, Mapping
 from typing import get_args
 
@@ -387,11 +388,15 @@ class HomeAssistantControls:
 
 
 def _value_step(name: str, binding: ValueBinding, env: StripEnv) -> float:
-    """The step of the number of a value: an encoder's step, a fader's 0.1 % of the range (as a move sets it)."""
+    """
+    The step of the number of a value: an encoder's step (as `CommandValue` computes it), a fader's 0.1 % of the range
+    as a power of ten (0.1 for 0..100, 0.001 for 0.1..1), so the slider of Home Assistant sends round values.
+    """
     span = binding.max - binding.min
     if name == "encoder":
-        return binding.step if binding.step is not None else span * env.behavior.encoder_step / 100
-    return span / 1000
+        # rounded off: 0.9 * 5 / 100 is 0.045000000000000005
+        return binding.step if binding.step is not None else round(span * env.behavior.encoder_step / 100, 9)
+    return 10.0 ** round(math.log10(span / 1000))
 
 
 def _lit(text: str | None) -> Lit | None:

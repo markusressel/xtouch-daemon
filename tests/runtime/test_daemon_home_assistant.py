@@ -15,6 +15,7 @@ from tests.support.mqtt import FakeBroker
 from tests.support.waiting import until
 from xtouch_daemon import __version__
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.hardware.protocol import Color
 from xtouch_daemon.live.codec import decode
 from xtouch_daemon.live.messages import (
     fingerprint,
@@ -189,12 +190,15 @@ async def test_the_bound_parts_of_an_audio_channel_are_entities_across_reloads(
     broker.publish("homeassistant/select/xtouch/speakers_color/set", "red")
     broker.publish("homeassistant/text/xtouch/speakers_bottom/set", "Hi")
     await until(lambda: surface.strips[0].text == ["Speaker", "Hi"])
+    await until(lambda: surface.strips[0].color == Color.RED)
 
     # without the bindings, the entities go and the strip is what its type is
     config_path.write_text(BOUND.replace('color = "homeassistant"\nlcd = "homeassistant"\n', ""))
     assert daemon.reload()
     await until(lambda: "homeassistant/select/xtouch/speakers_color/config" not in broker.retained)
     await until(lambda: surface.strips[0].text == ["Speaker", "50%"])
+    # back to the configured color (white)
+    assert surface.strips[0].color == Color.WHITE
     assert "homeassistant/number/xtouch/speakers_fader/config" in broker.retained
     daemon.stop()
     await task

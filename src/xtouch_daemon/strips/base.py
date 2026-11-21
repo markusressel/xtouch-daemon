@@ -12,7 +12,7 @@ from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.meter import CaptureTarget, Lit, Reading
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config.bindings import LevelBinding, RunAction, WatchBinding, fill, placeholders_of
+from xtouch_daemon.config.bindings import HOME_ASSISTANT, LevelBinding, RunAction, WatchBinding, fill, placeholders_of
 from xtouch_daemon.config.buttons import HOLD_TIME, WHILE_HELD, Action, ButtonSetup, LaunchAction, indicator
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import ColorName, EncoderMode, Indicator, MeterPoint, color_of
@@ -285,6 +285,13 @@ class VolumeStrip(StripController):
         """
         if controls is not None:
             controls.on_change = self._parts_changed
+        self.fader_in_home_assistant = controls is not None and controls.fader is not None
+        """
+        Whether the fader belongs to Home Assistant: then it sets no volume. Without the entity (Simulate has no MQTT)
+        it stays where it is, as while Home Assistant is not connected.
+        """
+        self._warned: set[str] = set()
+        """The parts in Home Assistant without an entity that the log has named already."""
         self.bound = BoundParts(env.commands, env.behavior.encoder_step, identity.name, self._parts_changed)
         """The programs of its bound parts (`Look.parts`, the LEDs of `Look.buttons`), for as long as it lives."""
         self._bind_parts()
@@ -322,6 +329,33 @@ class VolumeStrip(StripController):
         self.bound.bind(self.look.parts, self.look.buttons)
         if self.controls is not None:
             self.controls.attach(self.bound.fader, self.bound.encoder)
+        self._warn_missing_entities()
+
+    def _warn_missing_entities(self) -> None:
+        """
+        A place can't move a part into Home Assistant: its entities are the channel's. Such a part shows what it does
+        while Home Assistant is not there; the log says why. Not in Simulate, which has no MQTT at all.
+        """
+        if self.env.bridge is None:
+            return
+        controls = self.controls
+        parts = self.look.parts
+        missing = [
+            *(["lcd"] if parts.lcd == HOME_ASSISTANT and (controls is None or controls.bottom is None) else []),
+            *(["color"] if parts.color == HOME_ASSISTANT and (controls is None or controls.color is None) else []),
+            *(["meter"] if parts.meter == HOME_ASSISTANT and (controls is None or controls.meter is None) else []),
+            *(
+                f"{button.name.lower()}.led"
+                for button, setup in self.look.buttons.items()
+                if setup.led == HOME_ASSISTANT and (controls is None or button.name.lower() not in controls.leds)
+            ),
+        ]
+        for part in missing:
+            if part not in self._warned:
+                self._warned.add(part)
+                _LOGGER.warning(
+                    f'{self.identity.name}: {part} = "homeassistant" works on the channel itself only, not on a place'
+                )
 
     def _rebind_parts(self) -> None:
         """The bound parts of another look: the encoder does what its binding says now."""
@@ -528,7 +562,7 @@ class VolumeStrip(StripController):
     @property
     def fader_sets_volume(self) -> bool:
         """Whether the fader sets the volume: it is not bound to Home Assistant or to a program."""
-        return self.ha_fader is None and self.bound.fader is None
+        return self.bound.fader is None and not self.fader_in_home_assistant
 
     @property
     def color(self) -> Color:
@@ -630,7 +664,7 @@ class VolumeStrip(StripController):
         elif self.ha_fader is not None and self.controls is not None:
             if self.controls.connected:
                 self.ha_fader.moved(fraction)
-        elif self.accepts_input():
+        elif self.fader_sets_volume and self.accepts_input():
             bottom, top = self.volume_range()
             self.set_volume(round(fader_volume(fraction, bottom, top, self.env.behavior.unity_at)))
 

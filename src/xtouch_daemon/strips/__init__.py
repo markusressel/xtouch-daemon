@@ -134,8 +134,7 @@ def build_strip(
         if config.encoder is None or isinstance(config.encoder, ValueBinding)
         else config.encoder
     )
-    if config.uses_home_assistant:
-        assert env.bridge is not None, "the configuration has no strips in Home Assistant without [mqtt]"
+    # without a bridge (Simulate) the parts in Home Assistant stay as while it is not connected
     controls = home_assistant_controls(config, strip, env, identity, encoder)
     match config:
         case DeviceStripConfig(choices=choices) if choices:
@@ -192,6 +191,7 @@ def build_strip(
             )
         case _ as unreachable:
             assert_never(unreachable)
+    controller.fader_in_home_assistant = config.fader == HOME_ASSISTANT
     if isinstance(controller, AppStrip):
         controller.launch = launch_button(config, identity, env)
     return controller

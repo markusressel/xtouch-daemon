@@ -314,14 +314,12 @@ class HomeAssistantKnob(Knob):
 
     def __init__(self, owner: VolumeStrip):
         super().__init__(owner)
-        controls = owner.controls
-        assert controls is not None, "the strip has the entities"
-        assert controls.encoder is not None, "the encoder is one of them"
-        self.controls = controls
-        self.encoder = controls.encoder
+        # without the entity (Simulate has no MQTT) it is dark, as while Home Assistant is not there
+        self.controls = owner.controls
+        self.encoder = self.controls.encoder if self.controls is not None else None
 
     def turn(self, steps: int) -> None:
-        if self.controls.connected:
+        if self.encoder is not None and self.controls is not None and self.controls.connected:
             self.encoder.turn(steps)
             self.owner.notify(f"{self.encoder.out.value:g}%")
 
@@ -329,7 +327,9 @@ class HomeAssistantKnob(Knob):
         self.owner.ha_event("encoder_pressed" if pressed else "encoder_released")
 
     def ring(self) -> tuple[int, RingMode]:
-        return self.encoder.ring() if self.controls.connected else (0, RingMode.DOT)
+        if self.encoder is None or self.controls is None or not self.controls.connected:
+            return 0, RingMode.DOT
+        return self.encoder.ring()
 
 
 class CommandKnob(Knob):

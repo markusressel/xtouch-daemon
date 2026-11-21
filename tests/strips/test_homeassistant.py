@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import json
 from collections.abc import AsyncIterator
 
@@ -15,6 +16,8 @@ from tests.support.waiting import until
 from xtouch_daemon import mqtt as mqtt_module
 from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState, Direction
+from xtouch_daemon.config.bindings import ValueBinding
+from xtouch_daemon.config.buttons import ButtonSetup
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.config.sections import BehaviorConfig, MqttConfig
 from xtouch_daemon.hardware import protocol
@@ -22,6 +25,7 @@ from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips import homeassistant as homeassistant_module
 from xtouch_daemon.strips.base import Identity, Look, StripEnv, VolumeStrip
+from xtouch_daemon.strips.bound import Parts
 from xtouch_daemon.strips.homeassistant import EVENT_TYPES, HomeAssistantStrip, LatestValue
 
 TOPIC = "homeassistant/{component}/xtouch/lights_{part}/{kind}"
@@ -577,7 +581,8 @@ async def test_a_value_of_a_program_is_a_number_of_home_assistant(
     await connect_audio(strip, bridge)
     discovery = json.loads(broker.retained[topic("number", "fader", "config")])
     assert (discovery["min"], discovery["max"]) == (0.1, 1.0)
-    assert discovery["step"] == pytest.approx(0.0009)
+    # a round step: the slider of Home Assistant sends round values
+    assert discovery["step"] == 0.001
     # unknown yet: no state
     assert topic("number", "fader") not in broker.retained
     # the watch tells it: Home Assistant follows
@@ -610,5 +615,113 @@ async def test_a_value_of_an_encoder_is_a_number_in_its_steps(
     strip.on_encoder(2)
     await until(lambda: broker.retained.get(topic("number", "encoder")) == "1")
     assert commands.runs == [["brightness", "-b", "1"]]
+    strip.close()
+    await finish_tasks()
+
+
+async def test_a_number_follows_the_value_of_another_look(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    fader = f'fader = {{ set = "{SET} {{value}}", watch = "{WATCH}", min = 0.1, max = 1.0 }}'
+    strip, commands = bound_strip(surface, bridge, fader)
+    strip.update(SPEAKER)
+    await connect_audio(strip, bridge)
+    old = strip.bound.fader
+    assert old is not None
+    other = ValueBinding.model_validate({"set": "other -b {value}", "watch": "other --watch", "min": 0.1, "max": 1.0})
+    strip.set_look(dataclasses.replace(strip.look, parts=Parts(fader=other)))
+    await settle()
+    new = strip.bound.fader
+    assert new is not None
+    assert new is not old
+    # the closed value has no number listening any more, the new one has
+    assert strip.controls is not None
+    link = strip.controls.values["fader"]
+    assert link.value is new
+    assert link.publish not in old.listeners
+    assert link.publish in new.listeners
+    commands.print("0.3")
+    await until(lambda: broker.retained.get(topic("number", "fader")) == "0.3")
+    broker.publish(topic("number", "fader", "set"), "0.7")
+    await until(lambda: commands.runs == [["other", "-b", "0.7"]])
+    strip.close()
+    await finish_tasks()
+
+
+async def test_an_encoder_number_has_a_round_step(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    strip, _ = bound_strip(surface, bridge, f'encoder = {{ set = "{SET} {{value}}", min = 0.1, max = 1.0 }}')
+    strip.update(SPEAKER)
+    await connect_audio(strip, bridge)
+    discovery = json.loads(broker.retained[topic("number", "encoder", "config")])
+    # 5 % of 0.9, without the noise of floats (0.045000000000000005)
+    assert discovery["step"] == 0.045
+    strip.close()
+    await finish_tasks()
+
+
+async def test_parts_in_home_assistant_without_a_bridge_stay_offline(surface: RecordingSurface) -> None:
+    """Simulate has no MQTT: the parts in Home Assistant show what they show while it is not there."""
+    backend = FakeBackend()
+    env = StripEnv(backend, BehaviorConfig(encoder_step=5, max_volume=100), commands=FakeCommands())
+    fader_config, encoder_config = strips_of(
+        '[channel.a]\ntype = "output"\ndevice = "speaker"\nlabel = "A"\nfader = "homeassistant"\n'
+        'lcd = "homeassistant"\ncolor = "homeassistant"\nmeter = "homeassistant"\nsolo = { led = "homeassistant" }\n'
+        '[channel.b]\ntype = "output"\ndevice = "speaker"\nlabel = "B"\nencoder = "homeassistant"\n'
+    )
+    on_fader = build(fader_config, surface.strips[0], env, {}, "a")
+    on_encoder = build(encoder_config, surface.strips[1], env, {}, "b")
+    assert isinstance(on_fader, VolumeStrip)
+    assert isinstance(on_encoder, VolumeStrip)
+    assert on_fader.controls is None
+    assert on_encoder.controls is None
+    on_fader.update(SPEAKER)
+    on_encoder.update(SPEAKER)
+    a, b = surface.strips[0], surface.strips[1]
+    assert a.text == ["A", "offline"]
+    assert a.color == Color.WHITE
+    assert a.leds[Button.SOLO] == Led.OFF
+    assert on_fader.held_meter("pre_fader") is None
+    # the fader is Home Assistant's: a hand sets no volume and the motor stays; the encoder sets the volume
+    fader = a.fader
+    on_fader.on_fader(0.2)
+    on_fader.on_touch(True)
+    on_fader.on_touch(False)
+    await settle()
+    assert backend.calls == []
+    assert a.fader == fader
+    on_fader.on_encoder(-2)
+    await until(lambda: backend.calls == [("set_device_volume", Direction.OUTPUT, "speaker", 40)])
+    # the encoder is Home Assistant's: dark, and turning or pushing it does nothing
+    assert b.ring == (0, RingMode.DOT)
+    on_encoder.on_encoder(3)
+    on_encoder.on_encoder_press(True)
+    await settle()
+    assert b.ring == (0, RingMode.DOT)
+    assert len(backend.calls) == 1
+    on_fader.close()
+    on_encoder.close()
+    await finish_tasks()
+
+
+async def test_a_place_can_not_move_a_part_into_home_assistant(
+    surface: RecordingSurface, bridge: MqttBridge, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The entities are the channel's: a place's part in Home Assistant shows nothing, and the log says why, once."""
+    strip, _ = bound_strip(surface, bridge, "")
+    solo = ButtonSetup(led="homeassistant")
+    parts = Parts(lcd="homeassistant", color="homeassistant", meter="homeassistant")
+    look = dataclasses.replace(strip.look, parts=parts, buttons={Button.SOLO: solo})
+    strip.set_look(look)
+    strip.set_look(look)
+    warnings = [record.getMessage() for record in caplog.records if "homeassistant" in record.getMessage()]
+    assert warnings == [
+        f'Lights: {part} = "homeassistant" works on the channel itself only, not on a place'
+        for part in ("lcd", "color", "meter", "solo.led")
+    ]
+    strip.update(SPEAKER)
+    assert surface.strips[0].text == ["Lights", "offline"]
+    assert surface.strips[0].color == Color.WHITE
     strip.close()
     await finish_tasks()
