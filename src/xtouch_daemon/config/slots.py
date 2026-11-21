@@ -10,11 +10,12 @@ from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
 
-from xtouch_daemon.config.base import ConfigError
+from xtouch_daemon.config.base import ConfigError, error_message, error_place
+from xtouch_daemon.config.buttons import table_of
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.sections import VoipConfig
 from xtouch_daemon.config.strip import BaseStripConfig
-from xtouch_daemon.config.strips import HomeAssistantStripConfig, StripConfig
+from xtouch_daemon.config.strips import CustomStripConfig, HomeAssistantStripConfig, StripConfig
 from xtouch_daemon.slots.model import APPS, AUTO, DEVICES, MEMBER_OPTIONS, PEOPLE, Scene
 from xtouch_daemon.slots.resolver import SLOTS
 
@@ -28,6 +29,8 @@ CHANNEL_ONLY = frozenset({"tags", "in_pool", "absent_after"})
 POOL_ONLY = MEMBER_OPTIONS
 """Options of a pool that are about its members and slots, not about its strips."""
 EMPTY = "-"
+BUTTONS = ("select", "rec", "solo", "mute")
+"""The buttons of a strip: a layer that sets one sets only the parts of its table it names."""
 
 _STRIP = TypeAdapter[StripConfig](StripConfig)
 
@@ -57,6 +60,23 @@ class SlotsSetup:
         return _STRIP.validate_python({"type": "voip"} | dict(self.people) | {"person": name})
 
 
+def over(*layers: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    The options of a strip from layers, each over the ones before: the type, the look of a pool, the channel, the
+    place. A button takes the parts of its table each layer names, so an LED set at a place keeps the channel's press.
+    """
+    result: dict[str, Any] = {}
+    for layer in layers:
+        for key, value in layer.items():
+            below = table_of(key, result.get(key)) if key in BUTTONS else None
+            above = table_of(key, value) if key in BUTTONS else value
+            if isinstance(below, Mapping) and isinstance(above, Mapping):
+                result[key] = {**below, **above}
+            else:
+                result[key] = value
+    return result
+
+
 def split(data: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """The sections of today's format, and those of channels, states and slots (None for a file without them)."""
     rest = {key: value for key, value in data.items() if key not in SECTIONS}
@@ -80,8 +100,9 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
             return _STRIP.validate_python(dict(options))
         except ValidationError as e:
             for error in e.errors():
-                path = ".".join(str(part) for part in error["loc"][1:])
-                problems.append(f"{where}: {path + ': ' if path else ''}{error['msg'].removeprefix('Value error, ')}")
+                # the first part is the type of the strip
+                path = error_place(error["loc"][1:])
+                problems.append(f"{where}: {path + ': ' if path else ''}{error_message(error)}")
             return None
 
     def add(key: tuple[int, int, str | None], where: str, options: Mapping[str, Any]) -> None:
@@ -116,20 +137,20 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
             if candidate.show is None:
                 add((slot, index, None), where, {"type": "empty"})
             elif candidate.show in scene.channels:
-                add((slot, index, candidate.show), where, channel_strip(candidate.show) | own)
+                add((slot, index, candidate.show), where, over(channel_strip(candidate.show), own))
             else:
                 look = {key: value for key, value in pools.get(candidate.show, {}).items() if key not in POOL_ONLY}
                 if candidate.show in (APPS, AUTO):
-                    add((slot, index, None), where, {"type": "auto"} | look | own)
+                    add((slot, index, None), where, over({"type": "auto"}, look, own))
                 elif candidate.show == DEVICES:
                     # the devices on its slots: an output strip until a device comes (see `SlotsSetup.device()`)
-                    add((slot, index, None), where, {"type": "output"} | look | own)
+                    add((slot, index, None), where, over({"type": "output"}, look, own))
                 elif candidate.show in scene.apps_pools:
                     # a pool of applications of your own: they act as `apps` channels do, with no pick
-                    add((slot, index, None), where, {"type": "auto", "encoder": "media"} | look | own)
+                    add((slot, index, None), where, over({"type": "auto", "encoder": "media"}, look, own))
                 elif candidate.show == PEOPLE or candidate.show in scene.people_pools:
                     # the people on its slots: the look of [pool.people] and of the place (their names are theirs)
-                    add((slot, index, None), where, {"type": "voip"} | look | own | {"person": "someone"})
+                    add((slot, index, None), where, over({"type": "voip"}, look, own, {"person": "someone"}))
                 else:
                     add((slot, index, None), where, {"type": "empty"})
                 # a pool hands out channels: `auto` the apps channels without a slot, the others their own; a channel
@@ -141,7 +162,7 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
                     else scene.channels_of(candidate.show)
                 )
                 for member in members:
-                    add((slot, index, member), f"{where} ({member})", look | channel_strip(member))
+                    add((slot, index, member), f"{where} ({member})", over(look, channel_strip(member)))
                 if candidate.show in (PEOPLE, AUTO, *scene.people_pools):
                     # the person channels among the people, as themselves
                     for member in (name for name, channel in scene.channels.items() if channel.type == "person"):
@@ -162,12 +183,12 @@ def setup(config: Config, data: Mapping[str, Any]) -> Config:
     if config.mqtt is None:
         for name, strip in own_strips.items():
             if isinstance(strip, HomeAssistantStripConfig) or (
-                isinstance(strip, BaseStripConfig) and strip.uses_home_assistant
+                isinstance(strip, BaseStripConfig | CustomStripConfig) and strip.uses_home_assistant
             ):
                 problems.append(f"channel.{name}: Home Assistant needs an [mqtt] section")
         for slot, entries in scene.controls.items():
             for index, entry in enumerate(entries):
-                if "homeassistant" in (entry.fader, entry.encoder, entry.select, entry.rec, entry.solo):
+                if entry.uses_home_assistant:
                     where = f"controls.{slot}" + (f"[{index}]" if len(entries) > 1 else "")
                     problems.append(f"{where}: Home Assistant needs an [mqtt] section")
     if problems:

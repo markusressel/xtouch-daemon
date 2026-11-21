@@ -15,13 +15,14 @@ from xtouch_daemon.audio.model import Direction
 from xtouch_daemon.config.buttons import ButtonSetup, default_setup
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
-from xtouch_daemon.config.values import default_encoder
+from xtouch_daemon.config.values import ENCODERS, default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, channel_options, pool_options, uses
 from xtouch_daemon.gui.domain.clipboard import Tables, parse_tables, tables_text
 from xtouch_daemon.gui.domain.demos import GROUPS, PREVIEWED, Part, Strip, group_of, scene
 from xtouch_daemon.gui.domain.schema import Kind, Option, options
+from xtouch_daemon.gui.domain.slot_controls import modes_and_states
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.voip import participants
@@ -113,6 +114,8 @@ class ChannelsPage(Page):
         # the lines fit the width (or are cut short): no scrolling sideways
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.list.setItemDelegate(EntityItemDelegate(self.list))
+        # the items wrap their lines: measured again at each width
+        self.list.setResizeMode(QListWidget.ResizeMode.Adjust)
         scroll_shadows(self.list)
         self.listed: list[tuple[OptionPath, str, str, str]] = []
         """The lines of the list: (path, text, icon, tip)."""
@@ -213,7 +216,7 @@ class ChannelsPage(Page):
         cards.setSpacing(Space.M)
         rows: list[OptionRow] = []
         previews: dict[Part, PartPreview] = {}
-        suggest, table_suggest, placeholders = self._helpers(strip)
+        suggest, table_suggest, placeholders = self._helpers(strip, path)
         by_name = {option.name: option for option in form_options}
         for group, title in GROUPS:
             options = [option for option in form_options if group_of(option.name) == group]
@@ -234,8 +237,9 @@ class ChannelsPage(Page):
                 if option.name == "meter_point":
                     # one choice with `meter`, see `_meter_row`
                     continue
-                if option.name == "meter":
-                    widgets.append(self._meter_row(path, strip, rows))
+                if option.name == "meter" and "meter_point" in by_name:
+                    # an audio meter: where it takes the level, or off, or bound
+                    widgets.append(self._meter_row(path, strip, rows, bindable=option.kind == Kind.BINDING))
                     continue
                 if option.name == "choices" and "device" in by_name:
                     # one list with `device`, see `_device_row`
@@ -248,7 +252,7 @@ class ChannelsPage(Page):
                     path,
                     table_suggest.get(option.name) or suggest.get(option.name),
                     placeholders.get(option.name),
-                    docs.option_link("strip", option.name, strip),
+                    docs.option_link("strip", option.name, strip, bound=option.kind == Kind.BINDING),
                     rows,
                 )
                 if option.kind == Kind.BUTTON:
@@ -260,16 +264,23 @@ class ChannelsPage(Page):
             cards.addWidget(frame)
         # one column of names for the whole form: the fields of all cards line up
         align_titles(rows)
+        named = {option_row.option.name: option_row for option_row in rows}
+        if "fader" in named and "encoder" in named:
+            # what the encoder does without `encoder` depends on the fader
+            named["fader"].edited.connect(named["encoder"].load)
         self.form_rows[key] = rows
         self.form_widgets[key] = form
         self.form_previews[key] = previews
         self.form_values[key] = lambda: {option.name: self._resolved(path, option) for option in form_options}
         self.form_strips[key] = strip
 
-    def _meter_row(self, path: Callable[[str], OptionPath], strip: str, rows: list[OptionRow]) -> OptionRow:
+    def _meter_row(
+        self, path: Callable[[str], OptionPath], strip: str, rows: list[OptionRow], bindable: bool
+    ) -> OptionRow:
         """
         `meter` and `meter_point` as one choice: where the meter takes the level, or off. Unset, both take their
-        defaults (the meter on, at `behavior.meter_point`).
+        defaults (the meter on, at `behavior.meter_point`). `bindable`: the meter can be bound (not of a person, or
+        of a pool).
         """
 
         def put(name: str, value: Any) -> None:
@@ -283,6 +294,7 @@ class ChannelsPage(Page):
             put,
             lambda: str(self.document.get(("behavior", "meter_point"), "pre_fader")),
             docs.option_link("strip", "meter_point", strip),
+            bindable=bindable,
         )
         option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, path("meter"))))
         rows.append(option_row)
@@ -320,6 +332,9 @@ class ChannelsPage(Page):
         """A button shows what the strip type does without its table, and offers the modes and states there are."""
 
         def defaults() -> ButtonSetup:
+            if strip == "custom":
+                # a button of a custom channel does nothing unless it is told to
+                return ButtonSetup()
             return default_setup(
                 name,  # pyright: ignore[reportArgumentType]: a button option is named like its button
                 strip,
@@ -328,13 +343,8 @@ class ChannelsPage(Page):
                 launch=self.document.get(path("launch")) is not None,
             )
 
-        def modes_and_states() -> list[str]:
-            states: dict[str, Any] = self.document.get(("state",), {})
-            modes = [f"mode:{state}" for state, options in states.items() if options.get("mode")]
-            return [*(["cycle_modes", *modes, "mode:default"] if modes else []), *(f"toggle:{s}" for s in states)]
-
         option_row.buttons.defaults = defaults
-        option_row.buttons.extra = modes_and_states
+        option_row.buttons.extra = lambda: modes_and_states(self.document.values)
         option_row.load()
 
     def _resolved(self, path: Callable[[str], OptionPath], option: Option) -> Any:
@@ -342,8 +352,13 @@ class ChannelsPage(Page):
         value = self.document.get(path(option.name))
         return option.default if value is None else value
 
-    def _helpers(self, strip: str) -> tuple[dict[str, Suggest], dict[str, TableSuggest], dict[str, Callable[[], str]]]:
-        """Suggestions and placeholders of the options of a strip type."""
+    def _helpers(
+        self, strip: str, path: Callable[[str], OptionPath]
+    ) -> tuple[dict[str, Suggest], dict[str, TableSuggest], dict[str, Callable[[], str]]]:
+        """
+        Suggestions and placeholders of the options of a strip type; `path` is where the options of the channel are
+        (the encoder sets the volume while the fader does not).
+        """
         suggest: dict[str, Suggest] = {
             "match": lambda: sources.patterns(self.audio()),
             "exclude": lambda: sources.patterns(self.audio()),
@@ -352,12 +367,23 @@ class ChannelsPage(Page):
         }
         table_suggest: dict[str, TableSuggest] = {}
         placeholders: dict[str, Callable[[], str]] = {
-            "encoder": lambda: default_encoder(strip),
+            "encoder": lambda: (
+                default_encoder(strip, self.document.get(path("fader")) or "volume")
+                if strip in ENCODERS
+                else "the value of the fader, by its step"
+            ),
+            "lcd": lambda: (
+                "the value of the fader, else of the encoder" if strip == "custom" else "what the type shows"
+            ),
             "min_volume": lambda: "0",
             "max_volume": lambda: f"{self.document.get(('behavior', 'max_volume'), 130)} (behavior)",
             # one entry per part: the program first, then each argument
             "launch": lambda: "none: Select starts nothing; the program, then each argument",
         }
+        if strip == "custom":
+            placeholders["fader"] = lambda: "none: the fader stays down"
+            placeholders["meter"] = lambda: "none: the meter stays dark"
+            placeholders["present"] = lambda: "none: always present"
         if strip in ("output", "input"):
             direction = Direction(strip)
             suggest["profiles"] = lambda: sources.profiles(self.audio(), direction)

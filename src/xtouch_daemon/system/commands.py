@@ -1,7 +1,7 @@
 """
-The programs of command controls (`{ command = { ... } }` in `[controls]`): one that sets a value and ends, and one
-that watches it and prints a line per change. They run without a shell. The tests use a `Commands` of their own
-(`tests/support/commands.py`), the twin one that runs nothing (`NoCommands`).
+The programs of bindings and custom channels (`set`, `watch`, `run`): one that sets a value (or runs for a button) and
+ends, and one that watches it and prints a line per change. They run without a shell. The tests use a `Commands` of
+their own (`tests/support/commands.py`), the twin one that only watches (`SimulatedCommands`).
 """
 
 import asyncio
@@ -19,6 +19,9 @@ class CommandError(Exception):
 
 class Commands:
     """Runs the programs, and the tasks that own them: `wait_closed()` waits until they ended."""
+
+    simulated = False
+    """Whether nothing is set for real (Simulate): values start in the middle, so the preview is not dark."""
 
     def __init__(self) -> None:
         self._tasks: set[asyncio.Task[None]] = set()
@@ -73,15 +76,13 @@ class Commands:
             await end(process)
 
 
-class NoCommands(Commands):
-    """Runs nothing: for the twin, whose controls must not change the machine."""
+class SimulatedCommands(Commands):
+    """Runs the `watch` programs only, never `set`: for the twin, whose controls must not change the machine."""
+
+    simulated = True
 
     async def run(self, argv: Sequence[str]) -> None:
         pass
-
-    async def lines(self, argv: Sequence[str]) -> AsyncIterator[str]:
-        await asyncio.Event().wait()
-        yield ""  # pragma: no cover - never reached: it waits for ever
 
 
 async def end(process: asyncio.subprocess.Process) -> None:

@@ -80,6 +80,10 @@ def test_stacks_in_all_forms():
             "slots.1[0]: encoder is no option of a place for out (it belongs to the channel)",
         ),
         ("[slots]\n1 = [{ show = 'auto', colour = 'red' }]", "slots.1[0]: colour is no option of a place for auto"),
+        (
+            "[pool.media]\nchannels = ['#media']\n[slots]\n1 = [{ show = 'media', color = 'red' }]",
+            "slots.1[0]: color is no option of a place for media (its channels bring their own look: set it on them",
+        ),
         ("[channel.Big]\ntype = 'output'", "channel.Big: an id is lower case letters, digits and _"),
         ("[channel.state_x]\ntype = 'output'", "channel.state_x: state_x is reserved"),
         ("[state.default]\nmanual = 1", "state.default.manual: Extra inputs are not permitted"),
@@ -92,6 +96,17 @@ def test_stacks_in_all_forms():
         ),
         ("[slots]\n1 = [{ show = 'auto', id = 'knob' }]", "slots.1[0]: id is no option of a place for auto (a control"),
         ("[slots]\n1 = [{ show = 'auto', encoder = 'homeassistant' }]", 'encoder = "homeassistant" is a control of'),
+        (
+            "[slots]\n1 = [{ show = 'auto', color = { watch = 'x' } }]",
+            "slots.1[0]: color: a place takes a word; bind it on the channel",
+        ),
+        ("[slots]\n1 = [{ show = 'auto', meter = { watch = 'x' } }]", "slots.1[0]: meter: a place takes a word"),
+        ("[slots]\n1 = [{ show = 'auto', solo = { led = { watch = 'x' } } }]", "slots.1[0]: solo.led: a place takes"),
+        (
+            "[slots]\n1 = [{ show = 'auto', encoder = { set = 'b {value}' } }]",
+            "slots.1[0]: encoder: a place takes a word; bind it on the channel or in [controls]",
+        ),
+        ("[pool.apps]\ncolor = { watch = 'x' }", "pool.apps: color: a place takes a word"),
         ("[controls]\n1 = { fader = 'homeassistant', id = 'out' }", "controls.1.id: out is also a channel, pool or"),
         ("[controls]\n1 = { fader = 'homeassistant', id = 'Knob' }", "controls.1.id: Knob: an id is lower case"),
         ("[controls]\n1 = { fader = 'homeassistant', id = 'slot_2' }", "controls.1.id: slot_2 is reserved"),
@@ -121,7 +136,7 @@ def test_stacks_in_all_forms():
         ("[pool.people]\nlabel = 'Friend'", "pool.people: label: only on a person channel"),
         (
             "[controls]\n1 = { select = { launch = [] } }",
-            "controls.1.select.Launch.launch: Tuple should have at least 1",
+            "controls.1.select.launch: Tuple should have at least 1",
         ),
         (
             "[controls]\n1 = { select = { launch = ['x'] }, id = 'knob' }",

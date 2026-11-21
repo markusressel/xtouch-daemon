@@ -1,8 +1,11 @@
 """
-The field of a button (`select`, `rec`, `solo`): what a press does, what a hold does and what its LED shows, each a
-list of its choices; unset, each shows what the strip type does by default.
+The field of a button (`select`, `rec`, `solo`, and `mute` of a `custom` channel): what a press does, what a hold does
+and what its LED shows, each a list of its choices; unset, each shows what the strip type does by default. A program
+is a table in the file and a text in the list: `launch: mumble`, `run: sysctrl display reset`, `watch: led-state
+--follow`. A button of `[controls]` (`claim`) has a press and an LED only, and a text or a program alone is its press.
 """
 
+import shlex
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -10,24 +13,47 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QComboBox, QGridLayout, QWidget
 
 from xtouch_daemon.config.buttons import ButtonSetup, describe_action, table_of
+from xtouch_daemon.gui.domain.places import PROGRAM_KEYS, program_text
 from xtouch_daemon.gui.domain.schema import Kind, Option
 from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label, set_help
+from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.theme.tokens import Space
 
 PART_TITLES = {"press": "Press", "hold": "Hold", "led": "LED"}
 """The names of the parts of a button, for people."""
 
 
-def parts_of(name: str, value: object) -> dict[str, Any]:
-    """The parts of a button in the file (see `table_of`): {} for a value that is no table."""
+def parts_of(name: str, value: object, claim: bool = False) -> dict[str, Any]:
+    """
+    The parts of a button in the file (see `table_of`): {} for a value that is no table. Of a button of `[controls]`
+    (`claim`), an action alone (a text, `{ launch }`, `{ run }`) is the press.
+    """
+    if claim:
+        if isinstance(value, str) or (isinstance(value, Mapping) and {"launch", "run"} & set(value)):  # pyright: ignore[reportUnknownArgumentType]
+            return {"press": value}
+        return dict(value) if isinstance(value, Mapping) else {}  # pyright: ignore[reportUnknownArgumentType]
     table = table_of(name, value)
     return dict(table) if isinstance(table, Mapping) else {}
 
 
-def launch_text(table: Mapping[str, Any]) -> str:
-    """A launch of a button as the list shows it: the program and its arguments."""
-    command = table.get("launch", ())
-    return "launch: " + (command if isinstance(command, str) else " ".join(map(str, command)))
+PROGRAM_MEANINGS = {
+    "launch": "Starts the program.",
+    "run": "Runs the program to its end. `{value}` is the value of the fader, else of the encoder.",
+    "watch": "Lit while the program's newest line is `on`, `1`, `true` or `yes`; it flashes on `flash`.",
+}
+
+
+def program_table(text: str) -> dict[str, Any] | None:
+    """The table of a text typed as `run: prog arg` (or `launch:`, `watch:`), None for other text."""
+    key, colon, rest = text.partition(":")
+    if not colon or key.strip() not in PROGRAM_KEYS:
+        return None
+    try:
+        command = shlex.split(rest)
+    except ValueError:
+        # an open quote: the program as it is, its problem says what is wrong
+        command = rest.split()
+    return {key.strip(): command}
 
 
 class ButtonField(QWidget):
@@ -39,14 +65,19 @@ class ButtonField(QWidget):
 
     changed = pyqtSignal(object, arguments=["value"])
 
-    def __init__(self, name: str, columns: tuple[Option, ...]):
+    def __init__(self, name: str, columns: tuple[Option, ...], claim: bool = False):
         super().__init__()
         self.name = name
         self.columns = columns
+        self.claim = claim
+        """A button of `[controls]`: its short form is the press alone, not the LED."""
         self.defaults: Callable[[], ButtonSetup] = ButtonSetup
         self.extra: Callable[[], list[str]] = list
-        self.inherited: str | None = None
-        """What an unset part takes when it is not the type's default, e.g. "the channel's" at a place."""
+        self.inherited: Callable[[str], str] | None = None
+        """
+        The placeholder of an unset part where it takes no default of the type, by part, e.g. "As on the channel:
+        muted" at a place.
+        """
         self._unknown: set[str] = set()
         """Parts whose value in the file is none of the list: they mean nothing (their problem says why)."""
         self._kept: dict[str, Any] = {}
@@ -58,10 +89,11 @@ class ButtonField(QWidget):
         grid.setVerticalSpacing(Space.XS)
         self.combos: dict[str, QComboBox] = {}
         for row, column in enumerate(columns):
-            combo = QComboBox(self)
+            combo = Choice(self)
             combo.setMinimumWidth(180)
             combo.setToolTip(help_text(column.help))
-            if column.kind == Kind.ACTION:
+            if column.kind in (Kind.ACTION, Kind.BINDING):
+                # actions typed (`mode:gaming`), programs typed (`run: ...`, `watch: ...`)
                 combo.setEditable(True)
                 combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
                 combo.editTextChanged.connect(self._edited)
@@ -86,7 +118,7 @@ class ButtonField(QWidget):
 
     def show_value(self, value: object) -> None:
         """Shows the table of the button in the file (or a shorthand of it), the defaults as placeholders."""
-        parts = parts_of(self.name, value)
+        parts = parts_of(self.name, value, self.claim)
         defaults = self.defaults()
         self._loading = True
         try:
@@ -98,10 +130,10 @@ class ButtonField(QWidget):
                 part = parts.get(column.name)
                 default = getattr(defaults, column.name)
                 shown = describe_action(default) if column.kind == Kind.ACTION else default
-                placeholder = f"default: {self.inherited or shown}"
+                placeholder = self.inherited(column.name) if self.inherited is not None else f"default: {shown}"
                 if isinstance(part, Mapping):
                     self._kept[column.name] = dict(part)
-                    part = launch_text(part)
+                    part = program_text(part)
                 text = "" if part is None else str(part)
                 if combo.isEditable():
                     combo.setCurrentIndex(-1)
@@ -109,6 +141,7 @@ class ButtonField(QWidget):
                     edit = combo.lineEdit()
                     if edit is not None:
                         edit.setPlaceholderText(placeholder)
+                    combo.setPlaceholderText(placeholder)
                 else:
                     combo.setCurrentIndex(combo.findText(text) if text else -1)
                     if text and combo.currentIndex() < 0:
@@ -124,10 +157,15 @@ class ButtonField(QWidget):
         for name, combo in self.combos.items():
             text = combo.currentText().strip() if combo.isEditable() or combo.currentIndex() >= 0 else ""
             kept = self._kept.get(name)
-            if kept is not None and text == launch_text(kept):
+            if kept is not None and text == program_text(kept):
                 table[name] = kept
+            elif (program := program_table(text)) is not None:
+                table[name] = program
             elif text:
                 table[name] = text
+        if self.claim:
+            # the short form of `[controls]`: the press alone, e.g. `rec = "toggle:call"`
+            return table["press"] if set(table) == {"press"} else table or None
         # the shorthands where they say it all: `rec = "muted"`, `select = false`
         if self.name != "select" and set(table) == {"led"} and isinstance(table["led"], str):
             return table["led"]
@@ -151,8 +189,11 @@ class ButtonField(QWidget):
             if not text and (column.name in self._unknown or self.inherited is not None):
                 continue
             shown = text or (describe_action(getattr(defaults, column.name)))
+            program = program_table(shown)
             meaning = column.meaning(shown) or (
-                "Picks the mode."
+                PROGRAM_MEANINGS[next(iter(program))]
+                if program is not None
+                else "Picks the mode."
                 if shown.startswith("mode:")
                 else "Turns the state or mode on and back."
                 if shown.startswith("toggle:")

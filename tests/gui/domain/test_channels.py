@@ -17,7 +17,7 @@ def test_the_options_of_a_channel_are_those_of_its_strip_and_of_slots():
     assert person[0] == "person"
     assert "launch" not in person
     assert "label" in person
-    assert list(CHANNEL_TYPES) == ["output", "input", "apps", "person", "homeassistant"]
+    assert list(CHANNEL_TYPES) == ["output", "input", "apps", "person", "homeassistant", "custom"]
     assert [option.name for option in pool_options("apps")][:3] == ["from", "exclude", "hold"]
     people = [option.name for option in pool_options("people")]
     assert people[:2] == ["from", "order"]

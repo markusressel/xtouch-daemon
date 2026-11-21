@@ -58,7 +58,7 @@ def show_popover(
     """
     window = anchor.window()
     assert window is not None
-    popup = _Popover(anchor, window)
+    popup = Popover(anchor, window)
     set_role(popup, "popup")
     lift(popup)
     popup.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -83,13 +83,13 @@ def show_popover(
     for entry in entries:
         layout.addWidget(_row(popup, entry))
     popup.adjustSize()
-    popup.move(_place(anchor, window, popup.size()))
+    popup.move(place(anchor, window, popup.size()))
     popup.show()
     popup.raise_()
     return popup
 
 
-def _place(anchor: QWidget, window: QWidget, size: QSize) -> QPoint:
+def place(anchor: QWidget, window: QWidget, size: QSize) -> QPoint:
     """
     Where a popover of `size` goes in `window`: under `anchor` (above it where there is no room below), moved left or
     up to stay inside the window.
@@ -104,7 +104,7 @@ def _place(anchor: QWidget, window: QWidget, size: QSize) -> QPoint:
     return QPoint(x, y)
 
 
-class _Popover(QFrame):
+class Popover(QFrame):
     """A popover in `window`: it closes on a click outside of it, Esc, its anchor hidden, or the window resized."""
 
     def __init__(self, anchor: QWidget, window: QWidget) -> None:

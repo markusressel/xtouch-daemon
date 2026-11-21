@@ -97,6 +97,7 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
         "Applications",
         "Person",
         "Home Assistant",
+        "Custom",
         "",
         "Output from the sound server",
         "Input from the sound server",
@@ -105,6 +106,11 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
         "Pool of applications",
         "Pool of people",
     ]
+    # a custom channel has a form too
+    menu.actions()[5].trigger()
+    assert page.selection == ("channel", "custom")
+    assert window.document.get(("channel", "custom")) == {"type": "custom"}
+    click(qtbot, page.remove_button)
     menu.actions()[1].trigger()
     assert page.selection == ("channel", "input")
     assert window.document.get(("channel", "input")) == {"type": "input"}

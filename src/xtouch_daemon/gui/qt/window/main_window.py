@@ -386,6 +386,7 @@ class MainWindow(QMainWindow):
             lambda: self.live.twin.slots if self.live.twin is not None else None,
             lambda: twin_unavailable(self.live.snapshot, self.live.owned),
             lambda: self.live_preview.in_gui,
+            self.show_pool,
         )
         self.device_view = DeviceView(
             slots,
@@ -884,6 +885,10 @@ class MainWindow(QMainWindow):
 
     def show_channel(self, name: str) -> None:
         self.channels_page.select(("channel", name))
+        self.show_page("channels")
+
+    def show_pool(self, name: str) -> None:
+        self.channels_page.select(("pool", name))
         self.show_page("channels")
 
     def go_to(self, problem: Problem) -> None:

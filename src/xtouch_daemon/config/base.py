@@ -4,8 +4,9 @@ The base of the models of the configuration, its error, and the metadata of choi
 
 import difflib
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from pydantic import (
     BaseModel,
@@ -33,6 +34,24 @@ class ConfigError(Exception):
     """A configuration that can't be used, with a message for the user."""
 
 
+def error_path(loc: Sequence[int | str]) -> tuple[int | str, ...]:
+    """
+    The place of a pydantic error as in the file: without the tags of the unions of words and tables (`~text`,
+    `~table`, see `bindings.text_or_table()`), which say what kind of value it is, not where.
+    """
+    return tuple(part for part in loc if not str(part).startswith("~"))
+
+
+def error_place(loc: Sequence[int | str]) -> str:
+    """The place of a pydantic error as in the file, e.g. `fader.set` (see `error_path()`)."""
+    return ".".join(str(part) for part in error_path(loc))
+
+
+def error_message(error: Any) -> str:
+    """The message of a pydantic error, without the "Value error, " pydantic puts before those of validators."""
+    return str(error["msg"]).removeprefix("Value error, ")
+
+
 def known_options() -> frozenset[str]:
     """The names of the options of every model of the configuration (and their aliases): for hints on typos."""
     names: set[str] = set()
@@ -47,6 +66,17 @@ def known_options() -> frozenset[str]:
     return frozenset(names)
 
 
+def binding_options() -> frozenset[str]:
+    """The options of the bindings (`set`, `watch`, `run`, ...): where else they are, they belong in a binding."""
+    from xtouch_daemon.config.bindings import (  # (here: bindings import this module)
+        LevelBinding,
+        RunAction,
+        ValueBinding,
+    )
+
+    return frozenset(name for model in (ValueBinding, LevelBinding, RunAction) for name in model.model_fields)
+
+
 _LABEL_REQUIRED = re.compile(r"(?:^|[ .])label: Field required$")
 
 
@@ -55,7 +85,10 @@ def hinted(line: str) -> str:
     suffix = ": Extra inputs are not permitted"
     if line.endswith(suffix):
         name = line[: -len(suffix)].rsplit(" ", 1)[-1].rsplit(".", 1)[-1]
-        close = difflib.get_close_matches(name, sorted(known_options()), n=1, cutoff=0.8)
+        if name in binding_options():
+            return f"{line} (an option of a binding, e.g. fader = {{ set = ... }})"
+        # (an option that is known somewhere else is no typo of itself)
+        close = difflib.get_close_matches(name, sorted(known_options() - {name}), n=1, cutoff=0.8)
         return f"{line} (did you mean {close[0]}?)" if close else line
     if _LABEL_REQUIRED.search(line):
         return f"{line} (the name of the strip on the LCD, up to 7 characters)"

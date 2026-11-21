@@ -70,8 +70,8 @@ def test_channels_are_present_while_they_have_something_to_control():
     there = Observation(
         playing=("Firefox",), devices=frozenset({"bluez_output.7C", "usb_mic"}), people=attendees("alice-phone")
     )
-    assert {name for name, c in read.channels.items() if present_now(c, nothing)} == {"out", "lights"}
-    assert {name for name, c in read.channels.items() if present_now(c, there)} == {
+    assert {name for name, c in read.channels.items() if present_now(name, c, nothing)} == {"out", "lights"}
+    assert {name for name, c in read.channels.items() if present_now(name, c, there)} == {
         "out",
         "buds",
         "mic",
@@ -116,3 +116,30 @@ def test_pools_are_present_before_slots_are_assigned():
     assert not pool_present(hidden, "auto", Observation(people=attendees("Alice")), frozenset())
     assert not pool_present(read, "media", Observation(), frozenset({"out"}))
     assert pool_present(read, "media", Observation(), frozenset({"browser"}))
+
+
+def test_a_custom_channel_is_present_unless_its_program_says_otherwise():
+    read = scene(
+        """
+[channel.screen]
+type = "custom"
+tags = ["screens"]
+
+[channel.lamp]
+type = "custom"
+
+[pool.screens]
+channels = ["#screens"]
+"""
+    )
+    away = Observation(absent=frozenset({"screen"}))
+    assert present_now("screen", read.channels["screen"], Observation())
+    assert not present_now("screen", read.channels["screen"], away)
+    assert present_now("lamp", read.channels["lamp"], away)
+    presence = Presence(read, absent_after=3)
+    assert presence.update(Observation(), 0) == {"screen", "lamp"}
+    # it stays `absent_after`, as any channel
+    assert presence.update(away, 1) == {"screen", "lamp"}
+    assert presence.update(away, 4) == {"lamp"}
+    assert not pool_present(read, "screens", away, presence.update(away, 5))
+    assert pool_present(read, "screens", Observation(), presence.update(Observation(), 6))

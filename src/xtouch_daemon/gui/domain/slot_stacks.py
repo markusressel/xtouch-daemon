@@ -12,11 +12,10 @@ from typing import Any, Literal
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.channels import stack_of
-from xtouch_daemon.gui.domain.states import stack_of_controls
 from xtouch_daemon.live.messages import SlotsState, SlotView
 from xtouch_daemon.slots import model
 from xtouch_daemon.slots.expressions import ExpressionError, parse
-from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, CONTROLS, DEVICES, PEOPLE
+from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, DEVICES, PEOPLE
 
 EMPTY = "-"
 ALWAYS = "always"
@@ -374,27 +373,6 @@ def choices(values: Mapping[str, Any]) -> list[str]:
 def targets(values: Mapping[str, Any]) -> list[str]:
     """What `present(...)` can ask about: the channels and the pools (the built-in ones too)."""
     return [name for name in choices(values) if name != EMPTY]
-
-
-def controls_text(values: Mapping[str, Any], slot: int) -> list[str]:
-    """The controls of a slot for people: `select: toggle:call (when not call)`."""
-    lines: list[str] = []
-    for table in stack_of_controls(values.get("controls", {}).get(str(slot))):
-        if not isinstance(table, Mapping):
-            continue
-        parts = [f"{name}: {_action(table[name])}" for name in CONTROLS if name in table]  # pyright: ignore[reportUnknownArgumentType]
-        when = table.get("when")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        lines.append(", ".join(parts) + (f" (when {when})" if when else ""))
-    return lines
-
-
-def _action(value: Any) -> str:
-    if isinstance(value, Mapping) and isinstance(command := value.get("command"), Mapping):  # pyright: ignore[reportUnknownMemberType]
-        argv = command.get("set", ())  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        return "command " + (argv if isinstance(argv, str) else " ".join(str(part) for part in argv))  # pyright: ignore[reportUnknownArgumentType, reportUnknownVariableType]
-    if isinstance(value, Mapping):
-        return "launch " + " ".join(str(part) for part in value.get("launch", ()))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportUnknownVariableType]
-    return str(value)
 
 
 class StepKind(StrEnum):

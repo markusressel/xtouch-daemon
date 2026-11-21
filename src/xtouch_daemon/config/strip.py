@@ -7,6 +7,18 @@ from typing import Annotated
 from pydantic import model_validator
 
 from xtouch_daemon.config.base import Meanings, Model
+from xtouch_daemon.config.bindings import (
+    FADER_PUSH,
+    TARGET,
+    ColorPart,
+    EncoderPart,
+    FaderPart,
+    LcdPart,
+    MeterPart,
+    ValueBinding,
+    placeholders_of,
+    programs_in,
+)
 from xtouch_daemon.config.buttons import (
     BUTTON_NAMES,
     WHILE_HELD,
@@ -23,29 +35,32 @@ from xtouch_daemon.config.buttons import (
 )
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import (
-    COLORS,
-    ENCODER_MODES,
     ENCODERS,
-    FADER_MODES,
     METER_POINTS,
-    ColorName,
-    EncoderMode,
-    FaderMode,
     MeterPoint,
     Volume,
 )
 
+PARTS = ("fader", "encoder", "lcd", "color", "meter")
+"""The parts of an audio strip that can be bound, but its buttons."""
+
 
 class BaseStripConfig(Model):
-    color: Annotated[ColorName, COLORS] = "white"
-    """The backlight of the LCD. It goes dark while the strip has nothing to control, unless `lit_when_idle` is on."""
+    color: ColorPart = "white"
+    """
+    The backlight of the LCD. It goes dark while the strip has nothing to control, unless `lit_when_idle` is on. A
+    `watch` sets it with each line that is a color name.
+    """
     lit_when_idle: bool = False
     """
     Keeps the LCD lit while the strip has nothing to control, e.g. no application plays or the device is not there.
     The fader stays down.
     """
-    meter: bool = True
-    """The LED meter shows the level. Needs `behavior.meters`."""
+    meter: MeterPart = True
+    """
+    The LED meter shows the level. Needs `behavior.meters`. A `watch` makes it show each number it prints, from
+    `min` to `max`.
+    """
     meter_point: Annotated[MeterPoint, METER_POINTS] | None = None
     """
     Where the meter takes the level: before the volume and Mute of the strip, or after them. By default
@@ -73,14 +88,22 @@ class BaseStripConfig(Model):
     The volume, in percent, with the fader at the top; by default `behavior.max_volume`. Above 100 % the audio is
     amplified, e.g. 200 for weak speakers.
     """
-    encoder: Annotated[EncoderMode, ENCODER_MODES] | None = None
+    encoder: EncoderPart | None = None
     """What the encoder does when you turn and push it. Its LED ring shows the value."""
-    fader: Annotated[FaderMode, FADER_MODES] = "volume"
-    """What the fader sets."""
+    fader: FaderPart = "volume"
+    """What the fader sets. Bound to something else, it gives the volume to the encoder."""
+    lcd: LcdPart | None = None
+    """
+    The second line of the LCD, instead of the volume. A `watch` shows each line it prints. By default what the
+    strip type shows.
+    """
 
     @property
     def uses_home_assistant(self) -> bool:
-        return "homeassistant" in (self.fader, self.encoder) or bool(self.home_assistant_buttons)
+        """Whether a part belongs to Home Assistant: it needs `[mqtt]`."""
+        parts = (self.fader, self.encoder, self.lcd, self.color, self.meter)
+        leds = (self.button(name).led for name in BUTTON_NAMES)
+        return "homeassistant" in (*parts, *leds) or bool(self.home_assistant_buttons)
 
     @property
     def home_assistant_buttons(self) -> tuple[ButtonName, ...]:
@@ -133,15 +156,30 @@ class BaseStripConfig(Model):
     @model_validator(mode="after")
     def _encoder_of_the_type(self) -> BaseStripConfig:
         strip_type = str(getattr(self, "type", ""))
-        if self.encoder is not None and self.encoder not in ENCODERS[strip_type]:
+        if isinstance(self.encoder, str) and self.encoder not in ENCODERS[strip_type]:
             raise ValueError(
                 f"encoder: {self.encoder} is not for {strip_type} strips ({', '.join(ENCODERS[strip_type])})"
             )
-        if self.fader == "homeassistant" and self.encoder not in (None, "volume"):
-            raise ValueError("encoder: with the fader in Home Assistant, the encoder sets the volume")
+        if self.fader != "volume" and self.encoder not in (None, "volume"):
+            where = "in Home Assistant" if self.fader == "homeassistant" else "bound to a program"
+            raise ValueError(f"encoder: with the fader {where}, the encoder sets the volume")
+        if isinstance(self.fader, ValueBinding) and self.fader.push is not None:
+            raise ValueError(FADER_PUSH)
         if getattr(self, "launch_when_running", False) and getattr(self, "launch", None) is None:
             raise ValueError("launch_when_running: needs launch")
         return self
+
+    @model_validator(mode="after")
+    def _no_targets(self) -> BaseStripConfig:
+        """Only the programs of `custom` channels have targets."""
+        for where, argv in self.programs().items():
+            if "target" in placeholders_of(argv):
+                raise ValueError(f"{where}: {TARGET} is for custom channels with targets")
+        return self
+
+    def programs(self) -> dict[str, tuple[str, ...]]:
+        """The programs of its parts, by where they are, e.g. `fader.set`, `select.press.run`."""
+        return programs_in(self, PARTS, BUTTON_NAMES)
 
     def volume_ranges(self, behavior: BehaviorConfig) -> list[tuple[str, int, int]]:
         """Where each volume range of the strip is configured (e.g. `profiles[2]`, "" for the strip), and the range."""
@@ -161,6 +199,8 @@ STRIP_TYPE_MEANINGS = Meanings(
         "auto": "The next application that plays and has no channel of its own, and the people of the voice chat.",
         "homeassistant": "A strip for Home Assistant: its fader, encoder, LCD, LEDs and buttons are entities there, "
         "and automations decide what they do. Needs `[mqtt]`.",
+        "custom": "A strip of your own: each part does what you bind it to, in Home Assistant or with programs of "
+        "your own. E.g. the fader sets the brightness of a screen.",
         "empty": "A dark strip that does nothing; its fader stays at the bottom.",
         "voip": "A participant of the voice chat: the fader sets their volume, Mute mutes them for you, the meter "
         "shows their voice. With `person` always the same one, else one of the people `auto` hands out.",

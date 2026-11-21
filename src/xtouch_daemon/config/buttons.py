@@ -5,12 +5,14 @@ what a press does, what a hold does (longer than HOLD_TIME) and what its LED sho
 """
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated, Literal, get_args
 
-from pydantic import BeforeValidator, Field
+from pydantic import BaseModel, BeforeValidator, Discriminator, Field, Tag
 
 from xtouch_daemon.config.base import Meanings, Model
+from xtouch_daemon.config.bindings import TABLE, TEXT, WORD_OR_TABLE, RunAction, WatchBinding, describe_part
 from xtouch_daemon.config.values import INDICATORS, LAUNCH_WHEN_RUNNING_HELP, Command, Indicator
 
 HOLD_TIME = 0.5
@@ -33,7 +35,10 @@ ACTIONS = Meanings(
         "off": "Nothing.",
     }
 )
-"""The actions of a button that are a word; `mode:<id>`, `toggle:<state>` and `{ launch = [...] }` come on top."""
+"""
+The actions of a button that are a word; `mode:<id>`, `toggle:<state>`, `{ launch = [...] }` and `{ run = [...] }` come
+on top.
+"""
 PATTERN_ACTIONS = re.compile(r"(mode|toggle):[a-z0-9_]+")
 """The actions that name a mode or a state."""
 WHILE_HELD = frozenset({"talk", "mute_others", "homeassistant"})
@@ -48,16 +53,25 @@ LEDS = Meanings(
         "first (`profile`), while the application runs (`launch`), while the mode or state is on, while the "
         "button is held (`talk`, `mute_others`).",
         "shown": "Lit while the strip shows another device than the default one (after `next`).",
+        "homeassistant": "Home Assistant sets it: a select of its own. Needs `[mqtt]`.",
     }
 )
-"""What the LED of a button can show: an indicator, or what its press or `next` does."""
+"""What the LED of a button can show: an indicator, what its press or `next` does, or Home Assistant."""
 LedShows = Literal["off", "recording", "playing", "default", "muted", "press", "shown"]
+LedWord = Literal[LedShows, "homeassistant"]
+"""What the LED of a button can show as a word: `LedShows`, or `homeassistant`."""
+LedPart = Annotated[
+    Annotated[Annotated[LedWord, LEDS], Tag(TEXT)] | Annotated[WatchBinding, Tag(TABLE)],
+    WORD_OR_TABLE,
+]
+"""What the LED of a button shows: a word, or a program of your own that watches it (`{ watch = [...] }`)."""
 
 
 def _an_action(value: object) -> object:
     if isinstance(value, str) and value not in ACTIONS.meanings and not PATTERN_ACTIONS.fullmatch(value):
         raise ValueError(
-            f"{value} is no action ({', '.join(ACTIONS.meanings)}, mode:<id>, toggle:<state>, or {{ launch = [...] }})"
+            f"{value} is no action ({', '.join(ACTIONS.meanings)}, mode:<id>, toggle:<state>, {{ launch = [...] }}, "
+            "or { run = [...] })"
         )
     return value
 
@@ -70,14 +84,29 @@ class LaunchAction(Model):
     launch_when_running: bool = Field(default=False, description=LAUNCH_WHEN_RUNNING_HELP)
 
 
-ActionValue = str | LaunchAction
-Action = Annotated[ActionValue, BeforeValidator(_an_action)]
-"""An action of a button: a word of `ACTIONS`, `mode:<id>`, `toggle:<state>`, or a program to start."""
+def _kind_of_action(value: object) -> str:
+    if isinstance(value, LaunchAction) or (isinstance(value, Mapping) and "launch" in value):
+        return "~launch"
+    return "~run" if isinstance(value, Mapping | BaseModel) else TEXT
 
 
-def describe_action(action: Action) -> str:
-    """An action for people: the word, or the program a launch starts."""
-    return action if isinstance(action, str) else f"launch {' '.join(action.launch)}"
+ActionValue = Annotated[str, Tag(TEXT)] | Annotated[LaunchAction, Tag("~launch")] | Annotated[RunAction, Tag("~run")]
+Action = Annotated[ActionValue, Discriminator(_kind_of_action), BeforeValidator(_an_action)]
+"""
+An action of a button: a word of `ACTIONS`, `mode:<id>`, `toggle:<state>`, a program to start (`launch`), or a
+program of your own to run (`run`).
+"""
+
+
+def describe_action(action: str | LaunchAction | RunAction) -> str:
+    """An action for people: the word, the program a launch starts, or the one it runs."""
+    match action:
+        case LaunchAction():
+            return f"launch {' '.join(action.launch)}"
+        case RunAction():
+            return describe_part(action)
+        case _:
+            return action
 
 
 class ButtonConfig(Model):
@@ -87,8 +116,8 @@ class ButtonConfig(Model):
     """What a press does. An action that lasts while held (`talk`, `mute_others`) needs no `hold`."""
     hold: Annotated[Action, ACTIONS] | None = None
     """What holding it for longer than half a second does; then a press acts when the button is let go."""
-    led: Annotated[LedShows, LEDS] | None = None
-    """What its LED shows."""
+    led: LedPart | None = None
+    """What its LED shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on `flash`."""
 
 
 def table_of(name: str, value: object) -> object:
@@ -103,15 +132,17 @@ def table_of(name: str, value: object) -> object:
     return value
 
 
-def _shorthand(name: ButtonName) -> BeforeValidator:
+def _shorthand(name: str) -> BeforeValidator:
     # the JSON Schema of the file (`config.json_schema`) takes the short forms too
-    written = bool | LedShows | ButtonConfig if name == "select" else LedShows | ButtonConfig
+    written = bool | LedWord | ButtonConfig if name == "select" else LedWord | ButtonConfig
     return BeforeValidator(lambda value: table_of(name, value), json_schema_input_type=written)
 
 
 SelectButton = Annotated[ButtonConfig, _shorthand("select")]
 RecButton = Annotated[ButtonConfig, _shorthand("rec")]
 SoloButton = Annotated[ButtonConfig, _shorthand("solo")]
+MuteButton = Annotated[ButtonConfig, _shorthand("mute")]
+"""Mute of a `custom` channel, a button like the others there."""
 
 
 @dataclass(frozen=True)
@@ -120,7 +151,7 @@ class ButtonSetup:
 
     press: Action = "off"
     hold: Action = "off"
-    led: LedShows = "off"
+    led: LedWord | WatchBinding = "off"
 
     @property
     def acts(self) -> bool:
@@ -156,10 +187,10 @@ def resolved(button: ButtonConfig, default: ButtonSetup) -> ButtonSetup:
     )
 
 
-def indicator(led: LedShows) -> Indicator | None:
-    """The indicator an LED shows, None for `press` and `shown`."""
+def indicator(led: LedWord | WatchBinding) -> Indicator | None:
+    """The indicator an LED shows, None for `press`, `shown`, and a binding (`homeassistant`, a watch)."""
     match led:
-        case "press" | "shown":
+        case "press" | "shown" | "homeassistant" | WatchBinding():
             return None
         case _:
             return led

@@ -79,6 +79,20 @@ def test_the_strips_of_every_candidate_and_member():
     assert config.slots.channels["radio"].model_dump()["color"] == "white"
 
 
+def test_a_place_sets_the_led_of_a_button_and_keeps_the_press_of_the_channel():
+    config = parse_config(
+        '[channel.out]\ntype = "output"\ntags = ["outs"]\nrec = { press = "cycle_modes" }\n'
+        + '[pool.outs]\nchannels = ["#outs"]\nrec = "muted"\n'
+        + '[slots]\n1 = [{ show = "out", rec = "playing" }]\n2 = "outs"\n'
+    )
+    assert config.slots is not None
+    rec = config.slots.strips[(1, 0, "out")].model_dump()["rec"]
+    assert (rec["press"], rec["led"]) == ("cycle_modes", "playing")
+    # the look of a pool fills in the LED the channel leaves open
+    rec = config.slots.strips[(2, 0, "out")].model_dump()["rec"]
+    assert (rec["press"], rec["led"]) == ("cycle_modes", "muted")
+
+
 def test_auto_never_takes_screen_readers_unless_exclude_says_otherwise():
     for text, exclude in (("", ("speech-dispatcher",)), ('[pool.apps]\nexclude = ["beep"]\n', ("beep",))):
         apps = parse_config(text).slots.scene.pools["apps"]

@@ -13,7 +13,7 @@ from pydantic import (
     ValidationError,
 )
 
-from xtouch_daemon.config.base import ConfigError, hinted
+from xtouch_daemon.config.base import ConfigError, error_message, error_path, hinted
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.slots import setup, split
 
@@ -58,9 +58,7 @@ class Problem:
 def problems_of(error: ValidationError) -> list[Problem]:
     problems: list[Problem] = []
     for item in error.errors():
-        path = item["loc"]
-        # pydantic puts "Value error, " before the messages of the validators here
-        problems.append(Problem(path, item["msg"].removeprefix("Value error, "), item["type"]))
+        problems.append(Problem(error_path(item["loc"]), error_message(item), item["type"]))
     return problems
 
 

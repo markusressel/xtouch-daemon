@@ -20,7 +20,7 @@ from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import EmptyStripConfig, StripConfig
 from xtouch_daemon.config.values import EncoderMode, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
-from xtouch_daemon.hardware.strip import Claimable, VirtualStrip
+from xtouch_daemon.hardware.strip import Claimable, Maskable, VirtualStrip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.controls import Controls
@@ -31,6 +31,7 @@ from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.strips import build_strip, look_of
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
+from xtouch_daemon.strips.custom import custom_strips
 from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.system.processes import running_processes
@@ -69,7 +70,9 @@ def place_of(strip: StripConfig) -> Place | None:
     """None for a strip without a volume."""
     if not isinstance(strip, BaseStripConfig):
         return None
-    return strip.encoder or default_encoder(strip.type, strip.fader), strip.min_volume, strip.max_volume
+    # an encoder bound to a program follows `Look.parts`, whatever the mode
+    encoder = strip.encoder if isinstance(strip.encoder, str) else default_encoder(strip.type, strip.fader)
+    return encoder, strip.min_volume, strip.max_volume
 
 
 class SlotMixer:
@@ -93,7 +96,12 @@ class SlotMixer:
         launcher: Launcher | None = None,
         processes: Callable[[], frozenset[str]] = running_processes,
         commands: Commands | None = None,
+        on_presence: Callable[[], None] = lambda: None,
     ):
+        """
+        `on_presence` is called when a custom channel came or went (its `present`): the slots look again (the engine
+        knows it as `SlotEngine.absent`).
+        """
         self.setup = config.slots
         self.config = config
         self.engine = engine
@@ -116,6 +124,7 @@ class SlotMixer:
             lambda: self.processes,
             engine,
             self._solo,
+            commands if commands is not None else Commands(),
         )
         self._soloed: list[VolumeStrip] = []
         """The strips `mute_others` muted, unmuted again when its button is let go."""
@@ -128,6 +137,13 @@ class SlotMixer:
             for name, strip in self.setup.channels.items()
         }
         """A controller per channel, for as long as the configuration."""
+        self.on_presence = on_presence
+        self.customs = custom_strips(self.channels)
+        """The strips of the custom channels: what `[controls]` set of them, and whether they are there."""
+        # what the channels of the last configuration said stays until theirs say otherwise (a reload)
+        engine.absent &= {name for name, strip in self.customs.items() if strip.config.present is not None}
+        for name, strip in self.customs.items():
+            strip.on_presence = lambda name=name: self._presence(name)
         self.members: dict[Key, StripController] = {}
         """A controller per application of `auto` and per person without a channel, made when they first show."""
         self.empty = {
@@ -144,7 +160,8 @@ class SlotMixer:
             self.env.launcher,
             lambda: self.processes,
             config.behavior.encoder_step,
-            commands,
+            self.customs,
+            self.env.commands,
         )
         """The `[controls]` of the slots: claims on the strips of the desk."""
         self.controls.on_change = self.controls.show
@@ -164,13 +181,33 @@ class SlotMixer:
             bridge.bind(self.entities)
         voip.subscribe(self.refresh)
 
+    def _presence(self, name: str) -> None:
+        """A custom channel came or went: the engine learns it, the slots look again."""
+        presence = self.customs[name].presence
+        if presence is None:
+            return
+        absent = self.engine.absent - {name} if presence else self.engine.absent | {name}
+        if absent != self.engine.absent:
+            self.engine.absent = absent
+            self.on_presence()
+
     def _build(self, key: Key, strip: StripConfig | None, identity: Identity) -> StripController:
         view = VirtualStrip(self.surface, next(self._numbers))
         if strip is None:
             strip = EmptyStripConfig(type="empty")
         if (place := place_of(strip)) is not None:
             self.places[key] = place
-        return build_strip(strip, view, self.env, self.config.aliases, identity, self._look(strip), self.voip)
+        return build_strip(
+            strip,
+            view,
+            self.env,
+            self.config.aliases,
+            identity,
+            self._look(strip),
+            self.voip,
+            # the entities in Home Assistant are the channels'
+            home_assistant=key[0] == "channel",
+        )
 
     def _look(self, strip: StripConfig) -> Look:
         return look_of(strip, self.config.meter_point(strip))
@@ -206,7 +243,7 @@ class SlotMixer:
                     old_view.bind(None)
             if view.target is not device:
                 # what the controls of the slot claim stays theirs
-                self._give(controller, self.controls.taken(slot))
+                self._give(controller, self.controls.taken(slot), self.controls.shown(slot))
                 view.bind(device)
             self.desk.bind(slot - 1, controller, controller.look.meter_point)
             if flash > 0 and before is not None and before[1] != shown.candidate:
@@ -220,17 +257,21 @@ class SlotMixer:
         slots = {id(controller): slot for slot in SLOTS if (controller := self._at(slot)) is not None}
         for controller in self.all_controllers:
             slot = slots.get(id(controller))
-            self._give(controller, self.controls.taken(slot) if slot is not None else frozenset())
+            if slot is None:
+                self._give(controller, frozenset(), frozenset())
+            else:
+                self._give(controller, self.controls.taken(slot), self.controls.shown(slot))
         self.controls.show()
 
     @staticmethod
-    def _give(controller: StripController, taken: frozenset[Claimable]) -> None:
-        if controller.taken == taken:
-            return
-        controller.set_taken(taken)
+    def _give(controller: StripController, taken: frozenset[Claimable], shown: frozenset[Maskable]) -> None:
+        """The controller learns the controls the claim of its slot takes; its strip leaves what the claim shows."""
+        if controller.taken != taken:
+            controller.set_taken(taken)
         view = controller.strip
         assert isinstance(view, VirtualStrip)
-        view.mask(taken)
+        if view.masked != shown:
+            view.mask(shown)
 
     def _why(self, slot: int, before: int | None, now: int | None) -> str:
         """Why a slot shows another candidate, in a word: the `when` of the new one, or the one that ended."""

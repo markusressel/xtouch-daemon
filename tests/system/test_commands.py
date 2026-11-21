@@ -1,5 +1,5 @@
 """
-The programs of command controls, run for real: small shell scripts that set nothing and print what the tests want.
+The programs of bindings, run for real: small shell scripts that set nothing and print what the tests want.
 """
 
 import asyncio
@@ -8,7 +8,7 @@ import sys
 import pytest
 
 from xtouch_daemon.system import commands as commands_module
-from xtouch_daemon.system.commands import CommandError, Commands, NoCommands
+from xtouch_daemon.system.commands import CommandError, Commands, SimulatedCommands
 
 pytestmark = pytest.mark.looptime(False)
 
@@ -60,17 +60,10 @@ async def test_a_watch_that_is_cancelled_is_killed_and_waited_for() -> None:
     assert task.cancelled()
 
 
-async def test_the_twin_runs_nothing() -> None:
-    commands = NoCommands()
+async def test_the_twin_watches_but_sets_nothing() -> None:
+    commands = SimulatedCommands()
+    assert commands.simulated
+    assert not Commands().simulated
     # a program that would fail if it ran
     await commands.run([sys.executable, "-c", "raise SystemExit(1)"])
-
-    async def first_line() -> str:
-        return await anext(aiter(commands.lines([SH, "-c", "echo 1"])))
-
-    task = asyncio.create_task(first_line())
-    await asyncio.sleep(0.05)
-    assert not task.done()
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
+    assert [line async for line in commands.lines([SH, "-c", "echo 0.5"])] == ["0.5"]

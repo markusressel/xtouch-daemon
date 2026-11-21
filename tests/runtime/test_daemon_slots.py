@@ -15,6 +15,7 @@ from tests.support.daemon import QUIET, Notifications
 from tests.support.hardware import RecordingSurface
 from tests.support.tasks import settle
 from tests.support.waiting import until
+from tests.support.watches import ProgramCommands
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
@@ -241,6 +242,42 @@ async def test_a_reload_shows_the_slots_of_the_new_file_at_once(
     assert daemon._voip_task is None
     daemon.mixer.close()
     await settle()
+
+
+SCREEN = """
+[channel.screen]
+type = "custom"
+label = "Screen"
+absent_after = 0
+present = { watch = "screen --watch" }
+"""
+
+
+async def test_a_custom_channel_comes_and_goes_as_its_present_says(
+    tmp_path: Path, surface: RecordingSurface, notifications: Notifications, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # without a step every few seconds: the slots look again because the channel went
+    monkeypatch.setattr(rig_module, "PROCESS_INTERVAL", 3600)
+    path = tmp_path / "slots.toml"
+    path.write_text(SLOTS.replace('1 = ["game if gaming", "out"]', '1 = ["screen if present", "out"]') + SCREEN)
+    commands = ProgramCommands()
+    daemon = Daemon(
+        parse_config(path.read_text()),
+        FakeBackend((STATE,)),
+        surface,
+        path,
+        capture_command=QUIET,
+        processes=Processes(),
+        commands=commands,
+    )
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: labels(surface, 1) == ["Screen"])
+    commands.print_to("screen --watch", "")
+    await until(lambda: labels(surface, 1) == ["Speaker"])
+    assert daemon.slots is not None
+    assert daemon.slots.absent == {"screen"}
+    daemon.stop()
+    await task
 
 
 async def test_a_reload_with_another_voip_provider_runs_it(

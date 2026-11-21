@@ -59,6 +59,18 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   | `apps`, `auto` | the look (not `label`), and for the applications without a channel `encoder`, `min_volume`, `max_volume` |
   | `devices` | those of `apps`, and `select = false` |
   | `people` | `color`, `meter`, `meter_point` |
+  | a pool of channels | none: each channel brings its own look |
+
+  `rec` and `solo` at a place set what the LED shows; the press stays the channel's.
+
+  Three levels decide what the parts of a strip do and show:
+
+  - The channel (`[channel.out]`, or the pool): what each part does and how it looks, in every slot. A
+    [binding](strip/bindings.md) (`{ watch = ... }`) belongs here.
+  - The place: the look of what it shows, in this slot only. Its options take words only (e.g. `color = "red"`,
+    `meter = false`), no bindings.
+  - [`[controls]`](#controls-and-the-chord): parts of the slot, whatever it shows, while its `when` holds. A binding
+    for the slot belongs here.
 
   A control for Home Assistant, or one that starts an application (`{ launch = [...] }`), is a control of the slot, not
   a place option: [`[controls]`](#controls-and-the-chord). How to start an application with Select:
@@ -244,39 +256,53 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 ```
 
 `when` takes a [condition](#conditions) of states and modes: the controls apply while it holds. Actions:
-`homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, or `{ launch = [...] }` (see
-[Launching the application](channels/applications.md#launching-the-application)).
-A fader or an encoder takes `homeassistant` (a number entity there), or a [command](#commands) of your own.
+`homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, `{ launch = [...] }` (see
+[Launching the application](channels/applications.md#launching-the-application)), or `{ run = [...] }`, a program
+that runs to its end. A fader or an [encoder](strip/encoders.md) takes one of these:
 
-### Commands
+- `homeassistant`: a number entity in Home Assistant.
+- The value of a [custom channel](channels/custom.md): `7 = { encoder = { channel = "screen_left" } }`. A fader
+  claim needs a `fader` of the channel that is a value. An encoder claim takes the channel's own `encoder`, else the
+  value of its `fader`. With `targets`, the claim follows the target the channel controls.
+- A value of its own, as in [Bindings](strip/bindings.md): `{ set, watch, min, max, step, push, format }`. A fader
+  has no `push`.
 
-A fader or an [encoder](strip/encoders.md) can set a value with a program of your own, e.g. the brightness of a
-screen. The slot keeps showing what it shows; only the claimed control changes the value. The [LED](strip/leds.md)
-ring shows the value.
+The slot keeps showing what it shows, and the [LED](strip/leds.md) ring shows the value. `{value}` in a `run` is the
+value of the fader of the controls, else of their encoder. It needs one of them to be a value or a `{ channel }`.
+Until the value is known, the program does not run; the log says so.
 
 ```toml
 [controls]
-7 = { encoder = { command = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}", watch = "sysctrl display redshift brightness -d DisplayPort-1 --watch", range = [0.1, 1.0], push = 1.0 } } }
-8 = { fader = { command = { set = ["brightnessctl", "set", "{value}%"] } } }
+7 = { encoder = { set = "brightnessctl set {value}%", min = 1, max = 100 }, solo = { run = "notify-send {value}" } }
 ```
 
-| Option of `command` | Default | Meaning |
-|---|---|---|
-| `set` | | The program that sets the value, then each argument; `{value}` in an argument is the new value, e.g. `0.55`. A string is split like a shell does, but nothing is expanded. |
-| `watch` | none | A program that runs all the time and prints the value, one line per change. The first number of a line counts. The fader and the LED ring follow it. |
-| `range` | `[0, 100]` | The lowest and the highest value: the fader at the bottom and at the top, the LED ring empty and full. |
-| `step` | `behavior.encoder_step` percent of `range` | How much one step of the encoder changes the value. |
-| `push` | none | The value a push of the encoder sets. Not for a fader. |
+`[controls]` can also claim what a slot shows: the meter, the color, the second line of the LCD and the LEDs of
+Select, Rec and Solo. They take the same [bindings](strip/bindings.md) as on a channel:
 
-The fader and the ring show a change at once. The program runs with the newest value only: turns and moves that come
-while it runs wait for it, and only the last of them runs next. A program that fails or takes longer than 10 seconds
-is logged as a warning.
+| Part | Takes |
+|---|---|
+| `meter` | `homeassistant` (`number.<ns>_<id>_meter`, 0..100), or `{ watch, min, max }`: the number a program prints. |
+| `color` | A color, `homeassistant` (`select.<ns>_<id>_color`), or `{ watch }`: the color a program prints. |
+| `lcd` | `homeassistant` (`text.<ns>_<id>_bottom`), or `{ watch }`: the newest line a program prints. |
+| `select`, `rec`, `solo` | An action as above, or a table `{ press = <action>, led = <LED> }`. |
 
-Without `watch` the daemon knows only the values it set: until the first one, the ring is dark, the fader stays where
-it is, and a turn starts from `push`, or else from the bottom of `range`. While a value is set or the fader is under a
-finger, the lines of `watch` don't move it. A `watch` that ends or can't start runs again after 5 seconds.
+`<id>` is the `id` of the controls, else `slot_<n>`. In the table of a button, either key can be left out. `led` alone
+claims the LED only: a press still goes to what the slot shows. `press` alone is the same as the action without a
+table: the LED shows what the press does. `led` takes `off`, `press` (what the press does), `homeassistant`
+(`select.<ns>_<id>_<button>_led`), or `{ watch }`: a line `on`, `1`, `true` or `yes` lights it, `flash` flashes it.
 
-`watch` runs as long as the configuration, whatever `when` says. Simulate in the GUI runs none of the programs.
+```toml
+[controls]
+8 = { meter = { watch = "cpu-load --watch", max = 100 }, rec = { led = { watch = "lamp-state --follow" } } }
+3 = { color = "red", lcd = { watch = "clock --watch" }, when = "call" }
+```
+
+Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED shows the lamp. A press of Rec still goes
+to what the slot shows. While `when` holds, a claimed part shows the claim. After that, the slot shows its own part
+again. The watches run for as long as the configuration, so a claim that comes back shows their newest lines
+at once. Until the first line, a color is white, a line is empty, an LED is dark and the meter rests. Places take no
+bindings: a binding for the slot, whatever it shows, belongs here. On the slots of the chord, `[controls]` can claim
+the LED of Solo, not its press.
 
 | Option of `[switching]` | Default | Meaning |
 |---|---|---|

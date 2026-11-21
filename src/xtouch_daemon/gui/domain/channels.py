@@ -44,6 +44,7 @@ CHANNEL_TYPES = {
         ChannelType("apps", "Applications", "apps", "apps", "The streams of a group of applications."),
         ChannelType("person", "Person", "account", "voip", "Someone of the voice chat."),
         ChannelType("homeassistant", "Home Assistant", "home-assistant", "homeassistant", "Its automations."),
+        ChannelType("custom", "Custom", "console", "custom", "Parts bound to programs of your own."),
     )
 }
 """The types of channels, in the order the page offers them."""

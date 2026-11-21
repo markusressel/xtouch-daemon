@@ -286,14 +286,25 @@ On the page Slots:
   highlighted, ● the one the slot shows, ○ the one it came to that has none left; a click picks one) and a box of
   what goes on: why the slot shows what it shows, a step a line (✗ a candidate passed over and why, → what it shows,
   the same as `xtouch-daemon why 3`), which channel the candidate shows, where else that is used and where it is
-  now, or what a pool hands out and from which side, with "Edit the channel" to its page, and what `[controls]`
-  claims of the slot. Below it, it edits the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or
-  `auto`, `-`), when (the
+  now, or what a pool hands out and from which side. Below it, it edits
+  the candidate picked: what it shows (a channel, a pool such as `apps`, `people` or `auto`, `-`), when (the
   [condition](../configuration/slots.md#conditions):
   states violet, channels in `present(...)` teal, a mistake underlined in red with what is wrong in its tooltip;
   typing offers the states, keywords and channels that fit, Ctrl+Space all of them),
-  and the options of its place (look, on `apps` and `auto` the encoder and the volume range, on `people` the look of
-  a person's strip).
+  and, under "Look in slot 3", the options of its place (look, on `apps` and `auto` the encoder and the volume range,
+  on `people` the look of a person's strip). What the parts do is set on the channel or the pool: "Edit the channel"
+  (or "Edit the pool") at the top opens it on the page Channels. An option left unset is as on the channel, or as in
+  the pool: the field shows that value ("As on the channel: red"), and the button next to a set option unsets it
+  again. A pool of channels has no options here: its channels bring their own look.
+- **Controls of slot 3**, at the end of the inspector, edits [`[controls]`](../configuration/slots.md#controls-and-the-chord)
+  of the slot: the parts that act the same whatever the slot shows. "Add a part" claims one (the fader, the encoder,
+  Select, Rec, Solo, the meter, the color or the line of the LCD); only the parts an entry sets show. Each has the
+  field it has on the page Channels. The bind button gives the fader, the encoder, the meter, the color and the line
+  to Home Assistant or to a program (the fader and the encoder also to a custom channel). A button takes its press,
+  its LED or both. Without a press, a press goes to what the slot shows; without an LED, the LED shows what the press
+  does. When takes a condition of states and modes. Id names the entities in Home Assistant (shown once a part is in
+  Home Assistant). "Add controls" adds another entry, e.g. for another `when`: the first whose `when` holds acts, and
+  the arrows move an entry up or down. A problem shows at its field.
 
 Clicking a strip in the window Device (or Left, Right, Home, End) picks its card, with the candidate it shows.
 
@@ -328,6 +339,12 @@ there. It follows the values in the form at once, saved or not, at the step show
   the order, which is the order Select goes through them. While a channel has `choices`, `device` and `profiles` are
   hidden, and the other way around: a channel has one or the other;
 - the meter as one choice: the level before the fader, after it, or off;
+- a bind button next to each part that can be [bound](../configuration/strip/bindings.md) (the fader, the encoder,
+  the LCD, the color, the meter): "Not bound", "Home Assistant" (with `[mqtt]`) or "A program". "A program" shows the
+  options of the program under the part, e.g. `set`, `watch`, `min` and `max`; a problem in one of them shows under
+  its row. Set back to "Not bound", the part does what its type says again;
+- in the lists of a button's press, hold and LED on a channel page, typing `run: ...` or `watch: ...` binds the
+  button to a program. Places and pools take the words of the lists only;
 - for choices, what the chosen value does (e.g. `recording` for the Rec LED), and each value says it as a tooltip in
   the list;
 - the mouse wheel scrolls the page, also over a number or a choice: it never changes a value;

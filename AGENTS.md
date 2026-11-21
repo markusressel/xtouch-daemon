@@ -58,7 +58,8 @@ just screenshot      # renders docs/images/ (README and docs) offscreen from scr
 - Type hints everywhere; `ruff` and `pyright` must pass.
 - GUI: never use `Qt.WindowType.Popup` (or `QMenu` for more than a menu): a popup grabs the keyboard and the mouse,
   on X11 the whole display, so screenshot tools and the keys of the window manager stop working. Details a click away
-  are popovers (`gui/qt/fields/popover.py`), drawn inside the window.
+  are popovers (`gui/qt/fields/popover.py`), drawn inside the window. Drop-down lists are `Choice`
+  (`gui/qt/fields/choice.py`), never a plain `QComboBox`: its list is a popup.
 - Git: on a branch, commit and push the finished, checked work; on `main` only when the user asks. Never force-push.
 
 ## Writing help

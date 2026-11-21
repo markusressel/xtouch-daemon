@@ -47,6 +47,26 @@ def test_check_config_describes_the_channels(tmp_path: Path) -> None:
     assert "What the slots show:" in lines
 
 
+def test_check_config_shows_the_programs_of_each_target(tmp_path: Path) -> None:
+    path = tmp_path / "screens.toml"
+    path.write_text(
+        '[channel.screens]\ntype = "custom"\nlabel = "Screens"\n'
+        'targets = [{ name = "Left", value = "DisplayPort-1" }, { name = "Right", value = "HDMI 2" }]\n'
+        'fader = { set = "b -d {target} -b {value}", watch = "b -d {target} --watch", min = 0.1, max = 1 }\n'
+        'color = { watch = "theme --watch" }\nselect = { press = "next" }\n'
+        '[channel.out]\ntype = "output"\nmeter = { watch = "load --watch" }\n'
+        '[slots]\n1 = "screens"\n2 = "out"\n'
+    )
+    lines = invoke("check-config", "-c", str(path)).output.splitlines()
+    assert lines[2].startswith("  screens: 'Screens' custom for Left, Right (color: watch: theme --watch, fader: ")
+    assert lines[3:5] == [
+        "    Left: fader.set b -d DisplayPort-1 -b '{value}'; fader.watch b -d DisplayPort-1 --watch",
+        "    Right: fader.set b -d 'HDMI 2' -b '{value}'; fader.watch b -d 'HDMI 2' --watch",
+    ]
+    # the bindings of audio strips, with what the type does
+    assert lines[5].startswith("  out: the default output (white, meter: from 0 to 100, watch: load --watch, ")
+
+
 def test_check_config_of_a_file_without_channels(tmp_path: Path) -> None:
     path = tmp_path / "empty.toml"
     path.write_text("")

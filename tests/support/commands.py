@@ -1,5 +1,5 @@
 """
-The programs of command controls, run by nobody: `FakeCommands` records what it would run and prints what a test feeds
+The programs of bindings, run by nobody: `FakeCommands` records what it would run and prints what a test feeds
 it as the lines of a `watch`.
 """
 

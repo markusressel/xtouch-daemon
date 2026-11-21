@@ -247,6 +247,12 @@ QComboBox::down-arrow:disabled {{ image: url({arrows["down-disabled"]}); }}
 QComboBox QAbstractItemView {{ background: {c.raised}; border: 1px solid {c.border}; padding: {Space.XS}px;
     selection-background-color: {c.accent_tint}; selection-color: {c.text}; outline: none; }}
 QComboBox QAbstractItemView::item {{ min-height: {Space.XL}px; padding: 0 {Space.S}px; }}
+/* the list of a Choice, in a popover: rows as in a menu, the one under the mouse marked */
+QListView[role="choice"] {{ background: transparent; border: none; outline: none; }}
+QListView[role="choice"]::item {{ min-height: {Space.XL}px; padding: 0 {Space.S}px; border-radius: {Radius.SMALL}px;
+    color: {c.text}; }}
+QListView[role="choice"]::item:selected {{ background: {c.accent_tint}; color: {c.text}; }}
+QListView[role="choice"]::item:disabled {{ color: {c.text_muted}; background: transparent; }}
 QWidget[role="chips"] {{ background: {c.sunken}; border: 1px solid {c.control_border};
     border-radius: {Radius.MEDIUM}px; }}
 QWidget[role="chips"][problem="true"] {{ border-width: 2px; }}

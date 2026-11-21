@@ -4,11 +4,12 @@ The lines of a list of channels, pools or states in the colors of what they are:
 """
 
 import html
+from math import ceil
 from typing import NamedTuple
 
-from PyQt6.QtCore import QModelIndex, QPointF, QRectF, Qt
+from PyQt6.QtCore import QModelIndex, QPointF, QRect, QRectF, QSize, Qt
 from PyQt6.QtGui import QAbstractTextDocumentLayout, QColor, QPainter, QTextDocument
-from PyQt6.QtWidgets import QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
+from PyQt6.QtWidgets import QAbstractItemView, QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from xtouch_daemon.gui.qt.fields.basics import DOT, help_text, paint_dot
 from xtouch_daemon.gui.qt.theme.style import current_colors
@@ -26,7 +27,28 @@ class Lines(NamedTuple):
 
 
 class EntityItemDelegate(QStyledItemDelegate):
-    """Draws the items that have `Lines` (under `LINES_ROLE`) in color; the text of the item stays the plain one."""
+    """
+    Draws the items that have `Lines` (under `LINES_ROLE`) in color; the text of the item stays the plain one. An item
+    is as tall as its lines are at the width of the list, wrapped, with room above and below: the list needs
+    `ResizeMode.Adjust` to measure them again when its width changes.
+    """
+
+    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
+        base = super().sizeHint(option, index)
+        lines = index.data(LINES_ROLE)
+        widget = option.widget
+        if not isinstance(lines, Lines) or not isinstance(widget, QAbstractItemView):
+            return base
+        viewport = widget.viewport()
+        assert viewport is not None
+        item = QStyleOptionViewItem(option)
+        self.initStyleOption(item, index)
+        item.rect = QRect(0, 0, viewport.width(), base.height())
+        style = widget.style()
+        assert style is not None
+        rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, item, widget)
+        height = ceil(_document(lines, item, rect.width()).size().height()) + 2 * Space.S
+        return QSize(viewport.width(), max(base.height(), height))
 
     def paint(self, painter: QPainter | None, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         lines = index.data(LINES_ROLE)

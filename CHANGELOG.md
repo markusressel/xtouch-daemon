@@ -27,10 +27,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: when the device is plugged in while the daemon drives the virtual device, a bar above the drawing says so and
   switches to it: "Switch to it" turns `[device] virtual` off and saves, "End the trial" ends the daemon of "Try
   without a device". The daemon looks for the device every 2 seconds meanwhile and logs when it is there.
-- `[controls]` can give a fader or an encoder of a slot to a program of your own, e.g. for the brightness of a
-  screen: `{ command = { set = [...], watch = [...], range = [...], step = ..., push = ... } }`. `set` runs with the
-  new value (`{value}`), `watch` prints the value when something else changes it, and the fader and the LED ring follow.
-  The slot keeps showing what it shows.
+- Bindings and custom channels:
+  - Every part of a strip (fader, encoder and its ring, the second line of the LCD, the color, the meter, each
+    button's press, hold and LED) does what its channel type says, unless the channel binds it to Home Assistant
+    (`"homeassistant"`) or to programs of your own. A channel without bindings works as before.
+  - A fader or an encoder takes a value that programs set and watch
+    (`fader = { set = "...{value}", watch = "...", min = 0.1, max = 1.0 }`), e.g. the brightness of a screen. `lcd`,
+    `color`, `meter` and an LED take a `{ watch = "..." }` whose lines they show. A press or a hold takes
+    `{ run = "..." }`. A fader bound away from the volume gives the volume to the encoder. The new option `lcd` is the
+    second line of the LCD.
+  - With `[mqtt]`, each part in Home Assistant has an entity of its own, and a bound value is a number there too.
+  - Custom channels (`type = "custom"`) replace the `command` channels of the development branch: a strip with no
+    defaults, every part it uses bound. `targets` switch what it controls (Select's `next`, `{target}` in the
+    programs), `together` sets every target at once, and `present` watches whether the channel is there. An absent
+    custom channel on a slot that keeps it is dark ("off") and does nothing. `check-config` lists the programs per
+    target.
+  - Places and the built-in pools take the words of a part only: a binding belongs to the channel, or to `[controls]`.
+    The applications and devices a place shows have no entities in Home Assistant. A pool of channels takes no options
+    at a place: its channels bring their own look. `rec = "muted"` at a place sets the LED only; the press stays the
+    channel's. GUI: the form of a place ("Look in slot 3") shows the value of each unset option, from the channel or
+    the pool ("As on the channel: red"). A line at the top says that the parts are set on the channel, with "Edit the
+    channel" (or "Edit the pool").
+  - An option of a binding outside of one (e.g. `set` on a custom channel) says so in the error.
+  - `[controls]` can give the fader or the encoder of any slot to the value of a custom channel
+    (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
+    (`{ run = "..." }`). It claims the meter, the color, the second line of the LCD and the LEDs of a slot too, with
+    Home Assistant or a `watch`, e.g. `8 = { meter = { watch = "cpu-load --watch" } }`: slot 8's meter shows the CPU
+    whatever the slot shows. `select = { led = { watch = "..." } }` claims only the LED; the press stays with what the
+    slot shows. When `when` stops holding, the slot shows its own parts again. GUI: "Controls of slot 3" on the
+    page Slots edits them: one entry or a list, each with the fields of the page Channels, `when` and `id`.
+  - Simulate in the GUI and `xtouch-daemon simulate` run the `watch` programs, never `set` or `run`. Parts in Home
+    Assistant look as while Home Assistant is not there, and the situation alone says whether a custom channel is
+    there.
+  - GUI: a bind button next to the fader, the encoder, the LCD, the color and the meter binds them to Home Assistant
+    or to a program, with the options of the program under the part. The lists of a button on a channel take
+    `run: ...` and `watch: ...`.
 
 ### Changed
 
@@ -41,9 +72,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   1.1 s, as before; the faders no longer come up after it.
 - GUI: while the daemon runs without the device ("Live · not connected", also while it waits for the virtual
   device), the strips of the drawing are dark: the drawing is the device, and there is none.
+- GUI: in a wide window a field beside its name is at most 640 px wide, and its reset button stays right after it, at
+  the same place in every row; the help below is as wide.
 
 ### Fixed
 
+- GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its
+  hint ends in … where it is short. Before, the right side of the window was cut off, and the drawing was off center
+  with its right strips hidden.
+- GUI: the entries of the list of channels wrap their lines with room between them; wrapped lines no longer run into
+  the next entry.
+- GUI: the lists of drop-down fields open inside the window, as popovers do: they no longer grab the keyboard and
+  the mouse, so screenshot tools and the keys of the window manager work while one is open.
+
+- Simulate (the GUI and `xtouch-daemon simulate`) no longer fails on a channel of type `homeassistant`: it shows
+  its label and `offline`, as while Home Assistant is not there.
 - The daemon no longer hangs at its end while a client of the live view (the GUI) does not read: systemd killed it
   after 90 s. It drops such a client at once now.
 - GUI: Start, Stop and Restart of the service no longer freeze the window until the daemon is done: they queue the

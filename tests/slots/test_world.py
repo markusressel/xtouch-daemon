@@ -3,7 +3,7 @@ The world of a situation for a virtual twin: what the sound server and the voice
 """
 
 from xtouch_daemon.config.files import parse_config
-from xtouch_daemon.slots.inputs import SoundDevice
+from xtouch_daemon.slots.inputs import Observation, SoundDevice
 from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.world import DEFAULT_INPUT, DEFAULT_OUTPUT, Names, concrete, world
 
@@ -81,3 +81,31 @@ def test_real_devices_are_stand_ins():
 def test_a_pattern_becomes_a_node_name():
     assert concrete("bluez_output.*") == "bluez_output.1"
     assert concrete("a?b") == "axb"
+
+
+def test_a_situation_makes_custom_channels_absent():
+    scene = parse_config(
+        """
+[channel.screen]
+type = "custom"
+tags = ["screens"]
+
+[channel.lamp]
+type = "custom"
+
+[channel.out]
+type = "output"
+
+[pool.screens]
+channels = ["#screens", "out"]
+
+[slots]
+1 = "screens"
+2 = "lamp"
+""",
+        "test",
+    ).slots.scene
+    situation = Situation(flipped=frozenset({"screens"}))
+    assert situation.absent(scene) == {"screen"}
+    assert situation.observation(scene, Observation()).absent == {"screen"}
+    assert Situation(flipped=frozenset({"lamp", "apps"})).absent(scene) == {"lamp"}

@@ -17,7 +17,7 @@ from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.values import MeterPoint
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
-from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable
+from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable, Maskable
 from xtouch_daemon.hardware.surface import Surface
 
 type Control = Button | None
@@ -42,11 +42,15 @@ class Hands(Protocol):
 class Claim(Hands, Protocol):
     """
     Controls of a strip of the device that act whatever it shows (`[controls]` of a slot): the events of the
-    controls it `takes` go to it, not to the presenter.
+    controls it `takes` go to it, not to the presenter. A claim that `shows` the meter has its level
+    (`meter_level()`), not the presenter.
     """
 
     @property
     def taken(self) -> frozenset[Claimable]: ...
+    @property
+    def shown(self) -> frozenset[Maskable]: ...
+    def meter_level(self) -> Reading | None: ...
 
 
 class Presenter(Hands, Protocol):
@@ -243,19 +247,30 @@ class Desk:
     # -- meters ---------------------------------------------------------------------------------------------------
 
     def watch(self, state: AudioState) -> None:
-        """The meters capture what the presenters bound now show in `state`."""
+        """The meters capture what the presenters bound now show in `state`: none where a claim shows the meter."""
         self.state = state
-        for presenter, meter in zip(self.presenters, self.meters, strict=True):
-            meter.watch(presenter.meter_targets(state) if presenter is not None else ())
+        for strip, (presenter, meter) in enumerate(zip(self.presenters, self.meters, strict=True)):
+            captured = presenter is not None and self._meter_claim(strip) is None
+            meter.watch(presenter.meter_targets(state) if presenter is not None and captured else ())
+
+    def _meter_claim(self, strip: int) -> Claim | None:
+        """The claim on a strip of the device (from 0) that shows its meter, if any."""
+        claim = self.claims[strip]
+        return claim if claim is not None and "meter" in claim.shown else None
 
     def show_meters(self) -> None:
         """
         Shows the level of each strip since the last time; without audio the one its presenter holds (a voice in
-        voice chat), or nothing, so the device lets the meter fall.
+        voice chat), or nothing, so the device lets the meter fall. A claim that shows the meter shows its own level.
         """
-        for strip, presenter, meter in zip(self.surface.strips, self.presenters, self.meters, strict=True):
+        for index, (strip, presenter, meter) in enumerate(
+            zip(self.surface.strips, self.presenters, self.meters, strict=True)
+        ):
             level = meter.take_level()
-            if level is None and presenter is not None and (held := presenter.held_meter(meter.point)) is not None:
+            if (claim := self._meter_claim(index)) is not None:
+                # what the claim's meter shows, whatever the slot shows
+                level = leds_of(reading) if (reading := claim.meter_level()) is not None else None
+            elif level is None and presenter is not None and (held := presenter.held_meter(meter.point)) is not None:
                 level = leds_of(held)
             if level is not None:
                 strip.set_meter(level)

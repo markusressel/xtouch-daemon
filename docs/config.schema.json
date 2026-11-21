@@ -88,6 +88,7 @@
               "input",
               "apps",
               "homeassistant",
+              "custom",
               "person"
             ],
             "title": "Type",
@@ -154,6 +155,9 @@
           "fader": {
             "$ref": "#/$defs/strip.fader"
           },
+          "lcd": {
+            "$ref": "#/$defs/strip.lcd"
+          },
           "device": {
             "$ref": "#/$defs/strip.device"
           },
@@ -174,6 +178,18 @@
           },
           "launch_when_running": {
             "$ref": "#/$defs/strip.launch_when_running"
+          },
+          "mute": {
+            "$ref": "#/$defs/strip.mute"
+          },
+          "present": {
+            "$ref": "#/$defs/strip.present"
+          },
+          "targets": {
+            "$ref": "#/$defs/strip.targets"
+          },
+          "together": {
+            "$ref": "#/$defs/strip.together"
           },
           "person": {
             "$ref": "#/$defs/strip.person"
@@ -232,6 +248,9 @@
             "fader": {
               "$ref": "#/$defs/strip.fader"
             },
+            "lcd": {
+              "$ref": "#/$defs/strip.lcd"
+            },
             "device": {
               "$ref": "#/$defs/strip.device"
             },
@@ -249,6 +268,18 @@
             },
             "launch_when_running": {
               "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "mute": {
+              "$ref": "#/$defs/strip.mute"
+            },
+            "present": {
+              "$ref": "#/$defs/strip.present"
+            },
+            "targets": {
+              "$ref": "#/$defs/strip.targets"
+            },
+            "together": {
+              "$ref": "#/$defs/strip.together"
             },
             "person": {
               "$ref": "#/$defs/strip.person"
@@ -296,6 +327,9 @@
             "fader": {
               "$ref": "#/$defs/strip.fader"
             },
+            "lcd": {
+              "$ref": "#/$defs/strip.lcd"
+            },
             "device": {
               "$ref": "#/$defs/strip.device"
             },
@@ -313,6 +347,18 @@
             },
             "launch_when_running": {
               "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "mute": {
+              "$ref": "#/$defs/strip.mute"
+            },
+            "present": {
+              "$ref": "#/$defs/strip.present"
+            },
+            "targets": {
+              "$ref": "#/$defs/strip.targets"
+            },
+            "together": {
+              "$ref": "#/$defs/strip.together"
             },
             "person": {
               "$ref": "#/$defs/strip.person"
@@ -387,6 +433,9 @@
             "fader": {
               "$ref": "#/$defs/strip.fader"
             },
+            "lcd": {
+              "$ref": "#/$defs/strip.lcd"
+            },
             "device": {
               "$ref": "#/$defs/strip.device"
             },
@@ -404,6 +453,18 @@
             },
             "launch_when_running": {
               "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "mute": {
+              "$ref": "#/$defs/strip.mute"
+            },
+            "present": {
+              "$ref": "#/$defs/strip.present"
+            },
+            "targets": {
+              "$ref": "#/$defs/strip.targets"
+            },
+            "together": {
+              "$ref": "#/$defs/strip.together"
             },
             "person": {
               "$ref": "#/$defs/strip.person"
@@ -470,6 +531,9 @@
             "fader": {
               "$ref": "#/$defs/strip.fader"
             },
+            "lcd": {
+              "$ref": "#/$defs/strip.lcd"
+            },
             "device": {
               "$ref": "#/$defs/strip.device"
             },
@@ -487,6 +551,18 @@
             },
             "launch_when_running": {
               "$ref": "#/$defs/strip.launch_when_running"
+            },
+            "mute": {
+              "$ref": "#/$defs/strip.mute"
+            },
+            "present": {
+              "$ref": "#/$defs/strip.present"
+            },
+            "targets": {
+              "$ref": "#/$defs/strip.targets"
+            },
+            "together": {
+              "$ref": "#/$defs/strip.together"
             },
             "person": {
               "$ref": "#/$defs/strip.person"
@@ -569,6 +645,9 @@
               "fader": {
                 "$ref": "#/$defs/strip.fader"
               },
+              "lcd": {
+                "$ref": "#/$defs/strip.lcd"
+              },
               "device": {
                 "$ref": "#/$defs/strip.device"
               },
@@ -586,6 +665,18 @@
               },
               "launch_when_running": {
                 "$ref": "#/$defs/strip.launch_when_running"
+              },
+              "mute": {
+                "$ref": "#/$defs/strip.mute"
+              },
+              "present": {
+                "$ref": "#/$defs/strip.present"
+              },
+              "targets": {
+                "$ref": "#/$defs/strip.targets"
+              },
+              "together": {
+                "$ref": "#/$defs/strip.together"
               },
               "person": {
                 "$ref": "#/$defs/strip.person"
@@ -652,6 +743,9 @@
               "fader": {
                 "$ref": "#/$defs/strip.fader"
               },
+              "lcd": {
+                "$ref": "#/$defs/strip.lcd"
+              },
               "device": {
                 "$ref": "#/$defs/strip.device"
               },
@@ -669,6 +763,18 @@
               },
               "launch_when_running": {
                 "$ref": "#/$defs/strip.launch_when_running"
+              },
+              "mute": {
+                "$ref": "#/$defs/strip.mute"
+              },
+              "present": {
+                "$ref": "#/$defs/strip.present"
+              },
+              "targets": {
+                "$ref": "#/$defs/strip.targets"
+              },
+              "together": {
+                "$ref": "#/$defs/strip.together"
               },
               "person": {
                 "$ref": "#/$defs/strip.person"
@@ -759,6 +865,9 @@
               "fader": {
                 "$ref": "#/$defs/strip.fader"
               },
+              "lcd": {
+                "$ref": "#/$defs/strip.lcd"
+              },
               "device": {
                 "$ref": "#/$defs/strip.device"
               },
@@ -776,6 +885,18 @@
               },
               "launch_when_running": {
                 "$ref": "#/$defs/strip.launch_when_running"
+              },
+              "mute": {
+                "$ref": "#/$defs/strip.mute"
+              },
+              "present": {
+                "$ref": "#/$defs/strip.present"
+              },
+              "targets": {
+                "$ref": "#/$defs/strip.targets"
+              },
+              "together": {
+                "$ref": "#/$defs/strip.together"
               },
               "person": {
                 "$ref": "#/$defs/strip.person"
@@ -989,6 +1110,51 @@
       "title": "BehaviorConfig",
       "type": "object"
     },
+    "ButtonAction": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/Launch"
+        },
+        {
+          "$ref": "#/$defs/RunAction"
+        }
+      ]
+    },
+    "ButtonClaim": {
+      "additionalProperties": false,
+      "description": "A button of `[controls]` as a table: what a press does, what its LED shows, or both.",
+      "properties": {
+        "press": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ButtonAction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a press does, whatever the slot shows: an action, an application to start, or a program to run. Unset: the\npress stays with what the slot shows."
+        },
+        "led": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClaimLed"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the LED shows, whatever the slot shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and\nflashes it on `flash`. Unset: what the press does."
+        }
+      },
+      "title": "ButtonClaim",
+      "type": "object"
+    },
     "ButtonConfig": {
       "additionalProperties": false,
       "description": "What a button does: a press, a hold, and what its LED shows. Unset, each takes what the strip type does.",
@@ -996,10 +1162,17 @@
         "press": {
           "anyOf": [
             {
-              "type": "string"
-            },
-            {
-              "$ref": "#/$defs/LaunchAction"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/LaunchAction"
+                },
+                {
+                  "$ref": "#/$defs/RunAction"
+                }
+              ]
             },
             {
               "type": "null"
@@ -1012,10 +1185,17 @@
         "hold": {
           "anyOf": [
             {
-              "type": "string"
-            },
-            {
-              "$ref": "#/$defs/LaunchAction"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/LaunchAction"
+                },
+                {
+                  "$ref": "#/$defs/RunAction"
+                }
+              ]
             },
             {
               "type": "null"
@@ -1028,27 +1208,66 @@
         "led": {
           "anyOf": [
             {
-              "enum": [
-                "off",
-                "recording",
-                "playing",
-                "default",
-                "muted",
-                "press",
-                "shown"
-              ],
-              "type": "string"
+              "oneOf": [
+                {
+                  "enum": [
+                    "off",
+                    "recording",
+                    "playing",
+                    "default",
+                    "muted",
+                    "press",
+                    "shown",
+                    "homeassistant"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/WatchBinding"
+                }
+              ]
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "What its LED shows.",
+          "description": "What its LED shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on `flash`.",
           "title": "Led"
         }
       },
       "title": "ButtonConfig",
+      "type": "object"
+    },
+    "ButtonControl": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/Launch"
+        },
+        {
+          "$ref": "#/$defs/RunAction"
+        },
+        {
+          "$ref": "#/$defs/ButtonClaim"
+        }
+      ]
+    },
+    "ChannelControl": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "description": "The `custom` channel whose value the fader or the encoder sets. A fader sets the value of its fader. An encoder\nsets the value of its own encoder, else that of its fader. E.g. `screen_left`.",
+          "title": "Channel",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "title": "ChannelControl",
       "type": "object"
     },
     "ChoiceConfig": {
@@ -1138,109 +1357,20 @@
       "title": "ChoiceConfig",
       "type": "object"
     },
-    "CommandControl": {
-      "additionalProperties": false,
-      "description": "A fader or an encoder that sets a value with a program of your own (`{ command = { ... } }` in `[controls]`), e.g.\nthe brightness of a screen.",
-      "properties": {
-        "set": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
+    "ClaimLed": {
+      "oneOf": [
+        {
+          "enum": [
+            "off",
+            "press",
+            "homeassistant"
           ],
-          "description": "The program that sets the value, then each argument; `{value}` in an argument is the new value. E.g.\n`[\"brightnessctl\", \"set\", \"{value}%\"]`.",
-          "title": "Set"
+          "type": "string"
         },
-        "watch": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "A program that runs all the time and prints the value, one line per change. The fader and the LED ring follow it.",
-          "title": "Watch"
-        },
-        "range": {
-          "default": [
-            0.0,
-            100.0
-          ],
-          "description": "The lowest and the highest value: the fader at the bottom and at the top, the LED ring empty and full.",
-          "maxItems": 2,
-          "minItems": 2,
-          "prefixItems": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "number"
-            }
-          ],
-          "title": "Range",
-          "type": "array"
-        },
-        "step": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How much one step of the encoder changes the value. By default `behavior.encoder_step` percent of `range`.",
-          "title": "Step"
-        },
-        "push": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The value a push of the encoder sets, e.g. the full brightness. For the encoder only.",
-          "title": "Push"
+        {
+          "$ref": "#/$defs/WatchBinding"
         }
-      },
-      "required": [
-        "set"
-      ],
-      "title": "CommandControl",
-      "type": "object"
-    },
-    "CommandSetting": {
-      "additionalProperties": false,
-      "properties": {
-        "command": {
-          "$ref": "#/$defs/CommandControl",
-          "description": "The program that sets the value, and the one that watches it."
-        }
-      },
-      "required": [
-        "command"
-      ],
-      "title": "CommandSetting",
-      "type": "object"
+      ]
     },
     "ControlsConfig": {
       "additionalProperties": false,
@@ -1255,7 +1385,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "What the fader of the slot sets, whatever the slot shows: a number in Home Assistant, the value of a `custom`\nchannel, or a value of your own."
         },
         "encoder": {
           "anyOf": [
@@ -1266,52 +1397,117 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "What the encoder of the slot sets, whatever the slot shows. The LED ring shows the value. E.g. `{ channel =\n\"screen\" }`."
         },
         "select": {
           "anyOf": [
             {
-              "type": "string"
-            },
-            {
-              "$ref": "#/$defs/Launch"
+              "$ref": "#/$defs/ButtonControl"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Select"
+          "description": "What Select does, whatever the slot shows: an action, an application to start, or a program to run. As a table,\nit takes a `press`, a `led` or both."
         },
         "rec": {
           "anyOf": [
             {
-              "type": "string"
-            },
-            {
-              "$ref": "#/$defs/Launch"
+              "$ref": "#/$defs/ButtonControl"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Rec"
+          "description": "What Rec does, whatever the slot shows: an action, an application to start, or a program to run. As a table, it\ntakes a `press`, a `led` or both."
         },
         "solo": {
           "anyOf": [
             {
-              "type": "string"
-            },
-            {
-              "$ref": "#/$defs/Launch"
+              "$ref": "#/$defs/ButtonControl"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Solo"
+          "description": "What Solo does, whatever the slot shows: an action, an application to start, or a program to run. As a table, it\ntakes a `press`, a `led` or both."
+        },
+        "meter": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "const": "homeassistant",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/LevelBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the meter of the slot shows, whatever the slot shows: Home Assistant's level, or a number a program prints.",
+          "title": "Meter"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "enum": [
+                    "off",
+                    "red",
+                    "green",
+                    "yellow",
+                    "blue",
+                    "magenta",
+                    "cyan",
+                    "white",
+                    "homeassistant"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/WatchBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The backlight of the LCD of the slot, whatever the slot shows: a color, Home Assistant's, or the color a program\nprints.",
+          "title": "Color"
+        },
+        "lcd": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "const": "homeassistant",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/WatchBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The second line of the LCD of the slot, whatever the slot shows: Home Assistant's text, or the newest line a\nprogram prints.",
+          "title": "Lcd"
         },
         "when": {
           "anyOf": [
@@ -1323,6 +1519,7 @@
             }
           ],
           "default": null,
+          "description": "The controls apply while this condition of states and modes holds, e.g. `not call`.",
           "title": "When"
         },
         "id": {
@@ -1410,7 +1607,10 @@
           "type": "string"
         },
         {
-          "$ref": "#/$defs/CommandSetting"
+          "$ref": "#/$defs/ChannelControl"
+        },
+        {
+          "$ref": "#/$defs/ValueBinding"
         }
       ]
     },
@@ -1467,6 +1667,44 @@
         "launch"
       ],
       "title": "LaunchAction",
+      "type": "object"
+    },
+    "LevelBinding": {
+      "additionalProperties": false,
+      "description": "A meter that shows a number that a program of your own prints, between `min` and `max`.",
+      "properties": {
+        "watch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "A program that runs all the time and prints a number per change. The meter shows it. E.g. `[\"cpu-load\",\n\"--watch\"]`.",
+          "title": "Watch"
+        },
+        "min": {
+          "default": 0,
+          "description": "The number with the meter dark.",
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "default": 100,
+          "description": "The number with the meter full.",
+          "title": "Max",
+          "type": "number"
+        }
+      },
+      "required": [
+        "watch"
+      ],
+      "title": "LevelBinding",
       "type": "object"
     },
     "MqttConfig": {
@@ -1620,6 +1858,32 @@
         "profile"
       ],
       "title": "ProfileConfig",
+      "type": "object"
+    },
+    "RunAction": {
+      "additionalProperties": false,
+      "description": "A program of your own that a button runs to its end.",
+      "properties": {
+        "run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "The program a press runs, then each argument. `{value}` is the value of the fader, else of the encoder. E.g.\n`[\"sysctrl\", \"display\", \"reset\"]`.",
+          "title": "Run"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "RunAction",
       "type": "object"
     },
     "StateConfig": {
@@ -1809,6 +2073,119 @@
       "title": "SwitchingConfig",
       "type": "object"
     },
+    "Target": {
+      "additionalProperties": false,
+      "description": "One of the things a `custom` channel controls, e.g. one of two screens.",
+      "properties": {
+        "name": {
+          "description": "The name on the LCD while the strip controls it, e.g. `Left`.",
+          "maxLength": 7,
+          "pattern": "^[\\x20-\\x7e]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "description": "What `{target}` is in the programs of the channel, e.g. `DisplayPort-1`.",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "Target",
+      "type": "object"
+    },
+    "ValueBinding": {
+      "additionalProperties": false,
+      "description": "A value that programs of your own set and watch, e.g. the brightness of a screen.",
+      "properties": {
+        "set": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "The program that sets the value, then each argument. `{value}` in an argument is the new value. E.g.\n`[\"brightnessctl\", \"set\", \"{value}%\"]`.",
+          "title": "Set"
+        },
+        "watch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A program that runs all the time and prints the value, one line per change. The fader, the LED ring and the LCD\nfollow it.",
+          "title": "Watch"
+        },
+        "min": {
+          "default": 0,
+          "description": "The value with the fader at the bottom and the LED ring empty.",
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "default": 100,
+          "description": "The value with the fader at the top and the LED ring full.",
+          "title": "Max",
+          "type": "number"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How much one step of the encoder changes the value. By default `behavior.encoder_step` percent of the range.",
+          "title": "Step"
+        },
+        "push": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The value a push of the encoder sets. Without it, a push does nothing. E.g. the full brightness.",
+          "title": "Push"
+        },
+        "format": {
+          "default": "{value:g}",
+          "description": "How the LCD shows the value, in the format of Python. E.g. `{value:.0%}` shows 0.55 as `55%`.",
+          "title": "Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "set"
+      ],
+      "title": "ValueBinding",
+      "type": "object"
+    },
     "VoipConfig": {
       "additionalProperties": false,
       "description": "Where `voip` strips get the participants of the voice chat.",
@@ -1842,6 +2219,32 @@
       "title": "VoipConfig",
       "type": "object"
     },
+    "WatchBinding": {
+      "additionalProperties": false,
+      "description": "A part that shows what a program of your own prints: a line per change.",
+      "properties": {
+        "watch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "A program that runs all the time and prints a line per change. The part shows the newest line. E.g.\n`[\"playerctl\", \"status\", \"--follow\"]`.",
+          "title": "Watch"
+        }
+      },
+      "required": [
+        "watch"
+      ],
+      "title": "WatchBinding",
+      "type": "object"
+    },
     "strip.choices": {
       "default": [],
       "description": "The devices Select switches between, each maybe in a profile of its sound card. E.g. headphones on the analog\noutput, speakers on the digital one, Bluetooth headphones. Instead of `device` and `profiles`.",
@@ -1851,19 +2254,43 @@
       "type": "array"
     },
     "strip.color": {
-      "default": "white",
-      "description": "The backlight of the LCD. It goes dark while the strip has nothing to control, unless `lit_when_idle` is on.",
-      "enum": [
-        "off",
-        "red",
-        "green",
-        "yellow",
-        "blue",
-        "magenta",
-        "cyan",
-        "white"
+      "anyOf": [
+        {
+          "oneOf": [
+            {
+              "enum": [
+                "off",
+                "red",
+                "green",
+                "yellow",
+                "blue",
+                "magenta",
+                "cyan",
+                "white",
+                "homeassistant"
+              ],
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/WatchBinding"
+            }
+          ]
+        },
+        {
+          "enum": [
+            "off",
+            "red",
+            "green",
+            "yellow",
+            "blue",
+            "magenta",
+            "cyan",
+            "white"
+          ],
+          "type": "string"
+        }
       ],
-      "type": "string"
+      "description": "The backlight of the LCD. It goes dark while the strip has nothing to control, unless `lit_when_idle` is on. A\n`watch` sets it with each line that is a color name."
     },
     "strip.device": {
       "anyOf": [
@@ -1883,30 +2310,86 @@
     "strip.encoder": {
       "anyOf": [
         {
-          "enum": [
-            "volume",
-            "balance",
-            "pick",
-            "media",
-            "homeassistant"
-          ],
-          "type": "string"
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "enum": [
+                    "volume",
+                    "balance",
+                    "pick",
+                    "media",
+                    "homeassistant"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/ValueBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         {
-          "type": "null"
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "const": "homeassistant",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/ValueBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       ],
-      "default": null,
       "description": "What the encoder does when you turn and push it. Its LED ring shows the value."
     },
     "strip.fader": {
-      "default": "volume",
-      "description": "What the fader sets.",
-      "enum": [
-        "volume",
-        "homeassistant"
+      "anyOf": [
+        {
+          "oneOf": [
+            {
+              "enum": [
+                "volume",
+                "homeassistant"
+              ],
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/ValueBinding"
+            }
+          ]
+        },
+        {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "const": "homeassistant",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/ValueBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       ],
-      "type": "string"
+      "description": "What the fader sets. Bound to something else, it gives the volume to the encoder."
     },
     "strip.label": {
       "anyOf": [
@@ -1953,6 +2436,26 @@
       "description": "Select starts `launch` also while the application runs, e.g. a `mumble://` URL that connects a running Mumble to a server.",
       "type": "boolean"
     },
+    "strip.lcd": {
+      "anyOf": [
+        {
+          "oneOf": [
+            {
+              "const": "homeassistant",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/WatchBinding"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The second line of the LCD, instead of the volume. A `watch` shows each line it prints. By default what the\nstrip type shows."
+    },
     "strip.lit_when_idle": {
       "default": false,
       "description": "Keeps the LCD lit while the strip has nothing to control, e.g. no application plays or the device is not there.\nThe fader stays down.",
@@ -1996,9 +2499,44 @@
       "description": "The volume, in percent, with the fader at the top; by default `behavior.max_volume`. Above 100 % the audio is\namplified, e.g. 200 for weak speakers."
     },
     "strip.meter": {
-      "default": true,
-      "description": "The LED meter shows the level. Needs `behavior.meters`.",
-      "type": "boolean"
+      "anyOf": [
+        {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "const": "homeassistant",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/LevelBinding"
+            }
+          ]
+        },
+        {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "const": "homeassistant",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/LevelBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        {
+          "type": "boolean"
+        }
+      ],
+      "description": "The LED meter shows the level. Needs `behavior.meters`. A `watch` makes it show each number it prints, from\n`min` to `max`."
     },
     "strip.meter_point": {
       "anyOf": [
@@ -2030,6 +2568,32 @@
       "default": null,
       "description": "The volume, in percent, with the fader at the bottom. E.g. 50 gives the whole fader to the upper half."
     },
+    "strip.mute": {
+      "anyOf": [
+        {
+          "enum": [
+            "off",
+            "recording",
+            "playing",
+            "default",
+            "muted",
+            "press",
+            "shown",
+            "homeassistant"
+          ],
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/ButtonConfig"
+        }
+      ],
+      "default": {
+        "press": null,
+        "hold": null,
+        "led": null
+      },
+      "description": "What Mute does (`press`, `hold`) and what its LED shows (`led`). By default nothing."
+    },
     "strip.person": {
       "anyOf": [
         {
@@ -2044,6 +2608,18 @@
       ],
       "default": [],
       "description": "The participant the strip always shows: their name in the voice chat (any case), or several names of the same\nperson, e.g. \"Alice\" and \"alice-phone\". While they are away, the name shows dark."
+    },
+    "strip.present": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WatchBinding"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "A program that tells whether the channel is there: a line with text makes it present, an empty line absent.\nWithout it, the channel is always present."
     },
     "strip.profiles": {
       "default": [],
@@ -2063,7 +2639,8 @@
             "default",
             "muted",
             "press",
-            "shown"
+            "shown",
+            "homeassistant"
           ],
           "type": "string"
         },
@@ -2091,7 +2668,8 @@
             "default",
             "muted",
             "press",
-            "shown"
+            "shown",
+            "homeassistant"
           ],
           "type": "string"
         },
@@ -2116,7 +2694,8 @@
             "default",
             "muted",
             "press",
-            "shown"
+            "shown",
+            "homeassistant"
           ],
           "type": "string"
         },
@@ -2145,6 +2724,19 @@
         "white"
       ],
       "type": "string"
+    },
+    "strip.targets": {
+      "default": [],
+      "description": "The things the strip controls one at a time. `{target}` in the programs is the `value` of the target, the LCD\nshows its `name`. Select's `next` switches. E.g. two screens.",
+      "items": {
+        "$ref": "#/$defs/Target"
+      },
+      "type": "array"
+    },
+    "strip.together": {
+      "default": false,
+      "description": "A move sets every target at once. The strip shows the first one.",
+      "type": "boolean"
     }
   }
 }

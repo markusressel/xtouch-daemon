@@ -6,11 +6,10 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, assert_never
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QResizeEvent
 from PyQt6.QtWidgets import (
     QBoxLayout,
-    QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QFrame,
@@ -18,6 +17,8 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QSizePolicy,
+    QSpacerItem,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -39,8 +40,10 @@ from xtouch_daemon.gui.qt.fields.basics import (
     label,
     set_help,
 )
+from xtouch_daemon.gui.qt.fields.binding import BindingField
 from xtouch_daemon.gui.qt.fields.buttons import ButtonField
 from xtouch_daemon.gui.qt.fields.chips import Chips
+from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Switch
 from xtouch_daemon.gui.qt.fields.names import NameCompleter
 from xtouch_daemon.gui.qt.fields.tables import Tables
@@ -51,6 +54,13 @@ MATCHED = frozenset({"device", "card", "profile"})
 """The options whose value names something of the sound server, with what it matches under the field."""
 FIELD_WIDTH = 320
 """The least room for a field beside its name: below it, the name goes above the field."""
+QWIDGETSIZE_MAX = 16_777_215
+"""No maximum width (Qt's `QWIDGETSIZE_MAX`)."""
+WIDEST_FIELD = 640
+"""
+The widest a field gets beside its name: its reset button stays next to it in a wide window, at the same place in
+every row, and its help is as wide.
+"""
 NARROW_BELOW = LABEL_WIDTH + Space.S + FIELD_WIDTH
 """Below it, a row with the widest column of names puts its name above its field."""
 WIDEST_TITLE = LABEL_WIDTH + 2 * Space.L
@@ -112,6 +122,24 @@ def add_groups(layout: QBoxLayout, groups: Iterable[tuple[str, Sequence[QWidget]
         add_rows(layout, widgets)
 
 
+class NumberSpin(QDoubleSpinBox):
+    """
+    A spin box of a number that may be unset (`unset`, shown as text): a step up from it goes to `start()` where
+    there is one, e.g. a binding's `push` to its `min`, rather than a step away from far below.
+    """
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.unset: float | None = None
+        self.start: Callable[[], float] | None = None
+
+    def stepBy(self, steps: int) -> None:
+        if self.start is not None and self.unset is not None and self.value() == self.unset and steps > 0:
+            self.setValue(self.start())
+            return
+        super().stepBy(steps)
+
+
 class OptionRow(QWidget):
     """
     One option: its name, a field for its kind of value, a button back to the default, the help with the default and
@@ -139,6 +167,11 @@ class OptionRow(QWidget):
         self._put = put
         self._placeholder = placeholder
         self._loading = False
+        self.inherited: str | None = None
+        """
+        Where an unset value comes from when it is no default, e.g. "As on the channel" at a place: the placeholder
+        says it with the value of `placeholder` ("As on the channel: red"), and a switch or a color shows that value.
+        """
         self.resettable = True
         """Shows the button back to the default while a value is set; off where the page removes it another way."""
         self.names: tuple[str, ...] = (option.name,)
@@ -149,13 +182,17 @@ class OptionRow(QWidget):
         self.top = QGridLayout()
         self.top.setHorizontalSpacing(Space.S)
         self.top.setVerticalSpacing(Space.XS)
+        # wide: the room the field doesn't take (see `_fit_field`)
+        self.top.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum), 0, 3)
         self.title = label(option.title + ("  *" if option.required else ""))
         self.title.setToolTip(option.name + (", required" if option.required else ""))
         self.field = self._field(option, suggest)
         self.reset = flat_button("restore", f"Back to the default ({describe(option.default)})", self)
         self.reset.clicked.connect(self._reset)
         outer.addLayout(self.top)
-        self.details = QVBoxLayout()
+        # the help and the rest under the field (see `_fit_field`)
+        self.details_box = _Capped()
+        self.details = QVBoxLayout(self.details_box.inner)
         details = self.details
         details.setSpacing(2)
         self.title_width = LABEL_WIDTH
@@ -181,7 +218,7 @@ class OptionRow(QWidget):
         self.error = label("", "error", wrap=True)
         self.error.hide()
         details.addWidget(self.error)
-        outer.addLayout(details)
+        outer.addWidget(self.details_box)
         self.load()
 
     # -- the layout -----------------------------------------------------------------------------------------------
@@ -195,13 +232,23 @@ class OptionRow(QWidget):
             self._arrange(narrow=True)
         elif self.narrow is not False and width > narrow_below + Space.M:
             self._arrange(narrow=False)
+        self._fit_field()
+
+    def _fit_field(self) -> None:
+        """The field as wide as the row allows, up to `WIDEST_FIELD`; the rest is empty, right of its reset."""
+        wide = self.narrow is False
+        self.details.setContentsMargins(self.title_width + Space.S if wide else 0, 0, 0, 0)
+        self.field.setMaximumWidth(WIDEST_FIELD if wide else QWIDGETSIZE_MAX)
+        # the help as wide as the field and its reset button: no longer lines to read in a wide window
+        reset = self.reset.sizeHint().width()
+        self.details_box.set_cap(self.title_width + 2 * Space.S + WIDEST_FIELD + reset if wide else QWIDGETSIZE_MAX)
 
     def set_title_width(self, width: int) -> None:
         """The width of the column of names, for the rows shown with it (see `align_titles`)."""
         self.title_width = width
         if self.narrow is False:
             self.title.setFixedWidth(width)
-            self.details.setContentsMargins(width + Space.S, 0, 0, 0)
+            self._fit_field()
 
     def _arrange(self, narrow: bool) -> None:
         """The name left of the field (in the column of the names), or above it in a narrow row."""
@@ -218,15 +265,18 @@ class OptionRow(QWidget):
             self.top.addWidget(self.reset, 1, 1)
         else:
             # a list of entries: its name and reset at the top, not beside its middle
-            top = Qt.AlignmentFlag.AlignTop if self.option.kind in (Kind.TABLES, Kind.BUTTON) else Qt.AlignmentFlag(0)
+            tall = (Kind.TABLES, Kind.BUTTON, Kind.CLAIM, Kind.BINDING)
+            top = Qt.AlignmentFlag.AlignTop if self.option.kind in tall else Qt.AlignmentFlag(0)
             self.title.setFixedWidth(self.title_width)
             self.top.addWidget(self.title, 0, 0, top)
             self.top.addWidget(self.field, 0, 1)
             self.top.addWidget(self.reset, 0, 2, top)
         self.top.setColumnStretch(0, 1 if narrow else 0)
-        self.top.setColumnStretch(1, 0 if narrow else 1)
+        # the field takes the room first, up to its widest; the rest is empty
+        self.top.setColumnStretch(1, 0 if narrow else 1000)
         self.top.setColumnStretch(2, 0)
-        self.details.setContentsMargins(0 if narrow else self.title_width + Space.S, 0, 0, 0)
+        self.top.setColumnStretch(3, 0 if narrow else 1)
+        self._fit_field()
 
     # -- the fields of the kinds ----------------------------------------------------------------------------------
 
@@ -248,15 +298,22 @@ class OptionRow(QWidget):
                 self.spin.valueChanged.connect(self._edit_number)
                 return self._left(self.spin)
             case Kind.NUMBER:
-                self.spin = QDoubleSpinBox(self)
+                spin = NumberSpin(self)
+                self.spin = spin
                 indent_text(self.spin)
                 self.spin.setDecimals(1)
                 self.spin.setSingleStep(0.5)
                 low = option.minimum or 0
+                if option.signed:
+                    # a number of your own (e.g. `min` of a binding): any sign, finer, steps after its size
+                    low = -1_000_000 if option.minimum is None else option.minimum
+                    self.spin.setDecimals(3)
+                    self.spin.setStepType(QDoubleSpinBox.StepType.AdaptiveDecimalStepType)
                 if option.default is None:
                     # a step below the minimum is "not set", shown as text
                     self._unset = low - 0.5
                     low = self._unset
+                    spin.unset = self._unset
                 self.spin.setRange(low, option.maximum or 1_000_000)
                 self.spin.valueChanged.connect(self._edit_number)
                 return self._left(self.spin)
@@ -265,7 +322,7 @@ class OptionRow(QWidget):
                 self.switch.toggled.connect(self._edit)
                 return self._left(self.switch)
             case Kind.CHOICE:
-                self.combo = QComboBox(self)
+                self.combo = Choice(self)
                 self.combo.addItems(list(option.choices))
                 for index, choice in enumerate(option.choices):
                     # what each one means, while the list is open
@@ -298,11 +355,26 @@ class OptionRow(QWidget):
                 self.tables.changed.connect(self._edit)
                 self.input = self.tables
                 return self.tables
-            case Kind.BUTTON:
-                self.buttons = ButtonField(option.name, option.columns)
+            case Kind.BUTTON | Kind.CLAIM:
+                self.buttons = ButtonField(option.name, option.columns, claim=option.kind == Kind.CLAIM)
                 self.buttons.changed.connect(self._edit)
                 self.input = self.buttons
                 return self.buttons
+            case Kind.BINDING:
+                self.binding = BindingField(option, self._placeholder)
+                self.binding.changed.connect(self._edit)
+                # the field of the words, by the name it has without bindings
+                match option.base:
+                    case Kind.CHOICE:
+                        self.combo = self.binding.combo
+                    case Kind.SWITCH:
+                        self.switch = self.binding.switch
+                    case Kind.COLOR:
+                        self.colors = self.binding.colors
+                    case _:
+                        pass
+                self.input = self.binding
+                return self.binding
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -390,26 +462,31 @@ class OptionRow(QWidget):
                     self.line.setText(value if isinstance(value, str) else "")
                     self._show_matches()
                     default = self._placeholder() if self._placeholder else self.option.default
-                    self.line.setPlaceholderText("" if default is None else str(default))
+                    self.line.setPlaceholderText(self._unset_text(default, ""))
                 case Kind.INTEGER | Kind.NUMBER:
                     # a value of another type shows the default; its problem says what is wrong
                     number = shown if isinstance(shown, int | float) else self.option.default
                     if self.option.default is None:
                         default = self._placeholder() if self._placeholder else "not set"
-                        self.spin.setSpecialValueText(f"default: {default}")
+                        self.spin.setSpecialValueText(self._unset_text(default))
                     if isinstance(self.spin, QSpinBox):
                         self.spin.setValue(int(self._unset) if number is None else int(number))
                     else:
                         self.spin.setValue(self._unset if number is None else float(number))
                 case Kind.SWITCH:
+                    if value is None and self.inherited is not None and self._placeholder:
+                        # unset: as where it comes from
+                        shown = self._placeholder() == "on"
                     self.switch.setChecked(bool(shown))
                 case Kind.CHOICE:
                     self.combo.setCurrentIndex(self.option.choices.index(shown) if shown in self.option.choices else -1)
                     if self._placeholder:
                         # shown while none is chosen
-                        self.combo.setPlaceholderText(f"default: {self._placeholder()}")
+                        self.combo.setPlaceholderText(self._unset_text(self._placeholder()))
                     self._show_meaning()
                 case Kind.COLOR:
+                    if value is None and self.inherited is not None and self._placeholder:
+                        shown = self._placeholder()
                     self.colors.show_value(str(shown))
                 case Kind.LIST:
                     # a single value may stand alone, e.g. `device = "speaker"`
@@ -421,13 +498,25 @@ class OptionRow(QWidget):
                     # a value of another type shows none; its problem says what is wrong
                     tables = shown if isinstance(shown, list | tuple) else ()
                     self.tables.show_values([dict(table) for table in tables if isinstance(table, dict)])
-                case Kind.BUTTON:
+                case Kind.BUTTON | Kind.CLAIM:
                     self.buttons.show_value(value)
+                case Kind.BINDING:
+                    self.binding.show_value(value)
+                    self._show_meaning()
                 case _ as unreachable:
                     assert_never(unreachable)
         finally:
             self._loading = False
         self.reset.setVisible(self.resettable and value is not None and not self.option.required)
+
+    def _unset_text(self, value: object, before: str = "default: ") -> str:
+        """
+        What a field shows while unset: `default: <value>`, or where it comes from with its value ("As on the
+        channel: red"); `before` the value in a field without `inherited`.
+        """
+        if self.inherited is None:
+            return "" if value is None else f"{before}{value}"
+        return f"{self.inherited}: {value}" if value else self.inherited
 
     def _edit(self, value: Any) -> None:
         if self._loading:
@@ -437,15 +526,21 @@ class OptionRow(QWidget):
             value = None
         self._put(value)
         self.reset.setVisible(self.resettable and value is not None and not self.option.required)
-        if self.option.kind == Kind.CHOICE:
+        if self.option.kind in (Kind.CHOICE, Kind.BINDING):
             self._show_meaning()
         self.edited.emit()
 
     def _show_meaning(self) -> None:
         """What the chosen value means; while none is chosen, what the default (the placeholder) means."""
-        value = self.combo.currentText() if self.combo.currentIndex() >= 0 else None
-        if value is None and self._placeholder:
-            value = self._placeholder()
+        if self.option.kind == Kind.BINDING:
+            # a word of a list, or Home Assistant: switches and colors say it themselves
+            value = self.binding.word()
+            if self.option.base != Kind.CHOICE and value != "homeassistant":
+                value = None
+        else:
+            value = self.combo.currentText() if self.combo.currentIndex() >= 0 else None
+            if value is None and self._placeholder:
+                value = self._placeholder()
         meaning = self.option.meaning(value)
         set_help(self.meaning, f"`{value}`: {meaning}" if meaning else "")
         self.meaning.setVisible(bool(meaning))
@@ -459,15 +554,79 @@ class OptionRow(QWidget):
         self.edited.emit()
 
     def show_problems(self, problems: list[Problem]) -> None:
+        if self.option.kind == Kind.BINDING:
+            # a problem of an option of the program (`fader.max`) shows under its row
+            nested: dict[str, list[Problem]] = {name: [] for name in self.binding.rows}
+            rest: list[Problem] = []
+            for problem in problems:
+                column = self._rest_of(problem)[:1]
+                if column and column[0] in nested:
+                    nested[str(column[0])].append(problem)
+                else:
+                    rest.append(problem)
+            for name, row in self.binding.rows.items():
+                row.show_problems(nested[name])
+            problems = rest
         self.error.setText("\n".join(self._problem_text(problem) for problem in problems))
         self.error.setVisible(bool(problems))
         set_role(self.input, bool(problems), "problem")
 
+    def _rest_of(self, problem: Problem) -> tuple[int | str, ...]:
+        """Where in the option the problem is, e.g. `(2, "label")` of the third table, `()` for the option itself."""
+        name = next((name for name in self.names if name in problem.path), None)
+        return () if name is None else problem.path[problem.path.index(name) + 1 :]
+
     def _problem_text(self, problem: Problem) -> str:
         """The message, after the table and column for a problem in one of `TABLES` (e.g. "2. label: ...")."""
-        name = next((name for name in self.names if name in problem.path), None)
-        rest = () if name is None else problem.path[problem.path.index(name) + 1 :]
+        rest = self._rest_of(problem)
         if self.option.kind != Kind.TABLES or not rest or not isinstance(rest[0], int):
             return problem.message
         where = " ".join([f"{rest[0] + 1}.", *map(str, rest[1:])])
         return f"{where}: {problem.message}"
+
+
+class _Capped(QWidget):
+    """
+    A widget at most `cap` wide (on its left), as tall as its content is at that width. Its content is `inner`, with
+    the layout: a widget with a layout of its own would be as tall as its content at the whole width it is given.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.inner = QWidget(self)
+        self.cap = QWIDGETSIZE_MAX
+        policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        policy.setHeightForWidth(True)
+        self.setSizePolicy(policy)
+
+    def set_cap(self, cap: int) -> None:
+        if cap != self.cap:
+            self.cap = cap
+            self._place()
+            self.updateGeometry()
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return self.inner.heightForWidth(min(width, self.cap))
+
+    def sizeHint(self) -> QSize:
+        return self.inner.sizeHint()
+
+    def minimumSizeHint(self) -> QSize:
+        return self.inner.minimumSizeHint()
+
+    def event(self, event: QEvent | None) -> bool:
+        if event is not None and event.type() == QEvent.Type.LayoutRequest:
+            # the content changed (a help shown, an error): this is as tall as it is now
+            self.updateGeometry()
+            self._place()
+        return super().event(event)
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        super().resizeEvent(event)
+        self._place()
+
+    def _place(self) -> None:
+        self.inner.setGeometry(0, 0, min(self.width(), self.cap), self.height())

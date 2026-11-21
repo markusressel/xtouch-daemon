@@ -2,8 +2,10 @@ import dataclasses
 from typing import Annotated, Literal
 
 import pytest
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, Tag
 
+from xtouch_daemon.config.base import Meanings
+from xtouch_daemon.config.bindings import TABLE, TEXT, WORD_OR_TABLE, WatchBinding
 from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
 from xtouch_daemon.gui.domain.schema import (
@@ -11,6 +13,7 @@ from xtouch_daemon.gui.domain.schema import (
     Kind,
     Option,
     describe,
+    look_options,
     option,
     options,
     sections,
@@ -67,6 +70,7 @@ def test_the_options_of_a_strip_take_their_kinds_bounds_and_columns_from_the_mod
         profiles,
         encoder,
         label,
+        _,
         color,
         _,
         _,
@@ -84,20 +88,23 @@ def test_the_options_of_a_strip_take_their_kinds_bounds_and_columns_from_the_mod
         ("pre_fader", "post_fader"),
     )
     assert "hardware mixer" in meter_point.meaning("pre_fader")
-    assert (encoder.kind, encoder.default, encoder.choices) == (
+    # parts that can be bound: their words as without bindings, and the options of a program
+    assert (encoder.kind, encoder.base, encoder.default, encoder.choices) == (
+        Kind.BINDING,
         Kind.CHOICE,
         None,
         ("balance", "volume", "homeassistant"),
     )
-    assert (fader.kind, fader.default) == (Kind.CHOICE, "volume")
+    assert (fader.kind, fader.base, fader.default, fader.home_assistant) == (Kind.BINDING, Kind.CHOICE, "volume", True)
+    assert [column.name for column in fader.columns] == ["set", "watch", "min", "max", "step", "format"]
     assert (min_volume.kind, min_volume.default, min_volume.minimum, min_volume.maximum) == (Kind.INTEGER, None, 0, 200)
     assert (rec.kind, rec.default) == (Kind.BUTTON, None)
     assert [(column.name, column.kind) for column in rec.columns] == [
         ("press", Kind.ACTION),
         ("hold", Kind.ACTION),
-        ("led", Kind.CHOICE),
+        ("led", Kind.BINDING),
     ]
-    assert color.kind == Kind.COLOR
+    assert (color.kind, color.base) == (Kind.BINDING, Kind.COLOR)
     assert color.choices == ("off", "red", "green", "yellow", "blue", "magenta", "cyan", "white")
     assert color.default == "white"
     # unset by default: the default device, the default label
@@ -241,3 +248,80 @@ def test_lists_of_names_say_which_presets_they_take():
     assert state["processes"].presets == PresetKind.PROCESSES
     assert state["processes"].kind == Kind.LIST
     assert strip_option("output", "device").presets is None
+
+
+def test_a_part_that_can_be_bound_has_its_words_and_the_options_of_its_program():
+    fader = strip_option("custom", "fader")
+    # no word but homeassistant: the part is bound, or not set
+    assert (fader.kind, fader.base, fader.choices, fader.home_assistant, fader.default) == (
+        Kind.BINDING,
+        None,
+        (),
+        True,
+        None,
+    )
+    by_name = {column.name: column for column in fader.columns}
+    assert (by_name["set"].kind, by_name["set"].required) == (Kind.LIST, True)
+    assert (by_name["min"].kind, by_name["min"].default, by_name["min"].minimum) == (Kind.NUMBER, 0, None)
+    assert (by_name["step"].kind, by_name["step"].default) == (Kind.NUMBER, None)
+    assert (by_name["format"].kind, by_name["format"].default) == (Kind.TEXT, "{value:g}")
+    assert fader.binding.startswith("A value that programs of your own set and watch")
+    assert "Home Assistant" in fader.meaning("homeassistant")
+    # a switch, or a level of Home Assistant or of a program
+    meter = strip_option("output", "meter")
+    assert (meter.base, meter.choices, meter.default, meter.home_assistant) == (Kind.SWITCH, (), True, True)
+    assert [column.name for column in meter.columns] == ["watch", "min", "max"]
+    # colors keep their swatches; homeassistant is a binding of them
+    color = strip_option("custom", "color")
+    assert (color.base, color.default, color.home_assistant) == (Kind.COLOR, "white", True)
+    assert "homeassistant" not in color.choices
+    assert color.meaning("off") == "No backlight."
+    # a program only
+    present = strip_option("custom", "present")
+    assert (present.kind, present.base, present.home_assistant) == (Kind.BINDING, None, False)
+    assert [column.name for column in present.columns] == ["watch"]
+    lcd = strip_option("input", "lcd")
+    assert (lcd.base, lcd.home_assistant, lcd.default) == (None, True, None)
+
+
+def test_a_custom_channel_has_its_targets_and_buttons_that_do_what_it_can():
+    names = [o.name for o in strip_options("custom")]
+    assert names[:3] == ["targets", "together", "present"]
+    assert names.index("encoder") < names.index("lcd") < names.index("mute") < names.index("fader")
+    targets = strip_option("custom", "targets")
+    assert (targets.kind, [(column.name, column.kind) for column in targets.columns]) == (
+        Kind.TABLES,
+        [("name", Kind.TEXT), ("value", Kind.TEXT)],
+    )
+    assert targets.columns[0].max_length == 7
+    press, hold, led = strip_option("custom", "select").columns
+    assert set(press.choices) | {name for name, _ in press.meanings} == {"off", "next", "cycle_modes", "homeassistant"}
+    assert hold.meanings == press.meanings
+    assert (led.kind, led.choices) == (Kind.BINDING, ("off", "press", "homeassistant"))
+    # an audio strip keeps all its actions
+    assert "default" in {name for name, _ in strip_option("output", "select").columns[0].meanings}
+
+
+def test_a_place_takes_the_words_of_a_part_only():
+    color, meter = (o for o in look_options("output", frozenset({"color", "meter"})))
+    assert (color.kind, color.columns, color.home_assistant) == (Kind.COLOR, (), False)
+    assert meter.kind == Kind.SWITCH
+    # a part with no words has no field there
+    assert [o.name for o in look_options("custom", frozenset({"color", "meter", "lcd"}))] == ["color"]
+
+
+def test_the_words_of_a_choice_keep_their_meanings_and_add_up():
+    class Strip(BaseModel):
+        model_config = ConfigDict(use_attribute_docstrings=True)
+
+        part: Annotated[
+            Annotated[Annotated[Literal["a", "b"], Meanings({"a": "A."})], Tag(TEXT)]
+            | Annotated[Annotated[Literal["homeassistant"], Meanings({"homeassistant": "HA."})], Tag(TEXT)]
+            | Annotated[WatchBinding, Tag(TABLE)],
+            WORD_OR_TABLE,
+        ] = "a"
+        """A part."""
+
+    (part,) = options(Strip)
+    assert (part.kind, part.base, part.choices) == (Kind.BINDING, Kind.CHOICE, ("a", "b", "homeassistant"))
+    assert (part.meaning("a"), part.meaning("homeassistant")) == ("A.", "HA.")
