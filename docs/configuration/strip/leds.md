@@ -63,6 +63,7 @@ that belongs to the channel. The buttons of a slot that act whatever the slot sh
 | `toggle:<id>` | all | Turns the state or mode on, and the next time gives it back to its sources. |
 | `{ launch = [...] }` | all | Starts the program, like a launch of [`[controls]`](../slots.md#controls-and-the-chord). `launch_when_running = true` starts it also while it runs. |
 | `{ run = [...] }` | all | Runs a program of your own to its end, e.g. `{ run = "sysctrl display redshift reset" }` ([system-control](https://github.com/markusressel/system-control)). See [Run a program](#run-a-program). |
+| `{ service = "...", entity = "..." }` | all | Calls a service of Home Assistant, e.g. `{ service = "light.toggle", entity = "light.desk" }`. `data` is sent as it is: `{value}` in it is an error. Needs [`[homeassistant]`](../../guides/home-assistant.md#homeassistant). |
 | `off` | all | Nothing. |
 
 `talk`, `mute_others` and `homeassistant` last while the button is held: they take no `hold`.
@@ -78,6 +79,7 @@ that belongs to the channel. The buttons of a slot that act whatever the slot sh
 | `homeassistant` | Home Assistant says so: the LED is a select entity (`off`, `on`, `flash`) of its own. Needs [`[mqtt]`](../../guides/home-assistant.md#entities). |
 | `{ watch = [...] }` | The newest line of the program is `on`, `1`, `true` or `yes`; `flash` flashes the LED, any other line turns it off. Until the first line, the LED is off. |
 | `{ poll = [...], every = 10 }` | The same for the last line of a program that runs to its end every `every` seconds ([Watch or poll](bindings.md#watch-or-poll)). |
+| `{ entity = "..." }` | The entity (or its `attribute`) is `on`, `open`, `playing` or `home`, or a word that lights a watch. Dark while the daemon is not connected. See [An entity of Home Assistant](bindings.md#an-entity-of-home-assistant). |
 
 On `output`, `input`, `apps` and `auto` strips, `press` stays dark for a `{ run }`. On a
 [custom channel](../channels/custom.md#buttons), `press` is lit while the program runs.

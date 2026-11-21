@@ -1,8 +1,8 @@
 """
 Fields for the entities of Home Assistant: the entities the window knows (`EntitySource`, read in a thread with the
 settings of `[homeassistant]` in the editor), a list of suggestions under a text field that narrows down while typing
-(`SuggestionList`, drawn inside the window: no popup that grabs the keyboard), and the line that says why a field has
-no suggestions, with a button to the settings (`EntityHint`).
+(`EntityList`, in a `SuggestionList` drawn inside the window: no popup that grabs the keyboard), and the line that says
+why a field has no suggestions, with a button to the settings (`EntityHint`).
 """
 
 import asyncio
@@ -11,9 +11,8 @@ import time
 from collections.abc import Callable
 
 from PyQt6.QtCore import QEvent, QModelIndex, QObject, QPointF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QKeyEvent, QMouseEvent, QPainter, QStandardItem, QStandardItemModel
+from PyQt6.QtGui import QKeyEvent, QPainter, QStandardItem, QStandardItemModel
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QFrame,
     QHBoxLayout,
     QLineEdit,
@@ -21,7 +20,6 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QStyle,
     QStyleOptionViewItem,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -39,9 +37,8 @@ from xtouch_daemon.gui.domain.entities import (
 )
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.qt.fields.basics import help_label, set_help
-from xtouch_daemon.gui.qt.fields.depth import lift
 from xtouch_daemon.gui.qt.fields.names import QUERY_ROLE, SUGGESTION_ROLE, SuggestionDelegate
-from xtouch_daemon.gui.qt.fields.popover import Popover, _under, place  # pyright: ignore[reportPrivateUsage]
+from xtouch_daemon.gui.qt.fields.suggestions import SuggestionList
 from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -146,7 +143,7 @@ def source_of(widget: QWidget) -> EntitySource | None:
 
 
 class IconDelegate(SuggestionDelegate):
-    """A line of a `SuggestionList`: the icon of its domain (`ICON_ROLE`) on the left, then as `SuggestionDelegate`."""
+    """A line of an `EntityList`: the icon of its domain (`ICON_ROLE`) on the left, then as `SuggestionDelegate`."""
 
     def paint(self, painter: QPainter | None, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         name = index.data(ICON_ROLE)
@@ -179,25 +176,13 @@ class IconDelegate(SuggestionDelegate):
         return QSize(size.width() + ICON_SIZE + Space.S, size.height()) if index.data(ICON_ROLE) else size
 
 
-class _ListPopover(Popover):
-    """The popover of a `SuggestionList`: a click into its field leaves it open (the caret moves, typing goes on)."""
-
-    def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
-        if (
-            isinstance(event, QMouseEvent)
-            and event.type() == QEvent.Type.MouseButtonPress
-            and _under(self.anchor, event.globalPosition().toPoint())
-        ):
-            return False
-        return super().eventFilter(watched, event)
-
-
-class SuggestionList(QObject):
+class EntityList(QObject):
     """
-    Suggestions under a text field, inside the window: the list opens when the field gets the focus or a click, and
-    narrows down while typing (by any part of a value or its detail, or a pattern with `*` and `?`). Up and Down move
-    in it, Enter picks, Esc closes it; the focus stays in the field. `picked` has the value picked. `suggest` is asked
-    each time; `nothing` says why there are none. `icons` gives the icon of a line, None for none.
+    Suggestions under a text field, in a `SuggestionList` (inside the window): the list opens when the field gets the
+    focus or a click, and narrows down while typing (by any part of a value or its detail, or a pattern with `*` and
+    `?`). Up and Down move in it (and open it), Enter picks, Esc closes it; the focus stays in the field. `picked` has
+    the value picked. `suggest` is asked each time; `nothing` says why there are none. `icons` gives the icon of a
+    line, None for none.
     """
 
     picked = pyqtSignal(str, arguments=["value"])
@@ -209,8 +194,7 @@ class SuggestionList(QObject):
         nothing: Callable[[], str],
         icons: Callable[[Suggestion], str | None] | None = None,
     ) -> None:
-        # no parent: who makes it keeps it (the stubs of PyQt6 take no parent here)
-        super().__init__()
+        super().__init__(edit)  # pyright: ignore[reportArgumentType]
         self.edit = edit
         self.suggest = suggest
         self.nothing = nothing
@@ -220,14 +204,20 @@ class SuggestionList(QObject):
         self.items = QStandardItemModel(self)
         self.typed = False
         """Whether the list is for what was typed, rather than all of them."""
-        self.popover: _ListPopover | None = None
-        self.view: QListView | None = None
+        self.list = SuggestionList(edit, self.items, IconDelegate, rows=ROWS, width=LIST_WIDTH)
+        self.list.picked.connect(self._pick)
         edit.textEdited.connect(lambda _text: self.open(typed=True))
+        # after the list's: this one sees the keys first, and opens the list with Up and Down
         edit.installEventFilter(self)  # pyright: ignore[reportArgumentType]
 
     @property
     def is_open(self) -> bool:
-        return self.popover is not None and not self.popover.isHidden()
+        return self.list.is_open
+
+    @property
+    def view(self) -> QListView | None:
+        """The lines while the list shows."""
+        return self.list.view
 
     def fill(self, text: str) -> tuple[Suggestion, ...]:
         """The list for what is typed: the suggestions it has (a line that says why for none)."""
@@ -253,139 +243,49 @@ class SuggestionList(QObject):
         Shows the list under the field: for what is `typed`, else all of them, the value of the field picked (to pick
         another one).
         """
-        window = self.edit.window()
-        if window is None or window is self.edit or not self.edit.isVisible():
+        if not self.edit.isVisible():
             return
         self.typed = typed
         self.wanted()
-        self.fill(self.edit.text() if typed else "")
-        if not self.is_open:
-            self._build(window)
-        self._fit()
+        self._show()
 
     def refresh(self) -> None:
         """The suggestions changed: the open list shows them."""
         if self.is_open:
-            self.fill(self.edit.text() if self.typed else "")
-            self._fit()
+            self._show()
 
     def close(self) -> None:
-        if self.popover is not None:
-            self.popover.close()
-        self.popover = self.view = None
+        self.list.close()
 
-    def _build(self, window: QWidget) -> None:
-        popover = _ListPopover(self.edit, window)
-        set_role(popover, "popup")
-        lift(popover)
-        popover.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        layout = QVBoxLayout(popover)
-        layout.setContentsMargins(Space.XS, Space.XS, Space.XS, Space.XS)
-        view = QListView(popover)
-        set_role(view, "choice")
-        # the focus stays in the field: typing goes on while the list is open
-        view.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        view.setMouseTracking(True)
-        view.entered.connect(
-            lambda index: view.setCurrentIndex(index) if index.flags() & Qt.ItemFlag.ItemIsEnabled else None
-        )
-        view.setFixedWidth(self._width())
-        view.setModel(self.items)
-        # kept here: the view does not own its delegate
-        self.delegate = IconDelegate(view)
-        view.setItemDelegate(self.delegate)
-        view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        view.setFrameShape(QFrame.Shape.NoFrame)
-        view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        view.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        view.clicked.connect(self._pick)
-        layout.addWidget(view)
-        popover.destroyed.connect(lambda _=None, popover=popover: self._closed(popover))
-        self.popover, self.view = popover, view
-        popover.show()
-        popover.raise_()
-
-    def _width(self) -> int:
-        return max(self.edit.width(), LIST_WIDTH) - 2 * Space.XS
-
-    @staticmethod
-    def _hover(view: QListView, index: QModelIndex) -> None:
-        if index.flags() & Qt.ItemFlag.ItemIsEnabled:
-            view.setCurrentIndex(index)
-
-    def _fit(self) -> None:
-        popover, view = self.popover, self.view
-        if popover is None or view is None:
-            return
-        window = popover.host
-        view.setFixedWidth(self._width())
-        # the lines wrap at that width: their heights anew
-        view.reset()
-        rows = min(self.items.rowCount(), ROWS)
-        height = sum(view.sizeHintForRow(row) for row in range(rows)) + 2 * view.frameWidth()
-        view.setFixedHeight(max(height, 1))
-        popover.adjustSize()
-        popover.move(place(self.edit, window, popover.size()))
+    def _show(self) -> None:
+        text = self.edit.text()
+        self.fill(text if self.typed else "")
+        self.list.open()
         if self.typed:
             # Enter picks the first match
-            current = self.items.index(0, 0) if self.edit.text() else QModelIndex()
+            current = self.items.index(0, 0) if text else QModelIndex()
         else:
-            found = self.items.findItems(self.edit.text())
-            current = found[0].index() if found and self.edit.text() else QModelIndex()
-        if current.isValid() and current.flags() & Qt.ItemFlag.ItemIsEnabled:
-            view.setCurrentIndex(current)
-            view.scrollTo(current)
-        else:
-            view.setCurrentIndex(QModelIndex())
-
-    def _closed(self, popover: QFrame) -> None:
-        if self.popover is popover:
-            self.popover = self.view = None
+            found = self.items.findItems(text)
+            current = found[0].index() if found and text else QModelIndex()
+        enabled = current.isValid() and bool(current.flags() & Qt.ItemFlag.ItemIsEnabled)
+        self.list.set_current(current if enabled else QModelIndex())
 
     def _pick(self, index: QModelIndex) -> None:
-        if not index.isValid() or not index.flags() & Qt.ItemFlag.ItemIsEnabled:
-            return
         value = str(index.data())
-        self.close()
         self.edit.setText(value)
         self.picked.emit(value)
 
-    def _move(self, by: int) -> None:
-        view = self.view
-        if view is None:
-            return
-        rows = self.items.rowCount()
-        current = view.currentIndex().row()
-        row = min(max(0, (current + by) if current >= 0 else 0), rows - 1)
-        index = self.items.index(row, 0)
-        if index.flags() & Qt.ItemFlag.ItemIsEnabled:
-            view.setCurrentIndex(index)
-            view.scrollTo(index)
-
-    def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
-        if watched is not self.edit or event is None:
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
+        if a0 is not self.edit or a1 is None or self.is_open:
             return False
-        kind = event.type()
-        if kind in (QEvent.Type.FocusIn, QEvent.Type.MouseButtonPress) and not self.is_open:
+        kind = a1.type()
+        if kind in (QEvent.Type.FocusIn, QEvent.Type.MouseButtonPress):
             self.open()
-        elif kind == QEvent.Type.FocusOut:
-            self.close()
-        elif kind == QEvent.Type.KeyPress and isinstance(event, QKeyEvent):
-            key = event.key()
-            if key in (Qt.Key.Key_Down, Qt.Key.Key_Up):
-                if not self.is_open:
-                    self.open()
-                else:
-                    self._move(1 if key == Qt.Key.Key_Down else -1)
-                return True
-            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self.is_open and self.view is not None:
-                index = self.view.currentIndex()
-                if index.isValid():
-                    self._pick(index)
-                    return True
-                self.close()
-            elif key == Qt.Key.Key_Tab:
-                self.close()
+        elif (
+            kind == QEvent.Type.KeyPress and isinstance(a1, QKeyEvent) and a1.key() in (Qt.Key.Key_Down, Qt.Key.Key_Up)
+        ):
+            self.open()
+            return True
         return False
 
 
@@ -430,7 +330,7 @@ def entity_icon(suggestion: Suggestion) -> str:
     return domain_icon(suggestion.value)
 
 
-def attach_entity_list(edit: QLineEdit, owner: QWidget, hint: EntityHint | None = None) -> SuggestionList:
+def attach_entity_list(edit: QLineEdit, owner: QWidget, hint: EntityHint | None = None) -> EntityList:
     """
     Suggests the entities of the window of `owner` under `edit`, with their icons; `hint` says why there are none.
     The entities are read when the list opens.
@@ -443,7 +343,7 @@ def attach_entity_list(edit: QLineEdit, owner: QWidget, hint: EntityHint | None 
         found = source()
         return found.why() if found is not None else ""
 
-    suggestions = SuggestionList(
+    suggestions = EntityList(
         edit, lambda: found.suggestions() if (found := source()) is not None else (), nothing, entity_icon
     )
     connected: list[EntitySource] = []

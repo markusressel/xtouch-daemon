@@ -134,6 +134,10 @@ def custom(part: str) -> str:
         ('meter = { entity = "sensor.x", min = 5, max = 5 }', "meter.max: 5 is not above min (5)"),
         ('select = { press = { service = "toggle" } }', "select.press.service: toggle is no service"),
         ('select = { press = { service = "light.toggle", entity = "desk" } }', "select.press.entity: desk is no"),
+        (
+            'select = { press = { service = "light.turn_on", data = { brightness = "{value}" } } }',
+            "select.press: data: {value} is for a fader or an encoder; a press sends the data as it is",
+        ),
         ('present = "on"', "present: Input should be a valid dictionary or instance of WatchBinding"),
         ('select = { led = "playing" }', "{ watch = [...] }, { poll = [...] }, or { entity = ... })"),
         ('select = { press = "default" }', "or { service = ... })"),

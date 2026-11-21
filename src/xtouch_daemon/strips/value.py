@@ -254,6 +254,10 @@ class BoundValue:
                 await self._apply(value)
         finally:
             self._setter = None
+        self._settled()
+
+    def _settled(self) -> None:
+        """The newest value is applied (or it failed): what it follows may say another one now."""
 
     async def _apply(self, value: float) -> None:
         """Applies the value (runs `set`, calls the service); a problem is logged."""

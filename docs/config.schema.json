@@ -1827,7 +1827,7 @@
     },
     "HomeAssistantConfig": {
       "additionalProperties": false,
-      "description": "The Home Assistant whose entities parts can show and set directly, e.g. `meter = { entity = \"sensor.cpu\" }`.",
+      "description": "The API of Home Assistant, for parts that show or set an entity, e.g. `meter = { entity = \"sensor.cpu\" }`.",
       "properties": {
         "url": {
           "description": "The address of Home Assistant, as in the browser. E.g. `http://homeassistant.local:8123`.",
@@ -1873,7 +1873,7 @@
             }
           ],
           "default": null,
-          "description": "An environment variable with the token, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`).",
+          "description": "An environment variable with the token, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`). The\nGUI reads its own environment: start it with the variable set too.",
           "title": "Token Env"
         }
       },
@@ -2235,7 +2235,7 @@
             }
           ],
           "default": null,
-          "description": "More data for the service. E.g. `{ brightness_pct = 50 }`.",
+          "description": "More data for the service, sent as it is: `{value}` is for a fader or an encoder. E.g. `{ brightness_pct = 50 }`.",
           "title": "Data"
         }
       },
@@ -2705,7 +2705,7 @@
           "type": "string"
         }
       ],
-      "description": "The backlight of the LCD. It goes dark while the strip has nothing to control, unless `lit_when_idle` is on. A\n`watch` sets it with each line that is a color name."
+      "description": "The backlight of the LCD, dark while the strip has nothing to control unless `lit_when_idle` is on. A `watch` sets\nit by color name. An entity sets its own color: a light that is off makes it dark."
     },
     "strip.device": {
       "anyOf": [
@@ -2884,7 +2884,7 @@
         }
       ],
       "default": null,
-      "description": "The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints. By default\nwhat the strip type shows."
+      "description": "The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints, an entity its\nstate. By default what the strip type shows."
     },
     "strip.lit_when_idle": {
       "default": false,
@@ -2972,7 +2972,7 @@
           "type": "boolean"
         }
       ],
-      "description": "The LED meter shows the level. Needs `behavior.meters`. A `watch` or a `poll` makes it show each number it\nprints, from `min` to `max`."
+      "description": "The LED meter shows the level. Needs `behavior.meters`. A `watch`, a `poll` or an entity makes it show a number,\nfrom `min` to `max`."
     },
     "strip.meter_point": {
       "anyOf": [

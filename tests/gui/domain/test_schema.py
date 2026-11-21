@@ -112,7 +112,16 @@ def test_the_options_of_a_strip_take_their_kinds_bounds_and_columns_from_the_mod
         ("balance", "volume", "homeassistant"),
     )
     assert (fader.kind, fader.base, fader.default, fader.home_assistant) == (Kind.BINDING, Kind.CHOICE, "volume", True)
-    assert [column.name for column in fader.columns] == ["set", "watch", "poll", "every", "min", "max", "step", "format"]
+    assert [column.name for column in fader.columns] == [
+        "set",
+        "watch",
+        "poll",
+        "every",
+        "min",
+        "max",
+        "step",
+        "format",
+    ]
     assert (min_volume.kind, min_volume.default, min_volume.minimum, min_volume.maximum) == (Kind.INTEGER, None, 0, 200)
     assert (rec.kind, rec.default) == (Kind.BUTTON, None)
     assert [(column.name, column.kind) for column in rec.columns] == [

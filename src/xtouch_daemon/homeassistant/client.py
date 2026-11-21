@@ -35,6 +35,12 @@ REQUEST_TIMEOUT = 10.0
 """Seconds Home Assistant may take to answer a request (a service call, the states)."""
 MAX_MESSAGE = 64 * 1024 * 1024
 """The largest message the daemon takes, in bytes: the states of every entity come in one."""
+_WEBSOCKET_LOGGER = logging.getLogger(f"{__name__}.websocket")
+"""
+The log of the `websockets` library for this connection: never more than warnings. Its debug records show the frames,
+the login with the token among them, and every state.
+"""
+_WEBSOCKET_LOGGER.setLevel(logging.WARNING)
 
 
 class HomeAssistantError(Exception):
@@ -93,7 +99,9 @@ class _WebSocket:
 async def websocket_connect(url: str) -> Transport:
     """Connects to the WebSocket API at `url` with the `websockets` library."""
     try:
-        connection = await websocket_client(url, max_size=MAX_MESSAGE, open_timeout=REQUEST_TIMEOUT)
+        connection = await websocket_client(
+            url, max_size=MAX_MESSAGE, open_timeout=REQUEST_TIMEOUT, logger=_WEBSOCKET_LOGGER
+        )
     except (OSError, TimeoutError, InvalidURI, InvalidHandshake) as e:
         raise HomeAssistantError(f"can't connect to {url}: {e}") from e
     return _WebSocket(connection)
@@ -208,25 +216,53 @@ class HomeAssistant:
         self._ids = itertools.count(1)
         self._pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
         self._subscription: int | None = None
+        self._hopeless: str | None = None
+        """
+        The token Home Assistant refused, or "" for one that could not be read: the same section connects again only
+        with another token (a file or a variable that changed).
+        """
+        self._refused: set[tuple[str, str]] = set()
+        """
+        The tokens Home Assistant refused, by its address: never sent there again, even from another section (Home
+        Assistant bans an address after failed logins).
+        """
 
     # -- the connection -------------------------------------------------------------------------------------------
 
     def configure(self, config: HomeAssistantConfig | None) -> None:
         """Connects with `config`, None for no connection; the same section as before keeps the connection."""
-        if config == self.config and (config is None or self._task is not None):
+        if config == self.config and (config is None or self._keeps(config)):
             return
         self.config = config
         self._stop()
         if config is not None:
+            self._hopeless = None
             self._task = asyncio.create_task(self._run(config), name="homeassistant")
         self.on_change()
 
+    def _keeps(self, config: HomeAssistantConfig) -> bool:
+        """
+        Whether the same section keeps what there is: a connection (or attempts to connect), or the end after Home
+        Assistant refused the token (or it could not be read), as long as the token is still that one.
+        """
+        if self._task is None:
+            return False
+        if not self._task.done() or self._hopeless is None:
+            return True
+        try:
+            token = config.resolve_token()
+        except ConfigError:
+            token = ""
+        return token == self._hopeless
+
     def _stop(self) -> None:
+        """Ends the connection: the entities have no state from now on, even while it is still closing."""
         if self._task is not None:
             self._task.cancel()
             self._ending.add(self._task)
             self._task.add_done_callback(self._ending.discard)
             self._task = None
+            self._ended()
 
     async def close(self) -> None:
         """Ends the connection, and waits for its end."""
@@ -239,7 +275,14 @@ class HomeAssistant:
             token = config.resolve_token()
         except ConfigError as e:
             self.error = str(e)
+            self._hopeless = ""
             _LOGGER.error(f"Home Assistant: {e}")
+            self.on_change()
+            return
+        if (config.websocket_url, token) in self._refused:
+            self.error = "Home Assistant refused this token before"
+            self._hopeless = token
+            _LOGGER.error(f"{self.error}: create a new long-lived access token, put it into [homeassistant] and reload")
             self.on_change()
             return
         attempt = 0
@@ -249,11 +292,13 @@ class HomeAssistant:
                 await self._session(config, token)
             except TokenRefused as e:
                 self.error = str(e)
+                self._hopeless = token
+                self._refused.add((config.websocket_url, token))
                 _LOGGER.error(f"{e}: create a new long-lived access token, put it into [homeassistant] and reload")
                 return
             except HomeAssistantError as e:
-                if self.connected:
-                    # it was there: the first attempt comes soon
+                if self.synced:
+                    # it was there: the first attempt comes soon (not after a login that never got the states)
                     attempt = 0
                 self.error = str(e)
                 delay = RECONNECT_DELAYS[min(attempt, len(RECONNECT_DELAYS) - 1)]
@@ -261,7 +306,9 @@ class HomeAssistant:
                 log(f"Home Assistant at {config.url}: {e}, connecting again in {delay:g} s")
                 attempt += 1
             finally:
-                self._ended()
+                # a connection that ends after `_stop()` ended it leaves the state alone: it may be the next one's
+                if self._task is asyncio.current_task():
+                    self._ended()
             await asyncio.sleep(delay)
 
     async def _session(self, config: HomeAssistantConfig, token: str) -> None:
@@ -276,7 +323,11 @@ class HomeAssistant:
             self._subscription = next(self._ids)
             await transport.send(json.dumps({"id": self._subscription, "type": "subscribe_entities"}))
             while True:
-                self._handle(await _receive(transport))
+                message = await _receive(transport)
+                try:
+                    self._handle(message)
+                except (AttributeError, KeyError, TypeError, ValueError) as e:
+                    raise HomeAssistantError(f"Home Assistant sent something unexpected: {str(message)[:80]}") from e
         finally:
             with contextlib.suppress(HomeAssistantError, OSError):
                 await transport.close()

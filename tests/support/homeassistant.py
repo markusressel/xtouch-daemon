@@ -38,6 +38,8 @@ class FakeHomeAssistant:
         self.failing: dict[str, str] = {}
         self.silent = False
         """Answers no requests (but the login): a Home Assistant that hangs."""
+        self.closing = 0.0
+        """Seconds a connection takes to close (the closing handshake of a real one)."""
 
     async def connect(self, url: str) -> FakeTransport:
         self.urls.append(url)
@@ -152,6 +154,8 @@ class FakeTransport:
         return message
 
     async def close(self) -> None:
+        if self.home.closing and not self.closed:
+            await asyncio.sleep(self.home.closing)
         self.closed = True
 
 

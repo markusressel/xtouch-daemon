@@ -18,7 +18,7 @@ from xtouch_daemon.gui.domain.entities import attribute_suggestions, value_place
 from xtouch_daemon.gui.domain.schema import Kind, options
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.qt.fields.basics import help_label
-from xtouch_daemon.gui.qt.fields.entities import EntityHint, SuggestionList, attach_entity_list, source_of
+from xtouch_daemon.gui.qt.fields.entities import EntityHint, EntityList, attach_entity_list, source_of
 from xtouch_daemon.homeassistant.states import EntityState
 
 if TYPE_CHECKING:
@@ -58,9 +58,9 @@ class EntityTable(QFrame):
         if intro:
             layout.addWidget(help_label(" ".join((model.__doc__ or "").split()), "hint"))
         self.rows: dict[str, OptionRow] = {}
-        self.entity_list: SuggestionList | None = None
+        self.entity_list: EntityList | None = None
         """The suggestions of the field of the entity."""
-        self.attribute_list: SuggestionList | None = None
+        self.attribute_list: EntityList | None = None
         self.hint = EntityHint()
         """Why the field of the entity has no suggestions."""
         for column in options(model, skip=skip):
@@ -81,7 +81,7 @@ class EntityTable(QFrame):
                 self.entity_list.picked.connect(row._edit_text)  # pyright: ignore[reportPrivateUsage]
                 row.details.insertWidget(0, self.hint)
             elif column.name == "attribute":
-                self.attribute_list = SuggestionList(row.line, self._attributes, self._no_attributes)
+                self.attribute_list = EntityList(row.line, self._attributes, self._no_attributes)
                 self.attribute_list.picked.connect(row._edit_text)  # pyright: ignore[reportPrivateUsage]
         align_titles(self.rows.values())
 

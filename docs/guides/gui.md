@@ -381,12 +381,17 @@ With `[homeassistant]`, the field of an entity suggests the entities of Home Ass
 address and the token in the editor, saved or not, when a field of an entity shows, and again a minute later or with
 other settings. Each line has the icon of its domain, the name of the entity, its state now (e.g. `21.5 °C`) and
 below it its id. A click into the field or the focus opens the list inside the window; typing narrows it down, by any
-part of the id or the name. Up and Down move in it, Enter picks, Esc and Tab close it. The field of an attribute
+part of the id or the name. Up and Down move in it, Enter or Tab picks, Esc closes it. The field of an attribute
 suggests the attributes of the entity picked.
 
 Without suggestions, a line under the field says why: no `[homeassistant]`, a problem of its settings, or that the
-window can't reach Home Assistant (with what to check, and whether the daemon reaches it, e.g. with a token from its
-environment that the window does not have). "Settings" opens the page of the section. You can always type the id.
+window can't reach Home Assistant (with what to check, and whether the daemon reaches it). "Settings" opens the page
+of the section. You can always type the id.
+
+The window connects on its own, with the token in the editor, not through the daemon. With `token_env`, the token is
+in the environment of the service, and the window has none: the test fails and there are no suggestions. Start the
+GUI with the variable set (e.g. `HA_TOKEN=... xtouch-daemon gui` for `token_env = "HA_TOKEN"`), or use
+`token_file`.
 
 ## Suggestions from the sound server
 

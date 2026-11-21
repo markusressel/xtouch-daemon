@@ -279,6 +279,10 @@ async def try_home_assistant(config: HomeAssistantConfig, fetch: Fetch) -> Tried
     except HomeAssistantError as e:
         hint = explain(str(e)).hint
         return Tried(Status(f"Can't connect to {config.url}: {e}.", Tone.BAD, hint), error=str(e))
+    except Exception as e:
+        # anything else that went wrong: the read ends with a result, or the window would wait for it for good
+        problem = f"{type(e).__name__}: {e}"
+        return Tried(Status(f"Can't connect to {config.url}: {problem}.", Tone.BAD), error=problem)
     version = f"Home Assistant {fetched.version}" if fetched.version else "Home Assistant"
     return Tried(
         Status(f"Connected to {version} at {config.url}: {_entities(len(fetched.entities))}.", Tone.GOOD),
