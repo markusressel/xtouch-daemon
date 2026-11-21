@@ -2932,7 +2932,7 @@ No device? <a href="../without-a-device/">Run the virtual one</a> and use that o
 <p>The GUI offers the same lists wherever a field asks for a device or an application (a click into the field opens them). Play
 something in the browser first, so that <code>list-apps</code> has an application to show.</p>
 <h2 id="2-the-main-output">2. The main output<a class="headerlink" href="#2-the-main-output" title="Permanent link">&para;</a></h2>
-<p><strong>GUI:</strong> page <strong>Channels</strong>, <strong>Add</strong>, <strong>Output from the sound server</strong>, pick your speakers. Rename the id to
+<p><strong>GUI:</strong> page <strong>Channels</strong>, <strong>Add</strong>, <strong>Outputs</strong> (under "From the sound server"), pick your speakers. Rename the id to
 <code>main_output</code> (field next to the title; the slots that name it follow), set the label to <code>Main</code> (up to 7 characters:
 that is all the LCD has) and the color to cyan.</p>
 <p>Select should switch between several devices, so add <strong>Choices</strong>: one per device, each with a label. A device that
@@ -2986,7 +2986,7 @@ the daemon (<a href="../../configuration/presets/">Presets</a>).</p>
 </span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">lit_when_idle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">        </span><span class="c1"># the LCD stays lit while nothing plays: it is where the voice chat goes</span>
 </span></code></pre></div>
 <h2 id="4-the-microphone">4. The microphone<a class="headerlink" href="#4-the-microphone" title="Permanent link">&para;</a></h2>
-<p><strong>GUI:</strong> page <strong>Channels</strong>, <strong>Add</strong>, <strong>Input from the sound server</strong>, pick the microphone, then give it the label and the
+<p><strong>GUI:</strong> page <strong>Channels</strong>, <strong>Add</strong>, <strong>Inputs</strong> (under "From the sound server"), pick the microphone, then give it the label and the
 color.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[channel.mic]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span>
@@ -2997,7 +2997,7 @@ color.</p>
 </span></code></pre></div>
 <h2 id="5-a-state-in-a-call">5. A state: in a call<a class="headerlink" href="#5-a-state-in-a-call" title="Permanent link">&para;</a></h2>
 <p>A <em>state</em> is when something matters. VoIP and the microphone should only take a strip while you are in a call, so
-make that a state. <strong>GUI:</strong> page <strong>States</strong>, <strong>Add</strong>, <strong>In a call (state)</strong>; its sources are "You are in the voice chat"
+make that a state. <strong>GUI:</strong> page <strong>States</strong>, <strong>Add</strong>, <strong>In a call</strong> (under "Starting points"); its sources are "You are in the voice chat"
 (Mumble, with its <a href="../../guides/mumble/">plugin</a>) and "An application records" (Discord and the like have the
 microphone open while you talk):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[state.call]</span>

@@ -2965,6 +2965,12 @@ itself does not import it. How to use it: <a href="../../../guides/gui/">GUI</a>
 <li><strong>The comments stay.</strong> Saving writes the changes into the TOML document with tomlkit: unchanged values keep their
   place, their comments and their form (a stack as a string, a list or tables), and a renamed channel keeps its
   table. The file is written in place, so a symlinked configuration stays one.</li>
+<li><strong>Nothing pops up.</strong> A popup window (a <code>QMenu</code>, the list of a <code>QComboBox</code> or a <code>QCompleter</code>) grabs the keyboard
+  and the mouse, on X11 the whole display, so a screenshot key would do nothing while it is open. Menus stay <code>QMenu</code>s
+  (their actions keep their shortcuts in the window) but open as popovers: <code>show_menu</code>, <code>attach_menu</code> and <code>MenuBar</code>
+  in <code>gui/qt/fields/menu.py</code>, with <code>describe</code> for an entry that says what it does. Drop-downs are <code>Choice</code>, the
+  suggestions under a field a <code>SuggestionList</code> (<code>gui/qt/fields/suggestions.py</code>). The fixture <code>no_popups</code> of the GUI
+  tests fails a test in which a popup shows.</li>
 </ul>
 <h2 id="drawing-and-updating">Drawing and updating<a class="headerlink" href="#drawing-and-updating" title="Permanent link">&para;</a></h2>
 <ul>
