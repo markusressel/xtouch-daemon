@@ -31,6 +31,15 @@ from xtouch_daemon.system import processes, systemd
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 
+def pytest_collection_finish(session: pytest.Session) -> None:
+    """
+    What the modules and the collection made stays for the whole run: frozen, the `gc.collect()` of `no_leaks` after
+    every test looks only at what tests made since, not at the more than 100,000 objects of the imports.
+    """
+    gc.collect()
+    gc.freeze()
+
+
 @pytest.fixture(autouse=True)
 def no_leaks() -> Iterator[None]:
     """
