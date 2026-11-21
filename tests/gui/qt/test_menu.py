@@ -1,6 +1,7 @@
 """The menus that open inside their window, without a grab of the keyboard and the mouse."""
 
-from PyQt6.QtCore import QPoint, QPointF, Qt
+from PyQt6 import sip
+from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
 from PyQt6.QtGui import QAction, QContextMenuEvent, QEnterEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
@@ -270,6 +271,22 @@ def test_the_menu_bar_opens_its_menus_inside_the_window(qtbot: QtBot, window: Ma
     assert panel.child is not None
     pick(qtbot, panel.child, "Zoom in")
     assert open_menu(window) is None
+
+
+def test_the_mouse_on_a_title_after_a_menu_closed_and_was_deleted(qtbot: QtBot, window: MainWindow) -> None:
+    bar = window.menu_bar
+    bar.open(2)
+    panel = bar.panel
+    assert panel is not None
+    panel.close()
+    # the panel deletes itself on close: the bar must not ask it anything after that
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    assert sip.isdeleted(panel)
+    corner = QPointF(2, 2)
+    QApplication.sendEvent(bar.titles[0], QEnterEvent(corner, corner, corner))
+    assert bar.opened is None
+    bar.toggle(1)
+    assert bar.opened == 1
 
 
 def test_the_shortcuts_of_the_menus_work_though_the_menus_never_show(qtbot: QtBot, window: MainWindow) -> None:

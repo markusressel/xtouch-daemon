@@ -134,6 +134,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- GUI: the mouse on a title of the menu bar after a menu was closed no longer ends the GUI (it asked the menu that
+  was already gone).
 - Voice chat bridge: a line with `capabilities` that is not a list (e.g. `null`) is ignored and logged, like other
   lines that are not the protocol. Before, it ended the connection of the plugin.
 - Docs: the page of the voice chat bridge said that a new plugin replaces the connected one; the daemon refuses it.

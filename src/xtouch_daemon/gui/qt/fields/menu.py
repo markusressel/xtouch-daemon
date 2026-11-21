@@ -13,6 +13,7 @@ state). A menu with such actions is a rich one: its rows have room for the line,
 import re
 from collections.abc import Callable
 
+from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QObject, QPoint, QSize, Qt
 from PyQt6.QtGui import QAction, QContextMenuEvent, QHideEvent, QIcon, QKeyEvent, QMouseEvent, QShowEvent
 from PyQt6.QtWidgets import (
@@ -593,9 +594,16 @@ class MenuBar(QWidget):
     @property
     def opened(self) -> int | None:
         """The index of the menu that is open; None for none."""
-        if self.panel is None or not self.panel.isVisible():
+        panel = self._panel()
+        if panel is None or not panel.isVisible():
             return None
-        return self.menus.index(self.panel.menu)
+        return self.menus.index(panel.menu)
+
+    def _panel(self) -> MenuPanel | None:
+        """The panel of the menu opened last; None once it is closed and deleted (it deletes itself on close)."""
+        if self.panel is not None and sip.isdeleted(self.panel):
+            self.panel = None
+        return self.panel
 
     def toggle(self, index: int) -> None:
         """Opens the menu `index`, or closes it if it is open."""
@@ -606,8 +614,9 @@ class MenuBar(QWidget):
         self.open(index)
 
     def open(self, index: int) -> None:
-        if self.panel is not None and self.panel.isVisible():
-            self.panel.close()
+        panel = self._panel()
+        if panel is not None and panel.isVisible():
+            panel.close()
         button = self.titles[index]
         panel = show_menu(self.menus[index], button, side=self._side)
         self.panel = panel
