@@ -129,6 +129,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   1.1 s, as before; the faders no longer come up after it.
 - GUI: while the daemon runs without the device ("Live · not connected", also while it waits for the virtual
   device), the strips of the drawing are dark: the drawing is the device, and there is none.
+- GUI: the pills that open details (the service, Live, the mode, the changes, the sound server) work with the
+  keyboard: Tab reaches them, Space or Enter opens the popover, Tab goes to its buttons, and Esc closes it and puts
+  the focus back on the pill.
+- GUI: the window handles the events of its widgets in one filter instead of four: a new theme takes about a sixth
+  less time.
+- GUI: the window opens about four times as fast: the page Channels builds the form of a channel type the first time
+  it shows, not all of them at the start.
 - GUI: in a wide window a field beside its name is at most 640 px wide, and its reset button stays right after it, at
   the same place in every row; the help below is as wide.
 
@@ -140,6 +147,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   lines that are not the protocol. Before, it ended the connection of the plugin.
 - Docs: the page of the voice chat bridge said that a new plugin replaces the connected one; the daemon refuses it.
   The page now also explains `pre_fader_level`.
+- GUI: when the daemon ends the preview on the device (e.g. another window previews there), the window says why for
+  as long as the preview stays in the GUI. The answer of the daemon to the preview in the GUI cleared the message at
+  once.
+- GUI: an error in the window no longer ends the program with a core dump (e.g. one while it was built): it is
+  logged, the status line says it, and the window goes on.
+- GUI: Ctrl+C or SIGTERM no longer crash the GUI while the window is built or draws: they close the window from its
+  event loop, which asks about unsaved changes, and do nothing while a dialog asks already.
+- GUI: a new zoom while "Try without a device" runs no longer crashes the GUI when that daemon ends: the window
+  before the zoom let go of it.
+- GUI: a menu or popover whose button goes away while it is open (e.g. the menu "Broken touch" of the bar of the
+  virtual device when the device closes) closes with it. The next click crashed the GUI.
+- GUI: a form wider than its pane (e.g. a channel in a narrow window) is laid out once. The pane made its content as
+  wide as the rows with their names beside their fields wanted, and at that width they asked for it again: a new
+  theme took up to 15 s, or did not end.
+- GUI: after a new theme, the parts of a page that were hidden (e.g. the options of a section that is not in the file)
+  show its colors too: their help kept the colors of the theme before. They also no longer stay in memory after the
+  window of a zoom closed.
+- GUI: the test of the broker always ends with a result. A host that is no name (e.g. `.bad..host`) left the button
+  at "Connecting to …" for good; a test started again while one ran showed the older result last. The setup of a
+  plugin and the read of the sound server end with an error too, whatever goes wrong.
+- GUI: a user service manager that hangs no longer freezes the window for good: a command of `systemctl` that takes
+  more than 2 s is given up on, and the pill of the service says "unavailable".
+- GUI: the window Log keeps the latest 5000 records, as its history does: its text grew for as long as the window was
+  open.
+- GUI: the bar of the virtual device and the chips of a list go off the screen at once when they are replaced, not a
+  moment later; the menu of the bar closes with it.
+- GUI: the dots of the states in the bar of Slots are drawn at the scale of the screen: they were drawn at twice the
+  size and scaled, blurred at a scale of 1.5 or 3.
+- GUI: the marks of "why" on the page Slots take the colors of a new theme at once, not with the next change of the
+  slot.
+- GUI: the menu of a right click (in a text, on a strip of the drawing) goes when it closes: each one stayed for as
+  long as the window.
+- GUI: the icons are drawn once per name and color. Every new page, window and theme drew all of them again and kept
+  each copy, about 760 per window, for as long as the GUI ran.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its
   hint ends in … where it is short. Before, the right side of the window was cut off, and the drawing was off center
   with its right strips hidden.

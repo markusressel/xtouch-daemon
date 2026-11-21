@@ -3,10 +3,11 @@ Zooming the window, which takes a new one.
 """
 
 import dataclasses
+import sys
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtCore import QProcess, QSettings, Qt
 from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import QApplication, QMenu
 from pytestqt.qtbot import QtBot
@@ -126,6 +127,8 @@ def test_run_gui_starts_again_for_a_new_zoom(
     monkeypatch.setattr(qt, "QApplication", lambda args: qapp)
     monkeypatch.setattr(MainWindow, "show", lambda window: None)
     monkeypatch.setattr(qt.signal, "signal", lambda signum, handler: None)
+    # run_gui sets its own
+    monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     deleted: list[object] = []
     # the test's application stays
     monkeypatch.setattr(qt.sip, "delete", deleted.append)
@@ -148,3 +151,22 @@ def test_run_gui_starts_again_for_a_new_zoom(
     assert deleted == [windows[0], qapp]
     for window in windows:
         window.deleteLater()
+
+
+def test_the_trial_goes_to_the_window_of_the_new_zoom(qtbot: QtBot, make_window: MakeWindow):
+    window = make_window()
+    process = QProcess()
+    process.start("sleep", ["30"])
+    assert process.waitForStarted()
+    window._keep_trying(process)  # pyright: ignore[reportPrivateUsage]
+    window.zoom_to(1.1)
+    after = make_window(session=window.session())
+    assert after.trying is process
+
+    process.terminate()
+    assert process.waitForFinished(5000)
+    # only the new window takes the end: the one before would delete the process of the new one, and touch its own
+    # widgets, which run_gui deletes (a crash)
+    qtbot.waitUntil(lambda: after.trying is None)
+    assert after.status.text().startswith("The daemon for trying without a device ended (exit code ")
+    assert window.status.text() == ""

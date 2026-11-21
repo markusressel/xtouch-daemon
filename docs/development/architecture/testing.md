@@ -32,3 +32,17 @@ with the file.
   behind, nothing of the machine touched, no programs started) and the common fakes; the packages have their own
   (e.g. the window in `tests/gui/qt/conftest.py`).
 - What tests import, fakes and helpers, is in `tests/support/`, never in a `conftest.py` or another test module.
+
+## Keeping them fast
+
+Almost all the time of the tests goes into the widgets (`tests/gui/qt/`): a window is built for most of them.
+
+- The window builds what does not show yet (the form of a channel type, see [the GUI](gui.md)) the first time it
+  shows, so a test pays only for the pages it opens.
+- A new theme restyles every widget of the application, several seconds with a window open. A test about colors sets
+  the mode (`style._current_mode`) and refreshes the window as `set_theme` does; one test switches the theme for real.
+  A test about a layout resizes the window instead.
+- `no_leaks` collects the garbage after every test. The objects of the imports are frozen after the collection
+  (`gc.freeze()` in `tests/conftest.py`), so it looks only at what the test made: about 1 ms instead of 25 ms.
+- `just test` and CI hand out the tests with `--dist worksteal`: a worker that is done takes tests from the others, so
+  a slow test at the end does not keep the rest waiting.

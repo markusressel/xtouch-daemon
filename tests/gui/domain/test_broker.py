@@ -99,3 +99,14 @@ async def test_a_password_that_is_not_there_is_reported(tmp_path: Path):
     status = await try_broker(MqttConfig(host="broker", password_file=tmp_path / "missing"), FakeBroker().client)
     assert status.tone == Tone.BAD
     assert "can't read" in status.tip
+
+
+async def test_any_other_error_ends_the_test_with_it():
+    class Broken:
+        def __init__(self, **options: Any) -> None:
+            # what a host like `.bad..host` gives
+            raise UnicodeEncodeError("idna", "bad..host", 0, 1, "label empty or too long")
+
+    status = await try_broker(MqttConfig(host="bad..host"), Broken)
+    assert status.tone == Tone.BAD
+    assert status.text.startswith("Can't connect to bad..host:1883: UnicodeEncodeError: ")

@@ -9,7 +9,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from PyQt6.QtCore import QFileSystemWatcher, QProcess, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QEvent, QFileSystemWatcher, QProcess, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
@@ -63,6 +63,8 @@ from xtouch_daemon.gui.domain.status import (
     runs_older,
 )
 from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
+from xtouch_daemon.gui.qt import errors
+from xtouch_daemon.gui.qt.app_events import app_events
 from xtouch_daemon.gui.qt.device_test import DeviceTest
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
@@ -242,6 +244,7 @@ class MainWindow(QMainWindow):
         # the header and the footer reach across the window, the docks are between them
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._bar("header", self._header()))
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self._bar("footer", self._footer()))
+        errors.listen(self._error_raised)
         self.device_dock = self._device_dock()
         self.configuration_dock = self._configuration_dock(configuration)
         self.log_view = LogView(self.live)
@@ -262,7 +265,7 @@ class MainWindow(QMainWindow):
         assert app is not None
         self.input_filter = InputFilter()
         """The document's undo also while a text field has the focus, the wheel on the page rather than in a field."""
-        app.installEventFilter(self.input_filter)
+        app_events().watch(self.input_filter, (QEvent.Type.ShortcutOverride, QEvent.Type.Wheel))
         # Cut, Copy, Paste ... follow the focus: for the list of a page, not for a field
         app.focusChanged.connect(self._focus_changed)
         self.timer = QTimer(self)
@@ -718,6 +721,10 @@ class MainWindow(QMainWindow):
         return footer
 
     # -- showing --------------------------------------------------------------------------------------------------
+
+    def _error_raised(self, text: str) -> None:
+        """An error no code caught (see `errors`): the window goes on, the status line says it."""
+        self.status.setText(f"Something went wrong: {text}. The window goes on; the terminal has the details.")
 
     def show_page(self, name: str) -> None:
         """Shows a page of the rail ("slots", "channels", "states", "settings"), or one of the settings."""
@@ -1261,7 +1268,8 @@ class MainWindow(QMainWindow):
     def _keep_trying(self, process: QProcess) -> None:
         """The daemon to try without a device is this window's: it ends with it."""
         process.setParent(self)  # pyright: ignore[reportArgumentType]: PyQt's stub types the parent as Self
-        process.finished.connect(lambda code, _status: self._tried(process, code))
+        self.trying_ended = process.finished.connect(lambda code, _status: self._tried(process, code))
+        """The end of the trial for this window: let go when the next window takes it over (see `closeEvent`)."""
         self.trying = process
 
     def _tried(self, process: QProcess, code: int) -> None:
@@ -1398,7 +1406,8 @@ class MainWindow(QMainWindow):
         self.hover_tips.stop()
         self.close_virtual_device()
         if self.trying is not None and self.rezoom is not None:
-            # the next window takes it over (see `session()`)
+            # the next window takes it over (see `session()`): its end is no longer this window's
+            self.trying.finished.disconnect(self.trying_ended)
             self.trying.setParent(None)  # pyright: ignore[reportArgumentType]
         elif self.trying is not None:
             trying, self.trying = self.trying, None
@@ -1407,7 +1416,7 @@ class MainWindow(QMainWindow):
         save_window_state(bytes(self.saveState()))
         app = QApplication.instance()
         assert app is not None
-        app.removeEventFilter(self.input_filter)
+        app_events().unwatch(self.input_filter)
         app.focusChanged.disconnect(self._focus_changed)
         event.accept()
 

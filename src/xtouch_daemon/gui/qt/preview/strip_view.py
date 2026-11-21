@@ -35,7 +35,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 
 from xtouch_daemon.gui.domain.looks import UNKNOWN, StripFace, StripLook, meter_leds, ring_leds
-from xtouch_daemon.gui.qt.fields.menu import show_menu
+from xtouch_daemon.gui.qt.fields.menu import show_made_menu
 from xtouch_daemon.gui.qt.preview.encoder_hand import EncoderHand
 from xtouch_daemon.gui.qt.preview.geometry import (
     BODY,
@@ -743,7 +743,7 @@ class StripView(QWidget):
             a0.ignore()
             return
         self.preview.pick(self.index)
-        show_menu(mover.menu_for(self.index), self, a0.globalPos())
+        show_made_menu(mover.menu_for(self.index), self, a0.globalPos())
 
     def keyPressEvent(self, event: QKeyEvent | None) -> None:
         assert event is not None

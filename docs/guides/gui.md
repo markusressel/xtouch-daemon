@@ -725,7 +725,8 @@ Help → Keyboard shortcuts lists the keys. The keys of the menus follow the des
 | ++f2++ | Rename it: the focus goes to its id (on a candidate: to Shows) |
 | ++ctrl+up++, ++ctrl+down++ | Move the candidate picked, or the entry of a table |
 | ++left++, ++right++, ++home++, ++end++ | Pick a strip of the drawing; ++ctrl+left++, ++ctrl+right++ move its slot |
-| ++esc++ | End Simulate, close a popover |
+| ++tab++, then ++space++ or ++enter++ | Open the details of a pill (e.g. the service, Live) |
+| ++esc++ | End Simulate, close a popover: the focus goes back to its pill |
 
 ++del++, ++ctrl+c++ and the others of the menu Edit are for the list that has the focus: the cards on Slots, the lists
 on Channels and States. In a field they edit its text.

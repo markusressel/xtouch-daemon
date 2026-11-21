@@ -5,7 +5,9 @@ from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
 from PyQt6.QtGui import QAction, QContextMenuEvent, QEnterEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
+    QFrame,
     QLabel,
+    QLineEdit,
     QMenu,
     QPlainTextEdit,
     QPushButton,
@@ -29,6 +31,7 @@ from xtouch_daemon.gui.qt.fields.menu import (
     text_menu,
     with_icon,
 )
+from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.theme.tokens import Entity
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
@@ -316,6 +319,26 @@ def test_the_text_of_a_field_has_its_menu_inside_the_window(qtbot: QtBot, window
     assert edit.selectedText() == edit.text()
 
 
+def test_a_menu_of_a_right_click_goes_with_its_panel(qtbot: QtBot, window: MainWindow) -> None:
+    window.show_page("states")
+    edit = window.states_page.id_edit
+    view = window.device_view.preview.strips[1]
+    before = len(window.findChildren(QMenu))
+    for widget in (edit, view, edit):
+        position = QPoint(5, 40)
+        QApplication.sendEvent(
+            widget, QContextMenuEvent(QContextMenuEvent.Reason.Mouse, position, widget.mapToGlobal(position))
+        )
+        panel = open_menu(window)
+        assert panel is not None
+        panel.close()
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    # the panel deleted last asked to delete its menu
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    # each right click made a menu, which stayed for as long as the window
+    assert len(window.findChildren(QMenu)) == before
+
+
 def test_a_strip_has_its_menu_where_it_is_clicked(qtbot: QtBot, window: MainWindow) -> None:
     preview = window.device_view.preview
     view = preview.strips[1]
@@ -368,3 +391,73 @@ def test_a_text_wider_than_the_window_wraps(qtbot: QtBot) -> None:
     assert panel is not None
     assert panel.width() <= window.width()
     assert panel.rows[0].title.wordWrap()
+
+
+def test_a_menu_or_popover_closes_when_its_anchor_is_deleted(qtbot: QtBot) -> None:
+    window, button = a_window(qtbot)
+    # a menu that is not the anchor's, as the menu of a bar is the bar's
+    menu = a_menu(window, [])
+    panel = show_menu(menu, button)
+    assert panel is not None
+    other = QPushButton("Other", window)
+    other.show()
+    popover = show_popover(other, "Popover", [Entry("Row")])
+
+    # deleted without being hidden first (e.g. the bar of the virtual device): no Hide comes
+    sip.delete(button)
+    sip.delete(other)
+
+    for opened in (panel, popover):
+        assert sip.isdeleted(opened) or opened.isHidden()
+    # a click in the window reaches no filter of an anchor that is gone
+    qtbot.mouseClick(window, Qt.MouseButton.LeftButton, pos=QPoint(250, 400))
+
+
+def test_a_pill_opens_its_popover_from_the_keyboard_and_gets_the_focus_back(qtbot: QtBot) -> None:
+    window, button = a_window(qtbot)
+    pill = QLabel("Live  ▾", window)
+    pill.show()
+    opened: list[QFrame] = []
+    make_clickable(
+        pill, lambda: opened.append(show_popover(pill, "Live", [Entry("Row", actions=(("Fix", lambda: None),))]))
+    )
+    button.setFocus()
+    # the window gets active a moment later
+    qtbot.waitUntil(button.hasFocus)
+
+    # Tab reaches the pill, Space opens what it means
+    qtbot.keyClick(button, Qt.Key.Key_Tab)
+    assert pill.hasFocus()
+    assert pill.accessibleDescription()
+    qtbot.keyClick(pill, Qt.Key.Key_Space)
+    (popover,) = opened
+    assert popover.hasFocus()
+    # Tab goes on to its button
+    qtbot.keyClick(popover, Qt.Key.Key_Tab)
+    focused = QApplication.focusWidget()
+    assert isinstance(focused, QPushButton)
+    assert focused.text() == "Fix"
+
+    qtbot.keyClick(focused, Qt.Key.Key_Escape)
+
+    assert popover.isHidden() or sip.isdeleted(popover)
+    assert pill.hasFocus()
+    # Enter opens it too
+    qtbot.keyClick(pill, Qt.Key.Key_Return)
+    assert len(opened) == 2
+
+
+def test_a_popover_leaves_the_focus_where_it_is_outside_of_it(qtbot: QtBot) -> None:
+    window, button = a_window(qtbot)
+    field = QLineEdit(window)
+    field.show()
+    button.setFocus()
+    qtbot.waitUntil(button.hasFocus)
+    popover = show_popover(button, "Popover", [Entry("Row")])
+    assert popover.hasFocus()
+    # e.g. a click into a field of the window after it opened
+    field.setFocus()
+
+    popover.close()
+
+    assert field.hasFocus()

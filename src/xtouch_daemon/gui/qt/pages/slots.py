@@ -71,7 +71,7 @@ from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import StackList
 from xtouch_daemon.gui.qt.pages.slot_controls import SlotControls
-from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
+from xtouch_daemon.gui.qt.theme.style import current_colors, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
@@ -479,7 +479,8 @@ class SlotsPanel(Page):
         live = self.shown_slots()
         view = self._views().get(self.slot) if live is not None else None
         steps = why_steps(view.why) if view is not None else ()
-        key = (live is not None, self.what_if is not None, self.shows_twin(), steps)
+        # the colors of the marks are those of the theme: a new one draws them again
+        key = (live is not None, self.what_if is not None, self.shows_twin(), steps, current_mode())
         if key == self.shown_steps:
             return
         self.shown_steps = key
@@ -732,7 +733,8 @@ class SlotsPanel(Page):
                 override = " (picked)"
             # the dot (on or off) once the daemon tells the state
             state_button.setProperty("on", None if state is None else state.value)
-            state_button.setIcon(QIcon() if state is None else dot_icon(state.value, hue))
+            ratio = state_button.devicePixelRatioF()
+            state_button.setIcon(QIcon() if state is None else dot_icon(state.value, hue, ratio))
             state_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
             state_button.setIconSize(DOT_ICON)
             state_button.setText(f"{self.document.get(('state', name, 'label')) or name}{override}  ▾")

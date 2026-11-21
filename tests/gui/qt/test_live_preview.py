@@ -268,6 +268,8 @@ def test_the_daemon_ends_the_preview_for_another_window(
 
     previewing.reply(Reply("ended", True, "another window previews on the device now"))
     qtbot.waitUntil(lambda: not window.live_preview.on)
+    # and the daemon took it there: its answer keeps why
+    qtbot.waitUntil(lambda: window.live_preview.running)
 
     # back in the GUI, on the twin
     assert window.place_buttons[Place.GUI].isChecked()

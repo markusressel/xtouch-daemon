@@ -75,12 +75,21 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
   in `gui/qt/fields/menu.py`, with `describe` for an entry that says what it does. Drop-downs are `Choice`, the
   suggestions under a field a `SuggestionList` (`gui/qt/fields/suggestions.py`). The fixture `no_popups` of the GUI
   tests fails a test in which a popup shows.
+- **The keyboard reaches the popovers.** A pill that opens one (`make_clickable`) takes the focus with Tab and opens
+  it with Space or Enter. A popover takes the focus, Tab goes on to its buttons, and when it closes the focus goes
+  back to its anchor (unless the user put it elsewhere meanwhile).
 
 ## Drawing and updating
 
 - **Built once, updated in place.** The pages build their widgets once, and showing the document loads the values
   into them (`OptionRow.load()`); no page is cleared and built again. A part that comes and goes (an absent section,
   the form of each channel type) is a page of a `Stack` sized to its current part, not a widget shown and hidden.
+  `Stack.add` puts a part in the window, hidden, as soon as it is built: a new theme reaches it (`refresh_icons`,
+  `refresh_help` go through the children of the window), and it goes with the window.
+- **Built when first shown.** The page Channels builds the form of a channel type (or a pool) the first time it
+  shows, and keeps it: most types never show in a session, and building all of them took most of the start of the
+  window. While the page is hidden, the form of the selection waits (`ChannelsPage.pending`) until the page shows or
+  someone asks for its rows; the list, with its marks for problems, is up to date all the time.
 - **No layout for what stays the same.** Showing the document again, or a live update with every change of the device, changes no
   geometry when nothing differs: `set_text` and the tab texts are set only when they differ, `theme.set_role` restyles
   only for another role, and the list chips stay while their values are the same. Icons are kept with their name and
@@ -91,6 +100,10 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
   device for the drawing, the same in both themes. Widgets set style roles (`theme.set_role`) and take their sizes
   from the tokens instead of styling themselves. The drawing decides what a strip shows (a `StripFace`) apart from
   painting it.
+- **One filter for the whole application.** The parts that need the events of every widget (`InputFilter` for Undo
+  and the wheel, `TextMenus`, `HoverTips`, `RichTips`) watch the kinds they want through `gui/qt/app_events.py`.
+  Qt sends a filter of the application every event of every widget, also each one of a new theme that restyles all
+  of them: with one filter an event goes into Python once, not once per part.
 
 ## The daemon
 
@@ -101,6 +114,16 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
   a restart, since a reload doesn't take it (another `[device] name` or `virtual` it does: `Surface.use`). The GUI
   restarts only the service: `systemd.Service` (shared with `install-service`) reads the state of the unit and
   installs, starts and restarts it.
+
+## Errors and signals
+
+- **An error is no crash.** PyQt ends the program (a core dump) on an exception in a slot or in a method Qt calls (a
+  paint, a size hint) while `sys.excepthook` is Python's own. `run_gui` installs `gui/qt/errors.py` first: such an
+  error is logged with its traceback, and the window says it in its status line and goes on.
+- **Ctrl+C and SIGTERM wait for the event loop.** Python runs a signal handler between any two bytecodes, e.g. in a
+  paint or while the window is built. The handler of `run_gui` (`QuitSignals`), installed before anything of Qt, only
+  notes the signal; a timer of the event loop closes the windows, which ask about unsaved changes, and not while a
+  dialog asks already.
 
 ## PyQt6, QtAwesome and qt-themes
 

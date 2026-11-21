@@ -4,6 +4,7 @@ The slots on the page Device: the state bar, a card per slot, the inspector, and
 
 import dataclasses
 
+import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QDropEvent
 from PyQt6.QtWidgets import QComboBox, QFrame, QPushButton, QToolButton
@@ -14,8 +15,11 @@ from tests.support.gui import FakeLiveDaemon, MakeWindow, click, pill, plain, st
 from tests.support.gui import snapshot as device_snapshot
 from xtouch_daemon.gui.domain.live_preview import Place
 from xtouch_daemon.gui.domain.simulate import WhatIf
+from xtouch_daemon.gui.qt.fields.basics import DOT_ICON
 from xtouch_daemon.gui.qt.pages.slot_cards import CandidateRow, StackList
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
+from xtouch_daemon.gui.qt.theme import style
+from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.live.messages import (
@@ -123,6 +127,9 @@ def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
     page.show_live(live)
     assert texts(page.lists[1]) == ["1 when call → browser", "▶ 2 when app or person without a slot → auto"]
     assert pill(page.state_buttons["call"]) == "● call"
+    # the dot at the scale of the screen (1 offscreen): sharp, not drawn at 2 and scaled down
+    (size,) = page.state_buttons["call"].icon().availableSizes()
+    assert size == DOT_ICON * page.state_buttons["call"].devicePixelRatioF()
     page.show_live(live)
     window.device_view.select(1)
     assert page.candidate == 1
@@ -443,3 +450,26 @@ def test_simulate_runs_on_the_virtual_twin_of_the_daemon(
     window.editor.edited()
     assert page.what_if is None
     assert not page.simulate_button.isEnabled()
+
+
+def test_the_marks_of_why_follow_the_theme(window: MainWindow, monkeypatch: pytest.MonkeyPatch):
+    page = panel(window)
+    live = snapshot((0, 1, None))
+    page.snapshot = lambda: live
+    page.show_live(live)
+    window.device_view.select(0)
+    assert why(page)[1] == "→"
+
+    def mark_color() -> str:
+        item = page.why_rows.itemAtPosition(1, 0)
+        assert item is not None
+        widget = item.widget()
+        assert widget is not None
+        return widget.styleSheet()
+
+    assert THEMES[ThemeMode.DARK].tone_good in mark_color()
+    # as `set_theme` does, without restyling the whole application
+    monkeypatch.setattr(style, "_current_mode", ThemeMode.LIGHT)
+    page.shown_live = None
+    page.show_live(live)
+    assert THEMES[ThemeMode.LIGHT].tone_good in mark_color()

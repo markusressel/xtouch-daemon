@@ -7,6 +7,8 @@ from PyQt6.QtCore import QEvent, QObject, QTimer
 from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget
 
+from xtouch_daemon.gui.qt.app_events import app_events
+
 
 class HoverTips(QObject):
     def __init__(self, window: QWidget, tip_label: QLabel, status: QWidget) -> None:
@@ -22,19 +24,16 @@ class HoverTips(QObject):
         self.timer.setSingleShot(True)
         self.timer.setInterval(0)
         self.timer.timeout.connect(self._show)
-        app = QApplication.instance()
-        assert app is not None
-        app.installEventFilter(self)
+        app_events().watch(self, (QEvent.Type.Enter, QEvent.Type.Leave))
 
     def stop(self) -> None:
         """The window closes: no more tips (a new zoom opens another window, see `Session`)."""
-        app = QApplication.instance()
-        assert app is not None
-        app.removeEventFilter(self)
+        app_events().unwatch(self)
 
     def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
         assert event is not None
-        if event.type() in (QEvent.Type.Enter, QEvent.Type.Leave) and not self.timer.isActive():
+        # an Enter or a Leave (see `app_events`)
+        if not self.timer.isActive():
             self.timer.start()
         return False
 

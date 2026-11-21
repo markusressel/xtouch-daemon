@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QToolButton,
+    QWidget,
 )
 from pytestqt.qtbot import QtBot
 
@@ -23,6 +24,7 @@ from tests.support.gui import (
     pill,
     plain,
     row,
+    show_channel,
     shows,
     snapshot,
     strip_state,
@@ -31,12 +33,46 @@ from tests.support.gui import (
 from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import CLIENTS, MUMBLE, NO_PLUGIN, TEAMSPEAK, ClientSetup, PluginSetup
+from xtouch_daemon.gui.qt.fields.basics import _HELP_PROPERTY as HELP_PROPERTY  # pyright: ignore[reportPrivateUsage]
+from xtouch_daemon.gui.qt.fields.basics import help_html, refresh_help
 from xtouch_daemon.gui.qt.fields.names import completer_of
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
-from xtouch_daemon.gui.qt.pages.sections import PluginInstaller, SectionPage
+from xtouch_daemon.gui.qt.pages.sections import BrokerTester, PluginInstaller, SectionPage
+from xtouch_daemon.gui.qt.theme import style
+from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipClient, VoipState
 from xtouch_daemon.voip import mumble, teamspeak
+
+
+def test_the_parts_that_do_not_show_are_in_the_window_and_follow_the_theme(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+):
+    # [mqtt] is not in the file: its options don't show
+    page = window.pages["mqtt"]
+    assert isinstance(page, SectionPage)
+    assert page.present.isHidden()
+    show_channel(window, "browser")
+    show_channel(window, "out")
+    hidden = [page.present, window.channels_page.form_widgets["apps"]]
+    assert all(QWidget.isAncestorOf(window, part) for part in hidden)
+
+    helps = [
+        (label, source)
+        for part in hidden
+        for label in part.findChildren(QLabel)
+        if (source := label.property(HELP_PROPERTY)) is not None
+    ]
+    assert helps
+    dark = [label.text() for label, _ in helps]
+
+    # the colors of a new theme, without restyling the whole application (`set_theme` helps everything it finds in
+    # the window again, as this does)
+    monkeypatch.setattr(style, "_current_mode", ThemeMode.LIGHT)
+    refresh_help(window)
+
+    assert all(label.text() == help_html(*source) for label, source in helps)
+    assert [label.text() for label, _ in helps] != dark
 
 
 def test_an_optional_section_is_added_and_removed(qtbot: QtBot, window: MainWindow):
@@ -353,6 +389,42 @@ def test_the_plugin_is_installed_with_a_click(
     # the result stays when the document is shown again
     window.editor.edited()
     assert window.voip_page.boxes[0].result.text() == "cmake --build failed: boom"
+
+
+def test_a_test_of_the_broker_always_ends_and_only_the_latest_one_shows():
+    results: list[Status] = []
+
+    async def broken(config: MqttConfig) -> Status:
+        raise RuntimeError("no loop")
+
+    tester = BrokerTester(broken)
+    tester.finished.connect(results.append)
+    tester.started = 1
+    tester._run(MqttConfig(host="broker"), 1)  # pyright: ignore[reportPrivateUsage]
+    assert results == [Status("Can't connect: RuntimeError: no loop.", Tone.BAD)]
+
+    async def works(config: MqttConfig) -> Status:
+        return Status(config.host, Tone.GOOD)
+
+    tester = BrokerTester(works)
+    tester.finished.connect(results.append)
+    # a second test started before the first one ended: the first result is old
+    tester.started = 2
+    tester._run(MqttConfig(host="first"), 1)  # pyright: ignore[reportPrivateUsage]
+    tester._run(MqttConfig(host="second"), 2)  # pyright: ignore[reportPrivateUsage]
+    assert results[1:] == [Status("second", Tone.GOOD)]
+
+
+def test_an_install_that_fails_in_any_way_ends_with_it():
+    results: list[Status] = []
+
+    def broken() -> str:
+        raise PermissionError("read-only")
+
+    installer = PluginInstaller(TEAMSPEAK, broken, lambda: NO_PLUGIN)
+    installer.finished.connect(results.append)
+    installer._run()  # pyright: ignore[reportPrivateUsage]
+    assert results == [Status("The setup failed: PermissionError: read-only.", Tone.BAD)]
 
 
 def test_the_installer_runs_in_a_thread():

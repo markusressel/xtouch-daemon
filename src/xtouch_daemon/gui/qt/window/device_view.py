@@ -23,7 +23,7 @@ from xtouch_daemon.gui.domain.status import (
     play_unavailable,
     test_unavailable,
 )
-from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, label, show_status
+from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, discard, label, show_status
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Hand, Preview
@@ -382,7 +382,8 @@ class DeviceView(QWidget):
     def host(self, hosted: HostedDevice | None) -> None:
         """The GUI hosts the virtual device (None: not any more): its bar, and Play on it."""
         if self.virtual_bar is not None:
-            self.virtual_bar.deleteLater()
+            # off the screen at once, its menu with it (see `discard`)
+            discard(self.view_layout, self.virtual_bar)
             self.virtual_bar = None
         self.hosted = hosted
         if hosted is not None:

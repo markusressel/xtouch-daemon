@@ -47,8 +47,14 @@ def _color(color: str | None) -> str | None:
 def icon(name: str, color: str | None = None) -> QIcon:
     """A Material Design icon (qtawesome's mdi6), in the text color unless given."""
     palette = QApplication.palette()
+    # the colors as text: qtawesome keeps its icons by the text of their options, which for a QColor is its address,
+    # so it would draw every icon again and keep each copy
     return qta.icon(
         f"mdi6.{name}",
-        color=QColor(color) if color else palette.color(QPalette.ColorRole.WindowText),
-        color_disabled=palette.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText),
+        color=_text(QColor(color) if color else palette.color(QPalette.ColorRole.WindowText)),
+        color_disabled=_text(palette.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText)),
     )
+
+
+def _text(color: QColor) -> str:
+    return color.name(QColor.NameFormat.HexArgb)

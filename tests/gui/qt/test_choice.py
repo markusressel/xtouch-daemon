@@ -95,3 +95,18 @@ def test_the_row_under_the_mouse_is_marked_and_headings_are_not_picked(qtbot: Qt
     assert choice.is_open
     qtbot.keyClick(view, Qt.Key.Key_Return)
     assert choice.currentText() == "out"
+
+
+def test_esc_closes_the_list_and_the_focus_goes_back_to_the_choice(qtbot: QtBot) -> None:
+    window, choice = a_choice(qtbot, ["white", "red", "green"])
+    choice.setFocus()
+    # the window gets active a moment later
+    qtbot.waitUntil(choice.hasFocus)
+    choice.showPopup()
+    view = the_list(window)
+    assert view.hasFocus()
+
+    qtbot.keyClick(view, Qt.Key.Key_Escape)
+
+    assert not choice.is_open
+    assert choice.hasFocus()

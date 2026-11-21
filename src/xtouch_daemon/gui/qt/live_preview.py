@@ -42,6 +42,8 @@ class LivePreview(QObject):
         """Why the daemon did not take the latest document (it runs the one before)."""
         self.notice: str | None = None
         """Something to know: e.g. why the preview on the device ended, or what of it needs a restart."""
+        self._ended_notice: str | None = None
+        """Why the daemon ended the preview on the device, until the GUI shows it: the answer to that keeps it."""
         self.failed = False
         """The twin of this window failed: it is asked for again after the next change only."""
         self.situation: Situation | None = None
@@ -90,7 +92,7 @@ class LivePreview(QObject):
             return
         self.place = place
         self._off_before_simulate = False
-        self.error = self.notice = None
+        self.error = self.notice = self._ended_notice = None
         self.failed = False
         self.debounce.stop()
         self.send()
@@ -194,7 +196,10 @@ class LivePreview(QObject):
             if reply.ok:
                 self.running = True
                 self.error = None
-                self.notice = reply.message or None
+                # the answer to the start in the GUI after the daemon ended the preview on the device: why it moved
+                # stays, with what the daemon says now
+                ended, self._ended_notice = self._ended_notice, None
+                self.notice = " ".join(text for text in (ended, reply.message) if text) or None
             else:
                 self.error = reply.message
         elif reply.kind == "ended":
@@ -211,7 +216,9 @@ class LivePreview(QObject):
             if on_device:
                 # another window took the device, the file changed, the window did not answer in time
                 self.place = Place.GUI
-                self.notice = f"The preview on the device ended: {reply.message}. It shows in the GUI now."
+                self.notice = self._ended_notice = (
+                    f"The preview on the device ended: {reply.message}. It shows in the GUI now."
+                )
                 self.send()
             else:
                 self.failed = True

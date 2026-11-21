@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 
 from xtouch_daemon.audio.pulse import read_state
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
+from xtouch_daemon.gui.qt import errors
 from xtouch_daemon.gui.qt.fields.rich_tips import RichTips
 from xtouch_daemon.gui.qt.theme.icons import app_icon
 from xtouch_daemon.gui.qt.theme.settings import load_zoom
@@ -20,6 +21,12 @@ from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.system.systemd import Service
 
+SYSTEMCTL_TIMEOUT = 2.0
+"""
+Seconds a command of `systemctl` may take in the window, which waits for it: a user's service manager that hangs would
+freeze the window (the state of the service is read every 3 s). It answers in milliseconds otherwise; the jobs are
+queued (`--no-block`).
+"""
 SCALE_FACTOR = "QT_SCALE_FACTOR"
 """Qt scales a whole application by it, when the application starts."""
 
@@ -59,6 +66,9 @@ def create_application() -> QApplication:
 
 def run_gui(path: Path) -> int:
     """Shows the window until it is closed; raises `ConfigError` for a file it can't edit."""
+    errors.install()
+    # before anything of Qt: Python's handler would raise KeyboardInterrupt in whatever runs, also in a method Qt calls
+    signals = QuitSignals()
     document = SlotsDocument.open(path)
     own = os.environ.get(SCALE_FACTOR)
     session: Session | None = None
@@ -66,9 +76,10 @@ def run_gui(path: Path) -> int:
         name_application()
         os.environ[SCALE_FACTOR] = scale_for(load_zoom(), own)
         app = create_application()
-        window = MainWindow(document, Service(wait=False), lambda: read_state("xtouch-daemon-gui"), session=session)
+        signals.watch(app)
+        service = Service(wait=False, timeout=SYSTEMCTL_TIMEOUT)
+        window = MainWindow(document, service, lambda: read_state("xtouch-daemon-gui"), session=session)
         window.show()
-        _quit_on_signals(app)
         code = app.exec()
         if window.rezoom is None:
             return code
@@ -81,11 +92,37 @@ def run_gui(path: Path) -> int:
         gc.collect()
 
 
-def _quit_on_signals(app: QApplication) -> None:
-    """Ctrl+C and SIGTERM close the window (asking about unsaved changes)."""
-    for signum in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(signum, lambda *_: app.closeAllWindows())
-    # Python runs signal handlers only between bytecodes, and Qt's event loop runs in C++: this wakes it regularly
-    timer = QTimer(app)
-    timer.timeout.connect(lambda: None)
-    timer.start(200)
+SIGNAL_CHECK_MS = 200
+"""How often the event loop looks for Ctrl+C or SIGTERM (see `QuitSignals`)."""
+
+
+class QuitSignals:
+    """
+    Ctrl+C and SIGTERM close the windows, which ask about unsaved changes. The handler only notes the signal: Python
+    runs it between any two bytecodes, e.g. in a paint or in the middle of building the window, where closing would
+    break what runs. A timer of the event loop closes the windows; Python runs handlers only between bytecodes and
+    the loop runs in C++, so the timer also lets the handler run at all.
+    """
+
+    def __init__(self) -> None:
+        self.asked = False
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(signum, self._note)
+
+    def _note(self, signum: int, frame: object) -> None:
+        self.asked = True
+
+    def watch(self, app: QApplication) -> None:
+        """Closes the windows of `app` after a signal, from its event loop (each zoom has an application of its own)."""
+        timer = QTimer(app)
+        timer.timeout.connect(lambda: self._check(app))
+        timer.start(SIGNAL_CHECK_MS)
+
+    def _check(self, app: QApplication) -> None:
+        if not self.asked:
+            return
+        self.asked = False
+        if app.activeModalWidget() is not None:
+            # a dialog asks already, e.g. about unsaved changes while closing: it is the answer
+            return
+        app.closeAllWindows()

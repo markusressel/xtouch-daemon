@@ -206,17 +206,41 @@ class ChannelsPage(Page):
         """The values of the options of each form, unset ones at their defaults."""
         self.form_strips: dict[str, str] = {}
         """The strip type of each form."""
+        self.pending = False
+        """Whether the form waits for the page to show (see `_show`)."""
+        self.form_specs: dict[str, tuple[Callable[[], tuple[Option, ...]], Callable[[str], OptionPath], str]] = {}
+        """
+        What each form is made of: its options, where they are, its strip type. A form is built the first time it
+        shows (see `_built`), then kept: most of the forms never show in a session, and building all takes a while.
+        """
         for kind in CHANNEL_TYPES:
-            self._form(kind, channel_options(kind), lambda name: (*self.selection, name), kind)
+            self.form_specs[kind] = (lambda kind=kind: channel_options(kind), self._selected, kind)
         for pool, *_ in BUILT_IN_POOLS:
-            strip = "voip" if pool == "people" else "auto"
-            self._form(f"pool.{pool}", pool_options(pool), lambda name, pool=pool: ("pool", pool, name), strip)
-        self._form(CUSTOM_POOL, options(PoolConfig), lambda name: (*self.selection, name), "auto")
-        self._form(CUSTOM_APPS_POOL, options(AppsPoolConfig), lambda name: (*self.selection, name), "auto")
-        self._form(CUSTOM_PEOPLE_POOL, options(PeoplePoolConfig), lambda name: (*self.selection, name), "voip")
+            self.form_specs[f"pool.{pool}"] = (
+                lambda pool=pool: pool_options(pool),
+                lambda name, pool=pool: ("pool", pool, name),
+                "voip" if pool == "people" else "auto",
+            )
+        for key, model, strip in (
+            (CUSTOM_POOL, PoolConfig, "auto"),
+            (CUSTOM_APPS_POOL, AppsPoolConfig, "auto"),
+            (CUSTOM_PEOPLE_POOL, PeoplePoolConfig, "voip"),
+        ):
+            self.form_specs[key] = (lambda model=model: options(model), self._selected, strip)
         self._show()
 
     # -- building -------------------------------------------------------------------------------------------------
+
+    def _selected(self, name: str) -> OptionPath:
+        """Where an option of the channel or pool selected is."""
+        return (*self.selection, name)
+
+    def _built(self, key: str) -> str:
+        """The key of a form, built first if it was not yet."""
+        if key not in self.form_widgets:
+            form_options, path, strip = self.form_specs[key]
+            self._form(key, form_options(), path, strip)
+        return key
 
     def _form(self, key: str, form_options: tuple[Option, ...], path: Callable[[str], OptionPath], strip: str) -> None:
         """
@@ -224,6 +248,7 @@ class ChannelsPage(Page):
         device, those about a part of the strip with a preview of what they do there.
         """
         form = QWidget()
+        self.forms.add(form)
         cards = QVBoxLayout(form)
         cards.setContentsMargins(0, 0, 0, 0)
         cards.setSpacing(Space.M)
@@ -424,7 +449,9 @@ class ChannelsPage(Page):
 
     @property
     def rows(self) -> list[OptionRow]:
-        return self.form_rows[self._form_key()]
+        if self.pending:
+            self._show_form()
+        return self.form_rows[self._built(self._form_key())]
 
     def _form_key(self) -> str:
         if self.selection in POOLS:
@@ -448,11 +475,18 @@ class ChannelsPage(Page):
             self._show()
         else:
             self._show_list()
-            self._show_previews()
+            if not self.pending:
+                self._show_previews()
+
+    def setVisible(self, visible: bool) -> None:
+        if visible and self.pending:
+            # before it shows: the page is laid out with its form
+            self._show_form()
+        super().setVisible(visible)
 
     def _show_previews(self) -> None:
         """The previews of the form show what its values do."""
-        key = self._form_key()
+        key = self._built(self._form_key())
         config = self.editor.validation.config
         strip = Strip(self.form_strips[key], self.form_values[key](), config.behavior if config else BehaviorConfig())
         for part, preview in self.form_previews[key].items():
@@ -491,7 +525,16 @@ class ChannelsPage(Page):
         self.remove_button.setEnabled(yours)
         where = uses(self.document.values, str(self.selection[-1]))
         self.used.show_uses(where, "Not used by a slot, pool or state yet.")
-        self.forms.show_part(self.form_widgets[key])
+        if self.isVisible():
+            self._show_form()
+        else:
+            # the form when the page shows (or its rows are asked for): building one takes a while
+            self.pending = True
+
+    def _show_form(self) -> None:
+        """The form of the selection, with its values, previews and problems."""
+        self.pending = False
+        self.forms.show_part(self.form_widgets[self._built(self._form_key())])
         self._load_rows(self.rows)
         for option_row in self.rows:
             if option_row.option.name == "profiles":
@@ -570,6 +613,9 @@ class ChannelsPage(Page):
         self.select(item.data(Qt.ItemDataRole.UserRole))
 
     def show_problems(self, validation: Validation) -> None:
+        if self.pending:
+            # shown with the form
+            return
         names = {name for option_row in self.rows for name in option_row.names}
         path = self.selection
         self._show_rest(
