@@ -15,13 +15,13 @@ from tests.support.mqtt import FakeBroker
 from tests.support.waiting import until
 from xtouch_daemon import __version__
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon.lifecycle import Daemon
 from xtouch_daemon.hardware.protocol import Color
 from xtouch_daemon.live.codec import decode
 from xtouch_daemon.live.messages import (
     fingerprint,
 )
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime.daemon import Daemon
 
 
 async def test_home_assistant_strips_follow_the_broker(

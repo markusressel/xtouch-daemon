@@ -111,7 +111,7 @@ your own, not one for `apps`. A reload carries them over by pool id (`carry`); a
 | `slots/inputs.py` | Membership by the order above; `PoolMembers` per pool; `pool_present` for the new kinds. |
 | `slots/resolver.py` | `KINDS`, `ORDER`, `kind_of`: from three constants to the sources of the scene. `Shown.pool` is the pool of your own; `Result.waiting` keys likewise. |
 | `slots/outcomes.py`, `why.py`, `simulation.py` | The table of `check-config` and Simulate count presence of the new pools; the notes say "pool X is on no slot" and "pool X can never show" (like a channel below a pool). Simulate gets counts for the members of each pool of your own, as for `apps` and `people`. |
-| `runtime/slots.py`, `strips/` | A strip for a member of a pool of your own is built like one of `apps` or `people`, with the look of its pool. |
+| `daemon/slots.py`, `strips/` | A strip for a member of a pool of your own is built like one of `apps` or `people`, with the look of its pool. |
 | `live/messages.py`, `mqtt.py` | `SlotView.pool` carries the pool id; the HA sensor `sensor.<ns>_slot_<n>` shows `app:<name>` / `person:<name>` as before, with the pool in its attributes. |
 | GUI | The Channels page gets "Pool of applications" and "Pool of people" in its Add menu and a form per kind (`match`, `exclude` or `people`, the side, the look). The slot card's chip names the pool and the member (`music · Spotify`). |
 | Docs | `configuration/slots.md` (pools), `channels/applications.md` and `people.md`, `concepts.md`, the example in `config.example.toml` stays small. |

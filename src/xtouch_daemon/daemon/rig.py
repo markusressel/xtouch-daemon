@@ -1,8 +1,8 @@
 """
 The strips of a configuration on one surface: the hands on them (`Desk`), the slots (`SlotEngine`), the controllers of
 what each slot shows (`SlotMixer`) and the loop that steps the slots over time. The daemon runs one on the device
-(`runtime.daemon`), a virtual twin one on a device that is never there, with a sound server and a voice chat of its
-own (`runtime.twin`): the same parts, so the twin shows what the device would.
+(`daemon.lifecycle`), a virtual twin one on a device that is never there, with a sound server and a voice chat of its
+own (`daemon.twin`): the same parts, so the twin shows what the device would.
 """
 
 import asyncio
@@ -16,12 +16,12 @@ from xtouch_daemon.audio.backend import AudioBackend
 from xtouch_daemon.audio.meter import PW_RECORD, Capturer
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.daemon.binder import SlotMixer
+from xtouch_daemon.daemon.desk import Desk, touchless
+from xtouch_daemon.daemon.slots import BATCH, PROCESS_INTERVAL, SlotEngine
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.live.messages import Reply
 from xtouch_daemon.live.server import voip_state
-from xtouch_daemon.runtime.binder import SlotMixer
-from xtouch_daemon.runtime.desk import Desk, touchless
-from xtouch_daemon.runtime.slots import BATCH, PROCESS_INTERVAL, SlotEngine
 from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.states import Override
 from xtouch_daemon.system.commands import Commands, SimulatedCommands
@@ -31,7 +31,7 @@ MANUAL = "manual"
 """The reason of a mode picked over the live view (the GUI, `xtouch-daemon mode`)."""
 CHORD = "buttons"
 """The reason of a mode picked by the chord on the device."""
-SLOTS_LOGGER = logging.getLogger("xtouch_daemon.runtime.slots")
+SLOTS_LOGGER = logging.getLogger("xtouch_daemon.daemon.slots")
 """Where the slots of the device log."""
 
 

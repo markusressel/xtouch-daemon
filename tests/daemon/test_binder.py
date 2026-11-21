@@ -17,11 +17,11 @@ from tests.support.tasks import settle
 from tests.support.watches import ProgramCommands
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon import binder as binder_module
+from xtouch_daemon.daemon.binder import SlotMixer
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import Strip, VirtualStrip
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime import binder as binder_module
-from xtouch_daemon.runtime.binder import SlotMixer
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.voip import VoipStrip
 

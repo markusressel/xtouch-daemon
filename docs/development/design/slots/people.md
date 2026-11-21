@@ -200,7 +200,7 @@ channel or `[pool.people]` options and no slot can show people.
 | Presence, members | `slots/inputs.py` (`pool_present()`, `people_of()`, `excluded()`) |
 | Chains, hand-down, contest | `slots/resolver.py` (`_chain()`, `_of_channels()`, `_contest()`, `_fill_order()`) |
 | Simulate, the outcome table, notes | `slots/outcomes.py` (`simulate()` with counts, `dimensions()`, `notes()`), `cli/configuration.py` |
-| Strips of places | `config/slots.py`, `runtime/binder.py` (people take the look of their place) |
+| Strips of places | `config/slots.py`, `daemon/binder.py` (people take the look of their place) |
 | GUI | `gui/domain/slot_stacks.py`, `gui/domain/simulate.py`, `gui/domain/channels.py`, `gui/qt/pages/slots.py`, `gui/qt/pages/channels.py` |
 
 ## Not chosen

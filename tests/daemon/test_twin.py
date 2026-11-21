@@ -12,8 +12,8 @@ from tests.support.waiting import until
 from tests.support.watches import ProgramCommands
 from xtouch_daemon.audio.model import Direction
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon.twin import Twin, TwinBackend
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.runtime.twin import Twin, TwinBackend
 from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.world import DEFAULT_OUTPUT, Names
 

@@ -2,7 +2,7 @@
 Running a configuration of channels, states and slots on the device (the prototype of
 docs/development/design/slots/index.md): the `SlotEngine` feeds a `Simulation` with what the sound server, the
 processes and the voice chat show, and takes the requests (a mode, an override, a pin); its result says what the
-`SlotMixer` (`runtime.binder`) puts on each strip of the device.
+`SlotMixer` (`daemon.binder`) puts on each strip of the device.
 """
 
 import logging
@@ -13,8 +13,7 @@ from pathlib import Path
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.model import Config
-from xtouch_daemon.live.messages import SlotsState, SlotView, StateView, VoipState
-from xtouch_daemon.runtime.slot_files import (
+from xtouch_daemon.daemon.slot_files import (
     CHOICES_FILE_NAME,
     PEOPLE_FILE_NAME,
     Choices,
@@ -23,6 +22,7 @@ from xtouch_daemon.runtime.slot_files import (
     write_choices,
     write_people,
 )
+from xtouch_daemon.live.messages import SlotsState, SlotView, StateView, VoipState
 from xtouch_daemon.slots.inputs import App, Channel, Device, Member, Person, excluded, owner_of
 from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Situation
@@ -81,9 +81,9 @@ class SlotEngine:
         """Called after a request of a slot's encoder, which should show at once."""
         self.observer = Observer()
         self.homeassistant: frozenset[str] = frozenset()
-        """The states whose input in Home Assistant is on (`homeassistant = true`, see `runtime.homeassistant`)."""
+        """The states whose input in Home Assistant is on (`homeassistant = true`, see `daemon.homeassistant`)."""
         self.absent: frozenset[str] = frozenset()
-        """The custom channels whose `present` says they are not there (see `runtime.binder`)."""
+        """The custom channels whose `present` says they are not there (see `daemon.binder`)."""
         self.made_absent: frozenset[str] | None = None
         """
         The custom channels a twin's made-up situation makes absent: when set, they replace `absent` (the situation
@@ -216,7 +216,7 @@ class SlotEngine:
         self.simulation.engine.set_override(state, value)
         self._keep_choices()
 
-    # -- the actions of buttons in [controls] (see `runtime.controls`): they show at once -------------------------
+    # -- the actions of buttons in [controls] (see `daemon.controls`): they show at once -------------------------
 
     def value(self, name: str) -> bool:
         """Whether a state is on, or a mode is the mode (in the situation while one runs); False before a step."""

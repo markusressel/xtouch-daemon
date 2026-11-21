@@ -107,6 +107,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- For developers: the running daemon is the package `xtouch_daemon.daemon` (was `runtime`), its lifecycle the module
+  `daemon/lifecycle.py` (was `runtime/daemon.py`); the tests moved to `tests/daemon/`. No change in behaviour.
 - Documentation: pictures of a strip and of its parts (encoder, LCD and its colors, meter, buttons, fader), drawn as
   the GUI draws them, beside the text of Concepts, the pages of the parts of a strip, custom channels, `[controls]`
   and the hardware. `just screenshot` renders them to `docs/images/controls/`. The page GUI is split into shorter

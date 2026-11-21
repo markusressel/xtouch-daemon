@@ -13,10 +13,10 @@ from xtouch_daemon.audio.pulse import PulseBackend
 from xtouch_daemon.cli.options import CONFIG_OPTION, load_or_fail
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path
+from xtouch_daemon.daemon.lifecycle import Daemon, device_surface
 from xtouch_daemon.hardware.selftest import run_selftest
 from xtouch_daemon.live.device_test import TestRefused, run_test_in_daemon
 from xtouch_daemon.live.log import LogBuffer
-from xtouch_daemon.runtime.daemon import Daemon, device_surface
 from xtouch_daemon.system import instance, systemd
 
 

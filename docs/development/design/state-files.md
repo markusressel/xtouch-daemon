@@ -7,9 +7,9 @@ default `~/.local/state/xtouch-daemon/` (`system/instance.py` `state_dir()`).
 
 | File | Kept by | What |
 |---|---|---|
-| `slots.json` | `runtime/slot_files.py` | The overrides of states and the mode picked by hand. |
-| `people.json` | `runtime/slot_files.py` | The order of the people. |
-| `devices.json` | `runtime/device_memory.py` | The sound devices the daemon saw, for the GUI's suggestions. A device not seen for 90 days is forgotten. |
+| `slots.json` | `daemon/slot_files.py` | The overrides of states and the mode picked by hand. |
+| `people.json` | `daemon/slot_files.py` | The order of the people. |
+| `devices.json` | `daemon/device_memory.py` | The sound devices the daemon saw, for the GUI's suggestions. A device not seen for 90 days is forgotten. |
 
 Together they are about 2 KB. A `layout` file there comes from the layouts that the slots replaced
 ([history](../history/layouts.md)); nothing reads it any more, and it can be deleted.

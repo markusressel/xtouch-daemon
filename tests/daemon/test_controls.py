@@ -23,11 +23,11 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.bindings import ValueBinding
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.daemon.controls import Controls, SlotClaim
+from xtouch_daemon.daemon.desk import Desk
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime.controls import Controls, SlotClaim
-from xtouch_daemon.runtime.desk import Desk
 from xtouch_daemon.slots.states import Override
 from xtouch_daemon.strips import homeassistant as homeassistant_module
 from xtouch_daemon.strips.custom import CustomStrip

@@ -34,7 +34,7 @@ that on the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon.sock` (mode 0600, next t
     `on_device`, `test`, `log`).
 - **The devices it saw.** A line of its own, `{"known_devices": [...]}` (`KnownDevices`), when a client connects (if
   there are any) and whenever they change: every output and input the sound server had, with its card, the profile
-  the card was in and when it was there last (`runtime/device_memory.py`, kept in `devices.json` of the state
+  the card was in and when it was there last (`daemon/device_memory.py`, kept in `devices.json` of the state
   directory, forgotten after 90 days). The GUI suggests them while they are not there; the CLI skips the line.
 - **Applied or not.** The fingerprint is a hash of the whole configuration (secrets included). The GUI compares it
   with the one of the saved file, so it can say whether the daemon took the file instead of assuming a reload worked
@@ -85,8 +85,8 @@ The window Log of the GUI shows the log of the daemon, whether it runs as the se
 
 ## Virtual twin
 
-The preview "In the GUI" runs on a twin per client (`runtime/twin.py`, `Daemon.preview_on_twin()`). `Twin` and
-`Daemon` are both a `Rig` (`runtime/rig.py`: the `Desk`, `SlotEngine` and `SlotMixer` of a configuration on one
+The preview "In the GUI" runs on a twin per client (`daemon/twin.py`, `Daemon.preview_on_twin()`). `Twin` and
+`Daemon` are both a `Rig` (`daemon/rig.py`: the `Desk`, `SlotEngine` and `SlotMixer` of a configuration on one
 surface, and the loop that steps them). The twin's rig is on a `Surface(port=NoPort())`, an in-memory `TwinBackend` and
 a `DemoProvider` as voice chat. It is built from the `Config` and the real `Names` (applications, people, devices, used
 as stand-ins first) only, so it touches nothing real. Its mode and overrides come from the situation only: the chord,

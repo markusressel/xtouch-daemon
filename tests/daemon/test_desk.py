@@ -14,11 +14,11 @@ from tests.support.tasks import settle
 from xtouch_daemon.audio.meter import CaptureTarget, Lit, Reading
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.values import MeterPoint
+from xtouch_daemon.daemon import desk as desk_module
+from xtouch_daemon.daemon.desk import Desk
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import METER_MAX, Button
 from xtouch_daemon.hardware.strip import Claimable, Maskable
-from xtouch_daemon.runtime import desk as desk_module
-from xtouch_daemon.runtime.desk import Desk
 
 SPEAKER = CaptureTarget("speaker", monitor=True)
 STATE = AudioState(outputs=(output("speaker", 50),), default_output="speaker")

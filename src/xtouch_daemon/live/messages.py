@@ -405,7 +405,7 @@ type Request = DaemonRequest | LogRequest
 @dataclass(frozen=True)
 class KnownDevice:
     """
-    A device the daemon saw (see `runtime.device_memory`): it suggests it for a configuration also while it is not
+    A device the daemon saw (see `daemon.device_memory`): it suggests it for a configuration also while it is not
     there, e.g. Bluetooth headphones that are off, or the digital output while the card is in its analog profile.
     """
 
@@ -439,7 +439,7 @@ class LogEntry:
     level: str
     """`DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`."""
     logger: str
-    """The name of the logger, e.g. `xtouch_daemon.runtime.daemon`."""
+    """The name of the logger, e.g. `xtouch_daemon.daemon.lifecycle`."""
     message: str
     """The message, with the traceback of an exception (more lines then)."""
 

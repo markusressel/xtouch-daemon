@@ -20,12 +20,12 @@ from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import EmptyStripConfig, StripConfig
 from xtouch_daemon.config.values import EncoderMode, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
+from xtouch_daemon.daemon.controls import Controls
+from xtouch_daemon.daemon.desk import Desk
+from xtouch_daemon.daemon.slots import SlotEngine
 from xtouch_daemon.hardware.strip import Claimable, Maskable, VirtualStrip
 from xtouch_daemon.hardware.surface import Surface
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime.controls import Controls
-from xtouch_daemon.runtime.desk import Desk
-from xtouch_daemon.runtime.slots import SlotEngine
 from xtouch_daemon.slots.inputs import App, Device, Person
 from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.strips import build_strip, look_of
@@ -219,7 +219,7 @@ class SlotMixer:
         Puts on each slot the controller of what it shows. Only slots whose result changed are touched: the others
         keep their controller, so their texts, fader and LEDs stay as they are. A slot that shows another candidate
         flashes its label and why for `flash` seconds (0: not at all). The controls of the slots claim what their
-        `when` says (see `runtime.controls`).
+        `when` says (see `daemon.controls`).
         """
         states = self.engine.active.states
         self.controls.apply(states.values if states is not None else {})

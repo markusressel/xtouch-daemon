@@ -138,7 +138,7 @@ hold, a range) only if it turns out to be missing.
 2. Built. The field for names, with what the sound server has now and the devices of the profiles (`fields/names.py`;
    the matching in `domain/sources.py`). The matches line is under `device`, `card` and `profile` of a choice; the
    lists of chips (`device` of a channel) have the list without it.
-3. Built. Remembered devices (`runtime/device_memory.py`, a line `known_devices` of the live view of its own rather
+3. Built. Remembered devices (`daemon/device_memory.py`, a line `known_devices` of the live view of its own rather
    than a field of every snapshot, and `ForgetDevice`).
 4. Built. The buttons (`config/buttons.py`; `VolumeStrip.on_button`/`act()` in `strips/base.py`, the kinds of
    strips add `do()`; `mute_others` mutes through the binder, the mode actions go to the `SlotEngine` through

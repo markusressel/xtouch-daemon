@@ -10,7 +10,7 @@ for as long as the configuration:
 - `sensor.<ns>_slot_<n>`: what slot n shows (a channel id, `app:<name>`, `person:<name>` or `none`), with the
   attributes `label`, `kind`, `via` and `reason`.
 
-The entities of the channels and of `[controls]` are those of their controllers (see `runtime.binder`).
+The entities of the channels and of `[controls]` are those of their controllers (see `daemon.binder`).
 """
 
 import asyncio
@@ -26,8 +26,8 @@ from haad_mqtt_autodiscovery.entity.sensor import MQTTSensor
 from haad_mqtt_autodiscovery.entity.switch import MQTTSwitch
 
 from xtouch_daemon.config.slots import SlotsSetup
+from xtouch_daemon.daemon.slots import SlotEngine
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.runtime.slots import SlotEngine
 from xtouch_daemon.slots.inputs import App, Device, Person
 from xtouch_daemon.slots.resolver import SLOTS, Result, Shown
 from xtouch_daemon.slots.states import Override
