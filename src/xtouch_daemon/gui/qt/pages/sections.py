@@ -1,6 +1,7 @@
 """
 The pages of the sections with options of their own (`[behavior]`, `[device]`, `[switching]`, ...), and the extras
-of two of them: testing the broker on `[mqtt]`, installing the Mumble plugin on `[voip]`.
+of three of them: testing the broker on `[mqtt]` and the API on `[homeassistant]`, installing the Mumble plugin on
+`[voip]`.
 """
 
 import asyncio
@@ -19,8 +20,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from xtouch_daemon.config.sections import MqttConfig
-from xtouch_daemon.gui.domain import docs, sources
+from xtouch_daemon.config.sections import HomeAssistantConfig, MqttConfig
+from xtouch_daemon.gui.domain import docs, entities, sources
 from xtouch_daemon.gui.domain.broker import live_status, try_broker
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.schema import SECTIONS, options
@@ -29,6 +30,7 @@ from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, help_label, help_tail, label, set_help, show_status
+from xtouch_daemon.gui.qt.fields.entities import EntitySource
 from xtouch_daemon.gui.qt.fields.option_row import add_rows, align_titles
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, page_title, row, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -196,6 +198,64 @@ class MqttPage(SectionPage):
         super()._show()
         if not self.document.has_section("mqtt"):
             # a test of settings that are gone says nothing
+            self.tested = None
+            self._show_test()
+
+    def _show_test(self) -> None:
+        self.box.show_test(self.tested, self.testing)
+
+
+class HomeAssistantPage(SectionPage):
+    """
+    The [homeassistant] section, with how the daemon's connection to the API is doing and a test of the settings as
+    they are in the editor, before they are saved. The entities a test finds are the suggestions of the fields.
+    """
+
+    def __init__(self, editor: Editor, audio: Audio, source: EntitySource):
+        self.source = source
+        self.tested: Status | None = None
+        self.testing = False
+        source.tested.connect(self._tested)
+        super().__init__("homeassistant", editor, audio)
+        self.show_live(None)
+
+    def _above_options(self, layout: QVBoxLayout) -> None:
+        self.box = ConnectionBox()
+        """The connection and its test, below the help of the section, above its options."""
+        self.box.test_button.setToolTip(
+            "Connect once with the settings below, also unsaved ones, read the entities, and disconnect again"
+        )
+        self.box.test_button.clicked.connect(self.test)
+        layout.addWidget(self.box)
+
+    def show_live(self, snapshot: Snapshot | None) -> None:
+        """How the daemon's connection is doing now (see `entities.live_status`)."""
+        status = entities.live_status(snapshot)
+        show_status(self.box.live_pill, status)
+        set_help(self.box.live_detail, status.tip)
+
+    def test(self) -> None:
+        """Tries the settings in the editor (see `entities.try_home_assistant`)."""
+        try:
+            config = HomeAssistantConfig.model_validate(self.document.get(("homeassistant",)) or {})
+        except ValidationError:
+            self.tested = Status("Fix the problems of the settings first.", Tone.BAD)
+            self._show_test()
+            return
+        self.testing = True
+        self.tested = Status(f"Connecting to {config.url}…", Tone.NEUTRAL)
+        self._show_test()
+        self.source.test(config)
+
+    def _tested(self, status: Status) -> None:
+        self.testing = False
+        # a result that comes after the section was removed has nowhere to go
+        self.tested = status if self.document.has_section("homeassistant") else None
+        self._show_test()
+
+    def _show(self) -> None:
+        super()._show()
+        if not self.document.has_section("homeassistant"):
             self.tested = None
             self._show_test()
 

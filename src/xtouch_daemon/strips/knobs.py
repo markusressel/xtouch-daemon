@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from xtouch_daemon.audio.media import MediaPlayers, Player
     from xtouch_daemon.strips.apps import AppStrip, AutoStrip
     from xtouch_daemon.strips.base import VolumeStrip
-    from xtouch_daemon.strips.value import CommandValue
+    from xtouch_daemon.strips.value import BoundValue
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -341,7 +341,7 @@ class CommandKnob(Knob):
 
     idle_too = True
 
-    def __init__(self, owner: VolumeStrip, value: CommandValue):
+    def __init__(self, owner: VolumeStrip, value: BoundValue):
         super().__init__(owner)
         self.value = value
 

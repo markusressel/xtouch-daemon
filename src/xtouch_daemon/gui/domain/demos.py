@@ -10,7 +10,17 @@ from typing import Any, Literal, assert_never, cast
 
 from pydantic import ValidationError
 
-from xtouch_daemon.config.bindings import HOME_ASSISTANT, LevelBinding, RunAction, ValueBinding, WatchBinding
+from xtouch_daemon.config.bindings import (
+    HOME_ASSISTANT,
+    EntityBinding,
+    EntityLevelBinding,
+    EntityValueBinding,
+    LevelBinding,
+    RunAction,
+    ServiceAction,
+    ValueBinding,
+    WatchBinding,
+)
 from xtouch_daemon.config.buttons import (
     BUTTON_NAMES,
     LEDS,
@@ -28,6 +38,7 @@ from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import ENCODERS, default_encoder
 from xtouch_daemon.gui.domain.looks import DARK
 from xtouch_daemon.hardware import protocol
+from xtouch_daemon.homeassistant.domains import domain_value
 from xtouch_daemon.live.messages import StripState
 from xtouch_daemon.strips.base import UNITY, fader_position
 from xtouch_daemon.strips.knobs import RING_CENTER, balance_text, ring_position
@@ -120,22 +131,33 @@ class Strip:
     def buttons(self) -> tuple[str, ...]:
         return CUSTOM_BUTTON_NAMES if self.strip_type == CUSTOM else BUTTON_NAMES
 
-    def binding[T: ValueBinding | WatchBinding](self, name: str, model: type[T]) -> T | None:
-        """The program a part is bound to, None for a word, nothing, or a table that is no binding (yet)."""
+    def binding[T: ValueBinding | WatchBinding | EntityBinding](self, name: str, model: type[T]) -> T | None:
+        """
+        The program or the entity a part is bound to, None for a word, nothing, a table that is no binding (yet), or
+        one of the other kind (an entity is no program, a program no entity).
+        """
         value = self.value(name)
-        if not isinstance(value, Mapping):
+        if not isinstance(value, Mapping) or (("entity" in value) != issubclass(model, EntityBinding)):
             return None
         try:
             return model.model_validate(value)
         except ValidationError:
             return None
 
-    def fader_value(self) -> ValueBinding | None:
-        return self.binding("fader", ValueBinding)
+    def knob(self, name: str) -> Knob | None:
+        """The value the fader or the encoder sets: of a program, or of an entity."""
+        if (program := self.binding(name, ValueBinding)) is not None:
+            return Knob.of_program(program)
+        if (entity := self.binding(name, EntityValueBinding)) is not None:
+            return Knob.of_entity(entity)
+        return None
 
-    def encoder_value(self) -> ValueBinding | None:
+    def fader_value(self) -> Knob | None:
+        return self.knob("fader")
+
+    def encoder_value(self) -> Knob | None:
         """The value the encoder sets: its own, else on a `custom` channel that of the fader, by its `step`."""
-        own = self.binding("encoder", ValueBinding)
+        own = self.knob("encoder")
         if own is None and self.strip_type == CUSTOM and self.value("encoder") is None:
             return self.fader_value()
         return own
@@ -214,17 +236,45 @@ class Strip:
         )
 
 
-def _led(value: object, default: LedWord | WatchBinding) -> LedWord | WatchBinding:
+def _led(value: object, default: LedWord | WatchBinding | EntityBinding) -> LedWord | WatchBinding | EntityBinding:
     """What an LED of the form shows, `default` for none or for one that shows nothing (the form shows its problem)."""
     if isinstance(value, Mapping):
         try:
-            return WatchBinding.model_validate(value)
+            return EntityBinding.model_validate(value) if "entity" in value else WatchBinding.model_validate(value)
         except ValidationError:
             return default
     return cast(LedWord, value) if value in LEDS.meanings else default
 
 
-def value_text(binding: ValueBinding, value: float) -> str:
+@dataclass(frozen=True)
+class Knob:
+    """A value the fader or the encoder sets, as the scenes show it: its range, steps, and what sets it."""
+
+    min: float
+    max: float
+    step: float | None
+    push: float | None
+    format: str
+    by: str
+    """What the value goes to, for a caption, e.g. "set by sysctrl", "sets light.desk"."""
+
+    @staticmethod
+    def of_program(binding: ValueBinding) -> Knob:
+        by = f"set by {_program(binding.set)}"
+        return Knob(binding.min, binding.max, binding.step, binding.push, binding.format, by)
+
+    @staticmethod
+    def of_entity(binding: EntityValueBinding) -> Knob:
+        """The range of the entity as the file has it, else of its domain (the entity's own is not known here)."""
+        domain = domain_value(binding.entity, binding.attribute) if binding.service is None else None
+        low = binding.min if binding.min is not None else domain.min if domain is not None else 0.0
+        high = binding.max if binding.max is not None else domain.max if domain is not None else 100.0
+        if high <= low:
+            low, high = 0.0, 100.0
+        return Knob(low, high, binding.step, binding.push, binding.format, f"sets {binding.entity}")
+
+
+def value_text(binding: ValueBinding | Knob, value: float) -> str:
     """A value as the LCD shows it, in the `format` of the binding."""
     try:
         return binding.format.format(value=value)[: protocol.LCD_CELL_WIDTH]
@@ -243,6 +293,8 @@ def _action(value: object, default: Action) -> Action:
         return value
     if isinstance(value, Mapping):
         try:
+            if "service" in value:
+                return ServiceAction.model_validate(value)
             return RunAction.model_validate(value) if "run" in value else LaunchAction.model_validate(value)
         except ValidationError:
             return default
@@ -322,7 +374,7 @@ def _encoder(strip: Strip) -> tuple[Frame, ...]:
             return tuple(frames)
 
 
-def _turns(strip: Strip, binding: ValueBinding) -> tuple[Frame, ...]:
+def _turns(strip: Strip, binding: Knob) -> tuple[Frame, ...]:
     """An encoder that sets a value of your own: three steps of it from the middle, then a push."""
     span = binding.max - binding.min
     step = binding.step if binding.step is not None else span * strip.behavior.encoder_step / 100
@@ -333,7 +385,7 @@ def _turns(strip: Strip, binding: ValueBinding) -> tuple[Frame, ...]:
         fraction = (value - binding.min) / span
         text = value_text(binding, value)
         state = replace(base, ring=ring_position(fraction), text=(strip.label, text))
-        frames.append(Frame(f"Turned right: {text}, set by {_program(binding.set)}", state))
+        frames.append(Frame(f"Turned right: {text}, {binding.by}", state))
     if binding.push is not None:
         text = value_text(binding, binding.push)
         state = replace(base, ring=ring_position((binding.push - binding.min) / span), text=(strip.label, text))
@@ -388,6 +440,8 @@ def _bound_lcd(strip: Strip) -> tuple[str, str] | None:
         return "The second line: the text Home Assistant sets", "HA text"
     if (watch := strip.binding("lcd", WatchBinding)) is not None:
         return f"The second line: each line {_program(watch.watch)} prints", "line"
+    if (entity := strip.binding("lcd", EntityBinding)) is not None:
+        return f"The second line: {_entity_place(entity)}", "state"
     return None
 
 
@@ -397,6 +451,8 @@ def _bound_color(strip: Strip) -> str | None:
         return "the color Home Assistant sets"
     if (watch := strip.binding("color", WatchBinding)) is not None:
         return f"the color {_program(watch.watch)} prints"
+    if (entity := strip.binding("color", EntityBinding)) is not None:
+        return f"the color {_entity_place(entity)} names"
     return None
 
 
@@ -450,6 +506,10 @@ def _buttons(strip: Strip) -> tuple[Frame, ...]:
         if isinstance(led, WatchBinding):
             situations.append((f"{_program(led.watch)} prints on", {"playing", "watch"}))
             break
+    for led in leds:
+        if isinstance(led, EntityBinding):
+            situations.append((f"{led.entity} is on", {"playing", "entity"}))
+            break
     if HOME_ASSISTANT in leds:
         situations.append(("Home Assistant turns an LED on", {"playing", "homeassistant"}))
     for name, setup in setups.items():
@@ -474,6 +534,8 @@ def _does(action: Action) -> str:
     """What an action does, in a few words."""
     if isinstance(action, LaunchAction):
         return f"starts {action.launch[0]}"
+    if isinstance(action, ServiceAction):
+        return f"calls {action.service}"
     if not isinstance(action, str):
         return f"runs {action.run[0]}"
     if action.startswith("mode:"):
@@ -505,6 +567,8 @@ def _lit(name: str, setup: ButtonSetup, flags: set[str]) -> bool:
         return shows in flags
     if isinstance(setup.led, WatchBinding):
         return "watch" in flags
+    if isinstance(setup.led, EntityBinding):
+        return "entity" in flags
     if setup.led in ("shown", HOME_ASSISTANT):
         return setup.led in flags
     match setup.press:
@@ -567,10 +631,17 @@ def _bound_meter(strip: Strip) -> str | None:
         return "meter: the level Home Assistant sets"
     if (watch := strip.binding("meter", LevelBinding)) is not None:
         return f"meter: each number {_program(watch.watch)} prints"
+    if (entity := strip.binding("meter", EntityLevelBinding)) is not None:
+        return f"meter: {_entity_place(entity)}, from {entity.min:g} to {entity.max:g}"
     return None
 
 
-def _moves(strip: Strip, binding: ValueBinding | None, meter: str | None) -> tuple[Frame, ...]:
+def _entity_place(entity: EntityBinding) -> str:
+    """Where an entity binding reads, for a caption: `sensor.cpu`, `temperature of climate.room`."""
+    return entity.entity if entity.attribute is None else f"{entity.attribute} of {entity.entity}"
+
+
+def _moves(strip: Strip, binding: Knob | None, meter: str | None) -> tuple[Frame, ...]:
     """A fader that sets a value of your own (or, on a `custom` channel, nothing): bottom, middle and top."""
     base = replace(strip.playing(), meter=LEVEL if meter else 0)
     if binding is None:
@@ -579,6 +650,6 @@ def _moves(strip: Strip, binding: ValueBinding | None, meter: str | None) -> tup
     frames: list[Frame] = []
     for where, fraction in (("Bottom", 0.0), ("Middle", 0.5), ("Top", 1.0)):
         text = value_text(binding, binding.min + fraction * (binding.max - binding.min))
-        caption = f"{where}: {text}, set by {_program(binding.set)}" + (f"; {meter}" if meter else "")
+        caption = f"{where}: {text}, {binding.by}" + (f"; {meter}" if meter else "")
         frames.append(Frame(caption, replace(base, fader=fraction, touched=True, text=(strip.label, text))))
     return tuple(frames)

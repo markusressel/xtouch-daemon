@@ -51,6 +51,7 @@ them again; the GUI remembers it.
 
     - `[behavior]` and `[aliases]`.
     - `[mqtt]`, as "[Home Assistant](home-assistant.md)".
+    - `[homeassistant]`, as "[Home Assistant API](home-assistant.md#homeassistant)".
     - `[switching]`, as "Modes and chord".
     - `[voip]`, as "Voice chat". It also tells whether Mumble is connected, lists the steps of its setup, and installs
       the [Mumble plugin](mumble.md) with "Install Mumble plugin".
@@ -205,8 +206,12 @@ is on. A click lists the states, with what turned each on, and picks a mode by h
 
 The pill of the service at the top tells what the daemon is connected to: "running" while all is well, else the worst
 problem, e.g. "running · Home Assistant not authorized" or "running · device not connected". A click lists each
-connection (the device, the sound server, Home Assistant with an `[mqtt]` section, the voice chat with `[voip]`), how
-it is doing and why (for Home Assistant the broker's own words and what to check), with a button to its settings.
+connection, how it is doing and why, with a button to its settings:
+
+- the device and the sound server;
+- Home Assistant with an `[mqtt]` section: the broker's own words and what to check;
+- the Home Assistant API while a part shows or sets an entity: e.g. "bad token" or "unreachable";
+- the voice chat with `[voip]`.
 
 ## Select and Play
 
@@ -496,9 +501,9 @@ slot shows.
 
 - "Add a part" claims one: the fader, the encoder, Select, Rec, Solo, the meter, the color or the line of the LCD.
   Only the parts an entry sets show. Each has the field it has on the page Channels.
-- The bind button gives the fader, the encoder, the meter, the color and the line to Home Assistant or to a program;
-  the fader and the encoder also to a custom channel.
-- A button takes its press, its LED or both. Without a press, a press goes to what the slot shows; without an LED,
+- The bind button gives the fader, the encoder, the meter, the color and the line to Home Assistant, to an entity of
+  it or to a program; the fader and the encoder also to a custom channel.
+- A button takes its press (also a service of Home Assistant), its LED or both. Without a press, a press goes to what the slot shows; without an LED,
   the LED shows what the press does.
 - **When** takes a condition of states and modes. **Id** names the entities in Home Assistant (shown once a part is in
   Home Assistant).
@@ -586,6 +591,7 @@ in the form at once, saved or not, at the step shown.
 | `meter` | One choice: the level before the fader, after it, or off. |
 | `choices`, `profiles` | A list of entries (below). |
 | A part that can be [bound](../configuration/strip/bindings.md) | A bind button (below). |
+| An entity, an attribute | Suggestions from Home Assistant (below). |
 
 Each field has:
 
@@ -605,18 +611,66 @@ The mouse wheel scrolls the page, also over a number or a choice: it never chang
     and the other way around: a channel has one or the other.
 
 The bind button
-:   Next to each part that can be bound: the fader, the encoder, the LCD, the color, the meter. It offers "Not bound",
-    "Home Assistant" (with `[mqtt]`) or "A program". "A program" shows the options of the program under the part,
-    e.g. `set`, `watch`, `min` and `max`; a problem in one of them shows under its row. Set back to "Not bound", the
-    part does what its type says again.
+:   Next to each part that can be bound: the fader, the encoder, the LCD, the color, the meter, `present`. It offers:
+
+    | Choice | Shows under the part |
+    |---|---|
+    | Not bound | Nothing: the part does what its type says again. |
+    | Home Assistant (with `[mqtt]`) | Nothing. |
+    | An entity (with `[homeassistant]`) | The options of the [entity](../configuration/strip/bindings.md), e.g. `entity`, `attribute`, `min`, `service`. |
+    | A program | The options of the program, e.g. `set`, `watch`, `min` and `max`. |
+
+    A problem in one of the options shows under its row.
+
+The field of an entity
+:   Suggests the entities of Home Assistant (see [below](#suggestions-from-home-assistant)); the field of an attribute
+    those of the entity picked, with their values now. An unset option says what the domain of the entity does, e.g.
+    "default: 255, of a light" for `max` of a light, or "default: light.turn_on, of a light" for `service`. `data` is
+    typed as an inline table, e.g. `{ brightness_pct = 50 }`.
 
 A button's press, hold and LED
-:   On a channel page, typing `run: ...` or `watch: ...` in their lists binds the button to a program. Places and
-    pools take the words of the lists only.
+:   On a channel page, typing in their lists binds the button:
+
+    | Typed | In the list of | Does |
+    |---|---|---|
+    | `run: ...` | a press or a hold | Runs a program. |
+    | `watch: ...` | an LED | Shows what a program prints. |
+    | `service: ...` | a press or a hold | Calls a service of Home Assistant. |
+    | `entity: ...` | an LED | Shows an entity. |
+
+    Their options (the service, the entity, `data`, `attribute`) show under the list. Places and pools take the words
+    of the lists only.
 
 `[mqtt]` can be added and removed on its page. Above its options, the page shows how the daemon's connection is
 doing (or that the daemon runs without the section, which it reads only when it starts). "Test connection" connects
 once with the settings as they are in the editor, saved or not, and says what is wrong if that fails.
+
+The page "Home Assistant API" (`[homeassistant]`) does the same for the API of Home Assistant: how the daemon's
+connection is doing (it connects only while a part shows or sets an entity), and "Test connection". The test logs in
+with the address and the token in the editor and says the version of Home Assistant and how many entities it has, or
+what is wrong: a token it refuses, an address where nothing answers. The entities it found are the suggestions then.
+
+## Suggestions from Home Assistant
+
+With `[homeassistant]`, the field of an entity suggests the entities of Home Assistant. The window reads them with the
+address and the token in the editor, saved or not, when a field of an entity shows, and again a minute later or with
+other settings.
+
+- Each line has the icon of its domain, the name of the entity, its state now (e.g. `21.5 °C`) and below it its id.
+- A click into the field or the focus opens the list inside the window. Typing narrows it down, by any part of the id
+  or the name. ++up++ and ++down++ move in it, ++enter++ or ++tab++ picks, ++esc++ closes it.
+- The field of an attribute suggests the attributes of the entity picked.
+
+Without suggestions, a line under the field says why: no `[homeassistant]`, a problem of its settings, or that the
+window can't reach Home Assistant (with what to check, and whether the daemon reaches it). "Settings" opens the page
+of the section. You can always type the id.
+
+!!! warning "The token of `token_env`"
+
+    The window connects on its own, with the token in the editor, not through the daemon. With `token_env`, the token
+    is in the environment of the service, and the window has none: the test fails and there are no suggestions. Start
+    the GUI with the variable set (e.g. `HA_TOKEN=... xtouch-daemon gui` for `token_env = "HA_TOKEN"`), or use
+    `token_file`.
 
 ## Suggestions from the sound server
 

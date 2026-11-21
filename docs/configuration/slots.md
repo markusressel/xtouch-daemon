@@ -275,8 +275,8 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 
 `when` takes a [condition](#conditions) of states and modes: the controls apply while it holds. Actions:
 `homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, `{ launch = [...] }` (see
-[Launching the application](channels/applications.md#launching-the-application)), or `{ run = [...] }`, a program
-that runs to its end. A fader or an [encoder](strip/encoders.md) takes one of these:
+[Launching the application](channels/applications.md#launching-the-application)), `{ run = [...] }`, a program
+that runs to its end, or `{ service = "...", entity = "..." }`, a service of Home Assistant (with `[homeassistant]`). A fader or an [encoder](strip/encoders.md) takes one of these:
 
 - `homeassistant`: a number entity in Home Assistant.
 - The value of a [custom channel](channels/custom.md): `7 = { encoder = { channel = "screen_left" } }`. A fader
@@ -284,6 +284,8 @@ that runs to its end. A fader or an [encoder](strip/encoders.md) takes one of th
   value of its `fader`. With `targets`, the claim follows the target the channel controls.
 - A value of its own, as in [Bindings](strip/bindings.md): `{ set, watch, min, max, step, push, format }`. A fader
   has no `push`.
+- A value of an entity of Home Assistant: `{ entity, attribute, min, max, step, push, format, service, data }`, see
+  [An entity of Home Assistant](strip/bindings.md#an-entity-of-home-assistant). Needs `[homeassistant]`.
 
 The slot keeps showing what it shows, and the [LED](strip/leds.md) ring shows the value. `{value}` in a `run` is the
 value of the fader of the controls, else of their encoder. It needs one of them to be a value or a `{ channel }`.
@@ -299,23 +301,26 @@ Select, Rec and Solo. They take the same [bindings](strip/bindings.md) as on a c
 
 | Part | Takes |
 |---|---|
-| ![](../images/controls/meter.png){ .xt-icon } `meter` | `homeassistant` (`number.<ns>_<id>_meter`, 0..100), or `{ watch, min, max }`: the number a program prints. |
-| ![](../images/controls/color.png){ .xt-icon } `color` | A color, `homeassistant` (`select.<ns>_<id>_color`), or `{ watch }`: the color a program prints. |
-| ![](../images/controls/lcd.png){ .xt-icon } `lcd` | `homeassistant` (`text.<ns>_<id>_bottom`), or `{ watch }`: the newest line a program prints. |
+| ![](../images/controls/meter.png){ .xt-icon } `meter` | `homeassistant` (`number.<ns>_<id>_meter`, 0..100), `{ watch, min, max }`: the number a program prints, or `{ entity, attribute, min, max }`: the number of an entity. |
+| ![](../images/controls/color.png){ .xt-icon } `color` | A color, `homeassistant` (`select.<ns>_<id>_color`), `{ watch }`: the color a program prints, or `{ entity, attribute }`: the color of an entity. |
+| ![](../images/controls/lcd.png){ .xt-icon } `lcd` | `homeassistant` (`text.<ns>_<id>_bottom`), `{ watch }`: the newest line a program prints, or `{ entity, attribute }`: an entity. |
 | ![](../images/controls/select.png){ .xt-icon } `select`, `rec`, `solo` | An action as above, or a table `{ press = <action>, led = <LED> }`. |
 
 `<id>` is the `id` of the controls, else `slot_<n>`. In the table of a button, either key can be left out. `led` alone
 claims the LED only: a press still goes to what the slot shows. `press` alone is the same as the action without a
 table: the LED shows what the press does. `led` takes `off`, `press` (what the press does), `homeassistant`
-(`select.<ns>_<id>_<button>_led`), or `{ watch }`: a line `on`, `1`, `true` or `yes` lights it, `flash` flashes it.
+(`select.<ns>_<id>_<button>_led`), `{ watch }`: a line `on`, `1`, `true` or `yes` lights it, `flash` flashes it, or
+`{ entity, attribute }`: lit while the entity is `on`, `open`, `playing` or `home`.
 
 ```toml
 [controls]
-8 = { meter = { watch = "cpu-load --watch", max = 100 }, rec = { led = { watch = "lamp-state --follow" } } }
-3 = { color = "red", lcd = { watch = "clock --watch" }, when = "call" }
+8 = { meter = { watch = ["sh", "-c", "vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'"] }, rec = { led = { watch = ["sh", "-c", "while :; do systemctl --user is-active --quiet syncthing && echo on || echo off; sleep 5; done"] } } }
+3 = { color = "red", lcd = { watch = ["sh", "-c", "while :; do date +%H:%M; sleep 10; done"] }, when = "call" }
+4 = { encoder = { entity = "media_player.kitchen" }, solo = { service = "media_player.media_play_pause", entity = "media_player.kitchen" } }
 ```
 
-Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED shows the lamp. A press of Rec still goes
+Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED is lit while Syncthing runs. Slot 4's encoder sets the
+volume of the kitchen speaker in Home Assistant, and Solo plays or pauses it. A press of Rec still goes
 to what the slot shows. While `when` holds, a claimed part shows the claim. After that, the slot shows its own part
 again. The watches run for as long as the configuration, so a claim that comes back shows their newest lines
 at once. Until the first line, a color is white, a line is empty, an LED is dark and the meter rests. Places take no

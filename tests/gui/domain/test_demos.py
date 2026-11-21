@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from xtouch_daemon.config.bindings import ValueBinding
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.gui.domain.demos import GROUPS, LEVEL, Frame, Strip, group_of, scene
 from xtouch_daemon.gui.domain.looks import ring_leds
@@ -273,3 +274,46 @@ def test_a_fader_for_home_assistant_sets_a_number():
     frames = scene("fader", strip("apps", fader="homeassistant"))
     assert captions(frames)[0] == "The fader at 20 %: the number in Home Assistant"
     assert scene("fader", strip("homeassistant"))[1].state.fader == 0.5
+
+
+def test_a_fader_bound_to_an_entity_shows_the_range_of_its_domain():
+    frames = scene("fader", strip("custom", label="Desk", fader={"entity": "light.desk"}))
+    assert captions(frames) == [
+        "Bottom: 0, sets light.desk",
+        "Middle: 127.5, sets light.desk",
+        "Top: 255, sets light.desk",
+    ]
+    # a range of its own, a format; a meter of an entity
+    own = {"entity": "number.amp", "min": 10, "max": 60, "format": "{value:.0f} W"}
+    frames = scene("fader", strip("custom", fader=own, meter={"entity": "sensor.power", "max": 500}))
+    assert captions(frames)[2] == "Top: 60 W, sets number.amp; meter: sensor.power, from 0 to 500"
+    # a domain without a value of its own, by its service: 0 to 100
+    service = {"entity": "sensor.x", "service": "script.set", "data": {"v": "{value}"}}
+    assert captions(scene("fader", strip("custom", fader=service)))[2] == "Top: 100, sets sensor.x"
+
+
+def test_an_encoder_bound_to_an_entity_turns_it():
+    frames = scene("encoder", strip("custom", encoder={"entity": "media_player.tv", "push": 0.5, "step": 0.05}))
+    assert captions(frames)[:2] == [
+        "Turned right: 0.5, sets media_player.tv",
+        "Turned right: 0.55, sets media_player.tv",
+    ]
+    assert captions(frames)[-1] == "Pushed: 0.5"
+    # an entity is no program: a table of one is not taken for the other
+    assert strip("custom", fader={"entity": "light.desk"}).binding("fader", ValueBinding) is None
+
+
+def test_the_display_and_the_leds_show_entities():
+    frames = scene(
+        "display",
+        strip(
+            "custom",
+            label="Room",
+            lcd={"entity": "climate.room", "attribute": "temperature"},
+            color={"entity": "input_select.c"},
+        ),
+    )
+    assert captions(frames)[0] == "The second line: temperature of climate.room, lit in the color input_select.c names"
+    assert frames[0].state.text == ("Room", "state")
+    lit = scene("buttons", strip("custom", select={"led": {"entity": "light.desk"}}))
+    assert captions(lit)[-1] == "light.desk is on: Select"

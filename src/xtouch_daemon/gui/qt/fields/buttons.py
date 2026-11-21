@@ -2,7 +2,9 @@
 The field of a button (`select`, `rec`, `solo`, and `mute` of a `custom` channel): what a press does, what a hold does
 and what its LED shows, each a list of its choices; unset, each shows what the strip type does by default. A program
 is a table in the file and a text in the list: `launch: mumble`, `run: sysctrl display reset`, `watch: led-state
---follow`. A button of `[controls]` (`claim`) has a press and an LED only, and a text or a program alone is its press.
+--follow`. So is a service of Home Assistant a press calls (`service: light.toggle`) and an entity an LED shows
+(`entity: light.desk`): their options show below the list, the entity with suggestions. A button of `[controls]`
+(`claim`) has a press and an LED only, and a text or a program alone is its press.
 """
 
 import shlex
@@ -12,11 +14,13 @@ from typing import Any
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QComboBox, QGridLayout, QWidget
 
+from xtouch_daemon.config.bindings import ServiceAction
 from xtouch_daemon.config.buttons import ButtonSetup, describe_action, table_of
-from xtouch_daemon.gui.domain.places import PROGRAM_KEYS, program_text
+from xtouch_daemon.gui.domain.places import HOME_ASSISTANT_KEYS, PROGRAM_KEYS, program_text
 from xtouch_daemon.gui.domain.schema import Kind, Option
 from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label, set_help
 from xtouch_daemon.gui.qt.fields.choice import Choice
+from xtouch_daemon.gui.qt.fields.entity_table import EntityTable
 from xtouch_daemon.gui.qt.theme.tokens import Space
 
 PART_TITLES = {"press": "Press", "hold": "Hold", "led": "LED"}
@@ -29,7 +33,7 @@ def parts_of(name: str, value: object, claim: bool = False) -> dict[str, Any]:
     (`claim`), an action alone (a text, `{ launch }`, `{ run }`) is the press.
     """
     if claim:
-        if isinstance(value, str) or (isinstance(value, Mapping) and {"launch", "run"} & set(value)):  # pyright: ignore[reportUnknownArgumentType]
+        if isinstance(value, str) or (isinstance(value, Mapping) and {"launch", "run", "service"} & set(value)):  # pyright: ignore[reportUnknownArgumentType]
             return {"press": value}
         return dict(value) if isinstance(value, Mapping) else {}  # pyright: ignore[reportUnknownArgumentType]
     table = table_of(name, value)
@@ -40,12 +44,19 @@ PROGRAM_MEANINGS = {
     "launch": "Starts the program.",
     "run": "Runs the program to its end. `{value}` is the value of the fader, else of the encoder.",
     "watch": "Lit while the program's newest line is `on`, `1`, `true` or `yes`; it flashes on `flash`.",
+    "service": "Calls the service of Home Assistant, with the entity and the data below.",
+    "entity": "Lit while the entity of Home Assistant is `on`, `open`, `playing` or `home`.",
 }
 
 
 def program_table(text: str) -> dict[str, Any] | None:
-    """The table of a text typed as `run: prog arg` (or `launch:`, `watch:`), None for other text."""
+    """
+    The table of a text typed as `run: prog arg` (or `launch:`, `watch:`), `service: light.toggle` or `entity:
+    light.desk`; None for other text.
+    """
     key, colon, rest = text.partition(":")
+    if colon and key.strip() in HOME_ASSISTANT_KEYS:
+        return {key.strip(): rest.strip()}
     if not colon or key.strip() not in PROGRAM_KEYS:
         return None
     try:
@@ -88,7 +99,10 @@ class ButtonField(QWidget):
         grid.setHorizontalSpacing(Space.S)
         grid.setVerticalSpacing(Space.XS)
         self.combos: dict[str, QComboBox] = {}
-        for row, column in enumerate(columns):
+        self.tables: dict[str, EntityTable] = {}
+        """The options of a service a press or a hold calls, of an entity an LED shows: below the list, by part."""
+        for index, column in enumerate(columns):
+            row = 2 * index
             combo = Choice(self)
             combo.setMinimumWidth(180)
             combo.setToolTip(help_text(column.help))
@@ -102,19 +116,30 @@ class ButtonField(QWidget):
             self.combos[column.name] = combo
             grid.addWidget(label(PART_TITLES.get(column.name, column.title)), row, 0)
             grid.addWidget(combo, row, 1)
+            model = ServiceAction if column.kind == Kind.ACTION else column.entity
+            if model is not None:
+                table = EntityTable(model, "service" if model is ServiceAction else "entity", intro=False)
+                table.changed.connect(lambda value, name=column.name: self._table_changed(name, value))
+                table.hide()
+                self.tables[column.name] = table
+                grid.addWidget(table, row + 1, 1, 1, 2)
         grid.setColumnStretch(2, 1)
         # what the parts that are set (or their defaults) mean
         self.meaning = help_label("", "meaning")
-        grid.addWidget(self.meaning, len(columns), 0, 1, 3)
+        grid.addWidget(self.meaning, 2 * len(columns), 0, 1, 3)
 
     def _fill(self, combo: QComboBox, column: Option) -> None:
         combo.clear()
         choices = [*column.choices, *(name for name, _ in column.meanings if name not in column.choices)]
         if column.kind == Kind.ACTION:
             choices += [extra for extra in self.extra() if extra not in choices]
+        if column.name in self.tables:
+            # a service, an entity: picked, the rest of its options shows below
+            choices.append("service:" if column.kind == Kind.ACTION else "entity:")
         for index, choice in enumerate(choices):
             combo.addItem(choice)
-            combo.setItemData(index, help_text(column.meaning(choice)), Qt.ItemDataRole.ToolTipRole)
+            meaning = column.meaning(choice) or PROGRAM_MEANINGS.get(choice.removesuffix(":"), "")
+            combo.setItemData(index, help_text(meaning), Qt.ItemDataRole.ToolTipRole)
 
     def show_value(self, value: object) -> None:
         """Shows the table of the button in the file (or a shorthand of it), the defaults as placeholders."""
@@ -149,6 +174,7 @@ class ButtonField(QWidget):
                     combo.setPlaceholderText(placeholder)
         finally:
             self._loading = False
+        self._show_tables()
         self._show_meaning()
 
     def value(self) -> dict[str, Any] | str | bool | None:
@@ -160,7 +186,9 @@ class ButtonField(QWidget):
             if kept is not None and text == program_text(kept):
                 table[name] = kept
             elif (program := program_table(text)) is not None:
-                table[name] = program
+                key = next(iter(program))
+                # another service or entity typed: its other options stay
+                table[name] = {**kept, **program} if kept is not None and key in kept else program
             elif text:
                 table[name] = text
         if self.claim:
@@ -177,6 +205,34 @@ class ButtonField(QWidget):
         if self._loading:
             return
         self._unknown = {name for name in self._unknown if self.combos[name].currentIndex() < 0}
+        value = self.value()
+        # what is in the list now is what the parts are
+        parts = parts_of(self.name, value, self.claim)
+        self._kept = {name: dict(part) for name, part in parts.items() if isinstance(part, Mapping)}
+        self._show_tables()
+        self._show_meaning()
+        self.changed.emit(value)
+
+    def _show_tables(self) -> None:
+        """The options of the service or the entity of a part below its list, while it is one."""
+        for name, table in self.tables.items():
+            kept = self._kept.get(name)
+            shown = kept is not None and table.marker in kept
+            if shown and kept is not None:
+                table.show_table(kept)
+            table.setVisible(shown)
+            if shown:
+                table.want()
+
+    def _table_changed(self, name: str, value: dict[str, Any]) -> None:
+        """An option of the service or the entity of a part changed: its text in the list, and the file."""
+        self._kept[name] = value
+        combo = self.combos[name]
+        self._loading = True
+        try:
+            combo.setEditText(program_text(value))
+        finally:
+            self._loading = False
         self._show_meaning()
         self.changed.emit(self.value())
 

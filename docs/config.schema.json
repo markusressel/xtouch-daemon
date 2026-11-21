@@ -50,6 +50,18 @@
       "default": null,
       "description": "The MQTT broker, needed by `homeassistant` channels and controls."
     },
+    "homeassistant": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HomeAssistantConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The API of Home Assistant, needed by parts that show or set an entity (`{ entity = \"...\" }`)."
+    },
     "switching": {
       "$ref": "#/$defs/SwitchingConfig",
       "default": {
@@ -1120,6 +1132,9 @@
         },
         {
           "$ref": "#/$defs/RunAction"
+        },
+        {
+          "$ref": "#/$defs/ServiceAction"
         }
       ]
     },
@@ -1171,6 +1186,9 @@
                 },
                 {
                   "$ref": "#/$defs/RunAction"
+                },
+                {
+                  "$ref": "#/$defs/ServiceAction"
                 }
               ]
             },
@@ -1194,6 +1212,9 @@
                 },
                 {
                   "$ref": "#/$defs/RunAction"
+                },
+                {
+                  "$ref": "#/$defs/ServiceAction"
                 }
               ]
             },
@@ -1224,6 +1245,9 @@
                 },
                 {
                   "$ref": "#/$defs/WatchBinding"
+                },
+                {
+                  "$ref": "#/$defs/EntityBinding"
                 }
               ]
             },
@@ -1232,7 +1256,7 @@
             }
           ],
           "default": null,
-          "description": "What its LED shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on `flash`.",
+          "description": "What its LED shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and flashes it on `flash`. An\nentity lights it while it is `on`, `open`, `playing` or `home`.",
           "title": "Led"
         }
       },
@@ -1249,6 +1273,9 @@
         },
         {
           "$ref": "#/$defs/RunAction"
+        },
+        {
+          "$ref": "#/$defs/ServiceAction"
         },
         {
           "$ref": "#/$defs/ButtonClaim"
@@ -1369,6 +1396,9 @@
         },
         {
           "$ref": "#/$defs/WatchBinding"
+        },
+        {
+          "$ref": "#/$defs/EntityBinding"
         }
       ]
     },
@@ -1446,6 +1476,9 @@
                 },
                 {
                   "$ref": "#/$defs/LevelBinding"
+                },
+                {
+                  "$ref": "#/$defs/EntityLevelBinding"
                 }
               ]
             },
@@ -1477,6 +1510,9 @@
                 },
                 {
                   "$ref": "#/$defs/WatchBinding"
+                },
+                {
+                  "$ref": "#/$defs/EntityBinding"
                 }
               ]
             },
@@ -1498,6 +1534,9 @@
                 },
                 {
                   "$ref": "#/$defs/WatchBinding"
+                },
+                {
+                  "$ref": "#/$defs/EntityBinding"
                 }
               ]
             },
@@ -1600,6 +1639,251 @@
       "title": "DeviceConfig",
       "type": "object"
     },
+    "EntityBinding": {
+      "additionalProperties": false,
+      "description": "A part that shows an entity of Home Assistant: its state, or one of its attributes.",
+      "properties": {
+        "entity": {
+          "description": "The entity, by its ID. E.g. `sensor.cpu_temp`.",
+          "title": "Entity",
+          "type": "string"
+        },
+        "attribute": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An attribute of the entity to show instead of its state. E.g. `temperature` of a `climate` entity.",
+          "title": "Attribute"
+        }
+      },
+      "required": [
+        "entity"
+      ],
+      "title": "EntityBinding",
+      "type": "object"
+    },
+    "EntityLevelBinding": {
+      "additionalProperties": false,
+      "description": "A meter that shows a number of an entity of Home Assistant, between `min` and `max`.",
+      "properties": {
+        "entity": {
+          "description": "The entity, by its ID. E.g. `sensor.cpu_temp`.",
+          "title": "Entity",
+          "type": "string"
+        },
+        "attribute": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An attribute of the entity to show instead of its state. E.g. `temperature` of a `climate` entity.",
+          "title": "Attribute"
+        },
+        "min": {
+          "default": 0,
+          "description": "The number with the meter dark.",
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "default": 100,
+          "description": "The number with the meter full.",
+          "title": "Max",
+          "type": "number"
+        }
+      },
+      "required": [
+        "entity"
+      ],
+      "title": "EntityLevelBinding",
+      "type": "object"
+    },
+    "EntityValueBinding": {
+      "additionalProperties": false,
+      "description": "A value of an entity of Home Assistant that the fader or the encoder sets, e.g. the brightness of a light.",
+      "properties": {
+        "entity": {
+          "description": "The entity, by its ID. E.g. `sensor.cpu_temp`.",
+          "title": "Entity",
+          "type": "string"
+        },
+        "attribute": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The attribute with the value, instead of the state. By default the one of the domain, e.g. `brightness` of a\n`light`.",
+          "title": "Attribute"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The value with the fader at the bottom. By default the entity's `min`, else that of its domain, else 0.",
+          "title": "Min"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The value with the fader at the top. By default the entity's `max`, else that of its domain, else 100.",
+          "title": "Max"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How much one step of the encoder changes the value. By default `behavior.encoder_step` percent of the range.",
+          "title": "Step"
+        },
+        "push": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The value a push of the encoder sets. Without it, a push does nothing.",
+          "title": "Push"
+        },
+        "format": {
+          "default": "{value:g}",
+          "description": "How the LCD shows the value, in the format of Python. E.g. `{value:.0%}` shows 0.55 as `55%`.",
+          "title": "Format",
+          "type": "string"
+        },
+        "service": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The service a move calls, with the entity as its target. By default the one of the domain, e.g. `light.turn_on`.\nE.g. `script.set_level`.",
+          "title": "Service"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The data of `service`. `{value}` in it is the new value. E.g. `{ level = \"{value}\" }`.",
+          "title": "Data"
+        }
+      },
+      "required": [
+        "entity"
+      ],
+      "title": "EntityValueBinding",
+      "type": "object"
+    },
+    "HomeAssistantConfig": {
+      "additionalProperties": false,
+      "description": "The API of Home Assistant, for parts that show or set an entity, e.g. `meter = { entity = \"sensor.cpu\" }`.",
+      "properties": {
+        "url": {
+          "description": "The address of Home Assistant, as in the browser. E.g. `http://homeassistant.local:8123`.",
+          "title": "Url",
+          "type": "string"
+        },
+        "token": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A long-lived access token: create one in your profile in Home Assistant, on the Security tab. `token_file` or\n`token_env` keep it out of the configuration.",
+          "title": "Token"
+        },
+        "token_file": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A file with the token (`~` is your home directory). Whitespace around it is ignored.",
+          "title": "Token File"
+        },
+        "token_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An environment variable with the token, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`). The\nGUI reads its own environment: start it with the variable set too.",
+          "title": "Token Env"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "HomeAssistantConfig",
+      "type": "object"
+    },
+    "JsonValue": {},
     "KnobControl": {
       "oneOf": [
         {
@@ -1611,6 +1895,9 @@
         },
         {
           "$ref": "#/$defs/ValueBinding"
+        },
+        {
+          "$ref": "#/$defs/EntityValueBinding"
         }
       ]
     },
@@ -1685,7 +1972,7 @@
               "type": "array"
             }
           ],
-          "description": "A program that runs all the time and prints a number per change. The meter shows it. E.g. `[\"cpu-load\",\n\"--watch\"]`.",
+          "description": "A program that runs all the time and prints a number per change. The meter shows it. E.g. the CPU load:\n`[\"sh\", \"-c\", \"vmstat -n 1 | awk 'NR > 2 { print 100 - $15; fflush() }'\"]`.",
           "title": "Watch"
         },
         "min": {
@@ -1884,6 +2171,51 @@
         "run"
       ],
       "title": "RunAction",
+      "type": "object"
+    },
+    "ServiceAction": {
+      "additionalProperties": false,
+      "description": "A service of Home Assistant that a press calls, e.g. `light.toggle` of a light.",
+      "properties": {
+        "service": {
+          "description": "The service. E.g. `light.toggle`.",
+          "title": "Service",
+          "type": "string"
+        },
+        "entity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The entity the service acts on. E.g. `light.desk`.",
+          "title": "Entity"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "More data for the service, sent as it is: `{value}` is for a fader or an encoder. E.g. `{ brightness_pct = 50 }`.",
+          "title": "Data"
+        }
+      },
+      "required": [
+        "service"
+      ],
+      "title": "ServiceAction",
       "type": "object"
     },
     "StateConfig": {
@@ -2273,6 +2605,9 @@
             },
             {
               "$ref": "#/$defs/WatchBinding"
+            },
+            {
+              "$ref": "#/$defs/EntityBinding"
             }
           ]
         },
@@ -2290,7 +2625,7 @@
           "type": "string"
         }
       ],
-      "description": "The backlight of the LCD. It goes dark while the strip has nothing to control, unless `lit_when_idle` is on. A\n`watch` sets it with each line that is a color name."
+      "description": "The backlight of the LCD, dark while the strip has nothing to control unless `lit_when_idle` is on. A `watch` sets\nit by color name. An entity sets its own color: a light that is off makes it dark."
     },
     "strip.device": {
       "anyOf": [
@@ -2325,6 +2660,9 @@
                 },
                 {
                   "$ref": "#/$defs/ValueBinding"
+                },
+                {
+                  "$ref": "#/$defs/EntityValueBinding"
                 }
               ]
             },
@@ -2343,6 +2681,9 @@
                 },
                 {
                   "$ref": "#/$defs/ValueBinding"
+                },
+                {
+                  "$ref": "#/$defs/EntityValueBinding"
                 }
               ]
             },
@@ -2367,6 +2708,9 @@
             },
             {
               "$ref": "#/$defs/ValueBinding"
+            },
+            {
+              "$ref": "#/$defs/EntityValueBinding"
             }
           ]
         },
@@ -2380,6 +2724,9 @@
                 },
                 {
                   "$ref": "#/$defs/ValueBinding"
+                },
+                {
+                  "$ref": "#/$defs/EntityValueBinding"
                 }
               ]
             },
@@ -2446,6 +2793,9 @@
             },
             {
               "$ref": "#/$defs/WatchBinding"
+            },
+            {
+              "$ref": "#/$defs/EntityBinding"
             }
           ]
         },
@@ -2454,7 +2804,7 @@
         }
       ],
       "default": null,
-      "description": "The second line of the LCD, instead of the volume. A `watch` shows each line it prints. By default what the\nstrip type shows."
+      "description": "The second line of the LCD, instead of the volume. A `watch` shows each line it prints, an entity its state. By\ndefault what the strip type shows."
     },
     "strip.lit_when_idle": {
       "default": false,
@@ -2511,6 +2861,9 @@
             },
             {
               "$ref": "#/$defs/LevelBinding"
+            },
+            {
+              "$ref": "#/$defs/EntityLevelBinding"
             }
           ]
         },
@@ -2524,6 +2877,9 @@
                 },
                 {
                   "$ref": "#/$defs/LevelBinding"
+                },
+                {
+                  "$ref": "#/$defs/EntityLevelBinding"
                 }
               ]
             },
@@ -2536,7 +2892,7 @@
           "type": "boolean"
         }
       ],
-      "description": "The LED meter shows the level. Needs `behavior.meters`. A `watch` makes it show each number it prints, from\n`min` to `max`."
+      "description": "The LED meter shows the level. Needs `behavior.meters`. A `watch` or an entity makes it show a number, from `min`\nto `max`."
     },
     "strip.meter_point": {
       "anyOf": [
@@ -2612,14 +2968,21 @@
     "strip.present": {
       "anyOf": [
         {
-          "$ref": "#/$defs/WatchBinding"
+          "oneOf": [
+            {
+              "$ref": "#/$defs/WatchBinding"
+            },
+            {
+              "$ref": "#/$defs/EntityBinding"
+            }
+          ]
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "A program that tells whether the channel is there: a line with text makes it present, an empty line absent.\nWithout it, the channel is always present."
+      "description": "Whether the channel is there. A `watch`: a line with text makes it present, an empty line absent. An entity: it is\npresent unless it is `unavailable` or `unknown`. Without it, the channel is always present."
     },
     "strip.profiles": {
       "default": [],
