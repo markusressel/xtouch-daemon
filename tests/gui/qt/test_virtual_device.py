@@ -299,8 +299,11 @@ def test_play_opens_the_virtual_device_the_daemon_waits_for(
     assert view.virtual_bar is not None
     assert view.live_pill.text().startswith("Live · virtual device opening")
 
-    close = [button for button in view.virtual_bar.findChildren(type(window.save_button)) if button.text() == "Close"]
+    bar = view.virtual_bar
+    close = [button for button in bar.findChildren(type(window.save_button)) if button.text() == "Close"]
     close[0].click()
+    # gone from the screen at once, not when the event loop deletes it
+    assert bar.isHidden()
     assert window.hosted is None
     assert not path.exists()
     assert window.device_view.preview.hand is None

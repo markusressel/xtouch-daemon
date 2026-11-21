@@ -191,6 +191,12 @@ def test_a_list_of_processes_suggests_the_presets_for_processes(qtbot: QtBot):
     # an unknown preset and a name are plain chips: validation tells what is wrong
     assert [chip.property("variant") for chip in chips.chips[1:]] == [None, None]
 
+    # other values: the chips before go off the screen at once, not when the event loop deletes them
+    chips.show()
+    before = list(chips.chips)
+    chips.show_values(["steam"])
+    assert all(chip.isHidden() for chip in before)
+
 
 def test_typing_completes_from_the_sound_server(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")

@@ -133,6 +133,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   more than 2 s is given up on, and the pill of the service says "unavailable".
 - GUI: the window Log keeps the latest 5000 records, as its history does: its text grew for as long as the window was
   open.
+- GUI: the bar of the virtual device and the chips of a list go off the screen at once when they are replaced, not a
+  moment later; the menu of the bar closes with it.
 - GUI: the icons are drawn once per name and color. Every new page, window and theme drew all of them again and kept
   each copy, about 760 per window, for as long as the GUI ran.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its

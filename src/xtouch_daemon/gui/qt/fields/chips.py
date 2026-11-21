@@ -12,6 +12,7 @@ from xtouch_daemon.gui.domain.sources import preset_tip
 from xtouch_daemon.gui.qt.fields.basics import (
     NO_SUGGESTIONS,
     Suggest,
+    discard,
     flat_button,
     with_presets,
 )
@@ -132,8 +133,7 @@ class Chips(QWidget):
             # the same chips stay, so showing the document again lays out nothing
             self.values = list(values)
             for chip in self.chips:
-                self.flow.removeWidget(chip)
-                chip.deleteLater()
+                discard(self.flow, chip)
             self.chips = [self._chip(index, value) for index, value in enumerate(self.values)]
             for index, chip in enumerate(self.chips):
                 self.flow.insertWidget(index, chip)
