@@ -8,13 +8,13 @@ The goal, for the 8 strips (slots) of the device:
 | Slot | Shows |
 |---|---|
 | 1 | The main output, with Select switching between phones, speakers and Bluetooth headphones. |
-| 2, 3 | Slot 2 the browser and slot 3 the game, each while it plays; otherwise the next application that plays, otherwise a person of the voice chat. |
-| 4 to 6 | People of the voice chat (from the right), otherwise applications. |
-| 7, 8 | VoIP (7) and the microphone (8) while you are in a call; otherwise applications. |
+| 2, 3 | Slot 2 shows the browser and slot 3 the game, each while it plays. When it does not, the slot shows the next application that plays, and when there is none, a person of the voice chat. |
+| 4 to 6 | A person of the voice chat each. People start at the right: the first person gets slot 6, the next slot 5, then slot 4. A slot without a person shows an application. |
+| 7, 8 | VoIP on slot 7 and the microphone on slot 8 while you are in a call. Otherwise they show applications. |
 
 You need the daemon installed and the device [set up and tested](first-steps.md). The GUI starts with
 `xtouch-daemon gui`; without a configuration file it edits a new one and writes it with the first "Save and apply".
-That new file is empty: every slot shows `auto`, the next application that plays. The drawing of the device at the top
+That new file is empty: every slot shows `auto`, the next application that plays (or a person of the voice chat). The drawing of the device at the top
 shows what the file shows, as you edit.
 No device? [Run the virtual one](without-a-device.md) and use that one as the device in this tour.
 
@@ -22,7 +22,7 @@ No device? [Run the virtual one](without-a-device.md) and use that one as the de
 
 ```shell
 xtouch-daemon list-devices    # outputs and inputs: the names to use as `device`
-xtouch-daemon list-apps       # what plays now, and which preset (@browsers, @games, ...) it belongs to
+xtouch-daemon list-apps       # what plays now, and which preset (a ready-made group of applications, e.g. `@browsers` or `@games`) it belongs to
 ```
 
 The GUI offers the same lists wherever a field asks for a device or an application (a click into the field opens them). Play
@@ -35,8 +35,8 @@ something in the browser first, so that `list-apps` has an application to show.
 that is all the LCD has) and the color to cyan.
 
 Select should switch between several devices, so add **Choices**: one per device, each with a label. A device that
-only exists in another profile of the sound card (the digital output, say) also needs the `card` and `profile`:
-`list-devices` prints both. Bluetooth headphones are best matched by a wildcard, because their name holds their address
+only exists in another profile of the sound card (a profile is a setting of the card, such as analog or digital
+output) also needs the `card` and `profile`: `list-devices` prints both. Bluetooth headphones are best matched by a wildcard, because their name holds their address
 (`bluez_output.*`; `list-devices --snippet` writes it for you):
 
 ```toml
@@ -55,8 +55,8 @@ profile = "output:analog-stereo+input:analog-stereo"
 label = "Speaker"
 device = "alsa_output.pci-0000_11_00.4.iec958-stereo"
 card = "alsa_card.pci-0000_11_00.4"
-profile = "output:iec958-stereo+input:analog-stereo"   # keeps the microphone (analog input) alive
-max_volume = 200
+profile = "output:iec958-stereo+input:analog-stereo"   # the card switches to this profile when you pick Speaker; it keeps the microphone (analog input) alive
+max_volume = 200            # the fader reaches 200 % at the top for this device
 
 [[channel.main_output.choices]]
 label = "Buds"
@@ -77,7 +77,7 @@ type = "apps"
 match = ["@browsers"]
 label = "Browser"
 color = "blue"
-meter = true
+meter = true                # the level meter of the strip (on by default; written out here)
 
 [channel.game]
 type = "apps"
@@ -89,7 +89,7 @@ type = "apps"
 match = ["@voip"]
 label = "VoIP"
 color = "yellow"
-lit_when_idle = true        # the LCD stays lit while nothing plays: it is where the voice chat goes
+lit_when_idle = true        # the LCD stays lit while no VoIP application plays, e.g. in a call that is quiet
 ```
 
 ## 4. The microphone
@@ -108,10 +108,10 @@ encoder = "balance"
 
 ## 5. A state: in a call
 
-A *state* is when something matters. VoIP and the microphone should only take a strip while you are in a call, so
+A *state* is a fact about your situation that is either on or off, such as "I am in a call". VoIP and the microphone should only take a strip while you are in a call, so
 make that a state. **GUI:** page **States**, **Add**, **In a call** (under "Starting points"); its sources are "You are in the voice chat"
-(Mumble, with its [plugin](../guides/mumble.md)) and "An application records" (Discord and the like have the
-microphone open while you talk):
+(Mumble or TeamSpeak, with their plugins: [Mumble](../guides/mumble.md), [TeamSpeak](../guides/teamspeak.md)) and "An application records" (`recording`: Discord and the like have the
+microphone open while you talk, so a recording application counts as a call):
 
 ```toml
 [state.call]
@@ -124,8 +124,8 @@ delay_off = 5               # stays on 5 s after the last source went off: a rec
 
 **GUI:** page **Slots**. Each slot is a card with its candidates, the first whose condition holds is shown. **+** adds a
 candidate at the end; pick one and the inspector sets what it shows ("Shows") and when ("When": empty is always, or a
-condition such as `call`, `present`, `call and not gaming`). Pick a slot's first candidate before adding the next: an
-empty slot is `auto`, so the first **+** shows it as a candidate you can change.
+condition such as `call`, `present`, `call and not gaming`). A slot you have not edited shows `auto`: change that
+candidate to what you want first, then press **+** for the next one.
 
 ```toml
 [slots]
@@ -133,7 +133,7 @@ empty slot is `auto`, so the first **+** shows it as a candidate you can change.
 # the browser and the game while they play, else the next application, else a person
 2 = ["browser if present", "apps", "people"]
 3 = ["game if present", "apps", "people"]
-# people from the right (6, 5, 4), else applications
+# people (the first on slot 6, then 5, then 4), else applications
 4 = ["people", "apps"]
 5 = ["people", "apps"]
 6 = ["people", "apps"]
@@ -142,15 +142,17 @@ empty slot is `auto`, so the first **+** shows it as a candidate you can change.
 8 = ["mic if call", "apps"]
 ```
 
-- `apps` is the next application that plays and has no channel; `people` the next person of the voice chat;
-  `auto` is both. A candidate that has nothing to show hands the slot to the one below it.
-- `present` means the candidate's own channel has something to control: the browser is playing.
-- Anything you leave out is `auto`.
+- `apps` is the next application that plays and has no channel. `people` is the next person of the voice chat. `auto`
+  is both together. A candidate that has nothing to show hands the slot to the one below it.
+- `present` is a ready-made condition, not a state. It means that the channel of this candidate has something to
+  control: for `browser`, a browser is playing. `call` is the state you defined in step 5.
+- A single name without a list, such as `1 = "main_output"`, is a slot with one candidate that always shows.
+- A slot you leave out is `auto`.
 
 ## 7. Settings of the whole daemon
 
-**GUI:** page **Settings**. The author lowers the volume a push on an encoder resets to, and renames an application
-that calls itself something unreadable:
+**GUI:** page **Settings**. The author sets the volume (in percent) that a push on a `volume` encoder resets to, and
+renames an application that calls itself something unreadable:
 
 ```toml
 [behavior]
@@ -162,8 +164,9 @@ reset_volume = 35
 
 Three more settings finish the file. On **Settings**, **Extender**, the author picks the startup sequence `show` and
 switches fader 1 to `touchless_faders`, because its touch sensor is broken and the fader jumps back after every move
-([Behavior](../configuration/behavior.md#faders-without-a-touch-sensor)). On **Channels**, in the built-in pool
-**People**, the strips of people light up yellow:
+([Behavior](../configuration/behavior.md#faders-without-a-touch-sensor)). On **Channels**, in the pool
+**People** (a built-in pool: it is there without you adding it), the strips of people light up yellow, as the settings
+`[pool.people]` say:
 
 ```toml
 [device]
@@ -180,14 +183,17 @@ color = "yellow"
 xtouch-daemon check-config     # errors with the line they are in, then what every slot shows when
 ```
 
-A long table shows the situations that change one thing; `check-config --all` has every combination.
+The table lists only the situations in which something changes (for example "in a call"). `check-config --all` lists
+every combination of states.
 
 The GUI shows the same on the page **Slots**: **Simulate** puts the device in another situation (in a call, nothing
-playing, a game running) and the drawing shows what the strips would show, on a virtual twin of the device in the
-daemon (so Simulate needs the running daemon), or on the device itself with the preview "On the device".
+playing, a game running) and the drawing shows what the strips would show, on a virtual twin of the device inside the
+daemon (a copy that the daemon keeps for this, so Simulate needs the running daemon), or on the device itself with the
+preview "On the device".
 
-**Save and apply** writes the file. A running daemon takes it at once; otherwise the button next to the service at the
-top right ("Install and start") starts it as a systemd user service, so it is there from your next login on.
+**Save and apply** writes the file. A running daemon takes it at once. If no daemon runs, the button "Install and
+start" next to the service at the top right installs and starts the systemd user service now, and it starts again at
+every login.
 
 ## Whole file
 

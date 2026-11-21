@@ -1,12 +1,19 @@
 # Channels, states and slots
 
-What the device shows: **channels** are what a strip can control (an output, a group of applications, a person),
-each strip of the device (a **slot**) has a short list of the channels it can show, and **states** (in a call,
-gaming) decide which. A slot changes only when what it shows changes; the others stay as they are. The
+This page decides what each of the 8 strips shows. Its four main parts build on each other:
+
+1. **Channels** are what a strip can control (an output, a group of applications, a person). You define them.
+2. Each strip of the device has a **slot** in the file, numbered 1 to 8 from the left, with a list of candidates: the channels it can show, best first.
+3. **States** (in a call, gaming) are on or off. A condition in the list asks about them.
+4. **Controls** add buttons, fader or encoder actions to a slot.
+
+All of it goes into the [configuration file](index.md). A slot changes only when what it shows changes; the others
+stay as they are, and a strip you are touching keeps what it shows until you let go. The
 [design](../development/design/slots/index.md) has every detail.
 
-[`xtouch-daemon init-config`](../reference/commands.md) writes a small example. `xtouch-daemon check-config` shows a table of what each slot
-shows in which states, and `xtouch-daemon why 3` why slot 3 shows what it shows now.
+[`xtouch-daemon init-config`](../reference/commands.md) writes a small example file. `xtouch-daemon check-config` shows
+a table of what each slot shows in which states, and `xtouch-daemon why 3` why slot 3 shows what it shows now.
+`xtouch-daemon list-devices` prints the names for `device` of an `output` or `input` channel.
 
 ## Channels
 
@@ -24,7 +31,7 @@ label = "VoIP"
 
 [channel.ann]
 type = "person"             # someone of the voice chat, see People
-person = ["Ann", "ann-phone"]
+person = ["Ann", "ann-phone"]   # names of the same person in the voice chat
 
 [channel.lamp]
 type = "homeassistant"      # a strip of Home Assistant automations (needs [mqtt])
@@ -46,9 +53,9 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - A slot shows the first candidate whose condition (after `if`) holds. Conditions name states and modes, with
   `and`, `or`, `not`, parentheses and `present` (the channel has something to control); see
   [Conditions](#conditions).
-- `auto` is the next application that plays and has no channel of its own, and the people of the voice chat (from
-  the right). `apps` and `people` are each of them alone. A slot without an entry is `auto`, and so is a stack whose
-  candidates all don't hold.
+- `apps`, `people`, `auto` and `devices` are pools: not channels that you define, but suppliers of members (an
+  application, a person, a device). See the table below.
+- A slot without an entry is `auto`. So is a slot whose candidates all don't hold.
 - `-` is nothing: the slot is dark.
 - The table form `{ show = ..., when = ..., ... }` takes options of the look at this place, see [Places](#places).
 - The [GUI](../guides/gui.md)'s page Slots simulates other modes and states (Simulate), in the drawing or on the device.
@@ -57,17 +64,21 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 - When a slot shows something else, its LCD flashes the new label and why (`gaming`, `not call`) for
   `switching.banner` seconds.
 
-Four pools are built in:
+Four pools are built in. Each strip that names a pool shows one member of it, so one pool can fill several strips:
 
 | Pool | Members | Options |
 |---|---|---|
 | `apps` | Applications, see [Applications](channels/applications.md#apps-and-auto). | `[pool.apps]`: `from`, `hold` and `exclude`. |
 | `people` | The people of the voice chat, see [People](channels/people.md#where-people-sit). | `[pool.people]`: `from`, `order` and the look of the strips of people. |
-| `auto` | Both. | `[pool.auto]`: the look of the applications on its slots. |
+| `auto` | Both: the people first, from the right, and the applications from the left. | `[pool.auto]`: the look (color, meters, LEDs) of the applications on `auto` slots. |
 | `devices` | The outputs and inputs no channel has, see [Devices](channels/devices.md#devices-without-a-channel). | `[pool.devices]`: `from`, `hold`, `exclude` and the look of the strips of devices. |
 
-A pool that has no member for a slot hands it to the pool (or `-`) right below it: `["people", "apps"]` is a person,
-else an application. A slot that two pools could fill goes to the one higher in its stack.
+Which one to use: `auto` when you do not care, `apps` when only applications should appear (people would waste a
+strip), `people` for the voice chat alone, `devices` for outputs and inputs without a channel.
+
+A pool that has no member for a slot hands it to the candidate right below it, a pool or `-`: `["people", "apps"]` is
+a person for as long as there is one, else an application. When two pools could fill the same slot, the one listed
+higher in the slot wins it.
 
 ### Places
 
@@ -76,21 +87,23 @@ built-in pools (`[pool.apps]`, `[pool.auto]`, `[pool.devices]`, `[pool.people]`)
 
 | Candidate | Options |
 |---|---|
-| a channel | `color`, `lit_when_idle`, `rec`, `solo` (what their LEDs show), `meter`, `meter_point`, `label` |
-| `apps`, `auto` | the look (not `label`), and for the applications without a channel `encoder`, `min_volume`, `max_volume` |
+| a channel | `color`, `lit_when_idle` (keep the LCD lit while the strip has nothing to control), `rec`, `solo` (what the LEDs of these buttons show), `meter`, `meter_point`, `label` |
+| `apps`, `auto` | `color`, `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point` (no `label`: the strip shows the application's name), and `encoder`, `min_volume`, `max_volume` |
 | `devices` | those of `apps`, and `select = false` |
 | `people` | `color`, `meter`, `meter_point` |
 | a pool of channels | none: each channel brings its own look |
 
-`rec` and `solo` at a place set what the LED shows; the press stays the channel's.
+`rec` and `solo` at a place set what the LED shows; what a press does stays the channel's. `encoder` of `apps` and `auto` is `pick` by default: the encoder picks which application the strip shows (see [Encoders](strip/encoders.md#pick)).
 
-Three levels decide what the parts of a strip do and show:
+Three levels decide what the parts of a strip do and show. The more specific one wins: a value at a place beats the
+same option on the channel, for that slot. A plain value is a word or number like `color = "red"`. A
+[binding](strip/bindings.md) takes the value from a program or from Home Assistant, e.g. `{ watch = "my-script" }`:
 
 | Level | Decides | Takes |
 |---|---|---|
-| The channel (`[channel.out]`, or the pool) | What each part does and how it looks, in every slot. | Words and [bindings](strip/bindings.md) (`{ watch = ... }`). |
-| The place | The look of what it shows, in this slot only. | Words only (e.g. `color = "red"`, `meter = false`), no bindings. |
-| [`[controls]`](#controls-and-the-chord) | Parts of the slot, whatever it shows, while its `when` holds. | Words and bindings for the slot. |
+| The channel (`[channel.out]`, or the pool) | What each part does and how it looks, in every slot. | Plain values and [bindings](strip/bindings.md). |
+| The place | The look of what it shows, in this slot only. | Plain values only (e.g. `color = "red"`, `meter = false`), no bindings. |
+| [`[controls]`](#controls-and-the-chord) | Parts of the slot, whatever it shows, while its `when` holds. | Plain values and bindings for the slot. |
 
 !!! tip "Home Assistant and launching"
 
@@ -100,8 +113,9 @@ Three levels decide what the parts of a strip do and show:
 
 ### Pools of channels
 
-A pool of your own hands out channels: the first of its list that is present gets the first of its slots, the next
-one the next, and so on. Use it for things of which only some are there at a time, e.g. several outputs:
+A pool of your own hands out channels. Its list holds channels. The first channel of the list that is present (it has
+something to control) goes to the first slot that names the pool, the next present channel to the next such slot, and
+so on. Use it for things of which only some are there at a time, e.g. several outputs:
 
 ```toml
 [channel.speaker]
@@ -128,8 +142,8 @@ from = "left"                     # the side it fills its slots from (default)
 ```
 
 - A channel of the list that a slot of its own shows (`3 = "buds"`) is not handed out by the pool.
-- Unlike `apps`, a pool of channels fills by its order every time: when an earlier channel comes back, the others
-  move on one slot. For channels that should keep their strip, give each a slot of its own
+- Unlike `apps`, a pool of channels fills by its order every time: when an earlier channel of the list comes back, the
+  channels after it move one slot on. For channels that should keep their strip, give each a slot of its own
   (`["buds if present", "auto"]`).
 - A pool of channels goes above the built-in pools in a stack: `["outs", "auto"]`, not `["auto", "outs"]`.
 - It has no look of its own: its channels bring theirs.
@@ -158,7 +172,8 @@ talking_color = "green"
 [slots]
 5 = ["music", "apps"]         # a music player if one plays, else the next other application
 6 = "apps"
-7 = ["friends", "people"]     # Alice and Bob first, then anyone else in the call
+7 = ["friends", "people"]     # the first of Alice and Bob who is in the call, else anyone else in the call
+8 = ["friends", "people"]     # the second of them, else anyone else in the call
 ```
 
 | Option | `kind = "apps"` | `kind = "people"` |
@@ -167,14 +182,15 @@ talking_color = "green"
 | `exclude` | Optional. | Not allowed. |
 | `people` | Not allowed. | Required: names as in `person` of a channel, ignoring case. |
 | `from` | `left` | `right` |
-| `hold` | Seconds, default 5. | Not allowed: people stay `absent_after` seconds, as in `people`. |
-| Look | `color`, `meter`, `meter_point`, `rec`, `solo`, `lit_when_idle`, `min_volume`, `max_volume`; no `pick` encoder. | `color`, `meter`, `meter_point`, `rec`, `solo`, `lit_when_idle`, `talking_color`. |
+| `hold` | Seconds, default 5. | Not allowed: as with channels, a person stays `absent_after` seconds (default 3) after they left. |
+| Look | `color`, `meter`, `meter_point`, `rec`, `solo`, `lit_when_idle`, `min_volume`, `max_volume`. The `encoder` can be `media`, `volume` or `balance`, but not [`pick`](strip/encoders.md#pick) (that picks among the applications of `apps` and `auto`). | `color`, `meter`, `meter_point`, `rec`, `solo`, `lit_when_idle`, `talking_color`. |
 
 - A pool of your own takes its members first: a music player goes to `music`, not to `apps` or `auto`. An `apps`
   channel or a `person` channel that has a slot keeps its application or person.
 - It takes them **only while a slot names it**, in any stack. A pool that no slot names takes nothing, so a forgotten
   `[pool.music]` can't make the players disappear from the device; `check-config` says "pool music is on no slot".
-- A member that finds no slot waits in its pool: with one slot for `friends`, Bob waits and does not fall into `people`.
+- A member that finds no slot waits in its pool. In this example there are two slots for `friends`. With a third
+  friend, that friend has no strip until a slot of `friends` is free, and does not move on to `people`.
 - Like `apps`, an application keeps its slot while it plays; a pool of people fills by the order of its list.
 - Several pools share a slot as candidates: `["friends", "music", "auto"]`. A pool above `auto` or another pool wins
   a slot that both could fill; a slot a pool has no member for goes to the candidate below it.
@@ -183,7 +199,7 @@ talking_color = "green"
 
 ```toml
 [state.call]
-voice_chat = true           # in a channel of the voice chat
+voice_chat = true           # in a channel of the voice chat (needs a voice chat provider, see People)
 recording = ["discord"]     # or: Discord records
 delay_off = 5
 
@@ -200,7 +216,7 @@ Sources
 Delays
 :   `delay_on` (default 0) and `delay_off` (default 3 seconds, 10 for a mode) smooth it: the state goes on only after
     its sources were on that long, and off only after they were off that long. A state with `when` has no delays by
-    default (both 0): it follows the states it names, which have theirs already; delays you give it add to theirs.
+    default (both 0): it follows the states it names, which have theirs already; a delay you give it comes on top of the delays of the states it names.
 
 Modes
 :   Modes are states with `mode = true`: the one with the highest `priority` whose sources are on is the mode, else
@@ -216,17 +232,20 @@ Modes
 
     Don't use `steam` (the client runs all the time) or `.exe` in `processes` (Wine's helpers, like `explorer.exe`,
     run for other Windows programs too).
-`ps -eo comm,args` while a game runs shows the names to use for others. Kernel threads don't count.
 
-Every state can be overridden (`on`, `off`, `auto`) from Home Assistant, the GUI's live view or a button; the
-override lasts until its sources change (`persist = true`: until it is set back). A mode picked by hand
-(`xtouch-daemon mode gaming`, the [chord](#controls-and-the-chord), Home Assistant) lasts until the rules want
+    `ps -eo comm,args` while a game runs shows the names to use for others. Kernel threads don't count.
+
+Every state can be overridden (`on`, `off`, `auto`) from Home Assistant, the GUI's live view or a button; `auto`
+means the sources decide again. An override lasts until the sources of the state turn it on or off by themselves
+(`persist = true`: until you set it back). A mode picked by hand
+(`xtouch-daemon mode gaming`, the [chord](#controls-and-the-chord), Home Assistant) lasts until the sources of the modes would pick
 another one.
 
 ## Conditions
 
 A condition says when something applies: a candidate of a slot (after `if`, or `when` in the table form), a state
-(`when`) or controls (`when`). It holds or not at any moment, and the slot follows at once.
+(`when`) or controls (`when`). It holds or not at any moment, and the slot follows at once. All the parts in the
+table work in all three places, except `present` and `present(...)`, which only candidates of slots may use.
 
 | Part | Holds while | Example |
 |---|---|---|
@@ -243,15 +262,15 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
   present`. Parentheses say otherwise.
 - The words are lowercase, names are those of the file (`[state.<name>]`, `[channel.<name>]`, `[pool.<name>]`), and
   the built-in pools `apps`, `people`, `auto` and `devices`.
-- A candidate without a condition always holds; below it, the others are never reached, except pools and `-` below
-  a pool: they get the slots it has no member for.
+- A candidate without a condition always holds, so the candidates below it never show. The exception is a pool: when
+  a pool has no member for a slot, the slot goes on to the candidate below it, which can be another pool or `-`.
 - Present means it has something to control: an `apps` channel while its application plays, an `output` or `input`
   channel while one of its `devices` is there (always without `devices`), a `person` channel while the person is in
   the voice chat, a `homeassistant` channel always. A channel stays present `absent_after` seconds (3 by default)
   after that ended. `apps` is present while an application it may take plays, `people` while someone is in the
   voice chat, `auto` while either is, `devices` while a device no channel has is there, another pool while one of its channels is present.
-- `present` is only for candidates of slots: a state takes channels with its `channels` source, and controls apply
-  whatever the slot shows.
+- `present` is only for candidates of slots. A state asks about channels with its `channels` source, and controls
+  apply whatever the slot shows, so `present` would have no meaning there.
 - `check-config` and the GUI name the mistakes: an unknown state, mode, channel or pool, a word where none fits, a
   condition that ends too early. The GUI underlines them in the field When.
 
@@ -264,7 +283,8 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 
 ## Controls and the chord
 
-`[controls]` claims parts of a slot, whatever it shows:
+`[controls]` claims parts of a slot, whatever the slot shows. To claim a part means to take it over: while `when`
+holds, the part does what the claim says instead of what the shown channel does.
 
 ```toml
 [controls]
@@ -274,14 +294,21 @@ A condition says when something applies: a candidate of a slot (after `if`, or `
 ```
 
 `when` takes a [condition](#conditions) of states and modes: the controls apply while it holds. Actions:
-`homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, `{ launch = [...] }` (see
-[Launching the application](channels/applications.md#launching-the-application)), `{ run = [...] }`, a program
-that runs to its end, or `{ service = "...", entity = "..." }`, a service of Home Assistant (with `[homeassistant]`). A fader or an [encoder](strip/encoders.md) takes one of these:
+`homeassistant`, `cycle_modes`, `mode:<id>`, `toggle:<state or mode>`, and these tables:
+
+- `{ launch = [...] }` starts an application (see
+  [Launching the application](channels/applications.md#launching-the-application)).
+- `{ run = [...] }` starts a program of your own and waits for it to end. Write the program and its arguments as a
+  list, or as one string that is split at the spaces: `run = ["notify-send", "hi"]` or `run = "notify-send hi"`. No shell runs it.
+- `{ service = "...", entity = "..." }` calls a service of Home Assistant (needs `[homeassistant]`).
+
+A fader or an [encoder](strip/encoders.md) takes one of these:
 
 - `homeassistant`: a number entity in Home Assistant.
-- The value of a [custom channel](channels/custom.md): `7 = { encoder = { channel = "screen_left" } }`. A fader
-  claim needs a `fader` of the channel that is a value. An encoder claim takes the channel's own `encoder`, else the
-  value of its `fader`. With `targets`, the claim follows the target the channel controls.
+- The value of a [custom channel](channels/custom.md): `7 = { encoder = { channel = "screen_left" } }` makes the
+  encoder of slot 7 set the value that `screen_left` controls. For a fader, the channel must have a `fader` that is a
+  value. For an encoder, the claim uses the `encoder` of the channel, else the value of its `fader`. A channel with
+  `targets` makes the claim follow the target the channel controls.
 - A value of its own, as in [Bindings](strip/bindings.md): `{ set, watch, min, max, step, push, format }`. A fader
   has no `push`.
 - A value of an entity of Home Assistant: `{ entity, attribute, min, max, step, push, format, service, data }`, see
@@ -306,12 +333,22 @@ Select, Rec and Solo. They take the same [bindings](strip/bindings.md) as on a c
 | ![](../images/controls/lcd.png){ .xt-icon } `lcd` | `homeassistant` (`text.<ns>_<id>_bottom`), `{ watch }` or `{ poll, every }`: the newest line a program prints, or `{ entity, attribute }`: an entity. |
 | ![](../images/controls/select.png){ .xt-icon } `select`, `rec`, `solo` | An action as above, or a table `{ press = <action>, led = <LED> }`. |
 
-`<id>` is the `id` of the controls, else `slot_<n>`. In the table of a button, either key can be left out. `led` alone
-claims the LED only: a press still goes to what the slot shows. `press` alone is the same as the action without a
-table: the LED shows what the press does. `led` takes `off`, `press` (what the press does), `homeassistant`
-(`select.<ns>_<id>_<button>_led`), `{ watch }` or `{ poll, every }`: a line `on`, `1`, `true` or `yes` lights it,
-`flash` flashes it, or
-`{ entity, attribute }`: lit while the entity is `on`, `open`, `playing` or `home`.
+`<id>` is the `id` of the controls, else `slot_<n>`. `<ns>` is `namespace` of `[mqtt]` (`xtouch` by default).
+
+A button (`select`, `rec`, `solo`) takes an action, or a table with two keys, `press` (what a press does) and `led`
+(what the LED shows). Either key can be left out:
+
+- `led` alone claims the LED only. A press still does what the slot would do without the claim.
+- `press` alone is the same as writing the action without a table. The LED shows what the press does.
+
+`led` takes one of these:
+
+- `off`.
+- `press`: lit as the press says.
+- `homeassistant`: the entity `select.<ns>_<id>_<button>_led`.
+- `{ watch }` or `{ poll, every }`: a program prints a line. `on`, `1`, `true` or `yes` lights the LED, `flash` flashes
+  it.
+- `{ entity, attribute }`: lit while the entity is `on`, `open`, `playing` or `home`.
 
 ```toml
 [controls]
@@ -320,15 +357,25 @@ table: the LED shows what the press does. `led` takes `off`, `press` (what the p
 4 = { encoder = { entity = "media_player.kitchen" }, solo = { service = "media_player.media_play_pause", entity = "media_player.kitchen" } }
 ```
 
-Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED is lit while Syncthing runs. Both are
-scripts of your own: [`cpu-load`](strip/bindings.md) and [`syncthing-running`](strip/leds.md#what-the-led-shows).
-During a call, slot 3 is red and its LCD shows the time. Slot 4's encoder sets the
-volume of the kitchen speaker in Home Assistant, and Solo plays or pauses it. A press of Rec still goes
-to what the slot shows. While `when` holds, a claimed part shows the claim. After that, the slot shows its own part
-again. The watches and polls run for as long as the configuration, so a claim that comes back shows their newest lines
-at once. Until the first line, a color is white, a line is empty, an LED is dark and the meter rests. Places take no
-bindings: a binding for the slot, whatever it shows, belongs here. On the slots of the chord, `[controls]` can claim
-the LED of Solo, not its press.
+What the three lines do:
+
+- Slot 8: the meter shows the CPU load, and the Rec LED is lit while Syncthing runs, whatever the slot shows. Both are
+  scripts of your own: `cpu-load` prints a number, `syncthing-running` prints `on` while Syncthing runs (see
+  [Bindings](strip/bindings.md) and [what the LED shows](strip/leds.md#what-the-led-shows)).
+- Slot 3: during a call, the strip is red and its LCD shows the time.
+- Slot 4: the encoder sets the volume of the kitchen speaker in Home Assistant, and Solo plays or pauses it. A press of
+  Rec still does what the slot does.
+
+How a claim behaves:
+
+- While `when` holds, a claimed part shows the claim. After that, the slot shows its own part again.
+- The watches and polls run for as long as the configuration, so a claim that comes back shows their newest lines at
+  once. Until the first line, a color is white, a line is empty, an LED is dark and the meter rests.
+- Places take no bindings: a binding for the slot, whatever it shows, belongs here.
+- On the slots of the chord, `[controls]` can claim the LED of Solo, but not its press.
+
+The section `[switching]` has two options. The chord is a way to change the mode from the device. The banner is the
+text on the LCDs when a mode changes:
 
 | Option of `[switching]` | Default | Meaning |
 |---|---|---|

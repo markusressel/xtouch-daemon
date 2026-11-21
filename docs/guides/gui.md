@@ -1,10 +1,12 @@
 # GUI
 
-`xtouch-daemon gui` edits the configuration file in a window and applies it to the running daemon. It starts with
-`xtouch-daemon-gui` (the Arch Linux package) or `xtouch-daemon gui`, `-c FILE` for another file; see
-[Install](../getting-started/install.md#the-gui).
+The GUI is a window that edits the configuration file (`~/.config/xtouch-daemon/config.toml`) and applies it to the
+running daemon. You need no running daemon to edit; the daemon is only needed to see the live device, to test it and
+to preview changes. Start it with `xtouch-daemon gui` (`-c FILE` opens another file), or with `xtouch-daemon-gui` if
+you installed the Arch Linux package; see [Install](../getting-started/install.md#the-gui). If the file does not
+exist yet, the window starts with the example configuration and writes the file when you save.
 
-It edits [channels, states and slots](../configuration/slots.md).
+It edits [channels, states and slots](../configuration/slots.md): what the strips of the device control, and when.
 
 !!! tip "New here?"
 
@@ -15,8 +17,9 @@ It edits [channels, states and slots](../configuration/slots.md).
 
 ## The window
 
-The window **Configuration** has a rail of four pages on its left, icons only. » at its foot shows their names, « hides
-them again; the GUI remembers it.
+The GUI shows two panels, which it calls windows: **Configuration**, where you edit, and **Device**, which draws the
+device (see [The window Device](#the-window-device)). The window Configuration has a rail of four pages on its
+left, icons only. » at its foot shows their names, « hides them again; the GUI remembers it.
 
 === "Slots"
 
@@ -24,9 +27,10 @@ them again; the GUI remembers it.
 
 === "Channels"
 
-    Two groups: the channels (each takes one strip), then the pools (each supplies a member to every slot that names
-    it): the built-in `[pool.apps]`, `[pool.people]`, `[pool.auto]` and `[pool.devices]`. The box Shows of a candidate
-    on the page Slots has the same two groups.
+    Two groups: the channels (each takes one strip), then the pools (a pool hands a member, e.g. the next application
+    that plays, to every slot that names it): the built-in `[pool.apps]`, `[pool.people]`, `[pool.auto]` and
+    `[pool.devices]`. A *candidate* is one entry of the list of a slot (what it may show). The drop-down list Shows
+    of a candidate on the page Slots has the same two groups.
 
     - Add (by type, or a pool of channels of your own), Duplicate and Remove.
     - The id of a channel or pool can be renamed: the slots, conditions, pools and controls that name it follow.
@@ -43,16 +47,18 @@ them again; the GUI remembers it.
         - **Condition** takes a [condition](../configuration/slots.md#conditions) of other states and modes, in the
           field of the page Slots.
 
-    Delays and overrides (`delay_on`, `delay_off`, `persist`) are folded away until a state has one. Above the form:
-    what the daemon says about it right now (since when, from which source), its override (a mode: picked by hand),
-    and which stacks and controls use it.
+    Delays and overrides (`delay_on`, `delay_off`, `persist`) are folded away until a state has one. Above the form
+    the GUI says what the daemon reports about the state right now: since when it is on, from which source, its
+    override (a value set by hand, in Home Assistant or with `xtouch-daemon mode`, that holds in place of the sources),
+    and which slots and controls use the state.
 
 === "Settings"
 
     - `[behavior]` and `[aliases]`.
     - `[mqtt]`, as "[Home Assistant](home-assistant.md)".
     - `[homeassistant]`, as "[Home Assistant API](home-assistant.md#homeassistant)".
-    - `[switching]`, as "Modes and chord".
+    - `[switching]`, as "Modes and chord": the two Solo buttons that you hold together to cycle the modes (the chord),
+      and the banner that shows a new mode.
     - `[voip]`, as "Voice chat". It has a box for each voice chat client with a plugin, [Mumble](mumble.md) and
       [TeamSpeak](teamspeak.md). The box tells whether the plugin is connected, lists the steps of its setup, and
       installs the plugin with "Install Mumble plugin" or "Install TeamSpeak plugin". A client that is not installed
@@ -69,7 +75,8 @@ The window **Device** shows the device on every page, above the window Configura
 - The title bar of either window moves it to another side of the window, next to the other one, or out of it as a
   window of its own (e.g. on another screen). The GUI keeps where they are for the next start.
 - View → Device closes and opens the device. Configuration always stays open.
-- Clicking a strip (or ++left++, ++right++, ++home++, ++end++) shows its slot on the page Slots.
+- Clicking a strip (or ++left++, ++right++, ++home++, ++end++) shows its slot on the page Slots of the window
+  Configuration.
 
 ![One strip as the window Device draws it](../images/controls/strip.png){ .xt-part width="80" }
 
@@ -81,7 +88,7 @@ The drawing of the device shows each strip as on the device:
   device;
 - the meter next to Rec, Solo, Mute and Select;
 - the fader with its dB scale: the middle of the cap marks the value, -∞ at the bottom, 0 dB at 77 % of the travel
-  (`behavior.unity_at`).
+  (the option `unity_at` of `[behavior]`).
 
 What each slot shows is printed under its LCD.
 
@@ -97,8 +104,9 @@ What each slot shows is printed under its LCD.
 
 - While the mouse is on something with a tooltip, the footer shows its first sentence at once, in place of the status
   line. The tooltip follows after a moment, with the states, channels and slots it names in their colors.
-- A pill with ▾ opens what it means in full on a click, with what can be done about it: a row per thing, with a bar in
-  the color of how it does. A problem is also tinted, and its fix is the main button.
+- A *pill* is a small status label (e.g. "running"). One with ▾ opens a popover, a small panel inside the window, on a
+  click. It says what the pill means in full, with what you can do about it: a row per thing, with a bar in the color
+  of how it is doing. A problem is also tinted, and its fix is the main button.
 - A control that is off says why next to it (e.g. "Play: device not connected").
 
 ### Colors
@@ -112,7 +120,7 @@ the slots, the state bar, and the words and sections in the help (`[state.gaming
 | Violet | States and modes |
 | Teal | Channels, and what else a slot can show: pools, people |
 | Orange | Slots |
-| Yellow | A condition of presence (`present`) |
+| Yellow | A condition of presence (`present`: a channel is there, e.g. the headphones are connected) |
 | The color of the text | The controls of the device (Select, Mute, the fader, the encoder, ...), which stand out from the help |
 
 Lists and pages that scroll cast a soft shadow at an edge where more of them is hidden, and popovers a shadow on the
@@ -139,8 +147,8 @@ its button next to the pill.
 
 A click on the pill opens:
 
-- the service, with Install and start, Start or Restart (the same as `xtouch-daemon install-service`), and, while it
-  runs, Stop (`systemctl --user stop`: it stays enabled, so it starts again with the next session, or with "Start");
+- the service, with Install and start, Start or Restart (Install and start does what
+  [`xtouch-daemon install-service --now`](../reference/commands.md#install-service) does), and, while it runs, Stop (`systemctl --user stop`: it stays enabled, so it starts again with the next session, or with "Start");
 - the unit systemd uses;
 - the connections of the daemon, each with its settings.
 
@@ -152,8 +160,9 @@ Installing and starting ask first.
 | own unit | A unit in `~/.config/systemd/user`, which [`install-service`](../reference/commands.md#install-service) wrote, e.g. for a checkout. The popover has its path and the program it starts. |
 
 Install and start
-:   Takes the unit of the package when the GUI is the one of the package: it enables and starts it, and writes no
-    file. Any other GUI writes a unit for its own `xtouch-daemon` to `~/.config/systemd/user`.
+:   The effect depends on how you installed the GUI. The GUI of the Arch Linux package enables and starts the unit of
+    the package and writes no file. A GUI installed in another way (e.g. from the source) writes a unit for its own
+    `xtouch-daemon` to `~/.config/systemd/user`, then enables and starts it.
 
 Use the packaged unit
 :   Shows while a unit in `~/.config/systemd/user` overrides the one of the package. It removes that file; an enabled
@@ -202,7 +211,7 @@ the right of the bar of the window Device says what the drawing shows:
 When the daemon stops, the drawing shows its shutdown sequence too, until the strips are dark.
 
 Next to it, a pill shows the [mode](../configuration/slots.md#states-and-modes) the device shows: "Mode: gaming", "No
-mode" while no mode is on, "· by hand" when it was picked by hand. A mode is a state with `mode = true`: one at a time
+mode" while no mode is on (the mode is then `default`), "· by hand" when it was picked by hand. A mode is a state with `mode = true`: one at a time
 is on. A click lists the states, with what turned each on, and picks a mode by hand ("Pick gaming", "Pick no mode",
 "Back to the rules").
 
@@ -237,20 +246,22 @@ A bar above the drawing of the device switches what the mouse does on it:
 
     | Part | The mouse |
     |---|---|
-    | ![Fader](../images/controls/fader.png){ .xt-icon } Fader | Press to touch it, drag to move it, release to let go. Alt-drag moves it without a touch, like the device moving it by itself (the daemon puts it back). |
+    | ![Fader](../images/controls/fader.png){ .xt-icon } Fader | Press to touch it, drag to move it, release to let go. Alt-drag moves it without a touch, as the motor of the device moves it. This lets you try what the daemon does when a fader moves without a finger on it: it puts the fader back to the value it holds. |
     | ![Select](../images/controls/select.png){ .xt-icon } Button | Held while the mouse button is down. |
     | ![Encoder](../images/controls/encoder.png){ .xt-icon } Encoder | The wheel turns it (a touchpad too), and so does a drag on the knob (up or right turns it clockwise). A click pushes it, and holding the knob still holds it down. Holding on an LED of the ring turns it until the ring lights that LED. |
 
 Play works on the [virtual device](#the-virtual-device) the window hosts, and on the device of a running daemon. Then
 the daemon takes what the mouse does as if the device sent it: the mixer acts, and a motorized fader follows once it is
-let go. The fader under the mouse is drawn there at once. While the drawing shows the preview in the GUI, Play acts on
-the virtual twin in the daemon (see [Preview](#preview)).
+let go. The fader under the mouse is drawn there at once. If the drawing shows a preview in the GUI (see
+[Preview](#preview)), the mouse acts on the *virtual twin*, a copy of the device that the daemon runs for the preview,
+not on the real device.
 
 !!! info "When Play is off"
 
-    Play is off without a daemon (or with one of another user, or too old to take it) and while the device is not
-    connected; the bar says why next to it ("Play: device not connected"). With a daemon that drives the virtual device
-    (`[device] virtual = true`) while it doesn't run, Play opens it in the window and plays on it.
+    Play is off in these cases: no daemon runs (or the daemon belongs to another user, or is too old), or the device is
+    not connected. The bar says why next to it ("Play: device not connected"). One case is the exception: the
+    daemon is set to drive the virtual device (`[device] virtual = true`), but that device is not running yet. Then
+    Play is on, and a click on it opens the virtual device in the window and plays on it.
 
 !!! tip "Try without a device"
 
@@ -272,7 +283,8 @@ A bar says what each control does:
 | Encoder turned | Changes what the encoder edits, wrapping around, and shows its value. |
 | Encoder pushed | The next thing the encoder edits: the position of the ring (`ring 7`), its mode with and without the two LEDs at the ends of the ring (`dot`, `boost`, `wrap`, `spread`, `dot+c` ...), the color of the LCD, the motor fader in steps of 10 % (`fad 60%`). |
 
-Play works on the drawing during the test, and so does the hosted virtual device. The slots go on meanwhile (Home
+During the test, Play works on the drawing: you can touch and press it with the mouse (this includes the virtual
+device that the window hosts). The slots go on meanwhile (Home
 Assistant still sees them), but show on the device only again when the test ends: a click on the button, closing the
 window, a preview "On the device", or the device going away. The footer says why it ended.
 
@@ -325,8 +337,8 @@ the path", "Open the folder") and the file the daemon reads when that is another
 
 | Pill | Means |
 |---|---|
-| Saved, on the device | The device runs the saved file. |
-| Unsaved changes | The device runs the saved file. |
+| Saved, on the device | Nothing is unsaved, and the device runs the saved file. |
+| Unsaved changes | You changed something; the device still runs the saved file. |
 | In the GUI, not saved | The changes show on the virtual twin. |
 | On the device, not saved | The device runs the changes ("Sending to the device…" for a moment after a change). |
 | On the device · simulated | The device shows the what-if of Simulate. |
@@ -360,7 +372,7 @@ and redo too). The file is not written.
     nowhere until you save them or pick another place. Opening Simulate moves the preview to In the GUI, and ending it
     back to Off.
 
-The place stays as it is set for the next changes until the window closes; a new window starts with In the GUI. The
+The place stays as you set it for the next changes until the window closes (Simulate is the exception, see Off above); a new window starts with In the GUI. The
 places say why they are off in their tooltips: In the GUI needs a running daemon of your user; On the device also
 needs one that reads this file. A daemon from before this feature has neither (restart it to run the installed
 version).
@@ -384,7 +396,7 @@ version).
     save). A configuration with problems is not sent at all: the pill says "Paused: problems" until they are fixed.
 
 Channels, states and slots
-:   All are part of the preview: a stack changed in the editor shows in the preview as it is.
+:   All are part of the preview: a slot you changed in the editor shows in the preview as you edited it.
 
 Simulate
 :   Its situation shows where the preview shows. On the device, the device shows the what-if of Simulate instead of
@@ -397,9 +409,9 @@ One window on the device at a time
 :   A second window that picks On the device takes over, and the first one's preview goes back to In the GUI.
 
 Home Assistant
-:   Channels the changes do not have keep their entities in Home Assistant (with their state; only nothing drives
-    them), so they are as before once the file runs again. Entities of channels only the changes had are removed again
-    when it ends.
+:   While you preview, a channel that your changes removed keeps its entities in Home Assistant, with their last state;
+    nothing drives them for now. They work as before once the saved file runs again. Entities of channels that only the
+    changes had are removed again when the preview ends.
 
 ## The slots
 
@@ -411,9 +423,11 @@ in the window Device (or ++left++, ++right++, ++home++, ++end++) picks its card,
 The state bar lists the states and modes: ● on, ○ off, with the override in brackets. A click on one shows:
 
 - what turned it on;
-- its override, which is real, like Home Assistant or `xtouch-daemon mode`: `auto`, `on`, `off`, or for a mode
-  picking it and back to the rules;
-- Simulate with it the other way (nothing changes).
+- its override: what holds the state on or off in place of its sources. It is a real setting of the daemon, the same
+  that Home Assistant or `xtouch-daemon mode` set, with the values `auto` (the sources decide), `on` and `off`; for a
+  mode, "pick it" and "back to the rules";
+- a button to Simulate the state the other way round: it shows what the slots would show, and changes nothing on the
+  device.
 
 ### Cards
 
@@ -425,11 +439,12 @@ condition holds wins.
 | `when gaming → auto` | `auto` while `gaming` is on. |
 | `otherwise → browser` (below it) | `browser` the rest of the time. |
 | `always` | A lone candidate without a condition. |
-| `when app without a slot → apps` | A pool without a condition (an outlined chip): it shows only while it has a member no other slot has, else the slot goes on to the next candidate. |
+| `when app without a slot → apps` | A pool as a candidate with no `if` after it, here `apps`. A pool has an implicit condition: it shows only while it has a member, here an application that no other slot shows. If there is none, the slot goes on to the next candidate. |
 
 **The rail** on the left joins the candidates from the top, with "else" between two and a node on each. The node is
-green on the one the device shows (or Simulate would): on `people` while a person sits there, also when `apps` is
-above it.
+green on the candidate that the device shows (or that Simulate would show). In a slot `["apps", "people"]` where a
+person sits on the slot, the green node is on `people`, even though `apps` is above it: `apps` had nothing left to hand
+out.
 
 - Above the green node, the candidates are dimmed with why they did not win (`✗ browser doesn't play`,
   `✗ browser is on slot 3`).
@@ -458,8 +473,9 @@ above it.
 ![An LCD with a blue backlight](../images/controls/lcd.png){ .xt-part width="96" }
 
 **A tiny LCD** after what a row shows has the color of the strip: the candidate's own `color`, else the channel's or
-the pool's, else white. `auto` has two (applications and people), a pool of channels one per color, and `-` a dark
-one. Its tooltip says where the color comes from.
+the pool's, else white. For a candidate that can show several colors, the row has several tiny LCDs: `auto` has two
+(one for applications and one for people), a pool of channels has one for each color of its channels, and `-` has a
+dark one. Its tooltip says where the color comes from.
 
 **Editing:** + adds `auto` at the end; the bin (or ++del++) removes the candidate picked. Drag a candidate, or move it
 with ++ctrl+up++ and ++ctrl+down++. A slot without candidates shows `auto`. A card that gets a line more or less grows
@@ -467,8 +483,10 @@ or shrinks smoothly.
 
 ### Inspector
 
-The inspector starts with the path of the slot's candidates, e.g. `Slot 3 › 1 games › 2 apps`: the one picked is
-highlighted, ● marks the one the slot shows, ○ the one it came to that has none left. A click picks one.
+The inspector starts with the path of the slot's candidates, e.g. `Slot 3 › 1 games › 2 apps`: the slot first tried
+candidate 1 (`games`) and then went on to candidate 2 (`apps`). The candidate you picked is highlighted. ● marks the
+candidate that the slot shows. ○ marks a candidate that the slot came to but that had nothing left to show. A click on
+a candidate picks it.
 
 Below it, a box says what goes on, the same as `xtouch-daemon why 3`:
 
@@ -502,11 +520,11 @@ page Channels.
 slot shows.
 
 - "Add a part" claims one: the fader, the encoder, Select, Rec, Solo, the meter, the color or the line of the LCD.
-  Only the parts an entry sets show. Each has the field it has on the page Channels.
+  An entry of `[controls]` shows only the parts that it sets. Each has the field it has on the page Channels.
 - The bind button gives the fader, the encoder, the meter, the color and the line to Home Assistant, to an entity of
   it or to a program; the fader and the encoder also to a custom channel.
-- A button takes its press (also a service of Home Assistant), its LED or both. Without a press, a press goes to what the slot shows; without an LED,
-  the LED shows what the press does.
+- A button takes its press (also a service of Home Assistant), its LED or both. If you set no press, a press does
+  what it does for the channel that the slot shows; if you set no LED, the LED shows what the press does.
 - **When** takes a condition of states and modes. **Id** names the entities in Home Assistant (shown once a part is in
   Home Assistant).
 - "Add controls" adds another entry, e.g. for another `when`: the first whose `when` holds acts, and the arrows move an
@@ -617,8 +635,8 @@ The bind button
 
     | Choice | Shows under the part |
     |---|---|
-    | Not bound | Nothing: the part does what its type says again. |
-    | Home Assistant (with `[mqtt]`) | Nothing. |
+    | Not bound | No further options: the part does what its type says again. |
+    | Home Assistant (with `[mqtt]`) | No further options: the daemon creates an entity for the part in Home Assistant (see [Home Assistant](home-assistant.md)). |
     | An entity (with `[homeassistant]`) | The options of the [entity](../configuration/strip/bindings.md), e.g. `entity`, `attribute`, `min`, `service`. |
     | A program | The options of the program, e.g. `set`, `watch` (or `poll` and `every`), `min` and `max`. |
 
@@ -626,7 +644,7 @@ The bind button
 
 The field of an entity
 :   Suggests the entities of Home Assistant (see [below](#suggestions-from-home-assistant)); the field of an attribute
-    those of the entity picked, with their values now. An unset option says what the domain of the entity does, e.g.
+    those of the entity picked, with their values now. An unset option says what the kind of the entity (its domain, the part of its id before the dot, e.g. `light`) does, e.g.
     "default: 255, of a light" for `max` of a light, or "default: light.turn_on, of a light" for `service`. `data` is
     typed as an inline table, e.g. `{ brightness_pct = 50 }`.
 
@@ -641,8 +659,9 @@ A button's press, hold and LED
     | `service: ...` | a press or a hold | Calls a service of Home Assistant. |
     | `entity: ...` | an LED | Shows an entity. |
 
-    Their options (the service, the entity, `data`, `attribute`) show under the list. Places and pools take the words
-    of the lists only.
+    Their options (the service, the entity, `data`, `attribute`) show under the list. A candidate with options of its own in a slot
+    (called a "place", see [Slots](../configuration/slots.md#places)) and a pool take only entries you pick from the
+    lists (such as `recording`), not the typed ones in the table.
 
 `[mqtt]` can be added and removed on its page. Above its options, the page shows how the daemon's connection is
 doing (or that the daemon runs without the section, which it reads only when it starts). "Test connection" connects
@@ -741,14 +760,14 @@ on Channels and States. In a field they edit its text.
 "Save and apply" (++ctrl+s++) writes the file and reloads the daemon:
 
 - It saves only a file without problems: the daemon would not take one with problems.
-- Unchanged values keep their place and their comments, and a stack keeps its form (a string, a list, tables) where
+- Unchanged values keep their place and their comments, and a value keeps its form (a string, a list, tables) where
   it did not change. The file is written in place, so a symlinked configuration stays one.
 - It reloads the running daemon when that reads the saved file: the service, or one started from a terminal or an
   IDE.
-- Without changes it is there too while the daemon runs another version of the file, e.g. one edited outside the
-  GUI: then it only reloads the daemon.
+- Without unsaved changes the button is also on while the daemon runs another version of the file than the saved one
+  (e.g. you edited the file outside the GUI). It then only reloads the daemon.
 - A changed `[mqtt]` section is not reloaded at all: the window offers "Restart the service" for the service;
-  restart a daemon that runs elsewhere where it runs. A changed `[device] name` or `virtual` is: the daemon switches
+  restart a daemon that runs elsewhere where it runs. A changed `[device] name` or `virtual` is reloaded: the daemon switches
   to that device.
 - It then tells whether the device runs the saved file: "The device runs the saved file", or "The device does not run
   the saved file yet". If that stays, the daemon did not take the file, and its log says why (View →

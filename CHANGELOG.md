@@ -107,6 +107,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Documentation: the pages for users are rewritten for someone who reads them for the first time: full sentences,
+  each term explained with an example the first time it appears, examples that say which part is which. Each page
+  was checked with a cold read: `just cold-read docs/<page>.md` (`scripts/cold-read.sh`) has a reader that knows only
+  the front page, Concepts and the page explain it back and report where it stumbled. Over the 26 pages, the
+  passages that lost the reader went from about 46 to about 14. AGENTS.md has the rules ("Writing docs").
 - For developers: the running daemon is the package `xtouch_daemon.daemon` (was `runtime`), its lifecycle the module
   `daemon/lifecycle.py` (was `runtime/daemon.py`); the tests moved to `tests/daemon/`. No change in behaviour.
 - Documentation: pictures of a strip and of its parts (encoder, LCD and its colors, meter, buttons, fader), drawn as
@@ -143,6 +148,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Documentation: facts that did not match the program. The example on the front page lacked the `label` that an
+  `apps` channel needs. A channel that no slot names still goes into the pools `apps`, `people` and `auto` unless it
+  has `in_pool = false`; the pages said it never does. `xtouch-daemon test` runs through the running daemon, the
+  service needn't be stopped. The meters need PipeWire (`pw-record`), PulseAudio alone is not enough.
+  `meter_point` takes `"pre_fader"` and `"post_fader"`. `init-config` refuses an existing file unless `--force`.
+  `-c` belongs to each command, not to `xtouch-daemon` itself. The GUI's service pill says "unavailable" when
+  systemd can't be asked, not when the daemon runs without the service.
+- `xtouch-daemon mumble-plugin --install`: its help said it opens Mumble's installer; it copies the plugin into
+  Mumble's plugin folder.
 - GUI: the mouse on a title of the menu bar after a menu was closed no longer ends the GUI (it asked the menu that
   was already gone).
 - Voice chat bridge: a line with `capabilities` that is not a list (e.g. `null`) is ignored and logged, like other
