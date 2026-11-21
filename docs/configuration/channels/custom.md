@@ -17,7 +17,7 @@ fader = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}
 | `label` | The id of the channel, or the name of the target | The top line of the LCD. |
 | `color` | `white` | The backlight of the LCD: a color name, `"homeassistant"`, or `{ watch }` (each line is a color name). |
 | `fader` | none: the fader stays down | A value (below), or `"homeassistant"`. |
-| `encoder` | the value of the fader, in fine steps | A value of its own (below), or `"homeassistant"`; see [Encoders](../strip/encoders.md). Without a fader and an encoder, the ring is dark. |
+| `encoder` | the value of the fader, by its `step` | A value of its own (below), or `"homeassistant"`; see [Encoders](../strip/encoders.md). Without a fader and an encoder, the ring is dark. |
 | `lcd` | the value of the fader, else of the encoder, in its `format` | The second line of the LCD: `"homeassistant"`, or `{ watch }` (each line is the text). |
 | `meter` | none: the meter is dark | `"homeassistant"`, or `{ watch, min, max }` (each line is a level from `min` to `max`). |
 | `select`, `rec`, `solo`, `mute` | nothing | `press`, `hold` and `led` of the button (below). |
@@ -34,7 +34,7 @@ A value (`fader = { ... }`, `encoder = { ... }`) takes these options; only the e
 | `set` | | The program that sets the value, then each argument; `{value}` in an argument is the new value, e.g. `0.55`. A string is split like a shell does, but nothing is expanded. |
 | `watch` | none | A program that runs all the time and prints the value, one line per change. The first number of a line counts. The fader, the ring and the LCD follow it. |
 | `min`, `max` | `0`, `100` | The value with the fader at the bottom and at the top, the ring empty and full. |
-| `step` | `behavior.encoder_step` percent of the range | How much one step of the encoder changes the value. |
+| `step` | `behavior.encoder_step` percent of the range | How much one step of the encoder changes the value; on a fader, of the encoder that sets its value. Also the step of its number in Home Assistant. |
 | `push` | none | The value a push of the encoder sets. Without it, a push does nothing. |
 | `format` | `{value:g}` | How the LCD shows the value, in the [format of Python](https://docs.python.org/3/library/string.html#formatspec). |
 

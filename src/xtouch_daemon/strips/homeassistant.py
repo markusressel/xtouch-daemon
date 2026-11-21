@@ -320,7 +320,7 @@ class HomeAssistantControls:
         self.leds = {name: entities.led(name) for name in leds}
         """The LEDs of the buttons, by name (`select`)."""
         self.values = {
-            name: ValueLink(bridge, entities.value_number(name, binding, _value_step(name, binding, env)))
+            name: ValueLink(bridge, entities.value_number(name, binding, value_step(name, binding, env)))
             for name, binding in (values or {}).items()
         }
         """The values of programs of your own, by part (`fader`, `encoder`)."""
@@ -387,15 +387,18 @@ class HomeAssistantControls:
             self.bridge.unwatch(entity)
 
 
-def _value_step(name: str, binding: ValueBinding, env: StripEnv) -> float:
+def value_step(name: str, binding: ValueBinding, env: StripEnv) -> float:
     """
-    The step of the number of a value: an encoder's step (as `CommandValue` computes it), a fader's 0.1 % of the range
-    as a power of ten (0.1 for 0..100, 0.001 for 0.1..1), so the slider of Home Assistant sends round values.
+    The step of the number of a value (`fader`, `encoder`): its `step`; without one, an encoder's as `CommandValue`
+    computes it, a fader's 0.1 % of the range as a power of ten (0.1 for 0..100, 0.001 for 0.1..1), so the slider of
+    Home Assistant sends round values.
     """
+    if binding.step is not None:
+        return binding.step
     span = binding.max - binding.min
     if name == "encoder":
         # rounded off: 0.9 * 5 / 100 is 0.045000000000000005
-        return binding.step if binding.step is not None else round(span * env.behavior.encoder_step / 100, 9)
+        return round(span * env.behavior.encoder_step / 100, 9)
     return 10.0 ** round(math.log10(span / 1000))
 
 

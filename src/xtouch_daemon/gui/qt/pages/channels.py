@@ -213,7 +213,7 @@ class ChannelsPage(Page):
         cards.setSpacing(Space.M)
         rows: list[OptionRow] = []
         previews: dict[Part, PartPreview] = {}
-        suggest, table_suggest, placeholders = self._helpers(strip)
+        suggest, table_suggest, placeholders = self._helpers(strip, path)
         by_name = {option.name: option for option in form_options}
         for group, title in GROUPS:
             options = [option for option in form_options if group_of(option.name) == group]
@@ -261,6 +261,10 @@ class ChannelsPage(Page):
             cards.addWidget(frame)
         # one column of names for the whole form: the fields of all cards line up
         align_titles(rows)
+        named = {option_row.option.name: option_row for option_row in rows}
+        if "fader" in named and "encoder" in named:
+            # what the encoder does without `encoder` depends on the fader
+            named["fader"].edited.connect(named["encoder"].load)
         self.form_rows[key] = rows
         self.form_widgets[key] = form
         self.form_previews[key] = previews
@@ -350,8 +354,13 @@ class ChannelsPage(Page):
         value = self.document.get(path(option.name))
         return option.default if value is None else value
 
-    def _helpers(self, strip: str) -> tuple[dict[str, Suggest], dict[str, TableSuggest], dict[str, Callable[[], str]]]:
-        """Suggestions and placeholders of the options of a strip type."""
+    def _helpers(
+        self, strip: str, path: Callable[[str], OptionPath]
+    ) -> tuple[dict[str, Suggest], dict[str, TableSuggest], dict[str, Callable[[], str]]]:
+        """
+        Suggestions and placeholders of the options of a strip type; `path` is where the options of the channel are
+        (the encoder sets the volume while the fader does not).
+        """
         suggest: dict[str, Suggest] = {
             "match": lambda: sources.patterns(self.audio()),
             "exclude": lambda: sources.patterns(self.audio()),
@@ -360,7 +369,11 @@ class ChannelsPage(Page):
         }
         table_suggest: dict[str, TableSuggest] = {}
         placeholders: dict[str, Callable[[], str]] = {
-            "encoder": lambda: default_encoder(strip) if strip in ENCODERS else "the value of the fader",
+            "encoder": lambda: (
+                default_encoder(strip, self.document.get(path("fader")) or "volume")
+                if strip in ENCODERS
+                else "the value of the fader, by its step"
+            ),
             "lcd": lambda: (
                 "the value of the fader, else of the encoder" if strip == "custom" else "what the type shows"
             ),

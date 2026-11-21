@@ -14,7 +14,6 @@ tells the slots whether the channel is there (`presence`, `on_presence`).
 
 import asyncio
 import logging
-import math
 from collections.abc import Callable, Mapping
 from typing import get_args
 
@@ -51,6 +50,7 @@ from xtouch_daemon.strips.homeassistant import (
     LatestValue,
     LcdText,
     StripEntities,
+    value_step,
 )
 from xtouch_daemon.strips.knobs import ring_position
 from xtouch_daemon.strips.value import CommandValue, WatchedLine, color_of_line, led_of_line, level_of_line, value_text
@@ -212,7 +212,7 @@ class HomeAssistantParts:
                     device=device,
                     min_val=binding.min,
                     max_val=binding.max,
-                    step=binding.step or fine_step(binding),
+                    step=value_step(part, binding, env),
                     mode="slider",
                 )
                 self.values[part] = LatestValue(number, FADER_PUBLISH_INTERVAL)
@@ -258,15 +258,10 @@ class HomeAssistantParts:
             self.bridge.unwatch(entity)
 
 
-def fine_step(binding: ValueBinding) -> float:
-    """The step of a value's number in Home Assistant: a power of ten finer than a hundredth of the range."""
-    return 10.0 ** math.floor(math.log10((binding.max - binding.min) / 100))
-
-
 class CustomStrip(StripController):
     """
     The strip of a custom channel: each part shows and does what it is bound to (see the module). An encoder without a
-    binding of its own sets the fader's value in fine steps. Select, Rec, Solo and Mute do what their press and hold
+    binding of its own sets the fader's value, by its `step`. Select, Rec, Solo and Mute do what their press and hold
     say: a hold once the button is down for HOLD_TIME, a press when it is let go before (at once without a hold).
     """
 
@@ -303,20 +298,21 @@ class CustomStrip(StripController):
         self.index = 0
         """The target the strip controls now."""
         self._presence = self.presence
+        self._colors: dict[int, ColorName] = {}
+        """The last color each watch of `color` printed, by the id of its `WatchedLine`: other lines keep it."""
         for thing in self._shared.values():
             thing.listeners.append(self._changed)
         self.ha: HomeAssistantParts | None = None
-        if config.uses_home_assistant or (env.bridge is not None and config.value_bound):
-            if env.bridge is not None:
-                self.ha = HomeAssistantParts(strip, env, env.bridge, identity, config)
-                for entity in self.ha.watched:
-                    env.bridge.watch(entity, lambda _: self.show())
-                for part, number in self.ha.values.items():
-                    # once Home Assistant is there (and again after a reconnect), it learns the values
-                    env.bridge.watch(number.entity, lambda _: self._publish_values())
-                    env.bridge.watch_commands(number.entity, lambda payload, part=part: self._commanded(part, payload))
-            else:
-                _LOGGER.warning(f"{identity.name}: its parts in Home Assistant need [mqtt]")
+        # (Simulate has no MQTT: its parts in Home Assistant look as while it is not there; the configuration makes
+        # sure the device has [mqtt] for them)
+        if env.bridge is not None and (config.uses_home_assistant or config.value_bound):
+            self.ha = HomeAssistantParts(strip, env, env.bridge, identity, config)
+            for entity in self.ha.watched:
+                env.bridge.watch(entity, lambda _: self.show())
+            for part, number in self.ha.values.items():
+                # once Home Assistant is there (and again after a reconnect), it learns the values
+                env.bridge.watch(number.entity, lambda _: self._publish_values())
+                env.bridge.watch_commands(number.entity, lambda payload, part=part: self._commanded(part, payload))
         self.notice: str | None = None
         """Shown on the second line for a moment (`notify()`): the name of a new target, a value set by hand."""
         self._notice_timer: asyncio.TimerHandle | None = None
@@ -375,8 +371,17 @@ class CustomStrip(StripController):
             return True
         return None if any(line.line is None for line in lines) else False
 
+    @property
+    def absent(self) -> bool:
+        """Whether `present` says the channel is not there: the strip is dark and does nothing, as an absent device."""
+        return self.presence is False
+
     def _changed(self) -> None:
         """A value or a watch changed: it shows, Home Assistant learns the values, the slots the presence."""
+        for programs in self.targets:
+            line = programs.color
+            if line is not None and (name := color_of_line(line.line or "")) is not None:
+                self._colors[id(line)] = name
         self._publish_values()
         presence = self.presence
         if presence != self._presence:
@@ -427,9 +432,17 @@ class CustomStrip(StripController):
         self.show()
 
     def show(self) -> None:
-        self.strip.set_color(self._color())
         target = self.target
         self.strip.set_text(0, self.look.label or (target.name if target is not None else self.identity.name))
+        if self.absent:
+            self.strip.set_color(Color.BLACK)
+            self.strip.set_text(1, "off")
+            self.strip.set_ring(0, RingMode.DOT)
+            self.strip.park()
+            for button in BUTTONS:
+                self.strip.set_led(button, Led.OFF)
+            return
+        self.strip.set_color(self._color())
         self.strip.set_text(1, self.notice if self.notice is not None else self.lcd_text())
         self.strip.set_ring(*self._ring())
         self._show_fader()
@@ -444,7 +457,7 @@ class CustomStrip(StripController):
             name = COLORS.get(entity.target_state or "") if entity is not None else None
         elif isinstance(color, WatchBinding):
             line = self.current.color
-            name = color_of_line(line.line) if line is not None and line.line is not None else None
+            name = self._colors.get(id(line)) if line is not None else None
         return color_of(name or self.look.color)
 
     def lcd_text(self) -> str:
@@ -518,7 +531,9 @@ class CustomStrip(StripController):
         """The level `meter` is bound to, over the LEDs of the meter; nothing while it is not known."""
         meter = self.config.meter
         level: float | None = None
-        if isinstance(meter, LevelBinding):
+        if self.absent:
+            pass
+        elif isinstance(meter, LevelBinding):
             line = self.current.meter
             if line is not None and line.line is not None:
                 level = level_of_line(line.line, meter.min, meter.max)
@@ -560,6 +575,8 @@ class CustomStrip(StripController):
     # -- the device -----------------------------------------------------------------------------------------------
 
     def on_fader(self, fraction: float) -> None:
+        if self.absent:
+            return
         fader = self.current.fader
         if fader is not None:
             fader.moved(fraction)
@@ -568,6 +585,8 @@ class CustomStrip(StripController):
             self.ha.fader.moved(fraction)
 
     def on_touch(self, touched: bool) -> None:
+        if self.absent and touched:
+            return
         fader = self.current.fader
         if fader is not None:
             self._grip(fader if touched else None)
@@ -587,6 +606,8 @@ class CustomStrip(StripController):
             self._gripped = value
 
     def on_encoder(self, steps: int) -> None:
+        if self.absent:
+            return
         knob = self.current.knob()
         if knob is not None:
             knob.turn(steps)
@@ -604,6 +625,8 @@ class CustomStrip(StripController):
             self.show()
 
     def on_encoder_press(self, pressed: bool) -> None:
+        if self.absent:
+            return
         knob = self.current.knob()
         if knob is not None:
             if pressed and knob.binding.push is not None:
@@ -617,7 +640,7 @@ class CustomStrip(StripController):
         if name is None:
             return
         setup = self.config.button(name)
-        if not setup.acts:
+        if not setup.acts or (pressed and self.absent):
             return
         if pressed:
             if setup.hold == "off":

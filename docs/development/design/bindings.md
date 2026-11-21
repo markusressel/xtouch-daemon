@@ -63,7 +63,7 @@ It stays bounded:
 
 - A fader bound away from the volume gives the volume to the encoder, as `fader = "homeassistant"` does today.
 - On an audio channel Mute mutes; it is not a part to bind. A `custom` channel's Mute is a button like the others.
-- An encoder without its own binding on a `custom` channel sets the fader's value in fine steps.
+- An encoder without its own binding on a `custom` channel sets the fader's value, by its `step`.
 
 ## Custom channels
 

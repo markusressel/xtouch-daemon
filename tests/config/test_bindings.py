@@ -275,6 +275,10 @@ def test_a_custom_channel_binds_every_part():
             "channel.it: select.hold: homeassistant lasts while the button is held",
         ),
         ('rec = "recording"\n', "channel.it: rec.led: recording is not for custom channels (homeassistant, off,"),
+        # an unknown word gets the words of the custom type, not those of the audio strips
+        ('select = { press = "mute" }\n', "channel.it: select.press: mute is not for custom channels (cycle_modes,"),
+        ('select = { led = "mute" }\n', "channel.it: select.led: mute is not for custom channels (homeassistant, off,"),
+        ('mute = "blink"\n', "channel.it: mute.led: blink is not for custom channels"),
         ('select = { press = { run = "x {value}" } }\n', "channel.it: select.press.run: {value} needs a fader or an"),
         ('mute = { press = "mode:nope" }\n', "channel.it.mute.press: mode:nope: no mode nope"),
         ('present = { watch = "" }\n', "channel.it: present.watch: an empty command"),

@@ -267,8 +267,10 @@ class Twin(Rig):
             group.create_task(self.follow(), name="twin slots")
 
     async def wait_closed(self) -> None:
+        """Waits for the meters and the programs (the watches `close()` ended) to end."""
         with contextlib.suppress(asyncio.CancelledError):
             await self.desk.wait_closed()
+            await self.commands.wait_closed()
 
     # -- hands ------------------------------------------------------------------------------------------------------
 

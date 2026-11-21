@@ -205,12 +205,12 @@ async def test_watches_set_the_lcd_the_color_the_meter_and_the_leds(surface: Rec
     assert strip.held_meter("pre_fader") == Lit(round(METER_MAX / 2))
     assert device.leds[Button.SELECT] == Led.ON
     assert device.leds[Button.MUTE] == Led.FLASH
-    # a line that is no color keeps the configured one, any other word turns an LED off
+    # a line that is no color keeps the color, as on audio strips; any other word turns an LED off
     commands.print_to("color --watch", "plaid")
     commands.print_to("playing --watch", "paused")
     commands.print_to("cpu --watch", "load: 80")
     await settle()
-    assert device.color == Color.WHITE
+    assert device.color == Color.MAGENTA
     assert device.leds[Button.SELECT] == Led.OFF
     assert strip.held_meter("post_fader") == Lit(METER_MAX)
     strip.close()
@@ -584,7 +584,10 @@ async def test_values_of_programs_are_numbers_in_home_assistant(
     await finish_tasks()
 
 
-async def test_without_mqtt_parts_in_home_assistant_stay_dark(surface: RecordingSurface, env: StripEnv) -> None:
+async def test_without_mqtt_parts_in_home_assistant_stay_dark(
+    surface: RecordingSurface, env: StripEnv, caplog: pytest.LogCaptureFixture
+) -> None:
+    # (Simulate: the configuration makes sure the device has [mqtt]; the log says nothing on each edit)
     strip = custom(
         env,
         surface,
@@ -601,6 +604,7 @@ async def test_without_mqtt_parts_in_home_assistant_stay_dark(surface: Recording
     assert surface.strips[0].text[1] == ""
     assert strip.held_meter("pre_fader") is None
     assert strip.entities == {}
+    assert caplog.records == []
     strip.close()
 
 

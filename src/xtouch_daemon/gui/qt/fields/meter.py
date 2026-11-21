@@ -31,7 +31,11 @@ BOUND_METER = dataclasses.replace(
     help=METER.help + " A `watch` makes it show each number it prints, from `min` to `max`.",
     base=Kind.CHOICE,
     meanings=(*METER.meanings, *METER_PARTS.meanings.items()),
-    columns=options(LevelBinding),
+    # a level may be below 0, e.g. in dB, and fine
+    columns=tuple(
+        dataclasses.replace(column, signed=True) if column.kind == Kind.NUMBER else column
+        for column in options(LevelBinding)
+    ),
     home_assistant=True,
     binding=" ".join((LevelBinding.__doc__ or "").split()),
 )

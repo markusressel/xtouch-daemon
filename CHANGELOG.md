@@ -39,8 +39,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - With `[mqtt]`, each part in Home Assistant has an entity of its own, and a bound value is a number there too.
   - Custom channels (`type = "custom"`) replace the `command` channels of the development branch: a strip with no
     defaults, every part it uses bound. `targets` switch what it controls (Select's `next`, `{target}` in the
-    programs), `together` sets every target at once, and `present` watches whether the channel is there.
-    `check-config` lists the programs per target.
+    programs), `together` sets every target at once, and `present` watches whether the channel is there. An absent
+    custom channel on a slot that keeps it is dark ("off") and does nothing. `check-config` lists the programs per
+    target.
+  - Places and the built-in pools take the words of a part only: a binding belongs to the channel, or to `[controls]`.
+    The applications and devices a place shows have no entities in Home Assistant.
+  - An option of a binding outside of one (e.g. `set` on a custom channel) says so in the error.
   - `[controls]` can give the fader or the encoder of any slot to the value of a custom channel
     (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
     (`{ run = "..." }`).

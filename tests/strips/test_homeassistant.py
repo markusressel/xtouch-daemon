@@ -26,7 +26,7 @@ from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips import homeassistant as homeassistant_module
 from xtouch_daemon.strips.base import Identity, Look, StripEnv, VolumeStrip
 from xtouch_daemon.strips.bound import Parts
-from xtouch_daemon.strips.homeassistant import EVENT_TYPES, HomeAssistantStrip, LatestValue
+from xtouch_daemon.strips.homeassistant import EVENT_TYPES, HomeAssistantStrip, LatestValue, value_step
 
 TOPIC = "homeassistant/{component}/xtouch/lights_{part}/{kind}"
 
@@ -725,3 +725,20 @@ async def test_a_place_can_not_move_a_part_into_home_assistant(
     assert surface.strips[0].color == Color.WHITE
     strip.close()
     await finish_tasks()
+
+
+@pytest.mark.parametrize(
+    ("name", "options", "step"),
+    [
+        ("fader", {"min": 0.1, "max": 1.0}, 0.001),
+        ("fader", {"min": 0, "max": 100}, 0.1),
+        ("fader", {"min": 0.1, "max": 1.0, "step": 0.05}, 0.05),
+        ("encoder", {"min": 0.1, "max": 1.0}, 0.009),
+        ("encoder", {"min": 0, "max": 10, "step": 0.5}, 0.5),
+    ],
+)
+def test_the_number_of_a_value_steps_by_its_step(
+    env: StripEnv, name: str, options: dict[str, float], step: float
+) -> None:
+    binding = ValueBinding.model_validate({"set": "b {value}"} | options)
+    assert value_step(name, binding, env) == step

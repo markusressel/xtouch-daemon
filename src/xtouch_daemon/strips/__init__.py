@@ -113,10 +113,12 @@ def build_strip(
     identity: Identity,
     look: Look,
     voip: VoipProvider | None = None,
+    home_assistant: bool = True,
 ) -> StripController:
     """
     The controller of a strip, with its identity and look (see `look_of()`); `voip` is the voice chat of the strips
-    of people.
+    of people. Only a channel has entities in Home Assistant (`home_assistant`): a member (an application, a device)
+    has none, its parts there show what they do while Home Assistant is not there.
     """
     if isinstance(config, EmptyStripConfig):
         return EmptyStrip(strip, env, identity, look)
@@ -137,7 +139,7 @@ def build_strip(
         else config.encoder
     )
     # without a bridge (Simulate) the parts in Home Assistant stay as while it is not connected
-    controls = home_assistant_controls(config, strip, env, identity, encoder)
+    controls = home_assistant_controls(config, strip, env, identity, encoder) if home_assistant else None
     match config:
         case DeviceStripConfig(choices=choices) if choices:
             controller: VolumeStrip = ChoiceStrip(

@@ -277,6 +277,8 @@ def _binding_option(
         columns=tuple(
             dataclasses.replace(column, signed=True) if column.kind == Kind.NUMBER else column
             for column in options(model)
+            # a fader has no push, only the encoder
+            if not (name == "fader" and column.name == "push")
         ),
         base=base,
         home_assistant=HOME_ASSISTANT in values,

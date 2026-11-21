@@ -92,6 +92,17 @@ def test_stacks_in_all_forms():
         ),
         ("[slots]\n1 = [{ show = 'auto', id = 'knob' }]", "slots.1[0]: id is no option of a place for auto (a control"),
         ("[slots]\n1 = [{ show = 'auto', encoder = 'homeassistant' }]", 'encoder = "homeassistant" is a control of'),
+        (
+            "[slots]\n1 = [{ show = 'auto', color = { watch = 'x' } }]",
+            "slots.1[0]: color: a place takes a word; bind it on the channel",
+        ),
+        ("[slots]\n1 = [{ show = 'auto', meter = { watch = 'x' } }]", "slots.1[0]: meter: a place takes a word"),
+        ("[slots]\n1 = [{ show = 'auto', solo = { led = { watch = 'x' } } }]", "slots.1[0]: solo.led: a place takes"),
+        (
+            "[slots]\n1 = [{ show = 'auto', encoder = { set = 'b {value}' } }]",
+            "slots.1[0]: encoder: a place takes a word; bind it on the channel or in [controls]",
+        ),
+        ("[pool.apps]\ncolor = { watch = 'x' }", "pool.apps: color: a place takes a word"),
         ("[controls]\n1 = { fader = 'homeassistant', id = 'out' }", "controls.1.id: out is also a channel, pool or"),
         ("[controls]\n1 = { fader = 'homeassistant', id = 'Knob' }", "controls.1.id: Knob: an id is lower case"),
         ("[controls]\n1 = { fader = 'homeassistant', id = 'slot_2' }", "controls.1.id: slot_2 is reserved"),

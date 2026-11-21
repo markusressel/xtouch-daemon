@@ -66,6 +66,17 @@ def known_options() -> frozenset[str]:
     return frozenset(names)
 
 
+def binding_options() -> frozenset[str]:
+    """The options of the bindings (`set`, `watch`, `run`, ...): where else they are, they belong in a binding."""
+    from xtouch_daemon.config.bindings import (  # (here: bindings import this module)
+        LevelBinding,
+        RunAction,
+        ValueBinding,
+    )
+
+    return frozenset(name for model in (ValueBinding, LevelBinding, RunAction) for name in model.model_fields)
+
+
 _LABEL_REQUIRED = re.compile(r"(?:^|[ .])label: Field required$")
 
 
@@ -74,7 +85,10 @@ def hinted(line: str) -> str:
     suffix = ": Extra inputs are not permitted"
     if line.endswith(suffix):
         name = line[: -len(suffix)].rsplit(" ", 1)[-1].rsplit(".", 1)[-1]
-        close = difflib.get_close_matches(name, sorted(known_options()), n=1, cutoff=0.8)
+        if name in binding_options():
+            return f"{line} (an option of a binding, e.g. fader = {{ set = ... }})"
+        # (an option that is known somewhere else is no typo of itself)
+        close = difflib.get_close_matches(name, sorted(known_options() - {name}), n=1, cutoff=0.8)
         return f"{line} (did you mean {close[0]}?)" if close else line
     if _LABEL_REQUIRED.search(line):
         return f"{line} (the name of the strip on the LCD, up to 7 characters)"

@@ -3,6 +3,7 @@ Every strip type (`StripConfig`), and the strips that control nothing of the sou
 `custom`).
 """
 
+from collections.abc import Mapping
 from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -24,6 +25,7 @@ from xtouch_daemon.config.bindings import (
     programs_in,
 )
 from xtouch_daemon.config.buttons import (
+    PATTERN_ACTIONS,
     ButtonConfig,
     ButtonSetup,
     LaunchAction,
@@ -32,6 +34,7 @@ from xtouch_daemon.config.buttons import (
     SelectButton,
     SoloButton,
     resolved,
+    table_of,
 )
 from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
 from xtouch_daemon.config.values import COLORS, ColorName, Label
@@ -79,7 +82,7 @@ class CustomStripConfig(Model):
     fader: CustomValuePart | None = None
     """What the fader sets. Without it, the fader stays down. E.g. the brightness of a screen."""
     encoder: CustomValuePart | None = None
-    """What the encoder sets. By default it sets the value of the fader in fine steps."""
+    """What the encoder sets. By default the value of the fader, by its `step`."""
     lcd: LcdPart | None = None
     """
     The second line of the LCD. A `watch` shows each line it prints. By default the value of the fader, else of the
@@ -136,6 +139,25 @@ class CustomStripConfig(Model):
             raise ValueError(f"two targets named {twice[0]}: the LCD tells them apart by their names")
         return value
 
+    @model_validator(mode="before")
+    @classmethod
+    def _custom_words(cls, data: object) -> object:
+        """
+        A word the custom type does not take, before the validation of buttons, whose message lists the words of the
+        audio strips.
+        """
+        if isinstance(data, Mapping):
+            for name in CUSTOM_BUTTONS:
+                table = table_of(name, data.get(name))
+                if not isinstance(table, Mapping):
+                    continue
+                for part in ("press", "hold"):
+                    if isinstance(action := table.get(part), str) and (problem := _action_problem(name, part, action)):
+                        raise ValueError(problem)
+                if isinstance(led := table.get("led"), str) and (problem := _led_problem(name, led)):
+                    raise ValueError(problem)
+        return data
+
     @model_validator(mode="after")
     def _all_bound(self) -> CustomStripConfig:
         if isinstance(self.fader, ValueBinding) and self.fader.push is not None:
@@ -160,12 +182,8 @@ class CustomStripConfig(Model):
         for part, action in (("press", setup.press), ("hold", setup.hold)):
             if isinstance(action, LaunchAction):
                 raise ValueError(f"{name}.{part}: a custom channel runs programs ({{ run = [...] }}), it launches none")
-            if isinstance(action, str) and action not in CUSTOM_ACTIONS and not action.startswith(("mode:", "toggle:")):
-                words = ", ".join(sorted(CUSTOM_ACTIONS))
-                raise ValueError(
-                    f"{name}.{part}: {action} is not for custom channels ({words}, mode:<id>, toggle:<state>, "
-                    "or { run = [...] })"
-                )
+            if isinstance(action, str) and (problem := _action_problem(name, part, action)):
+                raise ValueError(problem)
             if action == "next" and (len(self.targets) < 2 or self.together):
                 why = "switches nothing with together" if self.together else "needs at least two targets"
                 raise ValueError(f"{name}.{part}: next {why}")
@@ -173,9 +191,26 @@ class CustomStripConfig(Model):
             raise ValueError(f'{name}.hold: "homeassistant" takes the whole button: set it as press')
         if setup.press == "homeassistant" and setup.hold != "off":
             raise ValueError(f"{name}.hold: homeassistant lasts while the button is held, it takes no hold")
-        if isinstance(setup.led, str) and setup.led not in CUSTOM_LEDS:
-            words = ", ".join(sorted(CUSTOM_LEDS))
-            raise ValueError(f"{name}.led: {setup.led} is not for custom channels ({words}, or {{ watch = [...] }})")
+        if isinstance(setup.led, str) and (problem := _led_problem(name, setup.led)):
+            raise ValueError(problem)
+
+
+def _action_problem(name: str, part: str, action: str) -> str | None:
+    """What is wrong with an action of a button of a custom channel that is a word; None if nothing."""
+    if action in CUSTOM_ACTIONS or PATTERN_ACTIONS.fullmatch(action):
+        return None
+    words = ", ".join(sorted(CUSTOM_ACTIONS))
+    return (
+        f"{name}.{part}: {action} is not for custom channels ({words}, mode:<id>, toggle:<state>, or {{ run = [...] }})"
+    )
+
+
+def _led_problem(name: str, led: str) -> str | None:
+    """What is wrong with what the LED of a button of a custom channel shows as a word; None if nothing."""
+    if led in CUSTOM_LEDS:
+        return None
+    words = ", ".join(sorted(CUSTOM_LEDS))
+    return f"{name}.led: {led} is not for custom channels ({words}, or {{ watch = [...] }})"
 
 
 StripConfig = Annotated[

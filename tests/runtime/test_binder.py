@@ -17,6 +17,7 @@ from tests.support.tasks import settle
 from tests.support.watches import ProgramCommands
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import Strip, VirtualStrip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime import binder as binder_module
@@ -279,5 +280,67 @@ async def test_a_reload_keeps_the_absence_until_the_new_watch_tells(surface: Rec
         commands=commands,
     )
     assert rig.engine.absent == {"screen"}
+    rig.mixer.close()
+    await commands.wait_closed()
+
+
+async def test_a_member_has_no_entities_in_home_assistant(
+    surface: RecordingSurface, caplog: pytest.LogCaptureFixture
+) -> None:
+    # an application on an `auto` place whose meter and color are in Home Assistant: the entities are the channels'
+    config = parse_config(
+        '[voip]\nprovider = "demo"\n[mqtt]\nhost = "broker"\n[slots]\n'
+        '1 = [{ show = "auto", meter = "homeassistant", color = "homeassistant" }]\n'
+    )
+    assert config.mqtt is not None
+    rig = Rig(surface, config, bridge=MqttBridge(config.mqtt))
+    rig.step(STATE)
+    member = next(member for member in rig.mixer.members.values() if isinstance(member, AutoStrip))
+    assert member.controls is None
+    assert member.entities == {}
+    # the log says why its parts show what they do while Home Assistant is not there
+    assert 'meter = "homeassistant" works on the channel itself only' in caplog.text
+    assert 'color = "homeassistant" works on the channel itself only' in caplog.text
+    rig.mixer.close()
+
+
+async def test_an_absent_custom_channel_on_a_fixed_slot_is_dark_and_does_nothing(surface: RecordingSurface) -> None:
+    commands = ProgramCommands()
+    config = parse_config(
+        '[voip]\nprovider = "demo"\n'
+        '[channel.screen]\ntype = "custom"\nlabel = "Screen"\nabsent_after = 0\n'
+        'present = { watch = "screen --watch" }\n'
+        'fader = { set = "b {value}", watch = "b --watch", min = 0.1, max = 1.0 }\n'
+        'select = { press = { run = "x" }, led = "press" }\n'
+        '[slots]\n1 = "screen"\n'
+    )
+    rig = Rig(surface, config, commands=commands)
+    rig.step(STATE)
+    commands.print_to("b --watch", "0.6")
+    commands.print_to("screen --watch", "")
+    await settle()
+    rig.step(STATE)
+    assert rig.engine.absent == {"screen"}
+    strip = surface.strips[0]
+    assert strip.color == Color.BLACK
+    assert strip.text == ["Screen", "off"]
+    assert strip.ring == (0, RingMode.DOT)
+    assert strip.fader == 0
+    assert all(led == Led.OFF for led in strip.leds.values())
+    controller = rig.mixer.channels["screen"]
+    assert controller.held_meter("pre_fader") is None
+    # the hand changes nothing, nothing runs
+    controller.on_fader(0.9)
+    controller.on_encoder(3)
+    controller.on_button(Button.SELECT, True)
+    controller.on_button(Button.SELECT, False)
+    await settle()
+    assert commands.runs == []
+    # back again, it shows its value
+    commands.print_to("screen --watch", "DisplayPort-1")
+    await settle()
+    rig.step(STATE)
+    assert strip.text == ["Screen", "0.6"]
+    assert strip.color == Color.WHITE
     rig.mixer.close()
     await commands.wait_closed()

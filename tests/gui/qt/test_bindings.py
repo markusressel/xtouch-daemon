@@ -66,7 +66,7 @@ def test_a_fader_bound_to_a_program_writes_its_table(qtbot: QtBot, window: MainW
     assert field.actions_[WORDS].isVisible()
     assert "A value that programs of your own set and watch" in plain(field.program.findChildren(QWidget)[0].text())  # pyright: ignore[reportAttributeAccessIssue]
     # the options of the program, each a row
-    assert list(field.rows) == ["set", "watch", "min", "max", "step", "push", "format"]
+    assert list(field.rows) == ["set", "watch", "min", "max", "step", "format"]
     for part in SET:
         field.rows["set"].chips.add(part)
     number(field.rows["min"]).setValue(0.1)
@@ -136,8 +136,13 @@ def test_an_audio_strip_looks_as_before_until_a_part_is_bound(qtbot: QtBot, wind
     assert fader.combo.currentText() == "volume"
     assert visible(fader.combo, window)
     assert field.bind.text() == ""
+    encoder = row(window, "encoder")
+    assert encoder.combo.placeholderText() == "default: balance"
     fader.combo.setCurrentText("homeassistant")
     assert window.document.get(("channel", "out", "fader")) == "homeassistant"
+    # the fader does not set the volume: the encoder does
+    assert encoder.combo.placeholderText() == "default: volume"
+    assert "volume" in plain(encoder.meaning.text())
     # homeassistant is in the list: the button stays a button
     assert field.bind.text() == ""
     field.actions_[PROGRAM].trigger()
@@ -183,6 +188,9 @@ def test_the_meter_of_an_audio_strip_is_a_choice_or_bound(qtbot: QtBot, window: 
     field.rows["watch"].chips.add("cpu-load")
     number(field.rows["max"]).setValue(4.0)
     assert written(window, "channel", "out", "meter") == {"watch": ["cpu-load"], "max": 4.0}
+    # a level in dB, below 0
+    number(field.rows["min"]).setValue(-60.25)
+    assert window.document.get(("channel", "out", "meter"))["min"] == -60.25
     assert window.document.get(("channel", "out", "meter_point")) is None
     meter.load()
     assert field.mode == PROGRAM

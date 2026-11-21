@@ -72,7 +72,7 @@ class StripEnv:
     solo: Callable[[StripController, bool], None] = lambda strip, on: None
     """Mutes the strips but this one (True), and unmutes them again (False): `mute_others`."""
     commands: Commands = field(default_factory=Commands)
-    """Runs the programs of command channels."""
+    """Runs the programs of bindings and custom channels (`set`, `watch`, `run`)."""
 
 
 @dataclass(frozen=True)

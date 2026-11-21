@@ -134,7 +134,7 @@ class Strip:
         return self.binding("fader", ValueBinding)
 
     def encoder_value(self) -> ValueBinding | None:
-        """The value the encoder sets: its own, else on a `custom` channel that of the fader, in fine steps."""
+        """The value the encoder sets: its own, else on a `custom` channel that of the fader, by its `step`."""
         own = self.binding("encoder", ValueBinding)
         if own is None and self.strip_type == CUSTOM and self.value("encoder") is None:
             return self.fader_value()

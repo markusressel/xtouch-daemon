@@ -813,12 +813,20 @@ def _look_problems(show: str, options: Mapping[str, Any], allowed: frozenset[str
         problems.append(f"{option} is no option of {what}{why}")
     if options.get("encoder") == "homeassistant":
         problems.append('encoder = "homeassistant" is a control of the slot: [controls]')
+    # bindings belong to the channel (the encoder of the slot to [controls]): a place takes the words of a part
+    for part in ("color", "meter"):
+        if isinstance(options.get(part), Mapping):
+            problems.append(f"{part}: a place takes a word; bind it on the channel")
+    if isinstance(options.get("encoder"), Mapping):
+        problems.append("encoder: a place takes a word; bind it on the channel or in [controls]")
     for button in ("select", "rec", "solo"):
         value = options.get(button)
         if isinstance(value, Mapping) and {"press", "hold"} & set(value):
             problems.append(
                 f"{button}: a place sets only what its LED shows (led); what the button does belongs to the channel"
             )
+        if isinstance(value, Mapping) and isinstance(value.get("led"), Mapping):
+            problems.append(f"{button}.led: a place takes a word; bind it on the channel")
     return problems
 
 

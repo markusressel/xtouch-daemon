@@ -1,7 +1,7 @@
 """
-The programs of command channels (`type = "command"`): one that sets a value and ends, and one that watches it and
-prints a line per change. They run without a shell. The tests use a `Commands` of their own
-(`tests/support/commands.py`), the twin one that only watches (`SimulatedCommands`).
+The programs of bindings and custom channels (`set`, `watch`, `run`): one that sets a value (or runs for a button) and
+ends, and one that watches it and prints a line per change. They run without a shell. The tests use a `Commands` of
+their own (`tests/support/commands.py`), the twin one that only watches (`SimulatedCommands`).
 """
 
 import asyncio

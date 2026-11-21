@@ -197,7 +197,17 @@ class SlotMixer:
             strip = EmptyStripConfig(type="empty")
         if (place := place_of(strip)) is not None:
             self.places[key] = place
-        return build_strip(strip, view, self.env, self.config.aliases, identity, self._look(strip), self.voip)
+        return build_strip(
+            strip,
+            view,
+            self.env,
+            self.config.aliases,
+            identity,
+            self._look(strip),
+            self.voip,
+            # the entities in Home Assistant are the channels'
+            home_assistant=key[0] == "channel",
+        )
 
     def _look(self, strip: StripConfig) -> Look:
         return look_of(strip, self.config.meter_point(strip))

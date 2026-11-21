@@ -1,5 +1,5 @@
 """
-The programs of command controls, run for real: small shell scripts that set nothing and print what the tests want.
+The programs of bindings, run for real: small shell scripts that set nothing and print what the tests want.
 """
 
 import asyncio

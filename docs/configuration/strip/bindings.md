@@ -16,7 +16,7 @@ The parts of the `output`, `input`, `apps` and `auto` channels:
 
 | Part | Default | A program |
 |---|---|---|
-| `fader` | The volume (`"volume"`). | A value: `{ set, watch, min, max, format }`. |
+| `fader` | The volume (`"volume"`). | A value: `{ set, watch, min, max, step, format }`. |
 | `encoder` | The type's modes ([Encoders](encoders.md)). | A value: `{ set, watch, min, max, step, push, format }`. |
 | `lcd` | What the type shows on the second line. | `{ watch }`: each line is the text. |
 | `color` | A color name. | `{ watch }`: each line is a color name. |
@@ -37,7 +37,8 @@ Each part also takes `"homeassistant"`: Home Assistant sets it, with an entity o
 ## The options of a binding
 
 A value (`fader`, `encoder`) has `set`, `watch`, `min`, `max`, `step`, `push` and `format`: see
-[A value](../channels/custom.md#a-value). The other bindings are smaller:
+[A value](../channels/custom.md#a-value). The `step` of a fader is that of the encoder of a custom channel (without an
+encoder of its own), and of its number in Home Assistant. The other bindings are smaller:
 
 | Binding | For | Option | Default | Meaning |
 |---|---|---|---|---|
@@ -94,11 +95,11 @@ A part in Home Assistant needs `[mqtt]`, and it gets an entity, named by the id 
 | `led = "homeassistant"` | `select.<ns>_<id>_<button>_led` | `off` |
 
 With `[mqtt]`, a fader or an encoder bound to a value is a number too (`number.<ns>_<id>_fader`,
-`number.<ns>_<id>_encoder`): from the binding's `min` to its `max`, in steps of the encoder's `step` (a fader in fine
-steps of the range). It has no state until the value is known; a change in Home Assistant runs `set`.
+`number.<ns>_<id>_encoder`): from the binding's `min` to its `max`, in steps of its `step`, else in fine steps of the
+range. It has no state until the value is known; a change in Home Assistant runs `set`.
 
-Only the channel itself has these entities. A [place](../slots.md#slots) that sets a part to `"homeassistant"` does
-nothing; the log says so. Simulate has no Home Assistant: its parts look as while Home Assistant is not there.
+Only the channel itself has these entities, not the applications and devices that a place of `apps`, `auto` or
+`devices` shows. A [place](../slots.md#slots) that sets a part to `"homeassistant"` does nothing; the log says so. Simulate has no Home Assistant: its parts look as while Home Assistant is not there.
 
 ## Simulate
 

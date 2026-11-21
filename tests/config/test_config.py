@@ -317,3 +317,27 @@ def test_the_default_switching() -> None:
 )
 def test_errors_of_people_and_switching(text: str, message: str) -> None:
     assert message in errors_of(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        (
+            channel('type = "custom"\nset = "x {value}"\n'),
+            "channel.c: set: Extra inputs are not permitted (an option of a binding, e.g. fader = { set = ... })",
+        ),
+        (channel('type = "custom"\nmin = 3\n'), "channel.c: min: Extra inputs are not permitted (an option of a"),
+        (
+            channel('type = "custom"\nfader = { set = "b {value}" }\n')
+            + '[controls]\n1 = { encoder = { channel = "c", step = 3 } }\n',
+            "controls.1.encoder.step: Extra inputs are not permitted (an option of a binding",
+        ),
+        (
+            channel('type = "custom"\nwatchh = "x"\n'),
+            "channel.c: watchh: Extra inputs are not permitted (did you mean watch?)",
+        ),
+    ],
+)
+def test_an_option_of_a_binding_elsewhere_is_hinted(text: str, message: str) -> None:
+    assert message in errors_of(text)
+    assert "did you mean set" not in errors_of(text)

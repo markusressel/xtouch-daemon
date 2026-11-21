@@ -65,7 +65,7 @@ class Rig:
         """
         `state_dir` keeps the choices and the people of the slots (None: nowhere), `capture_command` or `capturer` is
         what the meters capture with, `logger` where the states, slots and modes are logged. `commands` runs the
-        programs of command channels (by default only their `watch`, as on a twin).
+        programs of bindings and custom channels (by default only their `watch`, as on a twin).
         """
         self.config = config
         self.commands = commands if commands is not None else SimulatedCommands()
