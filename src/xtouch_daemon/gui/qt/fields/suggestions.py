@@ -45,7 +45,7 @@ class SuggestionList(QObject):
     or Tab take it (`picked`), and Esc closes it; the field keeps the focus, and loses the list with it.
     """
 
-    picked = pyqtSignal(QModelIndex)
+    picked = pyqtSignal(QModelIndex, arguments=["index"])
 
     def __init__(
         self,
@@ -60,7 +60,7 @@ class SuggestionList(QObject):
         `delegate` draws the lines (as a list does without), `rows` is the most lines it shows at once (it scrolls for
         more), `width` the least width, and with `first` the first line is picked when it opens.
         """
-        super().__init__(edit)
+        super().__init__(edit)  # pyright: ignore[reportArgumentType]
         self.edit = edit
         self.model = model
         self.delegate = delegate

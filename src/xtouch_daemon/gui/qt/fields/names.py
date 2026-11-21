@@ -94,11 +94,11 @@ class NameCompleter(QObject):
     popover in the window (see `SuggestionList`), not a popup window.
     """
 
-    activated = pyqtSignal(str)
+    activated = pyqtSignal(str, arguments=["name"])
     """A name was picked: it is in the field already."""
 
     def __init__(self, edit: QLineEdit, suggest: Suggest, nothing: str = NO_SUGGESTIONS):
-        super().__init__(edit)
+        super().__init__(edit)  # pyright: ignore[reportArgumentType]
         self.items = QStandardItemModel(self)
         self.edit = edit
         self.suggest = suggest

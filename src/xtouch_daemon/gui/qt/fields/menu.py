@@ -414,7 +414,7 @@ class MenuPanel(Popover):
             return
         self.close_child()
         child = MenuPanel(submenu, row, self.host, self)
-        top_left = row.mapTo(self.host, QPoint(0, 0))
+        top_left = self.host.mapFromGlobal(row.mapToGlobal(QPoint(0, 0)))
         x = self.x() + self.width() - Space.XS
         if x + child.width() > self.host.width():
             x = self.x() - child.width() + Space.XS
@@ -557,7 +557,7 @@ class MenuBar(QWidget):
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
+        super().__init__(parent)  # pyright: ignore[reportArgumentType]
         set_role(self, "menubar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self.row = QHBoxLayout(self)
@@ -583,7 +583,7 @@ class MenuBar(QWidget):
         button.setFixedHeight(button.fontMetrics().height() + 2 * Space.XS)
         index = len(self.titles)
         button.pressed.connect(lambda index=index: self.toggle(index))
-        button.installEventFilter(self)
+        button.installEventFilter(self)  # pyright: ignore[reportArgumentType]
         menu.aboutToHide.connect(lambda button=button: set_role(button, "false", "open"))
         self.row.insertWidget(index, button)
         self.titles.append(button)
@@ -638,7 +638,7 @@ class TextMenus(QObject):
     """
 
     def __init__(self, window: QWidget) -> None:
-        super().__init__(window)
+        super().__init__(window)  # pyright: ignore[reportArgumentType]
         self.window = window
         app = QApplication.instance()
         assert app is not None

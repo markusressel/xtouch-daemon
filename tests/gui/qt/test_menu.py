@@ -310,7 +310,7 @@ def test_a_strip_has_its_menu_where_it_is_clicked(qtbot: QtBot, window: MainWind
         panel = open_menu(window)
         assert isinstance(panel, MenuPanel)
         assert menu_texts(panel) == ["Move left", "Move right"]
-        assert panel.pos() == view.mapTo(window, position)
+        assert panel.pos() == window.mapFromGlobal(view.mapToGlobal(position))
         pick(qtbot, panel, "Move right")
     assert moved.args == [1, 2]
 

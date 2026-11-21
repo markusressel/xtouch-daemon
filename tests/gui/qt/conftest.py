@@ -82,9 +82,9 @@ def no_popups(qapp: QApplication) -> Iterator[PopupWatch]:
     key of a screenshot tool does nothing while it is open. Menus, drop-downs and suggestions open inside the window.
     """
     watch = PopupWatch()
-    qapp.installEventFilter(watch)
+    qapp.installEventFilter(watch)  # pyright: ignore[reportArgumentType]
     yield watch
-    qapp.removeEventFilter(watch)
+    qapp.removeEventFilter(watch)  # pyright: ignore[reportArgumentType]
     assert watch.shown == [], f"popup windows showed: {watch.shown}"
     assert QApplication.activePopupWidget() is None
 
