@@ -3015,7 +3015,7 @@ application. <code>mum</code> is a <code>person</code> channel, and slot 4 shows
 </tr>
 </tbody>
 </table>
-<p>The strips of people have no <code>launch</code> option. To start the voice chat client, give a slot a control instead: starting the voice chat is a control of a slot, for example
+<p>The strips of people have no <code>launch</code> option. To start the voice chat client, give a slot a control instead, for example
 <code>7 = { select = { launch = ["mumble"] }, when = "not call" }</code> in <a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a>
 (<code>call</code> is a <a href="../../slots/#states-and-modes">state</a> you define, for example <code>[state.call]</code> with <code>voice_chat = true</code>).
 A place of <code>people</code> in a slot takes <code>color</code>, <code>meter</code> and <code>meter_point</code>: <code>{ show = "people", color = "orange" }</code>.</p>
@@ -3046,9 +3046,9 @@ A place of <code>people</code> in a slot takes <code>color</code>, <code>meter</
   slot. Every time the voice chat changes, the daemon sits everyone again. Say <code>from = "right"</code>, Alice is first in
   <code>order</code>, and Bob is on slot 8. When Alice joins, she takes slot 8 and Bob moves to slot 7.</li>
 <li>Some slots hold a condition above <code>people</code>, for example <code>["voip if call", "people", "apps"]</code>. While <code>call</code> is on,
-  <code>voip</code> is shown there and no person sits there. People take the slots without such a condition first (the ones
-  where <code>people</code> or <code>auto</code> comes first in the list of candidates). They use a slot with a condition above them,
-  like <code>["voip if call", "people", "apps"]</code>, only when the others are full. This keeps
+  <code>voip</code> is shown there and no person sits there. People sit first on the slots where <code>people</code> or <code>auto</code> is the first
+  candidate. They use a slot with a condition above them, like <code>["voip if call", "people", "apps"]</code>, only when the
+  others are full. This keeps
   the people from jumping to another slot each time <code>call</code> turns on or off.</li>
 <li>When <code>people</code> has no one for a slot, the slot shows the next candidate: <code>["people", "apps"]</code> shows the next
   application. A slot of <code>auto</code> takes a person before an application. In <code>["apps", "people"]</code> the application comes
@@ -3067,7 +3067,7 @@ everyone at 100 %. If you change a mute in the voice chat itself (Mumble's local
 the daemon set.</p>
 <h2 id="strips-for-one-person">Strips for one person<a class="headerlink" href="#strips-for-one-person" title="Permanent link">&para;</a></h2>
 <p>A <code>person</code> channel always shows that person, on the slots that name it. The names are the names in the voice chat,
-ignoring case, but otherwise exactly (no wildcards, no parts of a name). With several names (the same person from two devices), the strip shows the first of them that is in the voice chat,
+ignoring case, but otherwise exactly (no wildcards, no parts of a name). With several names (the same person from the desk and from the phone), the strip shows the first of them that is in the voice chat,
 in the order the voice chat client lists its people.</p>
 <p>While the person is not in the channel, the strip shows the name with a dark backlight, <code>away</code> on the second line and its fader at
 the bottom; <code>"mum if present"</code> in a slot shows the channel only while they are there. The volume and mute the strip

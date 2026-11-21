@@ -3032,7 +3032,7 @@
 
 <h1 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h1>
 <p><a href="https://www.home-assistant.io/">Home Assistant</a> is a home automation program. An <em>entity</em> is one thing in it, such
-as the light <code>light.desk</code>. This page shows three ways to connect the device to it, and a related case for programs. Choose by what you want:</p>
+as the light <code>light.desk</code>. This page shows three ways to connect the X-Touch to it, and a related case for programs. Choose by what you want:</p>
 <table>
 <thead>
 <tr>
@@ -3096,7 +3096,7 @@ them), by <em>MQTT discovery</em>: Home Assistant finds them without any setup o
 <p>The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. You must add the section for everything that makes the
 daemon create entities in Home Assistant: <code>homeassistant</code> channels, <code>"homeassistant"</code> as the value of a part or
 control, and <code>homeassistant = true</code> on a state. Without those, the section is optional. With it, the daemon also
-shows the device, its modes, states and slots in Home Assistant.</p>
+shows the X-Touch, its modes, states and slots in Home Assistant.</p>
 <table>
 <thead>
 <tr>
@@ -3149,7 +3149,7 @@ shows the device, its modes, states and slots in Home Assistant.</p>
 <tr>
 <td><code>device_name</code></td>
 <td><code>"X-Touch Extender"</code></td>
-<td>The name of the device in Home Assistant.</td>
+<td>The name of the X-Touch in Home Assistant, where it is one Home Assistant device with all the entities.</td>
 </tr>
 </tbody>
 </table>
@@ -3163,13 +3163,13 @@ variable that is not set, stops the daemon at the start with a message.</p>
 <p>A changed <code>[mqtt]</code> section needs a restart of the daemon (<code>systemctl --user restart xtouch-daemon</code>). The daemon
 reloads a saved file by itself, but it ignores a file whose <code>[mqtt]</code> section changed: it keeps the whole
 configuration it runs, also the changes in other sections, until you restart.</p>
-<p>The entities are available in Home Assistant while the daemon runs and the device is connected; otherwise Home
+<p>The entities are available in Home Assistant while the daemon runs and the X-Touch is connected; otherwise Home
 Assistant greys them out. This also holds after a crash: the broker tells Home Assistant that the daemon is gone
 (an MQTT "last will", a message that the daemon leaves with the broker for this case). The daemon connects to the
 broker again by itself when the broker was gone.</p>
 <p>The <a href="../gui/#live-view">GUI</a> shows whether the daemon is connected, and why not (e.g. a wrong password),
 and its "Test connection" button tries settings before they are saved. To check that it works, open Settings →
-Devices &amp; services → MQTT in Home Assistant: the device "X-Touch Extender" (<code>device_name</code>) is listed there with its
+Devices &amp; services → MQTT in Home Assistant: the Home Assistant device "X-Touch Extender" (<code>device_name</code>) is listed there with its
 entities.</p>
 <h2 id="homeassistant"><code>[homeassistant]</code><a class="headerlink" href="#homeassistant" title="Permanent link">&para;</a></h2>
 <p>The API of Home Assistant, for the parts bound to entities that Home Assistant has (<code>{ entity = "..." }</code> and
@@ -3188,7 +3188,7 @@ only while the configuration has such parts (in a channel or in <code>[controls]
 <tr>
 <td><code>url</code></td>
 <td>required</td>
-<td>The address of Home Assistant, as in the browser, e.g. <code>"http://homeassistant.local:8123"</code> (or <code>https://...</code>). The daemon uses its WebSocket API (<code>/api/websocket</code>).</td>
+<td>The address of Home Assistant, as in the browser, e.g. <code>"http://homeassistant.local:8123"</code> (or <code>https://...</code>).</td>
 </tr>
 <tr>
 <td><code>token</code></td>
@@ -3251,11 +3251,11 @@ Home Assistant (Settings → People → Users) limits that to what that user may
 </tr>
 <tr>
 <td>The connection breaks</td>
-<td>Tries again after 1, 2, 5, 10 and 30 seconds, then every 60 seconds. The waits get longer with each failed try; they start at 1 second again only after a connection that received the states of the entities. Meanwhile the parts show nothing.</td>
+<td>Tries again by itself, with longer waits after each failed try (at most 60 seconds). Meanwhile the parts show nothing.</td>
 </tr>
 <tr>
 <td>Home Assistant refuses the token</td>
-<td>Logs an error and stops trying. The daemon never sends a refused token to that address again, even if you move the same token to another option (e.g. from <code>token</code> to <code>token_file</code>), because Home Assistant can ban an address after failed logins. Make a new token, put it where the section reads it, and save the file.</td>
+<td>Logs an error and stops trying. The daemon never sends the refused token again, because Home Assistant can ban an address after failed logins. Make a new token, put it where the section reads it, and save the file.</td>
 </tr>
 <tr>
 <td>It can't read <code>token_file</code>, or <code>token_env</code> is not set</td>
@@ -3399,7 +3399,7 @@ keeps it.</p>
 <tbody>
 <tr>
 <td><code>number.&lt;ns&gt;_&lt;id&gt;_fader</code></td>
-<td>The fader, 0..100 in steps of 0.1. Setting it moves the motor fader; moving the fader by hand sets it (at most every 100 ms while it moves, and where it was let go).</td>
+<td>The fader, 0..100 in steps of 0.1. Setting it moves the motor fader; moving the fader by hand sets it (while it moves, and where it was let go).</td>
 </tr>
 <tr>
 <td><code>number.&lt;ns&gt;_&lt;id&gt;_encoder</code></td>
@@ -3407,7 +3407,7 @@ keeps it.</p>
 </tr>
 <tr>
 <td><code>number.&lt;ns&gt;_&lt;id&gt;_meter</code></td>
-<td>The LED meter, 0..100 %: 0 is dark, 100 lights it fully; the daemon holds the level (the device would let it fall). Its 14 levels are about 7 % each, 100 % lights the red LED at the top too, so e.g. a CPU load or a power ratio goes in as it is.</td>
+<td>The LED meter, 0..100 %: 0 is dark, 100 lights it fully; the daemon keeps the level lit until you set another. A CPU load in percent, say, goes in as it is.</td>
 </tr>
 <tr>
 <td><code>text.&lt;ns&gt;_&lt;id&gt;_top</code>, <code>text.&lt;ns&gt;_&lt;id&gt;_bottom</code></td>
@@ -3431,13 +3431,13 @@ keeps it.</p>
 the LED to show the result. The broker keeps the last value that Home Assistant set (MQTT calls this a retained
 message), so after a restart of the daemon the strips show it again. New entities start with the configured label and color, the fader and encoder at 0
 and the LEDs off. While the broker can't be reached, a strip shows its label, <code>offline</code> and its color, and the
-device does nothing on it.</p>
+X-Touch does nothing on it.</p>
 <p>Entities of a channel that was removed from the configuration are removed from Home Assistant on the next reload.</p>
 <h2 id="choices">Choices<a class="headerlink" href="#choices" title="Permanent link">&para;</a></h2>
 <p>With <code>[mqtt]</code>, an <code>output</code> or <code>input</code> channel with <a href="../../configuration/channels/devices/#choices"><code>choices</code></a> has
 <code>select.&lt;ns&gt;_&lt;id&gt;_output</code> (<code>select.&lt;ns&gt;_&lt;id&gt;_input</code>): the choice the strip shows, one option per choice, named by its
 <code>label</code> (or its <code>device</code>; a second choice of the same name gets a number, e.g. <code>Out 2</code>). Choosing one switches to it
-like Select on the device (the sound card goes to the profile of the choice first, see <a href="../../configuration/channels/devices/#choices"><code>choices</code></a>); one that isn't there is refused and the select goes back. The select
+like Select on the X-Touch (the sound card goes to the profile of the choice first, see <a href="../../configuration/channels/devices/#choices"><code>choices</code></a>); one that isn't there is refused and the select goes back. The select
 follows the strip, also when the default changes elsewhere.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">select.select_option</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">target</span><span class="p">:</span>

@@ -730,10 +730,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-device" class="md-nav__link">
+  <a href="#the-x-touch" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The device
+        The X-Touch
       </span>
     </span>
   </a>
@@ -2809,10 +2809,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-device" class="md-nav__link">
+  <a href="#the-x-touch" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The device
+        The X-Touch
       </span>
     </span>
   </a>
@@ -2971,8 +2971,8 @@
 </span></code></pre></div>
 <p>The GUI shows the same log in View → <a href="../gui/#log">Log</a>. It reads the log of the running daemon, so it also works for a
 daemon that you started in a terminal.</p>
-<p>A healthy start logs that the device connected (and, with a <a href="../home-assistant/">broker</a>, the MQTT connection). For
-more detail, run the daemon in the foreground with debug messages. Only one daemon can hold the device, so stop the
+<p>A healthy start logs that the X-Touch connected (and, with a <a href="../home-assistant/">broker</a>, the MQTT connection). For
+more detail, run the daemon in the foreground with debug messages. Only one daemon can hold the X-Touch, so stop the
 service first:</p>
 <ol>
 <li><code>systemctl --user stop xtouch-daemon</code></li>
@@ -2982,7 +2982,7 @@ service first:</p>
 <h2 id="starting">Starting<a class="headerlink" href="#starting" title="Permanent link">&para;</a></h2>
 <p><strong>xtouch-daemon refuses to run as root.</strong> It says <code>xtouch-daemon runs as your user, not as root: ...</code>. The commands
 of the configuration would run as root. Run it as your user, without <code>sudo</code>, e.g. as the systemd user service. Only
-<code>schema</code>, <code>simulate</code>, <code>--help</code> and <code>--version</code> work as root. Every other command refuses to run. Only one daemon can hold the device. If several users share the machine, see <a href="../../development/design/multiple-users/">Several users on one machine</a>.</p>
+<code>schema</code>, <code>simulate</code>, <code>--help</code> and <code>--version</code> work as root. Every other command refuses to run. If several users share the machine, see <a href="../../development/design/multiple-users/">Several users on one machine</a>.</p>
 <p><strong><code>other users can change ..., so the daemon does not use it</code>.</strong> The group or others can change the configuration
 file or its directory. Someone else could put a command into it, and the daemon would run it as you. Remove
 that right with <code>chmod</code>, e.g. <code>chmod go-w ~/.config/xtouch-daemon/config.toml</code>. A file that belongs to another
@@ -2991,44 +2991,44 @@ and keeps the configuration it runs.</p>
 <p><strong><code>other users can read ...</code>.</strong> This is a warning. Other users can read a file that holds a secret, e.g. the file of <code>[mqtt] password_file</code> or
 <code>[homeassistant] token_file</code>. The daemon still uses it. Close it to others with <code>chmod go-rw</code> and the path from the
 message.</p>
-<h2 id="the-device">The device<a class="headerlink" href="#the-device" title="Permanent link">&para;</a></h2>
-<p><strong>The LCD of the device shows <code>IP: 192.168.001.100 wait...</code>.</strong> The device is in a setup mode that talks over the network (Ethernet) and ignores
-USB. This is a setting of the device, not of your computer. Switch it to
+<h2 id="the-x-touch">The X-Touch<a class="headerlink" href="#the-x-touch" title="Permanent link">&para;</a></h2>
+<p><strong>The LCD of the X-Touch shows <code>IP: 192.168.001.100 wait...</code>.</strong> The X-Touch is in a setup mode that talks over the network (Ethernet) and ignores
+USB. This is a setting of the X-Touch, not of your computer. Switch it to
 MC mode on USB in its setup menu, as described in <a href="../../getting-started/first-steps/#set-up-the-device">Getting started</a>.</p>
 <p><strong><code>... is it switched on, in MC mode on USB?</code></strong> The daemon (and <code>xtouch-daemon test</code>) can't find the sound card of the
-extender. This is not fatal: the daemon keeps waiting and connects when the card appears. Check that the device is connected and on, and
+X-Touch. This is not fatal: the daemon keeps waiting and connects when the card appears. Check that the X-Touch is connected and on, and
 that <code>/proc/asound/cards</code> lists it. If the card has another name than the default, set <code>[device] name</code> to a part of
 the name in that list.</p>
-<p><strong><code>can't open X-Touch-Ext (... Device or resource busy)</code>.</strong> Only one program can use the device at a time, and another program has it. Close DAWs or other
+<p><strong><code>can't open X-Touch-Ext (... Device or resource busy)</code>.</strong> Only one program can use the X-Touch at a time, and another program has it. Close DAWs or other
 MIDI tools that opened it. The command <code>xtouch-daemon test</code> is not one of them while the daemon runs: it then asks
-the daemon, which has the device, to run the test.</p>
-<p><strong><code>... Permission denied</code>.</strong> Your user can't open the MIDI device in <code>/dev/snd</code>. Desktop sessions give access to the
+the daemon, which has the X-Touch, to run the test.</p>
+<p><strong><code>... Permission denied</code>.</strong> Your user can't open the MIDI port of the X-Touch in <code>/dev/snd</code>. Desktop sessions give access to the
 logged-in user; without a session (e.g. over SSH, or a headless machine), add the user to the <code>audio</code> group with
 <code>sudo usermod -aG audio $USER</code>, then log in again. See <a href="../../reference/hardware/#linux-access">Hardware</a>.</p>
-<p><strong>A fader does not change the volume.</strong> The daemon counts a fader move only while the device reports a finger on the
+<p><strong>A fader does not change the volume.</strong> The daemon counts a fader move only while the X-Touch reports a finger on the
 fader (the touch sensor). If the sensor of one fader is broken, the daemon ignores your move and the motor pushes the
 fader back to its old value shortly after. <code>xtouch-daemon test</code> (or "Test the device" in the GUI) shows <code>touch</code> on the
-LCD while the device reports a touch: touch the fader and look. If <code>touch</code> does not show, the sensor of that fader is
-broken. Until you can repair the device, <a href="../../configuration/behavior/#faders-without-a-touch-sensor"><code>touchless_faders</code></a> makes the fader work
+LCD while the X-Touch reports a touch: touch the fader and look. If <code>touch</code> does not show, the sensor of that fader is
+broken. Until you can repair the X-Touch, <a href="../../configuration/behavior/#faders-without-a-touch-sensor"><code>touchless_faders</code></a> makes the fader work
 without it.</p>
-<p><strong>A fader jumps on its first move after the daemon started.</strong> The device can't tell the computer where its faders
+<p><strong>A fader jumps on its first move after the daemon started.</strong> The X-Touch can't tell the computer where its faders
 are, so after a connect the daemon assumes that they are all at the bottom. If you moved a fader while the daemon did
 not run, the fader is somewhere else, and the first move starts from there: the volume jumps to that position.
 Nothing is broken: after that first move, the fader and the volume agree. See <a href="../../reference/hardware/#motor-faders">Hardware</a>.</p>
 <h2 id="audio">Audio<a class="headerlink" href="#audio" title="Permanent link">&para;</a></h2>
 <p><strong>The meters stay dark.</strong> A meter shows a level only while something plays to the output or records from the input.
-That is on purpose: the meters never open a device themselves. A microphone meter moves only while an application
+That is on purpose: the meters never open a sound device themselves. A microphone meter moves only while an application
 records from it. Also check that the option <code>meters</code> of <a href="../../configuration/behavior/"><code>[behavior]</code></a> is <code>true</code> and
 that the channel does not set <code>meter = false</code>.</p>
 <p><strong>Streams don't follow when I select another output.</strong> A stream is the audio that one application plays. The sound
-server (PipeWire or PulseAudio) sends a stream to the default device, unless something fixed another device for it
-(a stream that a tool moved to one particular device). A stream that is not fixed
-follows the default. The Select button of an output strip makes that device the default (the <code>select</code> option of the
+server (PipeWire or PulseAudio) sends a stream to the default output, unless something fixed another output for it
+(a stream that a tool moved to your speakers, say). A stream that is not fixed
+follows the default. The Select button of an output strip makes that output the default (the <code>select</code> option of the
 channel can change what the button does), so the streams move with it. A stream that another tool moved to a
-particular device (the per-stream output menu of pavucontrol, <code>pactl move-sink-input</code>) stays there. Move it back in
+particular output (the per-stream output menu of pavucontrol, <code>pactl move-sink-input</code>) stays there. Move it back in
 pavucontrol, or close and reopen the audio in that application.</p>
 <p><strong>A strip shows <code>off</code>.</strong> The sound device that the strip controls is not there, e.g. Bluetooth headphones that are
-switched off. The strip comes back by itself when the device does. <code>xtouch-daemon list-devices</code> shows the devices that are there.</p>
+switched off. The strip comes back by itself when it does. <code>xtouch-daemon list-devices</code> shows the outputs and inputs that are there.</p>
 <p><strong>An <a href="../../configuration/channels/applications/"><code>apps</code> channel</a> shows <code>idle</code>.</strong> No stream of its applications is there. <code>xtouch-daemon list-apps</code> shows the names
 and binaries of the applications that play, and which channel or <a href="../../configuration/slots/">slot</a> takes each one.</p>
 <p><strong>Select does not start the application of <code>launch</code>.</strong> <code>launch</code> is an option of a channel: the command that its
@@ -3053,11 +3053,11 @@ match more than you meant. <code>check-config</code> shows what the <a href="../
 </ul>
 <p>The GUI shows the same in the inspector of the slot. <code>xtouch-daemon check-config</code> shows what the slots show in each
 situation.</p>
-<p><strong>A change does not show on the device.</strong> The daemon takes a saved file a moment later. If the file has errors, the
+<p><strong>A change does not show on the X-Touch.</strong> The daemon takes a saved file a moment later. If the file has errors, the
 daemon logs them and keeps the old configuration: run <code>xtouch-daemon check-config</code> to see them. A changed <code>[mqtt]</code>
-section needs a restart of the service (<code>systemctl --user restart xtouch-daemon</code>). The <a href="../gui/">GUI</a> tells whether the device runs the saved file.</p>
+section needs a restart of the service (<code>systemctl --user restart xtouch-daemon</code>). The <a href="../gui/">GUI</a> tells whether the X-Touch runs the saved file.</p>
 <h2 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h2>
-<p><strong>The entities are unavailable.</strong> They are available only while the daemon runs and the device is connected. Check
+<p><strong>The entities are unavailable.</strong> They are available only while the daemon runs and the X-Touch is connected. Check
 the broker settings in <code>[mqtt]</code> and the log. The GUI shows how the connection is doing in the
 popover of the service pill (the status label in the header of the window that shows whether the daemon runs), and on the page Settings, Home Assistant, where "Test connection" tries the settings.</p>
 <p><strong>The second line of a strip shows <code>offline</code>.</strong> The strip takes its text from Home Assistant, and the daemon can't
@@ -3074,7 +3074,7 @@ Arch), see <a href="../../getting-started/install/">Install</a>.</p>
 systemd user session (over SSH, in a container). The tooltip of the pill says why. (A daemon that you started in a
 terminal shows "running elsewhere" instead; the GUI reloads it when you save.) The GUI edits the configuration file
 without the service, and "Try without a device" needs no daemon.</p>
-<p><strong>"The device does not run the saved file yet" stays.</strong> The daemon did not take the file; its log says why
+<p><strong>The pill says "Not on the device yet" after a save.</strong> (The GUI calls the X-Touch "the device".) The daemon did not take the file; its log says why
 (View → Log in the GUI, or <code>journalctl --user -u xtouch-daemon</code>).</p>
 <p><strong>Next:</strong> <a href="../../reference/commands/">Commands</a>, <a href="../../reference/hardware/">Hardware and protocol</a>.</p>
 

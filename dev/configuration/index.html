@@ -2829,7 +2829,7 @@ other six. A slot without an entry is always <code>auto</code>. This example is 
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w">     </span><span class="c1"># the names of your outputs and inputs, for `device` of a channel</span>
 </span></code></pre></div>
 <p><code>check-config</code> prints <code>valid</code> and the channels. Then it prints a table of what each slot shows in each situation (in a
-call, gaming). It needs no device. To run the daemon as a service and read its log, see
+call, gaming). It needs no X-Touch. To run the daemon as a service and read its log, see
 <a href="../getting-started/first-steps/">First steps</a>.</p>
 <p>Only you may change the file. A configuration can start programs (the <code>launch</code> of a channel, <code>run</code> in
 <a href="slots/#controls-and-the-chord"><code>[controls]</code></a>), and the daemon runs them as you. So it refuses a file in which
@@ -2876,7 +2876,7 @@ the channel.</p>
 <tbody>
 <tr>
 <td><code>[channel.&lt;id&gt;]</code></td>
-<td>What a strip can control: a device, a group of applications, a person, Home Assistant.</td>
+<td>What a strip can control: your headphones, a group of applications, a person, Home Assistant.</td>
 <td><a href="channels/">Channels</a></td>
 </tr>
 <tr>
@@ -2916,7 +2916,7 @@ the channel.</p>
 </tr>
 <tr>
 <td><code>[device]</code></td>
-<td>Which sound card is the extender.</td>
+<td>Which sound card is the X-Touch, and how it starts up and shuts down.</td>
 <td><a href="behavior/#device">Behavior</a></td>
 </tr>
 <tr>
@@ -2953,7 +2953,7 @@ the channel.</p>
 <tbody>
 <tr>
 <td><code>output</code>, <code>input</code></td>
-<td>An output or an input device, several of them, <a href="channels/devices/#choices">choices</a> to switch between, or the default one.</td>
+<td>An output (your headphones) or an input (your microphone): one, several of them, <a href="channels/devices/#choices">choices</a> to switch between, or the default one.</td>
 <td><a href="channels/devices/">Devices</a></td>
 </tr>
 <tr>
@@ -2980,7 +2980,7 @@ the channel.</p>
   (<a href="channels/applications/#apps-and-auto">Applications</a>).</li>
 <li><code>people</code> is the next person of the voice chat (<a href="channels/people/#where-people-sit">People</a>).</li>
 <li><code>auto</code> is both: people first (from the right), then applications.</li>
-<li><code>devices</code> is the next device that no channel has (<a href="channels/devices/#devices-without-a-channel">Devices</a>).</li>
+<li><code>devices</code> is the next output or input that no channel has (<a href="channels/devices/#devices-without-a-channel">Devices</a>).</li>
 <li><code>-</code> is a dark strip (<a href="channels/#empty-slots">Channels</a>).</li>
 </ul>
 <p>Presets (the <code>@browsers</code> in <code>match</code>) are on <a href="presets/">Presets</a>.</p>
@@ -2991,13 +2991,9 @@ the configuration it has. To check a file first, or to load it again by hand:</p
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>systemctl<span class="w"> </span>--user<span class="w"> </span>reload<span class="w"> </span>xtouch-daemon
 </span></code></pre></div>
 <p>A reload (SIGHUP) does the same as a change of the file.</p>
-<p>Two sections need a restart (<code>systemctl --user restart xtouch-daemon</code>):</p>
-<ul>
-<li>A changed <code>[device] name</code> or <code>virtual</code>. A reload takes the rest of the file, but the daemon keeps using the old
-  device. (This is about the rest of the sections, but not about <code>[mqtt]</code>: see the next bullet.)</li>
-<li>A changed <code>[mqtt]</code> section. This one blocks the whole reload: until the restart, the daemon ignores every change in
-  the file, not only the ones in <code>[mqtt]</code>. The log says so.</li>
-</ul>
+<p>One section needs a restart (<code>systemctl --user restart xtouch-daemon</code>): a changed <code>[mqtt]</code>. It blocks the whole
+reload: until the restart, the daemon ignores every change in the file, not only the ones in <code>[mqtt]</code>. The log says
+so. A changed <code>[device] name</code> or <code>virtual</code> needs no restart: the daemon connects to the other X-Touch.</p>
 <p>The GUI applies a file when you save it. It reloads the running daemon, whether that is the service or one you started
 from a terminal or an IDE, or it offers a restart when one is needed. It then tells you whether the daemon took the
 file.</p>

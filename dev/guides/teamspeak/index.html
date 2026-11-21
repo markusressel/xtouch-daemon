@@ -2917,9 +2917,7 @@ xtouch-daemon installed (see <a href="../../getting-started/install/">Install</a
 <p>The plugin talks to the daemon through the bridge: a socket that the daemon opens for plugins of voice chat programs
 (see <a href="../../reference/voice-chat-bridge/">the voice chat bridge</a>). The bridge is on by default (<code>[voip]</code> has
 <code>provider = "bridge"</code>). You change it only to try the strips without TeamSpeak (<code>provider = "demo"</code>).</p>
-<p>The look of the people has these options. The lines below show the defaults. The default of <code>max_volume</code> is the
-option <code>max_volume</code> in the section <a href="../../configuration/behavior/"><code>[behavior]</code></a> of the configuration, which is 130:
-with it the fader goes from 0 to 130 %, and you set 200 to reach 200 %. Change the options in <code>[pool.people]</code> for
+<p>The look of the people has these options. The lines below show the defaults. Unless you set it, <code>max_volume</code> is 130, the value of <code>max_volume</code> in <a href="../../configuration/behavior/"><code>[behavior]</code></a>; set 200 to reach 200 %. Change the options in <code>[pool.people]</code> for
 all people, or in a <code>person</code> channel for one person (see <a href="../../configuration/channels/people/">People</a>):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[pool.people]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">talking_color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"green"</span><span class="w">   </span><span class="c1"># the backlight while they talk</span>

@@ -3021,8 +3021,8 @@ There are two ways to set that up, and they need no setup in PipeWire:</p>
 <p>A stream belongs to the channel when its application name (<code>application.name</code>) or binary
 (<code>application.process.binary</code>) contains one of the <code>match</code> entries. <code>"wine"</code> matches <code>wine64-preloader</code>, <code>".exe"</code>
 matches Windows games under Proton. <code>xtouch-daemon list-apps</code> shows the names and binaries of the applications that
-play, and which channel or slot takes each one. A stream can belong to several <code>apps</code> channels. The fader of each of them sets its volume, so the one you moved last
-wins.</p>
+play, and which channel or slot takes each one. A stream can belong to several <code>apps</code> channels (one for <code>@browsers</code> and one for <code>"firefox"</code>, say). The fader of each of them
+sets its volume, so the one you moved last wins.</p>
 <p>For common groups there are <a href="../../presets/">presets</a>: <code>@browsers</code>, <code>@voip</code>, <code>@games</code>, <code>@steam-games</code>, <code>@music</code> and
 <code>@video</code> stand for the names of well-known applications of the group, e.g. <code>match = ["@browsers"]</code> for every browser,
 and mix with names of your own (<code>match = ["@voip", "my-voice-app"]</code>).</p>
@@ -3124,8 +3124,8 @@ stopped playing. See <a href="../../strip/encoders/#pick">Encoders</a>.</p>
 <p>A slot of <code>apps</code> or <code>auto</code> controls its application like an <code>apps</code> channel does (fader, Mute, meter), except that the
 application keeps its own volume when the slot takes it. Without an application the strip is dark and does nothing.</p>
 <h2 id="launching-the-application">Launching the application<a class="headerlink" href="#launching-the-application" title="Permanent link">&para;</a></h2>
-<p>With <code>launch</code>, the Select button of an <code>apps</code> channel starts an application while it does not run: the voice
-chat, the music player. Any slot can start one with <a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a>, whatever it
+<p>With <code>launch</code>, the Select button of an <code>apps</code> channel starts an application while it does not run, such as Mumble
+or your music player. Any slot can start one with <a href="../../slots/#controls-and-the-chord"><code>[controls]</code></a>, whatever it
 shows. In <code>[controls]</code> a condition is written as <code>when = "..."</code>; in a slot you write it after <code>if</code>. In this example, Select on strip 7 starts Mumble while the state <code>call</code> (a state you define, see <a href="../../slots/#states-and-modes">States</a>) is off:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[controls]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span>
@@ -3155,11 +3155,9 @@ shows. In <code>[controls]</code> a condition is written as <code>when = "..."</
 <li>While it runs, Select does nothing. With <code>launch_when_running = true</code> Select starts the command also then.</li>
 <li>The Select LED flashes while the application starts (until it runs, at most 15 s), then it is on while it runs.</li>
 <li>A second press within 5 s while the application is not up yet does nothing.</li>
-<li>The application runs on its own: as a transient systemd user service (<code>systemd-run --user</code>, named
-  <code>xtouch-launch-&lt;program&gt;-&lt;random&gt;</code>), so a restart of the daemon does not end it, and its output is in
-  <code>journalctl --user -u 'xtouch-launch-*'</code>. Without a systemd user manager it starts as a separate process that the daemon does not wait for. A
-  program that is not in <code>PATH</code> is a warning in the daemon's log.</li>
-<li>The process list is read every 2 s.</li>
+<li>The application runs on its own, as a transient systemd user service (<code>systemd-run --user</code>), so a restart of the
+  daemon does not end it. Its output is in <code>journalctl --user -u 'xtouch-launch-*'</code>. Without a systemd user manager
+  it starts as a separate process. A program that is not in <code>PATH</code> is a warning in the log of the daemon.</li>
 <li>Only the configuration can start programs: neither Home Assistant nor MQTT can, and <code>homeassistant</code>, <code>output</code>,
   <code>input</code> and <code>person</code> channels have no <code>launch</code>.</li>
 </ul>

@@ -772,10 +772,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-the-device-runs" class="md-nav__link">
+  <a href="#what-the-x-touch-runs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        What the device runs
+        What the X-Touch runs
       </span>
     </span>
   </a>
@@ -3275,10 +3275,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-the-device-runs" class="md-nav__link">
+  <a href="#what-the-x-touch-runs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        What the device runs
+        What the X-Touch runs
       </span>
     </span>
   </a>
@@ -3598,11 +3598,11 @@
 
 <h1 id="gui">GUI<a class="headerlink" href="#gui" title="Permanent link">&para;</a></h1>
 <p>The GUI is a window that edits the configuration file (<code>~/.config/xtouch-daemon/config.toml</code>) and applies it to the
-running daemon. You need no running daemon to edit; the daemon is only needed to see the live device, to test it and
+running daemon. You need no running daemon to edit; the daemon is only needed to see the live X-Touch, to test it and
 to preview changes. Start it with <code>xtouch-daemon gui</code> (<code>-c FILE</code> opens another file), or with <code>xtouch-daemon-gui</code> if
 you installed the Arch Linux package; see <a href="../../getting-started/install/#the-gui">Install</a>. If the file does not
 exist yet, the window starts with the example configuration and writes the file when you save.</p>
-<p>It edits <a href="../../configuration/slots/">channels, states and slots</a>: what the strips of the device control, and when.</p>
+<p>It edits <a href="../../configuration/slots/">channels, states and slots</a>: what the strips of the X-Touch control, and when.</p>
 <div class="admonition tip">
 <p class="admonition-title">New here?</p>
 <p>The <a href="../../getting-started/tour/">Setup tour</a> builds a configuration with the GUI, page by page. This page is the
@@ -3611,7 +3611,8 @@ reference.</p>
 <p><img alt="The GUI: the window Device at the top, the slots and the inspector of slot 3 below" src="../../images/gui.png" /></p>
 <h2 id="the-window">The window<a class="headerlink" href="#the-window" title="Permanent link">&para;</a></h2>
 <p>The GUI shows two panels, which it calls windows: <strong>Configuration</strong>, where you edit, and <strong>Device</strong>, which draws the
-device (see <a href="#the-window-device">The window Device</a>). The window Configuration has a rail of four pages on its
+X-Touch (see <a href="#the-window-device">The window Device</a>); without hardware it draws the <em>virtual device</em>, an
+X-Touch made of software. The window Configuration has a rail of four pages on its
 left, icons only. » at its foot shows their names, « hides them again; the GUI remembers it.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Slots</label><label for="__tabbed_1_2">Channels</label><label for="__tabbed_1_3">States</label><label for="__tabbed_1_4">Settings</label></div>
 <div class="tabbed-content">
@@ -3657,7 +3658,7 @@ and which slots and controls use the state.</p>
   <a href="../teamspeak/">TeamSpeak</a>. The box tells whether the plugin is connected, lists the steps of its setup, and
   installs the plugin with "Install Mumble plugin" or "Install TeamSpeak plugin". A client that is not installed
   gets one line.</li>
-<li><code>[device]</code>, as "Extender": the sound card of the extender, touch sensors, start-up.</li>
+<li><code>[device]</code>, as "Extender": the sound card of the X-Touch, touch sensors, start-up.</li>
 </ul>
 </div>
 </div>
@@ -3665,21 +3666,21 @@ and which slots and controls use the state.</p>
 <p>Slots, Channels and States have a list (or the slots) on the left and what is picked on the right. The handle between
 them (the short upright bar) gives either side more room; each page keeps its share for the next start.</p>
 <h3 id="the-window-device">The window Device<a class="headerlink" href="#the-window-device" title="Permanent link">&para;</a></h3>
-<p>The window <strong>Device</strong> shows the device on every page, above the window Configuration at first.</p>
+<p>The window <strong>Device</strong> shows the X-Touch on every page, above the window Configuration at first.</p>
 <ul>
 <li>The title bar of either window moves it to another side of the window, next to the other one, or out of it as a
   window of its own (e.g. on another screen). The GUI keeps where they are for the next start.</li>
-<li>View → Device closes and opens the device. Configuration always stays open.</li>
+<li>View → Device closes and opens the X-Touch. Configuration always stays open.</li>
 <li>Clicking a strip (or <span class="keys"><kbd class="key-arrow-left">Left</kbd></span>, <span class="keys"><kbd class="key-arrow-right">Right</kbd></span>, <span class="keys"><kbd class="key-home">Home</kbd></span>, <span class="keys"><kbd class="key-end">End</kbd></span>) shows its slot on the page Slots of the window
   Configuration.</li>
 </ul>
 <p><img alt="One strip as the window Device draws it" class="xt-part" src="../../images/controls/strip.png" width="80" /></p>
-<p>The drawing of the device shows each strip as on the device:</p>
+<p>The drawing of the X-Touch shows each strip as on the X-Touch:</p>
 <ul>
 <li>the <a href="../../configuration/strip/encoders/">encoder</a> with its ring of 13 <a href="../../configuration/strip/leds/">LEDs</a>
   (Mackie Control lights the middle 11);</li>
 <li>the LCD: the backlight in the strip's color shines around a dark panel and through its characters, as on the
-  device;</li>
+  X-Touch;</li>
 <li>the meter next to Rec, Solo, Mute and Select;</li>
 <li>the fader with its dB scale: the middle of the cap marks the value, -∞ at the bottom, 0 dB at 77 % of the travel
   (the option <code>unity_at</code> of <code>[behavior]</code>).</li>
@@ -3689,7 +3690,7 @@ them (the short upright bar) gives either side more room; each page keeps its sh
 <ul>
 <li><strong>Header:</strong> the state of the service, with buttons to install, start, restart or stop it (see
   <a href="#the-service">The service</a>), and what the sound server has.</li>
-<li><strong>Footer:</strong> the problems, whether the device runs the file, the control <a href="#preview">Preview</a> (while there are
+<li><strong>Footer:</strong> the problems, whether the X-Touch runs the file, the control <a href="#preview">Preview</a> (while there are
   unsaved changes or Simulate is open), and the buttons Undo, Redo, Revert and "Save and apply".</li>
 <li><strong>Title:</strong> the file, with • while there are unsaved changes.</li>
 </ul>
@@ -3732,7 +3733,7 @@ the slots, the state bar, and the words and sections in the help (<code>[state.g
 </tr>
 <tr>
 <td>The color of the text</td>
-<td>The controls of the device (Select, Mute, the fader, the encoder, ...), which stand out from the help</td>
+<td>The controls of the X-Touch (Select, Mute, the fader, the encoder, ...), which stand out from the help</td>
 </tr>
 </tbody>
 </table>
@@ -3848,7 +3849,7 @@ on top of a <code>QT_SCALE_FACTOR</code> of the environment.</p>
 the selected slot and the page stay.</p>
 </div>
 <h2 id="live-view">Live view<a class="headerlink" href="#live-view" title="Permanent link">&para;</a></h2>
-<p>While the daemon runs, the drawing shows what the device shows right now, read from the daemon's live view. A pill on
+<p>While the daemon runs, the drawing shows what the X-Touch shows right now, read from the daemon's live view. A pill on
 the right of the bar of the window Device says what the drawing shows:</p>
 <table>
 <thead>
@@ -3860,15 +3861,15 @@ the right of the bar of the window Device says what the drawing shows:</p>
 <tbody>
 <tr>
 <td>Live</td>
-<td>What the device shows right now.</td>
+<td>What the X-Touch shows right now.</td>
 </tr>
 <tr>
 <td>No daemon</td>
-<td>Dark strips: the drawing is the device, and only the daemon drives it. Start it (<code>xtouch-daemon install-service --now</code>), or use "Try without a device", which starts a daemon with the virtual device.</td>
+<td>Dark strips: the drawing is the X-Touch, and only the daemon drives it. Start it (<code>xtouch-daemon install-service --now</code>), or use "Try without a device", which starts a daemon with the virtual device.</td>
 </tr>
 <tr>
 <td>Live · not connected</td>
-<td>Dark strips: the daemon runs, but the device is not connected. They light up with the startup sequence once it is there.</td>
+<td>Dark strips: the daemon runs, but the X-Touch is not connected. They light up with the startup sequence once it is there.</td>
 </tr>
 <tr>
 <td>Live · virtual device</td>
@@ -3881,7 +3882,7 @@ the right of the bar of the window Device says what the drawing shows:</p>
 </tbody>
 </table>
 <p>When the daemon stops, the drawing shows its shutdown sequence too, until the strips are dark.</p>
-<p>Next to it, a pill shows the <a href="../../configuration/slots/#states-and-modes">mode</a> the device shows: "Mode: gaming", "No
+<p>Next to it, a pill shows the <a href="../../configuration/slots/#states-and-modes">mode</a> the X-Touch shows: "Mode: gaming", "No
 mode" while no mode is on (the mode is then <code>default</code>), "· by hand" when it was picked by hand. A mode is a state with <code>mode = true</code>: one at a time
 is on. A click lists the states, with what turned each on, and picks a mode by hand ("Pick gaming", "Pick no mode",
 "Back to the rules").</p>
@@ -3889,13 +3890,13 @@ is on. A click lists the states, with what turned each on, and picks a mode by h
 problem, e.g. "running · Home Assistant not authorized" or "running · device not connected". A click lists each
 connection, how it is doing and why, with a button to its settings:</p>
 <ul>
-<li>the device and the sound server;</li>
+<li>the X-Touch and the sound server;</li>
 <li>Home Assistant with an <code>[mqtt]</code> section: the broker's own words and what to check;</li>
 <li>the Home Assistant API while a part shows or sets an entity: e.g. "bad token" or "unreachable";</li>
 <li>the voice chat with <code>[voip]</code>.</li>
 </ul>
 <h2 id="select-and-play">Select and Play<a class="headerlink" href="#select-and-play" title="Permanent link">&para;</a></h2>
-<p>A bar above the drawing of the device switches what the mouse does on it:</p>
+<p>A bar above the drawing of the X-Touch switches what the mouse does on it:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Select</label><label for="__tabbed_2_2">Play</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -3907,7 +3908,7 @@ left, Move right) do the same.</p>
 <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-z">Z</kbd></span> moves it back. Comments above the slots in the file stay where they are.</p>
 </div>
 <div class="tabbed-block">
-<p>The mouse is a hand on the device, and the drawing looks like the device: no strip is selected, and there are no
+<p>The mouse is a hand on the X-Touch, and the drawing looks like the X-Touch: no strip is selected, and there are no
 outlines of the selection, the focus or the mouse. The selection comes back with Select.</p>
 <table>
 <thead>
@@ -3919,7 +3920,7 @@ outlines of the selection, the focus or the mouse. The selection comes back with
 <tbody>
 <tr>
 <td><img alt="Fader" class="xt-icon" src="../../images/controls/fader.png" /> Fader</td>
-<td>Press to touch it, drag to move it, release to let go. Alt-drag moves it without a touch, as the motor of the device moves it. This lets you try what the daemon does when a fader moves without a finger on it: it puts the fader back to the value it holds.</td>
+<td>Press to touch it, drag to move it, release to let go. Alt-drag moves it without a touch, as the motor of the X-Touch moves it. This lets you try what the daemon does when a fader moves without a finger on it: it puts the fader back to the value it holds.</td>
 </tr>
 <tr>
 <td><img alt="Select" class="xt-icon" src="../../images/controls/select.png" /> Button</td>
@@ -3934,27 +3935,27 @@ outlines of the selection, the focus or the mouse. The selection comes back with
 </div>
 </div>
 </div>
-<p>Play works on the <a href="#the-virtual-device">virtual device</a> the window hosts, and on the device of a running daemon. Then
-the daemon takes what the mouse does as if the device sent it: the mixer acts, and a motorized fader follows once it is
+<p>Play works on the <a href="#the-virtual-device">virtual device</a> the window hosts, and on the X-Touch of a running daemon. Then
+the daemon takes what the mouse does as if the X-Touch sent it: the mixer acts, and a motorized fader follows once it is
 let go. The fader under the mouse is drawn there at once. If the drawing shows a preview in the GUI (see
-<a href="#preview">Preview</a>), the mouse acts on the <em>virtual twin</em>, a copy of the device that the daemon runs for the preview,
-not on the real device.</p>
+<a href="#preview">Preview</a>), the mouse acts on the <em>virtual twin</em>, a copy of the X-Touch that the daemon runs for the preview,
+not on the real X-Touch.</p>
 <div class="admonition info">
 <p class="admonition-title">When Play is off</p>
-<p>Play is off in these cases: no daemon runs (or the daemon belongs to another user, or is too old), or the device is
+<p>Play is off in these cases: no daemon runs (or the daemon belongs to another user, or is too old), or the X-Touch is
 not connected. The bar says why next to it ("Play: device not connected"). One case is the exception: the
-daemon is set to drive the virtual device (<code>[device] virtual = true</code>), but that device is not running yet. Then
+daemon is set to drive the virtual device (<code>[device] virtual = true</code>), but the virtual device is not running yet. Then
 Play is on, and a click on it opens the virtual device in the window and plays on it.</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Try without a device</p>
 <p>While no daemon runs, "Try without a device" starts one with the virtual device on this file (saved first if it is
-new) and opens the device in the window, in Play: to set everything up and try it before there is a device. That
+new) and opens the X-Touch in the window, in Play: to set everything up and try it before you have an X-Touch. That
 daemon ends with the window.</p>
 </div>
 <h2 id="test-the-device">Test the device<a class="headerlink" href="#test-the-device" title="Permanent link">&para;</a></h2>
-<p>"Test the device", above the drawing, asks the daemon to test the device: the strips light up one after the other
-(the sweep), then every strip answers its own controls, on the device and in the drawing, so the two can be compared.
+<p>"Test the device", above the drawing, asks the daemon to test the X-Touch: the strips light up one after the other
+(the sweep), then every strip answers its own controls, on the X-Touch and in the drawing, so the two can be compared.
 A bar says what each control does:</p>
 <table>
 <thead>
@@ -3986,10 +3987,10 @@ A bar says what each control does:</p>
 </tr>
 </tbody>
 </table>
-<p>During the test, Play works on the drawing: you can touch and press it with the mouse (this includes the virtual
-device that the window hosts). The slots go on meanwhile (Home
-Assistant still sees them), but show on the device only again when the test ends: a click on the button, closing the
-window, a preview "On the device", or the device going away. The footer says why it ended.</p>
+<p>During the test, Play works on the drawing: you can touch and press it with the mouse (this includes the virtual device
+that the window hosts). The slots go on meanwhile (Home
+Assistant still sees them), but show on the X-Touch only again when the test ends: a click on the button, closing the
+window, a preview "On the device", or the X-Touch going away. The footer says why it ended.</p>
 <h2 id="log">Log<a class="headerlink" href="#log" title="Permanent link">&para;</a></h2>
 <p>View → Log (<span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-l">L</kbd></span>) opens the window <strong>Log</strong>: the log of the daemon that runs, the same records the journal or its
 terminal show, at the level the daemon runs with (<code>-l debug</code> for more). It works for the service and for a daemon
@@ -4012,13 +4013,13 @@ runs, it says so; when the daemon stops, the last records stay, and the window s
 drawing:</p>
 <ul>
 <li>unplugs it and plugs it in again;</li>
-<li>switches it off and on (the faders go down by themselves, as on the device);</li>
+<li>switches it off and on (the faders go down by themselves, as on the X-Touch);</li>
 <li>breaks the touch sensor of faders ("Broken touch"), to try <code>touchless_faders</code>;</li>
 <li>"Close" closes it, and so does closing the window: for the daemon it is unplugged.</li>
 </ul>
-<p>What the drawing shows still comes from the daemon, which is what reached the device.</p>
-<p>When the device (<code>[device] name</code>) is plugged in while the daemon drives the virtual one, a bar above the drawing says
-so. Its button switches to the device:</p>
+<p>What the drawing shows still comes from the daemon, which is what reached the X-Touch.</p>
+<p>When the X-Touch (<code>[device] name</code>) is plugged in while the daemon drives the virtual one, a bar above the drawing says
+so. Its button switches to the X-Touch:</p>
 <table>
 <thead>
 <tr>
@@ -4029,21 +4030,21 @@ so. Its button switches to the device:</p>
 <tbody>
 <tr>
 <td><code>[device] virtual = true</code> in the file</td>
-<td><strong>Switch to it</strong>: turns <code>virtual</code> off, saves the file (after asking, when it has other changes) and closes the virtual device. The daemon reloads and takes the device, without a restart.</td>
+<td><strong>Switch to it</strong>: turns <code>virtual</code> off, saves the file (after asking, when it has other changes) and closes the virtual device. The daemon reloads and takes the X-Touch, without a restart.</td>
 </tr>
 <tr>
 <td>The daemon of "Try without a device"</td>
-<td><strong>End the trial</strong>: ends that daemon. Start the service to use the device.</td>
+<td><strong>End the trial</strong>: ends that daemon. Start the service to use the X-Touch.</td>
 </tr>
 <tr>
 <td>Started elsewhere with <code>--virtual-device</code></td>
-<td>No button: it only uses the device after a restart without it, and the bar says so.</td>
+<td>No button: it only uses the X-Touch after a restart without it, and the bar says so.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="preview">Preview<a class="headerlink" href="#preview" title="Permanent link">&para;</a></h2>
-<h3 id="what-the-device-runs">What the device runs<a class="headerlink" href="#what-the-device-runs" title="Permanent link">&para;</a></h3>
-<p>Next to Save and apply, a pill says what the device runs. A click tells it in full, with the path of the file ("Copy
+<h3 id="what-the-x-touch-runs">What the X-Touch runs<a class="headerlink" href="#what-the-x-touch-runs" title="Permanent link">&para;</a></h3>
+<p>Next to Save and apply, a pill says what the X-Touch runs. A click tells it in full, with the path of the file ("Copy
 the path", "Open the folder") and the file the daemon reads when that is another one.</p>
 <table>
 <thead>
@@ -4055,11 +4056,11 @@ the path", "Open the folder") and the file the daemon reads when that is another
 <tbody>
 <tr>
 <td>Saved, on the device</td>
-<td>Nothing is unsaved, and the device runs the saved file.</td>
+<td>Nothing is unsaved, and the X-Touch runs the saved file.</td>
 </tr>
 <tr>
 <td>Unsaved changes</td>
-<td>You changed something; the device still runs the saved file.</td>
+<td>You changed something; the X-Touch still runs the saved file.</td>
 </tr>
 <tr>
 <td>In the GUI, not saved</td>
@@ -4067,11 +4068,11 @@ the path", "Open the folder") and the file the daemon reads when that is another
 </tr>
 <tr>
 <td>On the device, not saved</td>
-<td>The device runs the changes ("Sending to the device…" for a moment after a change).</td>
+<td>The X-Touch runs the changes ("Sending to the device…" for a moment after a change).</td>
 </tr>
 <tr>
 <td>On the device · simulated</td>
-<td>The device shows the what-if of Simulate.</td>
+<td>The X-Touch shows the what-if of Simulate.</td>
 </tr>
 <tr>
 <td>Paused: problems</td>
@@ -4090,21 +4091,21 @@ and redo too). The file is not written.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:3"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">In the GUI (default)</label><label for="__tabbed_3_2">On the device</label><label for="__tabbed_3_3">Off</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<p>The window shows the preview on a <strong>virtual twin</strong> of the device in the daemon. The twin is a second, complete set
-of strips that drives no real sound, voice chat, <a href="../home-assistant/">Home Assistant</a> or device.</p>
+<p>The window shows the preview on a <strong>virtual twin</strong> of the X-Touch in the daemon. The twin is a second, complete set
+of strips that drives no real sound, voice chat, <a href="../home-assistant/">Home Assistant</a> or X-Touch.</p>
 <ul>
 <li>The drawing, the cards of the page Slots and Play show the twin, with a frame around the drawing.</li>
-<li>Without Simulate, the twin runs the changes in the situation of now: the mode and the states the device has, and
-  the applications, people and devices there are.</li>
-<li>The device keeps running the saved file. The pill says "In the GUI, not saved".</li>
+<li>Without Simulate, the twin runs the changes in the situation of now: the mode and the states the X-Touch has, and
+  the applications, people and sound devices there are.</li>
+<li>The X-Touch keeps running the saved file. The pill says "In the GUI, not saved".</li>
 </ul>
 </div>
 <div class="tabbed-block">
-<p>The device runs the preview, before it is saved: pick it to try the changes for real. The drawing shows the
-device, and the pill says "On the device, not saved" ("Sending to the device…" for a moment after a change).</p>
+<p>The X-Touch runs the preview, before it is saved: pick it to try the changes for real. The drawing shows the
+X-Touch, and the pill says "On the device, not saved" ("Sending to the device…" for a moment after a change).</p>
 </div>
 <div class="tabbed-block">
-<p>The drawing shows the device as it is, running the saved file, for when you can't see the device. The changes show
+<p>The drawing shows the X-Touch as it is, running the saved file, for when you can't see the X-Touch. The changes show
 nowhere until you save them or pick another place. Opening Simulate moves the preview to In the GUI, and ending it
 back to Off.</p>
 </div>
@@ -4117,7 +4118,7 @@ version).</p>
 <h3 id="back-to-the-file">Back to the file<a class="headerlink" href="#back-to-the-file" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Save and apply</strong> makes it the configuration: the daemon loads the saved file, which is what the preview showed.</li>
-<li><strong>Another place</strong>, closing the window (it asks about unsaved changes as usual, and says when the device runs them)
+<li><strong>Another place</strong>, closing the window (it asks about unsaved changes as usual, and says when the X-Touch runs them)
   or "Revert" brings back the saved file.</li>
 <li><strong>A window that crashed</strong> does too: the daemon goes back to the file when the connection of the window ends, or
   when the window does not answer for 10 seconds.</li>
@@ -4128,19 +4129,19 @@ version).</p>
 <div class="admonition warning">
 <p class="admonition-title">What the daemon does not take</p>
 <p>It shows in red under the status bar at the top, and the preview keeps the version before. On the device the
-preview can't change <code>[mqtt]</code> (that takes a save and a restart), nor <code>[device] name</code> and <code>virtual</code> (they take a
-save). A configuration with problems is not sent at all: the pill says "Paused: problems" until they are fixed.</p>
+preview can't change <code>[mqtt]</code> (that takes a save and a restart), nor <code>[device] name</code> and <code>virtual</code> (they take effect when
+you save: the daemon then reloads and switches the X-Touch, with no restart). A configuration with problems is not sent at all: the pill says "Paused: problems" until they are fixed.</p>
 </div>
 <dl>
 <dt>Channels, states and slots</dt>
 <dd>All are part of the preview: a slot you changed in the editor shows in the preview as you edited it.</dd>
 <dt>Simulate</dt>
-<dd>Its situation shows where the preview shows. On the device, the device shows the what-if of Simulate instead of
+<dd>Its situation shows where the preview shows. On the device, the X-Touch shows the what-if of Simulate instead of
 what really happens: the states and the mode it sets, its channels present or absent, and its people, applications
-and devices. Real ones come first, so their faders move real audio; made-up ones fill the rest (<code>App 1</code>,
+and sound devices. Real ones come first, so their faders move real audio; made-up ones fill the rest (<code>App 1</code>,
 <code>Device 1</code>). Delays and dwells apply as they really do. The pill says "On the device · simulated". Home Assistant
 never sees it: its slot and state sensors stay as they really are, and nothing of it is kept.</dd>
-<dt>One window on the device at a time</dt>
+<dt>One window on the X-Touch at a time</dt>
 <dd>A second window that picks On the device takes over, and the first one's preview goes back to In the GUI.</dd>
 <dt>Home Assistant</dt>
 <dd>While you preview, a channel that your changes removed keeps its entities in Home Assistant, with their last state;
@@ -4158,7 +4159,7 @@ in the window Device (or <span class="keys"><kbd class="key-arrow-left">Left</kb
   that Home Assistant or <code>xtouch-daemon mode</code> set, with the values <code>auto</code> (the sources decide), <code>on</code> and <code>off</code>; for a
   mode, "pick it" and "back to the rules";</li>
 <li>a button to Simulate the state the other way round: it shows what the slots would show, and changes nothing on the
-  device.</li>
+  X-Touch.</li>
 </ul>
 <h3 id="cards">Cards<a class="headerlink" href="#cards" title="Permanent link">&para;</a></h3>
 <p>A card lists the candidates of its slot as rules, read from the top like "if, else if, else": the first whose
@@ -4190,7 +4191,7 @@ condition holds wins.</p>
 </tbody>
 </table>
 <p><strong>The rail</strong> on the left joins the candidates from the top, with "else" between two and a node on each. The node is
-green on the candidate that the device shows (or that Simulate would show). In a slot <code>["apps", "people"]</code> where a
+green on the candidate that the X-Touch shows (or that Simulate would show). In a slot <code>["apps", "people"]</code> where a
 person sits on the slot, the green node is on <code>people</code>, even though <code>apps</code> is above it: <code>apps</code> had nothing left to hand
 out.</p>
 <ul>
@@ -4301,7 +4302,7 @@ slot shows.</p>
 <li>with so many people in the call and applications that play (the two counts; the strips show their names).</li>
 </ul>
 <p>Simulate includes the unsaved changes and shows where the <a href="#preview">preview</a> shows: in the GUI, on the virtual twin of
-the device in the daemon, or on the device. A frame goes around the drawing in the window Device, and a bar of
+the X-Touch in the daemon, or on the X-Touch. A frame goes around the drawing in the window Device, and a bar of
 what-ifs replaces the state bar. The drawing, the cards and the box of the inspector show it, and Play can operate it.
 <span class="keys"><kbd class="key-escape">Esc</kbd></span>, or Simulate again, ends it.</p>
 <div class="admonition note">
@@ -4310,13 +4311,13 @@ what-ifs replaces the state bar. The drawing, the cards and the box of the inspe
 </div>
 <h2 id="editing-options">Editing options<a class="headerlink" href="#editing-options" title="Permanent link">&para;</a></h2>
 <p>The forms come from the options of the configuration, so every option has a field. The options of a
-<a href="../../configuration/channels/">channel</a> are in cards in the order of the device, from top to bottom: what it
+<a href="../../configuration/channels/">channel</a> are in cards in the order of the X-Touch, from top to bottom: what it
 controls, the <a href="../../configuration/strip/encoders/">encoder</a>, the display, the buttons, the fader and the meter, then
 those about slots (<code>tags</code>, <code>in_pool</code>, ...). Rec, Solo and Select each have what a press does, what a hold does and
 what the LED shows; unset, each shows the default of the type.</p>
 <h3 id="drawings-of-the-parts">Drawings of the parts<a class="headerlink" href="#drawings-of-the-parts" title="Permanent link">&para;</a></h3>
 <p>The cards of the encoder, the display, the buttons and the fader have a drawing of that part of the strip. It shows
-what the options do on the device in a few steps (‹ and › go through them), each with a caption. It follows the values
+what the options do on the X-Touch in a few steps (‹ and › go through them), each with a caption. It follows the values
 in the form at once, saved or not, at the step shown.</p>
 <div class="grid cards">
 <ul>
@@ -4413,8 +4414,8 @@ each button that does something.</p>
 <p>The mouse wheel scrolls the page, also over a number or a choice: it never changes a value.</p>
 <dl>
 <dt><code>choices</code> and <code>profiles</code></dt>
-<dd>A list of entries, each with its label, its device and what it needs. The pencil or a double click opens an entry
-with its fields, with the devices, the sound cards and the profiles of its card to pick from; the card and the
+<dd>A list of entries, each with its label, its output or input and what it needs. The pencil or a double click opens an entry
+with its fields, with the outputs or inputs, the sound cards and the profiles of its card to pick from; the card and the
 profile are under "Switch the sound card first". Drag ⠿ (or <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-arrow-up">Up</kbd></span> / <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-arrow-down">Down</kbd></span>) to change the order,
 which is the order Select goes through them. While a channel has <code>choices</code>, <code>device</code> and <code>profiles</code> are hidden,
 and the other way around: a channel has one or the other.</dd>
@@ -4530,7 +4531,7 @@ the GUI with the variable set (e.g. <code>HA_TOKEN=... xtouch-daemon gui</code> 
 down (by any part of a name or a description, or a pattern with <code>*</code> and <code>?</code>), with the parts that match highlighted.
 Each line says what it is, where it is known from (the default, the active profile, a preset) and below it the name
 that goes into the option. Under <code>device</code>, <code>card</code> and <code>profile</code> of a choice, a line says what the value matches, e.g.
-"Matches 2: ..." for <code>bluez_output.*</code>, or "Matches nothing known" (a device can come later).</p>
+"Matches 2: ..." for <code>bluez_output.*</code>, or "Matches nothing known" (a sound device can come later).</p>
 <table>
 <thead>
 <tr>
@@ -4541,15 +4542,15 @@ that goes into the option. Under <code>device</code>, <code>card</code> and <cod
 <tbody>
 <tr>
 <td><code>device</code></td>
-<td>The outputs or inputs by node name, with their descriptions; the default is marked. Then the devices that another profile of their sound card would make (e.g. the digital output while the card is in its analog profile): picked for a choice, they fill in its card and profile. Then the devices the daemon saw that are not there now, e.g. Bluetooth headphones that are off ("seen 3 days ago"); <span class="keys"><kbd class="key-delete">Del</kbd></span> in the list forgets one.</td>
+<td>The outputs and inputs by node name, with their descriptions; the default is marked. Then the sound devices that another profile of their sound card would make (e.g. the digital output while the card is in its analog profile): picked for a choice, they fill in its card and profile. Then the sound devices the daemon saw that are not there now, e.g. Bluetooth headphones that are off ("seen 3 days ago"); <span class="keys"><kbd class="key-delete">Del</kbd></span> in the list forgets one.</td>
 </tr>
 <tr>
 <td><code>card</code>, <code>profile</code> of a choice</td>
-<td>The sound cards (by description, or the devices they have), and the profiles of the card of the choice.</td>
+<td>The sound cards (by description, or the outputs and inputs they have), and the profiles of the card of the choice.</td>
 </tr>
 <tr>
 <td><code>profiles</code></td>
-<td>The profiles of the sound cards of those devices; the active one is marked.</td>
+<td>The profiles of the sound cards of those sound cards; the active one is marked.</td>
 </tr>
 <tr>
 <td><code>match</code>, <code>exclude</code> of <code>[pool.apps]</code>, <code>apps</code> and <code>recording</code> of a state</td>
@@ -4661,9 +4662,9 @@ on Channels and States. In a field they edit its text.</p>
   (e.g. you edited the file outside the GUI). It then only reloads the daemon.</li>
 <li>A changed <code>[mqtt]</code> section is not reloaded at all: the window offers "Restart the service" for the service;
   restart a daemon that runs elsewhere where it runs. A changed <code>[device] name</code> or <code>virtual</code> is reloaded: the daemon switches
-  to that device.</li>
-<li>It then tells whether the device runs the saved file: "The device runs the saved file", or "The device does not run
-  the saved file yet". If that stays, the daemon did not take the file, and its log says why (View →
+  to that X-Touch.</li>
+<li>Its pill then tells whether the X-Touch runs the saved file: "Saved, on the device", or "Not on the device yet".
+  If that stays, the daemon did not take the file, and its log says why (View →
   <a href="#log">Log</a>, or <code>journalctl --user -u xtouch-daemon</code>).</li>
 </ul>
 <p>"Revert" drops the changes and reads the file again (Undo brings them back).</p>

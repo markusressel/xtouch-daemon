@@ -2861,17 +2861,18 @@
 
 <h1 id="xtouch-daemon">xtouch-daemon<a class="headerlink" href="#xtouch-daemon" title="Permanent link">&para;</a></h1>
 <p>xtouch-daemon turns a Behringer X-Touch Extender into a hardware mixer for PipeWire on Linux. Its motor faders, LED
-meters and scribble strips control your devices, your applications and the people of your voice chat. A strip can
-also belong to Home Assistant instead, for lights, speakers in other rooms or scenes. To use it for real, you need the extender (in MC
-mode, on USB) and a Linux desktop with PipeWire; there is no Windows or macOS version.</p>
-<p><img alt="The GUI: the device as it is, the slots and the inspector of the slot picked" src="images/gui.png" /></p>
+meters and scribble strips control your headphones, your applications and the people of your voice chat. A strip can
+also belong to Home Assistant instead, for lights, speakers in other rooms or scenes. To use it for real, you need the
+X-Touch Extender (in MC mode, on USB) and a Linux desktop with PipeWire; there is no Windows or macOS version.</p>
+<p><img alt="The GUI: the X-Touch as it is, the slots and the inspector of the slot picked" src="images/gui.png" /></p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
-<p>The device has 8 strips, and the configuration has a <strong>slot</strong> for each. A slot is a list of the things its strip can control, such as a device or an application.
-The daemon shows the first entry of the list whose condition is true. An entry without a condition is always true, so
+<p>The X-Touch has 8 strips, and the configuration has a <strong>slot</strong> for each. A slot is a list of the things its strip can
+control, such as your headphones or a game. The daemon shows the first entry of the list whose condition is true. An entry without a condition is always true, so
 it is the fallback at the end. A condition is written with <strong>states</strong>, such as "gaming" or "in a call", which are on or off. You define a state
-in the same file, from what the daemon can see: a program that runs, an application that plays, a device that is
-connected, your presence in the voice chat. The word <code>present</code> is not a state. It is a ready-made condition that needs no definition: it
-is true while the channel has something to control: for <code>buds</code>, while the headphones are connected.</p>
+in the same file, from what the daemon can see: a program that runs, an application that plays, headphones that are
+connected, your presence in the voice chat. The word <code>present</code> is not a state. It is a ready-made condition that needs
+no definition: it is true while the channel has something to control. For <code>buds</code>, that is while the headphones are
+connected.</p>
 <p>Here is a small configuration with two slots:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.buds]</span><span class="w">                  </span><span class="c1"># a channel: you define it, and it controls one thing</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
@@ -2894,23 +2895,23 @@ is true while the channel has something to control: for <code>buds</code>, while
 <li>A <strong>channel</strong> is one thing you define, such as your headphones, a group of applications, a person or a strip for
   Home Assistant. It always takes exactly one strip.</li>
 <li>A <strong>pool</strong> fills strips by itself, so you don't list what is in it. The four pools are:<ul>
-<li><code>apps</code> hands out the applications that play, one per strip. An application whose channel has a slot of its
-  own appears there instead.</li>
+<li><code>apps</code> hands out the applications that play, one per strip. A game with its own channel, like <code>game</code> above,
+  stays on the slot that names that channel, and <code>apps</code> skips it.</li>
 <li><code>people</code> hands out the people of your voice chat.</li>
 <li><code>auto</code> hands out the applications and the people together.</li>
-<li><code>devices</code> hands out the sound devices that have no channel of their own.</li>
+<li><code>devices</code> hands out the outputs and inputs that have no channel of their own.</li>
 </ul>
 </li>
 </ul>
 <p>In the example above, <code>buds</code> and <code>game</code> are channels, <code>gaming</code> is a state, and <code>auto</code> is a pool.</p>
-<p>So the device follows what you do: the game gets a fader while it runs, the voice chat while you are in a call, and the next application that plays takes a free strip. When a strip changes, the other strips keep what they show, and a strip you are touching keeps what it shows until you let go.</p>
+<p>So the X-Touch follows what you do: the game gets a fader while it runs, and the next application that plays takes a
+free strip.</p>
 <p>To install it and try it, start with <a href="getting-started/install/">Getting started</a>. <a href="concepts/">Concepts</a> explains
 each of these words and the ones that look alike.</p>
 <h2 id="what-a-strip-can-control">What a strip can control<a class="headerlink" href="#what-a-strip-can-control" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Devices</strong> (<code>output</code>, <code>input</code>): one sound output or input: a device you name, the first of several that is connected, or the system default. With
-  a list of <code>choices</code>, the Select button of the strip switches between devices, e.g. headphones, speakers and
-  Bluetooth buds. See
+<li><strong>Outputs and inputs</strong> (<code>output</code>, <code>input</code>): your headphones, your speakers or your microphone. With a list of
+  <code>choices</code>, the Select button of the strip switches between them, e.g. headphones, speakers and Bluetooth buds. See
   <a href="configuration/channels/devices/">Devices</a>.</li>
 <li><strong>Applications</strong> (<code>apps</code>): every stream of a group of applications at once, e.g. every browser, with
   <a href="configuration/presets/">presets</a> for browsers, voice chats, games, music and video players. Select can start the
@@ -2923,32 +2924,28 @@ each of these words and the ones that look alike.</p>
 <li><strong>Custom</strong> (<code>custom</code>): something other than audio, e.g. the brightness of a screen, with each part of the strip
   connected to a command of your own. See <a href="configuration/channels/custom/">Custom channels</a>.</li>
 </ul>
-<p>Every strip has a motor fader that glides to new values and stays still under your finger, a volume range up to 200 %,
-an LCD with a label and the volume, an encoder (a rotary knob that you turn and push; it sets the balance or the volume, picks an application or controls
-the media player),
-LEDs for Mute, Select, Rec and Solo, and a level meter that never wakes a device or switches Bluetooth headphones
-into headset mode. See <a href="configuration/strip/encoders/">Encoders</a> and <a href="configuration/strip/leds/">Buttons and LEDs</a>.</p>
+<p>Every strip has a motor fader that glides to new values and stays still under your finger, an LCD with a label and the volume, an encoder (a rotary knob that you turn
+and push; it sets the balance or the volume, picks an application or controls the media player), LEDs for Mute, Select, Rec and Solo, and a level meter.
+See <a href="configuration/strip/encoders/">Encoders</a> and <a href="configuration/strip/leds/">Buttons and LEDs</a>.</p>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>A GUI</strong> (<code>xtouch-daemon gui</code>, or <code>xtouch-daemon-gui</code> with the Arch Linux package): the device as it is right now, every option with its help and errors, suggestions
+<li><strong>A GUI</strong> (<code>xtouch-daemon gui</code>, or <code>xtouch-daemon-gui</code> with the Arch Linux package): the X-Touch as it is right now, every option with its help and errors, suggestions
   from the sound server, Simulate (what the slots show in another situation), and a preview of the changes, in the
-  window or on the device, before you save. See <a href="guides/gui/">GUI</a>.</li>
-<li><strong>No device needed to start</strong>: a virtual device stands in for it. See
+  window or on the X-Touch, before you save. See <a href="guides/gui/">GUI</a>.</li>
+<li><strong>No X-Touch needed to start</strong>: a virtual X-Touch stands in for it. See
   <a href="getting-started/without-a-device/">Without a device</a>.</li>
-<li><strong>Command line</strong>: a device test, a check of the configuration with a table of what the slots show when, and why a
+<li><strong>Command line</strong>: a self-test of the X-Touch, a check of the configuration with a table of what the slots show when, and why a
   slot shows what it shows. See <a href="reference/commands/">Commands</a>.</li>
-<li><strong>A systemd user service</strong> that recovers when the device is unplugged or the sound server restarts, applies a
-  changed configuration without a restart, and leaves the device dark when it stops.</li>
+<li><strong>A systemd user service</strong> that recovers when the X-Touch is unplugged or the sound server restarts, applies a
+  changed configuration without a restart, and leaves the X-Touch dark when it stops.</li>
 </ul>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Linux with PipeWire and its PulseAudio server <code>pipewire-pulse</code>. Plain PulseAudio is not enough, because the meters need
-  <code>pw-record</code> from PipeWire.</li>
-<li><code>pw-record</code> for the meters. It comes with PipeWire; you install nothing extra.</li>
+  <code>pw-record</code>, which comes with PipeWire.</li>
 <li>Python 3.14. You don't install it yourself: the Arch Linux package brings its own, and <code>uv</code> installs it when you
   <a href="getting-started/install/">install from the source</a>.</li>
-<li>A Behringer X-Touch Extender set to <strong>MC</strong> (Mackie Control) mode and connected by <strong>USB</strong>; <a href="getting-started/first-steps/#set-up-the-device">Getting
-  started</a> shows how to set it.</li>
+<li>A Behringer X-Touch Extender set to <strong>MC</strong> (Mackie Control) mode and connected by <strong>USB</strong>; <a href="getting-started/first-steps/#set-up-the-device">First steps</a> shows how to set it.</li>
 <li>For Home Assistant: an MQTT broker that Home Assistant also uses (e.g. the Mosquitto add-on). The daemon talks to Home Assistant through it.</li>
 </ul>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
@@ -2962,7 +2959,7 @@ into headset mode. See <a href="configuration/strip/encoders/">Encoders</a> and 
 <tbody>
 <tr>
 <td><a href="getting-started/install/">Getting started</a></td>
-<td>Install, set up and test the device, write a first configuration, run the service; or try it <a href="getting-started/without-a-device/">without a device</a>. Start here.</td>
+<td>Install, set up and test the X-Touch, write a first configuration, run the service; or try it <a href="getting-started/without-a-device/">without an X-Touch</a>. Start here.</td>
 </tr>
 <tr>
 <td><a href="concepts/">Concepts</a></td>

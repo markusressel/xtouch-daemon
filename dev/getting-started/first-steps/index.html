@@ -436,7 +436,7 @@
   <a href="#set-up-the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Set up the device
+        Set up the X-Touch
       </span>
     </span>
   </a>
@@ -447,7 +447,7 @@
   <a href="#test-the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Test the device
+        Test the X-Touch
       </span>
     </span>
   </a>
@@ -2768,7 +2768,7 @@
   <a href="#set-up-the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Set up the device
+        Set up the X-Touch
       </span>
     </span>
   </a>
@@ -2779,7 +2779,7 @@
   <a href="#test-the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Test the device
+        Test the X-Touch
       </span>
     </span>
   </a>
@@ -2897,10 +2897,10 @@
 
 
 <h1 id="first-steps">First steps<a class="headerlink" href="#first-steps" title="Permanent link">&para;</a></h1>
-<p>Set up the device, test it, write a configuration and run the daemon as a service. No device at hand? See
+<p>Set up the X-Touch Extender, test it, write a configuration and run the daemon as a service. No X-Touch at hand? See
 <a href="../without-a-device/">Without a device</a>.</p>
-<h2 id="set-up-the-device">Set up the device<a class="headerlink" href="#set-up-the-device" title="Permanent link">&para;</a></h2>
-<p>The extender has to be in <strong>MC</strong> (Mackie Control) mode on <strong>USB</strong>. Out of the box it may be set to the network
+<h2 id="set-up-the-device">Set up the X-Touch<a class="headerlink" href="#set-up-the-device" title="Permanent link">&para;</a></h2>
+<p>The X-Touch has to be in <strong>MC</strong> (Mackie Control) mode on <strong>USB</strong>. Out of the box it may be set to the network
 interface: then it shows <code>IP: 192.168.001.100 wait...</code> and ignores USB.</p>
 <ol>
 <li>Switch it off.</li>
@@ -2908,30 +2908,29 @@ interface: then it shows <code>IP: 192.168.001.100 wait...</code> and ignores US
 <li>Set <strong>Mode</strong> to <code>MC</code> and <strong>Interface</strong> to <code>USB</code> with the encoders.</li>
 <li>Leave the menu (Select of strip 1 again, or switch it off and on).</li>
 </ol>
-<p>Connect it over USB. It needs no driver. Your user needs access to its MIDI device in <code>/dev/snd</code>: desktop sessions
-grant it to the logged-in user. Without a desktop session (e.g. over SSH), add the user to the <code>audio</code> group. See
-<a href="../../reference/hardware/#linux-access">Hardware</a> for details.</p>
-<h2 id="test-the-device">Test the device<a class="headerlink" href="#test-the-device" title="Permanent link">&para;</a></h2>
+<p>Connect it over USB. It needs no driver. Your user needs access to it: a desktop session grants that to the logged-in
+user. See <a href="../../reference/hardware/#linux-access">Hardware</a> for other cases.</p>
+<h2 id="test-the-device">Test the X-Touch<a class="headerlink" href="#test-the-device" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span>
 </span></code></pre></div>
 <p>Every strip lights its LCD in a color, its LEDs, ring and meter, and moves its fader. Afterwards every strip answers
 its own controls: the meter follows the fader, a button steps its LED, the encoder changes the ring, the LCD color and
 the motor fader (<a href="../../reference/commands/#test"><code>test</code></a> has the details). Ctrl+C stops it.</p>
-<p>If the daemon already runs as a service, you don't stop it: <code>xtouch-daemon test</code> asks the daemon to run the test on
-the device it has, and the slots show again afterwards. Close DAWs that use the device. Without a device, start the virtual one in another terminal (<code>xtouch-daemon virtual-device</code>) and run
-<code>xtouch-daemon test --virtual-device</code>; see <a href="../without-a-device/">Without a device</a>.</p>
+<p>If the daemon already runs as a service, you don't stop it: <code>xtouch-daemon test</code> asks the daemon to run the test, and
+the slots show again afterwards. Close DAWs that use the X-Touch. Without an X-Touch, see
+<a href="../without-a-device/">Without a device</a>.</p>
 <h2 id="write-a-configuration">Write a configuration<a class="headerlink" href="#write-a-configuration" title="Permanent link">&para;</a></h2>
 <p>A configuration defines <strong>channels</strong> (what a strip can control), <strong>states</strong> (in a call, gaming) and, for each of the 8
 slots, what its strip shows when. The file further down shows each. <a href="../../concepts/">Concepts</a> explains these words. Without a file the daemon uses the
 <a href="../../configuration/">example configuration</a>: the default input on slot 7, the default output on slot 8, and
 <code>auto</code> (the next application that plays, or a person of the voice chat) on the others. To make it yours, the easiest
-way is the <a href="../../guides/gui/">GUI</a>. Start it with <code>xtouch-daemon-gui</code> or <code>xtouch-daemon gui</code>. It shows the device live and
+way is the <a href="../../guides/gui/">GUI</a>. Start it with <code>xtouch-daemon-gui</code> or <code>xtouch-daemon gui</code>. It shows the X-Touch live and
 every option with its help. <strong>Simulate</strong> shows what the slots would show in another situation. "Save and apply" writes
 the file and loads it into the running daemon.</p>
 <p><a href="../tour/">Setup tour</a> builds a whole configuration that way, step by step, with the file it writes.</p>
 <p>To work by hand, let <code>init-config</code> write that same example file, then edit it:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>xtouch-daemon<span class="w"> </span>init-config<span class="w">                 </span><span class="c1"># writes ~/.config/xtouch-daemon/config.toml</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w"> </span><span class="o">[</span>--snippet<span class="o">]</span><span class="w">    </span><span class="c1"># the names to use for device channels (--snippet: channels to paste)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w"> </span><span class="o">[</span>--snippet<span class="o">]</span><span class="w">    </span><span class="c1"># the names of outputs and inputs (--snippet: channels to paste)</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>xtouch-daemon<span class="w"> </span>list-apps<span class="w">                   </span><span class="c1"># the applications that play now, and which channel or slot takes them</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w">                </span><span class="c1"># validates the file (with the line of each error) and shows what each slot shows when</span>
 </span></code></pre></div>
@@ -2940,7 +2939,7 @@ the file and loads it into the running daemon.</p>
 <p>For example, Bluetooth headphones on slot 1 while they are connected, and VoIP on slot 2 during a call:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.buds]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span><span class="w">   </span><span class="c1"># any Bluetooth headphones (their name holds an address; list-devices shows it)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span><span class="w">   </span><span class="c1"># any Bluetooth headphones (the name holds an address; list-devices shows it)</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Buds"</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"green"</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
@@ -2957,33 +2956,29 @@ the file and loads it into the running daemon.</p>
 </span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
 </span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="c1"># slots 3 to 8 have no entry: "auto", the next application that plays or a person of the voice chat</span>
 </span></code></pre></div>
-<p><code>check-config</code> shows what this file does, as a table. (This is a different file from the example that <code>init-config</code> writes: here slots 7 and 8 are <code>auto</code>
-too.)</p>
+<p><code>check-config</code> shows what this file does, as a table. (It is not the file that <code>init-config</code> writes: here slots 7 and
+8 are <code>auto</code> too.)</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>when               1     2     3-8
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>default            buds  auto  auto
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>call               buds  voip  auto
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>buds absent        auto  auto  auto
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>call, buds absent  auto  voip  auto
 </span></code></pre></div>
-<p>Each row is a situation. In the row <code>default</code>, <code>call</code> is off and <code>buds</code> is there; the other rows change one of the two. The table lists only the situations that change
-what a slot shows. In the row <code>call</code>, slot 2 shows <code>voip</code> instead of the next application, and slot 1 still shows <code>buds</code>. In the row <code>buds absent</code>, <code>voip</code> stays out of slot 2 because <code>call</code> is off.</p>
+<p>Each row is a situation. In the row <code>default</code>, <code>call</code> is off and <code>buds</code> is there; the other rows change one of the
+two. In the row <code>call</code>, slot 2 shows <code>voip</code> instead of the next application, and slot 1 still shows <code>buds</code>. In the
+row <code>buds absent</code>, <code>voip</code> stays out of slot 2 because <code>call</code> is off.</p>
 <p><a href="../../configuration/slots/">Channels, states and slots</a> explains the format, <a href="../../configuration/">Configuration</a>
 every option.</p>
 <h2 id="run-it-as-a-service">Run it as a service<a class="headerlink" href="#run-it-as-a-service" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>xtouch-daemon<span class="w"> </span>install-service<span class="w"> </span>--now
 </span></code></pre></div>
-<p>This writes the systemd user unit <code>~/.config/systemd/user/xtouch-daemon.service</code>. With <code>--now</code> it also enables the unit
-and starts it, and from then on it starts with your session. Without <code>--now</code> it only writes the unit: enable and start
-it later with <code>systemctl --user enable --now xtouch-daemon</code>.</p>
-<p>The Arch Linux package has its own unit, so with it the command writes nothing: it enables and starts the unit of the
-package. The same without the command:</p>
+<p>This writes the systemd user unit and starts it, and from then on it starts with your session. The Arch Linux package
+has its own unit, so with it the command only enables and starts that one, like this:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>systemctl<span class="w"> </span>--user<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>xtouch-daemon
 </span></code></pre></div>
-<p>A unit in <code>~/.config/systemd/user</code> overrides the one of the package; see
-<a href="../../reference/commands/#install-service"><code>install-service</code></a>.</p>
-<p>The daemon runs as your user, not as root: it controls your PipeWire and runs the commands that your configuration names (e.g. <code>launch</code> of a strip).
-Don't start it with <code>sudo</code>. The daemon refuses to run as root, and it refuses a configuration that other users can
-change (a file that others may write to; <code>chmod go-w</code> on it fixes that), see <a href="../../guides/troubleshooting/#starting">Troubleshooting</a>.</p>
+<p><a href="../../reference/commands/#install-service"><code>install-service</code></a> has the details. The daemon runs as your user, not as
+root, so don't start it with <code>sudo</code>. If it refuses to start, see
+<a href="../../guides/troubleshooting/#starting">Troubleshooting</a>.</p>
 <table>
 <thead>
 <tr>
@@ -2997,15 +2992,15 @@ change (a file that others may write to; <code>chmod go-w</code> on it fixes tha
 <td>Nothing: the daemon takes the saved file. By hand: <code>systemctl --user reload xtouch-daemon</code></td>
 </tr>
 <tr>
-<td>Restart (after changing <code>[mqtt]</code>, the connection to your MQTT broker, which only Home Assistant needs)</td>
+<td>Restart (after changing <code>[mqtt]</code>, the settings of your MQTT broker, which only Home Assistant needs)</td>
 <td><code>systemctl --user restart xtouch-daemon</code></td>
 </tr>
 <tr>
-<td>Stop (the device then goes dark, and another program can use it)</td>
+<td>Stop (the X-Touch then goes dark, and another program can use it)</td>
 <td><code>systemctl --user stop xtouch-daemon</code></td>
 </tr>
 <tr>
-<td>See whether the device, the sound server and, with Home Assistant, the MQTT broker are connected</td>
+<td>See whether the X-Touch, the sound server and, with Home Assistant, the MQTT broker are connected</td>
 <td><code>systemctl --user status xtouch-daemon</code></td>
 </tr>
 <tr>

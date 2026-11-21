@@ -3035,8 +3035,8 @@ brightness of a screen. The examples on this page use <a href="https://github.co
 (<code>sysctrl</code>), a command line tool for screen brightness. You can replace it with any command that sets and prints a
 number.</p>
 <p>Other channel types have built-in behavior: the fader of an <code>output</code> channel sets the volume. A <code>custom</code> channel
-has no built-in behavior. A part that you <a href="../../strip/bindings/">bind</a> works. Binding means connecting it to a program or to Home Assistant. A part that you leave
-out is dark and does nothing. The only exceptions are the encoder and the LCD, which follow the fader (see the table).
+has none. A part that you <a href="../../strip/bindings/">bind</a> works. Binding means connecting it to a program or to Home
+Assistant. A part that you leave out is dark and does nothing. The only exceptions are the encoder and the LCD, which follow the fader (see the table).
 A slot names the channel, as for every other type.</p>
 <p>This channel puts the brightness of the left screen on a fader. <code>set</code> is the command that changes the brightness,
 and <code>{value}</code> in it is the new value. <code>watch</code> is a command that prints the brightness each time it changes, so the

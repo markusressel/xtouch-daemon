@@ -3028,7 +3028,7 @@
 <p>This page decides what each of the 8 strips shows. Its four main parts build on each other:</p>
 <ol>
 <li><strong>Channels</strong> are what a strip can control (an output, a group of applications, a person). You define them.</li>
-<li>Each strip of the device has a <strong>slot</strong> in the file, numbered 1 to 8 from the left, with a list of candidates: the channels it can show, best first.</li>
+<li>Each strip of the X-Touch has a <strong>slot</strong> in the file, numbered 1 to 8 from the left, with a list of candidates: the channels it can show, best first.</li>
 <li><strong>States</strong> (in a call, gaming) are on or off. A condition in the list asks about them.</li>
 <li><strong>Controls</strong> add buttons, fader or encoder actions to a slot.</li>
 </ol>
@@ -3041,7 +3041,7 @@ a table of what each slot shows in which states, and <code>xtouch-daemon why 3</
 <h2 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h2>
 <p>A channel is something a strip controls, with the options of its type (see <a href="../channels/">Channels</a>):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.out]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span><span class="w">             </span><span class="c1"># or "input": a device, one of several (choices), or the default one</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span><span class="w">             </span><span class="c1"># or "input": an output (your headphones); see Channels for choices and the default</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">[channel.voip]</span>
@@ -3070,11 +3070,11 @@ a table of what each slot shows in which states, and <code>xtouch-daemon why 3</
   <code>and</code>, <code>or</code>, <code>not</code>, parentheses and <code>present</code> (the channel has something to control); see
   <a href="#conditions">Conditions</a>.</li>
 <li><code>apps</code>, <code>people</code>, <code>auto</code> and <code>devices</code> are pools: not channels that you define, but suppliers of members (an
-  application, a person, a device). See the table below.</li>
+  application, a person, an output or input). See the table below.</li>
 <li>A slot without an entry is <code>auto</code>. So is a slot whose candidates all don't hold.</li>
 <li><code>-</code> is nothing: the slot is dark.</li>
 <li>The table form <code>{ show = ..., when = ..., ... }</code> takes options of the look at this place, see <a href="#places">Places</a>.</li>
-<li>The <a href="../../guides/gui/">GUI</a>'s page Slots simulates other modes and states (Simulate), in the drawing or on the device.</li>
+<li>The <a href="../../guides/gui/">GUI</a>'s page Slots simulates other modes and states (Simulate), in the drawing or on the X-Touch.</li>
 <li><code>xtouch-daemon why 2</code> says why slot 2 shows what it shows, <code>xtouch-daemon why voip</code> where the channel is and
   why.</li>
 <li>When a slot shows something else, its LCD flashes the new label and why (<code>gaming</code>, <code>not call</code>) for
@@ -3108,7 +3108,7 @@ a table of what each slot shows in which states, and <code>xtouch-daemon why 3</
 <tr>
 <td><code>devices</code></td>
 <td>The outputs and inputs no channel has, see <a href="../channels/devices/#devices-without-a-channel">Devices</a>.</td>
-<td><code>[pool.devices]</code>: <code>from</code>, <code>hold</code>, <code>exclude</code> and the look of the strips of devices.</td>
+<td><code>[pool.devices]</code>: <code>from</code>, <code>hold</code>, <code>exclude</code> and the look of the strips of outputs and inputs.</td>
 </tr>
 </tbody>
 </table>
@@ -3138,7 +3138,7 @@ built-in pools (<code>[pool.apps]</code>, <code>[pool.auto]</code>, <code>[pool.
 </tr>
 <tr>
 <td><code>devices</code></td>
-<td>those of <code>apps</code>, and <code>select = false</code></td>
+<td>those of <code>apps</code>, and <code>select = false</code> (Select does not make the output the default)</td>
 </tr>
 <tr>
 <td><code>people</code></td>
@@ -3226,7 +3226,7 @@ match, <code>kind = "people"</code> listed people of the voice chat, each on a s
 <code>people</code> hand out in one piece:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[pool.music]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">kind</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@music"</span><span class="p">]</span><span class="w">            </span><span class="c1"># parts of names or binaries, and presets, as in an `apps` channel</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@music"</span><span class="p">]</span><span class="w">            </span><span class="c1"># parts of names or program files, and presets, as in an `apps` channel</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">exclude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"spotify-ads"</span><span class="p">]</span><span class="w">     </span><span class="c1"># optional: never these, though they match</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span><span class="w">                 </span><span class="c1"># the side it fills its slots from (default)</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">hold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">                      </span><span class="c1"># seconds a slot keeps an application after it stopped (default)</span>
@@ -3289,7 +3289,7 @@ match, <code>kind = "people"</code> listed people of the voice chat, each on a s
 <li>A pool of your own takes its members first: a music player goes to <code>music</code>, not to <code>apps</code> or <code>auto</code>. An <code>apps</code>
   channel or a <code>person</code> channel that has a slot keeps its application or person.</li>
 <li>It takes them <strong>only while a slot names it</strong>, in any stack. A pool that no slot names takes nothing, so a forgotten
-  <code>[pool.music]</code> can't make the players disappear from the device; <code>check-config</code> says "pool music is on no slot".</li>
+  <code>[pool.music]</code> can't make the players disappear from the strips; <code>check-config</code> says "pool music is on no slot".</li>
 <li>A member that finds no slot waits in its pool. In this example there are two slots for <code>friends</code>. With a third
   friend, that friend has no strip until a slot of <code>friends</code> is free, and does not move on to <code>people</code>.</li>
 <li>Like <code>apps</code>, an application keeps its slot while it plays; a pool of people fills by the order of its list.</li>
@@ -3400,7 +3400,7 @@ table work in all three places, except <code>present</code> and <code>present(..
   channel while one of its <code>devices</code> is there (always without <code>devices</code>), a <code>person</code> channel while the person is in
   the voice chat, a <code>homeassistant</code> channel always. A channel stays present <code>absent_after</code> seconds (3 by default)
   after that ended. <code>apps</code> is present while an application it may take plays, <code>people</code> while someone is in the
-  voice chat, <code>auto</code> while either is, <code>devices</code> while a device no channel has is there, another pool while one of its channels is present.</li>
+  voice chat, <code>auto</code> while either is, <code>devices</code> while an output or input no channel has is there, another pool while one of its channels is present.</li>
 <li><code>present</code> is only for candidates of slots. A state asks about channels with its <code>channels</code> source, and controls
   apply whatever the slot shows, so <code>present</code> would have no meaning there.</li>
 <li><code>check-config</code> and the GUI name the mistakes: an unknown state, mode, channel or pool, a word where none fits, a
@@ -3512,7 +3512,7 @@ Select, Rec and Solo. They take the same <a href="../strip/bindings/">bindings</
 <li>Places take no bindings: a binding for the slot, whatever it shows, belongs here.</li>
 <li>On the slots of the chord, <code>[controls]</code> can claim the LED of Solo, but not its press.</li>
 </ul>
-<p>The section <code>[switching]</code> has two options. The chord is a way to change the mode from the device. The banner is the
+<p>The section <code>[switching]</code> has two options. The chord is a way to change the mode from the X-Touch. The banner is the
 text on the LCDs when a mode changes:</p>
 <table>
 <thead>

@@ -3193,11 +3193,11 @@
 </tr>
 <tr>
 <td><a href="#test"><code>xtouch-daemon test</code></a></td>
-<td>Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the device.</td>
+<td>Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the X-Touch.</td>
 </tr>
 <tr>
 <td><a href="#virtual-device"><code>xtouch-daemon virtual-device</code></a></td>
-<td>Runs a virtual X-Touch Extender, for trying the daemon without the device.</td>
+<td>Runs a virtual X-Touch Extender, for trying the daemon without an X-Touch.</td>
 </tr>
 <tr>
 <td><a href="#mode"><code>xtouch-daemon mode</code></a></td>
@@ -3260,16 +3260,16 @@ an error too, see <a href="../../configuration/">Configuration</a>.</p>
 </tr>
 <tr>
 <td><code>-l</code>, <code>--log-level LEVEL</code></td>
-<td><code>debug</code>, <code>info</code> (default), <code>warning</code> or <code>error</code>. <code>debug</code> also logs the MIDI messages of the device that the daemon has no use for.</td>
+<td><code>debug</code>, <code>info</code> (default), <code>warning</code> or <code>error</code>. <code>debug</code> also logs the MIDI messages of the X-Touch that the daemon has no use for.</td>
 </tr>
 <tr>
 <td><code>--virtual-device</code></td>
-<td>Drives the <a href="#virtual-device">virtual device</a> instead of the real one, as <code>[device] virtual = true</code>.</td>
+<td>Drives the <a href="#virtual-device">virtual device</a> instead of the real X-Touch, as <code>[device] virtual = true</code>.</td>
 </tr>
 </tbody>
 </table>
 <p>The daemon notes its process and configuration file in <code>$XDG_RUNTIME_DIR/xtouch-daemon.json</code> while it runs, and
-serves what the device shows on <code>$XDG_RUNTIME_DIR/xtouch-daemon.sock</code> for the <a href="../../guides/gui/">GUI</a>. A second daemon does not
+serves what the X-Touch shows on <code>$XDG_RUNTIME_DIR/xtouch-daemon.sock</code> for the <a href="../../guides/gui/">GUI</a>. A second daemon does not
 start: it prints the process of the daemon that already runs, and exits.</p>
 <p>Signals:</p>
 <table>
@@ -3307,7 +3307,7 @@ Without a file at the default path it checks the built-in defaults of every opti
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>call     out  browser  mic   auto
 </span></code></pre></div>
 <p>The line of a channel says what it is: its label (<code>'Speaker'</code>), its kind (<code>output</code>, or <code>Home Assistant</code> for a
-<code>homeassistant</code> channel, whose entities are <code>*.*_lamp_*</code>) and its sound device or applications. The brackets after it
+<code>homeassistant</code> channel, whose entities are <code>*.*_lamp_*</code>) and its output, input or applications. The brackets after it
 say how it looks and what its controls do: the color of the LCD (<code>cyan</code>), what the LED
 of Rec and Solo shows (<code>rec: recording</code> lights while an application records, <code>solo: off</code> never lights) and what the
 encoder edits (<code>encoder: balance</code>, or <code>media</code> for the media player of an application). The table at the end has a row for each situation:
@@ -3346,11 +3346,11 @@ schema of the <a href="../voice-chat-bridge/">voice chat bridge</a> instead, for
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w"> </span><span class="o">[</span>--snippet<span class="o">]</span>
 </span></code></pre></div>
 <p>Lists the outputs and inputs with the node names to use as <code>device</code>, their descriptions, volumes and states; <code>*</code>
-marks the defaults (the devices that the sound server uses when nothing else is set). Then it lists each sound card by its name and description, with its devices and its profiles
+marks the defaults (the output and input that the sound server uses when nothing else is set). Then it lists each sound card by its name and description, with its outputs, inputs and profiles
 (name and description), for <code>card</code> and <code>profile</code> of <a href="../../configuration/channels/devices/#choices"><code>choices</code></a> and for
 <a href="../../configuration/channels/devices/#profiles"><code>profiles</code></a>; <code>*</code> marks the active ones. <code>--snippet</code> prints a
-<code>[channel.&lt;id&gt;]</code> for each device instead, ready to paste into the file (Bluetooth devices by a wildcard like
-<code>bluez_output.*</code>, since their names hold the address of the device):</p>
+<code>[channel.&lt;id&gt;]</code> for each output and input instead, ready to paste into the file (Bluetooth headphones by a wildcard like
+<code>bluez_output.*</code>, since their names hold the Bluetooth address):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa_output.pci-0000_11_00.4.analog-stereo):
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  * output:analog-stereo+input:analog-stereo
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>      Analog Stereo Output + Analog Stereo Input
@@ -3367,7 +3367,7 @@ presets, for <code>match</code>, <code>exclude</code> and <code>[aliases]</code>
 <h2 id="test"><code>test</code><a class="headerlink" href="#test" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="o">[</span>-c<span class="w"> </span>FILE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-events<span class="o">]</span><span class="w"> </span><span class="o">[</span>--virtual-device<span class="o">]</span>
 </span></code></pre></div>
-<p>Lights up everything on the device and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
+<p>Lights up everything on the X-Touch and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
 meter, and moves its fader up and down. Then every strip answers its own controls, until Ctrl+C, so you can check each
 LED, the ring, the colors, the motor and the touch of every fader:</p>
 <table>
@@ -3401,20 +3401,20 @@ LED, the ring, the colors, the motor and the touch of every fader:</p>
 </tbody>
 </table>
 <p>The top line of the LCD names the strip, the bottom line shows the last input for 2 seconds, then what the encoder
-edits. The command prints every input with the answer, and the messages from the device the daemon doesn't use.
+edits. The command prints every input with the answer, and the messages from the X-Touch that the daemon doesn't use.
 <code>--no-events</code> ends after the sweep.</p>
-<p>While the daemon runs, it has the device, so <code>test</code> cannot open it. Instead <code>test</code> asks the daemon to run the test
-(the GUI's "Test the device" does the same). The slots go on, but show on the device again only when the test ends;
+<p>While the daemon runs, it has the X-Touch, so <code>test</code> cannot open it. Instead <code>test</code> asks the daemon to run the test
+(the GUI's "Test the device" does the same). The slots go on, but show on the X-Touch again only when the test ends;
 the log of the daemon shows the inputs (<code>journalctl --user -u xtouch-daemon -f</code>). In this case the test runs until
 Ctrl+C and the sweep alone is not possible: <code>--no-events</code> fails while the daemon runs. Stop the daemon first
 for <code>--no-events</code>.</p>
-<p>Without a daemon, <code>test</code> opens the device itself. It finds the sound card by the <code>name</code> in <code>[device]</code> of the
+<p>Without a daemon, <code>test</code> opens the X-Touch itself. It finds the sound card by the <code>name</code> in <code>[device]</code> of the
 configuration. <code>--virtual-device</code> (or <code>[device] virtual = true</code>) tests the <a href="#virtual-device">virtual device</a> instead;
-that device has to run already, in another terminal.</p>
+the virtual device has to run already, in another terminal.</p>
 <h2 id="virtual-device"><code>virtual-device</code><a class="headerlink" href="#virtual-device" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>xtouch-daemon<span class="w"> </span>virtual-device<span class="w"> </span><span class="o">[</span>--broken-touch<span class="w"> </span><span class="m">1</span>,4<span class="o">]</span><span class="w"> </span><span class="o">[</span>--log-level<span class="w"> </span>debug<span class="o">]</span>
 </span></code></pre></div>
-<p>A virtual X-Touch Extender, for trying the daemon without the device: <code>xtouch-daemon run --virtual-device</code> (or
+<p>A virtual X-Touch Extender, for trying the daemon without an X-Touch: <code>xtouch-daemon run --virtual-device</code> (or
 <code>[device] virtual = true</code>) drives it instead of the real one, and the GUI shows what it shows. It runs headless until
 interrupted (Ctrl+C); the GUI can host one itself, with the mouse on its strips. One daemon at a time can use it.</p>
 <table>
@@ -3591,7 +3591,7 @@ package (systemd prefers it), e.g. one written before by a checkout; the command
 <h2 id="observe"><code>observe</code><a class="headerlink" href="#observe" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>xtouch-daemon<span class="w"> </span>observe<span class="w"> </span>LOG<span class="w"> </span><span class="o">[</span>--interval<span class="w"> </span><span class="m">2</span>.0<span class="o">]</span><span class="w"> </span><span class="o">[</span>--process<span class="w"> </span>NAME<span class="o">]</span>...
 </span></code></pre></div>
-<p>Records, every <code>--interval</code> seconds, what plays and records on the sound server, the devices, the running processes
+<p>Records, every <code>--interval</code> seconds, what plays and records on the sound server, the outputs and inputs, the running processes
 (those of the presets, and <code>--process</code>) and the voice chat of the running daemon, and appends a line of JSON to LOG
 when that changed. The field <code>absent</code> of a line lists the channels that are not there now: a channel can say when it is present
 (for a <a href="../../configuration/channels/custom/"><code>custom</code> channel</a>, its option <code>present</code>). It runs until you interrupt it (Ctrl+C); a line is written only when something changed, so a quiet machine

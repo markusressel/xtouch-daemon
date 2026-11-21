@@ -2972,7 +2972,7 @@
 <p><img alt="The buttons of a strip, lit: Rec and Mute red, Solo yellow, Select green" class="xt-part" src="../../../images/controls/buttons.png" width="64" /></p>
 <p>Every strip has four buttons with LEDs: Rec, Solo, Mute and Select. Mute mutes the strip, and its LED is on while
 the strip is muted. You can change what the other three do, and what their LEDs show. Each has a default, listed below.
-Mute always mutes the strip, and its LED always shows that: on these strips you cannot change it (only a
+Mute always mutes the strip, and its LED always shows that: on <code>output</code>, <code>input</code> and <code>apps</code> strips you cannot change it (only a
 <a href="../../channels/custom/#buttons">custom channel</a> can configure it).</p>
 <table>
 <thead>
@@ -2984,11 +2984,11 @@ Mute always mutes the strip, and its LED always shows that: on these strips you 
 <tbody>
 <tr>
 <td><img alt="Select" class="xt-icon" src="../../../images/controls/select.png" /><br>Select</td>
-<td>On device strips with <code>device</code> or <code>choices</code>: makes the device the default; its LED is on while it is. On application strips with <code>launch</code>: starts the application; its LED flashes while it starts and is on while it runs. Otherwise nothing.</td>
+<td>On <code>output</code> and <code>input</code> strips with <code>device</code> or <code>choices</code>: makes the output or input the default; its LED is on while it is. On application strips with <code>launch</code>: starts the application; its LED flashes while it starts and is on while it runs. Otherwise nothing.</td>
 </tr>
 <tr>
 <td><img alt="Rec" class="xt-icon" src="../../../images/controls/rec.png" /><br>Rec</td>
-<td>On device strips with <a href="../../channels/devices/#profiles">profiles</a>: switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise the button does nothing. Its LED is lit on every strip while an application records (<code>recording</code>).</td>
+<td>On strips with <a href="../../channels/devices/#profiles">profiles</a>: switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise the button does nothing. Its LED is lit on every strip while an application records (<code>recording</code>).</td>
 </tr>
 <tr>
 <td><img alt="Solo" class="xt-icon" src="../../../images/controls/solo.png" /><br>Solo</td>
@@ -3008,9 +3008,9 @@ you leave out does what the strip type does by default.</p>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"alsa_output.*"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bluez_output.*"</span><span class="p">]</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">[channel.main.select]</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">press</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"default"</span><span class="w">   </span><span class="c1"># makes the device shown the default; on the default one, the next one</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">hold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"next"</span><span class="w">       </span><span class="c1"># holding the button shows (and controls) the next device; the default stays</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">led</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"shown"</span><span class="w">       </span><span class="c1"># lit while the strip shows another device than the default</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">press</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"default"</span><span class="w">   </span><span class="c1"># makes the output shown the default; on the default one, the next one</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">hold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"next"</span><span class="w">       </span><span class="c1"># holding the button shows (and controls) the next output; the default stays</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">led</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"shown"</span><span class="w">       </span><span class="c1"># lit while the strip shows another output than the default</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">[channel.main.solo]</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">press</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"mute_others"</span><span class="w">   </span><span class="c1"># while held, the other strips are muted</span>
@@ -3062,12 +3062,12 @@ chord are down together, the mode changes as well. Give those Solo buttons no <c
 <tr>
 <td><code>default</code></td>
 <td>output, input with <code>device</code> or <code>choices</code></td>
-<td>Makes the device shown the default. On the default one, the next one of <code>device</code> or <code>choices</code>.</td>
+<td>Makes the output or input shown the default. On the default one, the next one of <code>device</code> or <code>choices</code>.</td>
 </tr>
 <tr>
 <td><code>next</code></td>
 <td>output, input with <code>device</code> or <code>choices</code></td>
-<td>The strip shows (and controls) the next device that is there. The default stays as it is. The strip keeps showing that device until the default changes.</td>
+<td>The strip shows (and controls) the next output or input that is there. The default stays as it is. The strip keeps showing it until the default changes.</td>
 </tr>
 <tr>
 <td><code>profile</code></td>
@@ -3144,11 +3144,11 @@ chord are down together, the mode changes as well. Give those Solo buttons no <c
 <tbody>
 <tr>
 <td><code>press</code></td>
-<td>Lit while the result of the button's <code>press</code> action is true. For <code>default</code>: the device is the default. For <code>profile</code>: the card is in another profile than the first. For <code>launch</code>: the application runs. For <code>mode:</code> and <code>toggle:</code>: the mode or state is on. For <code>talk</code> and <code>mute_others</code>: the button is held.</td>
+<td>Lit while the result of the button's <code>press</code> action is true. For <code>default</code>: the output or input is the default. For <code>profile</code>: the card is in another profile than the first. For <code>launch</code>: the application runs. For <code>mode:</code> and <code>toggle:</code>: the mode or state is on. For <code>talk</code> and <code>mute_others</code>: the button is held.</td>
 </tr>
 <tr>
 <td><code>shown</code></td>
-<td>The strip shows another device than the default one (after <code>next</code>).</td>
+<td>The strip shows another output or input than the default one (after <code>next</code>).</td>
 </tr>
 <tr>
 <td><code>homeassistant</code></td>
@@ -3180,14 +3180,10 @@ else <code>off</code>:</p>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>systemctl<span class="w"> </span>--user<span class="w"> </span>is-active<span class="w"> </span>--quiet<span class="w"> </span>syncthing<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>on<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>off
 </span></code></pre></div>
 <h2 id="run-a-program">Run a program<a class="headerlink" href="#run-a-program" title="Permanent link">&para;</a></h2>
-<p><code>{ run = [...] }</code> runs a program of your own once, to its end. (<a href="../bindings/">Bindings</a> explains how programs work in other parts of a strip.) It runs without
-a shell: a string is split at spaces, a list is the program and its arguments (see
-<a href="../bindings/#commands">Commands</a>). <code>{value}</code> in an argument
-is the number that the strip's fader has, if you <a href="../bindings/">bound</a> the fader to a program of your own; else the
-number of the encoder, if you bound that; else the volume in percent. The fader may not have a value yet: a fader bound to a program of your
-own has none until that program printed its first line (or, without <code>watch</code> and <code>poll</code>, until you moved the
-fader once). Until it has one, a <code>run</code> that uses <code>{value}</code> does not start, and the log says so. A program that fails or takes longer than 10
-seconds is logged as a warning. <a href="../bindings/#simulate">Simulate</a> (the preview of the GUI) never runs it.</p>
+<p><code>{ run = [...] }</code> runs a program of your own once, to its end, without a shell: see
+<a href="../bindings/#commands">Commands</a>. <code>{value}</code> in an argument is the value of the fader or the encoder, else the volume
+in percent: see <a href="../bindings/#value-in-run"><code>{value}</code></a>. A program that fails or takes longer than 10 seconds is logged
+as a warning. <a href="../bindings/#simulate">Simulate</a> (the preview of the GUI) never runs it.</p>
 <h2 id="indicators">Indicators<a class="headerlink" href="#indicators" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3199,15 +3195,15 @@ seconds is logged as a warning. <a href="../bindings/#simulate">Simulate</a> (th
 <tbody>
 <tr>
 <td><code>recording</code></td>
-<td>An application records: from the input, from the monitor of the output (e.g. a screen recorder), or for <code>apps</code>/<code>auto</code> strips, the application records anything (e.g. Discord using a microphone). Level meters don't count: the daemon's own, pavucontrol's.</td>
+<td>An application records: from the input, from the monitor of the output (e.g. a screen recorder), or, on <code>apps</code> and <code>auto</code> strips, from anything (e.g. Discord using a microphone).</td>
 </tr>
 <tr>
 <td><code>playing</code></td>
-<td>Audio flows: the device is active, or a stream of the applications plays.</td>
+<td>Audio flows: the output or input is active, or a stream of the applications plays.</td>
 </tr>
 <tr>
 <td><code>default</code></td>
-<td>The device is the default output/input. Never for applications.</td>
+<td>The output or input is the default one. Never for applications.</td>
 </tr>
 <tr>
 <td><code>muted</code></td>

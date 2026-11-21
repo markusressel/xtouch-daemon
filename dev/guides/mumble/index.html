@@ -2961,9 +2961,7 @@ that play. The people fill the free strips from the right (8, 7, 6 and so on), t
 <p>The plugin talks to the daemon through the bridge: a socket that the daemon opens for plugins of voice chat programs
 (see <a href="../../reference/voice-chat-bridge/">the voice chat bridge</a>). The bridge is on by default (<code>[voip]</code> has
 <code>provider = "bridge"</code>). You change it only to try the strips without Mumble (<code>provider = "demo"</code>).</p>
-<p>The look of the people has these options. The lines below show the defaults. The default of <code>max_volume</code> is the
-option <code>max_volume</code> in the section <a href="../../configuration/behavior/"><code>[behavior]</code></a> of the configuration, which is 130:
-with it the fader goes from 0 to 130 %, and you set 200 to reach 200 %. Change the options in <code>[pool.people]</code> for
+<p>The look of the people has these options. The lines below show the defaults. Unless you set it, <code>max_volume</code> is 130, the value of <code>max_volume</code> in <a href="../../configuration/behavior/"><code>[behavior]</code></a>; set 200 to reach 200 %. Change the options in <code>[pool.people]</code> for
 all people, or in a <code>person</code> channel for one person (see <a href="../../configuration/channels/people/">People</a>):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[pool.people]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">talking_color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"green"</span><span class="w">   </span><span class="c1"># the backlight while they talk</span>
@@ -2977,8 +2975,7 @@ all people, or in a <code>person</code> channel for one person (see <a href="../
    (<code>~/.local/share/Mumble/Mumble/Plugins</code>, or the directory of the Flatpak), replacing an older one. If you run
    xtouch-daemon from a git clone of the source, there is no built plugin to copy, and the button builds it first:
    that needs <code>cmake</code> and a C compiler. The button does not use Mumble's own installer: when Mumble runs, that
-   installer starts a second Mumble, which crashed (in version 1.5.939). Other versions may work, but the button does
-   not take the risk.</li>
+   installer starts a second Mumble, which crashed. The button does not take the risk.</li>
 <li>In Mumble: <strong>Settings</strong>, <strong>Plugins</strong>, click <strong>Reload plugins</strong> (or restart Mumble), tick <strong>Enable</strong> of
    "xtouch-daemon", and <strong>Apply</strong>.</li>
 <li>Nothing to do in the configuration: the people take the free strips from the right. The example below pins
@@ -3012,7 +3009,7 @@ candidate does not apply):</p>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mumble"</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="k">[channel.mic]</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span><span class="w">        </span><span class="c1"># no device: your default microphone</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span><span class="w">        </span><span class="c1"># no `device` option: your default microphone</span>
 </span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
 </span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="k">[state.call]</span>
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">voice_chat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">     </span><span class="c1"># on while you are in a channel of Mumble</span>
@@ -3027,7 +3024,7 @@ candidate does not apply):</p>
 while their first candidate does not apply (Alice is not there, <code>call</code> is off). While it applies, the other people
 skip those strips and take 8, 5, 4 and so on.</p>
 <p>See <a href="../../configuration/channels/people/">People and the voice chat</a> and <a href="../../configuration/slots/#states-and-modes">States and modes</a>.</p>
-<p>To start Mumble from the device, give a slot a <code>launch</code> (the command that its Select button runs) in <code>[controls]</code>
+<p>To start Mumble from the X-Touch, give a slot a <code>launch</code> (the command that its Select button runs) in <code>[controls]</code>
 with a <code>mumble://</code> URL (the <code>[controls]</code> section sets what the buttons of a slot do, whatever the slot shows):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[controls]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mumble://me@voice.example.org/Gaming"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span>
@@ -3039,7 +3036,7 @@ which connects to the server and joins the channel. See
 <ul>
 <li><strong>Mute is Mumble's "Local Mute"</strong> (in the menu of a user): Mute on the strip sets it, Mumble shows it in its
   window, and setting it in Mumble lights the button. Mumble does not tell plugins when the local mute changes, so
-  the plugin asks every half second: a mute set in Mumble reaches the button within about 0.5 s (a press of Mute on
+  the plugin asks every half second: a mute set in Mumble reaches the button a moment later (a press of Mute on
   the strip shows at once). If Mumble refuses a mute, the button goes back, and Mumble's log says why
   ("xtouch-daemon: can't mute ..."). A mute set from the strip works while the person is in the channel. Mumble forgets it when the
   person leaves (Mumble keeps a local mute only if you set it in its own menu, and only for a user who is registered

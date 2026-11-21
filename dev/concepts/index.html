@@ -2989,7 +2989,7 @@
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                       </span><span class="c1"># a mode: one of these at a time</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">processes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@steam-games"</span><span class="p">]</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">[slots]</span><span class="w">                           </span><span class="c1"># a slot: what one strip of the device shows, top candidate first</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">[slots]</span><span class="w">                           </span><span class="c1"># a slot: what one strip of the X-Touch shows, top candidate first</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"buds if present"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">   </span><span class="c1"># the buds while they are connected, else the next application or person</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">    </span><span class="c1"># the game while the mode gaming is on, else the next application or person</span>
 </span></code></pre></div>
@@ -2998,8 +2998,8 @@
 applications that comes with the daemon.) Everything else in this documentation refines one of these
 parts.</p>
 <h2 id="strips-and-slots">Strips and slots<a class="headerlink" href="#strips-and-slots" title="Permanent link">&para;</a></h2>
-<p><img alt="One strip of the device, from the top: the encoder with its ring, the LCD, the meter beside Rec, Solo, Mute and Select, and the fader" class="xt-part" src="../images/controls/strip.png" width="88" /></p>
-<p>The device has 8 <strong>strips</strong>. A strip is hardware. Each has, from the top:</p>
+<p><img alt="One strip of the X-Touch, from the top: the encoder with its ring, the LCD, the meter beside Rec, Solo, Mute and Select, and the fader" class="xt-part" src="../images/controls/strip.png" width="88" /></p>
+<p>The X-Touch Extender has 8 <strong>strips</strong>. A strip is hardware. Each has, from the top:</p>
 <div class="grid cards">
 <ul>
 <li>
@@ -3031,7 +3031,7 @@ parts.</p>
 <p>A <strong>slot</strong> is the entry of the configuration for one strip, numbered 1 to 8 from the left. A slot decides what its
 strip shows.</p>
 <h2 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h2>
-<p>A <strong>channel</strong> is a thing you define in the file and give one strip: a sound device, a group of applications, a person
+<p>A <strong>channel</strong> is a thing you define in the file and give one strip: an output (your headphones) or an input (your microphone), a group of applications, a person
 of the voice chat, a strip for <a href="../guides/home-assistant/">Home Assistant</a>, or a value that your own programs read and
 set. Its <code>type</code> says which:</p>
 <table>
@@ -3044,7 +3044,7 @@ set. Its <code>type</code> says which:</p>
 <tbody>
 <tr>
 <td><code>output</code>, <code>input</code></td>
-<td>One sound device, one of several (<code>choices</code>), or the default one.</td>
+<td>One output or input: one you name, one of several (<code>choices</code>), or the default one.</td>
 </tr>
 <tr>
 <td><code>apps</code></td>
@@ -3067,9 +3067,8 @@ set. Its <code>type</code> says which:</p>
 <p>These are all the types. <code>auto</code> and <code>-</code> are not channel types: <code>auto</code> is a pool (see <a href="#pools">Pools</a>) and <code>-</code> is a dark
 strip. A channel has an id (<code>buds</code>, <code>game</code>) that names it in slots, conditions and Home Assistant. It takes a strip only
 when a slot names it.</p>
-<p>Applications are controlled on the playback side only. An <code>apps</code> channel sets the volume of what an application
-plays. What an application records is only observed: it lights the Rec LED and can turn on a state (see <a href="#states-and-modes">States and modes</a>), but
-no fader or Mute acts on it.</p>
+<p>An <code>apps</code> channel sets the volume of what an application plays, not of what it records. A recording application only
+lights the Rec LED and can turn on a state (see <a href="#states-and-modes">States and modes</a>).</p>
 <h2 id="slots">Slots<a class="headerlink" href="#slots" title="Permanent link">&para;</a></h2>
 <p>A slot is a list of <strong>candidates</strong>, top first. It shows the first candidate whose condition holds:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[slots]</span>
@@ -3083,14 +3082,13 @@ are, and a strip you are touching keeps what it shows until you let go.</p>
 <h2 id="states-and-modes">States and modes<a class="headerlink" href="#states-and-modes" title="Permanent link">&para;</a></h2>
 <p>A <strong>state</strong> is on or off. You define it in a <code>[state.&lt;name&gt;]</code> section and list its sources, such as <code>apps</code>,
 <code>recording</code>, <code>voice_chat</code>, <code>processes</code>, <code>devices</code> or <code>homeassistant</code>. It is on while any of its sources is: an application
-plays or records, you are in the voice chat, a process runs, a device is there, or Home Assistant says so. Slots ask about states in their conditions
+plays or records, you are in the voice chat, a process runs, an output or input is there, or Home Assistant says so. Slots ask about states in their conditions
 (<code>game if gaming</code>).</p>
 <p>A <strong>mode</strong> is a state with <code>mode = true</code>. States are independent: <code>gaming</code> and <code>call</code> can be on together. Modes are
 not: only one mode is on at a time, so a mode names the situation you are in now. In the example above, <code>gaming</code> is
 a mode.</p>
 <ul>
-<li>When the sources of several modes are on, the one with the highest <code>priority</code> wins. <code>priority</code> is a number; it is 0
-  if you give none.</li>
+<li>When the sources of several modes are on, the one with the highest <code>priority</code> wins.</li>
 <li>When no mode has a source on, the mode is <code>default</code>. You don't define it.</li>
 <li>A new mode shows its name across all displays for a moment (the banner).</li>
 <li>You can also pick a mode by hand: with the chord (see <a href="#more-words">More words</a>), <code>xtouch-daemon mode</code>, a button or
@@ -3100,11 +3098,10 @@ a mode.</p>
 <h2 id="conditions">Conditions<a class="headerlink" href="#conditions" title="Permanent link">&para;</a></h2>
 <p>A condition is the text after <code>if</code>: names of states and modes joined with <code>and</code>, <code>or</code>, <code>not</code> and parentheses, plus
 <code>present</code>. A channel is <strong>present</strong> while it has something to control: an application of an <code>apps</code> channel plays, its
-device is there, the person is in the voice chat. <code>"buds if present"</code> shows the buds only while they are connected.</p>
+output or input is there, the person is in the voice chat. <code>"buds if present"</code> shows the buds only while they are connected.</p>
 <h2 id="pools">Pools<a class="headerlink" href="#pools" title="Permanent link">&para;</a></h2>
 <p>A <strong>pool</strong> supplies members that you don't list one by one. Each slot that names the pool gets one member, in the order of
-the slots, so one pool can fill several strips (<code>apps</code> and <code>devices</code> start at the left, at slot 1; <code>people</code> at the right, at slot 8. The option <code>from</code> of a pool
-changes that): the next application that plays, the next person in the voice chat. A channel is the
+the slots, so one pool can fill several strips: the next application that plays, the next person in the voice chat. A channel is the
 opposite: you define it, and it takes exactly one strip, even when its <code>match</code> finds several streams.</p>
 <table>
 <thead>
@@ -3116,7 +3113,7 @@ opposite: you define it, and it takes exactly one strip, even when its <code>mat
 <tbody>
 <tr>
 <td><code>apps</code></td>
-<td>The applications that play, one per slot. An application whose channel has a slot of its own appears there instead; a channel that no slot names is one member, with all its streams, unless it has <code>in_pool = false</code>.</td>
+<td>The applications that play, one per slot. An application whose channel is named in a slot stays on that slot, and <code>apps</code> skips it.</td>
 </tr>
 <tr>
 <td><code>people</code></td>
@@ -3132,7 +3129,7 @@ opposite: you define it, and it takes exactly one strip, even when its <code>mat
 </tr>
 <tr>
 <td>your own, <code>[pool.&lt;id&gt;]</code></td>
-<td>A list of channels you name: the first one that is present goes to the first slot that names the pool, the next one to the next slot. With <code>kind = "apps"</code>, the applications that match a <code>match</code> list. With <code>kind = "people"</code>, the people on a <code>people</code> list. See <a href="../configuration/slots/#pools-of-channels">Channels, states and slots</a>.</td>
+<td>A list of channels, applications or people that you name, handed out in order. See <a href="../configuration/slots/#pools-of-channels">Channels, states and slots</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -3158,11 +3155,11 @@ for as long as there is one, else an application.</p>
 </tr>
 <tr>
 <td><code>device</code></td>
-<td>The X-Touch itself (<code>[device]</code>, the extender), and a sound device of an <code>output</code> or <code>input</code> channel (<code>device = "..."</code>).</td>
+<td>The section <code>[device]</code> (the X-Touch), and the option <code>device = "..."</code> of an <code>output</code> or <code>input</code> channel (an output or input). The pool <code>devices</code> hands out outputs and inputs.</td>
 </tr>
 <tr>
 <td><code>select</code></td>
-<td>The Select button, the option <code>select</code> of a device channel (<code>select = true</code>: pressing the button makes that device the system default), and the Home Assistant entity type <code>select</code>.</td>
+<td>The Select button, the option <code>select</code> of an <code>output</code> or <code>input</code> channel (<code>select = true</code>: pressing the button makes that output or input the system default), and the Home Assistant entity type <code>select</code>.</td>
 </tr>
 <tr>
 <td><code>controls</code></td>
@@ -3180,22 +3177,22 @@ for as long as there is one, else an application.</p>
   <code>4 = [{ show = "auto", color = "blue" }]</code> shows <code>auto</code> on slot 4 with a blue backlight.</li>
 <li><strong>Preset:</strong> a name for a group of well-known applications, written with an <code>@</code> (<code>@browsers</code>, <code>@voip</code>). They come
   with the daemon, you can't define your own. See <a href="../configuration/presets/">Presets</a>.</li>
-<li><strong>Choices:</strong> the devices Select switches between on one <code>output</code> or <code>input</code> channel. A <strong>profile</strong> is a setting of
-  a sound card (analog or digital output) that a choice may need: a choice can say "this device, with the card in
+<li><strong>Choices:</strong> the outputs or inputs Select switches between on one <code>output</code> or <code>input</code> channel. A <strong>profile</strong> is a setting of
+  a sound card (analog or digital output) that a choice may need: a choice can say "this output, with the card in
   the digital profile". See <a href="../configuration/channels/devices/#choices">Devices</a>.</li>
 <li><strong>Override:</strong> you set a state <code>on</code> or <code>off</code> by hand (in Home Assistant, in the GUI or with a button), whatever its
-  sources say. It lasts until the sources change (with <code>persist = true</code>, until you set it back). The third value,
+  sources say. It lasts until the sources change, then they decide again. The third value,
   <code>auto</code>, means no override: the sources decide.</li>
-<li><strong>Chord:</strong> two Solo buttons held together (slots 1 and 8 by default): it cycles the modes. The settings are in
+<li><strong>Chord:</strong> two Solo buttons that you pick, held together: it cycles the modes. The settings are in
   <code>[switching]</code>, which the GUI calls "Modes and chord".</li>
-<li><strong>Banner:</strong> the label of a new mode (and why a slot changed) shown on the displays for <code>switching.banner</code> seconds.</li>
+<li><strong>Banner:</strong> the label of a new mode (and why a slot changed) shown on the displays for a moment.</li>
 <li><strong>Hold, <code>delay_off</code> and <code>absent_after</code>:</strong> three waiting times in seconds, each for a different thing.<ul>
-<li><code>hold</code> (<code>[pool.apps]</code> and <code>[pool.devices]</code>, 5 by default): how long an application or device that stopped keeps
-  its slot, so a pause between two songs does not hand the strip to another application.</li>
-<li><code>delay_off</code> (a state, 3 by default, 10 for a mode): how long the state stays on after its sources went off.
-  <code>delay_on</code> (0 by default) is the wait before it turns on.</li>
-<li><code>absent_after</code> (a channel, 3 by default): a channel that has nothing to control any more still counts as <code>present</code> for this long, so a short gap
-  does not make its slot move.</li>
+<li><code>hold</code> (<code>[pool.apps]</code> and <code>[pool.devices]</code>): how long an application, output or input that stopped keeps its
+  slot, so a pause between two songs does not hand the strip to another application.</li>
+<li><code>delay_off</code> (a state): how long the state stays on after its sources went off. <code>delay_on</code> is the wait before
+  it turns on.</li>
+<li><code>absent_after</code> (a channel): a channel that has nothing to control any more still counts as <code>present</code> for this
+  long, so a short gap does not make its slot move.</li>
 </ul>
 </li>
 </ul>
