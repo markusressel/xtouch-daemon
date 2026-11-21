@@ -13,7 +13,7 @@ from collections.abc import Callable, Mapping
 from haad_mqtt_autodiscovery.entity import MQTTEntity
 from haad_mqtt_autodiscovery.entity.select import MQTTSelect
 
-from xtouch_daemon.config.bindings import RunAction, ValueBinding, fill
+from xtouch_daemon.config.bindings import RunAction, ValueBinding, fill, placeholders_of
 from xtouch_daemon.hardware.protocol import Button, Led, RingMode
 from xtouch_daemon.hardware.strip import CLAIMABLE_BUTTONS, Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
@@ -147,6 +147,10 @@ class SlotClaim:
             source.listeners.append(self._switched)
         self._subscribed: list[CommandValue] = []
         self._subscribe()
+        self._touched = False
+        """Whether the fader is under a finger: the value it sets now waits for it (also after a switch)."""
+        self._touched_value: CommandValue | None = None
+        """The value this claim's finger holds: the only one whose `touched` it sets and clears."""
         self.launches = {
             button: LaunchButton(action.launch, launcher, self.what, action.launch_when_running)
             for name, button in BUTTONS.items()
@@ -172,15 +176,21 @@ class SlotClaim:
         """Follows the values it sets now."""
         values = list(dict.fromkeys(v for v in (self.command_fader, self.command_encoder) if v is not None))
         for value in self._subscribed:
-            if value not in values and self._on_change in value.listeners:
-                value.listeners.remove(self._on_change)
+            if value not in values:
+                value.listeners.remove(self._value_changed)
         for value in values:
             if value not in self._subscribed:
-                value.listeners.append(self._on_change)
+                value.listeners.append(self._value_changed)
         self._subscribed = values
 
+    def _value_changed(self) -> None:
+        # its own listener on each value, so that it removes only its own
+        self._on_change()
+
     def _switched(self) -> None:
-        # a custom channel switched to another target: other values
+        # a custom channel switched to another target: other values; the finger on the fader goes over to the new one
+        if self._touched:
+            self._hold(self.command_fader)
         self._subscribe()
         self._on_change()
 
@@ -234,38 +244,51 @@ class SlotClaim:
 
     # -- the device -----------------------------------------------------------------------------------------------
 
-    # the desk hands it only the controls it takes: a fader and an encoder in Home Assistant or of a command channel
+    # the desk hands it only the controls it takes: a fader and an encoder in Home Assistant or bound to a value
+
+    # a value of a custom channel that is not there (None) does nothing
 
     def on_fader(self, fraction: float) -> None:
-        if self.command_fader is not None:
-            self.command_fader.moved(fraction)
-            return
-        assert self.fader is not None
-        if self.connected:
+        if self.fader is None:
+            if (value := self.command_fader) is not None:
+                value.moved(fraction)
+        elif self.connected:
             self.fader.moved(fraction)
 
     def on_touch(self, touched: bool) -> None:
-        if self.command_fader is not None:
-            self.command_fader.touched = touched
+        if self.fader is None:
+            self._touched = touched
+            self._hold(self.command_fader if touched else None)
             if not touched:
                 # let go, it stays where the hand left it
                 self.show()
             return
-        assert self.fader is not None
         self.fader.touch(touched)
         self._event("fader_touched" if touched else "fader_released")
 
+    def _hold(self, value: CommandValue | None) -> None:
+        """
+        Moves the finger of the fader to `value` (None: lets go): it clears only the touch it set, not the one of the
+        channel's own fader on its slot or of an encoder that steps the same value.
+        """
+        # TODO(custom): one `touched` flag per CommandValue; two faders on one value at once need a count of touches
+        if self._touched_value is not None and self._touched_value is not value:
+            self._touched_value.touched = False
+        if value is not None:
+            value.touched = True
+        self._touched_value = value
+
     def on_encoder(self, steps: int) -> None:
-        if self.command_encoder is not None:
-            self.command_encoder.turn(steps)
-            return
-        assert self.encoder is not None
-        if self.connected:
+        if self.encoder is None:
+            if (value := self.command_encoder) is not None:
+                value.turn(steps)
+        elif self.connected:
             self.encoder.turn(steps)
 
     def on_encoder_press(self, pressed: bool) -> None:
-        if self.command_encoder is not None:
-            self.command_encoder.push(pressed)
+        if self.encoder is None:
+            if (value := self.command_encoder) is not None:
+                value.push(pressed)
             return
         self._event("encoder_pressed" if pressed else "encoder_released")
 
@@ -277,9 +300,7 @@ class SlotClaim:
         if not pressed or action is None:
             return
         if isinstance(action, RunAction):
-            value = self.command_fader or self.command_encoder
-            placeholders = {"value": value_text(value.value)} if value is not None and value.value is not None else {}
-            run_program(self.commands, fill(action.run, **placeholders), f"{self.what}.{button.name.lower()}")
+            self._run(button, action)
         elif isinstance(action, Launch):
             launch = self.launches[button]
             launch.press(launch.program_runs(self.processes()))
@@ -291,6 +312,20 @@ class SlotClaim:
         else:
             self.actions.toggle(action.removeprefix("toggle:"))
 
+    def _run(self, button: Button, action: RunAction) -> None:
+        """Runs the program of a button; `{value}`: the first known value of its fader, else of its encoder."""
+        what = f"{self.what}.{button.name.lower()}"
+        known = next(
+            (v.value for v in (self.command_fader, self.command_encoder) if v is not None and v.value is not None),
+            None,
+        )
+        if known is None and "value" in placeholders_of(action.run):
+            _LOGGER.warning(f"{what}: no value yet for {{value}}, so {action.run[0]} does not run")
+            return
+        run_program(
+            self.commands, fill(action.run, **({"value": value_text(known)} if known is not None else {})), what
+        )
+
     def _event(self, event_type: str) -> None:
         if self.entities is None or self.entities.events is None or not self.entities.bridge.ready:
             return
@@ -299,16 +334,15 @@ class SlotClaim:
         task.add_done_callback(self._tasks.discard)
 
     def close(self) -> None:
+        """Lets go of what it follows and ends its programs: once, by its `Controls`."""
         for link in (self.fader, self.encoder):
             if link is not None:
                 link.close()
         for value in self._subscribed:
-            if self._on_change in value.listeners:
-                value.listeners.remove(self._on_change)
+            value.listeners.remove(self._value_changed)
         self._subscribed = []
-        for source in (self._fader_source, self._encoder_source):
-            if source is not None and self._switched in source.listeners:
-                source.listeners.remove(self._switched)
+        for source in dict.fromkeys(s for s in (self._fader_source, self._encoder_source) if s is not None):
+            source.listeners.remove(self._switched)
         for value in self._own.values():
             value.close()
         for task in self._tasks:
@@ -340,10 +374,13 @@ class Controls:
         self.scene = scene
         self.desk = desk
         self.on_change: Callable[[], None] = lambda: None
-        """Called when Home Assistant or a `watch` of a command changed one of their values."""
+        """Called when Home Assistant, a hand or a `watch` changed one of their values."""
         self.entities: dict[MQTTEntity, str | None] = {}
         """Their entities in Home Assistant, for the MQTT bridge."""
+        self.commands = commands if commands is not None else SimulatedCommands()
+        """Runs the programs of the claims: they start them in its tasks (`wait_closed()`)."""
         self._links: list[ControlEntities] = []
+        self._closed = False
         self.claims: dict[int, tuple[SlotClaim, ...]] = {}
         for slot, entries in scene.controls.items():
             by_key: dict[str, ControlEntities] = {}
@@ -369,7 +406,7 @@ class Controls:
                     processes,
                     encoder_step,
                     sources or {},
-                    commands if commands is not None else SimulatedCommands(),
+                    self.commands,
                     self._changed,
                 )
                 for index, entry in enumerate(entries)
@@ -419,6 +456,10 @@ class Controls:
                 claim.show()
 
     def close(self) -> None:
+        """Hands the slots back and ends the claims and their entities; again, it does nothing."""
+        if self._closed:
+            return
+        self._closed = True
         for slot, claim in self.active.items():
             if claim is not None:
                 self.desk.claim(slot - 1, None)
