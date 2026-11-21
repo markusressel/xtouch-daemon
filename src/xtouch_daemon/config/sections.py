@@ -17,6 +17,7 @@ from pydantic import (
 
 from xtouch_daemon.config.base import ConfigError, Meanings, Model
 from xtouch_daemon.config.names import WithPresets
+from xtouch_daemon.config.permissions import warn_if_readable
 from xtouch_daemon.config.values import (
     METER_POINTS,
     SHUTDOWN_SEQUENCES,
@@ -126,6 +127,7 @@ class MqttConfig(Model):
         if self.password is not None:
             return self.password.get_secret_value()
         if self.password_file is not None:
+            warn_if_readable(self.password_file.expanduser(), "mqtt.password_file")
             try:
                 return self.password_file.expanduser().read_text(encoding="utf-8").strip()
             except OSError as e:
