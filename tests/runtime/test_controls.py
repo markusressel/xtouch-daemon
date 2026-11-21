@@ -16,13 +16,15 @@ from tests.support.mqtt import FakeBroker
 from tests.support.slots import Rig
 from tests.support.tasks import finish_tasks, settle
 from tests.support.waiting import until
+from tests.support.watches import ProgramCommands
 from xtouch_daemon import mqtt as mqtt_module
+from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.bindings import ValueBinding
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
-from xtouch_daemon.hardware.protocol import Button, Led, RingMode
+from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.runtime.controls import Controls, SlotClaim
 from xtouch_daemon.runtime.desk import Desk
@@ -668,3 +670,173 @@ async def test_controls_close_once(surface: RecordingSurface, bridge: MqttBridge
     new.close()
     assert not bridge._watchers  # pyright: ignore[reportPrivateUsage]
     rig.mixer.close()
+
+
+SHOWN = """
+[[controls.1]]
+meter = { watch = "cpu --watch", max = 50 }
+color = { watch = "colors" }
+lcd = { watch = "clock" }
+rec = { led = { watch = "lamp" } }
+when = "not gaming"
+
+[[controls.1]]
+color = "blue"
+select = { press = "toggle:call", led = "off" }
+"""
+
+
+async def test_a_slot_shows_what_its_controls_watch_while_their_when_holds(surface: RecordingSurface) -> None:
+    commands = ProgramCommands()
+    rig = Rig(surface, parse_config(BASE + SHOWN), commands=commands)
+    rig.step(STATE)
+    await settle()
+    claim = rig.desk.claims[0]
+    assert claim is not None
+    # it only shows: the buttons and the fader stay with the speaker
+    assert claim.taken == frozenset()
+    assert claim.shown == {"meter", "color", "lcd", "rec"}
+    assert rig.mixer.controllers[0].taken == frozenset()
+    device = surface.strips[0]
+    view = rig.mixer.controllers[0].strip
+    # before the first lines: white, an empty second line, Rec dark, the meter at rest
+    assert (device.color, device.text[1], device.leds[Button.REC]) == (Color.WHITE, "", Led.OFF)
+    rig.desk.show_meters()
+    assert surface.meters(0) == []
+    commands.print_to("cpu --watch", "load: 25")
+    commands.print_to("colors", "Red")
+    commands.print_to("colors", "nonsense")
+    commands.print_to("clock", "12:00")
+    commands.print_to("lamp", "flash")
+    await settle()
+    # a line that is no color keeps the last color
+    assert (device.color, device.text, device.leds[Button.REC]) == (Color.RED, ["Speaker", "12:00"], Led.FLASH)
+    rig.desk.show_meters()
+    assert surface.meters(0) == [round(0.5 * protocol.METER_MAX)]
+    # what the speaker shows meanwhile is kept, not shown
+    view.set_text(1, "50 %")
+    view.set_meter(3)
+    view.set_color(Color.CYAN)
+    assert (device.color, device.text[1]) == (Color.RED, "12:00")
+    assert surface.meters(0) == [round(0.5 * protocol.METER_MAX)]
+
+    # gaming: the second entry; the slot shows its own again but the color, Select is the claim's
+    rig.engine.choose_mode("gaming")
+    rig.step(STATE)
+    claim = rig.desk.claims[0]
+    assert claim is not None
+    assert (claim.taken, claim.shown) == ({"select"}, {"color", "select"})
+    assert (device.color, device.text[1], device.leds[Button.REC]) == (Color.BLUE, view.text[1], view.leds[Button.REC])
+    press(surface, 0, Button.SELECT)
+    assert rig.engine.choices[0] == {"call": Override.ON}
+    assert device.leds[Button.SELECT] == Led.OFF
+
+    # back: the watches ran on, so the slot shows their lines at once
+    rig.engine.choose_mode("default")
+    rig.step(STATE)
+    assert (device.color, device.text[1], device.leds[Button.REC]) == (Color.RED, "12:00", Led.FLASH)
+    assert [commands.watching(p) for p in ("cpu --watch", "colors", "clock", "lamp")] == [1, 1, 1, 1]
+    rig.mixer.close()
+    await commands.wait_closed()
+    assert commands._tasks == set()  # pyright: ignore[reportPrivateUsage]
+
+
+async def test_a_led_claim_leaves_the_press_to_what_the_slot_shows(surface: RecordingSurface) -> None:
+    config = parse_config(BASE + '[controls]\n2 = { select = { led = { watch = "lamp" } }, when = "call" }\n')
+    commands = ProgramCommands()
+    rig = Rig(surface, config, commands=commands)
+    voice = AudioState(outputs=STATE.outputs, default_output="speaker", streams=(stream(1, "Mumble", "mumble"),))
+    rig.step(voice, frozenset({"mumble"}))
+    assert rig.labels()[1] == "Voice"
+    claim = rig.desk.claims[1]
+    assert claim is not None
+    assert (claim.taken, claim.shown) == (frozenset(), {"select"})
+    commands.print_to("lamp", "on")
+    await settle()
+    assert surface.strips[1].leds[Button.SELECT] == Led.ON
+    # the press stays the voice channel's
+    assert rig.mixer.controllers[1].taken == frozenset()
+    rig.mixer.close()
+    await commands.wait_closed()
+
+
+async def test_shown_parts_in_home_assistant(surface: RecordingSurface, bridge: MqttBridge) -> None:
+    config = parse_config(
+        BASE
+        + '[mqtt]\nhost = "broker"\n'
+        + '[controls]\n3 = { meter = "homeassistant", color = "homeassistant", lcd = "homeassistant", '
+        + 'rec = { led = "homeassistant" }, solo = { press = "homeassistant", led = "off" } }\n'
+    )
+    rig = Rig(surface, config, bridge=bridge)
+    ids = sorted(entity.unique_id for entity in rig.mixer.controls.entities)
+    assert ids == [
+        "xtouch_slot_3_bottom",
+        "xtouch_slot_3_buttons",
+        "xtouch_slot_3_color",
+        "xtouch_slot_3_meter",
+        "xtouch_slot_3_rec_led",
+    ]
+    rig.step(STATE)
+    device = surface.strips[2]
+    claim = rig.mixer.controls.active[3]
+    assert claim is not None
+    # Home Assistant is not there yet
+    assert (device.color, device.text[1], device.leds[Button.REC]) == (Color.WHITE, "offline", Led.OFF)
+    assert claim.meter_level() is None
+    task = asyncio.create_task(rig.mixer.run())
+    bridge_task = asyncio.create_task(bridge.run())
+    entities = claim.entities
+    assert entities is not None
+    color, bottom, meter = entities.color, entities.bottom, entities.meter
+    assert color is not None
+    assert bottom is not None
+    assert meter is not None
+    await until(lambda: bridge.ready and meter.state is not None)
+    await color.set_state("green")
+    await bottom.set_state("hello")
+    await meter.set_state(50)
+    await entities.leds[Button.REC].set_state("on")
+    await until(lambda: device.color == Color.GREEN and device.text[1] == "hello")
+    await until(lambda: device.leds[Button.REC] == Led.ON)
+    assert claim.meter_level() == Lit(7)
+    press(surface, 2, Button.SOLO)
+    await settle()
+    assert device.leds[Button.SOLO] == Led.OFF
+    task.cancel()
+    bridge_task.cancel()
+    rig.mixer.close()
+    await finish_tasks()
+
+
+@pytest.mark.parametrize(
+    ("text", "problem"),
+    [
+        ('2 = { when = "call" }', "controls.2: claims nothing (fader, encoder, select, rec, solo, meter, color, lcd)"),
+        ("2 = { select = {} }", "controls.2.select: a button takes press, led or both"),
+        ('2 = { rec = { led = "press" } }', 'controls.2.rec: led = "press" shows what the press does, but there'),
+        ('2 = { select = { led = "on" } }', "controls.2.select.led: Input should be 'off', 'press' or 'homeassistant'"),
+        ('2 = { select = { led = "off", foo = 1 } }', "controls.2.select.foo: Extra inputs are not permitted"),
+        ('2 = { rec = { press = "toggle:nope" } }', "controls.2.rec.press: toggle:nope: no state or mode nope"),
+        ('2 = { solo = { press = { run = "x {value}" } } }', "controls.2: solo.press.run: {value} needs a fader"),
+        ('2 = { meter = { watch = "cpu {value}" } }', "controls.2.meter.watch: {value} is for set and run"),
+        ('2 = { meter = { watch = "cpu", min = 5, max = 5 } }', "controls.2.meter.max: 5 is not above min (5)"),
+        ("2 = { meter = true }", "controls.2.meter: Input should be 'homeassistant'"),
+        ('2 = { color = "pink" }', "controls.2.color: Input should be 'off', 'red'"),
+        ('2 = { lcd = { watch = "x {target}" } }', "controls.2: lcd.watch: {target} is for custom channels"),
+        ('2 = { rec = { led = { watch = "x {target}" } } }', "controls.2: rec.led.watch: {target} is for custom"),
+        ('2 = { lcd = { watch = "x" }, id = "clock" }', "controls.2.id: names Home Assistant entities, but no"),
+        ('2 = { meter = "homeassistant" }', "controls.2: Home Assistant needs an [mqtt] section"),
+        ('2 = { select = { led = "homeassistant" } }', "controls.2: Home Assistant needs an [mqtt] section"),
+    ],
+)
+def test_shown_parts_of_the_controls_are_checked(text: str, problem: str) -> None:
+    with pytest.raises(ConfigError) as error:
+        parse_config(BASE + "[controls]\n" + text + "\n")
+    assert problem in str(error.value)
+
+
+def test_the_led_of_a_solo_of_the_chord_can_be_claimed() -> None:
+    config = parse_config(BASE + '[controls]\n1 = { solo = { led = { watch = "lamp" } } }\n')
+    assert config.slots.scene.controls[1][0].taken == ()
+    with pytest.raises(ConfigError, match="the Solo buttons of the chord"):
+        parse_config(BASE + '[controls]\n1 = { solo = { press = "toggle:call", led = "off" } }\n')

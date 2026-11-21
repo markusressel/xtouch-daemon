@@ -68,8 +68,19 @@ def test_controls_are_text():
             "5": [{"select": "toggle:call", "solo": "mode:gaming"}, "broken"],
             "7": {"encoder": {"set": ["brightness", "-b", "{value}"]}, "select": {"run": "reset"}},
             "8": {"fader": {"channel": "screen"}},
+            "3": {
+                "rec": {"press": "toggle:call", "led": {"watch": "lamp --watch"}},
+                "solo": {"led": "homeassistant"},
+                "meter": {"watch": ["cpu-load"], "max": 8},
+                "color": "red",
+                "lcd": "homeassistant",
+            },
         }
     }
+    assert controls_text(values, 3) == [
+        "rec: press toggle:call and led watch lamp --watch, solo: led homeassistant, meter: watch cpu-load, "
+        "color: red, lcd: homeassistant"
+    ]
     assert controls_text(values, 2) == ["select: launch mumble -m (when not call)"]
     assert controls_text(values, 5) == ["select: toggle:call, solo: mode:gaming"]
     assert controls_text(values, 7) == ["encoder: set brightness -b {value}, select: run reset"]

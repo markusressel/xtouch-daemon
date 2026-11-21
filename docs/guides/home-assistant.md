@@ -111,8 +111,9 @@ encoder = "homeassistant"    # the fader sets the volume, the encoder dims the d
 ## Controls of a slot
 
 A control of a slot can belong to Home Assistant whatever the slot shows, with
-[`[controls]`](../configuration/slots.md#controls-and-the-chord): the fader, the encoder (turn and push), and the
-Select, Rec and Solo buttons (an event per press, and a select for the LED). The entities are named by the slot
+[`[controls]`](../configuration/slots.md#controls-and-the-chord): the fader, the encoder (turn and push), the
+Select, Rec and Solo buttons (an event per press, and a select for the LED), the meter, the color and the second line
+of the LCD. The entities are named by the slot
 (`number.xtouch_slot_6_fader`), or by `id`:
 
 ```toml

@@ -224,3 +224,26 @@ async def test_a_virtual_strip_leaves_the_parts_a_claim_shows_alone() -> None:
     view.bind(None)
     view.mask(frozenset({"fader"}))
     view.mask(frozenset())
+
+
+async def test_a_virtual_strip_leaves_the_color_the_second_line_and_the_meter_to_a_claim() -> None:
+    surface = RecordingSurface()
+    device = surface.strips[0]
+    view = VirtualStrip(surface, 9)
+    view.set_color(Color.RED)
+    view.set_text(0, "Speaker")
+    view.set_text(1, "50%")
+    view.mask(frozenset({"color", "lcd", "meter"}))
+    view.bind(device)
+    assert (device.color, device.text) == (Color.BLACK, ["Speaker", ""])
+    view.set_color(Color.BLUE)
+    view.set_text(0, "Phones")
+    view.set_text(1, "60%")
+    view.set_meter(5)
+    assert (device.color, device.text) == (Color.BLACK, ["Phones", ""])
+    assert surface.meters(0) == []
+    # given back: they show what the strip shows
+    view.mask(frozenset())
+    assert (device.color, device.text) == (Color.BLUE, ["Phones", "60%"])
+    view.set_meter(5)
+    assert surface.meters(0) == [5]

@@ -47,7 +47,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - An option of a binding outside of one (e.g. `set` on a custom channel) says so in the error.
   - `[controls]` can give the fader or the encoder of any slot to the value of a custom channel
     (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
-    (`{ run = "..." }`).
+    (`{ run = "..." }`). It claims the meter, the color, the second line of the LCD and the LEDs of a slot too, with
+    Home Assistant or a `watch`, e.g. `8 = { meter = { watch = "cpu-load --watch" } }`: slot 8's meter shows the CPU
+    whatever the slot shows. `select = { led = { watch = "..." } }` claims only the LED; the press stays with what the
+    slot shows. When `when` stops holding, the slot shows its own parts again.
   - Simulate in the GUI and `xtouch-daemon simulate` run the `watch` programs, never `set` or `run`. Parts in Home
     Assistant look as while Home Assistant is not there, and the situation alone says whether a custom channel is
     there.

@@ -95,6 +95,22 @@ A part of `[controls]` takes the same bindings: `7 = { encoder = { set = "...", 
 or `{ channel = "screen_left" }`, which shares the value of a channel's fader (or encoder) with the slot. Buttons take
 `{ run }` too.
 
+`[controls]` claims what a slot shows as well, whatever the slot shows: `meter` (`"homeassistant"` or
+`{ watch, min, max }`), `color` (a color, `"homeassistant"` or `{ watch }`), `lcd` (`"homeassistant"` or `{ watch }`),
+and the LED of a button: `select = { press = <action>, led = <LED> }`, either key left out. `led` alone claims the
+LED only, and the press stays with what the slot shows; `press` alone is the action as before, its LED shows what it
+does. `led` takes `off`, `press`, `"homeassistant"` or `{ watch }`. The entities are those of a channel, by the `id` of
+the controls or `slot_<n>`: `number.<ns>_<id>_meter`, `select.<ns>_<id>_color`, `text.<ns>_<id>_bottom`,
+`select.<ns>_<id>_<button>_led`.
+
+In the runtime, a claim has two sets: `taken`, the controls whose events go to it (the desk routes them), and
+`shown`, the parts it shows instead of the strip of the slot (`VirtualStrip.mask()` keeps them from the device, and
+gives them back when the claim goes). The desk shows the level of a claimed meter and stops the capture of the strip
+below it. The watches of a claim run for as long as the configuration, like those of a channel.
+
+Places stay words only: a part could otherwise be bound at three levels (channel, place, slot), which is hard to
+follow. Bindings of a slot go through `[controls]`.
+
 ## Home Assistant
 
 The entities of the bound parts are those of the `homeassistant` type, by the channel's id: `number.<ns>_<id>_meter`,

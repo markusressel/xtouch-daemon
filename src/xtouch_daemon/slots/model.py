@@ -24,12 +24,18 @@ from pydantic import (
 from xtouch_daemon.config.base import ConfigError, Meanings, error_message, error_path, error_place
 from xtouch_daemon.config.bindings import (
     FADER_PUSH,
+    HOME_ASSISTANT,
     TABLE,
     TARGET,
     TEXT,
     VALUE,
+    WORD_OR_TABLE,
+    ColorPart,
+    CustomMeterPart,
+    LcdPart,
     RunAction,
     ValueBinding,
+    WatchBinding,
     placeholders_of,
     programs_of,
     text_or_table,
@@ -76,7 +82,13 @@ belong to the slot whatever it shows are in `[controls]`.
 DEVICE_OPTIONS = frozenset({"encoder", "min_volume", "max_volume", "select"})
 """Options of a `devices` place for the devices it shows (`encoder`: `volume` or `balance`; `select`)."""
 CONTROLS = ("fader", "encoder", "select", "rec", "solo")
-"""What `[controls]` can claim of a slot (not Mute: it stays with what the slot shows)."""
+"""The controls `[controls]` can claim of a slot (not Mute: it stays with what the slot shows)."""
+CONTROL_BUTTONS = ("select", "rec", "solo")
+"""The buttons of `CONTROLS`: a press, an LED, or both."""
+CONTROL_DISPLAYS = ("meter", "color", "lcd")
+"""What `[controls]` can show on a slot instead of what the slot shows, besides the ring and the LEDs."""
+CONTROL_PARTS = (*CONTROLS, *CONTROL_DISPLAYS)
+"""Every part `[controls]` can claim of a slot."""
 CONTROL_ACTIONS = re.compile(r"homeassistant|cycle_modes|mode:[a-z0-9_]+|toggle:[a-z0-9_]+")
 """The actions of a claimed button that are text; a launch is a table."""
 
@@ -374,10 +386,16 @@ def _kind_of_knob(value: object) -> str:
     return text_or_table(value)
 
 
-def _kind_of_button(value: object) -> str:
+def _kind_of_action(value: object) -> str:
     if isinstance(value, Launch) or (isinstance(value, Mapping) and "launch" in value):
         return "~launch"
     return "~run" if isinstance(value, Mapping | BaseModel) else TEXT
+
+
+def _kind_of_button(value: object) -> str:
+    if isinstance(value, ButtonClaim) or (isinstance(value, Mapping) and not {"launch", "run"} & set(value)):  # pyright: ignore[reportUnknownArgumentType]
+        return "~claim"
+    return _kind_of_action(value)
 
 
 type KnobControl = Annotated[
@@ -390,11 +408,63 @@ type KnobControl = Annotated[
 What `[controls]` can make of a fader or an encoder: a number in Home Assistant, the value of a `custom` channel, or a
 value of your own.
 """
-type ButtonControl = Annotated[
+type ButtonAction = Annotated[
     Annotated[str, Tag(TEXT)] | Annotated[Launch, Tag("~launch")] | Annotated[RunAction, Tag("~run")],
+    Discriminator(_kind_of_action),
+]
+"""What a press of a button of `[controls]` does: an action of the slots, an application to start, or a program."""
+
+CLAIM_LEDS = Meanings(
+    {
+        "off": "The LED stays dark.",
+        "press": "Shows what the press does: lit while its mode or state is on, or while its application runs. Needs "
+        "`press`.",
+        "homeassistant": "Home Assistant sets it: a select of its own. Needs `[mqtt]`.",
+    }
+)
+"""What the LED of a button of `[controls]` can show as a word."""
+ClaimLedWord = Literal["off", "press", "homeassistant"]
+type ClaimLed = Annotated[
+    Annotated[Annotated[ClaimLedWord, CLAIM_LEDS], Tag(TEXT)] | Annotated[WatchBinding, Tag(TABLE)],
+    WORD_OR_TABLE,
+]
+"""What the LED of a button of `[controls]` shows: a word, or the lines of a program of your own."""
+
+
+class ButtonClaim(_Section):
+    """A button of `[controls]` as a table: what a press does, what its LED shows, or both."""
+
+    press: ButtonAction | None = None
+    """
+    What a press does, whatever the slot shows: an action, an application to start, or a program to run. Unset: the
+    press stays with what the slot shows.
+    """
+    led: ClaimLed | None = None
+    """
+    What the LED shows, whatever the slot shows. A `watch` lights it with each line `on`, `1`, `true` or `yes`, and
+    flashes it on `flash`. Unset: what the press does.
+    """
+
+    @model_validator(mode="after")
+    def _claims_something(self) -> ButtonClaim:
+        if self.press is None and self.led is None:
+            raise ValueError("a button takes press, led or both")
+        if self.led == "press" and self.press is None:
+            raise ValueError('led = "press" shows what the press does, but there is no press')
+        return self
+
+
+type ButtonControl = Annotated[
+    Annotated[str, Tag(TEXT)]
+    | Annotated[Launch, Tag("~launch")]
+    | Annotated[RunAction, Tag("~run")]
+    | Annotated[ButtonClaim, Tag("~claim")],
     Discriminator(_kind_of_button),
 ]
-"""What `[controls]` can make of a button: an action of the slots, an application to start, or a program to run."""
+"""
+What `[controls]` can make of a button: what a press does (an action of the slots, an application to start, a program
+to run), or a table of its press and its LED (`ButtonClaim`).
+"""
 
 
 class ControlsConfig(_Section):
@@ -404,11 +474,46 @@ class ControlsConfig(_Section):
     """
 
     fader: KnobControl | None = None
+    """
+    What the fader of the slot sets, whatever the slot shows: a number in Home Assistant, the value of a `custom`
+    channel, or a value of your own.
+    """
     encoder: KnobControl | None = None
+    """
+    What the encoder of the slot sets, whatever the slot shows. The LED ring shows the value. E.g. `{ channel =
+    "screen" }`.
+    """
     select: ButtonControl | None = None
+    """
+    What Select does, whatever the slot shows: an action, an application to start, or a program to run. A table sets
+    its `press` and its `led` apart.
+    """
     rec: ButtonControl | None = None
+    """
+    What Rec does, whatever the slot shows: an action, an application to start, or a program to run. A table sets its
+    `press` and its `led` apart.
+    """
     solo: ButtonControl | None = None
+    """
+    What Solo does, whatever the slot shows: an action, an application to start, or a program to run. A table sets its
+    `press` and its `led` apart.
+    """
+    meter: CustomMeterPart | None = None
+    """
+    What the meter of the slot shows, whatever the slot shows: Home Assistant's level, or a number a program prints.
+    """
+    color: ColorPart | None = None
+    """
+    The backlight of the LCD of the slot, whatever the slot shows: a color, Home Assistant's, or the color a program
+    prints.
+    """
+    lcd: LcdPart | None = None
+    """
+    The second line of the LCD of the slot, whatever the slot shows: Home Assistant's text, or the newest line a
+    program prints.
+    """
     when: str | None = None
+    """The controls apply while this condition of states and modes holds, e.g. `not call`."""
     id: str | None = None
     """Names the Home Assistant entities of the slot's controls; by default `slot_<n>`."""
 
@@ -416,20 +521,61 @@ class ControlsConfig(_Section):
     def _bound(self) -> ControlsConfig:
         if isinstance(self.fader, ValueBinding) and self.fader.push is not None:
             raise ValueError(FADER_PUSH)
-        for name in CONTROLS:
-            for option, argv in programs_of(getattr(self, name)).items():
-                if "target" in placeholders_of(argv):
-                    raise ValueError(f"{name}.{option}: {TARGET} is for custom channels with targets")
+        for where, argv in self.programs.items():
+            if "target" in placeholders_of(argv):
+                raise ValueError(f"{where}: {TARGET} is for custom channels with targets")
         valued = any(isinstance(knob, ValueBinding | ChannelControl) for knob in (self.fader, self.encoder))
-        for name in ("select", "rec", "solo"):
-            action = getattr(self, name)
+        for name in CONTROL_BUTTONS:
+            action = self.press(name)
             if isinstance(action, RunAction) and "value" in placeholders_of(action.run) and not valued:
-                raise ValueError(f"{name}.run: {VALUE} needs a fader or an encoder bound to a value")
+                raise ValueError(f"{self.press_place(name)}.run: {VALUE} needs a fader or an encoder bound to a value")
         return self
 
     @property
     def claimed(self) -> tuple[str, ...]:
-        return tuple(name for name in CONTROLS if getattr(self, name) is not None)
+        """The parts it claims, in the order of `CONTROL_PARTS`."""
+        return tuple(name for name in CONTROL_PARTS if getattr(self, name) is not None)
+
+    def press(self, button: str) -> str | Launch | RunAction | None:
+        """What a press of the button (`select`, `rec`, `solo`) does; None: the press stays with what the slot shows."""
+        value = getattr(self, button)
+        return value.press if isinstance(value, ButtonClaim) else value
+
+    def press_place(self, button: str) -> str:
+        """Where the press of a button is in the entry: `select`, or `select.press` in a table."""
+        return f"{button}.press" if isinstance(getattr(self, button), ButtonClaim) else button
+
+    def led(self, button: str) -> ClaimLedWord | WatchBinding | None:
+        """What the LED of a button shows: its `led`, `press` with only a press, None while it is not claimed."""
+        value = getattr(self, button)
+        if isinstance(value, ButtonClaim):
+            return value.led if value.led is not None else "press"
+        return None if value is None else "press"
+
+    @property
+    def taken(self) -> tuple[str, ...]:
+        """The controls whose events it takes: the fader, the encoder, and the buttons with a press."""
+        knobs = tuple(name for name in ("fader", "encoder") if getattr(self, name) is not None)
+        return knobs + tuple(name for name in CONTROL_BUTTONS if self.press(name) is not None)
+
+    @property
+    def programs(self) -> dict[str, tuple[str, ...]]:
+        """Its programs by where they are, e.g. `fader.set`, `select.run`, `rec.led.watch`, `meter.watch`."""
+        bound: dict[str, object] = {name: getattr(self, name) for name in ("fader", "encoder", *CONTROL_DISPLAYS)}
+        for name in CONTROL_BUTTONS:
+            value = getattr(self, name)
+            if isinstance(value, ButtonClaim):
+                bound |= {f"{name}.press": value.press, f"{name}.led": value.led}
+            else:
+                bound[name] = value
+        return {f"{at}.{option}": argv for at, part in bound.items() for option, argv in programs_of(part).items()}
+
+    @property
+    def uses_home_assistant(self) -> bool:
+        """Whether a part of it is in Home Assistant: it needs `[mqtt]`, and its entities are there."""
+        parts = [getattr(self, name) for name in ("fader", "encoder", *CONTROL_DISPLAYS)]
+        buttons = [part for name in CONTROL_BUTTONS for part in (self.press(name), self.led(name))]
+        return HOME_ASSISTANT in parts + buttons
 
 
 class StateConfig(_Section):
@@ -550,7 +696,7 @@ class Scene:
             strips, action = chord
             _check_action("switching.chord.action", action, file, problems, chord=True)
             for slot in strips:
-                if any(entry.solo is not None for entry in controls.get(slot, ())):
+                if any(entry.press("solo") is not None for entry in controls.get(slot, ())):
                     problems.append(
                         f"controls.{slot}.solo: the Solo buttons of the chord can't be claimed (switching.chord)"
                     )
@@ -943,11 +1089,11 @@ def _parse_controls(
                 continue
             entries.append(config)
             if not config.claimed:
-                problems.append(f"{where}: claims nothing (fader, encoder, select, rec, solo)")
-            for name in ("select", "rec", "solo"):
-                action = getattr(config, name)
+                problems.append(f"{where}: claims nothing ({', '.join(CONTROL_PARTS)})")
+            for name in CONTROL_BUTTONS:
+                action = config.press(name)
                 if isinstance(action, str):
-                    _check_action(f"{where}.{name}", action, file, problems)
+                    _check_action(f"{where}.{config.press_place(name)}", action, file, problems)
             for name in ("fader", "encoder"):
                 knob = getattr(config, name)
                 if isinstance(knob, ChannelControl):
@@ -991,7 +1137,7 @@ def _check_control_id(
 ) -> None:
     name = config.id
     assert name is not None
-    if "homeassistant" not in (getattr(config, control) for control in CONTROLS):
+    if not config.uses_home_assistant:
         problems.append(f"{where}.id: names Home Assistant entities, but no control is for Home Assistant")
     if not _ID.fullmatch(name):
         problems.append(f"{where}.id: {name}: an id is lower case letters, digits and _")
