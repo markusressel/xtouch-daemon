@@ -1,7 +1,7 @@
 """The menus that open inside their window, without a grab of the keyboard and the mouse."""
 
 from PyQt6 import sip
-from PyQt6.QtCore import QPoint, QPointF, Qt
+from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
 from PyQt6.QtGui import QAction, QContextMenuEvent, QEnterEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
@@ -299,6 +299,26 @@ def test_the_text_of_a_field_has_its_menu_inside_the_window(qtbot: QtBot, window
     assert "Select All" in menu_texts(panel)
     pick(qtbot, panel, "Select All")
     assert edit.selectedText() == edit.text()
+
+
+def test_a_menu_of_a_right_click_goes_with_its_panel(qtbot: QtBot, window: MainWindow) -> None:
+    window.show_page("states")
+    edit = window.states_page.id_edit
+    view = window.device_view.preview.strips[1]
+    before = len(window.findChildren(QMenu))
+    for widget in (edit, view, edit):
+        position = QPoint(5, 40)
+        QApplication.sendEvent(
+            widget, QContextMenuEvent(QContextMenuEvent.Reason.Mouse, position, widget.mapToGlobal(position))
+        )
+        panel = open_menu(window)
+        assert panel is not None
+        panel.close()
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    # the panel deleted last asked to delete its menu
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    # each right click made a menu, which stayed for as long as the window
+    assert len(window.findChildren(QMenu)) == before
 
 
 def test_a_strip_has_its_menu_where_it_is_clicked(qtbot: QtBot, window: MainWindow) -> None:

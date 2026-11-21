@@ -119,6 +119,19 @@ def show_menu(
     return panel
 
 
+def show_made_menu(menu: QMenu, anchor: QWidget, at: QPoint | None = None) -> MenuPanel | None:
+    """
+    Shows `menu` (see `show_menu`), made for this one time, e.g. for a right click: it goes with its panel, or every
+    click would leave one more menu behind.
+    """
+    panel = show_menu(menu, anchor, at)
+    if panel is None:
+        menu.deleteLater()
+    else:
+        panel.destroyed.connect(menu.deleteLater)
+    return panel
+
+
 def open_menu(window: QWidget) -> MenuPanel | None:
     """The menu open in `window` (the first one, not its submenus); None for none."""
     for panel in window.findChildren(MenuPanel):
@@ -651,7 +664,7 @@ class TextMenus(QObject):
         menu = text_menu(a0, a1.pos())
         if menu is None:
             return False
-        show_menu(menu, a0, a1.globalPos())
+        show_made_menu(menu, a0, a1.globalPos())
         return True
 
 
