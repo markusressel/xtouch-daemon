@@ -30,9 +30,44 @@ parts.
 
 ## Strips and slots
 
-The device has 8 **strips**, each with a fader, an [encoder](configuration/strip/encoders.md), a display (LCD), a meter and four buttons (Rec, Solo,
-Mute, Select). A strip is hardware. A **slot** is the entry of the configuration for one strip, numbered 1 to 8 from
-the left. A slot decides what its strip shows.
+![One strip of the device, from the top: the encoder with its ring, the LCD, the meter beside Rec, Solo, Mute and Select, and the fader](images/controls/strip.png){ .xt-part width="88" }
+
+The device has 8 **strips**. A strip is hardware. Each has, from the top:
+
+<div class="grid cards" markdown>
+
+-   ![Encoder](images/controls/encoder.png){ .xt-icon }
+    **Encoder**
+
+    ---
+
+    Turns and pushes, with a ring of LEDs. See [Encoders](configuration/strip/encoders.md).
+
+-   ![LCD](images/controls/lcd.png){ .xt-icon }
+    **Display (LCD)**
+
+    ---
+
+    Two lines of 7 characters, with a backlight in the strip's color.
+
+-   ![Buttons](images/controls/buttons.png){ .xt-icon }
+    **Meter and buttons**
+
+    ---
+
+    The meter, and Rec, Solo, Mute and Select with their LEDs. See [Buttons and LEDs](configuration/strip/leds.md).
+
+-   ![Fader](images/controls/fader.png){ .xt-icon }
+    **Fader**
+
+    ---
+
+    A motor fader with a touch sensor, next to a dB scale.
+
+</div>
+
+A **slot** is the entry of the configuration for one strip, numbered 1 to 8 from the left. A slot decides what its
+strip shows.
 
 ## Channels
 

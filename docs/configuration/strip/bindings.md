@@ -16,13 +16,13 @@ The parts of the `output`, `input`, `apps` and `auto` channels:
 
 | Part | Default | A program |
 |---|---|---|
-| `fader` | The volume (`"volume"`). | A value: `{ set, watch, min, max, step, format }`. |
-| `encoder` | The type's modes ([Encoders](encoders.md)). | A value: `{ set, watch, min, max, step, push, format }`. |
-| `lcd` | What the type shows on the second line. | `{ watch }`: each line is the text. |
-| `color` | A color name. | `{ watch }`: each line is a color name. |
-| `meter` | The level of the audio (`true`), or dark (`false`). | `{ watch, min, max }`: each line is a level. |
-| A button's `press`, `hold` | The type's actions ([Buttons and LEDs](leds.md)). | `{ run }`: runs to its end. |
-| A button's `led` | The type's indicators. | `{ watch }`: `on`, `1`, `true`, `yes` light it, `flash` flashes it. |
+| ![](../../images/controls/fader.png){ .xt-icon } `fader` | The volume (`"volume"`). | A value: `{ set, watch, min, max, step, format }`. |
+| ![](../../images/controls/encoder.png){ .xt-icon } `encoder` | The type's modes ([Encoders](encoders.md)). | A value: `{ set, watch, min, max, step, push, format }`. |
+| ![](../../images/controls/lcd.png){ .xt-icon } `lcd` | What the type shows on the second line. | `{ watch }`: each line is the text. |
+| ![](../../images/controls/color.png){ .xt-icon } `color` | A color name. | `{ watch }`: each line is a color name. |
+| ![](../../images/controls/meter.png){ .xt-icon } `meter` | The level of the audio (`true`), or dark (`false`). | `{ watch, min, max }`: each line is a level. |
+| ![](../../images/controls/select.png){ .xt-icon } A button's `press`, `hold` | The type's actions ([Buttons and LEDs](leds.md)). | `{ run }`: runs to its end. |
+| ![](../../images/controls/rec.png){ .xt-icon } A button's `led` | The type's indicators. | `{ watch }`: `on`, `1`, `true`, `yes` light it, `flash` flashes it. |
 
 Each part also takes `"homeassistant"`: Home Assistant sets it, with an entity of its own (see below).
 
@@ -103,7 +103,7 @@ With `[mqtt]`, a fader or an encoder bound to a value is a number too (`number.<
 range. It has no state until the value is known; a change in Home Assistant runs `set`.
 
 Only the channel itself has these entities, not the applications and devices that a place of `apps`, `auto` or
-`devices` shows. A [place](../slots.md#slots) that sets a part to `"homeassistant"` does nothing; the log says so.
+`devices` shows. A [place](../slots.md#places) that sets a part to `"homeassistant"` does nothing; the log says so.
 Simulate has no Home Assistant: its parts look as while Home Assistant is not there.
 
 ## Simulate

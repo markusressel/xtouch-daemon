@@ -140,3 +140,49 @@
   color: var(--md-default-fg-color);
   font-weight: 600;
 }
+
+/*
+ * The pictures of a strip and of its parts (images/controls/, rendered by `just screenshot` as the GUI draws them):
+ * `.xt-part` floats beside the text of a section, `.xt-icon` sits in a table row or a card, `.xt-row` spans the
+ * width (the colors of the LCD). A section ends the float of the one before.
+ */
+.md-typeset img.xt-part {
+  float: right;
+  margin: 0 0 1em 1.5em;
+}
+
+.md-typeset h2 {
+  clear: both;
+}
+
+.md-typeset img.xt-icon {
+  height: 3.2em;
+  width: auto;
+  vertical-align: middle;
+}
+
+.md-typeset img.xt-row {
+  display: block;
+  width: 100%;
+  max-width: 50rem;
+  height: auto;
+}
+
+.md-typeset .grid.cards img.xt-icon {
+  float: right;
+  height: 6em;
+  margin-left: 0.6em;
+}
+
+/* the terms of a definition list stand out from their text, as the bold names of a list do */
+.md-typeset dt {
+  font-weight: 600;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .md-typeset img.xt-part {
+    float: none;
+    display: block;
+    margin: 0 auto 1em;
+  }
+}

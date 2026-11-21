@@ -27,6 +27,8 @@ fader = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}
 
 ## A value
 
+![A fader at the 0 dB mark of its scale](../../images/controls/fader.png){ .xt-part width="80" }
+
 A value (`fader = { ... }`, `encoder = { ... }`) takes these options; only the encoder has a `push`:
 
 | Option | Default | Meaning |
@@ -38,17 +40,23 @@ A value (`fader = { ... }`, `encoder = { ... }`) takes these options; only the e
 | `push` | none | The value a push of the encoder sets. Without it, a push does nothing. |
 | `format` | `{value:g}` | How the LCD shows the value, in the [format of Python](https://docs.python.org/3/library/string.html#formatspec). |
 
-The fader, the ring and the LCD show a change at once. The program runs with the newest value only: turns and moves
-that come while it runs wait for it, and only the last of them runs next. A program that fails or takes longer than 10
-seconds is logged as a warning.
+How `set` runs
+:   The fader, the ring and the LCD show a change at once. The program runs with the newest value only: turns and
+    moves that come while it runs wait for it, and only the last of them runs next. A program that fails or takes
+    longer than 10 seconds is logged as a warning.
 
-Without `watch` the daemon knows only the values it set. Until the first one, the ring is dark, the fader stays where
-it is, and a turn starts from `push`, or else from `min`. While a value is set or a fader of it is under a finger, the
-lines of `watch` don't move it. A `watch` that ends or can't start runs again after 5 seconds.
+Without `watch`
+:   The daemon knows only the values it set. Until the first one, the ring is dark, the fader stays where it is, and a
+    turn starts from `push`, or else from `min`.
 
-A `watch` runs for as long as the configuration, also while no slot shows the channel.
+With `watch`
+:   While a value is set or a fader of it is under a finger, the lines of `watch` don't move it. A `watch` that ends or
+    can't start runs again after 5 seconds. It runs for as long as the configuration, also while no slot shows the
+    channel.
 
 ## Buttons
+
+![The buttons of a strip, lit: Rec and Mute red, Solo yellow, Select green](../../images/controls/buttons.png){ .xt-part width="64" }
 
 Select, Rec, Solo and Mute do nothing until you give them a `press` (and a `hold`, once the button is down for
 0.5 seconds):
@@ -61,9 +69,14 @@ Select, Rec, Solo and Mute do nothing until you give them a `press` (and a `hold
 | `cycle_modes`, `mode:<id>`, `toggle:<id>` | As on the other channels ([Buttons](../strip/leds.md#buttons)). |
 | `homeassistant` | An event in Home Assistant per press and release; as `press` only, without a `hold`. |
 
-`led` is `off`, `press` (lit while the program of `run` runs, while another target than the first is on with `next`,
-while the mode or the state of the press is on), `homeassistant`, or `{ watch }` (`on`, `1`, `true`, `yes` light it,
-`flash` flashes it, anything else turns it off).
+`led` takes:
+
+| `led` | The LED |
+|---|---|
+| `off` | Stays dark. |
+| `press` | Lit while the program of `run` runs, while another target than the first is on with `next`, while the mode or the state of the press is on. |
+| `homeassistant` | Home Assistant sets it. |
+| `{ watch }` | `on`, `1`, `true`, `yes` light it, `flash` flashes it, anything else turns it off. |
 
 ```toml
 [channel.lamp]
