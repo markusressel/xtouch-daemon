@@ -106,6 +106,16 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
   restarts only the service: `systemd.Service` (shared with `install-service`) reads the state of the unit and
   installs, starts and restarts it.
 
+## Errors and signals
+
+- **An error is no crash.** PyQt ends the program (a core dump) on an exception in a slot or in a method Qt calls (a
+  paint, a size hint) while `sys.excepthook` is Python's own. `run_gui` installs `gui/qt/errors.py` first: such an
+  error is logged with its traceback, and the window says it in its status line and goes on.
+- **Ctrl+C and SIGTERM wait for the event loop.** Python runs a signal handler between any two bytecodes, e.g. in a
+  paint or while the window is built. The handler of `run_gui` (`QuitSignals`), installed before anything of Qt, only
+  notes the signal; a timer of the event loop closes the windows, which ask about unsaved changes, and not while a
+  dialog asks already.
+
 ## PyQt6, QtAwesome and qt-themes
 
 The same as openhasp-config-manager, so the tools look and work alike. The wheels carry Qt itself, so

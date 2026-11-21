@@ -3,6 +3,7 @@ Zooming the window, which takes a new one.
 """
 
 import dataclasses
+import sys
 from pathlib import Path
 
 import pytest
@@ -126,6 +127,8 @@ def test_run_gui_starts_again_for_a_new_zoom(
     monkeypatch.setattr(qt, "QApplication", lambda args: qapp)
     monkeypatch.setattr(MainWindow, "show", lambda window: None)
     monkeypatch.setattr(qt.signal, "signal", lambda signum, handler: None)
+    # run_gui sets its own
+    monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     deleted: list[object] = []
     # the test's application stays
     monkeypatch.setattr(qt.sip, "delete", deleted.append)

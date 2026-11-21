@@ -4,6 +4,7 @@ The service and the file: installing, starting and stopping the service, saving 
 
 import dataclasses
 import signal
+import sys
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
@@ -44,6 +45,7 @@ from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.domain.channels import channel_options
 from xtouch_daemon.gui.domain.schema import Kind, Option
 from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.qt import errors
 from xtouch_daemon.gui.qt.fields.controls import Switch
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.fields.popover import Entry
@@ -513,7 +515,7 @@ def test_the_theme_switches_and_is_remembered(qtbot: QtBot, window: MainWindow):
     assert load_theme_mode() == ThemeMode.DARK
 
 
-def test_run_gui_shows_the_window(path: Path, monkeypatch: pytest.MonkeyPatch, qapp: QApplication):
+def test_run_gui_shows_the_window(qtbot: QtBot, path: Path, monkeypatch: pytest.MonkeyPatch, qapp: QApplication):
     shown: list[MainWindow] = []
     monkeypatch.setattr(qt, "QApplication", lambda args: qapp)
     monkeypatch.setattr(MainWindow, "show", lambda window: shown.append(window))
@@ -522,14 +524,33 @@ def test_run_gui_shows_the_window(path: Path, monkeypatch: pytest.MonkeyPatch, q
     monkeypatch.setattr(qt.signal, "signal", lambda signum, handler: handlers.update({signum: handler}))
     closed: list[bool] = []
     monkeypatch.setattr(qapp, "closeAllWindows", lambda: closed.append(True))
+    # run_gui sets its own
+    monkeypatch.setattr(sys, "excepthook", sys.excepthook)
+    building: list[object] = []
+    original = MainWindow.__init__
+
+    def init(window: MainWindow, *args: object, **kwargs: object) -> None:
+        # what handles an error or Ctrl+C while the window is built
+        building.extend((sys.excepthook, set(handlers)))
+        original(window, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(MainWindow, "__init__", init)
 
     assert qt.run_gui(path) == 0
     assert shown[0].document.path == path
     assert QCoreApplication.applicationName() == "xtouch-daemon-gui"
     # the name of packaging/xtouch-daemon-gui.desktop
     assert qapp.desktopFileName() == "xtouch-daemon-gui"
-    # Ctrl+C closes the window like its close button
+    # from the start: Python's own would end the program (PyQt) or raise KeyboardInterrupt wherever it is
+    assert building == [errors.report, {signal.SIGINT, signal.SIGTERM}]
+    # Ctrl+C closes the window like its close button, from the event loop: the handler only notes it
     handlers[signal.SIGINT](signal.SIGINT, None)
+    assert closed == []
+    qtbot.waitUntil(lambda: closed == [True])
+    # SIGTERM too, but not while a dialog asks already (e.g. about unsaved changes while closing)
+    monkeypatch.setattr(qapp, "activeModalWidget", lambda: shown[0])
+    handlers[signal.SIGTERM](signal.SIGTERM, None)
+    qtbot.wait(2 * qt.SIGNAL_CHECK_MS)
     assert closed == [True]
     shown[0].deleteLater()
 

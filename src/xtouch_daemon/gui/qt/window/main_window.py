@@ -63,6 +63,7 @@ from xtouch_daemon.gui.domain.status import (
     runs_older,
 )
 from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
+from xtouch_daemon.gui.qt import errors
 from xtouch_daemon.gui.qt.device_test import DeviceTest
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
@@ -240,6 +241,7 @@ class MainWindow(QMainWindow):
         # the header and the footer reach across the window, the docks are between them
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._bar("header", self._header()))
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self._bar("footer", self._footer()))
+        errors.listen(self._error_raised)
         self.device_dock = self._device_dock()
         self.configuration_dock = self._configuration_dock(configuration)
         self.log_view = LogView(self.live)
@@ -716,6 +718,10 @@ class MainWindow(QMainWindow):
         return footer
 
     # -- showing --------------------------------------------------------------------------------------------------
+
+    def _error_raised(self, text: str) -> None:
+        """An error no code caught (see `errors`): the window goes on, the status line says it."""
+        self.status.setText(f"Something went wrong: {text}. The window goes on; the terminal has the details.")
 
     def show_page(self, name: str) -> None:
         """Shows a page of the rail ("slots", "channels", "states", "settings"), or one of the settings."""
