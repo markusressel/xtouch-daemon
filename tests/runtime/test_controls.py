@@ -4,7 +4,7 @@ show what they claim, launch, pick modes, toggle states, and put a fader, an enc
 """
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import pytest
 
@@ -431,6 +431,7 @@ async def test_a_claim_lets_go_of_the_channel_when_the_controls_close(surface: R
     assert not _claims_listen(screen.listeners)
     assert not _claims_listen(value.listeners)
     assert not value.touched
+    # the mixer closes the controls again: that does nothing
     rig.mixer.close()
     await commands.wait_closed()
 
@@ -536,20 +537,41 @@ async def test_a_fader_of_the_controls_with_a_value_of_its_own(surface: Recordin
     assert commands._tasks == set()  # pyright: ignore[reportPrivateUsage]
 
 
+class AskedSimulation(SimulatedCommands):
+    """A twin's commands that note what they are asked to run (and, as the twin's, run none of it)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.asked: list[list[str]] = []
+
+    async def run(self, argv: Sequence[str]) -> None:
+        self.asked.append(list(argv))
+        await super().run(argv)
+
+
 async def test_a_simulated_value_of_the_controls_starts_in_the_middle_and_sets_nothing(
     surface: RecordingSurface,
 ) -> None:
-    commands = SimulatedCommands()
-    config = parse_config(BASE + '[controls]\n3 = { fader = { set = "brightness -b {value}", min = 0, max = 2 } }\n')
+    commands = AskedSimulation()
+    config = parse_config(
+        BASE
+        + "[controls]\n"
+        + '3 = { fader = { set = "brightness -b {value}", min = 0, max = 2 }, solo = { run = "lamp {value}" } }\n'
+    )
     rig = Rig(surface, config, commands=commands)
     rig.step(STATE)
-    assert surface.strips[2].fader == protocol.fader_value(0.5)
-    surface.on_event(protocol.FaderMoved(2, protocol.fader_value(0.25)))
-    await settle()
     claim = rig.mixer.controls.active[3]
     assert claim is not None
     assert claim.command_fader is not None
+    # in the middle of min and max: 1, the fader half way up
+    assert claim.command_fader.value == 1
+    assert surface.strips[2].fader == protocol.fader_value(0.5)
+    surface.on_event(protocol.FaderMoved(2, protocol.fader_value(0.25)))
+    press(surface, 2, Button.SOLO)
+    await settle()
     assert claim.command_fader.value == 0.5
+    # set and run go only to the twin's commands, which run nothing (tests/system/test_commands.py)
+    assert commands.asked == [["brightness", "-b", "0.5"], ["lamp", "0.5"]]
     rig.mixer.close()
     await commands.wait_closed()
 
@@ -561,3 +583,74 @@ def test_controls_without_commands_only_simulate(surface: RecordingSurface) -> N
     )
     assert isinstance(controls.commands, SimulatedCommands)
     controls.close()
+
+
+BOTH = """
+1 = { fader = { set = "own {value}", max = 10 }, encoder = { channel = "screen" }, select = { run = "lamp {value}" } }
+"""
+
+
+async def test_a_claim_lets_go_only_of_the_touch_it_set(surface: RecordingSurface) -> None:
+    commands = FakeCommands()
+    rig = Rig(surface, parse_config(BASE + COMMANDS.replace("1 = {", "2 = {") + BOTH), commands=commands)
+    rig.step(STATE)
+    screen = rig.mixer.channels["screen"]
+    assert isinstance(screen, CustomStrip)
+    shared = screen.fader_value()
+    assert shared is not None
+    claim = rig.mixer.controls.active[1]
+    assert claim is not None
+    own = claim.command_fader
+    assert own is not None
+    assert claim.command_encoder is shared
+    # another hand holds the channel's value (slot 3's fader); the claim's finger is on its own fader
+    surface.on_event(protocol.FaderTouched(2, True))
+    surface.on_event(protocol.FaderTouched(0, True))
+    assert (own.touched, shared.touched) == (True, True)
+    # the channel switches (to the same values): the claim moves only its own finger
+    for listener in list(screen.listeners):
+        listener()
+    assert (own.touched, shared.touched) == (True, True)
+    surface.on_event(protocol.FaderTouched(0, False))
+    assert (own.touched, shared.touched) == (False, True)
+    surface.on_event(protocol.FaderTouched(2, False))
+    rig.mixer.close()
+    await commands.wait_closed()
+
+
+async def test_a_run_takes_the_first_value_that_is_known(surface: RecordingSurface) -> None:
+    commands = FakeCommands()
+    rig = Rig(surface, parse_config(BASE + COMMANDS + BOTH.replace("1 = {", "4 = {")), commands=commands)
+    rig.step(STATE)
+    await settle()
+    claim = rig.mixer.controls.active[4]
+    assert claim is not None
+    assert claim.command_fader is not None
+    # its own fader has no value yet; the channel's, which its encoder sets, has one
+    assert claim.command_fader.value is None
+    commands.print("0.55")
+    await settle()
+    press(surface, 3, Button.SELECT)
+    await settle()
+    assert commands.runs == [["lamp", "0.55"]]
+    # once the fader has a value, it is the fader's
+    surface.on_event(protocol.FaderMoved(3, protocol.fader_value(0.5)))
+    press(surface, 3, Button.SELECT)
+    await settle()
+    assert commands.runs[-2:] == [["own", "5"], ["lamp", "5"]]
+    rig.mixer.close()
+    await commands.wait_closed()
+
+
+async def test_controls_close_once(surface: RecordingSurface, bridge: MqttBridge) -> None:
+    config = parse_config(BASE + '[mqtt]\nhost = "broker"\n[controls]\n1 = { fader = "homeassistant" }\n')
+    rig = Rig(surface, config, bridge=bridge)
+    old = rig.mixer.controls
+    old.close()
+    # the next configuration watches the same entity; the old controls, closed again, leave it be
+    new = Controls(config.slots.scene, Desk(surface), rig.engine, bridge, FakeLauncher(), frozenset, 5)
+    old.close()
+    assert bridge._watchers  # pyright: ignore[reportPrivateUsage]
+    new.close()
+    assert not bridge._watchers  # pyright: ignore[reportPrivateUsage]
+    rig.mixer.close()

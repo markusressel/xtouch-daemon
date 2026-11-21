@@ -149,13 +149,14 @@ class SlotClaim:
         self._subscribe()
         self._touched = False
         """Whether the fader is under a finger: the value it sets now waits for it (also after a switch)."""
+        self._touched_value: CommandValue | None = None
+        """The value this claim's finger holds: the only one whose `touched` it sets and clears."""
         self.launches = {
             button: LaunchButton(action.launch, launcher, self.what, action.launch_when_running)
             for name, button in BUTTONS.items()
             if isinstance(action := getattr(config, name), Launch)
         }
         self._tasks: set[asyncio.Task[None]] = set()
-        self._closed = False
 
     @property
     def command_fader(self) -> CommandValue | None:
@@ -189,10 +190,7 @@ class SlotClaim:
     def _switched(self) -> None:
         # a custom channel switched to another target: other values; the finger on the fader goes over to the new one
         if self._touched:
-            for value in self._subscribed:
-                value.touched = False
-            if (fader := self.command_fader) is not None:
-                fader.touched = True
+            self._hold(self.command_fader)
         self._subscribe()
         self._on_change()
 
@@ -260,14 +258,25 @@ class SlotClaim:
     def on_touch(self, touched: bool) -> None:
         if self.fader is None:
             self._touched = touched
-            if (value := self.command_fader) is not None:
-                value.touched = touched
-                if not touched:
-                    # let go, it stays where the hand left it
-                    self.show()
+            self._hold(self.command_fader if touched else None)
+            if not touched:
+                # let go, it stays where the hand left it
+                self.show()
             return
         self.fader.touch(touched)
         self._event("fader_touched" if touched else "fader_released")
+
+    def _hold(self, value: CommandValue | None) -> None:
+        """
+        Moves the finger of the fader to `value` (None: lets go): it clears only the touch it set, not the one of the
+        channel's own fader on its slot or of an encoder that steps the same value.
+        """
+        # TODO(custom): one `touched` flag per CommandValue; two faders on one value at once need a count of touches
+        if self._touched_value is not None and self._touched_value is not value:
+            self._touched_value.touched = False
+        if value is not None:
+            value.touched = True
+        self._touched_value = value
 
     def on_encoder(self, steps: int) -> None:
         if self.encoder is None:
@@ -304,10 +313,12 @@ class SlotClaim:
             self.actions.toggle(action.removeprefix("toggle:"))
 
     def _run(self, button: Button, action: RunAction) -> None:
-        """Runs the program of a button, `{value}` with the value of its fader, else of its encoder."""
+        """Runs the program of a button; `{value}`: the first known value of its fader, else of its encoder."""
         what = f"{self.what}.{button.name.lower()}"
-        value = self.command_fader or self.command_encoder
-        known = value.value if value is not None else None
+        known = next(
+            (v.value for v in (self.command_fader, self.command_encoder) if v is not None and v.value is not None),
+            None,
+        )
         if known is None and "value" in placeholders_of(action.run):
             _LOGGER.warning(f"{what}: no value yet for {{value}}, so {action.run[0]} does not run")
             return
@@ -323,10 +334,7 @@ class SlotClaim:
         task.add_done_callback(self._tasks.discard)
 
     def close(self) -> None:
-        """Lets go of what it follows and ends its programs; again, it does nothing."""
-        if self._closed:
-            return
-        self._closed = True
+        """Lets go of what it follows and ends its programs: once, by its `Controls`."""
         for link in (self.fader, self.encoder):
             if link is not None:
                 link.close()
@@ -372,6 +380,7 @@ class Controls:
         self.commands = commands if commands is not None else SimulatedCommands()
         """Runs the programs of the claims: they start them in its tasks (`wait_closed()`)."""
         self._links: list[ControlEntities] = []
+        self._closed = False
         self.claims: dict[int, tuple[SlotClaim, ...]] = {}
         for slot, entries in scene.controls.items():
             by_key: dict[str, ControlEntities] = {}
@@ -447,6 +456,10 @@ class Controls:
                 claim.show()
 
     def close(self) -> None:
+        """Hands the slots back and ends the claims and their entities; again, it does nothing."""
+        if self._closed:
+            return
+        self._closed = True
         for slot, claim in self.active.items():
             if claim is not None:
                 self.desk.claim(slot - 1, None)
