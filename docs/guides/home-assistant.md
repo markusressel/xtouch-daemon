@@ -5,6 +5,10 @@ automations decide what it does. For example, the fader dims a light, the encode
 another room, a button toggles a scene. The daemon reaches Home Assistant over MQTT discovery, so it needs the
 [`[mqtt]`](#mqtt) section.
 
+Any part of a channel can also show an entity of Home Assistant itself, and a fader or an encoder can set one, e.g.
+the meter shows a temperature, the fader dims a light, Select toggles it. That needs no automation and no `[mqtt]`,
+but the API of Home Assistant: the [`[homeassistant]`](#homeassistant) section, with a token.
+
 ## PipeWire or Home Assistant?
 
 Each control has one owner. The audio channels (`output`, `input`, `apps`) and the pools (`auto`, `apps`, ...)
@@ -51,6 +55,54 @@ greyed out. A last will covers a crash. The daemon connects to the broker again 
 
 The [GUI](gui.md#live-view) shows whether the daemon is connected, and why not (e.g. a wrong password),
 and its "Test connection" button tries settings before they are saved.
+
+## `[homeassistant]`
+
+The API of Home Assistant, for the parts bound to its entities (`{ entity = "..." }` and `{ service = "..." }`, see
+[An entity of Home Assistant](../configuration/strip/bindings.md#an-entity-of-home-assistant)). The daemon connects
+only while the configuration has such parts.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `url` | required | The address of Home Assistant, as in the browser, e.g. `"http://homeassistant.local:8123"` (or `https://...`). The daemon uses its WebSocket API (`/api/websocket`). |
+| `token` | none | A long-lived access token, in the file. |
+| `token_file` | none | A file that holds the token instead, e.g. one only you can read. `~` is the home directory. Surrounding whitespace is ignored. |
+| `token_env` | none | An environment variable that holds the token instead, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`). |
+
+Set exactly one of `token`, `token_file` and `token_env`. To make a token:
+
+1. Open Home Assistant in the browser and click your user name at the bottom left: your profile.
+2. Open the **Security** tab. Under **Long-lived access tokens**, select **Create token**.
+3. Give it a name, e.g. `xtouch-daemon`, and copy the token: Home Assistant shows it only once.
+4. Put it into a file only you can read, and name the file in `token_file`:
+
+```shell
+install -m 600 /dev/null ~/.config/xtouch-daemon/homeassistant-token
+$EDITOR ~/.config/xtouch-daemon/homeassistant-token
+```
+
+```toml
+[homeassistant]
+url = "http://homeassistant.local:8123"
+token_file = "~/.config/xtouch-daemon/homeassistant-token"
+
+[channel.lamp]
+type = "custom"
+label = "Lamp"
+fader = { entity = "light.desk" }
+select = { press = { service = "light.toggle", entity = "light.desk" }, led = { entity = "light.desk" } }
+```
+
+The token acts as your user: the daemon sees every entity and can call every service you can. A user of its own in
+Home Assistant (Settings → People → Users) limits that to what that user may do.
+
+- A reload takes a changed section: the daemon connects again with it. No restart is needed.
+- A connection that breaks is tried again, after 1 second, then after longer waits, up to a minute. Meanwhile the
+  entities are not known: the parts show nothing.
+- A token that Home Assistant refuses is not tried again: the log says so. Make a new one and reload.
+- A token file that can't be read, or a variable that is not set, is an error in the log; the daemon runs without
+  the connection.
+- The log says when the daemon connected to Home Assistant, and why it can't (View → Log in the [GUI](gui.md)).
 
 ## `homeassistant` channels
 

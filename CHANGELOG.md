@@ -62,6 +62,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - GUI: a bind button next to the fader, the encoder, the LCD, the color and the meter binds them to Home Assistant
     or to a program, with the options of the program under the part. The lists of a button on a channel take
     `run: ...` and `watch: ...`.
+- Entities of Home Assistant, read and set through its API (`[homeassistant]` with `url` and a long-lived `token`,
+  `token_file` or `token_env`):
+  - `lcd`, `color`, `meter`, an LED and `present` take `{ entity = "sensor.cpu_temp", attribute = "..." }`: the LCD
+    shows the state with its unit, the color follows a light or a color name, an LED is lit by `on`, `open`, `playing`
+    and `home`.
+  - A fader or an encoder takes `{ entity = "light.desk" }` and sets it: the brightness of a light, the volume of a
+    media player, the position of a cover, the percentage of a fan, a `number` or an `input_number`. Any other entity
+    or attribute takes `service` and `data` with `{value}`.
+  - A press or a hold takes `{ service = "light.toggle", entity = "light.desk", data = { ... } }`.
+  - They work on channels and in `[controls]`. Without `[homeassistant]` they are errors at their place; an entity
+    Home Assistant does not have is a warning in the log. While the daemon is not connected, the parts show nothing.
+  - The daemon connects only while the configuration uses entities, and again after the connection broke; a refused
+    token is logged and not tried again. Simulate reads the entities and calls no services.
 
 ### Changed
 

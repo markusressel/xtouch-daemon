@@ -21,7 +21,7 @@ fader = { set = "sysctrl display redshift brightness -d DisplayPort-1 -b {value}
 | `lcd` | the value of the fader, else of the encoder, in its `format` | The second line of the LCD: `"homeassistant"`, or `{ watch }` (each line is the text). |
 | `meter` | none: the meter is dark | `"homeassistant"`, or `{ watch, min, max }` (each line is a level from `min` to `max`). |
 | `select`, `rec`, `solo`, `mute` | nothing | `press`, `hold` and `led` of the button (below). |
-| `present` | always present | `{ watch }`: a line with text makes the channel present, an empty line absent. |
+| `present` | always present | `{ watch }`: a line with text makes the channel present, an empty line absent. `{ entity }`: present unless the entity is `unavailable` or `unknown`. |
 | `targets` | none | The things the strip controls one at a time (below). |
 | `together` | `false` | A move sets every target at once (below). |
 
@@ -77,7 +77,10 @@ mute = { press = { run = "lamp --save {value}" }, led = "press" }
 
 With `present`, the channel is a candidate of the slots only while it is there, e.g. a screen that is plugged in:
 a line with text makes it present, an empty line absent. Until the first line, it counts as present. With `{target}`
-in it, one watch runs per target, and the channel is present while any of its targets is.
+in it, one watch runs per target, and the channel is present while any of its targets is. With `{ entity = "..." }`
+(see [An entity of Home Assistant](../strip/bindings.md#an-entity-of-home-assistant)), it is present unless the entity
+is `unavailable` or `unknown`, or Home Assistant does not have it; while the daemon is not connected to Home Assistant
+it is absent, before the first connection it counts as present.
 
 ## Targets
 
