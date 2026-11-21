@@ -54,7 +54,7 @@ For example, Bluetooth headphones on slot 1 while they are connected, and VoIP o
 ```toml
 [channel.buds]
 type = "output"
-device = "bluez_output.*"   # any Bluetooth headphones (the name holds an address; list-devices shows it)
+device = "bluez_output.*"   # your Bluetooth headphones (the name holds an address; list-devices shows it)
 label = "Buds"
 color = "green"
 

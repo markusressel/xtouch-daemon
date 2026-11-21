@@ -14,9 +14,9 @@ or "in a call", which you define from what the daemon sees: a program that runs,
 voice chat.
 
 ```toml
-[channel.buds]                  # a channel: one thing a strip controls
+[channel.buds]                  # a channel: what one strip controls
 type = "output"
-device = "bluez_output.*"       # any Bluetooth headphones
+device = "bluez_output.*"       # your Bluetooth headphones; with two pairs, Select switches
 
 [channel.game]
 type = "apps"                   # every sound stream of some applications

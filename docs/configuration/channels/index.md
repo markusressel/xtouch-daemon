@@ -1,6 +1,6 @@
 # Channels
 
-A channel is one thing a strip can control, such as your speakers or a group of applications. You write one
+A channel is what one strip controls, such as your speakers or all your browsers together. You write one
 `[channel.<id>]` section per channel in the [configuration file](../index.md). The id (lower case letters, digits and
 `_`) is how slots, conditions and Home Assistant name it. A strip controls the channel when a
 [slot](../slots.md#slots) names it.

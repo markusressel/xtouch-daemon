@@ -8,7 +8,7 @@ The ideas the configuration is built from, and the words that look alike. The
 ```toml
 [channel.buds]                    # a channel: what a strip controls
 type = "output"
-device = "bluez_output.*"         # any Bluetooth headphones
+device = "bluez_output.*"         # your Bluetooth headphones; with two pairs, Select switches
 label = "Buds"
 
 [channel.game]
