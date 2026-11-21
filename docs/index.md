@@ -37,8 +37,9 @@ are, and a strip you are touching keeps what it shows until you let go.
 - **Applications** (`apps`): every stream of a group of applications at once, e.g. every browser, with
   [presets](configuration/presets.md) for browsers, voice chats, games, music and video players. Select can start the
   application. See [Applications](configuration/channels/applications.md).
-- **The people of the voice chat**: a strip per person in your Mumble channel, with their name, their voice on the
-  meter and their volume on the fader. See [People](configuration/channels/people.md) and [Mumble](guides/mumble.md).
+- **The people of the voice chat**: a strip per person in your Mumble or TeamSpeak channel, with their name, their
+  voice on the meter and their volume on the fader. See [People](configuration/channels/people.md),
+  [Mumble](guides/mumble.md) and [TeamSpeak](guides/teamspeak.md).
 - **Home Assistant**: a strip whose fader, encoder, LCD, LEDs and buttons are entities for your automations, e.g. to
   dim a light or set the volume of a speaker in another room. See [Home Assistant](guides/home-assistant.md).
 
@@ -73,6 +74,6 @@ into headset mode. See [Encoders](configuration/strip/encoders.md) and [Buttons 
 |---|---|
 | [Getting started](getting-started/install.md) | Install, set up and test the device, write a first configuration, run the service; or try it [without a device](getting-started/without-a-device.md). Start here. |
 | [Concepts](concepts.md) | Channels, slots, states, pools and the words that look alike. |
-| Guides | The [GUI](guides/gui.md), [Home Assistant](guides/home-assistant.md), [Mumble](guides/mumble.md), and [Troubleshooting](guides/troubleshooting.md). |
+| Guides | The [GUI](guides/gui.md), [Home Assistant](guides/home-assistant.md), [Mumble](guides/mumble.md), [TeamSpeak](guides/teamspeak.md), and [Troubleshooting](guides/troubleshooting.md). |
 | [Configuration](configuration/index.md) | The file, applying changes, and every option: [channels, states and slots](configuration/slots.md), the [channel types](configuration/channels/index.md), the parts of a strip. |
 | Reference | Every [command](reference/commands.md), the [hardware and its protocol](reference/hardware.md), the [voice chat bridge](reference/voice-chat-bridge.md). |

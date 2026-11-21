@@ -12,6 +12,7 @@ pkgbase = xtouch-daemon-bin
 	optdepends = pipewire-pulse: the PulseAudio server of PipeWire, which the daemon controls (or PulseAudio)
 	optdepends = xtouch-daemon-gui-bin: the GUI
 	optdepends = mumble: voip strips with the people of a Mumble channel (the plugin is in /usr/share/xtouch-daemon)
+	optdepends = teamspeak3: voip strips with the people of a TeamSpeak channel (the plugin is in /usr/share/xtouch-daemon)
 	provides = xtouch-daemon=0.2.0
 	conflicts = xtouch-daemon
 	options = !strip

@@ -19,3 +19,5 @@ site/
 .claude/
 # core dumps of crashed processes
 /core.[0-9]*
+# the headers of TeamSpeak's plugin SDK, which a build of integrations/teamspeak downloads (not ours to share)
+/integrations/teamspeak/sdk/

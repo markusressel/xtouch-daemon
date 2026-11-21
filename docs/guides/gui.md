@@ -53,8 +53,10 @@ them again; the GUI remembers it.
     - `[mqtt]`, as "[Home Assistant](home-assistant.md)".
     - `[homeassistant]`, as "[Home Assistant API](home-assistant.md#homeassistant)".
     - `[switching]`, as "Modes and chord".
-    - `[voip]`, as "Voice chat". It also tells whether Mumble is connected, lists the steps of its setup, and installs
-      the [Mumble plugin](mumble.md) with "Install Mumble plugin".
+    - `[voip]`, as "Voice chat". It has a box for each voice chat client with a plugin, [Mumble](mumble.md) and
+      [TeamSpeak](teamspeak.md). The box tells whether the plugin is connected, lists the steps of its setup, and
+      installs the plugin with "Install Mumble plugin" or "Install TeamSpeak plugin". A client that is not installed
+      gets one line.
     - `[device]`, as "Extender": the sound card of the extender, touch sensors, start-up.
 
 Slots, Channels and States have a list (or the slots) on the left and what is picked on the right. The handle between

@@ -18,6 +18,7 @@ line and branch coverage, or below 98 % without the Qt widgets (`gui/qt`).
 | The live view | A real Unix socket in a short temporary directory: clients that read, that don't read and that go away; requests of the user, of other users and too long ones; the live preview through the daemon. |
 | The GUI's live preview | A fake live view (a `QLocalServer`) that answers like the daemon. |
 | The Mumble plugin | Built with CMake and loaded into a fake Mumble (`integrations/mumble/test/fake_mumble.c`) that calls its callbacks as a script says, against a real `BridgeProvider`. Skipped without cmake and a C compiler. |
+| The TeamSpeak plugin | The same with a fake TeamSpeak (`integrations/teamspeak/test/fake_teamspeak.c`), which aborts on a call into TeamSpeak from a callback. Skipped without cmake and a C compiler, or without TeamSpeak's plugin SDK, which the first build downloads. |
 | The GUI | The domain with files in a temporary directory and a fake `systemctl`; the widgets with pytest-qt on the offscreen platform, a fake sound server, and dialogs the tests answer. |
 
 The resolver and the state engine are pure, so each rule of [channels, states and slots](../design/slots/index.md)

@@ -1,6 +1,7 @@
 # Design: the voice chat
 
-Status: built. How to use it: [People](../../configuration/channels/people.md) and [Mumble](../../guides/mumble.md);
+Status: built. How to use it: [People](../../configuration/channels/people.md), [Mumble](../../guides/mumble.md) and
+[TeamSpeak](../../guides/teamspeak.md);
 the protocol of the bridge: [The voice chat bridge](../../reference/voice-chat-bridge.md). First designed with the
 [layouts](../history/layouts.md).
 
@@ -27,9 +28,10 @@ outside for TeamSpeak (ClientQuery) and Discord (RPC), not for Mumble.
 ```mermaid
 graph LR
     Mumble[Mumble + plugin] -- "JSON lines" --> Bridge
+    TeamSpeak[TeamSpeak 3 + plugin] -- "JSON lines" --> Bridge
     Bridge[BridgeProvider<br/>$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock] --> Strips[strips of people]
     Demo[DemoProvider] --> Strips
-    Later[later: TeamSpeak, Discord] -.-> Strips
+    Later[later: Discord] -.-> Strips
 ```
 
 - `VoipProvider` (`voip/provider.py`): a snapshot of `Participant`s (id, name, talking, muted, volume, level),

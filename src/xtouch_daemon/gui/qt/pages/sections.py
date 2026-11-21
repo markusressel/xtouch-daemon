@@ -1,13 +1,13 @@
 """
 The pages of the sections with options of their own (`[behavior]`, `[device]`, `[switching]`, ...), and the extras
-of three of them: testing the broker on `[mqtt]` and the API on `[homeassistant]`, installing the Mumble plugin on
-`[voip]`.
+of three of them: testing the broker on `[mqtt]` and the API on `[homeassistant]`, installing the plugins of the voice
+chat clients on `[voip]`.
 """
 
 import asyncio
 import html
 import threading
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 from pydantic import ValidationError
@@ -27,7 +27,15 @@ from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.schema import SECTIONS, options
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.gui.domain.voip import install_hint, install_steps, voip_status
+from xtouch_daemon.gui.domain.voip import (
+    CLIENTS,
+    ClientSetup,
+    PluginSetup,
+    client_status,
+    connected_here,
+    install_hint,
+    install_steps,
+)
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, help_label, help_tail, label, set_help, show_status
 from xtouch_daemon.gui.qt.fields.entities import EntitySource
@@ -36,7 +44,7 @@ from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, pa
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.live.messages import Snapshot
-from xtouch_daemon.voip import mumble
+from xtouch_daemon.voip import mumble, teamspeak
 
 
 class SectionPage(Page):
@@ -263,123 +271,159 @@ class HomeAssistantPage(SectionPage):
         self.box.show_test(self.tested, self.testing)
 
 
-type MumbleInstall = Callable[[], str]
-
-
-class MumbleInstaller(QObject):
+class PluginInstaller(QObject):
     """
-    Builds the Mumble plugin if needed and hands it to Mumble (`mumble.install()`) in a thread: a build takes a few
-    seconds. `finished` tells what happens next, or what went wrong.
+    Builds the plugin of a voice chat client if needed and copies it into the client (`ClientSetup.install`) in a
+    thread: a build takes a few seconds. `finished` tells what happens next, or what went wrong.
     """
 
     finished = pyqtSignal(object, arguments=["status"])
 
-    def __init__(self, install: MumbleInstall = mumble.install, setup: Callable[[], mumble.Setup] = mumble.setup):
+    def __init__(
+        self,
+        client: ClientSetup,
+        install: Callable[[], str] | None = None,
+        setup: Callable[[], PluginSetup] | None = None,
+    ):
         super().__init__()
-        self._install = install
-        self.setup = setup
+        self.client = client
+        self._install = install or client.install
+        self.setup = setup or client.setup
 
     def start(self) -> None:
-        threading.Thread(target=self._run, name="mumble plugin", daemon=True).start()
+        threading.Thread(target=self._run, name=f"{self.client.key} plugin", daemon=True).start()
 
     def _run(self) -> None:
         try:
             status = Status(self._install(), Tone.GOOD)
-        except mumble.MumbleError as e:
+        except (mumble.MumbleError, teamspeak.TeamSpeakError) as e:
             status = Status(str(e), Tone.BAD)
         self.finished.emit(status)
 
 
-class VoipPage(SectionPage):
-    """The [voip] section, with whether the daemon has a voice chat and the setup of the Mumble plugin."""
+def default_installers() -> list[PluginInstaller]:
+    return [PluginInstaller(client) for client in CLIENTS]
 
-    def __init__(self, editor: Editor, audio: Audio, installer: MumbleInstaller):
+
+class VoipPage(SectionPage):
+    """The [voip] section, with whether the daemon has a voice chat and the setup of the plugin of each client."""
+
+    def __init__(self, editor: Editor, audio: Audio, installers: Sequence[PluginInstaller]):
+        self.installers = list(installers)
+        self.snapshot: Snapshot | None = None
+        super().__init__("voip", editor, audio)
+        self.show_live(None)
+
+    def _above_parts(self, layout: QVBoxLayout) -> None:
+        # voip strips work without the section (see `Config._voip_strips`), so the plugins show without it too
+        self.boxes = [PluginBox(installer) for installer in self.installers]
+        """A box per client: its plugin and its setup, below the help of the section, above its options."""
+        for box in self.boxes:
+            box.changed.connect(lambda: self.show_live(self.snapshot))
+            layout.addWidget(box)
+
+    def _absent_text(self) -> str:
+        return (
+            "There is no [voip] section in the file, so voip strips use its defaults: the participants come from the "
+            "plugin of Mumble or TeamSpeak. Add it to change that."
+        )
+
+    def show_live(self, snapshot: Snapshot | None) -> None:
+        self.snapshot = snapshot
+        for box in self.boxes:
+            box.show_state(snapshot)
+
+    def showEvent(self, event: QShowEvent | None) -> None:
+        # a client or a plugin may have come or gone while the page was hidden
+        for box in self.boxes:
+            box.look_up()
+        self.show_live(self.snapshot)
+        super().showEvent(event)
+
+
+class PluginBox(QFrame):
+    """
+    The plugin of a voice chat client: whether it is connected to the daemon, the steps to set it up, and its install
+    button. A client that is not installed gets a line only.
+    """
+
+    changed = pyqtSignal(arguments=[])
+    """The install started or ended: the page shows the box again."""
+
+    def __init__(self, installer: PluginInstaller) -> None:
+        super().__init__()
         self.installer = installer
+        self.client = installer.client
         self.setup = installer.setup()
         """
         The setup of the plugin: looked up when the page shows and after an install, not with every snapshot of the
         daemon (60 a second), as it searches the disk.
         """
-        self.snapshot: Snapshot | None = None
-        self.result: Status | None = None
+        self.outcome: Status | None = None
+        """What the last install said, None before one."""
         self.installing = False
         installer.finished.connect(self._installed)
-        super().__init__("voip", editor, audio)
-        self.show_live(None)
-
-    def _above_parts(self, layout: QVBoxLayout) -> None:
-        # voip strips work without the section (see `Config._voip_strips`), so the plugin shows without it too
-        self.box = MumbleBox()
-        """The voice chat and the setup of the plugin, below the help of the section, above its options."""
-        self.box.install_button.clicked.connect(self.install)
-        layout.addWidget(self.box)
-
-    def _absent_text(self) -> str:
-        return (
-            "There is no [voip] section in the file, so voip strips use its defaults: the participants come from the "
-            "Mumble plugin. Add it to change that."
-        )
-
-    def show_live(self, snapshot: Snapshot | None) -> None:
-        self.snapshot = snapshot
-        self.box.show_state(voip_status(snapshot), self.setup, self.result, self.installing)
-
-    def showEvent(self, event: QShowEvent | None) -> None:
-        # Mumble or the plugin may have come or gone while the page was hidden
-        self.setup = self.installer.setup()
-        self.show_live(self.snapshot)
-        super().showEvent(event)
-
-    def install(self) -> None:
-        self.installing = True
-        self.result = Status("Preparing the plugin…", Tone.NEUTRAL)
-        self.show_live(self.snapshot)
-        self.installer.start()
-
-    def _installed(self, status: Status) -> None:
-        self.installing = False
-        self.result = status
-        self.setup = self.installer.setup()
-        self.show_live(self.snapshot)
-
-
-class MumbleBox(QFrame):
-    """The voice chat of the daemon, and the steps to set up the Mumble plugin with its install button."""
-
-    def __init__(self) -> None:
-        super().__init__()
         set_role(self, "card")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(Space.L, Space.L, Space.L, Space.L)
         layout.setSpacing(Space.S)
         line = QHBoxLayout()
-        line.addWidget(label("Mumble", "hint"))
+        line.addWidget(label(self.client.name, "hint"))
         self.live_pill = label("", "pill")
         line.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         line.addStretch()
-        self.install_button = button("download", "Install Mumble plugin")
+        self.install_button = button("download", f"Install {self.client.name} plugin")
+        self.install_button.clicked.connect(self.install)
         line.addWidget(self.install_button)
         layout.addWidget(row(line))
         self.live_detail = help_label("", "hint")
         layout.addWidget(self.live_detail)
-        self.steps = help_label("", "", docs.guide_link("mumble"))
+        self.steps = help_label("", "", docs.guide_link(self.client.guide))
         layout.addWidget(self.steps)
         self.result = label("", wrap=True)
         self.result.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.result)
 
-    def show_state(self, live: Status, setup: mumble.Setup, result: Status | None, installing: bool) -> None:
+    def look_up(self) -> None:
+        self.setup = self.installer.setup()
+
+    def install(self) -> None:
+        self.installing = True
+        self.outcome = Status("Preparing the plugin…", Tone.NEUTRAL)
+        self.changed.emit()
+        self.installer.start()
+
+    def _installed(self, status: Status) -> None:
+        self.installing = False
+        self.outcome = status
+        self.look_up()
+        self.changed.emit()
+
+    @property
+    def compact(self) -> bool:
+        """The client is not installed (and its plugin not connected): a line says so, without the setup."""
+        return not self.setup.client
+
+    def show_state(self, snapshot: Snapshot | None) -> None:
+        hint = install_hint(self.client, self.setup)
+        link = f"&emsp;{help_tail(link=docs.guide_link(self.client.guide))}"
+        compact = self.compact and not connected_here(snapshot, self.client)
+        live = Status("not installed", Tone.NEUTRAL, hint) if compact else client_status(snapshot, self.client)
         show_status(self.live_pill, live)
-        set_help(self.live_detail, live.tip)
-        self.install_button.setEnabled(setup.installable and not installing)
-        self.install_button.setToolTip(install_hint(setup))
-        steps = "".join(f"<li>{html.escape(step)}</li>" for step in install_steps(setup))
-        link = f"&emsp;{help_tail(link=docs.guide_link('mumble'))}"
-        set_text(self.steps, f"Set up the plugin once:<ol>{steps}</ol>{install_hint(setup)}{link}")
-        self.result.setVisible(result is not None)
-        if result is not None:
-            set_text(self.result, result.text)
-            set_role(self.result, "error" if result.tone == Tone.BAD else "")
+        set_help(self.live_detail, "" if compact else live.tip)
+        self.live_detail.setVisible(not compact)
+        self.install_button.setVisible(not compact)
+        self.install_button.setEnabled(self.setup.installable and not self.installing)
+        self.install_button.setToolTip(hint)
+        if compact:
+            set_text(self.steps, f"{html.escape(hint)}{link}")
+        else:
+            steps = "".join(f"<li>{html.escape(step)}</li>" for step in install_steps(self.client, self.setup))
+            set_text(self.steps, f"Set up the plugin once:<ol>{steps}</ol>{html.escape(hint)}{link}")
+        self.result.setVisible(self.outcome is not None)
+        if self.outcome is not None:
+            set_text(self.result, self.outcome.text)
+            set_role(self.result, "error" if self.outcome.tone == Tone.BAD else "")
 
 
 class ConnectionBox(QFrame):

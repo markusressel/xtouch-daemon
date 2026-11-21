@@ -8,8 +8,10 @@
 #   xtouch-daemon-<version>-x86_64.tar.gz      the daemon: its own Python 3.14 (python-build-standalone, installed by
 #                                              uv) with every locked dependency except the GUI's, in
 #                                              usr/lib/xtouch-daemon, the command usr/bin/xtouch-daemon, the systemd user
-#                                              unit, the example configuration and the Mumble plugin
-#                                              (usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin)
+#                                              unit, the example configuration, the Mumble plugin
+#                                              (usr/share/xtouch-daemon/xtouch-daemon.mumble_plugin) and the TeamSpeak
+#                                              plugin (usr/share/xtouch-daemon/xtouch-daemon_linux_amd64.so; its build
+#                                              downloads TeamSpeak's plugin SDK)
 #   xtouch-daemon-gui-<version>-any.tar.gz     the GUI: an environment for the system's Python 3.14 and its PyQt6, with
 #                                              the GUI's other dependencies; it uses the daemon's packages
 #   sha256sums.txt                             the checksums of both
@@ -128,6 +130,10 @@ info "Building the Mumble plugin"
 cmake -S "$repo_dir/integrations/mumble" -B "$work_dir/mumble" -DCMAKE_BUILD_TYPE=Release > /dev/null
 cmake --build "$work_dir/mumble" > /dev/null
 cp "$work_dir/mumble/xtouch-daemon.mumble_plugin" "$daemon_root/usr/share/xtouch-daemon/"
+info "Building the TeamSpeak plugin"
+cmake -S "$repo_dir/integrations/teamspeak" -B "$work_dir/teamspeak" -DCMAKE_BUILD_TYPE=Release > /dev/null
+cmake --build "$work_dir/teamspeak" > /dev/null
+cp "$work_dir/teamspeak/xtouch-daemon_linux_amd64.so" "$daemon_root/usr/share/xtouch-daemon/"
 cp "$repo_dir/LICENSE" "$daemon_root/"
 
 info "Installing the GUI's dependencies: $(tr '\n' ' ' < "$work_dir/gui.txt")"
