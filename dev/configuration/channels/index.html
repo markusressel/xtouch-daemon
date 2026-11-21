@@ -2893,7 +2893,7 @@ into a place in a slot, for the strips they show; a place of <code>apps</code>, 
 <tr>
 <td><code>color</code></td>
 <td><code>"white"</code></td>
-<td>The LCD backlight: <code>off</code> (no backlight), <code>red</code>, <code>green</code>, <code>yellow</code>, <code>blue</code>, <code>magenta</code>, <code>cyan</code>, <code>white</code>, <code>"homeassistant"</code> or <code>{ watch }</code> (<a href="../strip/bindings/">Bindings</a>). Dark while the strip has nothing to control, unless <code>lit_when_idle</code> is on.</td>
+<td>The LCD backlight: <code>off</code> (no backlight), <code>red</code>, <code>green</code>, <code>yellow</code>, <code>blue</code>, <code>magenta</code>, <code>cyan</code>, <code>white</code>, <code>"homeassistant"</code>, <code>{ watch }</code> or <code>{ poll }</code> (<a href="../strip/bindings/">Bindings</a>). Dark while the strip has nothing to control, unless <code>lit_when_idle</code> is on.</td>
 </tr>
 <tr>
 <td><code>lit_when_idle</code></td>
@@ -2903,7 +2903,7 @@ into a place in a slot, for the strips they show; a place of <code>apps</code>, 
 <tr>
 <td><code>meter</code></td>
 <td><code>true</code></td>
-<td>Whether this strip's LED meter shows the level (if <code>behavior.meters</code> is on). <code>"homeassistant"</code> or <code>{ watch, min, max }</code> show another level, see <a href="../strip/bindings/">Bindings</a>.</td>
+<td>Whether this strip's LED meter shows the level (if <code>behavior.meters</code> is on). <code>"homeassistant"</code>, <code>{ watch, min, max }</code> or <code>{ poll, min, max }</code> show another level, see <a href="../strip/bindings/">Bindings</a>.</td>
 </tr>
 <tr>
 <td><code>meter_point</code></td>
@@ -2948,7 +2948,7 @@ into a place in a slot, for the strips they show; a place of <code>apps</code>, 
 <tr>
 <td><code>lcd</code></td>
 <td>what the type shows</td>
-<td>The second line of the LCD: <code>"homeassistant"</code> or <code>{ watch }</code>, see <a href="../strip/bindings/">Bindings</a>.</td>
+<td>The second line of the LCD: <code>"homeassistant"</code>, <code>{ watch }</code> or <code>{ poll }</code>, see <a href="../strip/bindings/">Bindings</a>.</td>
 </tr>
 </tbody>
 </table>

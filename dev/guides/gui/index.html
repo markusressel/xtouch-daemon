@@ -3465,14 +3465,14 @@ there. It follows the values in the form at once, saved or not, at the step show
 <li>a bind button next to each part that can be <a href="../../configuration/strip/bindings/">bound</a> (the fader, the encoder,
   the LCD, the color, the meter, <code>present</code>): "Not bound", "Home Assistant" (with <code>[mqtt]</code>), "An entity" (with
   <code>[homeassistant]</code>) or "A program". "A program" shows the options of the program under the part, e.g. <code>set</code>,
-  <code>watch</code>, <code>min</code> and <code>max</code>; "An entity" those of the <a href="../../configuration/strip/bindings/">entity</a>, e.g. <code>entity</code>,
+  <code>watch</code> (or <code>poll</code> and <code>every</code>), <code>min</code> and <code>max</code>; "An entity" those of the <a href="../../configuration/strip/bindings/">entity</a>, e.g. <code>entity</code>,
   <code>attribute</code>, <code>min</code>, <code>service</code>. A problem in one of them shows under its row. Set back to "Not bound", the part does
   what its type says again;</li>
 <li>the field of an entity suggests the entities of Home Assistant (see <a href="#suggestions-from-home-assistant">below</a>), the
   field of an attribute those of the entity picked, with their values now. An unset option says what the domain of
   the entity does, e.g. "default: 255, of a light" for <code>max</code> of a light, or "default: light.turn_on, of a light" for
   <code>service</code>. <code>data</code> is typed as an inline table, e.g. <code>{ brightness_pct = 50 }</code>;</li>
-<li>in the lists of a button's press, hold and LED on a channel page, typing <code>run: ...</code> or <code>watch: ...</code> binds the
+<li>in the lists of a button's press, hold and LED on a channel page, typing <code>run: ...</code>, <code>watch: ...</code> or <code>poll: ...</code> binds the
   button to a program. <code>service:</code> (in the list of a press or a hold) calls a service of Home Assistant, <code>entity:</code> (in
   the list of an LED) shows an entity: their options (the service, the entity, <code>data</code>, <code>attribute</code>) show under the
   list. Places and pools take the words of the lists only;</li>

@@ -3095,6 +3095,10 @@ that belongs to the channel. The buttons of a slot that act whatever the slot sh
 <td>The newest line of the program is <code>on</code>, <code>1</code>, <code>true</code> or <code>yes</code>; <code>flash</code> flashes the LED, any other line turns it off. Until the first line, the LED is off.</td>
 </tr>
 <tr>
+<td><code>{ poll = [...], every = 10 }</code></td>
+<td>The same for the last line of a program that runs to its end every <code>every</code> seconds (<a href="../bindings/#watch-or-poll">Watch or poll</a>).</td>
+</tr>
+<tr>
 <td><code>{ entity = "..." }</code></td>
 <td>The entity (or its <code>attribute</code>) is <code>on</code>, <code>open</code>, <code>playing</code> or <code>home</code>, or a word that lights a watch. Dark while the daemon is not connected. See <a href="../bindings/#an-entity-of-home-assistant">An entity of Home Assistant</a>.</td>
 </tr>
@@ -3104,11 +3108,17 @@ that belongs to the channel. The buttons of a slot that act whatever the slot sh
 <a href="../../channels/custom/#buttons">custom channel</a>, <code>press</code> is lit while the program runs.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[channel.main.solo]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">press</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">run</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"notify-send 'Volume {value}'"</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">led</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">watch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"sh"</span><span class="p">,</span><span class="w"> </span><span class="s2">"-c"</span><span class="p">,</span><span class="w"> </span><span class="s2">"while :; do systemctl --user is-active --quiet syncthing &amp;&amp; echo on || echo off; sleep 5; done"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># lit while Syncthing runs</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">led</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">poll</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"/home/me/bin/syncthing-running"</span><span class="p">,</span><span class="w"> </span><span class="n">every</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># lit while Syncthing runs</span>
+</span></code></pre></div>
+<p><code>/home/me/bin/syncthing-running</code> is a script of your own. It prints <code>on</code> while the user service of Syncthing runs,
+else <code>off</code>:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="ch">#!/bin/sh</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>systemctl<span class="w"> </span>--user<span class="w"> </span>is-active<span class="w"> </span>--quiet<span class="w"> </span>syncthing<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>on<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span>off
 </span></code></pre></div>
 <h2 id="run-a-program">Run a program<a class="headerlink" href="#run-a-program" title="Permanent link">&para;</a></h2>
-<p><code>{ run = [...] }</code> runs a program of your own, to its end, as <code>set</code> of a <a href="../bindings/">binding</a> does. A string is
-split like a shell does, but nothing is expanded; a list is the program and its arguments. <code>{value}</code> in an argument
+<p><code>{ run = [...] }</code> runs a program of your own, to its end, as <code>set</code> of a <a href="../bindings/">binding</a> does. It runs without
+a shell: a string is split at spaces, a list is the program and its arguments (see
+<a href="../bindings/#commands">Commands</a>). <code>{value}</code> in an argument
 is the value of the fader if it is <a href="../bindings/">bound</a>, else of the encoder, else the volume in percent. While the
 value is not known yet, the program does not run and the log says so. A program that fails or takes longer than 10
 seconds is logged as a warning. <a href="../bindings/#simulate">Simulate</a> never runs it.</p>
@@ -3143,11 +3153,11 @@ seconds is logged as a warning. <a href="../bindings/#simulate">Simulate</a> nev
 </tr>
 </tbody>
 </table>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.mic]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mic"</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">rec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"recording"</span><span class="w">   </span><span class="c1"># the default: lit while an application uses the microphone</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">solo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">press</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"talk"</span><span class="p">,</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"muted"</span><span class="w"> </span><span class="p">}</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[channel.mic]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"input"</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Mic"</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">rec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"recording"</span><span class="w">   </span><span class="c1"># the default: lit while an application uses the microphone</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">solo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">press</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"talk"</span><span class="p">,</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"muted"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 
 
