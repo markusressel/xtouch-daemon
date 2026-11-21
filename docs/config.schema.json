@@ -1410,7 +1410,7 @@
             }
           ],
           "default": null,
-          "description": "What Select does, whatever the slot shows: an action, an application to start, or a program to run. A table sets\nits `press` and its `led` apart."
+          "description": "What Select does, whatever the slot shows: an action, an application to start, or a program to run. As a table,\nit takes a `press`, a `led` or both."
         },
         "rec": {
           "anyOf": [
@@ -1422,7 +1422,7 @@
             }
           ],
           "default": null,
-          "description": "What Rec does, whatever the slot shows: an action, an application to start, or a program to run. A table sets its\n`press` and its `led` apart."
+          "description": "What Rec does, whatever the slot shows: an action, an application to start, or a program to run. As a table, it\ntakes a `press`, a `led` or both."
         },
         "solo": {
           "anyOf": [
@@ -1434,7 +1434,7 @@
             }
           ],
           "default": null,
-          "description": "What Solo does, whatever the slot shows: an action, an application to start, or a program to run. A table sets its\n`press` and its `led` apart."
+          "description": "What Solo does, whatever the slot shows: an action, an application to start, or a program to run. As a table, it\ntakes a `press`, a `led` or both."
         },
         "meter": {
           "anyOf": [

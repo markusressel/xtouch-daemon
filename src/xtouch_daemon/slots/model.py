@@ -485,18 +485,18 @@ class ControlsConfig(_Section):
     """
     select: ButtonControl | None = None
     """
-    What Select does, whatever the slot shows: an action, an application to start, or a program to run. A table sets
-    its `press` and its `led` apart.
+    What Select does, whatever the slot shows: an action, an application to start, or a program to run. As a table,
+    it takes a `press`, a `led` or both.
     """
     rec: ButtonControl | None = None
     """
-    What Rec does, whatever the slot shows: an action, an application to start, or a program to run. A table sets its
-    `press` and its `led` apart.
+    What Rec does, whatever the slot shows: an action, an application to start, or a program to run. As a table, it
+    takes a `press`, a `led` or both.
     """
     solo: ButtonControl | None = None
     """
-    What Solo does, whatever the slot shows: an action, an application to start, or a program to run. A table sets its
-    `press` and its `led` apart.
+    What Solo does, whatever the slot shows: an action, an application to start, or a program to run. As a table, it
+    takes a `press`, a `led` or both.
     """
     meter: CustomMeterPart | None = None
     """

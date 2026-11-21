@@ -51,7 +51,7 @@ WHEN_HELP = (
     "first whose condition holds acts."
 )
 """The help under When of an entry."""
-PRESS_UNSET = "As what the slot shows"
+PRESS_UNSET = "As on what the slot shows"
 """The placeholder of a press an entry leaves unset: a press goes to what the slot shows."""
 
 
@@ -165,7 +165,7 @@ class EntryBox(QFrame):
         elif option.kind == Kind.BINDING and option.channel:
             option_row.binding.channels = lambda: custom_channels(self.controls.document_values())
             option_row.load()
-        option_row.reset.setToolTip("Remove it: the part is as the slot shows it" if name != "id" else "Unset")
+        option_row.reset.setToolTip("Remove the part: it goes back to what the slot shows" if name != "id" else "Unset")
         option_row.edited.connect(lambda: self._edited(name))
         return option_row
 

@@ -63,9 +63,14 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 
   `rec` and `solo` at a place set what the LED shows; the press stays the channel's.
 
-  These options take their words only (e.g. `color = "red"`, `meter = false`). A
-  [binding](strip/bindings.md) (`{ watch = ... }`) belongs to the channel. A binding for the slot, whatever it shows,
-  belongs to [`[controls]`](#controls-and-the-chord).
+  Three levels decide what the parts of a strip do and show:
+
+  - The channel (`[channel.out]`, or the pool): what each part does and how it looks, in every slot. A
+    [binding](strip/bindings.md) (`{ watch = ... }`) belongs here.
+  - The place: the look of what it shows, in this slot only. Its options take words only (e.g. `color = "red"`,
+    `meter = false`), no bindings.
+  - [`[controls]`](#controls-and-the-chord): parts of the slot, whatever it shows, while its `when` holds. A binding
+    for the slot belongs here.
 
   A control for Home Assistant, or one that starts an application (`{ launch = [...] }`), is a control of the slot, not
   a place option: [`[controls]`](#controls-and-the-chord). How to start an application with Select:
@@ -292,11 +297,11 @@ table: the LED shows what the press does. `led` takes `off`, `press` (what the p
 3 = { color = "red", lcd = { watch = "clock --watch" }, when = "call" }
 ```
 
-Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED the lamp. A press of Rec still goes to
-what the slot shows. While `when` holds, a claimed part shows the claim. When `when` stops holding, the slot shows its
-own part again. The watches run for as long as the configuration, so a claim that comes back shows their newest lines
+Slot 8's meter shows the CPU load whatever the slot shows, and its Rec LED shows the lamp. A press of Rec still goes
+to what the slot shows. While `when` holds, a claimed part shows the claim. After that, the slot shows its own part
+again. The watches run for as long as the configuration, so a claim that comes back shows their newest lines
 at once. Until the first line, a color is white, a line is empty, an LED is dark and the meter rests. Places take no
-bindings: a part that a slot shows whatever is on it belongs here. On the slots of the chord, `[controls]` can claim
+bindings: a binding for the slot, whatever it shows, belongs here. On the slots of the chord, `[controls]` can claim
 the LED of Solo, not its press.
 
 | Option of `[switching]` | Default | Meaning |

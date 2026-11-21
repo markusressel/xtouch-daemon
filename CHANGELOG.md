@@ -43,11 +43,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     custom channel on a slot that keeps it is dark ("off") and does nothing. `check-config` lists the programs per
     target.
   - Places and the built-in pools take the words of a part only: a binding belongs to the channel, or to `[controls]`.
-    The applications and devices a place shows have no entities in Home Assistant. GUI: the form of a place ("Look in
-    slot 3") shows what each option takes while unset, from the channel or the pool ("As on the channel: red"), and
-    says that the parts are set on the channel, with "Edit the channel" (or "Edit the pool") next to it. A pool of
-    channels takes no options at a place: its channels bring their own look. `rec = "muted"` at a place sets the LED
-    only; the press stays the channel's.
+    The applications and devices a place shows have no entities in Home Assistant. A pool of channels takes no options
+    at a place: its channels bring their own look. `rec = "muted"` at a place sets the LED only; the press stays the
+    channel's. GUI: the form of a place ("Look in slot 3") shows the value of each unset option, from the channel or
+    the pool ("As on the channel: red"). A line at the top says that the parts are set on the channel, with "Edit the
+    channel" (or "Edit the pool").
   - An option of a binding outside of one (e.g. `set` on a custom channel) says so in the error.
   - `[controls]` can give the fader or the encoder of any slot to the value of a custom channel
     (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
@@ -55,7 +55,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     Home Assistant or a `watch`, e.g. `8 = { meter = { watch = "cpu-load --watch" } }`: slot 8's meter shows the CPU
     whatever the slot shows. `select = { led = { watch = "..." } }` claims only the LED; the press stays with what the
     slot shows. When `when` stops holding, the slot shows its own parts again. GUI: "Controls of slot 3" on the
-    page Slots edits them, with the same fields as the page Channels, `when` and `id`, an entry or a list of them.
+    page Slots edits them: one entry or a list, each with the fields of the page Channels, `when` and `id`.
   - Simulate in the GUI and `xtouch-daemon simulate` run the `watch` programs, never `set` or `run`. Parts in Home
     Assistant look as while Home Assistant is not there, and the situation alone says whether a custom channel is
     there.

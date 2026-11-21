@@ -223,4 +223,4 @@ def test_the_led_of_a_launch_or_a_run_shows_what_the_press_does(window: MainWind
     rows = box(window).rows
     assert rows["select"].buttons.combos["led"].placeholderText() == "What the press does"
     assert rows["rec"].buttons.combos["led"].placeholderText() == "What the press does"
-    assert rows["solo"].buttons.combos["press"].placeholderText() == "As what the slot shows"
+    assert rows["solo"].buttons.combos["press"].placeholderText() == "As on what the slot shows"
