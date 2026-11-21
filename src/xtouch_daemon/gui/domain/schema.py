@@ -17,7 +17,14 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from xtouch_daemon.config.base import Meanings
-from xtouch_daemon.config.bindings import HOME_ASSISTANT, VALUE_PARTS, ValueBinding, WatchBinding
+from xtouch_daemon.config.bindings import (
+    HOME_ASSISTANT,
+    VALUE_PARTS,
+    EntityBinding,
+    ServiceData,
+    ValueBinding,
+    WatchBinding,
+)
 from xtouch_daemon.config.buttons import ACTIONS, ActionValue, ButtonConfig
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.names import Presets
@@ -40,6 +47,8 @@ class Kind(StrEnum):
     """A text that is not shown, e.g. a password."""
     PATH = "path"
     """The path of a file."""
+    DATA = "data"
+    """A table of data for a service of Home Assistant, typed as an inline table: `{ brightness_pct = 50 }`."""
     NUMBERS = "numbers"
     """Some of the whole numbers from `minimum` to `maximum`, e.g. faders."""
     TABLES = "tables"
@@ -96,6 +105,11 @@ class Option:
     """For `BINDING`: what a table of it is (the docstring of its model), e.g. "A value that programs ... set"."""
     channel: bool = False
     """For `BINDING` of `[controls]`: whether the part can set the value of a `custom` channel (`{ channel = ... }`)."""
+    entity: type[BaseModel] | None = None
+    """
+    For `BINDING`: the model of its tables with an entity of Home Assistant (`{ entity = ... }`, e.g.
+    `EntityLevelBinding`), None for a part that takes none.
+    """
     signed: bool = False
     """
     For a `NUMBER` of a binding (`min`, `step`, ...): a number of your own, of any sign and size (e.g. a brightness
@@ -162,13 +176,24 @@ def _is_binding(annotation: Any) -> bool:
     return isinstance(annotation, type) and issubclass(annotation, ValueBinding | WatchBinding)
 
 
-def _binding(annotation: Any) -> tuple[type[BaseModel], list[tuple[Any, tuple[Any, ...]]]] | None:
-    """For a part that can be bound: the model of its tables, and its words with their constraints; else None."""
+def _is_entity(annotation: Any) -> bool:
+    return isinstance(annotation, type) and issubclass(annotation, EntityBinding)
+
+
+def _binding(
+    annotation: Any,
+) -> tuple[type[BaseModel], list[tuple[Any, tuple[Any, ...]]], type[BaseModel] | None] | None:
+    """
+    For a part that can be bound: the model of its tables, its words with their constraints, and the model of its
+    tables with an entity (None for none); else None.
+    """
     branches = [branch for branch in _branches(annotation) if branch[0] is not type(None)]
     models = [kind for kind, _ in branches if _is_binding(kind)]
     if not models:
         return None
-    return models[0], [branch for branch in branches if not _is_binding(branch[0])]
+    entities = [kind for kind, _ in branches if _is_entity(kind)]
+    words = [branch for branch in branches if not _is_binding(branch[0]) and not _is_entity(branch[0])]
+    return models[0], words, entities[0] if entities else None
 
 
 def _table_model(annotation: Any) -> type[BaseModel] | None:
@@ -193,6 +218,8 @@ def _kind(annotation: Any) -> Kind:
         return Kind.CHOICE
     if annotation == tuple[str, ...]:
         return Kind.LIST
+    if annotation == ServiceData:
+        return Kind.DATA
     if get_origin(annotation) is tuple and _unwrap(get_args(annotation)[0])[0] is int:
         return Kind.NUMBERS
     kinds = {
@@ -262,7 +289,11 @@ def _words(annotation: Any) -> tuple[Any, ...]:
 
 
 def _binding_option(
-    name: str, field: FieldInfo, model: type[BaseModel], words: list[tuple[Any, tuple[Any, ...]]]
+    name: str,
+    field: FieldInfo,
+    model: type[BaseModel],
+    words: list[tuple[Any, tuple[Any, ...]]],
+    entity: type[BaseModel] | None = None,
 ) -> Option:
     """
     A part that can be bound: its words without `homeassistant` are a switch (`bool`), colors or a choice (a choice
@@ -298,6 +329,7 @@ def _binding_option(
         home_assistant=HOME_ASSISTANT in values,
         binding=" ".join((model.__doc__ or "").split()),
         channel=channel,
+        entity=entity,
         **_bounds(constraints, Kind.BINDING),
     )
 

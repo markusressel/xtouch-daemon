@@ -14,6 +14,7 @@ line and branch coverage, or below 98 % without the Qt widgets (`gui/qt`).
 | `PulseBackend` | A fake pulsectl connection. |
 | The meters | A fake `pw-record` script. |
 | The MQTT bridge, `homeassistant` strips | An in-memory broker (`tests/support/mqtt.py`): retained messages, subscriptions, last wills, lost connections. |
+| The API of Home Assistant | An in-memory Home Assistant (`tests/support/homeassistant.py`): its WebSocket messages, entities that change, services called, a refused token, a lost connection. |
 | The live view | A real Unix socket in a short temporary directory: clients that read, that don't read and that go away; requests of the user, of other users and too long ones; the live preview through the daemon. |
 | The GUI's live preview | A fake live view (a `QLocalServer`) that answers like the daemon. |
 | The Mumble plugin | Built with CMake and loaded into a fake Mumble (`integrations/mumble/test/fake_mumble.c`) that calls its callbacks as a script says, against a real `BridgeProvider`. Skipped without cmake and a C compiler. |

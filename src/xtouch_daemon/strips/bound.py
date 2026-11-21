@@ -1,18 +1,30 @@
 """
-The parts of a strip bound to programs of your own (`config.bindings`), as a controller runs them: the values of a
-fader and an encoder (`CommandValue`) and the lines of the watches of the LCD, the color, the meter and the LEDs
-(`WatchedLine`). `BoundParts` keeps them for as long as the controller lives; another look keeps those that stay the
-same, so a watch does not start again when a strip moves to another place.
+The parts of a strip bound to programs of your own or to entities of Home Assistant (`config.bindings`), as a
+controller runs them: the values of a fader and an encoder (`BoundValue`) and the lines of the watches and entities of
+the LCD, the color, the meter and the LEDs (`WatchedLine`, `EntityLine`). `BoundParts` keeps them for as long as the
+controller lives; another look keeps those that stay the same, so a watch does not start again when a strip moves to
+another place.
 """
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
-from xtouch_daemon.config.bindings import HomeAssistant, LevelBinding, ValueBinding, WatchBinding
+from xtouch_daemon.config.bindings import (
+    EntityBinding,
+    EntityLevelBinding,
+    EntityValueBinding,
+    HomeAssistant,
+    LevelBinding,
+    LineBinding,
+    ValueBinding,
+    WatchBinding,
+)
 from xtouch_daemon.config.buttons import ButtonSetup
 from xtouch_daemon.config.values import ColorName
 from xtouch_daemon.hardware.protocol import Button
-from xtouch_daemon.strips.value import CommandValue, WatchedLine, color_of_line
+from xtouch_daemon.homeassistant.parts import LineKind
+from xtouch_daemon.strips.entity import Line, line_source, open_line, open_value
+from xtouch_daemon.strips.value import BoundValue, color_of_line
 from xtouch_daemon.system.commands import Commands
 
 
@@ -24,13 +36,19 @@ class Parts:
     `HomeAssistantControls` has it for as long as the controller.
     """
 
-    fader: ValueBinding | None = None
-    encoder: ValueBinding | None = None
-    lcd: HomeAssistant | WatchBinding | None = None
+    fader: ValueBinding | EntityValueBinding | None = None
+    encoder: ValueBinding | EntityValueBinding | None = None
+    lcd: HomeAssistant | WatchBinding | EntityBinding | None = None
     """The second line of the LCD."""
-    color: HomeAssistant | WatchBinding | None = None
+    color: HomeAssistant | WatchBinding | EntityBinding | None = None
     """The backlight of the LCD; the look's color is what it shows until it is known."""
-    meter: HomeAssistant | LevelBinding | None = None
+    meter: HomeAssistant | LevelBinding | EntityLevelBinding | None = None
+
+
+def kind_of(key: str) -> LineKind:
+    """What a part (`lcd`, `color`, `meter`, `select.led`, ...) makes of the state of an entity."""
+    kinds: dict[str, LineKind] = {"lcd": "text", "color": "color", "meter": "level"}
+    return kinds.get(key, "led")
 
 
 def led_key(button: Button) -> str:
@@ -49,12 +67,12 @@ class BoundParts:
         self.encoder_step = encoder_step
         self.what = what
         self.on_change = on_change
-        self.fader: CommandValue | None = None
-        """The value the fader sets, None for a fader that is not bound to a program."""
-        self.encoder: CommandValue | None = None
-        """The value the encoder sets, None for an encoder that is not bound to a program."""
-        self.lines: dict[str, WatchedLine] = {}
-        """The watches of the parts: `lcd`, `color`, `meter`, and `select.led` ... (see `led_key()`)."""
+        self.fader: BoundValue | None = None
+        """The value the fader sets, None for a fader that is not bound to a value."""
+        self.encoder: BoundValue | None = None
+        """The value the encoder sets, None for an encoder that is not bound to a value."""
+        self.lines: dict[str, Line] = {}
+        """The watches and entities of the parts: `lcd`, `color`, `meter`, and `select.led` ... (see `led_key()`)."""
         self.color: ColorName | None = None
         """The color the watch of the color named last; None before it named one."""
 
@@ -65,27 +83,36 @@ class BoundParts:
         """
         self.fader = self._value(self.fader, parts.fader, "fader")
         self.encoder = self._value(self.encoder, parts.encoder, "encoder")
-        watches = {"lcd": parts.lcd, "color": parts.color, "meter": parts.meter}
+        watches: dict[str, object] = {"lcd": parts.lcd, "color": parts.color, "meter": parts.meter}
         watches |= {led_key(button): setup.led for button, setup in buttons.items()}
-        wanted = {key: part.watch for key, part in watches.items() if isinstance(part, WatchBinding)}
-        for key in [key for key, line in self.lines.items() if wanted.get(key) != line.argv]:
+        wanted: dict[str, tuple[LineBinding, LineKind]] = {
+            key: (part, kind_of(key)) for key, part in watches.items() if isinstance(part, WatchBinding | EntityBinding)
+        }
+        for key in [
+            key for key, line in self.lines.items() if key not in wanted or line_source(*wanted[key]) != line.source
+        ]:
             self.lines.pop(key).close()
             if key == "color":
                 self.color = None
-        for key, argv in wanted.items():
+        for key, (part, kind) in wanted.items():
             if key not in self.lines:
-                line = WatchedLine(argv, self.commands, f"{self.what}.{key}")
+                line = open_line(part, self.commands, f"{self.what}.{key}", kind)
                 line.listeners.append(self._color_printed if key == "color" else self.on_change)
                 self.lines[key] = line
+                if key == "color":
+                    # an entity is known at once; told with the next change
+                    self.color = color_of_line(line.line or "")
 
-    def _value(self, value: CommandValue | None, binding: ValueBinding | None, what: str) -> CommandValue | None:
+    def _value(
+        self, value: BoundValue | None, binding: ValueBinding | EntityValueBinding | None, what: str
+    ) -> BoundValue | None:
         if value is not None and value.binding == binding:
             return value
         if value is not None:
             value.close()
         if binding is None:
             return None
-        value = CommandValue(binding, self.commands, self.encoder_step, f"{self.what}.{what}")
+        value = open_value(binding, self.commands, self.encoder_step, f"{self.what}.{what}")
         value.listeners.append(self.on_change)
         return value
 

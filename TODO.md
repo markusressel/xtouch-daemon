@@ -25,14 +25,3 @@ device, check:
 - the meter going down: each level is sent, but the device lets meters fall by itself too.
 - a disconnect: pull only the USB cable while the device stays on. Do its faders, LCDs and LEDs stay as they were, or
   does it reset them? (`docs/reference/hardware.md`, "Disconnect", says it is not known yet.)
-
-## Read any entity of Home Assistant
-
-A binding of a part can only use the entities the daemon publishes itself (`"homeassistant"`): an automation copies
-a value into them, e.g. `sensor.cpu_temp` into `number.xtouch_out_meter`. Reading an entity directly would save that
-automation: `meter = { entity = "sensor.cpu_temp", min = 30, max = 90 }`, `color = { entity = "light.desk" }`, and
-`fader = { entity = "light.desk", attribute = "brightness" }`, which also sets it (a service call).
-
-It needs a connection to the Home Assistant API (WebSocket, `subscribe_entities`) with a long-lived token, next to the
-MQTT one: a `[homeassistant]` section with `url` and `token`, reconnects, the GUI's suggestions of entity ids. The
-token is a secret like the password of `[mqtt]`. See `docs/development/design/bindings.md`.

@@ -5,9 +5,25 @@ import pytest
 from pydantic import BaseModel, ConfigDict, Field, Tag
 
 from xtouch_daemon.config.base import Meanings
-from xtouch_daemon.config.bindings import TABLE, TEXT, WORD_OR_TABLE, WatchBinding
+from xtouch_daemon.config.bindings import (
+    TABLE,
+    TEXT,
+    WORD_OR_TABLE,
+    EntityBinding,
+    EntityLevelBinding,
+    EntityValueBinding,
+    WatchBinding,
+)
 from xtouch_daemon.config.presets import Kind as PresetKind
-from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
+from xtouch_daemon.config.sections import (
+    BehaviorConfig,
+    DeviceConfig,
+    HomeAssistantConfig,
+    MqttConfig,
+    SwitchingConfig,
+    VoipConfig,
+)
+from xtouch_daemon.config.strips import CustomStripConfig
 from xtouch_daemon.gui.domain.schema import (
     STRIP_OPTION_ORDER,
     Kind,
@@ -176,6 +192,7 @@ def test_the_sections_with_options_of_their_own():
         ("device", DeviceConfig, False),
         ("behavior", BehaviorConfig, False),
         ("mqtt", MqttConfig, True),
+        ("homeassistant", HomeAssistantConfig, True),
         ("switching", SwitchingConfig, False),
         ("voip", VoipConfig, True),
     ]
@@ -325,3 +342,15 @@ def test_the_words_of_a_choice_keep_their_meanings_and_add_up():
     (part,) = options(Strip)
     assert (part.kind, part.base, part.choices) == (Kind.BINDING, Kind.CHOICE, ("a", "b", "homeassistant"))
     assert (part.meaning("a"), part.meaning("homeassistant")) == ("A.", "HA.")
+
+
+def test_parts_that_take_an_entity_name_its_model() -> None:
+    found = {option.name: option for option in options(CustomStripConfig)}
+    assert found["fader"].entity is EntityValueBinding
+    assert found["meter"].entity is EntityLevelBinding
+    assert found["present"].entity is EntityBinding
+    assert found["present"].kind == Kind.BINDING
+    assert found["present"].base is None
+    homeassistant = {option.name: option for option in options(HomeAssistantConfig)}
+    assert homeassistant["token"].kind == Kind.SECRET
+    assert homeassistant["token_file"].kind == Kind.PATH

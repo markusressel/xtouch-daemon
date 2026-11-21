@@ -44,6 +44,7 @@ from xtouch_daemon.gui.domain import broker, docs, sources
 from xtouch_daemon.gui.domain.apply import apply, describe
 from xtouch_daemon.gui.domain.changes import EVERYTHING, Change, Scope
 from xtouch_daemon.gui.domain.connections import connections
+from xtouch_daemon.gui.domain.entities import Fetch
 from xtouch_daemon.gui.domain.history import History
 from xtouch_daemon.gui.domain.live_preview import Place, previewed, unavailable
 from xtouch_daemon.gui.domain.problems import place_of
@@ -65,6 +66,7 @@ from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
 from xtouch_daemon.gui.qt.device_test import DeviceTest
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
+from xtouch_daemon.gui.qt.fields.entities import EntitySource
 from xtouch_daemon.gui.qt.fields.menu import MenuBar, TextMenus, attach_menu
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
 from xtouch_daemon.gui.qt.file_watch import FileWatch
@@ -77,6 +79,7 @@ from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
 from xtouch_daemon.gui.qt.pages.sections import (
     BrokerTest,
     BrokerTester,
+    HomeAssistantPage,
     MqttPage,
     MumbleInstaller,
     SectionPage,
@@ -105,6 +108,7 @@ from xtouch_daemon.gui.qt.window.input_filter import InputFilter
 from xtouch_daemon.gui.qt.window.rail import RAIL_PAGES, RAIL_TITLES, Rail, SettingsPages
 from xtouch_daemon.gui.qt.window.service import ServiceControls
 from xtouch_daemon.gui.qt.window.session import Session, from_screen, to_screen
+from xtouch_daemon.homeassistant.client import fetch
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.simulator.server import AlreadyServed
 from xtouch_daemon.system import instance
@@ -154,12 +158,14 @@ class MainWindow(QMainWindow):
         session: Session | None = None,
         mumble_installer: MumbleInstaller | None = None,
         virtual_socket: Path | None = None,
+        read_entities: Fetch = fetch,
     ):
         """
         `live_socket` is where the daemon serves its live view, by default `instance.socket_file()`. `try_broker` tries
         the settings of the [mqtt] section, `mumble_installer` sets up the Mumble plugin (page of [voip]).
         `virtual_socket` is where the virtual device waits for the daemon when the GUI hosts it, by default
-        `instance.virtual_device_socket_file()`.
+        `instance.virtual_device_socket_file()`. `read_entities` reads the entities of Home Assistant for the
+        suggestions and the test of `[homeassistant]`.
         """
         super().__init__()
         self.try_broker = try_broker
@@ -169,6 +175,8 @@ class MainWindow(QMainWindow):
         """The zoom the next window gets: set when this one closes for a new zoom (see `Session`)."""
         self.editor = Editor(document, session.history if session is not None else None)
         """The document, its history and validation: what everything shows."""
+        self.entity_source = EntitySource(lambda: self.document.get(("homeassistant",)), read_entities)
+        """The entities of Home Assistant, for the fields of entities (see `fields.entities.source_of`)."""
         self.service = service
         self.find_daemon = find_daemon
         self.daemon: Instance | None = None
@@ -425,6 +433,9 @@ class MainWindow(QMainWindow):
             elif name == "mqtt":
                 self.mqtt_page = MqttPage(self.editor, audio, BrokerTester(self.try_broker))
                 self.pages[name] = self.mqtt_page
+            elif name == "homeassistant":
+                self.homeassistant_page = HomeAssistantPage(self.editor, audio, self.entity_source)
+                self.pages[name] = self.homeassistant_page
             elif name == "voip":
                 self.voip_page = VoipPage(self.editor, audio, self.mumble_installer)
                 self.pages[name] = self.voip_page
@@ -436,6 +447,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.states_page)
         self.settings = SettingsPages(self.pages)
         self.settings.picked.connect(self.show_page)
+        self.entity_source.settings_wanted.connect(lambda: self.show_page("homeassistant"))
         self.nav_buttons = self.settings.buttons
         self.stack.addWidget(self.settings)
         for name in RAIL_PAGES:
@@ -767,6 +779,8 @@ class MainWindow(QMainWindow):
         self.service_controls.show_connections(connections(snapshot, device))
         self.states_page.show_live(snapshot)
         self.mqtt_page.show_live(snapshot)
+        self.homeassistant_page.show_live(snapshot)
+        self.entity_source.show_live(snapshot)
         self.voip_page.show_live(snapshot)
         changes = changes_status(
             self.daemon,

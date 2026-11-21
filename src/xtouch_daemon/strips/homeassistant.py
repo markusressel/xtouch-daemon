@@ -38,7 +38,7 @@ from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX,
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips.base import OFFLINE_TEXT, Identity, Look, StripController, StripEnv
-from xtouch_daemon.strips.value import CommandValue
+from xtouch_daemon.strips.value import BoundValue
 
 FADER_PUBLISH_INTERVAL = 0.1
 """How often a fader moved by hand publishes its value: Home Assistant and its automations don't need every step."""
@@ -245,10 +245,10 @@ class ValueLink:
         self.bridge = bridge
         self.entity = entity
         self.out = LatestValue(entity, FADER_PUBLISH_INTERVAL)
-        self.value: CommandValue | None = None
+        self.value: BoundValue | None = None
         bridge.watch_commands(entity, self._commanded)
 
-    def attach(self, value: CommandValue | None) -> None:
+    def attach(self, value: BoundValue | None) -> None:
         if value is self.value:
             return
         if self.value is not None:
@@ -350,7 +350,7 @@ class HomeAssistantControls:
         links = [link for link in (self.fader, self.encoder) if link is not None]
         return self.bridge.ready and None not in [link.out.current for link in links]
 
-    def attach(self, fader: CommandValue | None, encoder: CommandValue | None) -> None:
+    def attach(self, fader: BoundValue | None, encoder: BoundValue | None) -> None:
         """The values of the fader and the encoder bound to programs, for their numbers."""
         for name, value in (("fader", fader), ("encoder", encoder)):
             if (link := self.values.get(name)) is not None:
