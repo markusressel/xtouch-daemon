@@ -15,6 +15,7 @@ from pydantic import (
 
 from xtouch_daemon.config.base import ConfigError, error_message, error_path, hinted
 from xtouch_daemon.config.model import Config
+from xtouch_daemon.config.permissions import check_safe
 from xtouch_daemon.config.slots import setup, split
 
 APP_NAME = "xtouch-daemon"
@@ -125,7 +126,8 @@ def _line_of(lines: list[str], parts: list[str]) -> int | None:
 def load_config(path: Path | None = None) -> Config:
     """
     The configuration from the file. Without a file at the default path it is the example configuration (6 `auto`
-    slots, the default input and the default output), so the daemon is useful right away.
+    slots, the default input and the default output), so the daemon is useful right away. A file that other users
+    can change is a ConfigError (see `check_safe()`).
     """
     explicit = path is not None
     path = path or default_config_path()
@@ -137,4 +139,5 @@ def load_config(path: Path | None = None) -> Config:
         return parse_config(example_config(), "the example configuration")
     except OSError as e:
         raise ConfigError(f"can't read {path}: {e}") from e
+    check_safe(path)
     return parse_config(text, str(path), line_numbers=True)

@@ -139,6 +139,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   version, so an AUR helper can upgrade `xtouch-daemon-bin` first. An upgrade from 0.1.0 still needs one step by hand
   (see `RELEASING.md`).
 
+### Security
+
+- The daemon refuses to run as root, because the commands of the configuration would run as root. As root, only
+  `schema`, `simulate`, `--help` and `--version` work. There is no option to allow it.
+- The daemon refuses a configuration file that other users can change: one of another user (not root), or one that
+  the group or others can write. The same applies to its directory, and to the target of a link and its directory,
+  as with `StrictModes` of OpenSSH. The error names the file and the fix (`chmod go-w ...`). On a reload, the daemon
+  logs the error and keeps the configuration it runs.
+- A `[mqtt] password_file` or `[homeassistant] token_file` that other users can read is a warning in the log.
+
 ## [0.2.0] - 2026-11-19
 
 ### Added

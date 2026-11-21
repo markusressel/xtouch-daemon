@@ -18,6 +18,7 @@ from pydantic import (
 
 from xtouch_daemon.config.base import ConfigError, Meanings, Model
 from xtouch_daemon.config.names import WithPresets
+from xtouch_daemon.config.permissions import warn_if_readable
 from xtouch_daemon.config.values import (
     METER_POINTS,
     SHUTDOWN_SEQUENCES,
@@ -144,6 +145,7 @@ def _resolve_secret(section: BaseModel, where: str, name: str) -> str | None:
     if value is not None:
         return value.get_secret_value()
     if path is not None:
+        warn_if_readable(path.expanduser(), f"{where}.{name}_file")
         try:
             return path.expanduser().read_text(encoding="utf-8").strip()
         except OSError as e:
