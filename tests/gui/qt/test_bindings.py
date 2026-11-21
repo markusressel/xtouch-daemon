@@ -5,6 +5,7 @@ bindings, a button that binds, the options of the program below, and what that w
 
 import tomllib
 
+import pytest
 from PyQt6.QtWidgets import QDoubleSpinBox, QWidget
 from pytestqt.qtbot import QtBot
 
@@ -105,8 +106,11 @@ def test_a_problem_of_the_program_shows_under_its_part(qtbot: QtBot, window: Mai
     problems = window.document.validate().at("channel", "custom")
     assert any("value goes nowhere" in problem.message for problem in problems)
     fader = row(window, "fader")
-    assert visible(fader.error, window)
-    assert "no argument has {value}" in fader.error.text()
+    # under the option of the program that has it
+    set_row = binding(fader).rows["set"]
+    assert visible(set_row.error, window)
+    assert "no argument has {value}" in set_row.error.text()
+    assert not visible(fader.error, window)
 
 
 def test_a_part_bound_to_home_assistant(qtbot: QtBot, window: MainWindow):
@@ -282,3 +286,81 @@ def test_a_part_that_is_a_switch_or_bound(qtbot: QtBot):
     assert field.word() is None
     assert field.mode == PROGRAM
     assert field.switch.isHidden()
+
+
+def test_a_step_up_from_unset_starts_inside_the_range(qtbot: QtBot, window: MainWindow):
+    add_custom(window)
+    field = binding(row(window, "encoder"))
+    field.actions_[PROGRAM].trigger()
+    for part in SET:
+        field.rows["set"].chips.add(part)
+    number(field.rows["min"]).setValue(0.1)
+    number(field.rows["max"]).setValue(1.0)
+    # unset, a step up goes to the bottom of the range, not a step away from far below it
+    number(field.rows["push"]).stepBy(1)
+    assert window.document.get(("channel", "custom", "encoder"))["push"] == 0.1
+    # a step: one step of the encoder by default (`behavior.encoder_step` percent of the range)
+    number(field.rows["step"]).stepBy(1)
+    assert window.document.get(("channel", "custom", "encoder"))["step"] == pytest.approx(0.009)
+    assert window.document.validate().at("channel", "custom") == []
+    # set, it steps as any number
+    number(field.rows["push"]).stepBy(1)
+    assert window.document.get(("channel", "custom", "encoder"))["push"] > 0.1
+
+
+def test_the_numbers_of_the_daemon_keep_their_minimum(qtbot: QtBot, window: MainWindow):
+    window.show_page("states")
+    spin = number(row(window, "delay_off", "states"))
+    assert (spin.minimum(), spin.decimals()) == (-0.5, 1)
+    spin.stepBy(1)
+    assert window.document.get(("state", "call", "delay_off")) == 0
+
+
+def test_a_problem_of_an_option_of_the_program_shows_under_that_option(qtbot: QtBot, window: MainWindow):
+    add_custom(window)
+    field = binding(row(window, "fader"))
+    field.actions_[PROGRAM].trigger()
+    for part in SET:
+        field.rows["set"].chips.add(part)
+    number(field.rows["min"]).setValue(5)
+    number(field.rows["max"]).setValue(2)
+    window.editor.edited()
+    fader = row(window, "fader")
+    field = binding(fader)
+    assert "is not above min" in field.rows["max"].error.text()
+    assert visible(field.rows["max"].error, window)
+    assert not visible(field.rows["min"].error, window)
+    assert not visible(fader.error, window)
+
+
+def test_parts_that_cant_be_bound_have_no_bind_button(qtbot: QtBot, window: MainWindow):
+    # the meter of a person, and of a built-in pool: their words only
+    window.show_page("channels")
+    window.channels_page.add("person")
+    assert row(window, "meter").option.kind != Kind.BINDING
+    window.channels_page.select(("pool", "apps"))
+    assert row(window, "meter").option.kind != Kind.BINDING
+    # the LEDs of the buttons of a pool: a list of words, not to type into, without homeassistant
+    led = row(window, "rec").buttons.combos["led"]
+    assert not led.isEditable()
+    assert "homeassistant" not in [led.itemText(index) for index in range(led.count())]
+    # an output's meter can be bound
+    show_channel(window, "out")
+    assert row(window, "meter").option.kind == Kind.BINDING
+
+
+def test_an_led_in_the_file_loads_and_saves_unchanged(qtbot: QtBot, window: MainWindow):
+    show_channel(window, "out")
+    window.document.set(("channel", "out", "rec"), "muted")
+    rec = row(window, "rec")
+    rec.load()
+    assert rec.buttons.combos["led"].currentText() == "muted"
+    assert rec.buttons.value() == "muted"
+    # an LED that means nothing: shown as it is, its problem under the row
+    window.document.set(("channel", "out", "rec"), {"led": "blinking"})
+    window.editor.edited()
+    rec = row(window, "rec")
+    rec.load()
+    assert rec.buttons.combos["led"].currentText() == "blinking"
+    assert rec.buttons.value() == "blinking"
+    assert visible(rec.error, window)

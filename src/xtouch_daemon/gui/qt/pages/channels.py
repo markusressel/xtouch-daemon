@@ -236,7 +236,7 @@ class ChannelsPage(Page):
                     continue
                 if option.name == "meter" and "meter_point" in by_name:
                     # an audio meter: where it takes the level, or off, or bound
-                    widgets.append(self._meter_row(path, strip, rows))
+                    widgets.append(self._meter_row(path, strip, rows, bindable=option.kind == Kind.BINDING))
                     continue
                 if option.name == "choices" and "device" in by_name:
                     # one list with `device`, see `_device_row`
@@ -249,7 +249,7 @@ class ChannelsPage(Page):
                     path,
                     table_suggest.get(option.name) or suggest.get(option.name),
                     placeholders.get(option.name),
-                    docs.option_link("strip", option.name, strip),
+                    docs.option_link("strip", option.name, strip, bound=option.kind == Kind.BINDING),
                     rows,
                 )
                 if option.kind == Kind.BUTTON:
@@ -267,10 +267,13 @@ class ChannelsPage(Page):
         self.form_values[key] = lambda: {option.name: self._resolved(path, option) for option in form_options}
         self.form_strips[key] = strip
 
-    def _meter_row(self, path: Callable[[str], OptionPath], strip: str, rows: list[OptionRow]) -> OptionRow:
+    def _meter_row(
+        self, path: Callable[[str], OptionPath], strip: str, rows: list[OptionRow], bindable: bool
+    ) -> OptionRow:
         """
         `meter` and `meter_point` as one choice: where the meter takes the level, or off. Unset, both take their
-        defaults (the meter on, at `behavior.meter_point`).
+        defaults (the meter on, at `behavior.meter_point`). `bindable`: the meter can be bound (not of a person, or
+        of a pool).
         """
 
         def put(name: str, value: Any) -> None:
@@ -284,7 +287,7 @@ class ChannelsPage(Page):
             put,
             lambda: str(self.document.get(("behavior", "meter_point"), "pre_fader")),
             docs.option_link("strip", "meter_point", strip),
-            bindable=True,
+            bindable=bindable,
         )
         option_row.edited.connect(lambda: self.editor.edited(Change(Scope.VALUE, path("meter"))))
         rows.append(option_row)

@@ -13,6 +13,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QComboBox, QHBoxLayout, QMenu, QToolButton, QVBoxLayout, QWidget
 
 from xtouch_daemon.config.bindings import HOME_ASSISTANT
+from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
 from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, Switch
@@ -37,6 +38,8 @@ COLUMN_PLACEHOLDERS: dict[str, Callable[[], str]] = {
     "watch": lambda: "none: the value shows what was set last",
 }
 """What an unset option of a program does, where its default is no value."""
+DEFAULT_ENCODER_STEP = BehaviorConfig.model_fields["encoder_step"].default
+"""Percent of the range one step of the encoder is by default (`behavior.encoder_step`)."""
 
 
 def mode_of(value: object) -> str:
@@ -126,7 +129,7 @@ class BindingField(QWidget):
 
     def _add_rows(self, layout: QVBoxLayout) -> None:
         # here, not at the top: option_row imports this module for its field
-        from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles
+        from xtouch_daemon.gui.qt.fields.option_row import NumberSpin, OptionRow, align_titles
 
         for column in self.option.columns:
             row = OptionRow(
@@ -135,9 +138,26 @@ class BindingField(QWidget):
                 lambda value, name=column.name: self._put(name, value),
                 placeholder=None if column.required else COLUMN_PLACEHOLDERS.get(column.name),
             )
+            if isinstance(spin := getattr(row, "spin", None), NumberSpin):
+                spin.start = self._start_of(column.name)
             self.rows[column.name] = row
             layout.addWidget(row)
         align_titles(self.rows.values())
+
+    def _start_of(self, name: str) -> Callable[[], float]:
+        """Where a number of the program starts once it is set: `step` at one step of the range, the rest at `min`."""
+
+        def bounds() -> tuple[float, float]:
+            low, high = self._table.get("min", 0), self._table.get("max", 100)
+            if not isinstance(low, int | float) or not isinstance(high, int | float) or high <= low:
+                return 0, 100
+            return float(low), float(high)
+
+        def start() -> float:
+            low, high = bounds()
+            return (high - low) * DEFAULT_ENCODER_STEP / 100 if name == "step" else low
+
+        return start
 
     # -- showing --------------------------------------------------------------------------------------------------
 

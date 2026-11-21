@@ -87,6 +87,11 @@ class Option:
     """For `BINDING`: whether the part can belong to Home Assistant (`"homeassistant"`)."""
     binding: str = ""
     """For `BINDING`: what a table of it is (the docstring of its model), e.g. "A value that programs ... set"."""
+    signed: bool = False
+    """
+    For a `NUMBER` of a binding (`min`, `step`, ...): a number of your own, of any sign and size (e.g. a brightness
+    from 0.1 to 1), rather than one of the daemon from its minimum on.
+    """
 
     @property
     def title(self) -> str:
@@ -269,7 +274,10 @@ def _binding_option(
         default=None if field.default is PydanticUndefined else field.default,
         required=field.is_required(),
         choices=choices,
-        columns=options(model),
+        columns=tuple(
+            dataclasses.replace(column, signed=True) if column.kind == Kind.NUMBER else column
+            for column in options(model)
+        ),
         base=base,
         home_assistant=HOME_ASSISTANT in values,
         binding=" ".join((model.__doc__ or "").split()),
@@ -400,20 +408,25 @@ def look_options(strip_type: str, allowed: frozenset[str]) -> tuple[Option, ...]
     the slot (`[controls]`). A part that can be bound takes its words only there: bindings belong to the channel.
     """
     return tuple(
-        _words_only(
-            dataclasses.replace(
-                option,
-                required=False,
-                choices=tuple(choice for choice in option.choices if choice != "homeassistant"),
-            )
+        dataclasses.replace(
+            words,
+            required=False,
+            # the LEDs of the buttons take their words only too
+            columns=tuple(map(_words_only, words.columns)) if words.kind == Kind.BUTTON else words.columns,
         )
         for option in strip_options(strip_type)
         if option.name in allowed and (option.kind != Kind.BINDING or option.base is not None)
+        for words in (_words_only(option),)
     )
 
 
 def _words_only(option: Option) -> Option:
-    """A part that can be bound as the field of its words."""
+    """An option without `homeassistant`; a part that can be bound as the field of its words."""
+    option = dataclasses.replace(
+        option,
+        choices=tuple(choice for choice in option.choices if choice != HOME_ASSISTANT),
+        meanings=tuple((value, meaning) for value, meaning in option.meanings if value != HOME_ASSISTANT),
+    )
     if option.kind != Kind.BINDING or option.base is None:
         return option
     return dataclasses.replace(option, kind=option.base, base=None, columns=(), home_assistant=False, binding="")

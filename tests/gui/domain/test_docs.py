@@ -99,7 +99,10 @@ def test_links_are_addresses_on_the_site():
     )
     assert docs.option_link("strip", "meter", "output") is None
     # bindings, and the options of custom channels
-    assert docs.option_link("strip", "lcd", "output") == docs.url("configuration/strip/bindings/")
+    assert docs.option_link("strip", "lcd", "output", bound=True) == docs.url("configuration/strip/bindings/")
+    assert docs.option_link("strip", "color", "output", bound=True) == docs.url("configuration/strip/bindings/")
+    # the color of a person can't be bound: no page of bindings for it
+    assert docs.option_link("strip", "color", "voip") is None
     assert docs.option_link("strip", "meter", "custom") == docs.url("configuration/strip/bindings/")
     assert docs.option_link("strip", "fader", "custom") == docs.url("configuration/channels/custom/")
     assert docs.strip_type_link("custom") == docs.url("configuration/channels/custom/")
