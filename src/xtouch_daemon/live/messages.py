@@ -127,6 +127,26 @@ class MqttState:
 
 
 @dataclass(frozen=True)
+class HomeAssistantState:
+    """The connection to the API of Home Assistant (`[homeassistant]`), for the parts bound to its entities."""
+
+    url: str
+    """The address of Home Assistant, as configured."""
+    connected: bool
+    """Logged in with the token."""
+    synced: bool
+    """Connected, and the states of the entities are in."""
+    error: str | None
+    """Why the last attempt to connect failed or the connection ended, None while connected."""
+    entities: int
+    """The entities Home Assistant has (none while not connected)."""
+    watched: int
+    """The entities the parts show or set."""
+    version: str | None = None
+    """The version of Home Assistant, once connected."""
+
+
+@dataclass(frozen=True)
 class VoipState:
     """Where the participants of `voip` strips come from (`[voip]`)."""
 
@@ -226,6 +246,11 @@ class Snapshot:
     """
     Whether the device of `[device] name` is plugged in while the daemon drives the virtual one (`virtual`): the GUI
     offers to switch to it.
+    """
+    homeassistant: HomeAssistantState | None = None
+    """
+    The connection to the API of Home Assistant; None while the daemon has none (no `[homeassistant]`, no entities in
+    the configuration, or an older daemon).
     """
 
 

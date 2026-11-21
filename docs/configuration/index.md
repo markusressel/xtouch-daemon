@@ -11,6 +11,12 @@ xtouch-daemon init-config      # writes the example to the default path (-f over
 xtouch-daemon check-config     # validates the file and shows what each slot shows when
 ```
 
+Only you can change the file. The daemon runs the commands of the file as you, so it refuses a file that other
+users can change: one that belongs to another user, or that the group or others can write. The same applies to the
+directory of the file, and to the target of a link and its directory. The error names the file and the fix, e.g.
+`chmod go-w ~/.config/xtouch-daemon/config.toml`. A file with a secret, such as `[mqtt] password_file`, is only for
+you to read: if others can read it, the log has a warning.
+
 Unknown options are errors, so a typo does not go unnoticed. `check-config` names the place of every error, e.g.
 `channel.mic.label: String should have at most 7 characters`.
 

@@ -111,7 +111,7 @@ class SuggestionList(QObject):
         x = max(0, min(top_left.x(), window.width() - size.width()))
         popover.move(x, max(0, min(y, window.height() - size.height())))
         if self.first:
-            self._set_current(self._usable(0, 1))
+            self.set_current(self._usable(0, 1))
         elif not view.currentIndex().isValid():
             view.setCurrentIndex(QModelIndex())
 
@@ -160,9 +160,10 @@ class SuggestionList(QObject):
 
     def _hover(self, index: QModelIndex) -> None:
         if index.flags() & Qt.ItemFlag.ItemIsEnabled:
-            self._set_current(index)
+            self.set_current(index)
 
-    def _set_current(self, index: QModelIndex) -> None:
+    def set_current(self, index: QModelIndex) -> None:
+        """Makes `index` the line picked with the keys (an invalid index: none), in view."""
         if self.view is not None:
             self.view.setCurrentIndex(index)
             if index.isValid():
@@ -183,10 +184,10 @@ class SuggestionList(QObject):
         current = self.current()
         step = 1 if by > 0 else -1
         if not current.isValid():
-            self._set_current(self._usable(0 if by > 0 else self.model.rowCount() - 1, step))
+            self.set_current(self._usable(0 if by > 0 else self.model.rowCount() - 1, step))
             return
         found = self._usable(max(0, min(self.model.rowCount() - 1, current.row() + by)), step)
-        self._set_current(found if found.isValid() else current)
+        self.set_current(found if found.isValid() else current)
 
     def _pick(self, index: QModelIndex) -> None:
         if not index.isValid() or not index.flags() & Qt.ItemFlag.ItemIsEnabled:

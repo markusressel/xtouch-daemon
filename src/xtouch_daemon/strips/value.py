@@ -1,8 +1,9 @@
 """
 What the bindings of programs of your own do on a strip (`config.bindings`): a value that `set` changes and `watch`
-tells (`CommandValue`), the lines of a `watch` (`WatchedLine`), a program a button runs (`run_program()`), and how a
-line becomes a value, an LED, a color or a level. `ValueSource` is what has values for the faders and encoders of
-`[controls]`: a `custom` channel.
+tells (`CommandValue`, a `BoundValue` as the values of entities are), the lines of a `watch` (`WatchedLine`), a program
+a button runs (`run_program()`), and how a line becomes a value, an LED, a color or a level. `ValueSource` is what has
+values for the faders and encoders of `[controls]`: a `custom` channel. The same for entities of Home Assistant is in
+`strips.entity`.
 """
 
 import asyncio
@@ -11,7 +12,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Protocol, get_args
 
-from xtouch_daemon.config.bindings import ValueBinding, fill
+from xtouch_daemon.config.bindings import EntityValueBinding, ValueBinding, fill
 from xtouch_daemon.config.values import ColorName
 from xtouch_daemon.hardware.protocol import Led, RingMode
 from xtouch_daemon.strips.knobs import ring_position
@@ -90,11 +91,13 @@ async def watch_lines(commands: Commands, argv: Sequence[str], what: str, on_lin
 class WatchedLine:
     """
     The newest line of a `watch` program, for as long as it lives (until `close()`; see `watch_lines()`). Its
-    listeners are called when the line changed.
+    listeners are called when the line changed. `strips.entity.EntityLine` is the same for an entity.
     """
 
     def __init__(self, argv: Sequence[str], commands: Commands, what: str):
         self.argv = tuple(argv)
+        self.source: tuple[object, ...] = ("watch", self.argv)
+        """What it shows the lines of: the same source, the same lines."""
         self.line: str | None = None
         """The line the program printed last; None before the first."""
         self.listeners: list[Callable[[], None]] = []
@@ -110,42 +113,46 @@ class WatchedLine:
         self._task.cancel()
 
 
-class CommandValue:
+class BoundValue:
     """
-    A value that programs of your own set and watch (`ValueBinding`). A move or a turn changes it at once; `set` runs
-    with the newest value only, as programs are slower than hands. Its listeners are called when it changed: by a
-    hand, or by a line of `watch`. `placeholders` fill the programs (`{target}`); `what` names it in the log.
+    A value a fader or an encoder sets: of programs of your own (`CommandValue`), or of an entity of Home Assistant
+    (`strips.entity.EntityValue`). A move or a turn changes it at once; it is applied (`_apply()`) with the newest value
+    only, as programs and services are slower than hands. Its listeners are called when it changed: by a hand, or by
+    what it follows (`_follow()`). `what` names it in the log.
     """
 
     def __init__(
         self,
-        binding: ValueBinding,
+        binding: ValueBinding | EntityValueBinding,
         commands: Commands,
         encoder_step: int,
         what: str,
-        placeholders: Mapping[str, str] | None = None,
+        low: float,
+        high: float,
     ):
         self.binding = binding
         self.commands = commands
         self.what = what
-        self.placeholders = dict(placeholders or {})
-        self.low, self.high = binding.min, binding.max
-        self.step = binding.step if binding.step is not None else (self.high - self.low) * encoder_step / 100
+        self._encoder_step = encoder_step
+        self.low, self.high = low, high
+        self.step = self._step()
         self.value: float | None = (self.low + self.high) / 2 if commands.simulated else None
-        """The value: the one set last, or the one `watch` printed last; None before either."""
+        """The value: the one set last, or the one it follows; None before either."""
         self._touches = 0
         """How many faders that set it are under a finger (two slots can show one value)."""
         self.listeners: list[Callable[[], None]] = []
         self._wanted: float | None = None
         """The value to set next, None while there is none."""
         self._setter: asyncio.Task[None] | None = None
-        self._watcher = (
-            commands.start(
-                watch_lines(commands, fill(binding.watch, **self.placeholders), what, self._printed), f"{what}: watch"
-            )
-            if binding.watch is not None
-            else None
-        )
+
+    def _step(self) -> float:
+        step = self.binding.step
+        return step if step is not None else (self.high - self.low) * self._encoder_step / 100
+
+    def set_range(self, low: float, high: float) -> None:
+        """Another range (an entity told its own): the step follows it."""
+        self.low, self.high = low, high
+        self.step = self._step()
 
     def fraction(self) -> float | None:
         """Where the value is between `min` and `max`: 0 at the bottom, 1 at the top."""
@@ -185,10 +192,10 @@ class CommandValue:
         # in steps of 0.1 % of the range: finer than a hand, and no noise of the fader's resolution in the value
         self.set(self.low + round(fraction, 3) * (self.high - self.low))
 
-    # -- the programs ---------------------------------------------------------------------------------------------
+    # -- applying it ----------------------------------------------------------------------------------------------
 
     def set(self, value: float) -> None:
-        """Sets the value (between `min` and `max`): at once here, with `set` as soon as the one before is done."""
+        """Sets the value (between `min` and `max`): at once here, applied as soon as the one before is."""
         self.value = self._wanted = round(max(self.low, min(self.high, value)), 6)
         if self._setter is None:
             self._setter = self.commands.start(self._set(), f"{self.what}: set")
@@ -202,25 +209,71 @@ class CommandValue:
         try:
             while (value := self._wanted) is not None:
                 self._wanted = None
-                argv = fill(self.binding.set, **self.placeholders, value=value_text(value))
-                try:
-                    await self.commands.run(argv)
-                except CommandError as e:
-                    _LOGGER.warning(f"{self.what}: setting {value_text(value)}: {e}")
+                await self._apply(value)
         finally:
             self._setter = None
+        self._settled()
 
-    def _printed(self, line: str) -> None:
-        value = parse_value(line)
+    def _settled(self) -> None:
+        """The newest value is applied (or it failed): what it follows may say another one now."""
+
+    async def _apply(self, value: float) -> None:
+        """Applies the value (runs `set`, calls the service); a problem is logged."""
+        raise NotImplementedError
+
+    def _follow(self, value: float | None) -> None:
+        """What it follows says the value is `value` (None: not known)."""
         # while a value is set or the fader is under a finger, the hand knows better
-        if value is not None and value != self.value and self._setter is None and not self.touched:
+        if value != self.value and self._setter is None and not self.touched:
             self.value = value
             self._changed()
 
     def close(self) -> None:
-        for task in (self._watcher, self._setter):
-            if task is not None:
-                task.cancel()
+        if self._setter is not None:
+            self._setter.cancel()
+
+
+class CommandValue(BoundValue):
+    """
+    A value that programs of your own set and watch (`ValueBinding`): `set` runs with the newest value, `watch` prints
+    it. `placeholders` fill the programs (`{target}`).
+    """
+
+    binding: ValueBinding
+
+    def __init__(
+        self,
+        binding: ValueBinding,
+        commands: Commands,
+        encoder_step: int,
+        what: str,
+        placeholders: Mapping[str, str] | None = None,
+    ):
+        super().__init__(binding, commands, encoder_step, what, binding.min, binding.max)
+        self.placeholders = dict(placeholders or {})
+        self._watcher = (
+            commands.start(
+                watch_lines(commands, fill(binding.watch, **self.placeholders), what, self._printed), f"{what}: watch"
+            )
+            if binding.watch is not None
+            else None
+        )
+
+    async def _apply(self, value: float) -> None:
+        argv = fill(self.binding.set, **self.placeholders, value=value_text(value))
+        try:
+            await self.commands.run(argv)
+        except CommandError as e:
+            _LOGGER.warning(f"{self.what}: setting {value_text(value)}: {e}")
+
+    def _printed(self, line: str) -> None:
+        if (value := parse_value(line)) is not None:
+            self._follow(value)
+
+    def close(self) -> None:
+        super().close()
+        if self._watcher is not None:
+            self._watcher.cancel()
 
 
 class ValueSource(Protocol):
@@ -232,10 +285,10 @@ class ValueSource(Protocol):
     listeners: list[Callable[[], None]]
     """Called when the values are others (the target switched)."""
 
-    def fader_value(self) -> CommandValue | None:
+    def fader_value(self) -> BoundValue | None:
         """The value of its fader, None without one."""
         ...
 
-    def encoder_value(self) -> CommandValue | None:
+    def encoder_value(self) -> BoundValue | None:
         """The value of its own encoder, None without one (an encoder of `[controls]` takes the fader's then)."""
         ...

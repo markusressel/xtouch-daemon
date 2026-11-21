@@ -23,6 +23,10 @@ Every command takes `-h`/`--help`. `xtouch-daemon -V` (`--version`) shows the ve
 
 `-c FILE` (`--config FILE`) selects the configuration file; the default is `~/.config/xtouch-daemon/config.toml`.
 
+As root, every command except `schema` and `simulate` fails with an error: the daemon and the tools around it run as
+your user. A configuration file that other users can change is an error too, see
+[Configuration](../configuration/index.md).
+
 ## `run`
 
 ```shell

@@ -19,6 +19,7 @@ PAGES: dict[str, str] = {
     "behavior": "configuration/behavior/#behavior",
     "aliases": "configuration/behavior/#aliases",
     "mqtt": "guides/home-assistant/#mqtt",
+    "homeassistant": "guides/home-assistant/#homeassistant",
     "channels": "configuration/slots/#channels",
     "states": "configuration/slots/#states-and-modes",
     "switching": "configuration/slots/#controls-and-the-chord",

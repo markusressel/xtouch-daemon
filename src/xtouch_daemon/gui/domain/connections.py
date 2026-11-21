@@ -5,6 +5,7 @@ status of the service at the top of the window: its pill tells the first problem
 
 from dataclasses import dataclass
 
+from xtouch_daemon.gui.domain import entities
 from xtouch_daemon.gui.domain.broker import live_status
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.live.messages import Snapshot
@@ -48,6 +49,9 @@ def connections(snapshot: Snapshot | None, device_name: str) -> tuple[Connection
     ]
     if snapshot.mqtt is not None:
         found.append(Connection("Home Assistant", "Home Assistant", live_status(snapshot), "mqtt"))
+    if snapshot.homeassistant is not None:
+        api = entities.live_status(snapshot)
+        found.append(Connection("Home Assistant API", "Home Assistant API", api, "homeassistant"))
     if snapshot.voip is not None:
         voip = snapshot.voip
         client = voip.client or voip.provider
