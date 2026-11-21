@@ -2,7 +2,11 @@
 
 The Behringer X-Touch Extender has 8 strips. Each has a 100 mm motorized, touch-sensitive fader, four buttons with
 LEDs (Rec, Solo, Mute, Select), an [encoder](../configuration/strip/encoders.md) with a push button and an [LED](../configuration/strip/leds.md) ring, an LED meter, and an LCD with two lines
-of 7 characters and one of 8 backlight colors.
+of 7 characters and one of 8 backlight colors:
+
+![The LCD in each backlight color: white, red, yellow, green, cyan, blue, magenta, and off](../images/controls/colors.png){ .xt-row }
+
+![The meter: green LEDs from SIG at the bottom, then orange, and the red clip LED at the top](../images/controls/meter.png){ .xt-part width="56" }
 
 The meter has 8 LEDs: seven for the level (green, then orange) and a red clip LED at the top. Mackie Control sets it
 in 14 levels, about two per LED (only the 14th lights the clip LED), and the device lets it fall by itself. What the

@@ -25,13 +25,13 @@ The parts of the `output`, `input`, `apps` and `auto` channels:
 
 | Part | Default | A program | An entity |
 |---|---|---|---|
-| `fader` | The volume (`"volume"`). | A value: `{ set, watch, min, max, step, format }`, or `poll` and `every` instead of `watch`. | `{ entity, attribute, min, max, step, format, service, data }`: sets it. |
-| `encoder` | The type's modes ([Encoders](encoders.md)). | A value: `{ set, watch, min, max, step, push, format }`, or `poll` and `every` instead of `watch`. | As the fader, with `push`. |
-| `lcd` | What the type shows on the second line. | `{ watch }` or `{ poll, every }`: each line is the text. | `{ entity, attribute }`: its state or attribute. |
-| `color` | A color name. | `{ watch }` or `{ poll, every }`: each line is a color name. | `{ entity, attribute }`: its color. |
-| `meter` | The level of the audio (`true`), or dark (`false`). | `{ watch, min, max }` or `{ poll, every, min, max }`: each line is a level. | `{ entity, attribute, min, max }`: its number. |
-| A button's `press`, `hold` | The type's actions ([Buttons and LEDs](leds.md)). | `{ run }`: runs to its end. | `{ service, entity, data }`: calls a service. |
-| A button's `led` | The type's indicators. | `{ watch }` or `{ poll, every }`: `on`, `1`, `true`, `yes` light it, `flash` flashes it. | `{ entity, attribute }`: lit while `on`, `open`, `playing`, `home`. |
+| ![](../../images/controls/fader.png){ .xt-icon } `fader` | The volume (`"volume"`). | A value: `{ set, watch, min, max, step, format }`, or `poll` and `every` instead of `watch`. | `{ entity, attribute, min, max, step, format, service, data }`: sets it. |
+| ![](../../images/controls/encoder.png){ .xt-icon } `encoder` | The type's modes ([Encoders](encoders.md)). | A value: `{ set, watch, min, max, step, push, format }`, or `poll` and `every` instead of `watch`. | As the fader, with `push`. |
+| ![](../../images/controls/lcd.png){ .xt-icon } `lcd` | What the type shows on the second line. | `{ watch }` or `{ poll, every }`: each line is the text. | `{ entity, attribute }`: its state or attribute. |
+| ![](../../images/controls/color.png){ .xt-icon } `color` | A color name. | `{ watch }` or `{ poll, every }`: each line is a color name. | `{ entity, attribute }`: its color. |
+| ![](../../images/controls/meter.png){ .xt-icon } `meter` | The level of the audio (`true`), or dark (`false`). | `{ watch, min, max }` or `{ poll, every, min, max }`: each line is a level. | `{ entity, attribute, min, max }`: its number. |
+| ![](../../images/controls/select.png){ .xt-icon } A button's `press`, `hold` | The type's actions ([Buttons and LEDs](leds.md)). | `{ run }`: runs to its end. | `{ service, entity, data }`: calls a service. |
+| ![](../../images/controls/rec.png){ .xt-icon } A button's `led` | The type's indicators. | `{ watch }` or `{ poll, every }`: `on`, `1`, `true`, `yes` light it, `flash` flashes it. | `{ entity, attribute }`: lit while `on`, `open`, `playing`, `home`. |
 
 Each part also takes `"homeassistant"`: Home Assistant sets it, with an entity of its own (see below).
 
@@ -209,7 +209,7 @@ With `[mqtt]`, a fader or an encoder bound to a value is a number too (`number.<
 range. It has no state until the value is known; a change in Home Assistant runs `set`.
 
 Only the channel itself has these entities, not the applications and devices that a place of `apps`, `auto` or
-`devices` shows. A [place](../slots.md#slots) that sets a part to `"homeassistant"` does nothing; the log says so.
+`devices` shows. A [place](../slots.md#places) that sets a part to `"homeassistant"` does nothing; the log says so.
 Simulate has no Home Assistant: its parts look as while Home Assistant is not there. A fader or an encoder bound to an
 entity has no number of its own: the entity is already in Home Assistant.
 

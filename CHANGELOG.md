@@ -98,6 +98,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Documentation: pictures of a strip and of its parts (encoder, LCD and its colors, meter, buttons, fader), drawn as
+  the GUI draws them, beside the text of Concepts, the pages of the parts of a strip, custom channels, `[controls]`
+  and the hardware. `just screenshot` renders them to `docs/images/controls/`. The page GUI is split into shorter
+  sections, with tabs, tables, notes and the keys drawn as keys; Slots has a section Places.
 - Voice chat bridge: plugins of several voice chat clients can be connected at once, one per client (the `client`
   of their state lines). The strips show the people of all of them, each strip with what the client of its person
   can do, and commands go to the plugin of that person. When a plugin goes, only the people of its client go. Another

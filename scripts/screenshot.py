@@ -1,6 +1,7 @@
 """
 The screenshots of the documentation (`just screenshot`): the GUI with a demo configuration and a device that shows
-it, rendered offscreen. Nothing of the machine is used: no daemon, device, sound server or settings of the user.
+it, and small pictures of a strip and of its parts (`controls/`), rendered offscreen. Nothing of the machine is used:
+no daemon, device, sound server or settings of the user.
 
     uv run --extra gui python scripts/screenshot.py [OUT_DIR]
 """
@@ -9,6 +10,13 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PyQt6.QtCore import QRectF
+    from PyQt6.QtGui import QImage
+
+    from xtouch_daemon.live.messages import StripState
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "images"
@@ -116,7 +124,6 @@ def shoot(home: Path, out: Path) -> None:
         SlotView,
         Snapshot,
         StateView,
-        StripState,
         fingerprint,
     )
     from xtouch_daemon.slots.outcomes import simulate
@@ -157,26 +164,6 @@ def shoot(home: Path, out: Path) -> None:
         default_output="alsa_output.pci-0000_11_00.4.analog-stereo",
         default_input="alsa_input.pci-0000_11_00.4.analog-stereo",
     )
-
-    def strip(
-        color: str,
-        text: tuple[str, str],
-        fader: float,
-        meter: int = 0,
-        ring: int = 6,
-        ring_mode: str = "boost_cut",
-        **leds: str,
-    ) -> StripState:
-        return StripState(
-            color=color,
-            text=text,
-            leds={"rec": "off", "solo": "off", "mute": "off", "select": "off"} | leds,
-            ring=ring,
-            ring_mode=ring_mode,
-            fader=fader,
-            touched=False,
-            meter=meter,
-        )
 
     strips = (
         strip("cyan", ("Phones", "46%"), 0.35, meter=7, rec="on"),
@@ -251,6 +238,169 @@ def shoot(home: Path, out: Path) -> None:
     save(window.device_view.preview.grab(), out / "device.png")
     window.close()
     server.close()
+    shoot_controls(out / "controls")
+
+
+def strip(
+    color: str,
+    text: tuple[str, str],
+    fader: float,
+    meter: int = 0,
+    ring: int = 6,
+    ring_mode: str = "boost_cut",
+    **leds: str,
+) -> StripState:
+    from xtouch_daemon.live.messages import StripState
+
+    return StripState(
+        color=color,
+        text=text,
+        leds={"rec": "off", "solo": "off", "mute": "off", "select": "off"} | leds,
+        ring=ring,
+        ring_mode=ring_mode,
+        fader=fader,
+        touched=False,
+        meter=meter,
+    )
+
+
+def shoot_controls(out: Path) -> None:
+    """
+    Small pictures of a strip and of its parts for the documentation, drawn as the window Device draws them: on a
+    transparent background, with rounded corners, at 2 device pixels per pixel of `CONTROL_SCALE`.
+    """
+    import dataclasses
+
+    from PyQt6.QtCore import QRectF
+
+    from xtouch_daemon.gui.qt.preview.geometry import (
+        BUTTON_TOP,
+        BUTTON_X,
+        BUTTONS_BOTTOM,
+        ENCODER,
+        HEIGHT,
+        LCD,
+        METER,
+        RING_RADII,
+        SELECT_SIZE,
+        UNITY,
+        WIDTH,
+        button_rect,
+    )
+
+    out.mkdir(parents=True, exist_ok=True)
+    ring = RING_RADII[1] + 5
+    # the top of the ring, without the number of the strip printed above it
+    encoder = QRectF(ENCODER.x() - ring, ENCODER.y() - ring + 1, 2 * ring, 2 * ring - 1)
+    lcd = LCD.adjusted(-4, -4, 4, 4)
+    browser = strip("blue", ("Browser", "60%"), 0.6, meter=10, ring=7, ring_mode="wrap", select="on")
+    lit = strip("blue", ("Browser", "60%"), 0.6, rec="on", solo="on", mute="on", select="on")
+    pictures: list[tuple[str, StripState, QRectF, float]] = [
+        ("strip", browser, QRectF(0, 0, WIDTH, HEIGHT), 1.0),
+        ("encoder", browser, encoder, CONTROL_SCALE),
+        ("lcd", browser, lcd, CONTROL_SCALE),
+        ("meter", browser, QRectF(METER.left() - 5, METER.top() - 5, METER.width() + 36, METER.height() + 10), 1.5),
+        (
+            "buttons",
+            lit,
+            QRectF(BUTTON_X - 25, BUTTON_TOP - 6, 50, BUTTONS_BOTTOM - BUTTON_TOP + 6),
+            1.5,
+        ),
+        ("fader", strip("blue", ("", ""), UNITY), QRectF(4, BUTTONS_BOTTOM, WIDTH - 8, HEIGHT - 4 - BUTTONS_BOTTOM), 1),
+    ]
+    for row, name in enumerate(("rec", "solo", "mute", "select")):
+        top = button_rect(row).top()
+        width = SELECT_SIZE.width() + 20
+        # only this one lit: the glow of the next one would show at the bottom
+        alone = dataclasses.replace(lit, leds={button: "on" if button == name else "off" for button in lit.leds})
+        pictures.append((name, alone, QRectF(BUTTON_X - width / 2, top - 1, width, 35), CONTROL_SCALE))
+    # the color alone: another backlight than the blue of the LCD above
+    pictures.append(("color", strip("magenta", ("color", ""), 0.0), lcd, CONTROL_SCALE))
+    for name, state, crop, scale in pictures:
+        save_image(render_part(state, crop, scale), out / f"{name}.png")
+    # the colors of the backlight, each on an LCD with its name
+    colors = ("white", "red", "yellow", "green", "cyan", "blue", "magenta", "off")
+    save_image(
+        side_by_side([render_part(strip(color, (color, ""), 0.0), lcd, CONTROL_SCALE) for color in colors]),
+        out / "colors.png",
+    )
+
+
+CONTROL_SCALE = 2.0
+"""The pixels of the documentation per logical unit of a strip, for the pictures of single parts."""
+
+
+def render_part(state: StripState, crop: QRectF, scale: float) -> QImage:
+    """The strip showing `state`, cut to `crop` (in logical units of a strip), with rounded corners."""
+    from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
+    from PyQt6.QtGui import QImage, QKeyEvent, QPainter, QPainterPath, QRegion
+    from PyQt6.QtWidgets import QWidget
+
+    from xtouch_daemon.gui.domain.looks import StripFace, StripLook
+    from xtouch_daemon.gui.qt.preview.geometry import HEIGHT, WIDTH
+    from xtouch_daemon.gui.qt.preview.strip_view import StripView
+
+    class Host(QWidget):
+        """What a strip asks of the drawing it is in: a fixed scale, nothing that moves, no mouse."""
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.scale = scale
+            self.blink = True
+            self.now = 0.0
+            self.resizing = False
+            self.hand = None
+            self.mover = None
+
+        def pick(self, index: int) -> None:
+            pass
+
+        def key(self, index: int, event: QKeyEvent) -> bool:
+            return False
+
+    host = Host()
+    view = StripView(host, 2)
+    view.resize(round(WIDTH * scale), round(HEIGHT * scale))
+    view.move(round(-crop.left() * scale), round(-crop.top() * scale))
+    host.resize(round(crop.width() * scale), round(crop.height() * scale))
+    look = StripLook("preview", state.text[0], "", state.color, printed=" ")
+    view.show_face(StripFace(look, state, live=True, dimmed=False), False)
+    ratio = 2
+    image = QImage(host.width() * ratio, host.height() * ratio, QImage.Format.Format_ARGB32_Premultiplied)
+    image.setDevicePixelRatio(ratio)
+    image.fill(Qt.GlobalColor.transparent)
+    host.render(image, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
+    rounded = QImage(image.size(), QImage.Format.Format_ARGB32_Premultiplied)
+    rounded.setDevicePixelRatio(ratio)
+    rounded.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(rounded)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    path = QPainterPath()
+    path.addRoundedRect(QRectF(0, 0, host.width(), host.height()), 8, 8)
+    painter.setClipPath(path)
+    painter.drawImage(QPointF(), image)
+    painter.end()
+    host.deleteLater()
+    return rounded
+
+
+def side_by_side(parts: list[QImage], gap: int = 8) -> QImage:
+    """Pictures of the same height next to each other, `gap` pixels apart, on a transparent background."""
+    from PyQt6.QtCore import QPointF, Qt
+    from PyQt6.QtGui import QImage, QPainter
+
+    ratio = parts[0].devicePixelRatio()
+    width = sum(part.width() for part in parts) + round(gap * ratio) * (len(parts) - 1)
+    joined = QImage(width, parts[0].height(), QImage.Format.Format_ARGB32_Premultiplied)
+    joined.setDevicePixelRatio(ratio)
+    joined.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(joined)
+    x = 0.0
+    for part in parts:
+        painter.drawImage(QPointF(x, 0), part)
+        x += part.width() / ratio + gap
+    painter.end()
+    return joined
 
 
 def wait(app: object, ready: object, timeout: float = 10.0) -> None:
@@ -289,6 +439,11 @@ def save(picture: object, path: Path) -> None:
     assert isinstance(picture, QPixmap)
     assert picture.save(str(path), "PNG", 0), path  # 0: the smallest file
     print(f"{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}: {picture.width()}x{picture.height()}")
+
+
+def save_image(image: QImage, path: Path) -> None:
+    assert image.save(str(path), "PNG", 0), path
+    print(f"{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}: {image.width()}x{image.height()}")
 
 
 if __name__ == "__main__":
