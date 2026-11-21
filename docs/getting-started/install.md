@@ -15,8 +15,8 @@ Install them with an AUR helper, e.g.:
 paru -S xtouch-daemon-bin xtouch-daemon-gui-bin
 ```
 
-Then enable the service as [First steps](first-steps.md#run-it-as-a-service) shows. After an upgrade, restart the service (`systemctl --user restart xtouch-daemon`): the service runs the
-old version until then.
+Then enable the service as [First steps](first-steps.md#run-it-as-a-service) shows. After an upgrade, restart it
+(`systemctl --user restart xtouch-daemon`): it runs the old version until then.
 
 ## From the source
 
@@ -29,12 +29,11 @@ git clone https://github.com/haad-org/haad-mqtt-autodiscovery
 uv tool install ./xtouch-daemon
 ```
 
-uv installs Python 3.14 if your system does not have it. The command `xtouch-daemon` is then in `~/.local/bin`. If
-your shell does not find it, run `uv tool update-shell` and open a new terminal. To upgrade, pull both repositories and
-run the `uv tool install` command again with `--force`.
+uv installs Python 3.14 if needed. The command `xtouch-daemon` is then in `~/.local/bin`; if your shell does not find
+it, run `uv tool update-shell`. To upgrade, pull both repositories and run `uv tool install --force` again.
 
-The [GUI](../guides/gui.md) is an optional part, the `gui` extra. Instead of the command above, install it with the
-extra (`--force` replaces the install you already have). The extra brings Qt along:
+The [GUI](../guides/gui.md) is the optional `gui` extra, which brings Qt along. Install it instead of the command
+above:
 
 ```shell
 uv tool install --force './xtouch-daemon[gui]'
@@ -42,13 +41,13 @@ uv tool install --force './xtouch-daemon[gui]'
 
 ## The GUI
 
-The [GUI](../guides/gui.md) comes with `xtouch-daemon-gui-bin` (Arch Linux) or the `gui` extra (from the source), see
-above. Start it from the menu of your desktop (the entry is called "X-Touch Extender"), or in a terminal. The command
-is `xtouch-daemon-gui` for the Arch package and `xtouch-daemon gui` for the source install:
+Start the [GUI](../guides/gui.md) from the menu of your desktop (the entry is called "X-Touch Extender"), or in a
+terminal. The command is `xtouch-daemon-gui` for the Arch package and `xtouch-daemon gui` for the source install:
 
 ```shell
-xtouch-daemon-gui            # the default configuration file
+xtouch-daemon-gui            # Arch package: the default configuration file
 xtouch-daemon-gui -c FILE    # another one
+xtouch-daemon gui -c FILE    # source install: the same, with -c after gui
 ```
 
 Without the extra, `xtouch-daemon gui` says how to install it.

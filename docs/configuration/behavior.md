@@ -1,25 +1,8 @@
-# Behavior, device and aliases
+# Behavior, X-Touch and aliases
 
 Three sections that you only need when the defaults do not fit: `[device]` is about the X-Touch itself,
 `[behavior]` about the faders, encoders and meters of all strips, and `[aliases]` about the names that application
-strips show. Put them in the [configuration file](index.md) like any other section; the daemon applies a saved file
-by itself. The [GUI](../guides/gui.md) has them on the page Settings.
-
-A complete example that uses all three:
-
-```toml
-[device]
-startup = "show"
-shutdown = "curtain"
-touchless_faders = [3]      # the touch sensor of fader 3 is broken
-
-[behavior]
-max_volume = 150
-encoder_step = 2
-
-[aliases]
-"WEBRTC VoiceEngine" = "Discord"
-```
+strips show. The [GUI](../guides/gui.md) has them on the page Settings.
 
 ## `[device]`
 
@@ -32,7 +15,7 @@ encoder_step = 2
 | `startup` | `"sweep"` | How the strips light up after a connect, see [below](#startup-and-shutdown-sequences). |
 | `shutdown` | `"sweep"` | How the strips go dark when the daemon stops, see [below](#startup-and-shutdown-sequences). |
 
-When the daemon applies a saved file (a reload), it takes every option of `[device]`. With another `name` or `virtual`, the daemon connects to the other X-Touch (or the virtual device) without a restart. The strips show the same on the new one as before.
+A reload takes every option of `[device]`: with another `name` or `virtual`, the daemon connects to the other X-Touch without a restart, and the strips show the same on it.
 
 ### Startup and shutdown sequences
 
@@ -55,18 +38,18 @@ shutdown = "curtain"
 ### Faders without a touch sensor
 
 The daemon changes a value only while you touch the fader (see [Hardware](../reference/hardware.md#motor-faders)),
-because the motor also moves the faders. The symptom of a broken touch sensor: the daemon never sees a touch, so the
-motor moves the fader back to its value shortly after every move you make. Until you repair the sensor, `touchless_faders` lets that fader work without it: a move counts as a touch,
-and half a second without a move counts as letting go. Count the faders from 1 on the left. In the GUI these are the toggles of
-`touchless_faders` under Settings, Extender.
+because the motor also moves the faders. With a broken touch sensor the daemon never sees a touch, so the motor moves
+the fader back to its value shortly after every move you make. `touchless_faders` lets that fader work without the
+sensor: a move counts as a touch, and half a second without a move counts as letting go. Count the faders from 1 on
+the left. The GUI has toggles for it under Settings, Extender.
 
 ```toml
 [device]
 touchless_faders = [1]   # the touch sensor of fader 1 is broken
 ```
 
-`touch_required = false` does the same for all faders, and it has the limits listed below. Use it also if a working sensor does not notice your finger, e.g.
-when you push the fader from below.
+`touch_required = false` does the same for all faders, with the limits below. Use it also if a working sensor does
+not notice your finger, e.g. when you push the fader from below.
 
 ```toml
 [device]
@@ -75,12 +58,11 @@ touch_required = false   # every move of a fader counts
 
 What it can't do:
 
-- **Resting fingers:** the daemon treats a finger that rests on the fader without moving it as gone after half a
-  second. The motor then moves the fader to its value, which is where your finger left it, so you notice nothing. If
-  the value changed somewhere else in the meantime (e.g. in the volume control of the desktop), the fader moves out
+- **Resting fingers:** a finger that rests on the fader without moving it counts as gone after half a second. If the
+  value changed somewhere else in the meantime (e.g. in the volume control of the desktop), the fader moves out
   from under your finger.
-- **The first 3 seconds after a connect:** the X-Touch moves all its faders down by itself, and the daemon must not
-  take that for your hand. So in these 3 seconds a fader counts a move only with a real touch.
+- **The first 3 seconds after a connect:** the X-Touch moves all its faders down by itself, so in these 3 seconds a
+  fader counts a move only with a real touch.
 
 ## `[behavior]`
 
@@ -93,37 +75,33 @@ What it can't do:
 | `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a channel turns off a single one. |
 | `meter_point` | `"pre_fader"` | Where the meters take the level: `"pre_fader"` before the volume and Mute of each strip, so the meter shows what the application plays, even when you turned it down. `"post_fader"` after them, so the meter shows what you hear. A channel, or the entry of one slot in `[slots]`, may have its own, see [Meters](channels/index.md#meters). |
 
-Two more settings of the strips of applications are not here: `hold` (how long `apps` and `auto` keep an application)
-and `exclude` (which ones they never take). They are in
-[`[pool.apps]`](channels/applications.md#apps-and-auto).
+`hold` and `exclude` of the strips of applications are in [`[pool.apps]`](channels/applications.md#apps-and-auto).
 
 ```toml
 [behavior]
 max_volume = 150
 encoder_step = 2
-reset_volume = 100
 ```
 
 ### The volume scale
 
 `max_volume` and `unity_at` together say what volume each point of the fader has. The scale printed next to the faders
-marks 0 dB at about 77 % of the travel from the bottom, which is the default of `unity_at`. 0 dB means the volume
-stays as the application sends it, which is 100 %, so the daemon puts 100 % there. From the bottom to that mark the fader goes from 0 to 100 %. From the mark to the top it goes from 100 % to
-`max_volume`. Both parts are linear.
+marks 0 dB (the volume the application sends, 100 %) at about 77 % of the travel, the default of `unity_at`. From the
+bottom to that mark the fader goes linearly from 0 to 100 %, from the mark to the top from 100 % to `max_volume`.
 
-- With the default `max_volume = 130` the two parts have the same slope, because 100 / 130 is about 0.77: 100 % sits at 77 % of the
-  travel. The fader is linear from 0 to 130 %.
-- With a larger `max_volume` (up to 200) the part above the mark is steeper: the same distance covers more volume.
+- With the default `max_volume = 130` both parts have the same slope (100 / 130 is about 0.77): the fader is linear
+  from 0 to 130 %.
+- With a larger `max_volume` (up to 200) the part above the mark is steeper.
 - With `max_volume = 100`, 100 % is at the top and `unity_at` is ignored.
 
 Examples and a table are at [100 % at the 0 dB mark](channels/index.md#100-at-the-0-db-mark).
 
 ## `[aliases]`
 
-The name that a strip shows for an application, in place of the name the sound server reports. It applies to every
-strip that takes its application from the pools `apps` and `auto`, and to the pools of your own with `kind = "apps"`
-([Applications](channels/applications.md#apps-and-auto)). An `apps` channel shows its `label` instead. An alias is
-at most 7 characters of ASCII, because it must fit the LCD; a longer one is an error that `check-config` reports.
+The name that a strip shows for an application, in place of the name the sound server reports. It applies to strips
+that take their application from the pools `apps` and `auto`, and to pools of your own with `kind = "apps"`
+([Applications](channels/applications.md#apps-and-auto)). An `apps` channel shows its `label` instead. An alias has
+at most 7 ASCII characters, to fit the LCD; `check-config` reports a longer one.
 
 ```toml
 [aliases]
@@ -132,6 +110,6 @@ at most 7 characters of ASCII, because it must fit the LCD; a longer one is an e
 ```
 
 The key is the application name the sound server reports, with the same upper and lower case. `xtouch-daemon list-apps`
-shows it (and the alias it uses), and so do the suggestions of the GUI.
+and the GUI's suggestions show it.
 
 Next: [Commands](../reference/commands.md), [Troubleshooting](../guides/troubleshooting.md).

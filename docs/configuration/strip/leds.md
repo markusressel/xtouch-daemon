@@ -3,9 +3,9 @@
 ![The buttons of a strip, lit: Rec and Mute red, Solo yellow, Select green](../../images/controls/buttons.png){ .xt-part width="64" }
 
 Every strip has four buttons with LEDs: Rec, Solo, Mute and Select. Mute mutes the strip, and its LED is on while
-the strip is muted. You can change what the other three do, and what their LEDs show. Each has a default, listed below.
-Mute always mutes the strip, and its LED always shows that: on `output`, `input` and `apps` strips you cannot change it (only a
-[custom channel](../channels/custom.md#buttons) can configure it).
+the strip is muted; on `output`, `input` and `apps` strips you cannot change that (only a
+[custom channel](../channels/custom.md#buttons) can). You can change what the other three do, and what their LEDs
+show. Each has a default:
 
 | Button | By default |
 |---|---|
@@ -14,15 +14,12 @@ Mute always mutes the strip, and its LED always shows that: on `output`, `input`
 | ![Solo](../../images/controls/solo.png){ .xt-icon }<br>Solo | Nothing; its LED stays dark. |
 
 A button can also run a program of your own, and an LED can show what Home Assistant or a program says: see
-[What the LED shows](#what-the-led-shows) and [Bindings](bindings.md).
-
-On `homeassistant` strips every LED is an entity that Home Assistant sets, see
-[Home Assistant](../../guides/home-assistant.md#entities).
+[What the LED shows](#what-the-led-shows) and [Bindings](bindings.md). On `homeassistant` strips every LED is an
+entity that Home Assistant sets, see [Home Assistant](../../guides/home-assistant.md#entities).
 
 ## Buttons
 
-Each of `select`, `rec` and `solo` takes a table: what a press does, what a hold does and what the LED shows. A part
-you leave out does what the strip type does by default.
+Each of `select`, `rec` and `solo` takes a table. A part you leave out does what the strip type does by default.
 
 ```toml
 [channel.main]
@@ -30,8 +27,8 @@ type = "output"
 device = ["alsa_output.*", "bluez_output.*"]
 
 [channel.main.select]
-press = "default"   # makes the output shown the default; on the default one, the next one
-hold = "next"       # holding the button shows (and controls) the next output; the default stays
+press = "default"   # makes the output shown the default
+hold = "next"       # shows (and controls) the next output; the default stays
 led = "shown"       # lit while the strip shows another output than the default
 
 [channel.main.solo]
@@ -44,34 +41,34 @@ press = "mute_others"   # while held, the other strips are muted
 | `hold` | `"off"` | What holding the button for longer than half a second does. With a hold, a press acts when you let go of the button; without one, it acts at once. |
 | `led` | what the type shows | What the LED shows, see [What the LED shows](#what-the-led-shows). |
 
-A few short forms: `select = true` and `select = false` are short for Select doing what the type does, or nothing.
-`rec = "playing"` (an indicator alone) is short for `rec = { led = "playing" }`.
+Short forms: `select = true` and `select = false` are Select doing what the type does, or nothing; `rec = "playing"`
+(an indicator alone) is `rec = { led = "playing" }`.
 
-A **place** is an entry of `[slots]` like `{ show = "devices", rec = "playing" }`. It can set what an LED shows, but
-not what a button does: that belongs to the channel. Buttons that act whatever the slot shows are in the
-[`[controls]`](../slots.md#controls-and-the-chord) section.
+A place (an entry of `[slots]`, e.g. `{ show = "devices", rec = "playing" }`) can set what an LED shows, but not what
+a button does: see [Bindings](bindings.md#the-parts-and-what-they-take). Buttons that act whatever the slot shows
+are in [`[controls]`](../slots.md#controls-and-the-chord).
 
-The **chord** is Solo buttons held together to change the mode (see [Concepts](../../concepts.md#more-words)). On
-the strips of the chord, every press of Solo does its own `press`, as on any strip. When all the Solo buttons of the
-chord are down together, the mode changes as well. Give those Solo buttons no `press` (the default) if you only want the chord.
+On the strips of the [chord](../../concepts.md#more-words), every press of Solo does its own `press`, and the mode
+changes as well when all their Solo buttons are down together. Give those buttons no `press` if you only want the
+chord.
 
 ### Actions
 
 | Action | For | Does |
 |---|---|---|
 | `default` | output, input with `device` or `choices` | Makes the output or input shown the default. On the default one, the next one of `device` or `choices`. |
-| `next` | output, input with `device` or `choices` | The strip shows (and controls) the next output or input that is there. The default stays as it is. The strip keeps showing it until the default changes. |
+| `next` | output, input with `device` or `choices` | The strip shows (and controls) the next output or input that is there, until the default changes. The default stays as it is. |
 | `profile` | output, input with `profiles` | Switches the sound card to the next of `profiles`. |
 | `launch` | apps, auto with `launch` | Starts `launch`. |
 | `talk` | input | Push to talk. The strip is unmuted while the button is held, and muted again when you let go. |
 | `mute_others` | all | The other strips are muted while the button is held, and unmuted again when you let go. |
-| `homeassistant` | all | An event in Home Assistant for each press and release (`select_pressed`, `select_released`, ...). Needs [`[mqtt]`](../../guides/home-assistant.md). As `press` only. |
+| `homeassistant` | all | An event in Home Assistant for each press and release (`select_pressed`, ...). Needs [`[mqtt]`](../../guides/home-assistant.md#mqtt). As `press` only. |
 | `cycle_modes` | all | The next mode, as the chord picks it. |
 | `mode:<id>` | all | Picks the mode. |
-| `toggle:<id>` | all | Turns the state or mode on by hand. The next press gives control back to the state's own sources, for example the processes that turn it on. See [States and modes](../slots.md#states-and-modes). |
+| `toggle:<id>` | all | Turns the state or mode on by hand. The next press gives control back to the state's own sources. See [States and modes](../slots.md#states-and-modes). |
 | `{ launch = [...] }` | all | Starts the program, like a launch of [`[controls]`](../slots.md#controls-and-the-chord). `launch_when_running = true` starts it also while it runs. |
-| `{ run = [...] }` | all | Runs a program of your own to its end, e.g. `{ run = "sysctrl display redshift reset" }` ([system-control](https://github.com/markusressel/system-control)). See [Run a program](#run-a-program). |
-| `{ service = "...", entity = "..." }` | all | Calls a service of Home Assistant, e.g. `{ service = "light.toggle", entity = "light.desk" }`. `data` is sent as you wrote it: `{value}` is for `run` only: a service call has no value of its own, so `{value}` in `data` is an error. Needs [`[homeassistant]`](../../guides/home-assistant.md#homeassistant). |
+| `{ run = [...] }` | all | Runs a program of your own to its end, e.g. `{ run = "notify-send hello" }`. See [Run a program](#run-a-program). |
+| `{ service = "...", entity = "..." }` | all | Calls a service of Home Assistant, e.g. `{ service = "light.toggle", entity = "light.desk" }`. Needs [`[homeassistant]`](../../guides/home-assistant.md#homeassistant); see [An entity of Home Assistant](bindings.md#an-entity-of-home-assistant). |
 | `off` | all | Nothing. |
 
 `talk`, `mute_others` and `homeassistant` last while the button is held: they take no `hold`.
@@ -82,12 +79,11 @@ chord are down together, the mode changes as well. Give those Solo buttons no `p
 
 | Value | Lit while |
 |---|---|
-| `press` | Lit while the result of the button's `press` action is true. For `default`: the output or input is the default. For `profile`: the card is in another profile than the first. For `launch`: the application runs. For `mode:` and `toggle:`: the mode or state is on. For `talk` and `mute_others`: the button is held. |
+| `press` | Lit while the result of the `press` action is true: for `default`, the output or input is the default; for `profile`, the card is in another profile than the first; for `launch`, the application runs; for `mode:` and `toggle:`, the mode or state is on; for `talk` and `mute_others`, the button is held. |
 | `shown` | The strip shows another output or input than the default one (after `next`). |
 | `homeassistant` | Home Assistant says so: the LED is a select entity (`off`, `on`, `flash`) of its own. Needs [`[mqtt]`](../../guides/home-assistant.md#entities). |
-| `{ watch = [...] }` | A program that runs all the time and prints lines: the newest line is `on`, `1`, `true` or `yes`; `flash` flashes the LED, any other line turns it off. Until the first line, the LED is off. |
-| `{ poll = [...], every = 10 }` | A program that runs to its end every `every` seconds (10 by default). The words that count are the same as for `watch`, and the last line of each run is the one that counts ([Watch or poll](bindings.md#watch-or-poll)). |
-| `{ entity = "..." }` | The entity (or its `attribute`) is `on`, `open`, `playing` or `home`, or `1`, `true`, `yes`; `flash` flashes it. Dark while the daemon is not connected to Home Assistant. See [An entity of Home Assistant](bindings.md#an-entity-of-home-assistant). |
+| `{ watch = [...] }`, `{ poll = [...], every = 10 }` | A program prints lines ([Watch or poll](bindings.md#watch-or-poll)): the newest line is `on`, `1`, `true` or `yes`; `flash` flashes the LED, any other line turns it off. Until the first line, the LED is off. |
+| `{ entity = "..." }` | The entity (or its `attribute`) is `on`, `open`, `playing` or `home`, or `1`, `true`, `yes`; `flash` flashes it. See [An entity of Home Assistant](bindings.md#an-entity-of-home-assistant). |
 
 On `output`, `input` and `apps` channels (and the strips of `auto`), `press` stays dark for a `{ run }`. On a
 [custom channel](../channels/custom.md#buttons), `press` is lit while the program runs.
@@ -98,8 +94,8 @@ press = { run = "notify-send 'Volume {value}'" }
 led = { poll = "/home/me/bin/syncthing-running", every = 5 }   # lit while Syncthing runs
 ```
 
-`/home/me/bin/syncthing-running` is a script of your own (make it executable with `chmod +x`). It prints `on` while the user service of Syncthing runs,
-else `off`:
+`/home/me/bin/syncthing-running` is a script of your own (see [Commands](bindings.md#commands)). It prints `on` while
+the user service of Syncthing runs, else `off`:
 
 ```sh
 #!/bin/sh
@@ -109,9 +105,8 @@ systemctl --user is-active --quiet syncthing && echo on || echo off
 ## Run a program
 
 `{ run = [...] }` runs a program of your own once, to its end, without a shell: see
-[Commands](bindings.md#commands). `{value}` in an argument is the value of the fader or the encoder, else the volume
-in percent: see [`{value}`](bindings.md#value-in-run). A program that fails or takes longer than 10 seconds is logged
-as a warning. [Simulate](bindings.md#simulate) (the preview of the GUI) never runs it.
+[Commands](bindings.md#commands) and [`{value}`](bindings.md#value-in-run). [Simulate](bindings.md#simulate) never
+runs it.
 
 ## Indicators
 

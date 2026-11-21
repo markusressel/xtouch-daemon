@@ -107,6 +107,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Documentation: a quarter shorter (52,000 words to 40,000), with each topic explained on one page and linked from
+  the others. The front page now routes ("I want to ... go to ...") instead of answering everything. Checked with
+  blind research: 28 user questions (`scripts/doc-questions.json`, their answers checked in the code), each answered
+  by a reader that has only the pages, their navigation and links (`scripts/doc-research.py`). All 28 answers stay
+  right; a reader needs 27 % fewer words for one. The navigation says "Without an X-Touch" and "Behavior, X-Touch and
+  aliases".
 - Documentation: one word for one thing. "The device" meant the X-Touch on one line and a sound device on the next;
   now the hardware is the X-Touch, and a sound device is an output or an input (the names of the configuration and
   the labels of the GUI stay). Each detail has one home: the front page, Concepts and Getting started explain the

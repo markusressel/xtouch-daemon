@@ -1,0 +1,575 @@
+[
+  {
+    "id": "q01",
+    "topic": "getting started",
+    "question": "I am on Arch Linux and just bought the extender. How do I install xtouch-daemon so it starts by itself when I log in, and where do I read its log?",
+    "answer": "Install the AUR package xtouch-daemon-bin (xtouch-daemon-gui-bin too, if you want the window). The package ships a systemd user unit. Run `systemctl --user enable --now xtouch-daemon.service` (or `xtouch-daemon install-service --now`). Log: `journalctl --user -u xtouch-daemon -f`. Run it as your user, never with sudo.",
+    "facts": [
+      "AUR packages are xtouch-daemon-bin and xtouch-daemon-gui-bin",
+      "the release package installs the unit /usr/lib/systemd/user/xtouch-daemon.service; install-service then only reloads systemd (and with --now enables and starts it)",
+      "the unit is Type=notify, WantedBy=default.target, After pipewire/pipewire-pulse/wireplumber",
+      "install-service prints the log command journalctl --user -u xtouch-daemon -f",
+      "the daemon refuses to run as root"
+    ],
+    "code": [
+      "src/xtouch_daemon/system/systemd.py:24-46",
+      "src/xtouch_daemon/system/systemd.py:233-247",
+      "src/xtouch_daemon/cli/service.py:10-44",
+      "src/xtouch_daemon/cli/root.py:15-18",
+      "packaging/aur/xtouch-daemon-bin/PKGBUILD:5",
+      "src/xtouch_daemon/cli/editor.py:15-18"
+    ]
+  },
+  {
+    "id": "q02",
+    "topic": "getting started",
+    "question": "I started the daemon without writing any configuration. What does it do, how do I get my own config file, and how do I apply changes without restarting?",
+    "answer": "Without a file the daemon runs the example configuration: slots 1-6 are `auto` (playing applications from the left, voice-chat people from the right), slot 7 the default input, slot 8 the default output. `xtouch-daemon init-config` writes it to ~/.config/xtouch-daemon/config.toml (-f overwrites). Edit it, check with `xtouch-daemon check-config`. The daemon notices a changed file after about a second and reloads it; `systemctl --user reload xtouch-daemon` (SIGHUP) does it at once. A file with errors is logged and the old configuration keeps running.",
+    "facts": [
+      "no file at the default path: the example configuration is used",
+      "example: [channel.out] output, [channel.mic] input, [slots] 7 = mic, 8 = out; slots without candidates are auto",
+      "default path is $XDG_CONFIG_HOME (or ~/.config)/xtouch-daemon/config.toml",
+      "init-config refuses to overwrite without --force",
+      "daemon polls the file every FILE_CHECK = 1 s and reloads once it rested; SIGHUP reloads",
+      "reload with errors keeps the current configuration"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/files.py:24-26",
+      "src/xtouch_daemon/config/files.py:126-139",
+      "src/xtouch_daemon/config.example.toml:13-21",
+      "src/xtouch_daemon/cli/configuration.py:195-205",
+      "src/xtouch_daemon/cli/configuration.py:163-176",
+      "src/xtouch_daemon/daemon/lifecycle.py:90",
+      "src/xtouch_daemon/daemon/lifecycle.py:287-317",
+      "src/xtouch_daemon/daemon/lifecycle.py:757-771"
+    ]
+  },
+  {
+    "id": "q03",
+    "topic": "getting started",
+    "question": "My extender has not arrived yet. Can I try the daemon and my configuration without the device?",
+    "answer": "Yes, use the virtual device. Terminal 1: `xtouch-daemon virtual-device`. Terminal 2: `xtouch-daemon run --virtual-device` (or `[device] virtual = true` in the file). `xtouch-daemon gui` draws what it shows; in the GUI the button 'Try without a device' starts such a daemon for you (it stops when the window closes).",
+    "facts": [
+      "virtual-device is a simulated extender the daemon drives over a socket",
+      "run has --virtual-device; [device] virtual = true does the same, a reload switches",
+      "the GUI offers 'Try without a device' when no daemon runs; it starts `run --virtual-device --config <file>` and ends with the window"
+    ],
+    "code": [
+      "src/xtouch_daemon/cli/simulator.py:28-51",
+      "src/xtouch_daemon/cli/daemon.py:25-35",
+      "src/xtouch_daemon/config/sections.py:40-45",
+      "src/xtouch_daemon/gui/qt/window/device_view.py:166-171",
+      "src/xtouch_daemon/gui/qt/window/main_window.py:1251-1266"
+    ]
+  },
+  {
+    "id": "q04",
+    "topic": "getting started",
+    "question": "The daemon runs but the extender stays dark, and `xtouch-daemon test` says it can't find it. What do I check?",
+    "answer": "The device must be switched on and in MC (Mackie Control) mode on USB. The daemon finds it by the sound card name: `[device] name` (default `X-Touch-Ext`) must be part of a card's id or description in /proc/asound/cards. The daemon waits and reconnects when the device is unplugged or off. If the daemon runs, `test` goes through it; to open the device yourself, stop the service first (`systemctl --user stop xtouch-daemon`).",
+    "facts": [
+      "the error says: is it switched on, in MC mode on USB?",
+      "find_card matches name against the card id or description in /proc/asound/cards; default name X-Touch-Ext",
+      "surface logs 'is not connected, waiting for it' and reconnects after unplug",
+      "test with a running daemon runs the test in the daemon; without the daemon it opens the device and on OSError says stop the service",
+      "protocol is Mackie Control in MC mode"
+    ],
+    "code": [
+      "src/xtouch_daemon/cli/daemon.py:73-114",
+      "src/xtouch_daemon/hardware/midi.py:17-28",
+      "src/xtouch_daemon/config/sections.py:38-39",
+      "src/xtouch_daemon/hardware/surface.py:401-409",
+      "src/xtouch_daemon/hardware/protocol.py:2"
+    ]
+  },
+  {
+    "id": "q05",
+    "topic": "configuration (slots, channels, states)",
+    "question": "I want Select on strip 1 to switch between my headphones and my speakers. How do I configure it?",
+    "answer": "Make an output channel with `choices` and show it on slot 1:\n[channel.out]\ntype = \"output\"\nchoices = [\n  { label = \"Phones\", device = \"alsa_output.*analog-stereo\" },\n  { label = \"Speaker\", device = \"alsa_output.*hdmi-stereo*\" },\n]\n[slots]\n1 = \"out\"\nGet the device names with `xtouch-daemon list-devices` (`*` and `?` are wildcards). Select is `default` by default on a strip with choices: it makes the next choice the default output. Same card, different profile: add `card` and `profile` to a choice. Labels are at most 7 ASCII characters.",
+    "facts": [
+      "choices need at least two entries",
+      "a choice's device is a node name or description, wildcards allowed; label max 7 printable ASCII (LCD width)",
+      "choices and device/profiles are exclusive",
+      "default Select action on an output/input strip with device or choices is `default`: makes the shown device default, when it is, the next one",
+      "ChoiceStrip: Select goes to the next choice that is there; switches the card to the profile first if needed",
+      "card and profile go together",
+      "a channel is placed on a slot with `1 = \"out\"`"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/audio_strips.py:38-66",
+      "src/xtouch_daemon/config/audio_strips.py:87-155",
+      "src/xtouch_daemon/config/values.py:95",
+      "src/xtouch_daemon/config/buttons.py:188-198",
+      "src/xtouch_daemon/config/buttons.py:35-36",
+      "src/xtouch_daemon/strips/device.py:284-294",
+      "src/xtouch_daemon/strips/device.py:210-219",
+      "src/xtouch_daemon/cli/sound.py:47-52"
+    ]
+  },
+  {
+    "id": "q06",
+    "topic": "configuration (slots, channels, states)",
+    "question": "Strip 3 should show Firefox only while I am not gaming. Games are the ones started from Steam. How?",
+    "answer": "[channel.firefox]\ntype = \"apps\"\nmatch = [\"firefox\"]\nlabel = \"Firefox\"\n[state.gaming]\nmode = true\nprocesses = [\"@steam-games\"]\n[slots]\n3 = \"firefox if not gaming\"\nWhile gaming is on, slot 3 falls through to `auto`: the daemon appends `auto` to a stack whose last candidate has a condition. A mode stays on 10 s after the game ends (`delay_off` changes it; a state with `mode = false` stays 3 s).",
+    "facts": [
+      "an apps channel needs `match` and a `label`",
+      "a candidate is written `<channel or pool> if <condition>`; conditions use state/mode names, and/or/not, parentheses, present",
+      "a mode is a state with mode = true; its name is true in conditions while that mode is on",
+      "@steam-games is a preset of process names (reaper); `processes` is the state source for running programs",
+      "a stack whose last candidate has a condition ends in auto",
+      "default delay_off: 3 s for states, 10 s for modes"
+    ],
+    "code": [
+      "src/xtouch_daemon/slots/model.py:129-158",
+      "src/xtouch_daemon/slots/model.py:610-657",
+      "src/xtouch_daemon/slots/model.py:905-929",
+      "src/xtouch_daemon/slots/model.py:932-964",
+      "src/xtouch_daemon/slots/states.py:119-150",
+      "src/xtouch_daemon/slots/states.py:197-204",
+      "src/xtouch_daemon/config/presets.py:140-149",
+      "src/xtouch_daemon/config/audio_strips.py:163-175",
+      "src/xtouch_daemon/slots/expressions.py:1-10"
+    ]
+  },
+  {
+    "id": "q07",
+    "topic": "configuration (slots, channels, states)",
+    "question": "Strip 5 shows a person from my voice chat instead of an application. Why, and how do I stop it?",
+    "answer": "Slots without candidates are `auto`, which hands out people and applications. The people go first and fill slots from the right (`[pool.people] from` defaults to `right`), the applications from the left. So a person takes the right-most `auto` slot. Fix: put `5 = \"apps\"` in [slots] (that slot only hands out applications), or give the people their own slots (`6 = \"people\"`), or set `[pool.people] from = \"left\"`. `xtouch-daemon simulate config.toml --person Alice --playing firefox` shows the result.",
+    "facts": [
+      "auto = people and applications (KINDS[AUTO] = people, apps), people first",
+      "pool.people default from = right; pool.apps from = left",
+      "a slot named `apps` never gets people; `people` slots are filled from their side",
+      "simulate --person/--playing shows what slots would show (verified: with 5 = apps, firefox sits on slot 5 even with 5 people)"
+    ],
+    "code": [
+      "src/xtouch_daemon/slots/resolver.py:29-35",
+      "src/xtouch_daemon/slots/resolver.py:220-228",
+      "src/xtouch_daemon/slots/resolver.py:335-343",
+      "src/xtouch_daemon/slots/model.py:265-292",
+      "src/xtouch_daemon/config/strip.py:213",
+      "src/xtouch_daemon/cli/slots.py:31-101"
+    ]
+  },
+  {
+    "id": "q08",
+    "topic": "configuration (slots, channels, states)",
+    "question": "While I am in a Mumble call, strip 6 should show all my voice-chat programs as one strip. Otherwise it should behave as normal. How?",
+    "answer": "[channel.voip]\ntype = \"apps\"\nmatch = [\"@voip\"]\nlabel = \"VoIP\"\n[state.call]\nvoice_chat = true\ndelay_off = 5\n[slots]\n6 = [\"voip if call\", \"auto\"]\n`voice_chat = true` is on while you are in a channel of the voice chat (the Mumble or TeamSpeak plugin must be connected). For clients without a plugin (Discord) use `recording = [\"discord\"]` as the source.",
+    "facts": [
+      "state source voice_chat is true when the voip provider is connected and has a channel",
+      "recording = [...] is a state source: an application records, e.g. an open microphone",
+      "@voip preset lists discord, mumble, teamspeak, ...",
+      "candidate order: first one whose condition holds; auto catches the rest",
+      "delay_off default is 3 s for a state"
+    ],
+    "code": [
+      "src/xtouch_daemon/slots/model.py:610-645",
+      "src/xtouch_daemon/slots/recording.py:56",
+      "src/xtouch_daemon/config/presets.py:106-138",
+      "src/xtouch_daemon/config.example.toml:23-30",
+      "src/xtouch_daemon/slots/resolver.py:158-169"
+    ]
+  },
+  {
+    "id": "q09",
+    "topic": "configuration (slots, channels, states)",
+    "question": "I have a gaming mode that turns on when Steam runs. How can I switch modes by hand, from the device and from the PC?",
+    "answer": "On the device: hold the Solo buttons of strips 1 and 8 together (the default chord, action `cycle_modes`; change it with `[switching] chord = { strips = [1, 8], action = \"mode:gaming\" }` or `toggle:<state>`). Or give a strip button the action: `select = { press = \"mode:gaming\" }` on a channel. From the PC: `xtouch-daemon mode gaming` (`--next`, `--previous`, `auto` hands the choice back to the rules). A hand pick lasts until the rules want another mode.",
+    "facts": [
+      "switching.chord default (1, 8), chord_action default cycle_modes",
+      "chord action may be cycle_modes, mode:<id>, toggle:<state or mode>",
+      "button actions mode:<id> and toggle:<state> are valid on channels' press/hold",
+      "`mode` command lists, picks, --next/--previous",
+      "pick lasts until the rules want another mode (rule_changed resets mode_pick)",
+      "the Solo buttons of the chord strips can't be claimed in [controls]"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/sections.py:211-241",
+      "src/xtouch_daemon/config/buttons.py:52",
+      "src/xtouch_daemon/slots/model.py:1069-1095",
+      "src/xtouch_daemon/cli/modes.py:52-77",
+      "src/xtouch_daemon/slots/states.py:169-177",
+      "src/xtouch_daemon/slots/model.py:724-731"
+    ]
+  },
+  {
+    "id": "q10",
+    "topic": "configuration (slots, channels, states)",
+    "question": "My Bluetooth headset should get its own strip when it connects. It is not one of my channels. What do I write?",
+    "answer": "[slots]\n4 = \"devices\"\nThe built-in pool `devices` hands out the outputs and inputs that no channel owns. It is not part of `auto`, so a slot has to name it. `[pool.devices] hold = 10` keeps the strip 10 s after the device went (default 5), `exclude = [\"*monitor*\"]` leaves devices out (node name or description, wildcards). Alternatively make a channel: type = \"output\", device = \"bluez_output.*\".",
+    "facts": [
+      "devices pool = outputs/inputs that no output/input channel has, excluding those matching exclude",
+      "auto's kinds are only people and apps",
+      "DevicesConfig: hold default 5 s (Bluetooth reconnect), exclude with * ? wildcards, from default left",
+      "`devices` as slot candidate makes an output strip until a device comes"
+    ],
+    "code": [
+      "src/xtouch_daemon/slots/model.py:59-60",
+      "src/xtouch_daemon/slots/model.py:334-359",
+      "src/xtouch_daemon/slots/inputs.py:207-233",
+      "src/xtouch_daemon/slots/resolver.py:29-35",
+      "src/xtouch_daemon/config/audio_strips.py:91-97"
+    ]
+  },
+  {
+    "id": "q11",
+    "topic": "configuration (slots, channels, states)",
+    "question": "Every notification sound from one program grabs a strip on my auto slots. How do I keep that application off the extender?",
+    "answer": "Exclude it from the apps pool:\n[pool.apps]\nexclude = [\"speech-dispatcher\", \"notify\"]\nThe name is part of the application name or binary, any case (`xtouch-daemon list-apps` shows them). Mind: `exclude` replaces the default list, which only holds `speech-dispatcher`, so repeat it. Another way: a channel for it with `in_pool = false`.",
+    "facts": [
+      "[pool.apps] exclude default AUTO_EXCLUDE = (speech-dispatcher,); setting it replaces the default",
+      "matching is substring, case-insensitive on name/binary",
+      "a channel with in_pool = false is excluded too",
+      "list-apps lists playing applications and which channel or slot takes them"
+    ],
+    "code": [
+      "src/xtouch_daemon/slots/model.py:63-64",
+      "src/xtouch_daemon/slots/model.py:265-273",
+      "src/xtouch_daemon/slots/inputs.py:130-132",
+      "src/xtouch_daemon/slots/inputs.py:176-184",
+      "src/xtouch_daemon/slots/model.py:133-137",
+      "src/xtouch_daemon/cli/sound.py:94-100"
+    ]
+  },
+  {
+    "id": "q12",
+    "topic": "configuration (slots, channels, states)",
+    "question": "While gaming I want the fader of strip 3 to control my screen brightness (a script of mine), whatever strip 3 shows. Is that possible?",
+    "answer": "Yes, with `[controls]`:\n[channel.screen]\ntype = \"custom\"\nfader = { set = [\"sysctrl\", \"display\", \"brightness\", \"-b\", \"{value}\"], min = 0.1, max = 1.0 }\n[state.gaming]\nmode = true\nprocesses = [\"@steam-games\"]\n[controls.3]\nwhen = \"gaming\"\nfader = { channel = \"screen\" }\nThe claim acts while `when` holds and whatever the slot shows. The channel must be `custom` with a fader bound to a program. (A list of tables per slot: the first whose `when` holds acts.)",
+    "facts": [
+      "[controls.<slot>] claims fader/encoder/select/rec/solo/meter/color/lcd of a slot whatever it shows; Mute stays with the strip",
+      "`when` is a condition of states/modes",
+      "`fader = { channel = \"x\" }` needs a custom channel whose fader is bound (ValueBinding)",
+      "a list of controls per slot: the first whose when holds acts"
+    ],
+    "code": [
+      "src/xtouch_daemon/slots/model.py:89-95",
+      "src/xtouch_daemon/slots/model.py:380-385",
+      "src/xtouch_daemon/slots/model.py:489-537",
+      "src/xtouch_daemon/slots/model.py:1098-1166",
+      "src/xtouch_daemon/slots/model.py:696-699"
+    ]
+  },
+  {
+    "id": "q13",
+    "topic": "strip parts (encoders, buttons, bindings)",
+    "question": "Turning the encoder on my speakers strip moves the left/right balance. I want it to change the volume in finer steps. How?",
+    "answer": "Set `encoder = \"volume\"` on the channel (`[channel.out] type = \"output\" encoder = \"volume\"`). Output and input strips default to `balance`; apps default to `media` (turn seeks 5 s, push plays/pauses); auto defaults to `pick`. In `volume` mode one step is `[behavior] encoder_step` percent (1 to 10, default 1) and a push sets `behavior.reset_volume` (default 100).",
+    "facts": [
+      "ENCODERS: output/input balance first (default), volume, homeassistant; apps media, volume, balance; auto pick, media, ...",
+      "volume mode: turn = encoder_step percent, push = reset_volume",
+      "balance mode: 5 % per step (BALANCE_STEP 0.05); media: seek 5 s",
+      "an encoder mode that is not for the strip type is an error"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/values.py:35-50",
+      "src/xtouch_daemon/config/values.py:74-88",
+      "src/xtouch_daemon/config/sections.py:74-76",
+      "src/xtouch_daemon/config/strip.py:95",
+      "src/xtouch_daemon/config/strip.py:161-166",
+      "src/xtouch_daemon/strips/knobs.py:23-27"
+    ]
+  },
+  {
+    "id": "q14",
+    "topic": "strip parts (encoders, buttons, bindings)",
+    "question": "I want push-to-talk on my microphone strip: the mic is muted until I hold Select. Can the extender do that?",
+    "answer": "Yes, on an input channel: `[channel.mic] type = \"input\"` and `select = { press = \"talk\" }`, shown on a slot (`7 = \"mic\"`). Mute the mic first with the strip's Mute button: while Select is held the mic is unmuted, and it is muted again on release. `talk` lasts while held, so it takes no `hold`. Set it on the channel: a slot entry can set only an LED for a button.",
+    "facts": [
+      "`talk` is only for input strips",
+      "talk(): only acts when the strip is muted; unmute on press, mute again on release",
+      "talk/mute_others/homeassistant are WHILE_HELD actions and take no hold",
+      "a slot place can't set press/hold of a button (error: what the button does belongs to the channel)",
+      "Mute button toggles mute"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/strip.py:155-156",
+      "src/xtouch_daemon/strips/base.py:850-858",
+      "src/xtouch_daemon/config/buttons.py:54",
+      "src/xtouch_daemon/config/strip.py:136-137",
+      "src/xtouch_daemon/slots/model.py:999-1004",
+      "src/xtouch_daemon/config/buttons.py:41"
+    ]
+  },
+  {
+    "id": "q15",
+    "topic": "strip parts (encoders, buttons, bindings)",
+    "question": "I want Solo on my output strip to mute all other strips while I hold it. I wrote it into the entry of slot 8 and got an error. What is wrong?",
+    "answer": "The button's action belongs to the channel, not to the slot entry. Put it there:\n[channel.out]\ntype = \"output\"\nsolo = { press = \"mute_others\" }\n[slots]\n8 = \"out\"\nWriting `8 = [{ show = \"out\", solo = { press = \"mute_others\" } }]` fails with \"solo: a place sets only what its LED shows (led); what the button does belongs to the channel\". `mute_others` lasts while the button is held.",
+    "facts": [
+      "mute_others: the other strips are muted while the button is held",
+      "slot entries (places) may set only `led` of select/rec/solo",
+      "verified with check-config: the channel form is valid, the slot form errors with that text",
+      "WHILE_HELD actions take no hold"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/buttons.py:42",
+      "src/xtouch_daemon/config/buttons.py:54",
+      "src/xtouch_daemon/slots/model.py:999-1006",
+      "src/xtouch_daemon/slots/model.py:967-1007",
+      "src/xtouch_daemon/config/slots.py:146"
+    ]
+  },
+  {
+    "id": "q16",
+    "topic": "strip parts (encoders, buttons, bindings)",
+    "question": "Can I bind a fader to my own script, e.g. the brightness of my monitor, and have the fader follow when the brightness changes elsewhere?",
+    "answer": "Yes, with a `custom` channel on a slot:\n[channel.screen]\ntype = \"custom\"\nlabel = \"Screen\"\nfader = { set = [\"brightnessctl\", \"set\", \"{value}%\"], watch = [\"/home/me/bin/brightness-watch\"], min = 5, max = 100 }\n[slots]\n4 = \"screen\"\n`{value}` must appear in an argument after the program name; moving the fader runs `set`. `watch` is a program that runs all the time and prints the value, one line per change; the fader, LED ring and LCD follow it (`poll` + `every` seconds for a program that ends). Programs run without a shell: put pipes in a script.",
+    "facts": [
+      "custom strip parts: fader, encoder, lcd, color, meter, buttons incl. mute",
+      "ValueBinding: set (needs {value} in args after argv[0]), watch or poll (not both), every default 10 s, min 0, max 100",
+      "commands are split like a shell would but run without a shell",
+      "a fader has no push (only the encoder)",
+      "an unbound part of a custom strip is dark/does nothing"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/strips.py:75-120",
+      "src/xtouch_daemon/config/bindings.py:227-263",
+      "src/xtouch_daemon/config/bindings.py:63",
+      "src/xtouch_daemon/config/values.py:137-163",
+      "src/xtouch_daemon/config.example.toml:40-45"
+    ]
+  },
+  {
+    "id": "q17",
+    "topic": "strip parts (encoders, buttons, bindings)",
+    "question": "Select on my Mumble strip should start Mumble when it is not running, and light up while it runs. And once, it should join a server through a mumble:// URL. How?",
+    "answer": "[channel.voip]\ntype = \"apps\"\nmatch = [\"mumble\"]\nlabel = \"Mumble\"\nlaunch = [\"mumble\", \"mumble://me@voice.example.org/Gaming\"]\nlaunch_when_running = true\n[slots]\n5 = \"voip\"\nSelect starts `launch` while no matching application runs (its LED shows that). `launch_when_running = true` also starts it while Mumble runs, which hands the URL to the running client. `launch` is only for apps and auto strips and runs without a shell.",
+    "facts": [
+      "launch is an option of apps and auto strips",
+      "Select default press is `launch` when launch is set, LED `press` (lit while it runs)",
+      "launch_when_running makes Select start launch also while the application runs",
+      "no shell expansion; a person channel can't have launch"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/audio_strips.py:163-191",
+      "src/xtouch_daemon/config/buttons.py:196-199",
+      "src/xtouch_daemon/config/values.py:160-168",
+      "src/xtouch_daemon/config/slots.py:131-134"
+    ]
+  },
+  {
+    "id": "q18",
+    "topic": "Home Assistant",
+    "question": "I want the desk lamp in Home Assistant on strip 5: the fader dims it, the LCD shows its color and Select toggles it. What do I need in the file?",
+    "answer": "[homeassistant]\nurl = \"http://homeassistant.local:8123\"\ntoken_file = \"~/.config/xtouch-daemon/homeassistant-token\"\n[channel.lamp]\ntype = \"custom\"\nfader = { entity = \"light.desk\" }\ncolor = { entity = \"light.desk\" }\nselect = { press = { service = \"light.toggle\", entity = \"light.desk\" }, led = { entity = \"light.desk\" } }\n[slots]\n5 = \"lamp\"\nThe token is a long-lived access token (profile, Security tab). Parts that point to an entity use the API in `[homeassistant]`, they need no `[mqtt]`. The fader of a light sets `brightness` (0..255 is mapped for you).",
+    "facts": [
+      "entity bindings need [homeassistant] (else error: an entity of Home Assistant needs a [homeassistant] section)",
+      "exactly one of token, token_file, token_env",
+      "url is the address as in the browser (http/https/ws/wss)",
+      "light domain value: attribute brightness 0..255 with light.turn_on; ServiceAction press calls a service",
+      "entity color for a light: off makes the LCD dark",
+      "LED lit while the entity is on/open/playing/home"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/sections.py:165-209",
+      "src/xtouch_daemon/config/slots.py:200-206",
+      "src/xtouch_daemon/config/bindings.py:418-442",
+      "src/xtouch_daemon/config/bindings.py:472-481",
+      "src/xtouch_daemon/homeassistant/domains.py:42-49",
+      "src/xtouch_daemon/homeassistant/parts.py:18-19",
+      "src/xtouch_daemon/homeassistant/parts.py:119-138",
+      "src/xtouch_daemon/config.example.toml:47-55"
+    ]
+  },
+  {
+    "id": "q19",
+    "topic": "Home Assistant",
+    "question": "I want Home Assistant automations to react to the buttons and faders of a strip and to set its LCD and LEDs. Which strip type and section do I need, and what are the entities called?",
+    "answer": "Add `[mqtt]` (host, ...) and a channel of type `homeassistant` on a slot:\n[mqtt]\nhost = \"homeassistant.local\"\n[channel.ha]\ntype = \"homeassistant\"\nlabel = \"Home\"\n[slots]\n5 = \"ha\"\nEntities (namespace `xtouch` by default, id = channel name): `number.xtouch_ha_fader`, `number.xtouch_ha_encoder` (0..100), `text.xtouch_ha_top` / `_bottom` (LCD lines), `select.xtouch_ha_color`, `select.xtouch_ha_mute_led` (and select_led, rec_led, solo_led: off/on/flash), `event.xtouch_ha_buttons` (presses, releases, encoder push, fader touch). The LEDs do not toggle themselves: an automation reacts to the event and sets the LED. A changed `[mqtt]` section needs a restart, a reload keeps the old configuration.",
+    "facts": [
+      "homeassistant channels need [mqtt] (error: Home Assistant needs an [mqtt] section)",
+      "mqtt.namespace default xtouch; entity IDs start with it",
+      "entity list from the module docstring of strips/homeassistant.py",
+      "buttons don't switch LEDs by themselves",
+      "reload with a changed [mqtt] section is refused: 'restart the daemon instead'",
+      "check-config prints 'entities *.*_ha_*'"
+    ],
+    "code": [
+      "src/xtouch_daemon/strips/homeassistant.py:1-19",
+      "src/xtouch_daemon/config/sections.py:93-114",
+      "src/xtouch_daemon/config/slots.py:189-199",
+      "src/xtouch_daemon/daemon/lifecycle.py:302-307",
+      "src/xtouch_daemon/cli/configuration.py:169-171"
+    ]
+  },
+  {
+    "id": "q20",
+    "topic": "Home Assistant",
+    "question": "How can a switch in Home Assistant turn my 'night' mode on, and how can I force a state on or off from Home Assistant?",
+    "answer": "Needs `[mqtt]`. Give the state the source `homeassistant`:\n[state.night]\nmode = true\nhomeassistant = true\nThe daemon makes a switch `switch.xtouch_state_night_input` in Home Assistant; while it is on, the state/mode is on. Every mode can be picked with `select.xtouch_mode` (`auto` lets the rules decide). For a state that is not a mode, `select.xtouch_state_<id>` overrides it: `auto`, `on` or `off`. Entities `binary_sensor.xtouch_state_<id>` show each state's value.",
+    "facts": [
+      "state option homeassistant = true: on while its switch in HA is on, needs [mqtt]",
+      "entities: select.<ns>_mode, binary_sensor.<ns>_state_<id>, select.<ns>_state_<id> (override, non-modes only), switch.<ns>_state_<id>_input",
+      "Override values: auto, on, off",
+      "namespace default xtouch"
+    ],
+    "code": [
+      "src/xtouch_daemon/slots/model.py:629-630",
+      "src/xtouch_daemon/daemon/homeassistant.py:1-14",
+      "src/xtouch_daemon/daemon/homeassistant.py:57-86",
+      "src/xtouch_daemon/slots/states.py:16-20",
+      "src/xtouch_daemon/config/sections.py:112"
+    ]
+  },
+  {
+    "id": "q21",
+    "topic": "voice chat (Mumble, TeamSpeak)",
+    "question": "How do I get the people of my Mumble channel onto the extender, one strip each with a volume fader?",
+    "answer": "Install the plugin into Mumble: `xtouch-daemon mumble-plugin --install` (`xtouch-daemon mumble-plugin` shows where the plugin is and whether Mumble has it). Then in Mumble open Settings, Plugins, click 'Reload plugins' and enable 'xtouch-daemon'. The `[voip]` provider is `bridge` by default (plugin talks over $XDG_RUNTIME_DIR/xtouch-daemon-voip.sock). People then fill the `auto` slots from the right: fader = their volume (Mumble tells it), Mute = local mute, the meter their voice. Native and Flatpak Mumble are both found. From a git checkout use `--build --install` (needs cmake and a C compiler).",
+    "facts": [
+      "mumble-plugin --install copies libxtouch-daemon.so into Mumble's plugin dir (native ~/.local/share/Mumble/Mumble/Plugins, or the Flatpak one)",
+      "afterwards: Reload plugins in Mumble's settings, enable xtouch-daemon once",
+      "voip.provider default bridge; socket path",
+      "the Mumble plugin reports capabilities volume, mute, levels",
+      "people sit in auto slots from the right"
+    ],
+    "code": [
+      "src/xtouch_daemon/cli/mumble.py:10-37",
+      "src/xtouch_daemon/voip/mumble.py:51-56",
+      "src/xtouch_daemon/voip/mumble.py:143-173",
+      "src/xtouch_daemon/config/sections.py:254-267",
+      "integrations/mumble/plugin.c:307",
+      "src/xtouch_daemon/strips/voip.py:121-142"
+    ]
+  },
+  {
+    "id": "q22",
+    "topic": "voice chat (Mumble, TeamSpeak)",
+    "question": "I use TeamSpeak 3 on Linux. How do I install the plugin and what must I click in TeamSpeak?",
+    "answer": "Run `xtouch-daemon teamspeak-plugin --install`. It copies `xtouch-daemon_linux_amd64.so` into ~/.ts3client/plugins. In TeamSpeak go to Tools, Options, Add-ons, Plugins, click 'Reload All' (or restart TeamSpeak) and enable 'xtouch-daemon'. `xtouch-daemon teamspeak-plugin` without options tells what is found. A build from a checkout needs cmake and a C compiler and downloads TeamSpeak's SDK headers the first time.",
+    "facts": [
+      "library name xtouch-daemon_linux_amd64.so, installed to ~/.ts3client/plugins",
+      "message after install lists the TeamSpeak menu path",
+      "build downloads SDK headers on first build (checkout only)",
+      "TeamSpeak counts as installed if teamspeak3 command, /opt/teamspeak3 or ~/.ts3client exists",
+      "plugin tells capabilities volume, mute, levels"
+    ],
+    "code": [
+      "src/xtouch_daemon/cli/teamspeak.py:47-77",
+      "src/xtouch_daemon/voip/teamspeak.py:17",
+      "src/xtouch_daemon/voip/teamspeak.py:44-65",
+      "src/xtouch_daemon/voip/teamspeak.py:126-153",
+      "integrations/teamspeak/plugin.c:476"
+    ]
+  },
+  {
+    "id": "q23",
+    "topic": "voice chat (Mumble, TeamSpeak)",
+    "question": "My friend Alice should always have strip 6, dark when she is not in the call, and I want her LCD to say 'Alice'. She also joins as 'alice-phone' sometimes.",
+    "answer": "[channel.alice]\ntype = \"person\"\nperson = [\"Alice\", \"alice-phone\"]\nlabel = \"Alice\"\n[slots]\n6 = \"alice\"\nThe names are the ones in the voice chat, any case. While she is away the strip is dark and says 'away'. While she talks the LCD turns `talking_color` (green by default). Her fader sets her volume for you only (if the client supports it), Mute mutes her locally. A person can belong to one channel only.",
+    "facts": [
+      "type person needs `person` (one name or a list); label optional, default first name",
+      "voip strip away: color black, top line the name, bottom 'away', fader parked",
+      "talking_color default green; color default white",
+      "a person in two channels is an error",
+      "person channels can't have launch"
+    ],
+    "code": [
+      "src/xtouch_daemon/slots/model.py:129-158",
+      "src/xtouch_daemon/config/voip_strips.py:32-70",
+      "src/xtouch_daemon/strips/voip.py:40-43",
+      "src/xtouch_daemon/strips/voip.py:68-98",
+      "src/xtouch_daemon/slots/model.py:844-849",
+      "src/xtouch_daemon/config/slots.py:122-134",
+      "src/xtouch_daemon/voip/provider.py:44-47"
+    ]
+  },
+  {
+    "id": "q24",
+    "topic": "GUI",
+    "question": "In the GUI I changed a slot and want to see it on the device, but I am not sure it is saved. What does 'Save and apply' do, and how can I try changes without touching the device?",
+    "answer": "'Save and apply' (Ctrl+S) writes the file and reloads the daemon if it reads that file; the device then shows the new configuration. Before that, the Preview control decides where unsaved changes show: 'In the GUI' (default, on a twin of the device; the device keeps running the saved file), 'On the device' (runs the changes unsaved; it goes back to the saved file when you pick another place or close the window) or 'Off'. If the daemon runs another file, or is not running, the message says so.",
+    "facts": [
+      "save button tooltip: Write the file and reload the daemon (Ctrl+S)",
+      "PLACE_TIPS: In the GUI / On the device / Off",
+      "apply(): reloads only when the daemon reads this file; message if not running or another file"
+    ],
+    "code": [
+      "src/xtouch_daemon/gui/qt/window/main_window.py:125-141",
+      "src/xtouch_daemon/gui/qt/window/main_window.py:555",
+      "src/xtouch_daemon/gui/qt/window/main_window.py:714-719",
+      "src/xtouch_daemon/gui/domain/apply.py:21-50",
+      "src/xtouch_daemon/gui/qt/live_preview.py:1-8"
+    ]
+  },
+  {
+    "id": "q25",
+    "topic": "GUI",
+    "question": "`xtouch-daemon gui` says it needs the gui extra. How do I get the window, and how do I start it?",
+    "answer": "On Arch install the AUR package `xtouch-daemon-gui-bin` and start `xtouch-daemon-gui` (there is a desktop entry 'X-Touch Extender'). From a checkout install with the extra: `uv tool install --force './xtouch-daemon[gui]'`, then `xtouch-daemon gui` (`-c FILE` for another file; the default is ~/.config/xtouch-daemon/config.toml).",
+    "facts": [
+      "GUI_MISSING message text",
+      "GUI extra (PyQt6, qtawesome, qt-themes, tomlkit)",
+      "xtouch-daemon-gui launcher runs `-m xtouch_daemon gui`; desktop Exec=xtouch-daemon-gui",
+      "gui command takes the config path option; default path"
+    ],
+    "code": [
+      "src/xtouch_daemon/cli/editor.py:14-35",
+      "pyproject.toml:37-42",
+      "packaging/build-release.sh:159-164",
+      "packaging/xtouch-daemon-gui.desktop:3-6",
+      "src/xtouch_daemon/cli/options.py:13-19"
+    ]
+  },
+  {
+    "id": "q26",
+    "topic": "GUI",
+    "question": "Before I change anything, I want to see what my slots would show during a call with Firefox playing and while gaming, without really calling or gaming. Where in the GUI, and what in the terminal?",
+    "answer": "GUI: the Slots page has a 'Simulate' button (what-if: mode, states, who is present, how many people and applications); the result shows in the device view per the Preview control. Terminal: `xtouch-daemon simulate config.toml --state call --person Alice --playing firefox` (a mode goes to `--mode gaming`, `--absent <channel>` marks a channel absent, `--table` prints every combination). `xtouch-daemon check-config` also prints a table of what each slot shows in each mode/state.",
+    "facts": [
+      "Simulate button on the Slots page",
+      "simulate options --mode, --state (not for modes), --absent, --playing, --person, --table, --replay",
+      "check-config prints 'What the slots show' table (12 rows shown, --all for all)"
+    ],
+    "code": [
+      "src/xtouch_daemon/gui/qt/pages/slots.py:165",
+      "src/xtouch_daemon/gui/domain/simulate.py:1-10",
+      "src/xtouch_daemon/cli/slots.py:31-101",
+      "src/xtouch_daemon/cli/configuration.py:163-176",
+      "src/xtouch_daemon/cli/configuration.py:272-301"
+    ]
+  },
+  {
+    "id": "q27",
+    "topic": "troubleshooting",
+    "question": "On strip 3 the fader jumps back to where it was as soon as I let go, and my changes never stick. Other faders work. What is going on?",
+    "answer": "The touch sensor of that fader does not notice your finger, so the daemon takes the move for the device moving itself and drives the motor back. Tell the daemon: `[device] touchless_faders = [3]` (numbered from 1 on the left; a move then counts as a touch and half a second without a move as letting go). For all faders: `[device] touch_required = false`.",
+    "facts": [
+      "touch_required default true: a fader changes its value only while touched",
+      "a move without a touch is held TOUCH_GRACE 0.3 s, then the fader goes back to its value",
+      "touchless_faders: move counts as touch, TOUCHLESS_LET_GO 0.5 s without moves = let go; not within 3 s after connect",
+      "faders numbered from 1"
+    ],
+    "code": [
+      "src/xtouch_daemon/config/sections.py:45-55",
+      "src/xtouch_daemon/hardware/surface.py:48-66",
+      "src/xtouch_daemon/hardware/surface.py:494-545",
+      "src/xtouch_daemon/daemon/desk.py:65-69",
+      "src/xtouch_daemon/hardware/strip.py:249-256"
+    ]
+  },
+  {
+    "id": "q28",
+    "topic": "troubleshooting",
+    "question": "I edited the configuration (or saved it in the GUI) but the device still behaves the old way. What can be the reason and where do I see it?",
+    "answer": "Look at the log: `journalctl --user -u xtouch-daemon -f`. A reload that fails keeps the running configuration: errors in the file (`xtouch-daemon check-config` names them with their line), a file others can write to (`chmod go-w` it and its directory; the daemon does not use it), or a changed `[mqtt]` section, which needs `systemctl --user restart xtouch-daemon`. The GUI says the same: for `[mqtt]` it saves and asks for a restart.",
+    "facts": [
+      "reload() keeps the current configuration on ConfigError (logged)",
+      "reload refuses a changed [mqtt] section: restart instead",
+      "check_safe: file/dir owned by another user or writable by group/others is refused with the chmod hint",
+      "GUI apply: [mqtt] in restart_sections, message to restart",
+      "check-config errors carry line numbers"
+    ],
+    "code": [
+      "src/xtouch_daemon/daemon/lifecycle.py:287-317",
+      "src/xtouch_daemon/config/permissions.py:45-67",
+      "src/xtouch_daemon/config/files.py:126-143",
+      "src/xtouch_daemon/gui/domain/apply.py:36-49",
+      "src/xtouch_daemon/gui/domain/schema.py:369",
+      "src/xtouch_daemon/config/files.py:66-106"
+    ]
+  }
+]

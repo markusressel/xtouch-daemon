@@ -21,15 +21,13 @@
 
 Every command takes `-h`/`--help`. `xtouch-daemon -V` (`--version`) shows the version.
 
-`-c FILE` (`--config FILE`) selects the configuration file; the default is `~/.config/xtouch-daemon/config.toml`.
-Write it after the command name (`xtouch-daemon check-config -c FILE`). Only the commands that read the configuration
-take it: `run`, `check-config`, `list-apps`, `test` and `gui`. (`simulate` and `init-config` take the file as an
-argument.)
+`-c FILE` (`--config FILE`) selects the configuration file, written after the command name
+(`xtouch-daemon check-config -c FILE`); the default is `~/.config/xtouch-daemon/config.toml`. Only `run`,
+`check-config`, `list-apps`, `test` and `gui` take it. (`simulate` and `init-config` take the file as an argument.)
 
-As root, every command except `schema` and `simulate` fails with an error: the daemon and the tools around it run as
-your user. (`schema` and `simulate` run no commands of a configuration and read no configuration of your user, so root may use
-them.) A configuration file that other users can change (a file or directory that is writable by the group or by everyone) is
-an error too, see [Configuration](../configuration/index.md).
+As root, every command except `schema` and `simulate` fails: the daemon and the tools around it run as your user.
+A configuration file that other users can change is an error too, see
+[Configuration](../configuration/index.md).
 
 ## `run`
 
@@ -46,14 +44,14 @@ Runs the daemon in the foreground. `install-service` sets it up as a systemd use
 | `--virtual-device` | Drives the [virtual device](#virtual-device) instead of the real X-Touch, as `[device] virtual = true`. |
 
 The daemon notes its process and configuration file in `$XDG_RUNTIME_DIR/xtouch-daemon.json` while it runs, and
-serves what the X-Touch shows on `$XDG_RUNTIME_DIR/xtouch-daemon.sock` for the [GUI](../guides/gui.md). A second daemon does not
-start: it prints the process of the daemon that already runs, and exits.
+serves what the X-Touch shows on `$XDG_RUNTIME_DIR/xtouch-daemon.sock` for the [GUI](../guides/gui.md). A second
+daemon prints the process of the first and exits.
 
 Signals:
 
 | Signal | Effect |
 |---|---|
-| `SIGHUP` | Reloads the configuration (`systemctl --user reload xtouch-daemon`), as the daemon does by itself when the file changes. If the file has errors, the daemon logs them and keeps the current configuration. |
+| `SIGHUP` | Reloads the configuration (`systemctl --user reload xtouch-daemon`), see [Applying changes](../configuration/index.md#applying-changes). |
 | `SIGTERM`, `SIGINT` | Stops: the strips go dark from the right and the faders go down. |
 
 ## `check-config`
@@ -79,32 +77,31 @@ call     out  browser  mic   auto
 ```
 
 The line of a channel says what it is: its label (`'Speaker'`), its kind (`output`, or `Home Assistant` for a
-`homeassistant` channel, whose entities are `*.*_lamp_*`) and its output, input or applications. The brackets after it
-say how it looks and what its controls do: the color of the LCD (`cyan`), what the LED
-of Rec and Solo shows (`rec: recording` lights while an application records, `solo: off` never lights) and what the
-encoder edits (`encoder: balance`, or `media` for the media player of an application). The table at the end has a row for each situation:
-the first column (`when`) names the situation: `default` when no mode and no state is on, else the mode or the
-state that is on (here `call`). The other columns are the slots 1 to 8 (equal neighbors are joined: `4-8`). A cell is what the slot
-shows in that situation: a channel (`out`), or the pool `auto`.
+`homeassistant` channel, whose entities are `*.*_lamp_*`) and its output, input or applications. The brackets say how
+it looks and what its controls do: the color of the LCD (`cyan`), what the LED of Rec and Solo shows (`rec: recording`
+lights while an application records, `solo: off` never lights) and what the encoder edits (`encoder: balance`, or
+`media` for the media player of an application).
+
+In the table, the column `when` names the situation: `default` when no mode and no state is on, else the mode or
+state that is on (here `call`). The other columns are the slots 1 to 8 (equal neighbors are joined: `4-8`). A cell is
+what the slot shows: a channel (`out`), or the pool `auto`.
 
 A channel with [`choices`](../configuration/channels/devices.md#choices) lists them, e.g.
 `output: Phones, Speaker or Buds (Select switches)`. A channel whose meter shows the level after its fader
 (`meter_point = "post_fader"`, see [Meters](../configuration/channels/index.md#meters)) says `meter post-fader`.
 
-For a [custom channel](../configuration/channels/custom.md) (a strip whose parts you bound to programs of your own)
-the line names each part that has a binding and the shell command it runs. If the channel has `targets` (the things
-it controls one at a time), a line per target follows with the commands as they run for that target, e.g.
+For a [custom channel](../configuration/channels/custom.md) the line names each part that has a binding and the shell
+command it runs. With `targets`, a line per target follows with the commands as they run for that target, e.g.
 `Left: fader.set sysctrl display redshift brightness -d DisplayPort-1 -b '{value}'`.
 
-The table can have many rows: one for each combination of modes and states. With more than 12 rows, `check-config`
-shows only the situations that differ from `default` in one thing (one mode, or one state turned on or off) and
-says how many it left out. `--all` shows every combination.
+The table has a row for each combination of modes and states. With more than 12 rows, `check-config` shows only the
+situations that differ from `default` in one thing and says how many it left out; `--all` shows every combination.
 
-A file with errors names the place of each one and its line in the file, e.g.
+A file with errors names the place of each one and its line, e.g.
 `channel.mic (line 12): label: String should have at most 7 characters`, with what is likely meant where it can be
-guessed (`browsr is no channel or pool (did you mean browser?)`), and the command fails. After the table, `Notes:` lists candidates that can never show and people with no slot to sit on. An example of a
-candidate that can never show is `["auto", "browser"]`: the pool `auto` always has something for the slot, so the
-candidate `browser` below it never comes up.
+guessed (`browsr is no channel or pool (did you mean browser?)`), and the command fails. After the table, `Notes:`
+lists candidates that can never show and people with no slot to sit on. `["auto", "browser"]` is such a candidate:
+`auto` always has something for the slot, so `browser` below it never comes up.
 
 ## `init-config`
 
@@ -134,11 +131,11 @@ xtouch-daemon list-devices [--snippet]
 ```
 
 Lists the outputs and inputs with the node names to use as `device`, their descriptions, volumes and states; `*`
-marks the defaults (the output and input that the sound server uses when nothing else is set). Then it lists each sound card by its name and description, with its outputs, inputs and profiles
-(name and description), for `card` and `profile` of [`choices`](../configuration/channels/devices.md#choices) and for
+marks the defaults. Then it lists each sound card with its outputs, inputs and profiles, for `card` and `profile` of
+[`choices`](../configuration/channels/devices.md#choices) and for
 [`profiles`](../configuration/channels/devices.md#profiles); `*` marks the active ones. `--snippet` prints a
-`[channel.<id>]` for each output and input instead, ready to paste into the file (Bluetooth headphones by a wildcard like
-`bluez_output.*`, since their names hold the Bluetooth address):
+`[channel.<id>]` for each output and input instead, ready to paste into the file (Bluetooth headphones by a wildcard
+like `bluez_output.*`):
 
 ```
 Profiles of alsa_card.pci-0000_11_00.4, Family 17h/19h HD Audio Controller (alsa_output.pci-0000_11_00.4.analog-stereo):
@@ -165,9 +162,8 @@ presets, for `match`, `exclude` and `[aliases]`.
 xtouch-daemon test [-c FILE] [--no-events] [--virtual-device]
 ```
 
-Lights up everything on the X-Touch and moves the faders: every strip lights its LCD in a color, its LEDs, ring and
-meter, and moves its fader up and down. Then every strip answers its own controls, until Ctrl+C, so you can check each
-LED, the ring, the colors, the motor and the touch of every fader:
+Lights up everything on the X-Touch and moves the faders. Then every strip answers its own controls, until Ctrl+C, so
+you can check each LED, the ring, the colors, the motor and the touch of every fader:
 
 | Input on a strip | What the strip shows |
 |---|---|
@@ -178,18 +174,16 @@ LED, the ring, the colors, the motor and the touch of every fader:
 | Encoder pushed | The next thing the encoder edits: the position of the ring (`ring 7`), its mode with and without the two LEDs at the ends of the ring (`dot`, `boost`, `wrap`, `spread`, `dot+c` ...), the color of the LCD, the motor fader in steps of 10 % (`fad 60%`). |
 
 The top line of the LCD names the strip, the bottom line shows the last input for 2 seconds, then what the encoder
-edits. The command prints every input with the answer, and the messages from the X-Touch that the daemon doesn't use.
-`--no-events` ends after the sweep.
+edits. The command prints every input with the answer. `--no-events` ends after the sweep.
 
-While the daemon runs, it has the X-Touch, so `test` cannot open it. Instead `test` asks the daemon to run the test
-(the GUI's "Test the device" does the same). The slots go on, but show on the X-Touch again only when the test ends;
-the log of the daemon shows the inputs (`journalctl --user -u xtouch-daemon -f`). In this case the test runs until
-Ctrl+C and the sweep alone is not possible: `--no-events` fails while the daemon runs. Stop the daemon first
-for `--no-events`.
+While the daemon runs, it has the X-Touch, so `test` asks the daemon to run the test (the GUI's "Test the device"
+does the same). The slots show on the X-Touch again when the test ends, and the log of the daemon shows the inputs
+(`journalctl --user -u xtouch-daemon -f`). The test then runs until Ctrl+C: `--no-events` fails while the daemon
+runs.
 
-Without a daemon, `test` opens the X-Touch itself. It finds the sound card by the `name` in `[device]` of the
-configuration. `--virtual-device` (or `[device] virtual = true`) tests the [virtual device](#virtual-device) instead;
-the virtual device has to run already, in another terminal.
+Without a daemon, `test` opens the X-Touch itself, found by the `name` in `[device]`. `--virtual-device` (or
+`[device] virtual = true`) tests the [virtual device](#virtual-device) instead, which has to run already, in another
+terminal.
 
 ## `virtual-device`
 
@@ -197,9 +191,10 @@ the virtual device has to run already, in another terminal.
 xtouch-daemon virtual-device [--broken-touch 1,4] [--log-level debug]
 ```
 
-A virtual X-Touch Extender, for trying the daemon without an X-Touch: `xtouch-daemon run --virtual-device` (or
-`[device] virtual = true`) drives it instead of the real one, and the GUI shows what it shows. It runs headless until
-interrupted (Ctrl+C); the GUI can host one itself, with the mouse on its strips. One daemon at a time can use it.
+A virtual X-Touch Extender, for trying the daemon without an X-Touch (see
+[Without a device](../getting-started/without-a-device.md)): `xtouch-daemon run --virtual-device` drives it instead
+of the real one. It runs headless until interrupted (Ctrl+C); the GUI can host one itself. One daemon at a time can
+use it.
 
 | Option | Meaning |
 |---|---|
@@ -212,11 +207,10 @@ interrupted (Ctrl+C); the GUI can host one itself, with the mouse on its strips.
 xtouch-daemon mode [NAME | auto | --next | --previous]
 ```
 
-Without arguments it prints the [modes](../configuration/slots.md#states-and-modes) of the running daemon (a mode is
-a state of which only one is on at a time), marks the one that is on, and says whether it was picked by hand.
-`mode gaming` picks the mode `gaming`, `--next` and `--previous` pick the one after or before it, and the word
-`auto` lets the rules decide again. (`auto` here is no mode name.) It talks to the running daemon over a socket, so it
-needs the daemon.
+Without arguments it prints the [modes](../configuration/slots.md#states-and-modes) of the running daemon, marks the
+one that is on, and says whether it was picked by hand. `mode gaming` picks the mode `gaming`, `--next` and
+`--previous` the one after or before it, and `auto` (no mode name) lets the rules decide again. It needs the running
+daemon. How long a pick lasts: [States and modes](../configuration/slots.md#states-and-modes).
 
 ## `why`
 
@@ -235,11 +229,11 @@ $ xtouch-daemon why browser
 browser: on slot 4; not slot 8 (on slot 4 (tie, to the left))
 ```
 
-The first example reads: the first candidate of slot 2, `voip if call`, does not hold because the state `call` is
-off, so the slot shows the next one: `auto`, which gave it the application Firefox (`auto:app:firefox`). In the
-second example, the channel `browser` is offered by slots 4 and 8, but a channel takes one strip only. The daemon
-gives each slot a rank for the channel (how high it is in the list of that slot). Here both ranks are the same, a
-"tie", and then the left slot wins. (The two examples come from different configurations.)
+In the first example, `voip if call` does not hold because the state `call` is off, so slot 2 shows the next
+candidate: `auto`, which gave it the application Firefox (`auto:app:firefox`). In the second, slots 4 and 8 offer the
+channel `browser`, but a channel takes one strip only. The daemon ranks the channel in each slot (how high it is in
+the list of that slot); equal ranks are a "tie", and the left slot wins. (The examples come from different
+configurations.)
 
 The GUI shows the same above the inspector of a slot on the page Slots.
 
@@ -261,9 +255,9 @@ In Mumble: /home/me/.local/share/Mumble/Mumble/Plugins/libxtouch-daemon.so
 | Option | Meaning |
 |---|---|
 | `--install` | Copies the plugin into Mumble's plugin directory (native, else the Flatpak's), replacing an older one; then Mumble needs "Reload plugins". Without a plugin it builds one first. |
-| `--build` | Builds the plugin from the sources in a git clone of the project (`integrations/mumble`, needs `cmake` and a C compiler; a release has the plugin built already) into `integrations/mumble/build/`. With `--install`: builds it again first. |
+| `--build` | Builds the plugin from `integrations/mumble` in a git clone of the project (needs `cmake` and a C compiler) into `integrations/mumble/build/`. With `--install`: builds it again first. |
 
-A release has the plugin in `/usr/share/xtouch-daemon/`; a checkout (a git clone of the source) builds it.
+A release has the plugin built in `/usr/share/xtouch-daemon/`; a git clone builds it.
 
 ## `teamspeak-plugin`
 
@@ -283,10 +277,10 @@ In TeamSpeak: /home/me/.ts3client/plugins/xtouch-daemon_linux_amd64.so
 | Option | Meaning |
 |---|---|
 | `--install` | Copies the plugin into `~/.ts3client/plugins`, replacing an older one; then TeamSpeak needs "Reload All" (Tools, Options, Addons) or a restart. Without a plugin it builds one first. |
-| `--build` | Builds the plugin from the sources in a git clone of the project (`integrations/teamspeak`, needs `cmake` and a C compiler; a release has the plugin built already) into `integrations/teamspeak/build/`. The first build downloads the headers of TeamSpeak's plugin SDK into `integrations/teamspeak/sdk/`. With `--install`: builds it again first. |
+| `--build` | Builds the plugin from `integrations/teamspeak` in a git clone of the project (needs `cmake` and a C compiler) into `integrations/teamspeak/build/`. The first build downloads the headers of TeamSpeak's plugin SDK into `integrations/teamspeak/sdk/`. With `--install`: builds it again first. |
 
-A release has the plugin in `/usr/share/xtouch-daemon/`; a checkout builds it. TeamSpeak counts as installed with
-a `teamspeak3` command, `/opt/teamspeak3` or `~/.ts3client`.
+A release has the plugin built in `/usr/share/xtouch-daemon/`; a git clone builds it. TeamSpeak counts as installed
+with a `teamspeak3` command, `/opt/teamspeak3` or `~/.ts3client`.
 
 ## `install-service`
 
@@ -299,14 +293,14 @@ reloads systemd. `--now` also enables and starts it. The unit is `Type=notify`, 
 on failure.
 
 The [Arch Linux package](../getting-started/install.md#arch-linux) installs its unit as
-`/usr/lib/systemd/user/xtouch-daemon.service`. Its `xtouch-daemon install-service` writes no file then: it reloads
-systemd, and with `--now` enables and starts that unit. A unit in `~/.config/systemd/user` overrides the one of the
-package (systemd prefers it), e.g. one written before by a checkout; the command says so.
+`/usr/lib/systemd/user/xtouch-daemon.service`. There `install-service` writes no file: it reloads systemd, and with
+`--now` enables and starts that unit. A unit in `~/.config/systemd/user` (e.g. written before by a git clone)
+overrides the one of the package; the command says so.
 
 | Option | Meaning |
 |---|---|
 | `--now` | Also enable and start the service. |
-| `--remove-override` | Only remove `~/.config/systemd/user/xtouch-daemon.service`, so the unit of the package is in effect (an "override" here is the unit file in your home directory that takes the place of the package's unit). An enabled service stays enabled, and a running one restarts with the program of the package. |
+| `--remove-override` | Only remove `~/.config/systemd/user/xtouch-daemon.service`, so the unit of the package is in effect. An enabled service stays enabled, and a running one restarts with the program of the package. |
 
 Logs: `journalctl --user -u xtouch-daemon -f`.
 
@@ -316,10 +310,9 @@ Logs: `journalctl --user -u xtouch-daemon -f`.
 xtouch-daemon gui [-c FILE]
 ```
 
-Edits the configuration in a window, and applies it. It needs the optional part `gui` of the package (the "extra"; install it with
-`uv tool install --force './xtouch-daemon[gui]'`; the command does not run without it), or on Arch Linux the package
-`xtouch-daemon-gui-bin` (which has the command `xtouch-daemon-gui`). See [GUI](../guides/gui.md) and
-[Install](../getting-started/install.md).
+Edits the configuration in a window, and applies it. It needs the optional part `gui` of the package, or on Arch
+Linux the package `xtouch-daemon-gui-bin` (command `xtouch-daemon-gui`); see [Install](../getting-started/install.md)
+and [GUI](../guides/gui.md).
 
 ## `simulate`
 
@@ -344,8 +337,8 @@ Shows what the 8 slots of FILE show in the situation you give, and why not the c
 xtouch-daemon observe LOG [--interval 2.0] [--process NAME]...
 ```
 
-Records, every `--interval` seconds, what plays and records on the sound server, the outputs and inputs, the running processes
-(those of the presets, and `--process`) and the voice chat of the running daemon, and appends a line of JSON to LOG
-when that changed. The field `absent` of a line lists the channels that are not there now: a channel can say when it is present
-(for a [`custom` channel](../configuration/channels/custom.md), its option `present`). It runs until you interrupt it (Ctrl+C); a line is written only when something changed, so a quiet machine
-makes a small file. `simulate FILE --replay LOG` replays the log.
+Records, every `--interval` seconds, what plays and records on the sound server, the outputs and inputs, the running
+processes (those of the presets, and `--process`) and the voice chat of the running daemon, and appends a line of JSON
+to LOG when that changed. The field `absent` lists the channels that are not there now (for a
+[`custom` channel](../configuration/channels/custom.md), its option `present` says when it is). It runs until Ctrl+C.
+`simulate FILE --replay LOG` replays the log.

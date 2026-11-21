@@ -39,21 +39,16 @@ One preset stands for different names in these two kinds of list. `@steam-games`
 The names of a preset match like the names you write: as a part of the name, ignoring upper and lower case. So the
 name `signal` would also match `signal-desktop`.
 
-An `apps` channel can have a `launch` command, which Select runs to start the application
-([Launching the application](channels/applications.md#launching-the-application)). The channel then also counts as
-running when a process of its presets runs, not only when a stream plays. While it counts as running, pressing Select does not
-start the command again. Without this, a voice chat that is open but silent would have no stream, and Select would
-start a second one.
+An `apps` channel with a `launch` command
+([Launching the application](channels/applications.md#launching-the-application)) also counts as running while a
+process of its presets runs, so Select does not start a second voice chat that is open but silent.
 
 An unknown preset is an error, and the message lists the known ones. A preset in a list where it makes no sense is
 an error too, and the message says which lists accept it.
 
-Three ways to see what presets do (all the commands are in [Commands](../reference/commands.md)):
-
-- `xtouch-daemon check-config` shows what each preset in your file stands for.
-- `xtouch-daemon list-apps` lists the applications that play right now. Next to each it names the presets that match
-  it, and where it goes (a channel, `apps` or `auto`).
-- The [GUI](../guides/gui.md) suggests the presets that fit each list.
+To see what presets do (see [Commands](../reference/commands.md)): `xtouch-daemon check-config` shows what each preset
+in your file stands for, `xtouch-daemon list-apps` names the presets that match each application that plays, and the
+[GUI](../guides/gui.md) suggests the presets that fit each list.
 
 ## Surprises to know about
 
