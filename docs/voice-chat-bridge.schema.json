@@ -237,7 +237,7 @@
       "description": "The only line of the daemon to a plugin that it refuses; the daemon closes the connection after it.",
       "properties": {
         "error": {
-          "description": "Why the daemon refuses the plugin: `another plugin is connected` while one is connected.",
+          "description": "Why the daemon refuses the plugin, e.g. `another mumble plugin is connected` while a plugin of the same client is\nconnected.",
           "title": "Error",
           "type": "string"
         }

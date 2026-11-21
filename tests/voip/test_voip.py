@@ -11,10 +11,13 @@ import pytest
 from tests.support.tasks import finish_tasks, settle
 from xtouch_daemon import __version__
 from xtouch_daemon.config.sections import VoipConfig
+from xtouch_daemon.live.messages import VoipClient
+from xtouch_daemon.live.server import voip_state
 from xtouch_daemon.voip import Capability, Participant, VoipProvider, build_provider
 from xtouch_daemon.voip import demo as demo_module
 from xtouch_daemon.voip.bridge import BridgeProvider, ProtocolError, parse_state
 from xtouch_daemon.voip.demo import DemoProvider
+from xtouch_daemon.voip.provider import Client
 
 
 @pytest.fixture(autouse=True)
@@ -183,6 +186,23 @@ async def _wait(condition: object) -> None:
     raise AssertionError("never happened")
 
 
+async def _plugin(path: Path, *lines: bytes) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+    """A plugin that connects, reads the greeting and sends `lines`."""
+    reader, writer = await asyncio.open_unix_connection(path)
+    assert json.loads(await reader.readline()) == {"daemon": "xtouch-daemon", "version": __version__, "protocol": 1}
+    for line in lines:
+        writer.write(line + b"\n")
+    await writer.drain()
+    return reader, writer
+
+
+async def _close(*writers: asyncio.StreamWriter) -> None:
+    for each in writers:
+        each.close()
+        with contextlib.suppress(ConnectionError):
+            await each.wait_closed()
+
+
 async def test_the_bridge_takes_the_participants_of_a_plugin(short_dir: Path, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.INFO)
     path = short_dir / "run" / "voip.sock"
@@ -193,74 +213,141 @@ async def test_the_bridge_takes_the_participants_of_a_plugin(short_dir: Path, ca
     await _wait(path.exists)
     assert path.stat().st_mode & 0o777 == 0o600
     # without a plugin, commands go nowhere
-    await provider.set_volume("1", 50)
+    await provider.set_volume("mumble:1", 50)
+    assert provider.clients == ()
 
-    reader, writer = await asyncio.open_unix_connection(path)
-    # the daemon says who it is first
-    assert json.loads(await reader.readline()) == {"daemon": "xtouch-daemon", "version": __version__, "protocol": 1}
-    writer.write(
+    reader, writer = await _plugin(
+        path,
         b'{"protocol": 1, "client": "mumble", "channel": "Lobby", "capabilities": ["volume", "mute"], '
-        b'"participants": [{"id": 1, "name": "A"}]}\n'
+        b'"participants": [{"id": 1, "name": "A"}]}',
+        b"",
+        b"rubbish",
     )
-    writer.write(b"\n")
-    writer.write(b"rubbish\n")
-    await writer.drain()
     await _wait(lambda: provider.connected)
     assert provider.client == "mumble"
     assert provider.channel == "Lobby"
     assert provider.capabilities == {Capability.VOLUME, Capability.MUTE}
-    assert provider.participants == (Participant("1", "A"),)
-    assert "Ignoring a line of the voice chat plugin: no JSON" in caplog.text
+    assert provider.clients == (Client("mumble", "Lobby", frozenset({Capability.VOLUME, Capability.MUTE})),)
+    # the client in front of the id
+    assert provider.participants == (Participant("mumble:1", "A"),)
+    assert provider.capabilities_of("mumble:1") == {Capability.VOLUME, Capability.MUTE}
+    assert provider.capabilities_of("mumble:9") == frozenset()
+    await _wait(lambda: "Ignoring a line of the voice chat plugin: no JSON" in caplog.text)
 
-    await provider.set_volume("1", 70)
-    await provider.set_muted("1", True)
+    # the commands have the id of the client
+    await provider.set_volume("mumble:1", 70)
+    await provider.set_muted("mumble:1", True)
+    # nobody of that id: nothing goes out
+    await provider.set_muted("mumble:9", True)
     assert json.loads(await reader.readline()) == {"set_volume": {"id": "1", "volume": 70}}
     assert json.loads(await reader.readline()) == {"set_muted": {"id": "1", "muted": True}}
 
-    # a second plugin is refused while the first one is there, and said so once
+    # another plugin of the same client is refused at its first state line, and said so once
     for _ in range(2):
-        refused_reader, refused_writer = await asyncio.open_unix_connection(path)
-        assert json.loads(await refused_reader.readline()) == {"error": "another plugin is connected"}
+        refused_reader, refused_writer = await _plugin(path, b'{"client": "mumble", "participants": []}')
+        assert json.loads(await refused_reader.readline()) == {"error": "another mumble plugin is connected"}
         assert await refused_reader.read() == b""
-        refused_writer.close()
-    assert caplog.text.count("Refusing another voice chat plugin") == 1
-    assert provider.participants == (Participant("1", "A"),)
+        await _close(refused_writer)
+    assert caplog.text.count("Refusing another voice chat plugin of mumble") == 1
+    assert provider.participants == (Participant("mumble:1", "A"),)
 
     # once it is gone, the next one comes in
-    writer.close()
+    await _close(writer)
     await _wait(lambda: not provider.connected)
-    reader2, writer2 = await asyncio.open_unix_connection(path)
-    writer2.write(b'{"participants": [{"id": 2, "name": "B"}]}\n')
-    await writer2.drain()
-    await _wait(lambda: provider.participants == (Participant("2", "B"),))
-    # it does not say which client it is
-    assert provider.client == "a client"
-    # it tells no channel
-    assert provider.channel is None
-
-    writer2.close()
-    await _wait(lambda: not provider.connected)
+    assert "The voice chat plugin of mumble is gone" in caplog.text
     assert provider.participants == ()
     assert provider.client is None
+    assert provider.channel is None
     assert heard[-1] == ()
-    assert "The voice chat plugin is gone" in caplog.text
-
-    # a plugin that is still connected when the daemon stops
-    _, writer3 = await asyncio.open_unix_connection(path)
-    writer3.write(b'{"participants": []}\n')
-    await writer3.drain()
-    await _wait(lambda: provider.connected)
+    reader2, writer2 = await _plugin(path, b'{"participants": [{"id": 2, "name": "B"}]}')
+    # it does not say which client it is, nor a channel
+    await _wait(lambda: provider.participants == (Participant("a client:2", "B"),))
     assert provider.client == "a client"
+    assert provider.channel is None
+    # another one that doesn't say either is refused as before
+    refused_reader, refused_writer = await _plugin(path, b'{"participants": []}')
+    assert json.loads(await refused_reader.readline()) == {"error": "another plugin is connected"}
+    await _close(refused_writer, writer2)
+    await _wait(lambda: not provider.connected)
+
+    # a plugin that is still connected when the daemon stops, and one that sent nothing yet
+    _, writer3 = await _plugin(path, b'{"participants": []}')
+    reader4, writer4 = await _plugin(path)
+    await _wait(lambda: provider.connected)
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     assert not path.exists()
-    for each in (writer, writer2, writer3):
-        each.close()
-        with contextlib.suppress(ConnectionError):
-            await each.wait_closed()
-    # its greeting, then nothing
-    assert json.loads(await reader2.readline())["daemon"] == "xtouch-daemon"
+    assert await reader4.read() == b""
+    await _close(writer3, writer4)
     assert await reader2.read() == b""
+
+
+async def test_the_bridge_takes_a_plugin_of_each_client(short_dir: Path, caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.INFO)
+    path = short_dir / "voip.sock"
+    provider = BridgeProvider(path)
+    task = asyncio.create_task(provider.run())
+    await _wait(path.exists)
+    # connected, but no state yet: it counts for nothing, so it can't keep another one out
+    quiet_reader, quiet_writer = await _plugin(path)
+    mumble_reader, mumble_writer = await _plugin(
+        path,
+        b'{"client": "mumble", "channel": "Lobby", "capabilities": ["volume", "mute", "levels"], '
+        b'"participants": [{"id": 12, "name": "Alice"}]}',
+    )
+    await _wait(lambda: len(provider.participants) == 1)
+    assert not quiet_reader.at_eof()
+    teamspeak_reader, teamspeak_writer = await _plugin(
+        path,
+        b'{"client": "teamspeak", "capabilities": ["mute"], '
+        b'"participants": [{"id": 12, "name": "Bob"}, {"id": 3, "name": "Carol", "muted": true}]}',
+    )
+    await _wait(lambda: len(provider.participants) == 3)
+
+    # the people of both, with their client in front of the ids, which are the same in each client
+    assert provider.participants == (
+        Participant("mumble:12", "Alice"),
+        Participant("teamspeak:12", "Bob"),
+        Participant("teamspeak:3", "Carol", muted=True),
+    )
+    assert provider.clients == (
+        Client("mumble", "Lobby", frozenset(Capability)),
+        Client("teamspeak", None, frozenset({Capability.MUTE})),
+    )
+    assert provider.client == "mumble, teamspeak"
+    # the first channel there is: the user is in a call
+    assert provider.channel == "Lobby"
+    assert provider.capabilities == frozenset(Capability)
+    assert provider.capabilities_of("teamspeak:12") == {Capability.MUTE}
+
+    # each command goes to the plugin of the participant, with the id there
+    await provider.set_muted("teamspeak:3", False)
+    await provider.set_volume("mumble:12", 80)
+    assert json.loads(await teamspeak_reader.readline()) == {"set_muted": {"id": "3", "muted": False}}
+    assert json.loads(await mumble_reader.readline()) == {"set_volume": {"id": "12", "volume": 80}}
+
+    # a line changes the people of its client only
+    teamspeak_writer.write(
+        b'{"client": "teamspeak", "channel": "Room", "participants": [{"id": 3, "name": "Carol"}]}\n'
+    )
+    await teamspeak_writer.drain()
+    await _wait(lambda: len(provider.participants) == 2)
+    assert [each.id for each in provider.participants] == ["mumble:12", "teamspeak:3"]
+    assert provider.clients[1] == Client("teamspeak", "Room")
+
+    # when one goes, only its people go
+    await _close(mumble_writer)
+    await _wait(lambda: provider.participants == (Participant("teamspeak:3", "Carol"),))
+    assert provider.connected
+    assert provider.client == "teamspeak"
+    assert provider.channel == "Room"
+    assert provider.capabilities == frozenset()
+    await provider.set_volume("mumble:12", 50)
+    assert "The voice chat plugin of mumble is gone" in caplog.text
+
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    await _close(quiet_writer, teamspeak_writer)
 
 
 class FakeWriter:
@@ -338,3 +425,18 @@ async def test_volume_and_mute_last_while_a_person_is_away():
     provider.update((Participant("7", "Alice", muted=True), Participant("8", "Bob")))
     await settle()
     assert provider.commands == [("volume", "7", 40)]
+
+
+def test_a_provider_of_one_client_has_it_as_its_clients():
+    provider = RecordingProvider()
+    assert provider.clients == ()
+    provider.client = "mumble"
+    provider.channel = "Lobby"
+    # not before it is connected
+    assert provider.clients == ()
+    provider.update((Participant("1", "Ann"),))
+    assert provider.clients == (Client("mumble", "Lobby", frozenset(Capability)),)
+    assert provider.capabilities_of("1") == frozenset(Capability)
+    assert voip_state(provider).clients == (VoipClient("mumble", "Lobby"),)
+    # the demo tells no client
+    assert DemoProvider(("Ann",)).clients == ()

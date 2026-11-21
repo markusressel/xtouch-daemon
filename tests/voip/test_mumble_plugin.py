@@ -12,6 +12,7 @@ import tempfile
 import zipfile
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import Any
 
 import jsonschema
 import pytest
@@ -81,9 +82,9 @@ class RecordingBridge(BridgeProvider):
         super().__init__(path)
         self.lines: list[bytes] = []
 
-    def _receive(self, line: bytes) -> None:
+    def _receive(self, plugin: Any, line: bytes) -> bool:
         self.lines.append(line)
-        super()._receive(line)
+        return super()._receive(plugin, line)
 
 
 @pytest.fixture
@@ -122,7 +123,7 @@ def test_the_bundle_has_the_manifest_and_the_library_only(built: Path):
 async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[RecordingBridge, FakeMumble]):
     provider, host = setup
     seen: list[Participant | None] = []
-    provider.subscribe(lambda: seen.append(provider.participant("2")))
+    provider.subscribe(lambda: seen.append(provider.participant("mumble:2")))
     # connected before anyone is there
     await until(lambda: provider.connected, seconds=5)
     assert provider.client == "mumble"
@@ -136,46 +137,53 @@ async def test_the_plugin_tells_the_channel_and_takes_the_commands(setup: tuple[
     await host.do("user 4 6 Carol")
     await until(lambda: [each.name for each in provider.participants] == ["Alice", 'Bob "the builder"'])
     assert provider.channel == "Channel 5"
-    assert provider.participants[0] == Participant("2", "Alice", level=0.0, pre_fader_level=0.0)
+    assert provider.participants[0] == Participant("mumble:2", "Alice", level=0.0, pre_fader_level=0.0)
 
     # who talks, and how loud
     await host.do("talk 2 1")
     assert await host.do("audio 2 0.5") == ["audio 0 0.500"]
-    await until(lambda: Participant("2", "Alice", talking=True, level=0.5, pre_fader_level=0.5) in seen)
+    await until(lambda: Participant("mumble:2", "Alice", talking=True, level=0.5, pre_fader_level=0.5) in seen)
     # the level of what came since the line before
     await until(
-        lambda: provider.participant("2") == Participant("2", "Alice", talking=True, level=0.0, pre_fader_level=0.0)
+        lambda: (
+            provider.participant("mumble:2")
+            == Participant("mumble:2", "Alice", talking=True, level=0.0, pre_fader_level=0.0)
+        )
     )
     await host.do("talk 2 0")
-    await until(lambda: provider.participant("2") == Participant("2", "Alice", level=0.0, pre_fader_level=0.0))
+    await until(
+        lambda: provider.participant("mumble:2") == Participant("mumble:2", "Alice", level=0.0, pre_fader_level=0.0)
+    )
 
     # the fader and Mute
-    await provider.set_volume("2", 50)
-    await until(lambda: getattr(provider.participant("2"), "volume", None) == 50)
+    await provider.set_volume("mumble:2", 50)
+    await until(lambda: getattr(provider.participant("mumble:2"), "volume", None) == 50)
     assert await host.do("audio 2 0.8") == ["audio 1 0.400"]
-    await provider.set_volume("3", 500)
-    await until(lambda: getattr(provider.participant("3"), "volume", None) == 200)
+    await provider.set_volume("mumble:3", 500)
+    await until(lambda: getattr(provider.participant("mumble:3"), "volume", None) == 200)
     # the level after the volume, and before it (with the next line: nobody talks)
-    assert Participant("2", "Alice", volume=50, level=0.4, pre_fader_level=0.8) in seen
+    assert Participant("mumble:2", "Alice", volume=50, level=0.4, pre_fader_level=0.8) in seen
     # Mute is Mumble's local mute: Mumble fetches no audio of Alice then
-    await provider.set_muted("2", True)
-    await until(lambda: getattr(provider.participant("2"), "muted", False))
+    await provider.set_muted("mumble:2", True)
+    await until(lambda: getattr(provider.participant("mumble:2"), "muted", False))
     assert await host.do("record") == ["requestLocalMute 2 1 0"]
     assert await host.do("audio 2 0.8") == ["audio muted"]
     # she talks, muted
     await host.do("talk 2 4")
-    await until(lambda: getattr(provider.participant("2"), "talking", False))
+    await until(lambda: getattr(provider.participant("mumble:2"), "talking", False))
     await host.do("talk 2 0")
     # someone the plugin does not know: nothing changes
-    await provider.set_muted("9", True)
+    await provider.set_muted("mumble:9", True)
     assert await host.do("audio 9 0.8") == ["audio 0 0.800"]
 
     # the volume stays while people come and go
     await host.do("user 4 5 Carol")
     await until(lambda: len(provider.participants) == 3)
-    assert provider.participant("2") == Participant("2", "Alice", muted=True, volume=50, level=0.0, pre_fader_level=0.0)
+    assert provider.participant("mumble:2") == Participant(
+        "mumble:2", "Alice", muted=True, volume=50, level=0.0, pre_fader_level=0.0
+    )
     await host.do("leave 3")
-    await until(lambda: [each.id for each in provider.participants] == ["2", "4"])
+    await until(lambda: [each.id for each in provider.participants] == ["mumble:2", "mumble:4"])
     # the user goes to another channel
     await host.do("user 1 6 me")
     await until(lambda: [each.name for each in provider.participants] == [])
@@ -219,6 +227,32 @@ async def test_the_plugin_connects_again(built: Path):
         assert await process.wait() == 0
 
 
+async def test_the_plugin_beside_a_plugin_of_another_client(setup: tuple[RecordingBridge, FakeMumble]):
+    provider, host = setup
+    await host.do("connect 1 5")
+    await host.do("user 2 5 Alice")
+    await until(lambda: [each.id for each in provider.participants] == ["mumble:2"])
+    # a plugin of another client, with the same id for someone else
+    reader, writer = await asyncio.open_unix_connection(provider.path)
+    assert json.loads(await reader.readline())["daemon"] == "xtouch-daemon"
+    writer.write(b'{"client": "teamspeak", "capabilities": ["volume"], "participants": [{"id": 2, "name": "Bob"}]}\n')
+    await writer.drain()
+    await until(lambda: [each.id for each in provider.participants] == ["mumble:2", "teamspeak:2"])
+
+    # each gets the commands for its own people
+    await provider.set_volume("mumble:2", 50)
+    await until(lambda: getattr(provider.participant("mumble:2"), "volume", None) == 50)
+    await provider.set_volume("teamspeak:2", 30)
+    assert json.loads(await reader.readline()) == {"set_volume": {"id": "2", "volume": 30}}
+    assert getattr(provider.participant("mumble:2"), "volume", None) == 50
+
+    # the other one goes: Mumble's people stay
+    writer.close()
+    await writer.wait_closed()
+    await until(lambda: [each.id for each in provider.participants] == ["mumble:2"])
+    assert provider.client == "mumble"
+
+
 async def test_a_mute_set_in_mumble_lights_the_button(setup: tuple[RecordingBridge, FakeMumble]):
     provider, host = setup
     await host.do("connect 1 5")
@@ -228,13 +262,15 @@ async def test_a_mute_set_in_mumble_lights_the_button(setup: tuple[RecordingBrid
     await host.do("localmute 3 1")
     await host.do("user 3 5 Carol")
     await until(lambda: len(provider.participants) == 2)
-    assert provider.participant("3") == Participant("3", "Carol", muted=True, level=0.0, pre_fader_level=0.0)
+    assert provider.participant("mumble:3") == Participant(
+        "mumble:3", "Carol", muted=True, level=0.0, pre_fader_level=0.0
+    )
 
     # Mumble has no event for it: the plugin reads it every POLL_MS (500 ms)
     loop = asyncio.get_running_loop()
     start = loop.time()
     await host.do("localmute 2 1")
-    await until(lambda: getattr(provider.participant("2"), "muted", False))
+    await until(lambda: getattr(provider.participant("mumble:2"), "muted", False))
     assert loop.time() - start < 1.5
     await host.do("localmute 2 0")
     await host.do("localmute 3 0")
@@ -249,12 +285,14 @@ async def test_a_mute_mumble_refuses_goes_back(setup: tuple[RecordingBridge, Fak
     await host.do("user 2 5 Alice")
     await until(lambda: len(provider.participants) == 1)
     await host.do("refuse 2")
-    await provider.set_muted("2", True)
+    await provider.set_muted("mumble:2", True)
 
     await host.collect(
         "record", ["requestLocalMute 2 1 -1", "log xtouch-daemon: can't mute Alice in Mumble: Generic error"]
     )
-    await until(lambda: provider.participant("2") == Participant("2", "Alice", level=0.0, pre_fader_level=0.0))
+    await until(
+        lambda: provider.participant("mumble:2") == Participant("mumble:2", "Alice", level=0.0, pre_fader_level=0.0)
+    )
     assert await host.do("audio 2 0.5") == ["audio 0 0.500"]
 
 
@@ -265,8 +303,8 @@ async def test_the_plugin_shuts_down_with_a_mute_under_way(setup: tuple[Recordin
     await until(lambda: len(provider.participants) == 1)
     # Mumble's main thread is busy: the request waits for it
     await host.do("pause")
-    await provider.set_muted("2", True)
-    await until(lambda: getattr(provider.participant("2"), "muted", False))
+    await provider.set_muted("mumble:2", True)
+    await until(lambda: getattr(provider.participant("mumble:2"), "muted", False))
     await host.collect("queued", ["queued requestLocalMute 2 1"])
     # mumble_shutdown waits for the call, which can't run while it waits: Mumble gives up on it after 800 ms; the
     # plugin makes no call after that (the fake would abort)
@@ -285,8 +323,8 @@ async def test_a_shutdown_drops_the_requests_that_did_not_start(setup: tuple[Rec
     await host.do("user 3 5 Bob")
     await until(lambda: len(provider.participants) == 2)
     await host.do("pause")
-    await provider.set_muted("2", True)
-    await provider.set_muted("3", True)
+    await provider.set_muted("mumble:2", True)
+    await provider.set_muted("mumble:3", True)
     await until(lambda: all(each.muted for each in provider.participants))
     await host.collect("queued", ["queued requestLocalMute 2 1"])
     [line] = await host.do("shutdown")

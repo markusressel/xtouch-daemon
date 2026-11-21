@@ -87,7 +87,10 @@ class Refusal(Message):
     """The only line of the daemon to a plugin that it refuses; the daemon closes the connection after it."""
 
     error: str
-    """Why the daemon refuses the plugin: `another plugin is connected` while one is connected."""
+    """
+    Why the daemon refuses the plugin, e.g. `another mumble plugin is connected` while a plugin of the same client is
+    connected.
+    """
 
 
 class ParticipantState(Message):

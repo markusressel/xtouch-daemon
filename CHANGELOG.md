@@ -68,6 +68,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Voice chat bridge: plugins of several voice chat clients can be connected at once, one per client (the `client`
+  of their state lines). The strips show the people of all of them, each strip with what the client of its person
+  can do, and commands go to the plugin of that person. When a plugin goes, only the people of its client go. Another
+  plugin of a client that is connected is still refused, now with `{"error": "another mumble plugin is connected"}`
+  at its first state line. The GUI lists each client with its channel; the state `voice_chat` is on while any of them
+  is in a channel. The protocol stays version 1.
 - GUI: the menus Add of the pages Channels and States, and Add source of a state, say under each entry what it does
   on the device, with its icon and its title in the color of what it adds, in groups: the types of channels, the
   devices of the sound server ("Outputs" and "Inputs") and the pools; the kinds of states and the starting points
@@ -87,8 +93,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Voice chat bridge: a line with `capabilities` that is not a list (e.g. `null`) is ignored and logged, like other
   lines that are not the protocol. Before, it ended the connection of the plugin.
-- Docs: the voice chat bridge refuses a second plugin while one is connected, as the daemon always did; the page said
-  that the new one replaces the old one. The page now also explains `pre_fader_level`.
+- Docs: the page of the voice chat bridge said that a new plugin replaces the connected one; the daemon refuses it.
+  The page now also explains `pre_fader_level`.
 - GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its
   hint ends in … where it is short. Before, the right side of the window was cut off, and the drawing was off center
   with its right strips hidden.

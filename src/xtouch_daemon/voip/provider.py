@@ -55,6 +55,17 @@ class Participant:
     """The same before their volume; None if the provider can't tell (then `level` stands in)."""
 
 
+@dataclass(frozen=True)
+class Client:
+    """A voice chat client that the provider follows, e.g. Mumble through its plugin."""
+
+    name: str
+    """What the client is called, e.g. "mumble"."""
+    channel: str | None = None
+    """The channel of the user in it, if it tells one."""
+    capabilities: frozenset[Capability] = frozenset()
+
+
 type Listener = Callable[[], None]
 
 
@@ -78,9 +89,12 @@ class VoipProvider(abc.ABC):
         """Whether the provider knows the voice chat right now (e.g. a client is connected)."""
         self.capabilities = capabilities
         self.client: str | None = None
-        """The voice chat client, e.g. "mumble", if the provider knows it."""
+        """
+        The voice chat client, e.g. "mumble", if the provider knows it; with several clients their names, e.g.
+        "mumble, teamspeak".
+        """
         self.channel: str | None = None
-        """The channel of the user in the voice chat, if the provider knows it."""
+        """The channel of the user in the voice chat, if the provider knows it; with several clients the first one."""
         self._listeners: list[Listener] = []
         self._kept: dict[str, _Kept] = {}
         """What the strips set, by the name of the participant in lower case (`str.casefold()`)."""
@@ -153,6 +167,17 @@ class VoipProvider(abc.ABC):
 
     def participant(self, participant_id: str) -> Participant | None:
         return next((each for each in self.participants if each.id == participant_id), None)
+
+    @property
+    def clients(self) -> tuple[Client, ...]:
+        """The clients the provider follows now, each with its channel and capabilities."""
+        if not self.connected or self.client is None:
+            return ()
+        return (Client(self.client, self.channel, self.capabilities),)
+
+    def capabilities_of(self, participant_id: str) -> frozenset[Capability]:
+        """What the provider can do for a participant: the capabilities of their client."""
+        return self.capabilities
 
     @abc.abstractmethod
     async def run(self) -> None:

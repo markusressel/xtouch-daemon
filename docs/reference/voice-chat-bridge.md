@@ -1,7 +1,7 @@
 # The voice chat bridge
 
 What a plugin of a voice chat client (see [People](../configuration/channels/people.md#voice-chat)) and the daemon
-say to each other, for a plugin of another client than Mumble. The messages are also a
+say to each other, for a plugin of another client than [Mumble](../guides/mumble.md). The messages are also a
 [JSON Schema](https://json-schema.org/), [voice-chat-bridge.schema.json](../voice-chat-bridge.schema.json), made from
 the models in the daemon. Its descriptions say what each key means. `xtouch-daemon schema --bridge` prints the schema
 of the installed version.
@@ -15,15 +15,21 @@ object per line. When a plugin connects, the daemon says who it is and which ver
 {"daemon": "xtouch-daemon", "version": "0.1.0", "protocol": 1}
 ```
 
-One plugin at a time. While one is connected, the daemon refuses the next one: the connected plugin stays, and the
-new one gets this line and is closed:
+One plugin per client, and plugins of several clients at once, e.g. Mumble and TeamSpeak. The client is the
+`client` of the first state line of a connection; a plugin that sends none counts as one more client. While a plugin
+of that client is connected, the daemon refuses the new one: the connected plugin stays, and the new one gets this
+line and is closed:
 
 ```json
-{"error": "another plugin is connected"}
+{"error": "another mumble plugin is connected"}
 ```
 
-Two clients with the plugin enabled would otherwise take the socket from each other. When the plugin goes, so do the
-participants, and the next plugin can connect.
+Two instances of a client with the plugin enabled would otherwise take the socket from each other. Before its first
+state line, a connection keeps no other one out. When a plugin goes, so do the participants of its client, and the
+next plugin of that client can connect.
+
+The daemon puts the people of all clients together. Inside the daemon, the id of a participant has the client in
+front, e.g. `mumble:12`, so the same id in two clients is two people. A plugin sees only its own ids.
 
 ## State
 
@@ -72,7 +78,9 @@ The daemon sends commands back the same way, without spaces:
 {"set_muted": {"id": "12", "muted": true}}
 ```
 
-`set_volume` needs the capability `volume`, `set_muted` needs `mute`.
+`set_volume` needs the capability `volume`, `set_muted` needs `mute`. A command goes to the plugin of the
+participant, with the id that the plugin sent. The strip of a person uses the capabilities of the client of that
+person.
 
 ## Versions
 

@@ -24,15 +24,21 @@ A new protocol version means lines that an older side would get wrong; new optio
 sides ignore keys they don't know. The daemon ignores the lines of a protocol it does not know (and says so), and the
 lines that are not the protocol.
 
-One plugin at a time: while one is connected, another one gets `{"error":"another plugin is connected"}` (`Refusal`)
-and is closed (two clients with the plugin enabled would otherwise take the socket from each other). When the plugin
-goes, so do the participants.
+One plugin per client, several at once: the client is the `client` of the first state line (`a client` without one).
+While a plugin of that client is connected, a new one gets `{"error":"another mumble plugin is connected"}`
+(`Refusal`) and is closed: two instances of a client with the plugin enabled would otherwise take the socket from each
+other. Before its first state line a connection counts for nothing. The participants of all plugins are together, with
+the client in front of their ids (`mumble:12`); a command goes to the plugin of the participant, with the id there.
+When a plugin goes, so do its participants.
 """
 
 import asyncio
 import contextlib
+import dataclasses
 import json
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -51,7 +57,7 @@ from xtouch_daemon.voip.protocol import (
     VolumeChange,
     encode,
 )
-from xtouch_daemon.voip.provider import VoipProvider
+from xtouch_daemon.voip.provider import Capability, Client, Participant, VoipProvider
 
 __all__ = ["LINE_LIMIT", "PROTOCOL", "BridgeProvider", "ProtocolError", "parse_state"]
 
@@ -103,15 +109,37 @@ def _problem(error: ValidationError, state: dict[str, Any]) -> str:
             return first["msg"]
 
 
+@dataclass(eq=False)
+class _Plugin:
+    """A connection of a plugin: what it sent last, with the ids of the client."""
+
+    writer: asyncio.StreamWriter
+    client: str | None = None
+    """The type of the client, from the first state line (`a client` if it tells none); None before it."""
+    channel: str | None = None
+    capabilities: frozenset[Capability] = frozenset()
+    participants: tuple[Participant, ...] = ()
+
+
 class BridgeProvider(VoipProvider):
+    """
+    The participants of the plugins of voice chat clients, one plugin per client (see the module): the ids of the
+    participants have their client in front, e.g. `mumble:12`.
+    """
+
     name = "bridge"
 
     def __init__(self, path: Path):
         super().__init__()
         self.path = path
-        self._writer: asyncio.StreamWriter | None = None
-        self._refused = False
-        """Whether a second plugin was refused while this one is connected: said once, not at every try."""
+        self._connections: set[_Plugin] = set()
+        """Every connection, also those that sent no state yet."""
+        self._plugins: list[_Plugin] = []
+        """The plugins that sent their state, one per client, in the order they came."""
+        self._routes: dict[str, tuple[_Plugin, str]] = {}
+        """The plugin of each participant and their id there, by their id in the daemon."""
+        self._refused: set[str] = set()
+        """The clients of which another plugin was refused: said once, not at every try."""
 
     async def run(self) -> None:
         """Serves until cancelled. A socket that can't be made is logged: the daemon works without it."""
@@ -128,59 +156,98 @@ class BridgeProvider(VoipProvider):
             await asyncio.Future[None]()
         finally:
             server.close()
-            if self._writer is not None:
-                self._writer.close()
+            for plugin in self._connections:
+                plugin.writer.close()
             self.path.unlink(missing_ok=True)
 
+    @property
+    def clients(self) -> tuple[Client, ...]:
+        return tuple(Client(plugin.client or "", plugin.channel, plugin.capabilities) for plugin in self._plugins)
+
+    def capabilities_of(self, participant_id: str) -> frozenset[Capability]:
+        route = self._routes.get(participant_id)
+        return frozenset() if route is None else route[0].capabilities
+
     async def _serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        if self._writer is not None:
-            # the one that is there stays: two clients with the plugin would take the socket from each other forever
-            if not self._refused:
-                _LOGGER.warning(
-                    "Refusing another voice chat plugin while one is connected: is the plugin enabled in two clients?"
-                )
-                self._refused = True
-            with contextlib.suppress(ConnectionError):
-                writer.write(encode(Refusal(error="another plugin is connected")))
-            writer.close()
-            return
-        self._writer = writer
-        self._send(Greeting(daemon="xtouch-daemon", version=__version__, protocol=PROTOCOL))
+        plugin = _Plugin(writer)
+        self._connections.add(plugin)
+        writer.write(encode(Greeting(daemon="xtouch-daemon", version=__version__, protocol=PROTOCOL)))
         try:
             with contextlib.suppress(ConnectionError, ValueError):
                 while line := await reader.readline():
-                    self._receive(line)
+                    if not self._receive(plugin, line):
+                        break
         finally:
             writer.close()
-            self._writer = None
-            self._refused = False
-            self.client = None
-            self.channel = None
-            self.capabilities = frozenset()
-            self.update((), connected=False)
-            _LOGGER.info("The voice chat plugin is gone")
+            self._connections.discard(plugin)
+            if plugin in self._plugins:
+                self._plugins.remove(plugin)
+                self._refused.discard(plugin.client or "")
+                self._publish()
+                _LOGGER.info(f"The voice chat plugin of {plugin.client} is gone")
 
-    def _receive(self, line: bytes) -> None:
+    def _receive(self, plugin: _Plugin, line: bytes) -> bool:
+        """Takes a line of a plugin; False if the plugin is refused."""
         if not line.strip():
-            return
+            return True
         try:
             state = parse_state(line)
         except ProtocolError as e:
             _LOGGER.warning(f"Ignoring a line of the voice chat plugin: {e}")
-            return
-        if not self.connected:
-            self.client = state.client or "a client"
-            _LOGGER.info(f"Voice chat plugin connected ({self.client})")
-        self.channel = state.channel
-        self.capabilities = frozenset(state.capabilities)
-        self.update(tuple(each.participant() for each in state.participants))
+            return True
+        if plugin.client is None:
+            client = state.client or "a client"
+            if any(other.client == client for other in self._plugins):
+                self._refuse(plugin, client)
+                return False
+            plugin.client = client
+            self._plugins.append(plugin)
+            _LOGGER.info(f"Voice chat plugin connected ({client})")
+        plugin.channel = state.channel
+        plugin.capabilities = frozenset(state.capabilities)
+        plugin.participants = tuple(each.participant() for each in state.participants)
+        self._publish()
+        return True
 
-    def _send(self, message: Message) -> None:
-        if self._writer is not None:
-            self._writer.write(encode(message))
+    def _refuse(self, plugin: _Plugin, client: str) -> None:
+        # the one that is there stays: two clients with the plugin would take the socket from each other forever
+        if client not in self._refused:
+            _LOGGER.warning(
+                f"Refusing another voice chat plugin of {client} while one is connected: is the plugin enabled in "
+                "two of them?"
+            )
+            self._refused.add(client)
+        error = "another plugin is connected" if client == "a client" else f"another {client} plugin is connected"
+        with contextlib.suppress(ConnectionError):
+            plugin.writer.write(encode(Refusal(error=error)))
+
+    def _publish(self) -> None:
+        """The participants of all plugins, with their client in front of their ids."""
+        plugins = self._plugins
+        self._routes = {
+            f"{plugin.client}:{each.id}": (plugin, each.id) for plugin in plugins for each in plugin.participants
+        }
+        self.client = ", ".join(plugin.client or "" for plugin in plugins) or None
+        self.channel = next((plugin.channel for plugin in plugins if plugin.channel), None)
+        self.capabilities = frozenset(capability for plugin in plugins for capability in plugin.capabilities)
+        self.update(
+            tuple(
+                dataclasses.replace(each, id=f"{plugin.client}:{each.id}")
+                for plugin in plugins
+                for each in plugin.participants
+            ),
+            connected=bool(plugins),
+        )
+
+    def _send(self, participant_id: str, message: Callable[[str], Message]) -> None:
+        """Sends a command for a participant to their plugin, with their id there; none for someone unknown."""
+        route = self._routes.get(participant_id)
+        if route is not None:
+            plugin, bare_id = route
+            plugin.writer.write(encode(message(bare_id)))
 
     async def set_volume(self, participant_id: str, volume: int) -> None:
-        self._send(SetVolume(set_volume=VolumeChange(id=participant_id, volume=volume)))
+        self._send(participant_id, lambda id: SetVolume(set_volume=VolumeChange(id=id, volume=volume)))
 
     async def set_muted(self, participant_id: str, muted: bool) -> None:
-        self._send(SetMuted(set_muted=MuteChange(id=participant_id, muted=muted)))
+        self._send(participant_id, lambda id: SetMuted(set_muted=MuteChange(id=id, muted=muted)))
