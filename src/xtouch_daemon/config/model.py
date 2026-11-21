@@ -7,7 +7,14 @@ from typing import TYPE_CHECKING
 from pydantic import PrivateAttr
 
 from xtouch_daemon.config.base import Model
-from xtouch_daemon.config.sections import BehaviorConfig, DeviceConfig, MqttConfig, SwitchingConfig, VoipConfig
+from xtouch_daemon.config.sections import (
+    BehaviorConfig,
+    DeviceConfig,
+    HomeAssistantConfig,
+    MqttConfig,
+    SwitchingConfig,
+    VoipConfig,
+)
 from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import StripConfig
 from xtouch_daemon.config.values import Label, MeterPoint
@@ -27,6 +34,8 @@ class Config(Model):
     """
     mqtt: MqttConfig | None = None
     """The MQTT broker, needed by `homeassistant` channels and controls."""
+    homeassistant: HomeAssistantConfig | None = None
+    """The API of Home Assistant, needed by parts that show or set an entity (`{ entity = "..." }`)."""
     switching: SwitchingConfig = SwitchingConfig()
     voip: VoipConfig | None = None
     """The participants of the voice chat, who share the `auto` slots: without the section, its defaults (`bridge`)."""

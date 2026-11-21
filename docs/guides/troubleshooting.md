@@ -24,7 +24,7 @@ the command of the message, e.g. `chmod go-w ~/.config/xtouch-daemon/config.toml
 user is refused too (`... belongs to ..., not to you`). On a reload, the daemon logs the error and keeps the
 configuration it runs.
 
-**`other users can read ...`.** A warning: the file with a secret, e.g. `[mqtt] password_file`, can be read by other
+**`other users can read ...`.** A warning: the file with a secret, e.g. `[mqtt] password_file` or `[homeassistant] token_file`, can be read by other
 users. The daemon still uses it. Keep it to yourself with `chmod go-rw` and the file of the message.
 
 ## The device

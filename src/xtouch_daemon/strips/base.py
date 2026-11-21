@@ -12,7 +12,16 @@ from xtouch_daemon.audio.backend import AudioBackend, AudioCommandError
 from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.meter import CaptureTarget, Lit, Reading
 from xtouch_daemon.audio.model import AudioState
-from xtouch_daemon.config.bindings import HOME_ASSISTANT, LevelBinding, RunAction, WatchBinding, fill, placeholders_of
+from xtouch_daemon.config.bindings import (
+    HOME_ASSISTANT,
+    EntityLevelBinding,
+    LevelBinding,
+    LineBinding,
+    RunAction,
+    ServiceAction,
+    fill,
+    placeholders_of,
+)
 from xtouch_daemon.config.buttons import HOLD_TIME, WHILE_HELD, Action, ButtonSetup, LaunchAction, indicator
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import ColorName, EncoderMode, Indicator, MeterPoint, color_of
@@ -20,6 +29,7 @@ from xtouch_daemon.hardware.protocol import METER_MAX, Button, Color, Led, RingM
 from xtouch_daemon.hardware.strip import Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips.bound import BoundParts, Parts, led_key
+from xtouch_daemon.strips.entity import call_service
 from xtouch_daemon.strips.knobs import BalanceKnob, CommandKnob, HomeAssistantKnob, Knob, VolumeKnob, ring_position
 from xtouch_daemon.strips.value import led_of_line, level_of_line, run_program, value_text
 from xtouch_daemon.system.commands import Commands
@@ -497,7 +507,7 @@ class VolumeStrip(StripController):
     def button_led(self, button: Button, setup: ButtonSetup, state: AudioState) -> Led:
         if (shown := indicator(setup.led)) is not None:
             return Led.ON if self.indicates(shown, state) else Led.OFF
-        if isinstance(setup.led, WatchBinding):
+        if isinstance(setup.led, LineBinding):
             line = self.bound.line(led_key(button))
             return led_of_line(line) if line is not None else Led.OFF
         if setup.led == "homeassistant":
@@ -512,7 +522,7 @@ class VolumeStrip(StripController):
             case LaunchAction():
                 launch = self._launches[button]
                 return launch.led(launch.program_runs(self.env.processes()))
-            case "off" | "homeassistant" | RunAction():
+            case "off" | "homeassistant" | RunAction() | ServiceAction():
                 return Led.OFF
             case "talk" | "mute_others":
                 return Led.ON if button in self._acting else Led.OFF
@@ -572,7 +582,7 @@ class VolumeStrip(StripController):
     def color_name(self) -> ColorName:
         """The color of the LCD: the look's, or what its binding says (the look's until that is known)."""
         part = self.look.parts.color
-        if isinstance(part, WatchBinding):
+        if isinstance(part, LineBinding):
             return self.bound.color or self.look.color
         if part == "homeassistant" and self.controls is not None:
             return self.controls.color_name(self.look.color)
@@ -581,7 +591,7 @@ class VolumeStrip(StripController):
     def second_line(self, text: str) -> str:
         """The second line of the LCD: `text`, what the strip type shows there, unless `lcd` binds it."""
         part = self.look.parts.lcd
-        if isinstance(part, WatchBinding):
+        if isinstance(part, LineBinding):
             return self.bound.line("lcd") or ""
         if part == "homeassistant":
             return self.controls.bottom_text() if self.controls is not None else OFFLINE_TEXT
@@ -590,7 +600,7 @@ class VolumeStrip(StripController):
     def held_meter(self, point: MeterPoint) -> Reading | None:
         """The level a binding of the meter sets (`Look.parts`): a watch's, or Home Assistant's; else none."""
         part = self.look.parts.meter
-        if isinstance(part, LevelBinding):
+        if isinstance(part, LevelBinding | EntityLevelBinding):
             line = self.bound.line("meter")
             level = level_of_line(line, part.min, part.max) if line is not None else None
             return Lit(round(level * METER_MAX)) if level is not None else None
@@ -788,6 +798,8 @@ class VolumeStrip(StripController):
                 launch.press(launch.program_runs(self.env.processes()))
             case RunAction():
                 self.run_action(button, action)
+            case ServiceAction():
+                call_service(self.env.commands, action, f"{self.identity.name}.{button.name.lower()}")
             case "talk":
                 self.talk(down)
             case "mute_others":

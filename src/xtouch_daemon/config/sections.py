@@ -1,6 +1,6 @@
 """
 The sections of the configuration besides the channels, states and slots: `[device]`, `[behavior]`, `[mqtt]`,
-`[switching]` and `[voip]`.
+`[homeassistant]`, `[switching]` and `[voip]`.
 """
 
 import os
@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import (
+    BaseModel,
     Field,
     SecretStr,
     field_validator,
@@ -117,26 +118,94 @@ class MqttConfig(Model):
 
     @model_validator(mode="after")
     def _one_password(self) -> MqttConfig:
-        sources = [name for name in ("password", "password_file", "password_env") if getattr(self, name) is not None]
-        if len(sources) > 1:
-            raise ValueError(f"set only one of {', '.join(sources)}")
+        _one_of(self, "password")
         return self
 
     def resolve_password(self) -> str | None:
         """The password from where it is configured."""
-        if self.password is not None:
-            return self.password.get_secret_value()
-        if self.password_file is not None:
-            warn_if_readable(self.password_file.expanduser(), "mqtt.password_file")
-            try:
-                return self.password_file.expanduser().read_text(encoding="utf-8").strip()
-            except OSError as e:
-                raise ConfigError(f"mqtt.password_file: can't read {self.password_file}: {e.strerror}") from e
-        if self.password_env is not None:
-            if self.password_env not in os.environ:
-                raise ConfigError(f"mqtt.password_env: the environment variable {self.password_env} is not set")
-            return os.environ[self.password_env]
-        return None
+        return _resolve_secret(self, "mqtt", "password")
+
+
+def _one_of(section: BaseModel, name: str) -> list[str]:
+    """The options that set the secret `name` (`name`, `name_file`, `name_env`); ValueError for more than one."""
+    sources = [option for option in (name, f"{name}_file", f"{name}_env") if getattr(section, option) is not None]
+    if len(sources) > 1:
+        raise ValueError(f"set only one of {', '.join(sources)}")
+    return sources
+
+
+def _resolve_secret(section: BaseModel, where: str, name: str) -> str | None:
+    """
+    A secret from where the section configures it: the option itself, a file (`<name>_file`), or an environment
+    variable (`<name>_env`); None without any. ConfigError for a file that can't be read or a variable that is not set.
+    """
+    value: SecretStr | None = getattr(section, name)
+    path: Path | None = getattr(section, f"{name}_file")
+    variable: str | None = getattr(section, f"{name}_env")
+    if value is not None:
+        return value.get_secret_value()
+    if path is not None:
+        warn_if_readable(path.expanduser(), f"{where}.{name}_file")
+        try:
+            return path.expanduser().read_text(encoding="utf-8").strip()
+        except OSError as e:
+            raise ConfigError(f"{where}.{name}_file: can't read {path}: {e.strerror}") from e
+    if variable is not None:
+        if variable not in os.environ:
+            raise ConfigError(f"{where}.{name}_env: the environment variable {variable} is not set")
+        return os.environ[variable]
+    return None
+
+
+WEBSOCKET_PATH = "/api/websocket"
+"""Where Home Assistant serves its WebSocket API, below its address."""
+_SCHEMES = {"http": "ws", "https": "wss", "ws": "ws", "wss": "wss"}
+
+
+class HomeAssistantConfig(Model):
+    """The API of Home Assistant, for parts that show or set an entity, e.g. `meter = { entity = "sensor.cpu" }`."""
+
+    url: str
+    """The address of Home Assistant, as in the browser. E.g. `http://homeassistant.local:8123`."""
+    token: SecretStr | None = None
+    """
+    A long-lived access token: create one in your profile in Home Assistant, on the Security tab. `token_file` or
+    `token_env` keep it out of the configuration.
+    """
+    token_file: Path | None = None
+    """A file with the token (`~` is your home directory). Whitespace around it is ignored."""
+    token_env: str | None = None
+    """
+    An environment variable with the token, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`). The
+    GUI reads its own environment: start it with the variable set too.
+    """
+
+    @field_validator("url")
+    @classmethod
+    def _an_address(cls, value: str) -> str:
+        scheme, separator, rest = value.strip().partition("://")
+        if not separator or scheme.lower() not in _SCHEMES or not rest.strip("/"):
+            raise ValueError(f"{value} is no address of Home Assistant, e.g. http://homeassistant.local:8123")
+        return f"{scheme.lower()}://{rest.rstrip('/')}"
+
+    @model_validator(mode="after")
+    def _one_token(self) -> HomeAssistantConfig:
+        if not _one_of(self, "token"):
+            raise ValueError("needs token, token_file or token_env: a long-lived access token of Home Assistant")
+        return self
+
+    @property
+    def websocket_url(self) -> str:
+        """The address of the WebSocket API: `ws://` (`wss://` for `https://`), `/api/websocket` below `url`."""
+        scheme, _, rest = self.url.partition("://")
+        rest = rest.removesuffix(WEBSOCKET_PATH)
+        return f"{_SCHEMES[scheme]}://{rest}{WEBSOCKET_PATH}"
+
+    def resolve_token(self) -> str:
+        """The token from where it is configured."""
+        token = _resolve_secret(self, "homeassistant", "token")
+        assert token is not None, "the section needs a token (checked when the file is loaded)"
+        return token
 
 
 class SwitchingConfig(Model):

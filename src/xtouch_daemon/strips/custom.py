@@ -26,8 +26,12 @@ from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.bindings import (
     HOME_ASSISTANT,
+    EntityLevelBinding,
+    EntityValueBinding,
     LevelBinding,
+    LineBinding,
     RunAction,
+    ServiceAction,
     Target,
     ValueBinding,
     WatchBinding,
@@ -39,8 +43,10 @@ from xtouch_daemon.config.strips import CustomButtonName, CustomStripConfig
 from xtouch_daemon.config.values import ColorName, MeterPoint, color_of
 from xtouch_daemon.hardware.protocol import METER_MAX, Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import Strip
+from xtouch_daemon.homeassistant.parts import LineKind
 from xtouch_daemon.mqtt import MqttBridge
 from xtouch_daemon.strips.base import NOTICE_TIME, Identity, Look, StripController, StripEnv
+from xtouch_daemon.strips.entity import EntityValue, Line, call_service, line_source, open_line
 from xtouch_daemon.strips.homeassistant import (
     COLORS,
     FADER_PUBLISH_INTERVAL,
@@ -53,7 +59,14 @@ from xtouch_daemon.strips.homeassistant import (
     value_step,
 )
 from xtouch_daemon.strips.knobs import ring_position
-from xtouch_daemon.strips.value import CommandValue, WatchedLine, color_of_line, led_of_line, level_of_line, value_text
+from xtouch_daemon.strips.value import (
+    BoundValue,
+    CommandValue,
+    color_of_line,
+    led_of_line,
+    level_of_line,
+    value_text,
+)
 from xtouch_daemon.system.commands import CommandError, Commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -92,7 +105,7 @@ class Programs:
         encoder_step: int,
         name: str,
         target: Target | None,
-        shared: dict[tuple[object, ...], CommandValue | WatchedLine],
+        shared: dict[tuple[object, ...], BoundValue | Line],
         first: bool,
     ):
         self.target = target
@@ -105,19 +118,28 @@ class Programs:
         self.fader = self._value(config.fader, "fader")
         self.encoder = self._value(config.encoder, "encoder")
         self._fine_fader = config.encoder is None
-        self.lcd = self._line(config.lcd, "lcd")
-        self.color = self._line(config.color, "color")
-        self.meter = self._line(config.meter, "meter")
-        self.present = self._line(config.present, "present")
+        self.lcd = self._line(config.lcd, "lcd", "text")
+        self.color = self._line(config.color, "color", "color")
+        self.meter = self._line(config.meter, "meter", "level")
+        self.present = self._line(config.present, "present", "present")
         self.leds = {
-            button: line for button, name in BUTTONS.items() if (line := self._line(config.button(name).led, name))
+            button: line
+            for button, name in BUTTONS.items()
+            if (line := self._line(config.button(name).led, name, "led"))
         }
 
     @property
     def title(self) -> str:
         return self._name if self.target is None else f"{self._name} ({self.target.name})"
 
-    def _value(self, part: object, what: str) -> CommandValue | None:
+    def _value(self, part: object, what: str) -> BoundValue | None:
+        if isinstance(part, EntityValueBinding):
+            # an entity is the same for every target
+            key: tuple[object, ...] = (what, "entity", part)
+            if (value := self._shared.get(key)) is None:
+                value = self._shared[key] = EntityValue(part, self._commands, self._step, f"{self._name}.{what}")
+            assert isinstance(value, EntityValue)
+            return value
         if not isinstance(part, ValueBinding):
             return None
         programs = tuple(tuple(fill(argv, **self._placeholders)) for argv in part.programs.values())
@@ -130,21 +152,22 @@ class Programs:
         assert isinstance(value, CommandValue)
         return value
 
-    def _line(self, part: object, what: str) -> WatchedLine | None:
-        if not isinstance(part, WatchBinding):
+    def _line(self, part: object, what: str, kind: LineKind) -> Line | None:
+        if not isinstance(part, LineBinding):
             return None
-        argv = tuple(fill(part.watch, **self._placeholders))
-        if (line := self._shared.get(("watch", argv))) is None:
-            line = WatchedLine(argv, self._commands, f"{self.title}.{what}")
-            self._shared[("watch", argv)] = line
-        assert isinstance(line, WatchedLine)
+        if isinstance(part, WatchBinding):
+            part = part.model_copy(update={"watch": tuple(fill(part.watch, **self._placeholders))})
+        key = line_source(part, kind)
+        if (line := self._shared.get(key)) is None:
+            line = self._shared[key] = open_line(part, self._commands, f"{self.title}.{what}", kind)
+        assert not isinstance(line, BoundValue)
         return line
 
-    def knob(self) -> CommandValue | None:
+    def knob(self) -> BoundValue | None:
         """What the encoder sets: its own value, else (without an encoder of its own) the fader's."""
         return self.encoder or (self.fader if self._fine_fader else None)
 
-    def run_value(self) -> CommandValue | None:
+    def run_value(self) -> BoundValue | None:
         """The value of `{value}` in `run`: the fader's, else the encoder's."""
         return self.fader or self.encoder
 
@@ -281,7 +304,7 @@ class CustomStrip(StripController):
         """Called when the values are others: the strip switched to another target (`ValueSource`)."""
         self.on_presence: Callable[[], None] = lambda: None
         """Called when `presence` changed."""
-        self._shared: dict[tuple[object, ...], CommandValue | WatchedLine] = {}
+        self._shared: dict[tuple[object, ...], BoundValue | Line] = {}
         targets: tuple[Target | None, ...] = config.targets or (None,)
         self.targets = [
             Programs(config, commands, env.behavior.encoder_step, identity.name, target, self._shared, index == 0)
@@ -299,7 +322,8 @@ class CustomStrip(StripController):
         """The target the strip controls now."""
         self._presence = self.presence
         self._colors: dict[int, ColorName] = {}
-        """The last color each watch of `color` printed, by the id of its `WatchedLine`: other lines keep it."""
+        """The last color each watch (or entity) of `color` named, by the id of its line: other lines keep it."""
+        self._remember_colors()
         for thing in self._shared.values():
             thing.listeners.append(self._changed)
         self.ha: HomeAssistantParts | None = None
@@ -321,7 +345,7 @@ class CustomStrip(StripController):
         self._running: dict[Button, int] = {}
         """The buttons whose `run` still runs, with how many runs (their LED with `led = "press"`)."""
         self._closed = False
-        self._gripped: CommandValue | None = None
+        self._gripped: BoundValue | None = None
         """The value the finger on this strip's fader holds: the only one whose touch it sets and clears."""
 
     # -- what it controls -----------------------------------------------------------------------------------------
@@ -335,10 +359,10 @@ class CustomStrip(StripController):
     def target(self) -> Target | None:
         return self.current.target
 
-    def fader_value(self) -> CommandValue | None:
+    def fader_value(self) -> BoundValue | None:
         return self.current.fader
 
-    def encoder_value(self) -> CommandValue | None:
+    def encoder_value(self) -> BoundValue | None:
         return self.current.encoder
 
     def switch(self, steps: int = 1) -> None:
@@ -378,16 +402,19 @@ class CustomStrip(StripController):
 
     def _changed(self) -> None:
         """A value or a watch changed: it shows, Home Assistant learns the values, the slots the presence."""
-        for programs in self.targets:
-            line = programs.color
-            if line is not None and (name := color_of_line(line.line or "")) is not None:
-                self._colors[id(line)] = name
+        self._remember_colors()
         self._publish_values()
         presence = self.presence
         if presence != self._presence:
             self._presence = presence
             self.on_presence()
         self.show()
+
+    def _remember_colors(self) -> None:
+        for programs in self.targets:
+            line = programs.color
+            if line is not None and (name := color_of_line(line.line or "")) is not None:
+                self._colors[id(line)] = name
 
     # -- Home Assistant ---------------------------------------------------------------------------------------------
 
@@ -399,13 +426,13 @@ class CustomStrip(StripController):
         if self.ha is None or not self.ha.bridge.ready:
             return
         for part, number in self.ha.values.items():
-            value: CommandValue | None = getattr(self.current, part)
+            value: BoundValue | None = getattr(self.current, part)
             if value is not None and value.value is not None and value.value != number.current:
                 number.set(value.value)
 
     def _commanded(self, part: str, payload: str) -> None:
         """Home Assistant sets the value of a part: as a hand does."""
-        value: CommandValue | None = getattr(self.current, part)
+        value: BoundValue | None = getattr(self.current, part)
         if value is None:
             return
         try:
@@ -455,7 +482,7 @@ class CustomStrip(StripController):
         if color == HOME_ASSISTANT:
             entity = self.ha.color if self.ha is not None else None
             name = COLORS.get(entity.target_state or "") if entity is not None else None
-        elif isinstance(color, WatchBinding):
+        elif isinstance(color, LineBinding):
             line = self.current.color
             name = self._colors.get(id(line)) if line is not None else None
         return color_of(name or self.look.color)
@@ -466,7 +493,7 @@ class CustomStrip(StripController):
         if lcd == HOME_ASSISTANT:
             entity = self.ha.bottom if self.ha is not None else None
             return (entity.target_state or "") if entity is not None else ""
-        if isinstance(lcd, WatchBinding):
+        if isinstance(lcd, LineBinding):
             line = self.current.lcd
             return (line.line or "") if line is not None else ""
         shown = self.current.run_value()
@@ -503,7 +530,7 @@ class CustomStrip(StripController):
         if led == HOME_ASSISTANT:
             entity = self.ha.leds.get(button) if self.ha is not None else None
             return LEDS.get(entity.target_state or "", Led.OFF) if entity is not None else Led.OFF
-        if isinstance(led, WatchBinding):
+        if isinstance(led, LineBinding):
             line = self.current.leds.get(button)
             return led_of_line(line.line) if line is not None and line.line is not None else Led.OFF
         if led == "press":
@@ -533,7 +560,7 @@ class CustomStrip(StripController):
         level: float | None = None
         if self.absent:
             pass
-        elif isinstance(meter, LevelBinding):
+        elif isinstance(meter, LevelBinding | EntityLevelBinding):
             line = self.current.meter
             if line is not None and line.line is not None:
                 level = level_of_line(line.line, meter.min, meter.max)
@@ -562,7 +589,7 @@ class CustomStrip(StripController):
             self._notice_timer.cancel()
             self._notice_timer = None
 
-    def _set_by_hand(self, value: CommandValue) -> None:
+    def _set_by_hand(self, value: BoundValue) -> None:
         """A hand changed a value: with `lcd` bound, it shows for a moment, as the balance does on audio strips."""
         if self.config.lcd is not None:
             self.notify(value.text())
@@ -596,7 +623,7 @@ class CustomStrip(StripController):
             self.ha.fader.touch(touched)
             self.ha.event("fader_touched" if touched else "fader_released")
 
-    def _grip(self, value: CommandValue | None) -> None:
+    def _grip(self, value: BoundValue | None) -> None:
         """Moves the finger of the fader to `value` (None: lets go)."""
         if self._gripped is not value:
             if self._gripped is not None:
@@ -676,6 +703,8 @@ class CustomStrip(StripController):
                 pass
             case RunAction():
                 self._run(button, action)
+            case ServiceAction():
+                call_service(self.commands, action, f"{self.identity.name}.{BUTTONS[button]}")
             case "next":
                 self.switch()
             case "homeassistant":

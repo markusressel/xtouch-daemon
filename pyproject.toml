@@ -23,6 +23,7 @@ dependencies = [
     "haad-mqtt-autodiscovery",
     "pulsectl-asyncio>=1.2",
     "pydantic>=2.7",
+    "websockets>=15",
 ]
 
 [project.urls]
@@ -113,5 +114,6 @@ typeCheckingMode = "standard"
 [tool.codespell]
 # integrations/mumble/include is Mumble's header, as it is upstream
 skip = "*.lock,./site,./.venv,./integrations/mumble/include,./integrations/mumble/build"
-# "bu" and "pres" are typed into fields (the starts of "buds" and "present"), HDA is a sound card (HDA Intel)
-ignore-words-list = "bu,hda,pres"
+# "bu" and "pres" are typed into fields (the starts of "buds" and "present"), HDA is a sound card (HDA Intel),
+# hass is Home Assistant (as in its own code)
+ignore-words-list = "bu,hda,hass,pres"

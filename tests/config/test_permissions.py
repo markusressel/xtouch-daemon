@@ -13,7 +13,7 @@ from tests.support.cli import CONFIG
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import load_config
 from xtouch_daemon.config.permissions import check_safe, places, problem, warn_if_readable
-from xtouch_daemon.config.sections import MqttConfig
+from xtouch_daemon.config.sections import HomeAssistantConfig, MqttConfig
 
 ME = os.geteuid()
 
@@ -132,6 +132,17 @@ def test_a_secret_others_can_read_is_a_warning(tmp_path: Path, caplog: pytest.Lo
     assert f"mqtt.password_file: other users can read {secret}. Keep it to you with `chmod go-rw {secret}`" in (
         caplog.text
     )
+
+
+def test_a_token_others_can_read_is_a_warning(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    token = tmp_path / "token"
+    token.write_text("abc\n")
+    token.chmod(0o644)
+
+    with caplog.at_level(logging.WARNING):
+        assert HomeAssistantConfig(url="http://ha.test:8123", token_file=token).resolve_token() == "abc"
+
+    assert f"homeassistant.token_file: other users can read {token}" in caplog.text
 
 
 def test_a_secret_only_the_user_reads_is_no_warning(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:

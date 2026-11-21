@@ -22,8 +22,18 @@ PROGRAM_KEYS = ("launch", "run", "watch")
 """The tables of a part, by their key: what a press starts or runs, what an LED or a meter watches."""
 
 
+HOME_ASSISTANT_KEYS = ("service", "entity")
+"""The tables of a part with Home Assistant, by their key: the service a press calls, the entity a part shows."""
+
+
 def program_text(table: Mapping[str, Any]) -> str:
-    """A table of a part as a list shows it: `launch: mumble -m`, `run: ...`, `watch: ...`."""
+    """
+    A table of a part as a list shows it: `launch: mumble -m`, `run: ...`, `watch: ...`; with Home Assistant
+    `service: light.toggle` or `entity: light.desk` (its other options show below the list).
+    """
+    for key in HOME_ASSISTANT_KEYS:
+        if key in table:
+            return f"{key}: {table[key]}"
     key = next((key for key in PROGRAM_KEYS if key in table), "launch")
     command = table.get(key, ())
     return f"{key}: " + (command if isinstance(command, str) else shlex.join(map(str, command)))
