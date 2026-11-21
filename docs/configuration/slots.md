@@ -60,9 +60,9 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   | `devices` | those of `apps`, and `select = false` |
   | `people` | `color`, `meter`, `meter_point` |
 
-  These options take their words only (e.g. `color = "red"`, `meter = false`): a
-  [binding](strip/bindings.md) (`{ watch = ... }`) belongs to the channel, and one for the slot whatever it shows to
-  [`[controls]`](#controls-and-the-chord).
+  These options take their words only (e.g. `color = "red"`, `meter = false`). A
+  [binding](strip/bindings.md) (`{ watch = ... }`) belongs to the channel. A binding for the slot, whatever it shows,
+  belongs to [`[controls]`](#controls-and-the-chord).
 
   A control for Home Assistant, or one that starts an application (`{ launch = [...] }`), is a control of the slot, not
   a place option: [`[controls]`](#controls-and-the-chord). How to start an application with Select:

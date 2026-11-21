@@ -98,7 +98,7 @@ class WatchBinding(Model):
 
 
 class LevelBinding(WatchBinding):
-    """A meter that shows a number a program of your own prints, between `min` and `max`."""
+    """A meter that shows a number that a program of your own prints, between `min` and `max`."""
 
     watch: Command
     """
@@ -194,7 +194,7 @@ class ValueBinding(Model):
 
 
 class RunAction(Model):
-    """A program of your own a button runs, to its end."""
+    """A program of your own that a button runs to its end."""
 
     run: Command
     """

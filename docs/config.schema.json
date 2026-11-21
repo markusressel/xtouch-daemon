@@ -1211,7 +1211,7 @@
       "additionalProperties": false,
       "properties": {
         "channel": {
-          "description": "The `custom` channel whose value the fader or the encoder sets, e.g. `screen_left`: that of its fader, for the\nencoder that of its encoder if it has one of its own.",
+          "description": "The `custom` channel whose value the fader or the encoder sets. A fader sets the value of its fader. An encoder\nsets the value of its own encoder, else that of its fader. E.g. `screen_left`.",
           "title": "Channel",
           "type": "string"
         }
@@ -1529,7 +1529,7 @@
     },
     "LevelBinding": {
       "additionalProperties": false,
-      "description": "A meter that shows a number a program of your own prints, between `min` and `max`.",
+      "description": "A meter that shows a number that a program of your own prints, between `min` and `max`.",
       "properties": {
         "watch": {
           "anyOf": [
@@ -1720,7 +1720,7 @@
     },
     "RunAction": {
       "additionalProperties": false,
-      "description": "A program of your own a button runs, to its end.",
+      "description": "A program of your own that a button runs to its end.",
       "properties": {
         "run": {
           "anyOf": [

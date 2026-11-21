@@ -147,8 +147,8 @@ a fader or an encoder bound to a value is also a number in Home Assistant (`numb
 
 ## On another slot
 
-`[controls]` can give the fader or the encoder of any slot to the value of a custom channel: the value of its fader,
-for an encoder that of its own encoder if it has one. The slot keeps showing what it shows, e.g. the encoder of the
+`[controls]` can give the fader or the encoder of any slot to the value of a custom channel. A fader sets the value
+of the channel's fader. An encoder sets the value of the channel's own encoder, else that of its fader. The slot keeps showing what it shows, e.g. the encoder of the
 speaker sets the brightness. With targets, the claim follows the target the channel controls.
 
 ```toml

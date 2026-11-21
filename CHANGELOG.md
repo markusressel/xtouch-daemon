@@ -49,7 +49,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     (`{ channel = "screen" }`) or to a value of its own (`{ set = "..." }`), and a button to a program
     (`{ run = "..." }`).
   - Simulate in the GUI and `xtouch-daemon simulate` run the `watch` programs, never `set` or `run`. Parts in Home
-    Assistant look as while it is not there, and the situation alone says whether a custom channel is there.
+    Assistant look as while Home Assistant is not there, and the situation alone says whether a custom channel is
+    there.
   - GUI: a bind button next to the fader, the encoder, the LCD, the color and the meter binds them to Home Assistant
     or to a program, with the options of the program under the part. The lists of a button on a channel take
     `run: ...` and `watch: ...`.

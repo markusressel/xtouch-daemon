@@ -26,7 +26,7 @@ The parts of the `output`, `input`, `apps` and `auto` channels:
 
 Each part also takes `"homeassistant"`: Home Assistant sets it, with an entity of its own (see below).
 
-- `set` runs with `{value}`, the newest value only; `watch` prints the value, one line per change. See
+- `set` runs with the new value in `{value}`; `watch` prints the value, one line per change. See
   [A value](../channels/custom.md#a-value) for `min`, `max`, `step`, `push` and `format`.
 - `{value}` in `run` is the value of the fader, else of the encoder, else the volume in percent. `{target}` is for custom
   channels with `targets`.
@@ -38,7 +38,7 @@ Each part also takes `"homeassistant"`: Home Assistant sets it, with an entity o
 
 A value (`fader`, `encoder`) has `set`, `watch`, `min`, `max`, `step`, `push` and `format`: see
 [A value](../channels/custom.md#a-value). The `step` of a fader is that of the encoder of a custom channel (without an
-encoder of its own), and of its number in Home Assistant. The other bindings are smaller:
+encoder of its own), and of its number in Home Assistant. The other bindings have fewer options:
 
 | Binding | For | Option | Default | Meaning |
 |---|---|---|---|---|
@@ -99,7 +99,8 @@ With `[mqtt]`, a fader or an encoder bound to a value is a number too (`number.<
 range. It has no state until the value is known; a change in Home Assistant runs `set`.
 
 Only the channel itself has these entities, not the applications and devices that a place of `apps`, `auto` or
-`devices` shows. A [place](../slots.md#slots) that sets a part to `"homeassistant"` does nothing; the log says so. Simulate has no Home Assistant: its parts look as while Home Assistant is not there.
+`devices` shows. A [place](../slots.md#slots) that sets a part to `"homeassistant"` does nothing; the log says so.
+Simulate has no Home Assistant: its parts look as while Home Assistant is not there.
 
 ## Simulate
 

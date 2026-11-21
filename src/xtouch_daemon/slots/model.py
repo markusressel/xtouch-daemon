@@ -363,8 +363,8 @@ class Launch(_Section):
 class ChannelControl(_Section):
     channel: str
     """
-    The `custom` channel whose value the fader or the encoder sets, e.g. `screen_left`: that of its fader, for the
-    encoder that of its encoder if it has one of its own.
+    The `custom` channel whose value the fader or the encoder sets. A fader sets the value of its fader. An encoder
+    sets the value of its own encoder, else that of its fader. E.g. `screen_left`.
     """
 
 

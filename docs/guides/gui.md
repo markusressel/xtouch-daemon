@@ -331,8 +331,8 @@ there. It follows the values in the form at once, saved or not, at the step show
 - a bind button next to each part that can be [bound](../configuration/strip/bindings.md) (the fader, the encoder,
   the LCD, the color, the meter): "Not bound", "Home Assistant" (with `[mqtt]`) or "A program". "A program" shows the
   options of the program under the part, e.g. `set`, `watch`, `min` and `max`; a problem in one of them shows under
-  its row. Back to "Not bound", the part does what its type says again;
-- in the lists of a button's press, hold and LED on a channel page, `run: ...` and `watch: ...` typed in bind the
+  its row. Set back to "Not bound", the part does what its type says again;
+- in the lists of a button's press, hold and LED on a channel page, typing `run: ...` or `watch: ...` binds the
   button to a program. Places and pools take the words of the lists only;
 - for choices, what the chosen value does (e.g. `recording` for the Rec LED), and each value says it as a tooltip in
   the list;
