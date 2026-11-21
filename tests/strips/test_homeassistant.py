@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 import pytest
 
 from tests.support.audio import FakeBackend, output
+from tests.support.commands import FakeCommands
 from tests.support.hardware import RecordingSurface
 from tests.support.mqtt import FakeBroker
 from tests.support.slots import Rig
@@ -491,4 +492,123 @@ async def test_a_new_mixer_publishes_the_choice_before_it_runs(
     await until(lambda: broker.last("homeassistant/select/xtouch/out_output/state") == "Phones")
     rig.mixer.close()
     task.cancel()
+    await finish_tasks()
+
+
+# -- the bound parts of an audio strip in Home Assistant ------------------------------------------------------------
+
+
+def bound_strip(surface: RecordingSurface, bridge: MqttBridge, options: str) -> tuple[VolumeStrip, FakeCommands]:
+    """The strip of the output channel `lights`, with the programs it runs."""
+    commands = FakeCommands()
+    env = StripEnv(FakeBackend(), BehaviorConfig(encoder_step=5, max_volume=100), bridge, commands=commands)
+    (strip_config,) = strips_of(f'[channel.l]\ntype = "output"\ndevice = "speaker"\nlabel = "Lights"\n{options}')
+    controller = build(strip_config, surface.strips[0], env, {}, "lights")
+    assert isinstance(controller, VolumeStrip)
+    return controller, commands
+
+
+async def test_the_lcd_color_meter_and_leds_of_an_audio_strip_are_entities(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    options = (
+        'lcd = "homeassistant"\ncolor = "homeassistant"\nmeter = "homeassistant"\nsolo = { led = "homeassistant" }'
+    )
+    strip, _ = bound_strip(surface, bridge, options)
+    strip.update(SPEAKER)
+    s = surface.strips[0]
+    # not there yet: what the configuration says, and that Home Assistant is not there
+    assert s.text == ["Lights", "offline"]
+    assert s.color == Color.WHITE
+    assert strip.held_meter("pre_fader") is None
+    assert strip.meter_targets(SPEAKER) == set()
+
+    await connect_audio(strip, bridge)
+    assert broker.retained[topic("select", "color")] == "white"
+    assert broker.retained[topic("number", "meter")] == "0"
+    assert broker.retained[topic("select", "solo_led")] == "off"
+    # no events: nothing of it is a button or a knob there
+    assert topic("event", "buttons", "config") not in broker.retained
+    broker.publish(topic("text", "bottom", "set"), "21 °C")
+    broker.publish(topic("select", "color", "set"), "magenta")
+    broker.publish(topic("number", "meter", "set"), "50")
+    broker.publish(topic("select", "solo_led", "set"), "flash")
+    await until(lambda: s.leds[Button.SOLO] == Led.FLASH)
+    assert s.text == ["Lights", "21 °C"]
+    assert s.color == Color.MAGENTA
+    assert strip.held_meter("pre_fader") == Lit(7)
+    # a notice still wins while it lasts, the volume while it is set
+    strip.on_fader(0.4)
+    assert s.text[1] == "40%"
+    await settle()
+    strip.update(SPEAKER)
+    assert s.text[1] == "21 °C"
+    # idle: dark, the LCD and the LEDs still Home Assistant's
+    strip.update(AudioState())
+    assert s.color == Color.BLACK
+    assert s.text == ["Lights", "21 °C"]
+    assert s.leds[Button.SOLO] == Led.FLASH
+    strip.close()
+    await finish_tasks()
+
+
+async def test_a_bound_audio_strip_without_home_assistant_is_offline(surface: RecordingSurface) -> None:
+    """The entities exist with `[mqtt]` only: built without a bridge (a test of the strip alone), they show nothing."""
+    commands = FakeCommands()
+    env = StripEnv(FakeBackend(), BehaviorConfig(), commands=commands)
+    (config,) = strips_of(f'[channel.l]\ntype = "output"\ndevice = "speaker"\nfader = {{ set = "{SET} {{value}}" }}')
+    strip = build(config, surface.strips[0], env, {}, "lights")
+    assert isinstance(strip, VolumeStrip)
+    assert strip.controls is None
+    assert strip.entities == {}
+    strip.close()
+
+
+SET = "brightness -b"
+WATCH = "brightness --watch"
+
+
+async def test_a_value_of_a_program_is_a_number_of_home_assistant(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    fader = f'fader = {{ set = "{SET} {{value}}", watch = "{WATCH}", min = 0.1, max = 1.0 }}'
+    strip, commands = bound_strip(surface, bridge, fader)
+    strip.update(SPEAKER)
+    await connect_audio(strip, bridge)
+    discovery = json.loads(broker.retained[topic("number", "fader", "config")])
+    assert (discovery["min"], discovery["max"]) == (0.1, 1.0)
+    assert discovery["step"] == pytest.approx(0.0009)
+    # unknown yet: no state
+    assert topic("number", "fader") not in broker.retained
+    # the watch tells it: Home Assistant follows
+    commands.print("0.5")
+    await until(lambda: broker.retained.get(topic("number", "fader")) == "0.5")
+    assert commands.runs == []
+    # a change there runs `set`, and moves the fader
+    broker.publish(topic("number", "fader", "set"), "0.8")
+    await until(lambda: commands.runs == [["brightness", "-b", "0.8"]])
+    await until(lambda: surface.strips[0].fader == protocol.fader_value((0.8 - 0.1) / 0.9))
+    # a move goes to Home Assistant too
+    strip.on_fader(1.0)
+    await until(lambda: broker.retained.get(topic("number", "fader")) == "1")
+    # nonsense from Home Assistant changes nothing
+    broker.publish(topic("number", "fader", "set"), "bright")
+    await settle()
+    assert len(commands.runs) == 2
+    strip.close()
+    await finish_tasks()
+
+
+async def test_a_value_of_an_encoder_is_a_number_in_its_steps(
+    surface: RecordingSurface, bridge: MqttBridge, broker: FakeBroker
+) -> None:
+    strip, commands = bound_strip(surface, bridge, f'encoder = {{ set = "{SET} {{value}}", min = 0, max = 10 }}')
+    strip.update(SPEAKER)
+    await connect_audio(strip, bridge)
+    discovery = json.loads(broker.retained[topic("number", "encoder", "config")])
+    assert (discovery["min"], discovery["max"], discovery["step"]) == (0, 10, 0.5)
+    strip.on_encoder(2)
+    await until(lambda: broker.retained.get(topic("number", "encoder")) == "1")
+    assert commands.runs == [["brightness", "-b", "1"]]
+    strip.close()
     await finish_tasks()
