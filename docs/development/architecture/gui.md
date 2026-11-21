@@ -97,6 +97,10 @@ itself does not import it. How to use it: [GUI](../../guides/gui.md).
   device for the drawing, the same in both themes. Widgets set style roles (`theme.set_role`) and take their sizes
   from the tokens instead of styling themselves. The drawing decides what a strip shows (a `StripFace`) apart from
   painting it.
+- **One filter for the whole application.** The parts that need the events of every widget (`InputFilter` for Undo
+  and the wheel, `TextMenus`, `HoverTips`, `RichTips`) watch the kinds they want through `gui/qt/app_events.py`.
+  Qt sends a filter of the application every event of every widget, also each one of a new theme that restyles all
+  of them: with one filter an event goes into Python once, not once per part.
 
 ## The daemon
 

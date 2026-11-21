@@ -29,6 +29,7 @@ from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.entities import Fetch
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
+from xtouch_daemon.gui.qt.app_events import app_events
 from xtouch_daemon.gui.qt.pages.sections import BrokerTest, MumbleInstaller
 from xtouch_daemon.gui.qt.theme.style import apply_theme
 from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
@@ -67,12 +68,7 @@ class PopupWatch(QObject):
         self.shown: list[str] = []
 
     def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
-        if (
-            a1 is not None
-            and a1.type() == QEvent.Type.Show
-            and isinstance(a0, QWidget)
-            and a0.windowType() == Qt.WindowType.Popup
-        ):
+        if a1 is not None and isinstance(a0, QWidget) and a0.windowType() == Qt.WindowType.Popup:
             self.shown.append(type(a0).__name__)
         return False
 
@@ -84,9 +80,10 @@ def no_popups(qapp: QApplication) -> Iterator[PopupWatch]:
     key of a screenshot tool does nothing while it is open. Menus, drop-downs and suggestions open inside the window.
     """
     watch = PopupWatch()
-    qapp.installEventFilter(watch)  # pyright: ignore[reportArgumentType]
+    # as the window's filters: only the Show events go into Python
+    app_events().watch(watch, (QEvent.Type.Show,))
     yield watch
-    qapp.removeEventFilter(watch)  # pyright: ignore[reportArgumentType]
+    app_events().unwatch(watch)
     assert watch.shown == [], f"popup windows showed: {watch.shown}"
     assert QApplication.activePopupWidget() is None
 

@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from xtouch_daemon.gui.qt.app_events import app_events
 from xtouch_daemon.gui.qt.fields.basics import help_text
 from xtouch_daemon.gui.qt.fields.depth import lift
 from xtouch_daemon.gui.qt.fields.popover import Popover, place
@@ -640,12 +641,10 @@ class TextMenus(QObject):
     def __init__(self, window: QWidget) -> None:
         super().__init__(window)  # pyright: ignore[reportArgumentType]
         self.window = window
-        app = QApplication.instance()
-        assert app is not None
-        app.installEventFilter(self)
+        app_events().watch(self, (QEvent.Type.ContextMenu,))
 
     def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
-        if a1 is None or a1.type() != QEvent.Type.ContextMenu or not isinstance(a1, QContextMenuEvent):
+        if a1 is None or not isinstance(a1, QContextMenuEvent):
             return False
         if not isinstance(a0, QWidget) or not (a0 is self.window or self.window.isAncestorOf(a0)):
             return False

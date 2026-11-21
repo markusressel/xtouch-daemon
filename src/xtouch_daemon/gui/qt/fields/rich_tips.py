@@ -6,8 +6,9 @@ and slots it names in their colors (see `help_text`). Its first paragraph is wha
 
 from PyQt6.QtCore import QEvent, QObject, QRect
 from PyQt6.QtGui import QHelpEvent
-from PyQt6.QtWidgets import QApplication, QToolTip, QWidget
+from PyQt6.QtWidgets import QToolTip, QWidget
 
+from xtouch_daemon.gui.qt.app_events import app_events
 from xtouch_daemon.gui.qt.fields.basics import help_text
 from xtouch_daemon.gui.qt.theme.style import current_colors
 
@@ -30,9 +31,7 @@ class RichTips(QObject):
 
     def __init__(self) -> None:
         super().__init__()
-        app = QApplication.instance()
-        assert app is not None
-        app.installEventFilter(self)
+        app_events().watch(self, (QEvent.Type.ToolTip,))
 
     def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
         if event is None or event.type() != QEvent.Type.ToolTip or not isinstance(watched, QWidget):

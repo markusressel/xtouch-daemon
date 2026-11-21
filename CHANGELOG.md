@@ -103,6 +103,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   1.1 s, as before; the faders no longer come up after it.
 - GUI: while the daemon runs without the device ("Live · not connected", also while it waits for the virtual
   device), the strips of the drawing are dark: the drawing is the device, and there is none.
+- GUI: the window handles the events of its widgets in one filter instead of four: a new theme takes about a sixth
+  less time.
 - GUI: the window opens about four times as fast: the page Channels builds the form of a channel type the first time
   it shows, not all of them at the start.
 - GUI: in a wide window a field beside its name is at most 640 px wide, and its reset button stays right after it, at
