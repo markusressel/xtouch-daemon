@@ -72,9 +72,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   1.1 s, as before; the faders no longer come up after it.
 - GUI: while the daemon runs without the device ("Live · not connected", also while it waits for the virtual
   device), the strips of the drawing are dark: the drawing is the device, and there is none.
+- GUI: in a wide window a field beside its name is at most 640 px wide, and its reset button stays right after it, at
+  the same place in every row; the help below is as wide.
 
 ### Fixed
 
+- GUI: the bar over the drawing of the device no longer makes the window wider than the window manager gives it: its
+  hint ends in … where it is short. Before, the right side of the window was cut off, and the drawing was off center
+  with its right strips hidden.
+- GUI: the entries of the list of channels wrap their lines with room between them; wrapped lines no longer run into
+  the next entry.
 - GUI: the lists of drop-down fields open inside the window, as popovers do: they no longer grab the keyboard and
   the mouse, so screenshot tools and the keys of the window manager work while one is open.
 

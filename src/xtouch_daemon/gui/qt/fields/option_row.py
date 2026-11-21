@@ -191,7 +191,7 @@ class OptionRow(QWidget):
         self.reset.clicked.connect(self._reset)
         outer.addLayout(self.top)
         # the help and the rest under the field (see `_fit_field`)
-        self.details_box = _Capped(self)
+        self.details_box = _Capped()
         self.details = QVBoxLayout(self.details_box.inner)
         details = self.details
         details.setSpacing(2)
@@ -591,8 +591,8 @@ class _Capped(QWidget):
     the layout: a widget with a layout of its own would be as tall as its content at the whole width it is given.
     """
 
-    def __init__(self, parent: QWidget) -> None:
-        super().__init__(parent)
+    def __init__(self) -> None:
+        super().__init__()
         self.inner = QWidget(self)
         self.cap = QWIDGETSIZE_MAX
         policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
