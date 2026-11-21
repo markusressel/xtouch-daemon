@@ -190,6 +190,29 @@ async def test_the_same_section_tries_again_with_a_token_that_changed(
     await hass.close()
 
 
+async def test_a_refused_token_is_not_sent_again_from_another_section(home: FakeHomeAssistant, tmp_path: Path) -> None:
+    wrong = tmp_path / "wrong"
+    wrong.write_text("wrong\n")
+    hass = HomeAssistant(home.connect)
+    hass.configure(HomeAssistantConfig(url="http://ha.test:8123", token_file=wrong))
+    await settle()
+    assert hass.error is not None
+    # another file with the same token: Home Assistant would count another failed login
+    again = tmp_path / "again"
+    again.write_text("wrong\n")
+    hass.configure(HomeAssistantConfig(url="http://ha.test:8123", token_file=again))
+    await settle()
+    assert len(home.connections) == 1
+    assert hass.error == "Home Assistant refused this token before"
+    # the right token in the same place connects
+    again.write_text(TOKEN)
+    hass.configure(HomeAssistantConfig(url="http://ha.test:8123", token_file=again))
+    await settle()
+    assert hass.synced
+    assert len(home.connections) == 2
+    await hass.close()
+
+
 async def test_a_connection_that_closes_slowly_leaves_the_next_one_alone(home: FakeHomeAssistant) -> None:
     home.closing = 5.0
     hass = await connected(home)

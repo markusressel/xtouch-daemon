@@ -100,7 +100,7 @@ Home Assistant (Settings → People → Users) limits that to what that user may
 |---|---|
 | You change the section and reload | Connects again with it. No restart is needed. |
 | The connection breaks | Tries again after 1, 2, 5, 10 and 30 seconds, then every 60 seconds. The waits start at 1 second again only after a connection got the states. Meanwhile the parts show nothing. |
-| Home Assistant refuses the token | Logs an error and stops trying. A reload sends a token again only if it is another one: Home Assistant can ban an address after failed logins. Make a new token, put it where the section reads it, and reload. |
+| Home Assistant refuses the token | Logs an error and stops trying. A token Home Assistant refused is never sent to it again, not even from another section: Home Assistant can ban an address after failed logins. Make a new token, put it where the section reads it, and reload. |
 | It can't read `token_file`, or `token_env` is not set | Logs an error and runs without the connection. A reload tries again once there is a token. |
 
 - A new token in the variable of `token_env` takes a restart of the service: a reload keeps its environment.

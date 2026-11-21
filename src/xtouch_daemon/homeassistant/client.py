@@ -221,6 +221,11 @@ class HomeAssistant:
         The token Home Assistant refused, or "" for one that could not be read: the same section connects again only
         with another token (a file or a variable that changed).
         """
+        self._refused: set[tuple[str, str]] = set()
+        """
+        The tokens Home Assistant refused, by its address: never sent there again, even from another section (Home
+        Assistant bans an address after failed logins).
+        """
 
     # -- the connection -------------------------------------------------------------------------------------------
 
@@ -274,6 +279,12 @@ class HomeAssistant:
             _LOGGER.error(f"Home Assistant: {e}")
             self.on_change()
             return
+        if (config.websocket_url, token) in self._refused:
+            self.error = "Home Assistant refused this token before"
+            self._hopeless = token
+            _LOGGER.error(f"{self.error}: create a new long-lived access token, put it into [homeassistant] and reload")
+            self.on_change()
+            return
         attempt = 0
         delay = RECONNECT_DELAYS[0]
         while True:
@@ -282,6 +293,7 @@ class HomeAssistant:
             except TokenRefused as e:
                 self.error = str(e)
                 self._hopeless = token
+                self._refused.add((config.websocket_url, token))
                 _LOGGER.error(f"{e}: create a new long-lived access token, put it into [homeassistant] and reload")
                 return
             except HomeAssistantError as e:
