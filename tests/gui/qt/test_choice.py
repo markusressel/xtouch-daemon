@@ -1,6 +1,7 @@
 """The drop-down list that opens inside its window, without a grab of the keyboard and the mouse."""
 
 from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtGui import QStandardItemModel
 from PyQt6.QtWidgets import QApplication, QListView, QVBoxLayout, QWidget
 from pytestqt.qtbot import QtBot
 
@@ -74,3 +75,23 @@ def test_without_a_window_of_its_own_nothing_opens(qtbot: QtBot) -> None:
     choice.addItems(["white"])
     choice.showPopup()
     assert not choice.is_open
+
+
+def test_the_row_under_the_mouse_is_marked_and_headings_are_not_picked(qtbot: QtBot) -> None:
+    window, choice = a_choice(qtbot, ["Channels", "out", "mic"])
+    model = choice.model()
+    assert isinstance(model, QStandardItemModel)
+    heading = model.item(0)
+    assert heading is not None
+    heading.setEnabled(False)
+    choice.setCurrentIndex(2)
+    choice.showPopup()
+    view = the_list(window)
+    view.entered.emit(model.index(1, 0))
+    assert view.currentIndex().row() == 1
+    view.entered.emit(model.index(0, 0))
+    assert view.currentIndex().row() == 1
+    view.clicked.emit(model.index(0, 0))
+    assert choice.is_open
+    qtbot.keyClick(view, Qt.Key.Key_Return)
+    assert choice.currentText() == "out"

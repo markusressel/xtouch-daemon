@@ -43,6 +43,10 @@ class Choice(QComboBox):
         layout = QVBoxLayout(popover)
         layout.setContentsMargins(Space.XS, Space.XS, Space.XS, Space.XS)
         view = QListView(popover)
+        set_role(view, "choice")
+        # the row under the mouse is the current one, as in a menu: Enter picks it
+        view.setMouseTracking(True)
+        view.entered.connect(lambda index: self._hover(view, index))
         view.setModel(self.model())
         view.setModelColumn(self.modelColumn())
         view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -76,7 +80,7 @@ class Choice(QComboBox):
         self.list = None
 
     def _pick(self, index: QModelIndex) -> None:
-        if not self.is_open:
+        if not self.is_open or not index.flags() & Qt.ItemFlag.ItemIsEnabled:
             return  # clicked and activated both: picked once
         row = index.row()
         self.hidePopup()
@@ -84,6 +88,11 @@ class Choice(QComboBox):
         self.activated.emit(row)
         self.textActivated.emit(self.itemText(row))
         self.setFocus()
+
+    @staticmethod
+    def _hover(view: QListView, index: QModelIndex) -> None:
+        if index.flags() & Qt.ItemFlag.ItemIsEnabled:
+            view.setCurrentIndex(index)
 
     def _closed(self, popover: QFrame) -> None:
         if self.list is popover:
