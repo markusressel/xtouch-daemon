@@ -70,7 +70,7 @@ def place_of(strip: StripConfig) -> Place | None:
     """None for a strip without a volume."""
     if not isinstance(strip, BaseStripConfig):
         return None
-    # bindings: done by the audio strips (an encoder bound to a program)
+    # an encoder bound to a program follows `Look.parts`, whatever the mode
     encoder = strip.encoder if isinstance(strip.encoder, str) else default_encoder(strip.type, strip.fader)
     return encoder, strip.min_volume, strip.max_volume
 

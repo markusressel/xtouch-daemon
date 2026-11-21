@@ -237,6 +237,7 @@ class AutoStrip(AppStrip):
     def set_look(self, look: Look) -> None:
         # the label is the application's
         self.look = look
+        self._rebind_parts()
 
     def assign(self, app: str | None) -> None:
         if app == self.app:

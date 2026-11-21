@@ -15,6 +15,7 @@ from tests.support.mqtt import FakeBroker
 from tests.support.waiting import until
 from xtouch_daemon import __version__
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.hardware.protocol import Color
 from xtouch_daemon.live.codec import decode
 from xtouch_daemon.live.messages import (
     fingerprint,
@@ -155,3 +156,49 @@ async def test_a_reload_gives_the_bridge_the_new_strips(
     await task
 
     assert "homeassistant/number/xtouch/lights_fader/config" not in broker.retained
+
+
+BOUND = """
+[channel.speakers]
+type = "output"
+device = "speaker"
+label = "Speaker"
+color = "homeassistant"
+lcd = "homeassistant"
+fader = { set = "true {value}", min = 0.1, max = 1.0 }
+
+[slots]
+1 = "speakers"
+
+[mqtt]
+host = "broker"
+"""
+
+
+async def test_the_bound_parts_of_an_audio_channel_are_entities_across_reloads(
+    config_path: Path, surface: RecordingSurface, backend: FakeBackend, broker: FakeBroker
+) -> None:
+    config_path.write_text(BOUND)
+    daemon = make_with_mqtt(config_path, surface, backend, broker)
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: backend.on_state is not None)
+    assert backend.on_state is not None
+    backend.on_state(STATE)
+    await until(lambda: "homeassistant/number/xtouch/speakers_fader/config" in broker.retained)
+    assert "homeassistant/select/xtouch/speakers_color/config" in broker.retained
+    assert "homeassistant/text/xtouch/speakers_bottom/config" in broker.retained
+    broker.publish("homeassistant/select/xtouch/speakers_color/set", "red")
+    broker.publish("homeassistant/text/xtouch/speakers_bottom/set", "Hi")
+    await until(lambda: surface.strips[0].text == ["Speaker", "Hi"])
+    await until(lambda: surface.strips[0].color == Color.RED)
+
+    # without the bindings, the entities go and the strip is what its type is
+    config_path.write_text(BOUND.replace('color = "homeassistant"\nlcd = "homeassistant"\n', ""))
+    assert daemon.reload()
+    await until(lambda: "homeassistant/select/xtouch/speakers_color/config" not in broker.retained)
+    await until(lambda: surface.strips[0].text == ["Speaker", "50%"])
+    # back to the configured color (white)
+    assert surface.strips[0].color == Color.WHITE
+    assert "homeassistant/number/xtouch/speakers_fader/config" in broker.retained
+    daemon.stop()
+    await task

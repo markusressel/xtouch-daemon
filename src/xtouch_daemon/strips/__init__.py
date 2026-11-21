@@ -4,15 +4,17 @@ from typing import assert_never
 
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.config.audio_strips import AppsStripConfig, AutoStripConfig, DeviceStripConfig
-from xtouch_daemon.config.bindings import color_name
-from xtouch_daemon.config.buttons import ButtonName
+from xtouch_daemon.config.bindings import HOME_ASSISTANT, ValueBinding, WatchBinding, color_name
+from xtouch_daemon.config.buttons import BUTTON_NAMES, ButtonName
+from xtouch_daemon.config.strip import BaseStripConfig
 from xtouch_daemon.config.strips import CustomStripConfig, EmptyStripConfig, HomeAssistantStripConfig, StripConfig
-from xtouch_daemon.config.values import MeterPoint, default_encoder
+from xtouch_daemon.config.values import EncoderMode, MeterPoint, default_encoder
 from xtouch_daemon.config.voip_strips import VoipStripConfig
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.strips.apps import AppGroupStrip, AppStrip, AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
+from xtouch_daemon.strips.bound import Parts
 from xtouch_daemon.strips.custom import CustomStrip
 from xtouch_daemon.strips.device import ChoiceStrip, DeviceStrip
 from xtouch_daemon.strips.homeassistant import HomeAssistantControls, HomeAssistantStrip
@@ -44,7 +46,7 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
         case VoipStripConfig():
             return Look(config.label, config.color, config.meter, meter_point)
         case DeviceStripConfig() | AppsStripConfig() | AutoStripConfig():
-            # bindings: done by the audio strips (a bound color or meter: white, and no meter of the audio)
+            # a bound color is white until it is known; a bound meter shows no audio
             return Look(
                 config.label if not isinstance(config, AutoStripConfig) else None,
                 color_name(config.color),
@@ -52,9 +54,48 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
                 meter_point,
                 {button: config.button(name) for button, name in BUTTONS.items()},
                 config.lit_when_idle,
+                parts_of(config),
             )
         case _ as unreachable:
             assert_never(unreachable)
+
+
+def parts_of(config: BaseStripConfig) -> Parts:
+    """The parts of an audio strip that are bound (`config.bindings`)."""
+    return Parts(
+        config.fader if isinstance(config.fader, ValueBinding) else None,
+        config.encoder if isinstance(config.encoder, ValueBinding) else None,
+        config.lcd,
+        config.color if config.color == HOME_ASSISTANT or isinstance(config.color, WatchBinding) else None,
+        config.meter if not isinstance(config.meter, bool) else None,
+    )
+
+
+def home_assistant_controls(
+    config: BaseStripConfig, strip: Strip, env: StripEnv, identity: Identity, encoder: EncoderMode
+) -> HomeAssistantControls | None:
+    """
+    The parts of an audio strip in Home Assistant, and the numbers there of the values of its programs (with `[mqtt]`
+    only); None for a strip without any.
+    """
+    bridge = env.bridge
+    values = {name: part for name in ("fader", "encoder") if isinstance(part := getattr(config, name), ValueBinding)}
+    if bridge is None or not (config.uses_home_assistant or values):
+        return None
+    return HomeAssistantControls(
+        strip,
+        env,
+        bridge,
+        identity,
+        fader=config.fader == HOME_ASSISTANT,
+        encoder=encoder == HOME_ASSISTANT,
+        buttons=config.home_assistant_buttons,
+        lcd=config.lcd == HOME_ASSISTANT,
+        color=config.color == HOME_ASSISTANT,
+        meter=config.meter == HOME_ASSISTANT,
+        leds=tuple(name for name in BUTTON_NAMES if config.button(name).led == HOME_ASSISTANT),
+        values=values,
+    )
 
 
 def launch_button(config: StripConfig, identity: Identity, env: StripEnv) -> LaunchButton | None:
@@ -87,20 +128,14 @@ def build_strip(
         return HomeAssistantStrip(strip, env, env.bridge, identity, look)
     if isinstance(config, CustomStripConfig):
         return CustomStrip(strip, env, identity, look, config, env.commands)
-    # bindings: done by the audio strips (a fader or an encoder bound to a program)
-    encoder = config.encoder if isinstance(config.encoder, str) else default_encoder(config.type, config.fader)
-    controls = None
-    if config.uses_home_assistant:
-        assert env.bridge is not None, "the configuration has no strips in Home Assistant without [mqtt]"
-        controls = HomeAssistantControls(
-            strip,
-            env,
-            env.bridge,
-            identity,
-            fader=config.fader == "homeassistant",
-            encoder=encoder == "homeassistant",
-            buttons=config.home_assistant_buttons,
-        )
+    # an encoder bound to a program does what its binding says (`Look.parts`), whatever its mode
+    encoder = (
+        default_encoder(config.type, config.fader)
+        if config.encoder is None or isinstance(config.encoder, ValueBinding)
+        else config.encoder
+    )
+    # without a bridge (Simulate) the parts in Home Assistant stay as while it is not connected
+    controls = home_assistant_controls(config, strip, env, identity, encoder)
     match config:
         case DeviceStripConfig(choices=choices) if choices:
             controller: VolumeStrip = ChoiceStrip(
@@ -156,6 +191,7 @@ def build_strip(
             )
         case _ as unreachable:
             assert_never(unreachable)
+    controller.fader_in_home_assistant = config.fader == HOME_ASSISTANT
     if isinstance(controller, AppStrip):
         controller.launch = launch_button(config, identity, env)
     return controller

@@ -12,14 +12,16 @@ A strip that belongs to Home Assistant: every part of it is an entity there, and
 
 The buttons don't switch their LEDs: an automation that wants a toggle reacts to the event and sets the LED.
 
-Audio strips can have their fader or their encoder in Home Assistant too (`fader`/`encoder = "homeassistant"`):
-`HomeAssistantControls` makes the same `number` entities for them, and an `event` entity for the encoder push and
-the touches of the fader.
+Audio strips can have parts in Home Assistant too (`fader`, `encoder`, `lcd`, `color`, `meter`, the `led` of a button
+= "homeassistant"): `HomeAssistantControls` makes the same entities for them, and an `event` entity for the encoder
+push, the touches of the fader and the presses of buttons. A fader or an encoder bound to a program of your own is a
+`number` there too, from the `min` to the `max` of its binding: a change there sets the value (`ValueLink`).
 """
 
 import asyncio
 import dataclasses
-from collections.abc import Callable
+import math
+from collections.abc import Callable, Mapping
 from typing import get_args
 
 from haad_mqtt_autodiscovery.entity import MQTTEntity
@@ -30,15 +32,16 @@ from haad_mqtt_autodiscovery.entity.text import MQTTText, MQTTTextPayload
 
 from xtouch_daemon.audio.meter import Lit
 from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.config.bindings import ValueBinding
 from xtouch_daemon.config.values import ColorName, MeterPoint, color_of
 from xtouch_daemon.hardware.protocol import LCD_CELL_WIDTH, METER_MAX, RING_MAX, Button, Led, RingMode
 from xtouch_daemon.hardware.strip import Strip
 from xtouch_daemon.mqtt import MqttBridge
-from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv
+from xtouch_daemon.strips.base import OFFLINE_TEXT, Identity, Look, StripController, StripEnv
+from xtouch_daemon.strips.value import CommandValue
 
 FADER_PUBLISH_INTERVAL = 0.1
 """How often a fader moved by hand publishes its value: Home Assistant and its automations don't need every step."""
-OFFLINE_TEXT = "offline"
 COLORS: dict[str, ColorName] = {name: name for name in get_args(ColorName)}
 EVENT_TYPES = [
     *(f"{button.name.lower()}_{action}" for button in Button for action in ("pressed", "released")),
@@ -129,6 +132,44 @@ class StripEntities:
             unit_of_measurement="%",
         )
 
+    def value_number(self, suffix: str, binding: ValueBinding, step: float) -> MQTTNumber:
+        """A value of programs of your own (`fader`, `encoder`): from its `min` to its `max`, in steps of `step`."""
+        return MQTTNumber(
+            self.namespace,
+            f"{self.strip_id}_{suffix}",
+            f"{self.title} {suffix}",
+            device=self.device,
+            min_val=binding.min,
+            max_val=binding.max,
+            step=step,
+            mode="slider",
+        )
+
+    def line(self, suffix: str) -> LcdText:
+        """A line of the LCD (`top`, `bottom`)."""
+        return LcdText(self.namespace, f"{self.strip_id}_{suffix}", f"{self.title} {suffix} line", device=self.device)
+
+    def color(self) -> MQTTSelect:
+        """The color of the LCD."""
+        return MQTTSelect(
+            self.namespace,
+            f"{self.strip_id}_color",
+            f"{self.title} color",
+            options=list(COLORS),
+            icon="mdi:palette",
+            device=self.device,
+        )
+
+    def led(self, name: str) -> MQTTSelect:
+        """The LED of a button (`select`, `mute`, ...)."""
+        return MQTTSelect(
+            self.namespace,
+            f"{self.strip_id}_{name}_led",
+            f"{self.title} {name} LED",
+            options=list(LEDS),
+            device=self.device,
+        )
+
     def events(self, event_types: list[str]) -> MQTTEvent:
         return MQTTEvent(
             self.namespace,
@@ -193,11 +234,56 @@ class EncoderLink:
         self.out.cancel()
 
 
+class ValueLink:
+    """
+    A value of programs of your own as a number of Home Assistant (`number.<ns>_<id>_fader`, `_encoder`): a change
+    there sets the value (it runs `set`, as a move does), and the number follows the value. `attach()` gives it the
+    value of the controller.
+    """
+
+    def __init__(self, bridge: MqttBridge, entity: MQTTNumber):
+        self.bridge = bridge
+        self.entity = entity
+        self.out = LatestValue(entity, FADER_PUBLISH_INTERVAL)
+        self.value: CommandValue | None = None
+        bridge.watch_commands(entity, self._commanded)
+
+    def attach(self, value: CommandValue | None) -> None:
+        if value is self.value:
+            return
+        if self.value is not None:
+            self.value.listeners.remove(self.publish)
+        self.value = value
+        if value is not None:
+            value.listeners.append(self.publish)
+            self.publish()
+
+    def publish(self) -> None:
+        """Home Assistant shows the value: a state that says otherwise is put right."""
+        value = self.value.value if self.value is not None else None
+        if value is not None and self.bridge.ready and self.out.current != value:
+            self.out.set(value)
+
+    def _commanded(self, payload: str) -> None:
+        try:
+            wanted = float(payload)
+        except ValueError:
+            return
+        if self.value is not None:
+            self.value.set(wanted)
+
+    def close(self) -> None:
+        self.attach(None)
+        self.out.cancel()
+
+
 class HomeAssistantControls:
     """
-    The fader and/or the encoder of an audio strip in Home Assistant (`fader`/`encoder = "homeassistant"`), with an
-    event entity for the touches of the fader, the push of the encoder and the presses of `buttons` (those with
-    `press = "homeassistant"`). `on_change` is called when Home Assistant changes them.
+    The parts of an audio strip in Home Assistant: the fader and/or the encoder (`fader`/`encoder = "homeassistant"`),
+    the second line of the LCD (`lcd`), its color (`color`), the meter (`meter`) and the LEDs of `leds`, with an event
+    entity for the touches of the fader, the push of the encoder and the presses of `buttons` (those with `press =
+    "homeassistant"`). A fader or an encoder bound to a program (`values`) is a number there too. `on_change` is called
+    when Home Assistant changes them.
     """
 
     def __init__(
@@ -209,6 +295,12 @@ class HomeAssistantControls:
         fader: bool,
         encoder: bool,
         buttons: tuple[str, ...] = (),
+        *,
+        lcd: bool = False,
+        color: bool = False,
+        meter: bool = False,
+        leds: tuple[str, ...] = (),
+        values: Mapping[str, ValueBinding] | None = None,
     ):
         self.bridge = bridge
         self.on_change: Callable[[], None] = lambda: None
@@ -220,11 +312,37 @@ class HomeAssistantControls:
             *(["encoder_pressed", "encoder_released"] if encoder else []),
             *(f"{button}_{action}" for button in buttons for action in ("pressed", "released")),
         ]
-        self.events = entities.events(event_types)
+        self.events = entities.events(event_types) if event_types else None
+        """The events of the device, None without any."""
+        self.bottom = entities.line("bottom") if lcd else None
+        self.color = entities.color() if color else None
+        self.meter = entities.number("meter") if meter else None
+        self.leds = {name: entities.led(name) for name in leds}
+        """The LEDs of the buttons, by name (`select`)."""
+        self.values = {
+            name: ValueLink(bridge, entities.value_number(name, binding, _value_step(name, binding, env)))
+            for name, binding in (values or {}).items()
+        }
+        """The values of programs of your own, by part (`fader`, `encoder`)."""
         self.numbers = [link.entity for link in (self.fader, self.encoder) if link is not None]
-        self.entities: dict[MQTTEntity, str | None] = {**dict.fromkeys(self.numbers, "0"), self.events: None}
-        for entity in self.numbers:
-            bridge.watch(entity, lambda _: self.on_change())
+        self.entities: dict[MQTTEntity, str | None] = {
+            **dict.fromkeys(self.numbers, "0"),
+            **({self.bottom: ""} if self.bottom is not None else {}),
+            **({self.color: "white"} if self.color is not None else {}),
+            **({self.meter: "0"} if self.meter is not None else {}),
+            **dict.fromkeys(self.leds.values(), "off"),
+            # the value is the programs': the number gets it once it is known
+            **dict.fromkeys((link.entity for link in self.values.values()), None),
+            **({self.events: None} if self.events is not None else {}),
+        }
+        for entity in self.entities:
+            if entity is not self.events:
+                bridge.watch(entity, lambda _: self._changed())
+
+    def _changed(self) -> None:
+        for link in self.values.values():
+            link.publish()
+        self.on_change()
 
     @property
     def connected(self) -> bool:
@@ -232,12 +350,59 @@ class HomeAssistantControls:
         links = [link for link in (self.fader, self.encoder) if link is not None]
         return self.bridge.ready and None not in [link.out.current for link in links]
 
+    def attach(self, fader: CommandValue | None, encoder: CommandValue | None) -> None:
+        """The values of the fader and the encoder bound to programs, for their numbers."""
+        for name, value in (("fader", fader), ("encoder", encoder)):
+            if (link := self.values.get(name)) is not None:
+                link.attach(value)
+
+    def bottom_text(self) -> str:
+        """The second line of the LCD as Home Assistant sets it; `offline` while it is not there."""
+        if self.bottom is None or not self.connected:
+            return OFFLINE_TEXT
+        return self.bottom.target_state or ""
+
+    def color_name(self, default: ColorName) -> ColorName:
+        """The color of the LCD as Home Assistant sets it; `default` while it is not there, or for no color."""
+        if self.color is None or not self.connected:
+            return default
+        return COLORS.get(self.color.target_state or "", default)
+
+    def meter_level(self) -> Lit | None:
+        """The level of the meter, 0..100 % over its LEDs; None while Home Assistant is not there."""
+        return _lit(self.meter.target_state) if self.meter is not None and self.connected else None
+
+    def led(self, name: str) -> Led:
+        """The LED of a button as Home Assistant sets it; off while it is not there."""
+        entity = self.leds.get(name)
+        if entity is None or not self.connected:
+            return Led.OFF
+        return LEDS.get(entity.target_state or "", Led.OFF)
+
     def close(self) -> None:
-        for link in (self.fader, self.encoder):
+        for link in (self.fader, self.encoder, *self.values.values()):
             if link is not None:
                 link.close()
         for entity in self.entities:
             self.bridge.unwatch(entity)
+
+
+def _value_step(name: str, binding: ValueBinding, env: StripEnv) -> float:
+    """
+    The step of the number of a value: an encoder's step (as `CommandValue` computes it), a fader's 0.1 % of the range
+    as a power of ten (0.1 for 0..100, 0.001 for 0.1..1), so the slider of Home Assistant sends round values.
+    """
+    span = binding.max - binding.min
+    if name == "encoder":
+        # rounded off: 0.9 * 5 / 100 is 0.045000000000000005
+        return binding.step if binding.step is not None else round(span * env.behavior.encoder_step / 100, 9)
+    return 10.0 ** round(math.log10(span / 1000))
+
+
+def _lit(text: str | None) -> Lit | None:
+    """A level of 0..100 % over the LEDs of the meter: 100 % lights all of them, the red one too."""
+    percent = _value(text)
+    return None if percent is None else Lit(round(max(0.0, min(100.0, percent)) / 100 * METER_MAX))
 
 
 class HomeAssistantStrip(StripController):
@@ -255,28 +420,16 @@ class HomeAssistantStrip(StripController):
         self.default_label = look.label or ""
         self.default_color: ColorName = look.color
         entities = StripEntities(bridge, identity)
-        namespace, device, title, strip_id = entities.namespace, entities.device, entities.title, identity.id
-
-        def line(suffix: str) -> LcdText:
-            return LcdText(namespace, f"{strip_id}_{suffix}", f"{title} {suffix} line", device=device)
-
-        def led(button: Button) -> MQTTSelect:
-            name = button.name.lower()
-            return MQTTSelect(
-                namespace, f"{strip_id}_{name}_led", f"{title} {name} LED", options=list(LEDS), device=device
-            )
 
         self.fader_link = FaderLink(strip, entities.number("fader"))
         self.encoder_link = EncoderLink(strip, entities.number("encoder"), env.behavior.encoder_step)
         self.fader = self.fader_link.entity
         self.encoder = self.encoder_link.entity
         self.meter_level = entities.number("meter")
-        self.top = line("top")
-        self.bottom = line("bottom")
-        self.lcd_color = MQTTSelect(
-            namespace, f"{strip_id}_color", f"{title} color", options=list(COLORS), icon="mdi:palette", device=device
-        )
-        self.leds = {button: led(button) for button in Button}
+        self.top = entities.line("top")
+        self.bottom = entities.line("bottom")
+        self.lcd_color = entities.color()
+        self.leds = {button: entities.led(button.name.lower()) for button in Button}
         self.buttons = entities.events(EVENT_TYPES)
         self._entities: dict[MQTTEntity, str | None] = {
             self.fader: "0",
@@ -344,10 +497,7 @@ class HomeAssistantStrip(StripController):
         The level of the meter entity: 0..100 % over the levels of the meter, 100 % lights all LEDs (the red one too),
         nothing while not connected. Home Assistant sets the level, so the meter point means nothing here.
         """
-        percent = _value(self.meter_level.target_state)
-        if not self.connected or percent is None:
-            return None
-        return Lit(round(max(0.0, min(100.0, percent)) / 100 * METER_MAX))
+        return _lit(self.meter_level.target_state) if self.connected else None
 
     # -- the device -----------------------------------------------------------------------------------------------
 
