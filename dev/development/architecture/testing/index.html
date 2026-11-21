@@ -497,6 +497,8 @@
       
         
       
+        
+      
     
     
     
@@ -610,6 +612,33 @@
     
   
   Mumble
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/teamspeak/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  TeamSpeak
 
     
   </span>
@@ -1329,6 +1358,8 @@
       
         
       
+        
+      
     
     
     
@@ -1675,6 +1706,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../teamspeak-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  TeamSpeak plugin
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../haad-controller/" class="md-nav__link">
         
   
@@ -1742,10 +1800,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
         
           
-          <label class="md-nav__link" for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
             
   
   
@@ -1763,8 +1821,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_5">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_6">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -1808,7 +1866,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6_1" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1829,15 +1887,15 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7_5_1" id="__nav_7_5_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7_6_1" id="__nav_7_6_1_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
         
-          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_5_1_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_5_1">
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_6_1_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_6_1">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -2410,10 +2468,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
             
   
   
@@ -2431,8 +2489,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -2766,6 +2824,8 @@
       
         
       
+        
+      
     
     
     
@@ -2893,6 +2953,10 @@ line and branch coverage, or below 98 % without the Qt widgets (<code>gui/qt</co
 <tr>
 <td>The Mumble plugin</td>
 <td>Built with CMake and loaded into a fake Mumble (<code>integrations/mumble/test/fake_mumble.c</code>) that calls its callbacks as a script says, against a real <code>BridgeProvider</code>. Skipped without cmake and a C compiler.</td>
+</tr>
+<tr>
+<td>The TeamSpeak plugin</td>
+<td>The same with a fake TeamSpeak (<code>integrations/teamspeak/test/fake_teamspeak.c</code>), which aborts on a call into TeamSpeak from a callback. Skipped without cmake and a C compiler, or without TeamSpeak's plugin SDK, which the first build downloads.</td>
 </tr>
 <tr>
 <td>The GUI</td>

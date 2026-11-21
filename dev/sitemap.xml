@@ -145,6 +145,9 @@
         <loc>https://markusressel.github.io/xtouch-daemon/latest/development/mumble-plugin/</loc>
       </url>
       <url>
+        <loc>https://markusressel.github.io/xtouch-daemon/latest/development/teamspeak-plugin/</loc>
+      </url>
+      <url>
         <loc>https://markusressel.github.io/xtouch-daemon/latest/getting-started/first-steps/</loc>
       </url>
       <url>
@@ -164,6 +167,9 @@
       </url>
       <url>
         <loc>https://markusressel.github.io/xtouch-daemon/latest/guides/mumble/</loc>
+      </url>
+      <url>
+        <loc>https://markusressel.github.io/xtouch-daemon/latest/guides/teamspeak/</loc>
       </url>
       <url>
         <loc>https://markusressel.github.io/xtouch-daemon/latest/guides/troubleshooting/</loc>

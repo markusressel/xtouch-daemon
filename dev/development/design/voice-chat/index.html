@@ -497,6 +497,8 @@
       
         
       
+        
+      
     
     
     
@@ -610,6 +612,33 @@
     
   
   Mumble
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/teamspeak/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  TeamSpeak
 
     
   </span>
@@ -1329,6 +1358,8 @@
       
         
       
+        
+      
     
     
     
@@ -1604,6 +1635,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../teamspeak-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  TeamSpeak plugin
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../haad-controller/" class="md-nav__link">
         
   
@@ -1673,10 +1731,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
             
   
   
@@ -1694,8 +1752,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="true">
-            <label class="md-nav__title" for="__nav_7_5">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_7_6">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -1739,7 +1797,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6_1" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1760,15 +1818,15 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7_5_1" id="__nav_7_5_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7_6_1" id="__nav_7_6_1_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
         
-          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_5_1_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_5_1">
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_6_1_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_6_1">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -2421,10 +2479,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
             
   
   
@@ -2442,8 +2500,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -2788,6 +2846,8 @@
       
         
       
+        
+      
     
     
     
@@ -2906,7 +2966,8 @@
 
 
 <h1 id="design-the-voice-chat">Design: the voice chat<a class="headerlink" href="#design-the-voice-chat" title="Permanent link">&para;</a></h1>
-<p>Status: built. How to use it: <a href="../../../configuration/channels/people/">People</a> and <a href="../../../guides/mumble/">Mumble</a>;
+<p>Status: built. How to use it: <a href="../../../configuration/channels/people/">People</a>, <a href="../../../guides/mumble/">Mumble</a> and
+<a href="../../../guides/teamspeak/">TeamSpeak</a>;
 the protocol of the bridge: <a href="../../../reference/voice-chat-bridge/">The voice chat bridge</a>. First designed with the
 <a href="../../history/layouts/">layouts</a>.</p>
 <p>The wish: a strip per participant of the voice chat, with their level on the meter and their volume on the fader.</p>
@@ -2950,9 +3011,10 @@ outside for TeamSpeak (ClientQuery) and Discord (RPC), not for Mumble.</p>
 <h2 id="a-provider-and-a-bridge">A provider, and a bridge<a class="headerlink" href="#a-provider-and-a-bridge" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>graph LR
     Mumble[Mumble + plugin] -- "JSON lines" --&gt; Bridge
+    TeamSpeak[TeamSpeak 3 + plugin] -- "JSON lines" --&gt; Bridge
     Bridge[BridgeProvider&lt;br/&gt;$XDG_RUNTIME_DIR/xtouch-daemon-voip.sock] --&gt; Strips[strips of people]
     Demo[DemoProvider] --&gt; Strips
-    Later[later: TeamSpeak, Discord] -.-&gt; Strips</code></pre>
+    Later[later: Discord] -.-&gt; Strips</code></pre>
 <ul>
 <li><code>VoipProvider</code> (<code>voip/provider.py</code>): a snapshot of <code>Participant</code>s (id, name, talking, muted, volume, level),
   <code>connected</code>, an <code>on_change</code> callback, <code>set_volume()</code>, <code>set_muted()</code>, <code>run()</code>, and what it can do (capabilities:

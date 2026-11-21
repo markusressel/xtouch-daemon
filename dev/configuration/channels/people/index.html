@@ -497,6 +497,8 @@
       
         
       
+        
+      
     
     
     
@@ -610,6 +612,33 @@
     
   
   Mumble
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/teamspeak/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  TeamSpeak
 
     
   </span>
@@ -1422,6 +1451,8 @@
       
         
       
+        
+      
     
     
     
@@ -1697,6 +1728,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../development/teamspeak-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  TeamSpeak plugin
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../development/haad-controller/" class="md-nav__link">
         
   
@@ -1764,10 +1822,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
         
           
-          <label class="md-nav__link" for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
             
   
   
@@ -1785,8 +1843,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_5">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_6">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -1830,7 +1888,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6_1" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1851,15 +1909,15 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7_5_1" id="__nav_7_5_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7_6_1" id="__nav_7_6_1_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
         
-          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_5_1_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_5_1">
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_6_1_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_6_1">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -2432,10 +2490,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
             
   
   
@@ -2453,8 +2511,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -2883,7 +2941,8 @@
 
 
 <h1 id="people-and-the-voice-chat">People and the voice chat<a class="headerlink" href="#people-and-the-voice-chat" title="Permanent link">&para;</a></h1>
-<p>The people of the voice chat come from the provider of <a href="#voice-chat"><code>[voip]</code></a> (by default the Mumble plugin). They
+<p>The people of the voice chat come from the provider of <a href="#voice-chat"><code>[voip]</code></a> (by default the plugin of Mumble or
+TeamSpeak). They
 sit on the slots that show the pool <code>people</code>, and share the slots of <code>auto</code> with the applications: people from the
 right, in their order, applications from the left (see <a href="#where-people-sit">Where people sit</a>). Someone who should
 always have a strip of their own gets a <a href="#strips-for-one-person"><code>person</code> channel</a>.</p>
@@ -3018,15 +3077,15 @@ the people (of <code>people</code> and <code>auto</code>) as itself; <code>in_po
 </tbody>
 </table>
 <p>Without the section, its defaults apply. None of the voice chat clients tells another program the volume of each
-person, so the daemon can't read them from PipeWire: they all come out of one stream. Mumble has a
-plugin API that can, and the bridge is what such a plugin talks to. For Mumble there is one: see
-<a href="../../../guides/mumble/">Mumble</a>, which the GUI installs with a click. Other clients, TeamSpeak included, are not
-supported yet; open an issue if you need one.</p>
+person, so the daemon can't read them from PipeWire: they all come out of one stream. Mumble and TeamSpeak 3 have
+plugin APIs that can, and the bridge is what such a plugin talks to. There is a plugin for each: see
+<a href="../../../guides/mumble/">Mumble</a>, which the GUI installs with a click, and <a href="../../../guides/teamspeak/">TeamSpeak</a>.
+Other clients, e.g. Discord, are not supported yet; open an issue if you need one.</p>
 <p>The state <code>voice_chat = true</code> (see <a href="../../slots/#states-and-modes">States and modes</a>) is on while you are in a channel of
 the voice chat. With plugins of several clients connected, the strips show the people of all of them, and the state
 is on while you are in a channel of any of them.</p>
 <p>A plugin for another client speaks the <a href="../../../reference/voice-chat-bridge/">bridge protocol</a>.</p>
-<p>Next: <a href="../../../guides/mumble/">Mumble</a> for the plugin, <a href="../../slots/#pools-of-applications-and-of-people">slots</a> for pools of people of your own.</p>
+<p>Next: <a href="../../../guides/mumble/">Mumble</a> or <a href="../../../guides/teamspeak/">TeamSpeak</a> for the plugin, <a href="../../slots/#pools-of-applications-and-of-people">slots</a> for pools of people of your own.</p>
 
 
 
