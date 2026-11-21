@@ -1,21 +1,21 @@
 # Devices: `output` and `input` channels
 
 A device channel controls an output (a sink) or an input (a source): one device, one of several, or whatever is the
-default. With [`choices`](#choices), Select switches between several devices, each maybe in a profile of its sound
+default. With [`choices`](#choices), Select switches between several devices, each optionally in a profile of its sound
 card.
 
 | Option | Default | Meaning |
 |---|---|---|
 | `type` | required | `"output"` or `"input"`. |
-| `device` | the default device | The node name ([`xtouch-daemon list-devices`](../../reference/commands.md)) or the description of the device, or a list of them; `*` is a wildcard. Without it, the strip follows whatever device is the default. |
-| `label` | see [Labels](index.md#labels) | The top line of the LCD. With `profiles`, the label of the active profile comes first. |
+| `device` | the default device | The node name or the description of the device (both are in the output of [`xtouch-daemon list-devices`](../../reference/commands.md)), or a list of them. `*` and `?` are wildcards (`*` matches any text, `?` one character). Without `device`, the strip follows whichever device is the default at the moment. |
+| `label` | see [Labels](index.md#labels) | The top line of the LCD. With `profiles` or `choices`, the label of the active profile or choice wins over this `label`. |
 | `select`, `rec`, `solo` | see [Buttons](../strip/leds.md#buttons) | What the buttons do and what their LEDs show. By default Select makes the device the default (with `device` or `choices`) and Rec switches `profiles`. |
-| `choices` | none | The devices Select switches between, each maybe in a profile of its card, see [below](#choices). Instead of `device` and `profiles`. |
+| `choices` | none | The devices Select switches between, each optionally in a profile of its card, see [below](#choices). Instead of `device` and `profiles`. |
 | `profiles` | none | Profiles of the device's sound card that Rec switches between, see [below](#profiles). |
 | `encoder` | `"balance"` | `balance` or `volume`, see [Encoders](../strip/encoders.md). |
 
 They also have the [options of every audio channel](index.md#options-of-every-audio-channel): `color`, `meter`, `rec`,
-`solo`, `min_volume`, `max_volume`.
+`solo`, `min_volume`, `max_volume`. `rec`, `solo` and `select` work as [Buttons](../strip/leds.md#buttons) describes.
 
 ```toml
 [channel.out]
@@ -41,32 +41,36 @@ color = "red"
 | Solo | Its LED is an [indicator](../strip/leds.md#indicators). |
 | Select | With `device`: makes the device the default output/input, or switches to the next of several. With `choices`: the next choice. The LED is on while it is the default. |
 
-That is what the buttons do by default; [Buttons](../strip/leds.md#buttons) gives them other actions, and a hold:
-e.g. `next` shows the next device without making it the default, `talk` unmutes an input while held.
 | LCD | Top: the label. Bottom: the volume, or `muted`. |
-| Ring | What the encoder controls. |
+| Ring | The LEDs around the encoder show the value the encoder sets. |
 | Meter | The level: what plays on an output, what an input records. |
+
+That is what the buttons do by default. [Buttons](../strip/leds.md#buttons) gives them other actions, and a second
+action for a hold (pressing and holding the button). For example `next` shows the next device without making it the
+default, and `talk` unmutes an input while you hold the button.
 
 A device that is not there (e.g. Bluetooth headphones that are switched off) shows `off` on a dark LCD. Its fader goes
 down, and the fader and buttons do nothing until it is back.
 
 ## The default device
 
-A strip without `device` looks up the default device in every state of the sound server. It follows a switch of the
-default, including its meter. Its Select button does nothing.
+A strip without `device` always controls whichever device the sound server has set as the default. When the default
+changes (for example you plug in a headset), the strip follows it, including its meter. Select does nothing on such a
+strip, because the strip has no device of its own to make the default.
 
 ## Naming a device
 
 `xtouch-daemon list-devices` lists the node names and descriptions of the outputs and inputs; `*` marks the defaults.
 
-Use the node name for a device that is both an output and an input under one description, e.g. Bluetooth headphones
-with a microphone. A description matches only devices of the strip's direction, but a node name is unambiguous and
-stays the same across restarts.
+A strip only looks at devices of its own direction: an `output` channel matches outputs, an `input` channel
+inputs. So a description that two devices share (Bluetooth headphones with a microphone have one description for both)
+still finds the right one. A node name names one device and stays the same across restarts, while a description can be the same for
+several devices. Use the node name when you want one device for sure.
 
 ## Several devices
 
-`device` takes a list, and `*` wildcards match several devices. Wildcards work on node names and descriptions, and
-are case-sensitive.
+`device` takes a list, and `*` wildcards match several devices. Wildcards (`*` and `?`) work on node names and
+descriptions, and are case-sensitive.
 
 ```toml
 [channel.phones]
@@ -87,10 +91,15 @@ default. Without `label`, the LCD shows which one it is.
 
 ## Devices without a channel
 
-The built-in pool `devices` holds the outputs and inputs that no `output` or `input` channel has, e.g. a USB headset
-or Bluetooth speakers. A channel has the devices its `device` matches; a channel without `device` has the default
-device of its direction. A slot that names `devices` shows the next of them as an `output` or `input` strip of that
-one device: its volume on the fader, Mute, Select makes it the default. `auto` doesn't take devices.
+The built-in pool `devices` holds the outputs and inputs that no `output` or `input` channel owns, for example a USB
+headset or Bluetooth speakers. A channel owns a device in two cases:
+
+- The `device` of the channel matches it.
+- The channel has no `device` and the device is the default of its direction. So with a bare `[channel.out]` of type
+  `output`, the current default output is never in the pool.
+
+A slot that names `devices` shows the next device of the pool as an `output` or `input` strip of that one device: its
+volume on the fader, Mute, and Select makes it the default. `auto` doesn't take devices.
 
 ```toml
 [slots]
@@ -109,7 +118,8 @@ audio channel, `encoder` (`balance` or `volume`), `min_volume`, `max_volume`, an
 the device the default).
 
 A device that goes away stays on its slot for `hold` seconds (its strip shows `off`), so a short drop of a Bluetooth
-link doesn't move the strips. `present(devices)` holds while a device of the pool is there.
+link doesn't move the strips. In a condition, `devices if present` and `present(devices)` hold while a device of the pool is there (see
+[Conditions](../slots.md#conditions)).
 
 ## Choices
 
@@ -146,7 +156,7 @@ to read for long ones.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `device` | required | The node name or description of the device; `*` and `?` are wildcards (the first device that matches). |
+| `device` | required | The node name or description of the device; `*` and `?` are wildcards, as above (the first device that matches). |
 | `label` | the start of the description | The top line of the LCD while this choice is active (7 characters). |
 | `card` | none | The sound card whose `profile` the choice needs: its name or description, wildcards allowed. Only with `profile`. |
 | `profile` | none | The name or description of the profile of `card` the device is in. Only with `card`. Without both the device is used as it is. |
@@ -156,20 +166,23 @@ to read for long ones.
 `xtouch-daemon list-devices` lists the devices, then each sound card (its name, its description and its devices)
 with its profiles (name and description; `*` marks the active one): that is where `card` and `profile` come from.
 A device of another profile appears only once the card is in that profile, so write its name as the sound server
-will call it (usually `alsa_output.<card>.<profile output>`, e.g. `iec958-stereo`), or use a wildcard.
+will call it, or use a wildcard. The name is `alsa_output.` plus the card name without `alsa_card.`, a dot, and the output
+part of the profile. Example: for the card `alsa_card.pci-0000_11_00.4` and the profile
+`output:iec958-stereo+input:analog-stereo`, the device is `alsa_output.pci-0000_11_00.4.iec958-stereo`.
 
 - **Which one shows:** the choice whose device is the default. If none of them is, the one shown last (if it is still
   there), or else the first one there is. A choice is there when its device is, or when its card is there and has
   its profile.
 - **Select** goes to the next choice that is there, after the one shown, and around. A choice in another profile
   switches the card first, then its device becomes the default. The label shows the choice at once; if a switch
-  fails, the strip goes back. Pressed again while a switch is on its way, Select goes on from where that one goes,
-  so a few quick presses step through the choices. Pressed on a choice that is shown but isn't the default, it
+  fails, the strip goes back. A switch of the card takes a moment. If you press Select again during it, the second press moves on to the choice
+  after the one being switched to. So a few quick presses step through the choices. Pressed on a choice that is shown but isn't the default, it
   makes that one the default first.
 - **The LED** of Select is on while the device of the choice is the default. Rec keeps its
   [indicator](../strip/leds.md#indicators) (`rec`).
-- **Without making it the default:** `select = { hold = "next" }` (or `press = "next"`) shows the next choice whose
-  device is there; the default stays, until it changes. See [Buttons](../strip/leds.md#buttons).
+- **Without making it the default:** give Select the action `next`. It shows the next choice whose device is there, and
+  the default stays as it is. Example: `select = { hold = "next" }` does this while you hold the button for half a
+  second (`press = "next"` does it at a press). See [Buttons](../strip/leds.md#buttons). See [Buttons](../strip/leds.md#buttons).
 - **Elsewhere:** a default chosen elsewhere (pavucontrol, headphones that connect and become the default) shows on
   the strip if it is one of the choices.
 - Two choices on the same card in the same profile only switch the default.
@@ -179,12 +192,16 @@ will call it (usually `alsa_output.<card>.<profile output>`, e.g. `iec958-stereo
   something else then.
 - With [`[mqtt]`](../../guides/home-assistant.md#choices), Home Assistant has a select for the choice.
 
-At least two choices, and not together with `device` or `profiles`; a button must switch between them (`default` or
-`next`), so `select = false` needs another button that does.
-In the GUI, `device` and `choices` are one list, Device: it writes `device` while its entries are devices alone, and
-`choices` once one has a label, a profile or a volume range.
-`profiles` (below) still works, but `choices` does the same with one button; the GUI shows `profiles` only for a channel
-that has it.
+Rules for `choices`:
+
+- Write at least two choices.
+- Do not combine `choices` with `device` or `profiles`.
+- One button must switch between the choices (`default` or `next`, see [Buttons](../strip/leds.md#buttons)). If you
+  turn Select off with `select = false`, another button must do it.
+
+`profiles` (below) still works, but `choices` does the same with one button. In the GUI, `device` and `choices` are
+one list, Device: it writes `device` while its entries are devices alone, and `choices` once one has a label, a
+profile or a volume range. The GUI shows `profiles` only for a channel that has it.
 
 ## Profiles
 
@@ -210,10 +227,11 @@ profiles = [
 | `max_volume` | the strip's | The volume of the fader at the top in this profile, e.g. 200 for weak speakers. |
 
 - At least two profiles: one alone has nothing to switch to.
-- The label changes on the press of Rec. In a profile that isn't in the list, the strip's `label` shows.
-- The Rec LED is on for every profile but the first, so `rec` can't be set on a strip with profiles.
+- The label changes when you press Rec. While the card is in a profile that isn't in the list, the strip's `label` shows.
+- Rec is taken by the profiles (its LED is on for every profile but the first), so you can't set `rec` on a strip with
+  profiles.
 - If the old device was the default, the new one becomes the default.
 - Each device has its own volume: the fader moves to the volume of the new one.
-- A card in a profile that isn't in the list switches to the first one.
+- When you press Rec while the card is in a profile that isn't in the list, it switches to the first profile of the list.
 
 Next: [Applications](applications.md), [People](people.md), or the [slots](../slots.md) that show them.

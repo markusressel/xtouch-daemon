@@ -36,6 +36,10 @@ check: lint typecheck coverage
 docs: docs-icon
     uv run --group docs zensical build --clean --strict
 
+# a cold read of a documentation page: a reader who knows nothing of the project reports where it fails a newcomer
+cold-read page report="":
+    scripts/cold-read.sh {{page}} {{report}}
+
 # copy the icon of the project (the one in the package, which the GUI uses) to where the site takes it from
 docs-icon:
     cp src/xtouch_daemon/gui/qt/theme/images/icon.svg docs/images/icon.svg

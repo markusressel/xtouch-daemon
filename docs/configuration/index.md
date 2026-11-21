@@ -1,21 +1,43 @@
 # Configuration
 
 xtouch-daemon reads a TOML file, by default `~/.config/xtouch-daemon/config.toml` (`$XDG_CONFIG_HOME` is respected).
-`-c FILE` selects another one. Without a file at the default path the daemon uses the
-[example configuration](https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/config.example.toml):
-the default input on slot 7, the default output on slot 8 and `auto` on the other six. The GUI starts with an empty
-file instead and writes it at the first save.
+Every command takes `-c FILE` after its name (e.g. `xtouch-daemon check-config -c my.toml`) to use another file.
+
+Start with the file that ships with the daemon (`init-config` writes it for you), the
+[example configuration](https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/config.example.toml).
+It puts the default input on slot 7, the default output on slot 8 and `auto` (the next application that plays) on the
+other six. A slot without an entry is always `auto`. This example is not the longer
+[complete example](#complete-example) at the end of this page.
+
+What happens when there is no file at the default path:
+
+- The daemon runs with the example file.
+- The [GUI](../guides/gui.md) starts with an empty file and writes it at the first save.
 
 ```shell
-xtouch-daemon init-config      # writes the example to the default path (-f overwrites)
+xtouch-daemon init-config      # writes the example file to the default path (-f overwrites)
 xtouch-daemon check-config     # validates the file and shows what each slot shows when
+xtouch-daemon list-devices     # the names of your outputs and inputs, for `device` of a channel
 ```
 
-Only you can change the file. The daemon runs the commands of the file as you, so it refuses a file that other
-users can change: one that belongs to another user, or that the group or others can write. The same applies to the
-directory of the file, and to the target of a link and its directory. The error names the file and the fix, e.g.
-`chmod go-w ~/.config/xtouch-daemon/config.toml`. A file with a secret, such as `[mqtt] password_file`, is only for
-you to read: if others can read it, the log has a warning.
+`check-config` prints `valid` and the channels. Then it prints a table of what each slot shows in each situation (in a
+call, gaming). It needs no device. To run the daemon as a service and read its log, see
+[First steps](../getting-started/first-steps.md).
+
+Only you may change the file. A configuration can start programs (the `launch` of a channel, `run` in
+[`[controls]`](slots.md#controls-and-the-chord)), and the daemon runs them as you. So it refuses a file in which
+another user could put a command. It refuses the file in each of these cases:
+
+- It belongs to another user (root is fine).
+- The group or others can write it.
+- The group or others can write the directory it is in.
+
+If the file is a symbolic link (for example from a dotfile manager), the daemon checks the file the link points to,
+the directory of that file and the directory of the link, in the same way.
+
+The error names the file and the fix, e.g. `chmod go-w ~/.config/xtouch-daemon/config.toml`. The file of a secret
+(the file that `[mqtt] password_file` names, not the configuration itself) should be readable only by you. If others
+can read it, the daemon still starts but writes a warning to the log.
 
 Unknown options are errors, so a typo does not go unnoticed. `check-config` names the place of every error, e.g.
 `channel.mic.label: String should have at most 7 characters`.
@@ -24,17 +46,18 @@ The [GUI](../guides/gui.md) edits the same options in a window and shows the sam
 
 ## Editors and AI assistants
 
-The options are also published as a [JSON Schema](https://json-schema.org/), [config.schema.json](../config.schema.json).
+Every option is also published as a [JSON Schema](https://json-schema.org/), [config.schema.json](../config.schema.json).
 A TOML language server, e.g. [Taplo](https://taplo.tamasfe.dev/) (Even Better TOML in VS Code) or
 [Tombi](https://tombi-toml.github.io/tombi/), reads it: it completes the options, shows their help on hover and marks a
 wrong option while you type. The first line of the example configuration points to the schema of the latest release;
-add it to a file that has none:
+add it as the first line of a file that has none (it is a TOML comment, so the daemon ignores it):
 
 ```toml
 #:schema https://markusressel.github.io/xtouch-daemon/latest/config.schema.json
 ```
 
-For the schema of the installed version, write it next to the file and point to that instead:
+The line above follows the latest release. If you run another version, write the schema of the installed version next
+to the file and point to that instead:
 
 ```shell
 xtouch-daemon schema > ~/.config/xtouch-daemon/config.schema.json
@@ -53,17 +76,17 @@ the channel.
 | Section | What it configures | Page |
 |---|---|---|
 | `[channel.<id>]` | What a strip can control: a device, a group of applications, a person, Home Assistant. | [Channels](channels/index.md) |
-| `[slots]` | What each strip of the device (a slot) shows, and when. | [Channels, states and slots](slots.md#slots) |
+| `[slots]` | The list of candidates for each of the 8 strips, and the condition when each shows. | [Channels, states and slots](slots.md#slots) |
 | `[state.<id>]` | States and modes (in a call, gaming) that the slots ask about. | [Channels, states and slots](slots.md#states-and-modes) |
 | `[controls]` | Actions of the buttons, fader or encoder of a slot, whatever it shows. | [Channels, states and slots](slots.md#controls-and-the-chord) |
-| `[pool.apps]`, `[pool.auto]` | How `apps` and `auto` take the next application that plays. | [Applications](channels/applications.md#apps-and-auto) |
-| `[pool.people]`, `[voip]` | The people of the voice chat, and where they sit. | [People](channels/people.md) |
+| `[pool.apps]`, `[pool.auto]` | The settings of the pools `apps` and `auto`, which hand the applications that play to free slots: which applications they skip (`exclude`), how long a slot keeps one (`hold`), and the color of their strips. | [Applications](channels/applications.md#apps-and-auto) |
+| `[pool.people]`, `[voip]` | The people of the voice chat, and which strips they take (from the right by default). | [People](channels/people.md) |
 | `[pool.devices]` | Outputs and inputs without a channel (a USB headset) on the slots that name `devices`. | [Devices](channels/devices.md#devices-without-a-channel) |
-| `[pool.<id>]` | A pool of your own: the next present channel of a list. | [Pools of channels](slots.md#pools-of-channels) |
+| `[pool.<id>]` | A pool of your own. It holds a list of channels, e.g. all your headphones, and gives the first one that is there to the first slot that names the pool, the next one to the next slot. | [Pools of channels](slots.md#pools-of-channels) |
 | `[device]` | Which sound card is the extender. | [Behavior](behavior.md#device) |
 | `[behavior]` | Volume limit, encoder step, reset volume, meters. | [Behavior](behavior.md#behavior) |
 | `[aliases]` | Names to show for applications on `auto` slots. | [Behavior](behavior.md#aliases) |
-| `[switching]` | The chord and the banner of a new mode. | [Channels, states and slots](slots.md#controls-and-the-chord) |
+| `[switching]` | The chord (Solo buttons held together switch the modes) and the banner of a new mode. | [Channels, states and slots](slots.md#controls-and-the-chord) |
 | `[mqtt]` | The MQTT broker of Home Assistant. | [Home Assistant](../guides/home-assistant.md#mqtt) |
 
 The channel types:
@@ -75,16 +98,23 @@ The channel types:
 | `person` | Someone of the voice chat. | [People](channels/people.md#strips-for-one-person) |
 | `homeassistant` | Nothing by itself: its parts are entities in Home Assistant. | [Home Assistant](../guides/home-assistant.md) |
 
-In a slot, `apps` is the next application that plays and has no channel of its own
-([Applications](channels/applications.md#apps-and-auto)), `people` the next person of the voice chat
-([People](channels/people.md#where-people-sit)), `auto` either, `devices` the next device without a channel
-([Devices](channels/devices.md#devices-without-a-channel)), and `-` a dark strip ([Channels](channels/index.md#empty-slots)).
+In a slot, `apps` is not the channel type `apps`: it is a built-in pool, as are `people`, `auto` and `devices` (see
+[the same word, different things](../concepts.md#the-same-word-different-things)). A slot can name them:
+
+- `apps` is the next application that plays and has no channel of its own
+  ([Applications](channels/applications.md#apps-and-auto)).
+- `people` is the next person of the voice chat ([People](channels/people.md#where-people-sit)).
+- `auto` is both: people first (from the right), then applications.
+- `devices` is the next device that no channel has ([Devices](channels/devices.md#devices-without-a-channel)).
+- `-` is a dark strip ([Channels](channels/index.md#empty-slots)).
+
+Presets (the `@browsers` in `match`) are on [Presets](presets.md).
 
 ## Applying changes
 
-The daemon takes a saved file by itself, a moment after the file stopped changing: no restart, slots whose strip
-stays the same keep it. A file with errors is reported in the log and the current configuration stays. To check a
-file first, or to load it again by hand:
+The daemon takes a saved file by itself, a moment after the file stopped changing. It needs no restart, and a strip
+whose slot still shows the same thing stays as it is. A file with errors is reported in the log, and the daemon keeps
+the configuration it has. To check a file first, or to load it again by hand:
 
 ```shell
 xtouch-daemon check-config && systemctl --user reload xtouch-daemon
@@ -94,13 +124,21 @@ A reload (SIGHUP) does the same as a change of the file.
 
 Two sections need a restart (`systemctl --user restart xtouch-daemon`):
 
-- A changed `[device] name` or `virtual`. A reload takes the rest of the file, but keeps the old device.
-- A changed `[mqtt]` section. Until the restart, a reload keeps the whole current configuration.
+- A changed `[device] name` or `virtual`. A reload takes the rest of the file, but the daemon keeps using the old
+  device. (This is about the rest of the sections, but not about `[mqtt]`: see the next bullet.)
+- A changed `[mqtt]` section. This one blocks the whole reload: until the restart, the daemon ignores every change in
+  the file, not only the ones in `[mqtt]`. The log says so.
 
-The GUI applies a saved file the same way, at once: it reloads the running daemon (the service, or one started from a terminal
-or an IDE), or offers a restart. It then tells whether the daemon took the file.
+The GUI applies a file when you save it. It reloads the running daemon, whether that is the service or one you started
+from a terminal or an IDE, or it offers a restart when one is needed. It then tells you whether the daemon took the
+file.
 
 ## Complete example
+
+A file that uses most parts of the page. The `device` values are the names of one computer: replace them with the
+ones `xtouch-daemon list-devices` prints. `mic` has no `device`, so it controls the default input. `@browsers`,
+`@games` and `@steam-games` are [presets](presets.md). In `"buds if present"`, the buds show while they are
+connected, else the slot shows `-`.
 
 ```toml
 [behavior]
@@ -153,5 +191,5 @@ processes = ["@steam-games"]
 3 = "mic"
 4 = "browser"
 5 = ["game if gaming", "-"]
-# slots 6 to 8 have no entry: they are "auto"
+# slots 6 to 8 have no entry, so each is "auto" (the example file sets slots 7 and 8, this file does not)
 ```

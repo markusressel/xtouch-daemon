@@ -11,9 +11,11 @@ from xtouch_daemon.voip import mumble
 @click.option(
     "--build", "rebuild", is_flag=True, help="Build the plugin from the sources (a checkout, cmake, a C compiler)."
 )
-@click.option("--install", is_flag=True, help="Open the plugin with Mumble's installer (built first if there is none).")
+@click.option(
+    "--install", is_flag=True, help="Copy the plugin into Mumble's plugin folder (built first if there is none)."
+)
 def mumble_plugin(rebuild: bool, install: bool) -> None:
-    """Tell where the Mumble plugin is and whether Mumble has it, or build it and hand it to Mumble."""
+    """Tell where the Mumble plugin is and whether Mumble has it, or build it and copy it to Mumble."""
     try:
         if install:
             click.echo(mumble.install(rebuild=rebuild))

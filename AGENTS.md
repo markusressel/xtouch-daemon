@@ -68,6 +68,24 @@ just screenshot      # renders docs/images/ (README and docs) offscreen from scr
   shows.
 - Git: on a branch, commit and push the finished, checked work; on `main` only when the user asks. Never force-push.
 
+## Writing docs
+
+The pages of `docs/` are for someone who meets the project for the first time. The terse style of the help texts
+(below) is for one line under a field; it doesn't fit a page. On a page:
+
+- Full sentences with their verbs. Never leave a verb out of a list ("`auto` and `apps` the applications that play"
+  reads as a puzzle); a list of several things is a bulleted list.
+- Explain a term with things the reader knows, the first time it appears, then an example. Never explain a term with
+  two other new terms.
+- Show before you tell: each concept gets a short example of the configuration, and the text says which parts of the
+  example are which ("`buds` and `game` are channels, `auto` is a pool").
+- A page answers the questions of its own task. A link sends the reader on for details, not for what they need to
+  finish the task here.
+- Examples and the text agree: a comment in an example says no less than the table it illustrates.
+- Check a page with a cold read: `just cold-read docs/<page>.md` runs a reader that knows only the front page,
+  Concepts and that page, and reports what it understood, what it had to guess, the sentences it stumbled over (with
+  a severity) and contradictions. A page is done when the reader explains it back right and reports no severity 2 or 3.
+
 ## Writing help
 
 The help of an option is its attribute docstring (the GUI shows it under the field); what a value of a choice does is
