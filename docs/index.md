@@ -8,10 +8,10 @@ also belong to Home Assistant, for lights, speakers in other rooms or scenes.
 
 ## How it works
 
-The X-Touch Extender has 8 strips, and the configuration has a **slot** for each. A slot is a list of the things its strip
-can control. The strip shows the first entry whose condition is true. A condition uses **states**, such as "gaming"
-or "in a call", which you define from what the daemon sees: a program that runs, headphones that connect, you in the
-voice chat.
+The X-Touch Extender has 8 strips, and the configuration has a **slot** for each. A slot is a list of the things its
+strip can control. The strip shows the first entry whose condition is true. A **state**, such as "gaming" or "in a
+call", can be that condition. You define it from what the daemon sees (a program that runs, headphones that connect,
+you in the voice chat, a script of your own), and it is on or off: `"game if gaming"` shows the game while `gaming` is on.
 
 ```toml
 [channel.buds]                  # a channel: what one strip controls
