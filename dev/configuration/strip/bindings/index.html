@@ -3229,7 +3229,7 @@ takes it for Home Assistant. The other bindings:</p>
 <tbody>
 <tr>
 <td>A watch or a poll</td>
-<td><code>lcd</code>, <code>color</code>, a button's <code>led</code>, <code>present</code> of a custom channel</td>
+<td><code>lcd</code>, <code>color</code>, a button's <code>led</code>, <code>present</code> of a custom channel, <code>command</code> of a <a href="../../slots/#states-and-modes">state</a></td>
 <td><code>watch</code>, <code>poll</code>, <code>every</code></td>
 <td><code>every</code>: <code>10</code></td>
 <td>As <a href="#watch-or-poll">above</a>. The part shows the newest line.</td>
@@ -3261,7 +3261,8 @@ them, and <code>step</code> above 0. <code>format</code> must show a number, e.g
   ends or can't start runs again after 5 seconds. A <code>poll</code> runs when the configuration is loaded, then every <code>every</code>
   seconds, one run at a time; a run that takes longer than <code>every</code> is stopped, and the next starts at once.</li>
 <li>A run of <code>poll</code> that fails (an exit status other than 0), can't start or is stopped gives no line: the part keeps
-  the line before, and the log has a warning. A run that ends well but prints no text gives an empty line.</li>
+  the line before, and the log has a warning. The <code>command</code> of a state is the exception: such a run turns the state
+  off. A run that ends well but prints no text gives an empty line.</li>
 <li>While a value is set, or its fader is under a finger, the lines of <code>watch</code> and <code>poll</code> don't move it.</li>
 </ul>
 <h2 id="example-the-brightness-of-a-screen">Example: the brightness of a screen<a class="headerlink" href="#example-the-brightness-of-a-screen" title="Permanent link">&para;</a></h2>

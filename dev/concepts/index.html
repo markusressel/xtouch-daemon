@@ -3073,8 +3073,8 @@ of what an application plays, not of what it records.</p>
 <code>auto</code>.</p>
 <h2 id="states-and-modes">States and modes<a class="headerlink" href="#states-and-modes" title="Permanent link">&para;</a></h2>
 <p>A <strong>state</strong> is on or off. You define it in a <code>[state.&lt;name&gt;]</code> section and list its sources, such as <code>apps</code>,
-<code>recording</code>, <code>voice_chat</code>, <code>processes</code>, <code>devices</code> or <code>homeassistant</code>. It is on while any of its sources is. Slots ask
-about states in their conditions.</p>
+<code>recording</code>, <code>voice_chat</code>, <code>processes</code>, <code>devices</code>, <code>homeassistant</code> or <code>command</code> (a program of your own). It is on
+while any of its sources is. Slots ask about states in their conditions.</p>
 <p>A <strong>mode</strong> is a state with <code>mode = true</code>. States are independent: <code>gaming</code> and <code>call</code> can be on together. Only one
 mode is on at a time: the one with the highest <code>priority</code> wins, or <code>default</code> (which you don't define) when none has
 a source on. A new mode shows its name on all displays for a moment. You can also pick a mode by hand: see

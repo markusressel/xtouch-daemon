@@ -2245,6 +2245,59 @@
       "title": "ServiceAction",
       "type": "object"
     },
+    "StateCommand": {
+      "additionalProperties": false,
+      "description": "A program of your own that tells whether a state is on: by the newest line it printed.",
+      "properties": {
+        "watch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A program that runs all the time and prints a line per change. The state is on while the newest line is `on`,\n`1`, `true` or `yes`. E.g. `[\"my-vpn-status\", \"--follow\"]`.",
+          "title": "Watch"
+        },
+        "poll": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A program that runs to its end every `every` seconds. The state is on while the last line it printed is `on`,\n`1`, `true` or `yes`. E.g. `\"systemctl is-active --quiet sshd && echo on\"`.",
+          "title": "Poll"
+        },
+        "every": {
+          "default": 10.0,
+          "description": "Seconds from one run of `poll` to the next. A run that takes longer is stopped.",
+          "exclusiveMinimum": 0,
+          "title": "Every",
+          "type": "number"
+        }
+      },
+      "title": "StateCommand",
+      "type": "object"
+    },
     "StateConfig": {
       "additionalProperties": false,
       "properties": {
@@ -2329,6 +2382,18 @@
           "description": "On while its switch in Home Assistant is on. Needs `[mqtt]`.",
           "title": "Homeassistant",
           "type": "boolean"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StateCommand"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "On while a program of your own says `on`, `1`, `true` or `yes`: a `watch` or a `poll`."
         },
         "when": {
           "anyOf": [
