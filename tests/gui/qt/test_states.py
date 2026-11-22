@@ -120,3 +120,15 @@ def test_the_daemon_tells_the_values_and_takes_overrides(window: MainWindow):
     other = dataclasses.replace(snapshot, slots=dataclasses.replace(slots, mode_pick="other"))
     page.show_live(other)
     assert not any(segment.isChecked() for segment in page.override_buttons.values())
+
+
+def test_a_program_of_your_own_is_a_source(qtbot: QtBot, window: MainWindow):
+    window.show_page("states")
+    page = window.states_page
+    panel = open_menu_of(qtbot, page.add_source)
+    assert "A program of your own says on" in menu_texts(panel)
+    pick(qtbot, panel, "A program of your own says on")
+    command = row(window, "command", "states").binding
+    assert set(command.rows) == {"watch", "poll", "every"}
+    command.rows["poll"].chips.add("vpn-up")
+    assert window.document.get(("state", "call", "command")) == {"poll": ["vpn-up"]}

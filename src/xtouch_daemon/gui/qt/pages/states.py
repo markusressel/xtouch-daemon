@@ -58,6 +58,7 @@ SOURCES = {
     "devices": "A device is there",
     "channels": "A channel is present",
     "homeassistant": "A switch in Home Assistant is on",
+    "command": "A program of your own says on",
 }
 """The sources of a state, in the words of the menu Add source."""
 SOURCE_DETAILS = {
@@ -68,6 +69,7 @@ SOURCE_DETAILS = {
     "devices": "You list outputs or inputs, e.g. a USB headset that is plugged in.",
     "channels": "You list channels of the file, e.g. one for a device that comes and goes.",
     "homeassistant": "A switch for the state in Home Assistant turns it on. Needs `[mqtt]`.",
+    "command": "A program prints `on` while the state should be, e.g. a check of your VPN.",
 }
 """What each source of the menu Add source asks for, under its words."""
 SOURCE_ICONS = {
@@ -78,6 +80,7 @@ SOURCE_ICONS = {
     "devices": "headphones",
     "channels": "tune-vertical",
     "homeassistant": "home-assistant",
+    "command": "console",
 }
 """The icons of the sources in the menu Add source."""
 MODE_ICON = "view-dashboard-outline"

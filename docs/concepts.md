@@ -101,8 +101,8 @@ A candidate is a channel or pool name, optionally followed by `if` and a **condi
 ## States and modes
 
 A **state** is on or off. You define it in a `[state.<name>]` section and list its sources, such as `apps`,
-`recording`, `voice_chat`, `processes`, `devices` or `homeassistant`. It is on while any of its sources is. Slots ask
-about states in their conditions.
+`recording`, `voice_chat`, `processes`, `devices`, `homeassistant` or `command` (a program of your own). It is on
+while any of its sources is. Slots ask about states in their conditions.
 
 A **mode** is a state with `mode = true`. States are independent: `gaming` and `call` can be on together. Only one
 mode is on at a time: the one with the highest `priority` wins, or `default` (which you don't define) when none has

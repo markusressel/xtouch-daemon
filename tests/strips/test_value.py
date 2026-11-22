@@ -382,6 +382,20 @@ async def test_a_failing_poll_is_logged_once_until_a_run_works(caplog: pytest.Lo
     await commands.wait_closed()
 
 
+async def test_a_failing_poll_can_give_a_line_of_its_own() -> None:
+    # the program of a state: a run that fails turns it off, as an empty line does
+    commands = FakeCommands()
+    commands.printed = "on"
+    polled = WatchedLine(Feed(("vpn-up",), 1), commands, "state.vpn.command", failed="")
+    await settle()
+    assert polled.line == "on"
+    commands.failing = "vpn-up failed (1)"
+    await asyncio.sleep(1.5)
+    assert polled.line == ""
+    polled.close()
+    await commands.wait_closed()
+
+
 async def test_a_poll_tells_the_value_with_its_targets_filled_in() -> None:
     commands = FakeCommands()
     commands.printed = "brightness: 0.40\n"

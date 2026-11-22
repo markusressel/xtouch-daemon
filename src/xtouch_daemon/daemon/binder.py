@@ -32,6 +32,7 @@ from xtouch_daemon.strips import build_strip, look_of
 from xtouch_daemon.strips.apps import AutoStrip
 from xtouch_daemon.strips.base import Identity, Look, StripController, StripEnv, VolumeStrip
 from xtouch_daemon.strips.custom import custom_strips
+from xtouch_daemon.strips.value import LIT, WatchedLine
 from xtouch_daemon.system.commands import Commands
 from xtouch_daemon.system.launch import Launcher
 from xtouch_daemon.system.processes import running_processes
@@ -99,8 +100,8 @@ class SlotMixer:
         on_presence: Callable[[], None] = lambda: None,
     ):
         """
-        `on_presence` is called when a custom channel came or went (its `present`): the slots look again (the engine
-        knows it as `SlotEngine.absent`).
+        `on_presence` is called when a custom channel came or went (its `present`), or the `command` of a state went
+        on or off: the slots look again (the engine knows them as `SlotEngine.absent` and `SlotEngine.commands`).
         """
         self.setup = config.slots
         self.config = config
@@ -144,6 +145,16 @@ class SlotMixer:
         engine.absent &= {name for name, strip in self.customs.items() if strip.config.present is not None}
         for name, strip in self.customs.items():
             strip.on_presence = lambda name=name: self._presence(name)
+        self.state_commands = {
+            name: WatchedLine(state.command.feed, self.env.commands, f"state.{name}.command", failed="")
+            for name, state in self.setup.scene.states.items()
+            if state.command is not None
+        }
+        """The programs of the states with a `command`: the newest line of each says whether its state is on."""
+        # what the states of the last configuration said stays until their programs say otherwise (a reload)
+        engine.commands &= set(self.state_commands)
+        for name, line in self.state_commands.items():
+            line.listeners.append(lambda name=name: self._command_said(name))
         self.members: dict[Key, StripController] = {}
         """A controller per application of `auto` and per person without a channel, made when they first show."""
         self.empty = {
@@ -189,6 +200,15 @@ class SlotMixer:
         absent = self.engine.absent - {name} if presence else self.engine.absent | {name}
         if absent != self.engine.absent:
             self.engine.absent = absent
+            self.on_presence()
+
+    def _command_said(self, name: str) -> None:
+        """The program of a state printed another line: the engine learns whether it is on, the slots look again."""
+        line = self.state_commands[name].line or ""
+        on = line.strip().lower() in LIT
+        commands = self.engine.commands | {name} if on else self.engine.commands - {name}
+        if commands != self.engine.commands:
+            self.engine.commands = commands
             self.on_presence()
 
     def _build(self, key: Key, strip: StripConfig | None, identity: Identity) -> StripController:
@@ -408,6 +428,8 @@ class SlotMixer:
 
     def close(self) -> None:
         self.controls.close()
+        for line in self.state_commands.values():
+            line.close()
         self.desk.unbind(self.all_controllers)
         self.voip.unsubscribe(self.refresh)
         for controller in self.all_controllers:

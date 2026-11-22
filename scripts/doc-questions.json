@@ -571,5 +571,23 @@
       "src/xtouch_daemon/gui/domain/schema.py:369",
       "src/xtouch_daemon/config/files.py:66-106"
     ]
+  },
+  {
+    "id": "q29",
+    "topic": "states",
+    "question": "I have a shell script that tells me whether my VPN is connected. Can a slot show my VPN channel only while the VPN is up, and how does the script have to answer?",
+    "answer": "Yes: give a state a `command`, e.g. `[state.vpn]` with `command = { poll = \"/home/me/bin/vpn-up\", every = 5 }` (or `{ watch = \"...\" }` for a program that runs all the time and prints a line per change), and use it in the slot: `1 = [\"vpn_channel if vpn\", \"auto\"]`. The state is on while the newest line the script printed is `on`, `1`, `true` or `yes` (any case); any other line, and a run of the poll that fails (non-zero exit), turn it off. It runs without a shell: give the full path of an executable script.",
+    "facts": [
+      "a state takes `command` with `watch` or `poll` (and `every`)",
+      "on while the newest line is on, 1, true or yes, in any case",
+      "any other line and a failed poll run turn it off",
+      "the command runs without a shell",
+      "a slot uses it as a condition: `channel if vpn`"
+    ],
+    "code": [
+      "src/xtouch_daemon/slots/model.py (StateCommand, StateConfig.command)",
+      "src/xtouch_daemon/daemon/binder.py (SlotMixer._command_said)",
+      "src/xtouch_daemon/strips/value.py (poll_lines failed)"
+    ]
   }
 ]
