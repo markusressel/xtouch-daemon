@@ -2865,10 +2865,10 @@ meters and scribble strips control your headphones, your applications and the pe
 also belong to Home Assistant, for lights, speakers in other rooms or scenes.</p>
 <p><img alt="The GUI: the control surface as it is, the slots and the inspector of the slot picked" src="images/gui.png" /></p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
-<p>The X-Touch Extender has 8 strips, and the configuration has a <strong>slot</strong> for each. A slot is a list of the things its strip
-can control. The strip shows the first entry whose condition is true. A condition uses <strong>states</strong>, such as "gaming"
-or "in a call", which you define from what the daemon sees: a program that runs, headphones that connect, you in the
-voice chat.</p>
+<p>The X-Touch Extender has 8 strips, and the configuration has a <strong>slot</strong> for each. A slot is a list of the things its
+strip can control. The strip shows the first entry whose condition is true. A <strong>state</strong>, such as "gaming" or "in a
+call", can be that condition. You define it from what the daemon sees (a program that runs, headphones that connect,
+you in the voice chat, a script of your own), and it is on or off: <code>"game if gaming"</code> shows the game while <code>gaming</code> is on.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.buds]</span><span class="w">                  </span><span class="c1"># a channel: what one strip controls</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span><span class="w">       </span><span class="c1"># your Bluetooth headphones; with two pairs, Select switches</span>
