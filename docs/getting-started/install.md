@@ -41,8 +41,8 @@ uv tool install --force './xtouch-daemon[gui]'
 
 ## The GUI
 
-Start the [GUI](../guides/gui.md) from the menu of your desktop (the entry is called "X-Touch Extender"), or in a
-terminal. The command is `xtouch-daemon-gui` for the Arch package and `xtouch-daemon gui` for the source install:
+Start the [GUI](../guides/gui.md) from the menu of your desktop (the Arch package adds the entry "X-Touch Extender"),
+or in a terminal. The command is `xtouch-daemon-gui` for the Arch package and `xtouch-daemon gui` for the source install:
 
 ```shell
 xtouch-daemon-gui            # Arch package: the default configuration file

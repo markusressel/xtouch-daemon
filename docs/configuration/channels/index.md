@@ -1,6 +1,6 @@
 # Channels
 
-A channel is one thing a strip can control, such as your speakers or a group of applications. You write one
+A channel is what one strip controls, such as your speakers or all your browsers together. You write one
 `[channel.<id>]` section per channel in the [configuration file](../index.md). The id (lower case letters, digits and
 `_`) is how slots, conditions and Home Assistant name it. A strip controls the channel when a
 [slot](../slots.md#slots) names it.
@@ -127,7 +127,7 @@ With `max_volume = 200` (the top 23 % of the travel amplify) and `min_volume = 0
 | ![](../../images/controls/fader.png){ .xt-icon } Fader | Sets the volume while you touch it, and follows changes made elsewhere. The LCD, ring and [meter](#meters) show the volume, the encoder's value and the level. |
 | ![](../../images/controls/encoder.png){ .xt-icon } Encoder | What `encoder` says, see [Encoders](../strip/encoders.md). |
 | ![](../../images/controls/mute.png){ .xt-icon } Mute | Toggles mute. Its LED is on while muted. |
-| ![](../../images/controls/rec.png){ .xt-icon } Rec, Solo | Their LEDs are [indicators](../strip/leds.md#indicators), such as "an application records". A press does nothing, except Rec on an output with [profiles](devices.md#profiles). |
+| ![](../../images/controls/rec.png){ .xt-icon } Rec, Solo | Their LEDs are [indicators](../strip/leds.md#indicators), such as "an application records". A press does nothing, except Rec on an output with [profiles](devices.md#profiles) and Solo on the strips of the [chord](../slots.md#controls-and-the-chord). |
 | ![](../../images/controls/select.png){ .xt-icon } Select | On `output` and `input` strips: makes the sound device the default, or with [`choices`](devices.md#choices) goes to the next one. On application strips: starts the application if there is a [`launch`](applications.md#launching-the-application), else nothing. |
 
 !!! tip "Other actions"

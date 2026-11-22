@@ -1,12 +1,13 @@
 # Configuration
 
 xtouch-daemon reads a TOML file, by default `~/.config/xtouch-daemon/config.toml` (`$XDG_CONFIG_HOME` is respected).
-Every command takes `-c FILE` after its name (e.g. `xtouch-daemon check-config -c my.toml`) to use another file.
+The commands that read it (`run`, `check-config`, `list-apps`, `test` and `gui`) take `-c FILE` after their name
+(e.g. `xtouch-daemon check-config -c my.toml`) to use another file.
 
 Start with the
 [example configuration](https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/config.example.toml)
 that ships with the daemon. It puts the default input on slot 7, the default output on slot 8 and `auto` (the next
-application that plays) on the other six. A slot without an entry is always `auto`. The
+application that plays, or a person of the voice chat) on the other six. A slot without an entry is always `auto`. The
 [complete example](#complete-example) at the end of this page is longer.
 
 Without a file at the default path, the daemon runs with the example file, and the [GUI](../guides/gui.md) starts
@@ -18,7 +19,7 @@ xtouch-daemon check-config     # validates the file and shows what each slot sho
 xtouch-daemon list-devices     # the names of your outputs and inputs, for `device` of a channel
 ```
 
-`check-config` needs no X-Touch; its output is described in [Commands](../reference/commands.md#check-config). To run
+`check-config` needs no control surface; its output is described in [Commands](../reference/commands.md#check-config). To run
 the daemon as a service and read its log, see [First steps](../getting-started/first-steps.md).
 
 A configuration can start programs (the `launch` of a channel, `run` in
@@ -73,9 +74,9 @@ own; `check-config` checks the rest, e.g. that a slot names a channel that exist
 | `[pool.people]`, `[voip]` | The people of the voice chat, and which strips they take. | [People](channels/people.md) |
 | `[pool.devices]` | Outputs and inputs without a channel (a USB headset). | [Devices](channels/devices.md#devices-without-a-channel) |
 | `[pool.<id>]` | A pool of your own, e.g. of all your headphones. | [Pools of channels](slots.md#pools-of-channels) |
-| `[device]` | Which sound card is the X-Touch, and its startup and shutdown. | [Behavior](behavior.md#device) |
-| `[behavior]` | Volume limit, encoder step, reset volume, meters. | [Behavior](behavior.md#behavior) |
-| `[aliases]` | Names to show for applications on `auto` slots. | [Behavior](behavior.md#aliases) |
+| `[device]` | Which sound card is the control surface, and its startup and shutdown. | [General settings](behavior.md#device) |
+| `[behavior]` | Volume limit, encoder step, reset volume, meters. | [General settings](behavior.md#behavior) |
+| `[aliases]` | Names to show for applications on `apps` and `auto` slots. | [General settings](behavior.md#aliases) |
 | `[switching]` | The chord (Solo buttons held together switch the modes) and the banner of a new mode. | [Controls](slots.md#controls-and-the-chord) |
 | `[mqtt]` | The MQTT broker of Home Assistant. | [Home Assistant](../guides/home-assistant.md#mqtt) |
 
@@ -87,6 +88,7 @@ The channel types:
 | `apps` | All streams of a group of applications. | [Applications](channels/applications.md#apps-channels) |
 | `person` | Someone of the voice chat. | [People](channels/people.md#strips-for-one-person) |
 | `homeassistant` | Nothing by itself: its parts are entities in Home Assistant. | [Home Assistant](../guides/home-assistant.md) |
+| `custom` | Something other than audio, e.g. screen brightness, with your own commands. | [Custom channels](channels/custom.md) |
 
 In a slot, `apps` is not the channel type `apps`: it is a built-in pool, as are `people`, `auto` and `devices` (see
 [the same word, different things](../concepts.md#the-same-word-different-things) and
@@ -106,7 +108,7 @@ xtouch-daemon check-config && systemctl --user reload xtouch-daemon
 
 One section needs a restart (`systemctl --user restart xtouch-daemon`): a changed `[mqtt]`. It blocks the whole
 reload: until the restart, the daemon ignores every change in the file, not only the ones in `[mqtt]`. The log says
-so. A changed `[device] name` or `virtual` needs no restart: the daemon connects to the other X-Touch.
+so. A changed `[device] name` or `virtual` needs no restart: the daemon connects to the other control surface.
 
 The GUI applies a file when you save it: it reloads the running daemon, or offers a restart when one is needed, and
 tells you whether the daemon took the file.

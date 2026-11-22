@@ -58,9 +58,9 @@ stream plays at that volume.
 
 ## `apps` and `auto`
 
-A [pool](../slots.md#pools-of-applications-and-of-people) hands out applications that you don't list one by one:
+A [pool](../slots.md#slots) hands out applications that you don't list one by one:
 `apps` hands out the applications that play, one per slot. `auto` hands out the same applications and the people of
-the voice chat share its slots (the people from the right, the applications from the left, see
+the voice chat: the people fill its slots from the right, the applications from the left (see
 [People](people.md#where-people-sit)). A slot without an entry shows `auto`.
 
 ```toml
@@ -122,6 +122,8 @@ shows. Here Select on strip 7 starts Mumble while the [state](../slots.md#states
 [controls]
 7 = { select = { launch = ["mumble"] }, when = "not call" }
 ```
+
+On a channel, Select of its strip starts Mumble and connects it to a server:
 
 ```toml
 [channel.voip]

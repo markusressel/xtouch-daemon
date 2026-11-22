@@ -10,8 +10,8 @@ show. Each has a default:
 | Button | By default |
 |---|---|
 | ![Select](../../images/controls/select.png){ .xt-icon }<br>Select | On `output` and `input` strips with `device` or `choices`: makes the output or input the default; its LED is on while it is. On application strips with `launch`: starts the application; its LED flashes while it starts and is on while it runs. Otherwise nothing. |
-| ![Rec](../../images/controls/rec.png){ .xt-icon }<br>Rec | On strips with [profiles](../channels/devices.md#profiles): switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise the button does nothing. Its LED is lit on every strip while an application records (`recording`). |
-| ![Solo](../../images/controls/solo.png){ .xt-icon }<br>Solo | Nothing; its LED stays dark. |
+| ![Rec](../../images/controls/rec.png){ .xt-icon }<br>Rec | On strips with [profiles](../channels/devices.md#profiles): switches the sound card to the next profile; its LED is on for every profile but the first. Otherwise the button does nothing. Its LED is lit while an application records what the strip controls (`recording`). |
+| ![Solo](../../images/controls/solo.png){ .xt-icon }<br>Solo | Nothing, except on the strips of the [chord](../slots.md#controls-and-the-chord) (1 and 8 by default): held together, their Solo buttons switch to the next mode. Its LED stays dark. |
 
 A button can also run a program of your own, and an LED can show what Home Assistant or a program says: see
 [What the LED shows](#what-the-led-shows) and [Bindings](bindings.md). On `homeassistant` strips every LED is an
@@ -65,7 +65,7 @@ chord.
 | `homeassistant` | all | An event in Home Assistant for each press and release (`select_pressed`, ...). Needs [`[mqtt]`](../../guides/home-assistant.md#mqtt). As `press` only. |
 | `cycle_modes` | all | The next mode, as the chord picks it. |
 | `mode:<id>` | all | Picks the mode. |
-| `toggle:<id>` | all | Turns the state or mode on by hand. The next press gives control back to the state's own sources. See [States and modes](../slots.md#states-and-modes). |
+| `toggle:<id>` | all | Picks the mode, or sets the state to the opposite of what it is now. The next press gives control back to the sources. See [States and modes](../slots.md#states-and-modes). |
 | `{ launch = [...] }` | all | Starts the program, like a launch of [`[controls]`](../slots.md#controls-and-the-chord). `launch_when_running = true` starts it also while it runs. |
 | `{ run = [...] }` | all | Runs a program of your own to its end, e.g. `{ run = "notify-send hello" }`. See [Run a program](#run-a-program). |
 | `{ service = "...", entity = "..." }` | all | Calls a service of Home Assistant, e.g. `{ service = "light.toggle", entity = "light.desk" }`. Needs [`[homeassistant]`](../../guides/home-assistant.md#homeassistant); see [An entity of Home Assistant](bindings.md#an-entity-of-home-assistant). |

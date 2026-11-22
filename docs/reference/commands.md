@@ -8,8 +8,8 @@
 | [`xtouch-daemon schema`](#schema) | Prints the JSON Schema of the configuration, for editors. |
 | [`xtouch-daemon list-devices`](#list-devices) | Lists outputs, inputs, and the sound cards with their profiles. |
 | [`xtouch-daemon list-apps`](#list-apps) | Lists the applications that play, and which channel or slot takes each one. |
-| [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the X-Touch. |
-| [`xtouch-daemon virtual-device`](#virtual-device) | Runs a virtual X-Touch Extender, for trying the daemon without an X-Touch. |
+| [`xtouch-daemon test`](#test) | Tests the LCDs, LEDs, rings, meters and faders, then shows what happens on the control surface. |
+| [`xtouch-daemon virtual-device`](#virtual-device) | Runs a virtual X-Touch Extender, for trying the daemon without a physical control surface. |
 | [`xtouch-daemon mode`](#mode) | Shows the running daemon's mode, or picks another one. |
 | [`xtouch-daemon why`](#why) | Says why a slot shows what it shows, or where a channel is and why. |
 | [`xtouch-daemon mumble-plugin`](#mumble-plugin) | Shows, builds or installs the Mumble plugin for the strips of people. |
@@ -40,11 +40,11 @@ Runs the daemon in the foreground. `install-service` sets it up as a systemd use
 | Option | Meaning |
 |---|---|
 | `-c`, `--config FILE` | The configuration file. |
-| `-l`, `--log-level LEVEL` | `debug`, `info` (default), `warning` or `error`. `debug` also logs the MIDI messages of the X-Touch that the daemon has no use for. |
-| `--virtual-device` | Drives the [virtual device](#virtual-device) instead of the real X-Touch, as `[device] virtual = true`. |
+| `-l`, `--log-level LEVEL` | `debug`, `info` (default), `warning` or `error`. `debug` also logs the MIDI messages of the control surface that the daemon has no use for. |
+| `--virtual-device` | Drives the [virtual device](#virtual-device) instead of the physical control surface, as `[device] virtual = true`. |
 
 The daemon notes its process and configuration file in `$XDG_RUNTIME_DIR/xtouch-daemon.json` while it runs, and
-serves what the X-Touch shows on `$XDG_RUNTIME_DIR/xtouch-daemon.sock` for the [GUI](../guides/gui.md). A second
+serves what the control surface shows on `$XDG_RUNTIME_DIR/xtouch-daemon.sock` for the [GUI](../guides/gui.md). A second
 daemon prints the process of the first and exits.
 
 Signals:
@@ -52,7 +52,7 @@ Signals:
 | Signal | Effect |
 |---|---|
 | `SIGHUP` | Reloads the configuration (`systemctl --user reload xtouch-daemon`), see [Applying changes](../configuration/index.md#applying-changes). |
-| `SIGTERM`, `SIGINT` | Stops: the strips go dark from the right and the faders go down. |
+| `SIGTERM`, `SIGINT` | Stops: the strips go dark as [`[device] shutdown`](../configuration/behavior.md#startup-and-shutdown-sequences) says (by default from the right) and the faders go down. |
 
 ## `check-config`
 
@@ -61,7 +61,7 @@ xtouch-daemon check-config [-c FILE] [--all]
 ```
 
 Validates the configuration, describes each channel and shows a table of what the slots show in which states.
-Without a file at the default path it checks the built-in defaults of every option (not the example file). It needs no running daemon. Example output:
+Without a file at the default path it checks the example configuration, which the daemon runs then. It needs no running daemon. Example output:
 
 ```
 /home/me/.config/xtouch-daemon/config.toml: valid
@@ -94,7 +94,8 @@ For a [custom channel](../configuration/channels/custom.md) the line names each 
 command it runs. With `targets`, a line per target follows with the commands as they run for that target, e.g.
 `Left: fader.set sysctrl display redshift brightness -d DisplayPort-1 -b '{value}'`.
 
-The table has a row for each combination of modes and states. With more than 12 rows, `check-config` shows only the
+The table has a row for each combination of modes, states and channels that are there or not (for each `present`
+in a condition, e.g. `buds absent`). With more than 12 rows, `check-config` shows only the
 situations that differ from `default` in one thing and says how many it left out; `--all` shows every combination.
 
 A file with errors names the place of each one and its line, e.g.
@@ -162,7 +163,7 @@ presets, for `match`, `exclude` and `[aliases]`.
 xtouch-daemon test [-c FILE] [--no-events] [--virtual-device]
 ```
 
-Lights up everything on the X-Touch and moves the faders. Then every strip answers its own controls, until Ctrl+C, so
+Lights up everything on the control surface and moves the faders. Then every strip answers its own controls, until Ctrl+C, so
 you can check each LED, the ring, the colors, the motor and the touch of every fader:
 
 | Input on a strip | What the strip shows |
@@ -176,12 +177,12 @@ you can check each LED, the ring, the colors, the motor and the touch of every f
 The top line of the LCD names the strip, the bottom line shows the last input for 2 seconds, then what the encoder
 edits. The command prints every input with the answer. `--no-events` ends after the sweep.
 
-While the daemon runs, it has the X-Touch, so `test` asks the daemon to run the test (the GUI's "Test the device"
-does the same). The slots show on the X-Touch again when the test ends, and the log of the daemon shows the inputs
+While the daemon runs, it has the control surface, so `test` asks the daemon to run the test (the GUI's "Test the device"
+does the same). The slots show on the control surface again when the test ends, and the log of the daemon shows the inputs
 (`journalctl --user -u xtouch-daemon -f`). The test then runs until Ctrl+C: `--no-events` fails while the daemon
 runs.
 
-Without a daemon, `test` opens the X-Touch itself, found by the `name` in `[device]`. `--virtual-device` (or
+Without a daemon, `test` opens the control surface itself, found by the `name` in `[device]`. `--virtual-device` (or
 `[device] virtual = true`) tests the [virtual device](#virtual-device) instead, which has to run already, in another
 terminal.
 
@@ -191,8 +192,8 @@ terminal.
 xtouch-daemon virtual-device [--broken-touch 1,4] [--log-level debug]
 ```
 
-A virtual X-Touch Extender, for trying the daemon without an X-Touch (see
-[Without a device](../getting-started/without-a-device.md)): `xtouch-daemon run --virtual-device` drives it instead
+A virtual X-Touch Extender, for trying the daemon without a physical control surface (see
+[Without a physical control surface](../getting-started/without-a-device.md)): `xtouch-daemon run --virtual-device` drives it instead
 of the real one. It runs headless until interrupted (Ctrl+C); the GUI can host one itself. One daemon at a time can
 use it.
 

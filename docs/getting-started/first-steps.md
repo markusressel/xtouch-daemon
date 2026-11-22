@@ -1,11 +1,11 @@
 # First steps
 
-Set up the X-Touch Extender, test it, write a configuration and run the daemon as a service. No X-Touch at hand? See
-[Without an X-Touch](without-a-device.md).
+Set up the X-Touch Extender, test it, write a configuration and run the daemon as a service. No X-Touch Extender at hand? See
+[Without a physical control surface](without-a-device.md).
 
-## Set up the X-Touch { #set-up-the-device }
+## Set up the control surface { #set-up-the-device }
 
-The X-Touch has to be in **MC** (Mackie Control) mode on **USB**. Out of the box it may be set to the network
+The X-Touch Extender has to be in **MC** (Mackie Control) mode on **USB**. Out of the box it may be set to the network
 interface: then it shows `IP: 192.168.001.100 wait...` and ignores USB.
 
 1. Switch it off.
@@ -16,7 +16,7 @@ interface: then it shows `IP: 192.168.001.100 wait...` and ignores USB.
 Connect it over USB. It needs no driver. Your user needs access to it: a desktop session grants that to the logged-in
 user. See [Hardware](../reference/hardware.md#linux-access) for other cases.
 
-## Test the X-Touch { #test-the-device }
+## Test the control surface { #test-the-device }
 
 ```shell
 xtouch-daemon test
@@ -26,7 +26,7 @@ Every strip lights its LCD, LEDs, ring and meter, and moves its fader. Afterward
 controls ([`test`](../reference/commands.md#test) has the details). Ctrl+C stops it.
 
 A running service does not need to stop: `xtouch-daemon test` asks the daemon to run the test. Close DAWs that use
-the X-Touch.
+the control surface.
 
 ## Write a configuration
 
@@ -34,7 +34,7 @@ A configuration defines **channels** (what a strip can control), **states** (in 
 slots, what its strip shows when. [Concepts](../concepts.md) explains these words. Without a file the daemon uses the
 [example configuration](../configuration/index.md).
 
-The easiest way to make it yours is the [GUI](../guides/gui.md): it shows the X-Touch live and every option with its
+The easiest way to make it yours is the [GUI](../guides/gui.md): it shows the control surface live and every option with its
 help, and "Save and apply" writes the file and loads it into the running daemon. [How to start it](install.md#the-gui).
 The [Setup tour](tour.md) builds a whole configuration that way, step by step.
 
@@ -54,7 +54,7 @@ For example, Bluetooth headphones on slot 1 while they are connected, and VoIP o
 ```toml
 [channel.buds]
 type = "output"
-device = "bluez_output.*"   # any Bluetooth headphones (the name holds an address; list-devices shows it)
+device = "bluez_output.*"   # your Bluetooth headphones (the name holds an address; list-devices shows it)
 label = "Buds"
 color = "green"
 
@@ -106,8 +106,8 @@ The daemon runs as your user: don't start it with `sudo`. See
 |---|---|
 | Apply a changed configuration | Nothing: the daemon takes the saved file. By hand: `systemctl --user reload xtouch-daemon` |
 | Restart (after changing `[mqtt]`, the settings of your MQTT broker, which only Home Assistant needs) | `systemctl --user restart xtouch-daemon` |
-| Stop (the X-Touch then goes dark, and another program can use it) | `systemctl --user stop xtouch-daemon` |
-| See whether the X-Touch, the sound server and, with Home Assistant, the MQTT broker are connected | `systemctl --user status xtouch-daemon` |
+| Stop (the control surface then goes dark, and another program can use it) | `systemctl --user stop xtouch-daemon` |
+| See whether the control surface, the sound server and, with Home Assistant, the MQTT broker are connected | `systemctl --user status xtouch-daemon` |
 | Follow the log | `journalctl --user -u xtouch-daemon -f`, or View → Log in the GUI |
 
 To run it in the foreground, e.g. to watch the log:

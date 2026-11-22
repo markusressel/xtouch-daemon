@@ -10,8 +10,8 @@ journalctl --user -u xtouch-daemon -f      # the log
 The GUI shows the same log in View → [Log](gui.md#log). It reads the log of the running daemon, so it also works for a
 daemon that you started in a terminal.
 
-A healthy start logs that the X-Touch connected (and, with a [broker](home-assistant.md), the MQTT connection). For
-more detail, run the daemon in the foreground with debug messages (only one daemon can hold the X-Touch):
+A healthy start logs that the control surface connected (and, with a [broker](home-assistant.md), the MQTT connection). For
+more detail, run the daemon in the foreground with debug messages (only one daemon can hold the control surface):
 
 1. `systemctl --user stop xtouch-daemon`
 2. `xtouch-daemon run -l debug` (stop it with Ctrl+C)
@@ -32,28 +32,28 @@ keeps the configuration it runs.
 **`other users can read ...`.** A warning: other users can read a file that holds a secret, e.g. `[mqtt] password_file`
 or `[homeassistant] token_file`. The daemon still uses it. Close it with `chmod go-rw` and the path from the message.
 
-## The X-Touch
+## The control surface { #the-x-touch }
 
-**The LCD shows `IP: 192.168.001.100 wait...`.** The X-Touch is in a setup mode for the network and ignores USB. Switch
+**The LCD shows `IP: 192.168.001.100 wait...`.** The X-Touch Extender is in a setup mode for the network and ignores USB. Switch
 it to MC mode on USB in its setup menu, see [Getting started](../getting-started/first-steps.md#set-up-the-device).
 
 **`... is it switched on, in MC mode on USB?`** The daemon (and `xtouch-daemon test`) can't find the sound card of the
-X-Touch. The daemon keeps waiting and connects when the card appears. Check that the X-Touch is on and that
+control surface. The daemon keeps waiting and connects when the card appears. Check that the control surface is on and that
 `/proc/asound/cards` lists it. If the card has another name, set `[device] name` to a part of that name.
 
-**`can't open X-Touch-Ext (... Device or resource busy)`.** Another program has the X-Touch, e.g. a DAW or a MIDI tool.
+**`can't open X-Touch-Ext (... Device or resource busy)`.** Another program has the control surface, e.g. a DAW or a MIDI tool.
 Close it. While the daemon runs, `xtouch-daemon test` asks the daemon to run the test.
 
 **`... Permission denied`.** Your user can't open the MIDI port in `/dev/snd`. Without a desktop session (SSH, headless),
 add the user to the `audio` group (`sudo usermod -aG audio $USER`) and log in again. See
 [Hardware](../reference/hardware.md#linux-access).
 
-**A fader does not change the volume.** The daemon counts a move only while the X-Touch reports a touch, and the motor
+**A fader does not change the volume.** The daemon counts a move only while the control surface reports a touch, and the motor
 pushes the fader back otherwise. `xtouch-daemon test` (or "Test the device" in the GUI) shows `touch` on the LCD while
 you touch the fader; if it does not, the sensor is broken. Until you repair it,
 [`touchless_faders`](../configuration/behavior.md#faders-without-a-touch-sensor) makes the fader work without it.
 
-**A fader jumps on its first move after the daemon started.** The X-Touch can't report where its faders are, so the
+**A fader jumps on its first move after the daemon started.** The X-Touch Extender can't report where its faders are, so the
 daemon assumes the bottom. If you moved a fader while the daemon did not run, the first move starts from the old
 position. Nothing is broken. See [Hardware](../reference/hardware.md#motor-faders).
 
@@ -90,13 +90,13 @@ match more than you meant. `check-config` shows what the [presets](../configurat
 what it shows, and `xtouch-daemon why browser` where the channel `browser` is, see [`why`](../reference/commands.md#why).
 The inspector of the slot in the GUI shows the same.
 
-**A change does not show on the X-Touch.** If the file has errors, the daemon logs them and keeps the old configuration:
+**A change does not show on the control surface.** If the file has errors, the daemon logs them and keeps the old configuration:
 run `xtouch-daemon check-config`. A changed `[mqtt]` section needs `systemctl --user restart xtouch-daemon`. The
-[GUI](gui.md#save-and-apply) tells whether the X-Touch runs the saved file.
+[GUI](gui.md#save-and-apply) tells whether the control surface runs the saved file.
 
 ## Home Assistant
 
-**The entities are unavailable.** They are available only while the daemon runs and the X-Touch is connected. Check the
+**The entities are unavailable.** They are available only while the daemon runs and the control surface is connected. Check the
 broker settings in `[mqtt]` and the log; the popover of the service pill in the GUI shows how the connection is doing,
 and Settings, Home Assistant has "Test connection".
 

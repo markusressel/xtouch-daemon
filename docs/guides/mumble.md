@@ -10,8 +10,8 @@ Mumble is a voice chat program. With the Mumble plugin of xtouch-daemon, the
   the button.
 
 It needs Mumble 1.4 or later on Linux (x86_64), and xtouch-daemon installed (see [Install](../getting-started/install.md)).
-The configuration needs no change: a strip without an entry in `[slots]` shows the pool `auto`, and the people fill
-the free strips from the right (see [Slots](../configuration/slots.md#pools-of-applications-and-of-people)). Their
+The configuration needs no change: a strip without an entry in [`[slots]`](../configuration/slots.md#slots) shows the pool `auto`, and the people fill
+the free strips from the right (see [Where people sit](../configuration/channels/people.md#where-people-sit)). Their
 look is set in `[pool.people]`, see [People](../configuration/channels/people.md#the-strips-of-people).
 
 The plugin talks to the daemon through [the voice chat bridge](../reference/voice-chat-bridge.md), which is on by
@@ -73,7 +73,7 @@ delay_off = 5         # seconds: stays on 5 s after you leave
 7 = ["mic if call", "auto"]
 ```
 
-To start Mumble from the X-Touch, give a slot a `launch` in `[controls]` with a `mumble://` URL:
+To start Mumble from the control surface, give a slot a `launch` in `[controls]` with a `mumble://` URL:
 
 ```toml
 [controls]
@@ -98,8 +98,8 @@ Select starts Mumble only while you are in no channel. See
   people of other channels, and whispers.
 - **The meter** shows the voice as it arrives from Mumble, before Mumble's own volume and positional audio.
   `meter_point` sets whether it is measured before the fader (`"pre_fader"`) or after it (`"post_fader"`). Mumble
-  does not fetch the voice of someone you muted: a meter before the fader lights while they talk but shows no level,
-  and a meter after the fader stays dark.
+  does not fetch the voice of someone you muted, so there is no level: while they talk, a meter before the fader
+  shows a fixed high level, and a meter after the fader stays dark.
 
 ## Flatpak
 

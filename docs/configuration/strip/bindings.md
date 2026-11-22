@@ -90,7 +90,7 @@ A part that shows what a program prints takes one of two:
 | Option | The program | The part shows | E.g. |
 |---|---|---|---|
 | `watch` | Runs all the time and prints a line per change. | Each new line. | `watch = "playerctl status --follow"` |
-| `poll` | Runs to its end every `every` seconds (10 by default). | The last line of each run that has text. | `poll = "date +%H:%M", every = 10` |
+| `poll` | Runs to its end every `every` seconds (10 by default). | The last line of each run (empty if it printed nothing). | `poll = "date +%H:%M", every = 10` |
 
 Take `watch` for a program that tells each change by itself, `poll` for one that prints the current value once and
 ends. A part takes `watch` or `poll`, not both; `every` is for `poll` only (above 0).
@@ -126,7 +126,8 @@ them, and `step` above 0. `format` must show a number, e.g. `{value:.0%}`.
 
 The encoder of the speakers sets the brightness of a screen with
 [system-control](https://github.com/markusressel/system-control) (`sysctrl`, a separate tool: adapt the commands to
-yours). The fader stays the volume. A push sets the full brightness. `watch` prints the brightness, e.g. `0.60`.
+yours). The fader stays the volume. A push sets the full brightness, and Solo resets the whole redshift of the screen (also its
+color temperature). `watch` prints the brightness, e.g. `0.60`.
 
 ```toml
 [channel.out]

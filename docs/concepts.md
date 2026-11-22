@@ -8,7 +8,7 @@ The ideas the configuration is built from, and the words that look alike. The
 ```toml
 [channel.buds]                    # a channel: what a strip controls
 type = "output"
-device = "bluez_output.*"         # any Bluetooth headphones
+device = "bluez_output.*"         # your Bluetooth headphones; with two pairs, Select switches
 label = "Buds"
 
 [channel.game]
@@ -30,7 +30,7 @@ Everything else in this documentation refines one of these parts.
 
 ## Strips and slots
 
-![One strip of the X-Touch, from the top: the encoder with its ring, the LCD, the meter beside Rec, Solo, Mute and Select, and the fader](images/controls/strip.png){ .xt-part width="88" }
+![One strip of the control surface, from the top: the encoder with its ring, the LCD, the meter beside Rec, Solo, Mute and Select, and the fader](images/controls/strip.png){ .xt-part width="88" }
 
 The X-Touch Extender has 8 **strips**. A strip is hardware. Each has, from the top:
 
@@ -74,7 +74,7 @@ A **channel** is a thing you define in the file and give one strip. Its `type` s
 
 | `type` | The strip controls |
 |---|---|
-| `output`, `input` | One output (headphones) or input (microphone): one you name, one of several (`choices`), or the default one. |
+| `output`, `input` | One output (headphones) or input (microphone) at a time: one you name, one of several (a list, a wildcard or `choices`; Select switches), or the default one. |
 | `apps` | All playback streams of a group of applications at once: one fader sets all of them. |
 | `person` | One person of the voice chat. |
 | `homeassistant` | Nothing by itself: its parts are entities in [Home Assistant](guides/home-assistant.md). |
@@ -138,7 +138,7 @@ These words mean different things in different places.
 |---|---|
 | `apps` | A channel type, the pool of applications on free slots, `[pool.apps]` (its settings), and the source `apps` of a state (an application plays). |
 | `auto` | The pool of people and applications; what a slot without an entry shows; the value of an override or of the mode pick in Home Assistant that means "the sources decide". |
-| `device` | The section `[device]` (the X-Touch), and the option `device = "..."` of an `output` or `input` channel. The pool `devices` hands out outputs and inputs. |
+| `device` | The section `[device]` (the control surface), and the option `device = "..."` of an `output` or `input` channel. The pool `devices` hands out outputs and inputs. |
 | `select` | The Select button, the option `select` of an `output` or `input` channel, and the Home Assistant entity type `select`. |
 | `controls` | The section `[controls]` (actions of a slot's buttons, fader or encoder), and in general what a strip controls. |
 | voice chat | The people of the voice chat (`[voip]`, the pool `people`, `person` channels), the state source `voice_chat`, and the preset `@voip`. |

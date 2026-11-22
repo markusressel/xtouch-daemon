@@ -110,7 +110,8 @@ sysctrl display redshift brightness -d DisplayPort-1 --watch | awk '{ print ($1 
 
 ## Present
 
-With `present`, the channel is a candidate of the slots only while it is there, e.g. a screen that is plugged in.
+With `present`, the channel says whether it is there, e.g. a screen that is plugged in. While it is not, its strip is
+dark and does nothing, and `"screen_left if present"` in a slot shows the next candidate instead.
 `present = { watch }` or `{ poll, every }`: a line with text makes it present, an empty line absent. Until the first
 line it counts as present. A `poll` that prints no text makes it absent; a run that fails changes nothing. With
 `{target}` in the program (see [Targets](#targets)), one watch or poll runs per target, and the channel is present

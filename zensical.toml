@@ -24,7 +24,7 @@ nav = [
     { "Install" = "getting-started/install.md" },
     { "First steps" = "getting-started/first-steps.md" },
     { "Setup tour" = "getting-started/tour.md" },
-    { "Without an X-Touch" = "getting-started/without-a-device.md" },
+    { "Without a physical control surface" = "getting-started/without-a-device.md" },
   ] },
   { "Concepts" = "concepts.md" },
   { "Guides" = [
@@ -50,7 +50,7 @@ nav = [
       { "Buttons and LEDs" = "configuration/strip/leds.md" },
     ] },
     { "Presets" = "configuration/presets.md" },
-    { "Behavior, X-Touch and aliases" = "configuration/behavior.md" },
+    { "General settings" = "configuration/behavior.md" },
   ] },
   { "Reference" = [
     { "Commands" = "reference/commands.md" },
