@@ -10,8 +10,8 @@ Mumble is a voice chat program. With the Mumble plugin of xtouch-daemon, the
   the button.
 
 It needs Mumble 1.4 or later on Linux (x86_64), and xtouch-daemon installed (see [Install](../getting-started/install.md)).
-The configuration needs no change: a strip without an entry in `[slots]` shows the pool `auto`, and the people fill
-the free strips from the right (see [Slots](../configuration/slots.md#pools-of-applications-and-of-people)). Their
+The configuration needs no change: a strip without an entry in [`[slots]`](../configuration/slots.md#slots) shows the pool `auto`, and the people fill
+the free strips from the right (see [Where people sit](../configuration/channels/people.md#where-people-sit)). Their
 look is set in `[pool.people]`, see [People](../configuration/channels/people.md#the-strips-of-people).
 
 The plugin talks to the daemon through [the voice chat bridge](../reference/voice-chat-bridge.md), which is on by

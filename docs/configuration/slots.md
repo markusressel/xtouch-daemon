@@ -3,7 +3,7 @@
 This page decides what each of the 8 strips shows. Its four main parts build on each other:
 
 1. **Channels** are what a strip can control (an output, a group of applications, a person). You define them.
-2. Each strip has a **slot**, numbered 1 to 8 from the left, with a list of candidates: the channels it can show, best first.
+2. Each strip has a **slot**, numbered 1 to 8 from the left, with a list of candidates: the channels and pools it can show, best first.
 3. **States** (in a call, gaming) are on or off. A condition in the list asks about them.
 4. **Controls** add button, fader or encoder actions to a slot.
 
@@ -37,7 +37,7 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
 ```toml
 [slots]
 1 = "out"                                   # always the output
-2 = ["voip if call", "auto"]                # the voice chat in a call, else the next application
+2 = ["voip if call", "auto"]                # VoIP in a call, else the next application or person
 3 = ["game if gaming", "-"]                 # the game in the mode gaming, else dark
 4 = [{ show = "auto", color = "blue" }]     # options of the place
 5 = ["people", "apps"]                      # a person of the voice chat, else the next application
@@ -48,6 +48,8 @@ The id (`out`, `voip`) names the channel in slots, conditions and the entities i
   [Conditions](#conditions).
 - `apps`, `people`, `auto` and `devices` are pools: not channels that you define, but suppliers of members. See the
   table below.
+- A channel shows on one strip at a time. When several slots could show it, the slot that lists it higher gets it
+  (on a tie, the left one), and the others go on to their next candidate.
 - A slot without an entry is `auto`, and so is a slot whose candidates all don't hold. `-` is nothing: the slot is
   dark.
 - The table form `{ show = ..., when = ..., ... }` takes options of the look at this place, see [Places](#places).
@@ -243,10 +245,10 @@ asks about channels with its `channels` source instead.
   present`. Parentheses say otherwise.
 - The words are lowercase. Names are those of the file (`[state.<name>]`, `[channel.<name>]`, `[pool.<name>]`) and
   the built-in pools.
-- A candidate without a condition always holds, so the candidates below it never show. The exception is a pool without
-  a member for the slot: the slot goes on to the candidate below it.
+- A candidate without a condition always holds, so the candidates below it never show. The exceptions are a pool
+  without a member for the slot and a channel that another slot shows: the slot goes on to the candidate below it.
 - Present means it has something to control: an `apps` channel while its application plays, an `output` or `input`
-  channel while one of its `devices` is there (always without `devices`), a `person` channel while the person is in
+  channel while an output or input that its `device` names is there (always without `device`), a `person` channel while the person is in
   the voice chat, a `homeassistant` channel always. A channel stays present `absent_after` seconds (3 by default)
   after that ended. A pool is present while it has a member: `auto` while an application or a person is there, a
   pool of channels while one of its channels is present.

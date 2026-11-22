@@ -3,7 +3,8 @@
 The GUI is a window that edits the configuration file (`~/.config/xtouch-daemon/config.toml`) and applies it to the
 running daemon. Editing needs no daemon; the daemon is only for the live X-Touch, tests and previews. Install and
 start it as described in [Install](../getting-started/install.md#the-gui) (`-c FILE` opens another file). If the file
-does not exist yet, the window starts with the example configuration and writes the file when you save.
+does not exist yet, the window starts with an empty one (only the comment at the top of the example configuration)
+and writes it when you save.
 
 It edits [channels, states and slots](../configuration/slots.md): what the strips of the X-Touch control, and when.
 
@@ -63,7 +64,7 @@ The window **Device** shows the X-Touch on every page, above the window Configur
 
 - The title bar of either window moves it to another side, or out as a window of its own (e.g. on another screen). The
   GUI keeps where they are.
-- View → Device closes and opens the X-Touch. Configuration always stays open.
+- View → Device hides and shows the window Device. Configuration always stays open.
 - Clicking a strip (or ++left++, ++right++, ++home++, ++end++) shows its slot on the page Slots.
 
 ![One strip as the window Device draws it](../images/controls/strip.png){ .xt-part width="80" }

@@ -5,7 +5,7 @@ how loud you hear them. The people come from a plugin in the voice chat client, 
 
 There are two ways to put people on strips:
 
-- The [pool](../slots.md#pools-of-applications-and-of-people) `people` hands out the people in the voice chat that
+- The [pool](../slots.md#slots) `people` hands out the people in the voice chat that
   no `person` channel with a slot shows, one per slot. The pool `auto` hands out the same people and the
   [applications](applications.md#apps-and-auto): the people fill its free slots from the right, the applications
   from the left, so the two meet in the middle. See [Where people sit](#where-people-sit).

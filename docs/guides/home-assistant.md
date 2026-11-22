@@ -6,7 +6,7 @@ as the light `light.desk`. There are three ways to connect the X-Touch to it:
 | You want | Use | Needs |
 |---|---|---|
 | A strip that does nothing by itself: your automations decide what it does (the fader dims a light, a button toggles a scene) | A [`homeassistant` channel](#homeassistant-channels): an entity for every part of the strip, which an automation reacts to. | The [`[mqtt]`](#mqtt) section |
-| A strip whose parts are tied straight to an entity that Home Assistant has, with no automation | A [binding](../configuration/strip/bindings.md#an-entity-of-home-assistant) such as `fader = { entity = "light.desk" }`, in a `custom` channel (a strip you build part by part). | The [`[homeassistant]`](#homeassistant) section, with a token |
+| A strip whose parts are tied straight to an entity that Home Assistant has, with no automation | A [binding](../configuration/strip/bindings.md#an-entity-of-home-assistant) such as `fader = { entity = "light.desk" }`, on any channel, e.g. a `custom` channel (a strip you build part by part). | The [`[homeassistant]`](#homeassistant) section, with a token |
 | An audio strip that keeps the volume on one control and hands the other to Home Assistant | `encoder = "homeassistant"` or `fader = "homeassistant"` on an audio channel, see [below](#audio-strips-with-home-assistant-controls). | The [`[mqtt]`](#mqtt) section |
 
 The first and the third way use *entities of the daemon*: the daemon creates them in Home Assistant (e.g.
@@ -142,7 +142,7 @@ while none does. All entities of a strip are listed in [Entities](#entities).
 
 ## Audio strips with Home Assistant controls
 
-An audio channel (of the type `output`, `input`, `apps` or `auto`) can hand parts to Home Assistant by setting them
+An audio channel (of the type `output`, `input` or `apps`) can hand parts to Home Assistant by setting them
 to `"homeassistant"` (see [Bindings](../configuration/strip/bindings.md#home-assistant)). Hand over only the fader,
 and the encoder sets the volume; hand over only the encoder, and the fader keeps it. The Select, Rec and Solo buttons
 keep their audio function unless you hand them over too (`select = { press = "homeassistant" }` or
@@ -202,6 +202,8 @@ With `[mqtt]`, an `output` or `input` channel with [`choices`](../configuration/
 like Select on the X-Touch; one that isn't there is refused and the select goes back. The select follows the strip,
 also when the default changes elsewhere.
 
+## States, modes and slots
+
 With `[mqtt]`, Home Assistant sees and sets the [states and modes](../configuration/slots.md#states-and-modes):
 
 | Entity | What it is |
@@ -226,7 +228,7 @@ data:
 ## Automations
 
 These automations are for the channel `living_room` of the [example above](#homeassistant-channels). They go into
-`automations.yaml` (or the automation editor in YAML mode) and use the `triggers:` and `actions:` syntax of Home
+`configuration.yaml` (in `automations.yaml` or the automation editor, leave out the line `automation:`) and use the `triggers:` and `actions:` syntax of Home
 Assistant 2024.10 or later. The fader dims a light and shows its brightness on the LCD, and Mute toggles it:
 
 ```yaml

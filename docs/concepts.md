@@ -74,7 +74,7 @@ A **channel** is a thing you define in the file and give one strip. Its `type` s
 
 | `type` | The strip controls |
 |---|---|
-| `output`, `input` | One output (headphones) or input (microphone): one you name, one of several (`choices`), or the default one. |
+| `output`, `input` | One output (headphones) or input (microphone) at a time: one you name, one of several (a list, a wildcard or `choices`; Select switches), or the default one. |
 | `apps` | All playback streams of a group of applications at once: one fader sets all of them. |
 | `person` | One person of the voice chat. |
 | `homeassistant` | Nothing by itself: its parts are entities in [Home Assistant](guides/home-assistant.md). |

@@ -52,7 +52,7 @@ ring (see the table [To the X-Touch](#to-the-device)).
   move, and the move counts. If none comes, the X-Touch moved the fader itself (e.g. its faders going down after it
   was switched on), and the daemon sends the fader back to its value. A fader whose touch sensor failed can't change
   the volume until it is repaired, or until it is one of the [`touchless_faders`](../configuration/behavior.md#faders-without-a-touch-sensor). With the option `touch_required = false` of
-  [`[behavior]`](../configuration/behavior.md), every move of every fader counts.
+  [`[device]`](../configuration/behavior.md#device), every move of every fader counts.
 - **Smooth motion:** a fader glides to a new value instead of jumping there. It follows its target like a critically
   damped spring (no overshoot) that gets there in about 100 ms, starting from where it is, also from where a hand left
   it. The spring keeps its speed when the target moves on, so a volume dragged in another mixer, which arrives in small

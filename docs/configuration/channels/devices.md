@@ -1,6 +1,6 @@
 # Devices: `output` and `input` channels
 
-An `output` or `input` channel controls one sound device: an output such as your speakers or an input such as your
+An `output` or `input` channel controls one sound device at a time: an output such as your speakers or an input such as your
 microphone. It can follow a fixed one, pick one of several, or follow whichever is the default. With
 [`choices`](#choices), Select switches between several, each optionally in a profile of its sound card.
 
@@ -80,7 +80,7 @@ LCD shows which one it is.
 
 ## Devices without a channel
 
-The built-in [pool](../slots.md#pools-of-channels) `devices` holds the outputs and inputs that no channel owns, for
+The built-in [pool](../slots.md#slots) `devices` holds the outputs and inputs that no channel owns, for
 example a USB headset or Bluetooth speakers. A channel owns a sound device when its `device` matches it, or when it
 has no `device` and the sound device is the default. So with a bare `[channel.out]`, the default output is never in
 the pool.

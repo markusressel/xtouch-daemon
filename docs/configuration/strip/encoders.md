@@ -94,7 +94,7 @@ Spotify). An application without a player leaves the encoder without a function.
 
 A browser ends its audio stream a few seconds after you pause a video, so a paused player keeps the strip lit. The
 strip goes dark when the player is stopped or closed. On a slot of `apps` or `auto`, the slot keeps the stopped
-application for the seconds of `hold` in [`[pool.apps]`](../slots.md#pools-of-applications-and-of-people), then frees it.
+application for the seconds of `hold` in [`[pool.apps]`](../channels/applications.md#apps-and-auto), then frees it.
 
 !!! note "Needs the session bus"
 

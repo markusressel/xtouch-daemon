@@ -1,12 +1,13 @@
 # Configuration
 
 xtouch-daemon reads a TOML file, by default `~/.config/xtouch-daemon/config.toml` (`$XDG_CONFIG_HOME` is respected).
-Every command takes `-c FILE` after its name (e.g. `xtouch-daemon check-config -c my.toml`) to use another file.
+The commands that read it (`run`, `check-config`, `list-apps`, `test` and `gui`) take `-c FILE` after their name
+(e.g. `xtouch-daemon check-config -c my.toml`) to use another file.
 
 Start with the
 [example configuration](https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/config.example.toml)
 that ships with the daemon. It puts the default input on slot 7, the default output on slot 8 and `auto` (the next
-application that plays) on the other six. A slot without an entry is always `auto`. The
+application that plays, or a person of the voice chat) on the other six. A slot without an entry is always `auto`. The
 [complete example](#complete-example) at the end of this page is longer.
 
 Without a file at the default path, the daemon runs with the example file, and the [GUI](../guides/gui.md) starts
@@ -75,7 +76,7 @@ own; `check-config` checks the rest, e.g. that a slot names a channel that exist
 | `[pool.<id>]` | A pool of your own, e.g. of all your headphones. | [Pools of channels](slots.md#pools-of-channels) |
 | `[device]` | Which sound card is the X-Touch, and its startup and shutdown. | [Behavior](behavior.md#device) |
 | `[behavior]` | Volume limit, encoder step, reset volume, meters. | [Behavior](behavior.md#behavior) |
-| `[aliases]` | Names to show for applications on `auto` slots. | [Behavior](behavior.md#aliases) |
+| `[aliases]` | Names to show for applications on `apps` and `auto` slots. | [Behavior](behavior.md#aliases) |
 | `[switching]` | The chord (Solo buttons held together switch the modes) and the banner of a new mode. | [Controls](slots.md#controls-and-the-chord) |
 | `[mqtt]` | The MQTT broker of Home Assistant. | [Home Assistant](../guides/home-assistant.md#mqtt) |
 
@@ -87,6 +88,7 @@ The channel types:
 | `apps` | All streams of a group of applications. | [Applications](channels/applications.md#apps-channels) |
 | `person` | Someone of the voice chat. | [People](channels/people.md#strips-for-one-person) |
 | `homeassistant` | Nothing by itself: its parts are entities in Home Assistant. | [Home Assistant](../guides/home-assistant.md) |
+| `custom` | Something other than audio, e.g. screen brightness, with your own commands. | [Custom channels](channels/custom.md) |
 
 In a slot, `apps` is not the channel type `apps`: it is a built-in pool, as are `people`, `auto` and `devices` (see
 [the same word, different things](../concepts.md#the-same-word-different-things) and

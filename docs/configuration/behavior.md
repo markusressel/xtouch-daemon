@@ -70,7 +70,7 @@ What it can't do:
 |---|---|---|
 | `max_volume` | `130` | The volume of a fader at the top, 100..200 percent. Above 100 % the audio is amplified in software. See [the volume scale](#the-volume-scale). Channels may have their own [range](channels/index.md#volume-range). |
 | `unity_at` | `77` | Where on the fader 100 % is, 10..95 percent of the travel from the bottom. The scale printed next to the faders of the X-Touch marks 0 dB at about 77. See [the volume scale](#the-volume-scale). |
-| `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` [encoder](strip/encoders.md) and by the encoders of `homeassistant` channels. |
+| `encoder_step` | `1` | Percent per encoder step, 1..10. Used by the `volume` and `homeassistant` [encoders](strip/encoders.md), and as the default `step` of a [value of your own](channels/custom.md#a-value). |
 | `reset_volume` | `100` | The volume a push on a `volume` encoder sets, 0..200. A value above `max_volume` is an error that `xtouch-daemon check-config` reports. If a channel has its own range, the push sets the nearest volume inside that range. |
 | `meters` | `true` | Whether the LED meters show audio levels at all. The `meter` option of a channel turns off a single one. |
 | `meter_point` | `"pre_fader"` | Where the meters take the level: `"pre_fader"` before the volume and Mute of each strip, so the meter shows what the application plays, even when you turned it down. `"post_fader"` after them, so the meter shows what you hear. A channel, or the entry of one slot in `[slots]`, may have its own, see [Meters](channels/index.md#meters). |

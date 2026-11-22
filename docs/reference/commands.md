@@ -52,7 +52,7 @@ Signals:
 | Signal | Effect |
 |---|---|
 | `SIGHUP` | Reloads the configuration (`systemctl --user reload xtouch-daemon`), see [Applying changes](../configuration/index.md#applying-changes). |
-| `SIGTERM`, `SIGINT` | Stops: the strips go dark from the right and the faders go down. |
+| `SIGTERM`, `SIGINT` | Stops: the strips go dark as [`[device] shutdown`](../configuration/behavior.md#startup-and-shutdown-sequences) says (by default from the right) and the faders go down. |
 
 ## `check-config`
 
@@ -61,7 +61,7 @@ xtouch-daemon check-config [-c FILE] [--all]
 ```
 
 Validates the configuration, describes each channel and shows a table of what the slots show in which states.
-Without a file at the default path it checks the built-in defaults of every option (not the example file). It needs no running daemon. Example output:
+Without a file at the default path it checks the example configuration, which the daemon runs then. It needs no running daemon. Example output:
 
 ```
 /home/me/.config/xtouch-daemon/config.toml: valid
@@ -94,7 +94,8 @@ For a [custom channel](../configuration/channels/custom.md) the line names each 
 command it runs. With `targets`, a line per target follows with the commands as they run for that target, e.g.
 `Left: fader.set sysctrl display redshift brightness -d DisplayPort-1 -b '{value}'`.
 
-The table has a row for each combination of modes and states. With more than 12 rows, `check-config` shows only the
+The table has a row for each combination of modes, states and channels that are there or not (for each `present`
+in a condition, e.g. `buds absent`). With more than 12 rows, `check-config` shows only the
 situations that differ from `default` in one thing and says how many it left out; `--all` shows every combination.
 
 A file with errors names the place of each one and its line, e.g.
@@ -192,7 +193,7 @@ xtouch-daemon virtual-device [--broken-touch 1,4] [--log-level debug]
 ```
 
 A virtual X-Touch Extender, for trying the daemon without an X-Touch (see
-[Without a device](../getting-started/without-a-device.md)): `xtouch-daemon run --virtual-device` drives it instead
+[Without an X-Touch](../getting-started/without-a-device.md)): `xtouch-daemon run --virtual-device` drives it instead
 of the real one. It runs headless until interrupted (Ctrl+C); the GUI can host one itself. One daemon at a time can
 use it.
 
