@@ -98,8 +98,8 @@ Select starts Mumble only while you are in no channel. See
   people of other channels, and whispers.
 - **The meter** shows the voice as it arrives from Mumble, before Mumble's own volume and positional audio.
   `meter_point` sets whether it is measured before the fader (`"pre_fader"`) or after it (`"post_fader"`). Mumble
-  does not fetch the voice of someone you muted: a meter before the fader lights while they talk but shows no level,
-  and a meter after the fader stays dark.
+  does not fetch the voice of someone you muted, so there is no level: while they talk, a meter before the fader
+  shows a fixed high level, and a meter after the fader stays dark.
 
 ## Flatpak
 
